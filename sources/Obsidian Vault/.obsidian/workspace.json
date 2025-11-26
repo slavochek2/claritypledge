@@ -1,0 +1,248 @@
+{
+  "main": {
+    "id": "e53605cc7821d88b",
+    "type": "split",
+    "children": [
+      {
+        "id": "04b3fff3c95ea6ae",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c64e01ed6883f4b0",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Root/010 Projects/01 Organize First Event.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "01 Organize First Event"
+            }
+          },
+          {
+            "id": "2b94927864915cde",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Root/030 Ressources/Constructor Theory/011 Epistemic Integrity.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "011 Epistemic Integrity"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "70c5c6befee720a0",
+    "type": "split",
+    "children": [
+      {
+        "id": "3d76676d1ce908a6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "95a3ba32cd743d27",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": true
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "52c79f6335f53c22",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "d9d478ba2bac0fb2",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "37aec3bd5330ec42",
+    "type": "split",
+    "children": [
+      {
+        "id": "62fd8bd12c613676",
+        "type": "tabs",
+        "dimension": 67.90254237288136,
+        "children": [
+          {
+            "id": "80436b424fb27ee7",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      },
+      {
+        "id": "1779f3d29d4a9979",
+        "type": "tabs",
+        "dimension": 32.097457627118644,
+        "children": [
+          {
+            "id": "8a17fd42233d908d",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Root/010 Projects/01 Organize First Event.md",
+                "collapseAll": true,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": false
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for 01 Organize First Event"
+            }
+          },
+          {
+            "id": "7f45164be3f0dc3e",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Root/010 Projects/01 Organize First Event.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from 01 Organize First Event"
+            }
+          },
+          {
+            "id": "c6dd051131a9f28f",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "09415e0411c40592",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Root/010 Projects/01 Organize First Event.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of 01 Organize First Event"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 314.5,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "obsidian-importer:Open Importer": false,
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "templater-obsidian:Templater": false
+    }
+  },
+  "active": "2b94927864915cde",
+  "lastOpenFiles": [
+    "Root/030 Ressources/Constructor Theory/010 Antifragility.md",
+    "Root/030 Ressources/Constructor Theory/001 Epistemic Integrity.md",
+    "Root/030 Ressources/Constructor Theory/000 Constructor Theory.md",
+    "Root/010 Projects/Learn How to use obsedian.md",
+    "Root/010 Projects/02 Constructor Theory Paper.md",
+    "Root/010 Projects/01 Organize First Event.md",
+    "Root/030 Ressources/Constructor Theory/030 Relational Epistimology.md",
+    "Root/030 Ressources/Constructor Theory/011 Epistemic Integrity.md",
+    "Root/030 Ressources/Constructor Theory/definitions.md",
+    "Root/040 Archive/000 Templates/03 Ressource Template.md",
+    "Notion/T two events reas through and write event/teach to teach paper.md",
+    "Notion/T two events reas through and write event/main insight.md",
+    "Notion/T two events reas through and write event/paper.md",
+    "1000015425.jpg",
+    "Notion/T two events reas through and write event/adding what antifragility means - across minds/The beginning of antifragility/epistemic metrix.md",
+    "Notion/T two events reas through and write event/adding what antifragility means - across minds/The beginning of antifragility.md",
+    "Notion/T two events reas through and write event/adding what antifragility means - across minds.md",
+    "Notion/T two events reas through and write event/epistemic turn.md",
+    "Notion/T two events reas through and write event/relational epistimology.md",
+    "Notion/T two events reas through and write event.md",
+    "Notion/T two events reas through and write event/adding what antifragility means - across minds/The beginning of antifragility",
+    "Notion/T two events reas through and write event/adding what antifragility means - across minds",
+    "Notion/T two events reas through and write event",
+    "Notion",
+    "Root/040 Archive/000 Templates/01 Project Template.md",
+    "My Projects.md",
+    "Root/040 Archive/Constructor Theory/000 epistemic turn paper.md",
+    "Root/030 Ressources/Obsedian.md",
+    "Root/040 Archive/Constructor Theory/001 paper 2.md",
+    "Root/040 Archive/Constructor Theory",
+    "Root/040 Archive/000 Templates/02 Area Template.md",
+    "Root/040 Archive/Constructor Theory/004 The beginning of antifragility.md",
+    "Root/030 Ressources/Constructor Theory",
+    "Untitled",
+    "Root/040 Archive/000 Templates",
+    "Root",
+    "Untitled.canvas",
+    "040 Archive/010 Constructor_notion_import/T two events reas through and write event/adding what antifragility means - across minds/The beginning of antifragility",
+    "test.canvas"
+  ]
+}
