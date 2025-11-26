@@ -144,7 +144,11 @@ export function createProfile(
   linkedinUrl?: string,
   reason?: string
 ): Profile {
-  const id = name.toLowerCase().replace(/\s+/g, "-");
+  const baseId = name.toLowerCase().replace(/\s+/g, "-");
+  // Append a short random string to ensure uniqueness
+  const uniqueSuffix = Math.random().toString(36).substring(2, 7);
+  const id = `${baseId}-${uniqueSuffix}`;
+  
   const newProfile: Profile = {
     id,
     name,
@@ -203,8 +207,12 @@ export function verifyEndorsement(
   witness.isVerified = true;
 
   // Auto-create profile for the endorser if they don't have one
-  const endorserId = witness.name.toLowerCase().replace(/\s+/g, "-");
-  if (!mockProfiles[endorserId]) {
+  const existingProfile = Object.values(mockProfiles).find(
+    (p) => p.name === witness.name
+  );
+
+  if (!existingProfile) {
+    const endorserId = witness.name.toLowerCase().replace(/\s+/g, "-");
     const endorserProfile = createProfile(
       witness.name,
       `${endorserId}@example.com`,
@@ -215,5 +223,5 @@ export function verifyEndorsement(
     return endorserProfile;
   }
 
-  return mockProfiles[endorserId] || null;
+  return existingProfile;
 }

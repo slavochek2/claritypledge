@@ -56,7 +56,7 @@ export function ClarityPledgeLanding() {
 
   const getSectionClassName = (index: number) => {
     return visibleSections.has(index)
-      ? "opacity-100 translate-y-0 transition-all duration-700 ease-out"
+      ? "opacity-100 translate-y-0 transition-all duration-500 ease-out"
       : "opacity-0 translate-y-8";
   };
 

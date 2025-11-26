@@ -1,11 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCwIcon, AlertTriangleIcon, ShieldOffIcon } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface ClarityTaxSectionProps {
   onTakePledge: () => void;
 }
 
 export function ClarityTaxSection({ onTakePledge }: ClarityTaxSectionProps) {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
   const scrollToManifesto = () => {
     const element = document.getElementById("manifesto");
     if (element) {
@@ -40,7 +47,13 @@ export function ClarityTaxSection({ onTakePledge }: ClarityTaxSectionProps) {
           <div className="space-y-6">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
               Prevent dangerous{" "}
-              <span className="text-blue-500">misunderstandings</span>
+              <span
+                className={`text-blue-500 inline-block transition-all duration-1000 delay-300 ${
+                  isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
+                }`}
+              >
+                misunderstandings
+              </span>
             </h1>
 
             {/* Sub-headline - Problem Definition (No Box!) */}

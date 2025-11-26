@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { MenuIcon, XIcon, LogOutIcon } from "lucide-react";
 import { getCurrentUser, signOut } from "@/polymet/data/mock-profiles";
@@ -13,6 +13,7 @@ export function ClarityNavigation({
   onTakePledge,
   onSignIn,
 }: ClarityNavigationProps) {
+  const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
@@ -38,9 +39,7 @@ export function ClarityNavigation({
     setCurrentUser(null);
     setIsMobileMenuOpen(false);
     // Redirect to home page after sign out
-    console.warn(
-      'Prevented assignment: `window.location.href = "/"`'
-    ) /*TODO: Do not use window.location for navigation. Use react-router instead.*/;
+    navigate("/");
   };
 
   useEffect(() => {
@@ -104,12 +103,13 @@ export function ClarityNavigation({
             ) : (
               <>
                 {onSignIn && (
-                  <button
+                  <Button
                     onClick={onSignIn}
+                    variant="ghost"
                     className="text-base font-medium hover:text-primary transition-colors"
                   >
                     Log In
-                  </button>
+                  </Button>
                 )}
                 <Button
                   onClick={onTakePledge}

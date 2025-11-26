@@ -119,7 +119,7 @@ export function SignPledgeForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Double Border Frame - Matching Certificate */}
       <div
-        className="rounded-lg p-8 md:p-12 bg-[#FDFBF7] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]"
+        className="rounded-lg p-6 md:p-12 bg-[#FDFBF7] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]"
         style={{
           border: "8px solid #002B5C",
           outline: "2px solid #002B5C",
@@ -155,7 +155,7 @@ export function SignPledgeForm({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="inline-block w-auto min-w-[200px] mx-2 px-3 py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-lg"
+              className="inline-block w-auto min-w-[150px] mx-2 px-3 py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-lg"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             />
 

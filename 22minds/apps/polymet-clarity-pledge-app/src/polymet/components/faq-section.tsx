@@ -8,11 +8,6 @@ import {
 export function FAQSection() {
   const faqs = [
     {
-      question: "Isn't checking for understanding too slow?",
-      answer:
-        'It is slower in the moment, but infinitely faster in the long run. The "Clarity Tax"—the cost of fixing misunderstandings later—is far more expensive than the 30 seconds it takes to verify now.',
-    },
-    {
       question: "Won't people think I'm rude or incompetent if I ask?",
       answer:
         'That is exactly why the Pledge exists. It changes the social contract. It reframes verification from an act of doubt ("I don\'t trust you") to an act of professional integrity ("I want to get this right").',
