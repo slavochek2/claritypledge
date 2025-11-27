@@ -20,6 +20,7 @@ export function ProfilePage() {
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('ProfilePage: useEffect triggered. ID:', id, 'firstTime:', firstTime);
     if (!id) {
       console.error('❌ ProfilePage: No ID provided in URL params');
       return;
@@ -46,7 +47,8 @@ export function ProfilePage() {
               console.log('✅ ProfilePage: Profile loaded successfully:', {
                 id: data.id,
                 name: data.name,
-                slug: data.slug
+                slug: data.slug,
+                isVerified: data.isVerified
               });
             } else {
               console.error('❌ ProfilePage: No profile found for:', id);
@@ -59,6 +61,7 @@ export function ProfilePage() {
         
         setProfile(profileData);
         setCurrentUser(userData);
+        console.log('ProfilePage: Profile and User data set. Profile:', profileData, 'User:', userData);
         
         // Show welcome dialog for first-time visitors (owners only)
         if (firstTime && userData && profileData && userData.id === profileData.id) {
@@ -77,11 +80,14 @@ export function ProfilePage() {
         console.error("❌ ProfilePage: Failed to load profile:", error);
       } finally {
         setLoading(false);
+        console.log('ProfilePage: Loading finished.');
       }
     };
 
     loadProfile();
   }, [id, firstTime]);
+
+  console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser);
 
   if (loading) {
     return (
@@ -91,7 +97,7 @@ export function ProfilePage() {
     );
   }
 
-  if (!profile) {
+  if (!profile && !firstTime && !pendingVerificationEmail) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -113,7 +119,7 @@ export function ProfilePage() {
 
   const isOwner = currentUser && profile && currentUser.id === profile.id;
   const isVerified = profile?.isVerified ?? false;
-  const profileUrl = `${window.location.origin}/p/${profile.slug || profile.id}`;
+  const profileUrl = `${window.location.origin}/p/${profile?.slug || profile?.id}`;
 
   // Determine if we should show the unverified banner based on local storage for first-time sign-ups
   const showUnverifiedBannerForFirstTimeSignup = !isOwner && firstTime && pendingVerificationEmail && profile?.email === pendingVerificationEmail;
@@ -149,12 +155,14 @@ export function ProfilePage() {
         {isOwner && isVerified && <OwnerPreviewBanner profileUrl={profileUrl} />}
         
         <div className="container mx-auto max-w-5xl py-12 px-4">
-          <ProfileVisitorView 
-            profile={profile} 
-            onWitness={handleWitness}
-            isOwner={isOwner}
-            currentUser={currentUser}
-          />
+          {profile && (
+            <ProfileVisitorView 
+              profile={profile} 
+              onWitness={handleWitness}
+              isOwner={!!isOwner}
+              currentUser={currentUser}
+            />
+          )}
         </div>
       </div>
 

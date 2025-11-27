@@ -115,6 +115,28 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
   }
 }
 
+/**
+ * Check if a slug already exists in the database
+ */
+export async function checkSlugExists(slug: string): Promise<boolean> {
+  if (!slug) {
+    return false;
+  }
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
+    console.error('Error checking slug:', error);
+    return true; // Assume exists on error to be safe
+  }
+  
+  return !!data;
+}
+
 // Authentication handles profile creation via trigger
 // For Magic Link flow, we use signInWithOtp
 export async function createProfile(

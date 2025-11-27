@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BadgeCheckIcon, PenToolIcon } from "lucide-react";
-import { createProfile } from "@/polymet/data/api";
+import { createProfile, checkSlugExists, generateSlug } from "@/polymet/data/api";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface SignPledgeFormProps {
   onSuccess: () => void;
@@ -23,7 +24,30 @@ export function SignPledgeForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSealing, setIsSealing] = useState(false);
   const [error, setError] = useState("");
+  const [nameError, setNameError] = useState("");
+  const [isCheckingName, setIsCheckingName] = useState(false);
   const navigate = useNavigate();
+  const debouncedName = useDebounce(name, 500);
+
+  useEffect(() => {
+    const checkName = async () => {
+      if (debouncedName.trim().length < 2) {
+        setNameError("");
+        return;
+      }
+      setIsCheckingName(true);
+      const slug = generateSlug(debouncedName);
+      const exists = await checkSlugExists(slug);
+      if (exists) {
+        setNameError("This name is already taken. Please choose another one.");
+      } else {
+        setNameError("");
+      }
+      setIsCheckingName(false);
+    };
+
+    checkName();
+  }, [debouncedName]);
 
   const triggerConfetti = () => {
     const duration = 3000;
@@ -104,6 +128,11 @@ export function SignPledgeForm({
       return;
     }
 
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
+
     setIsSubmitting(true);
     setIsSealing(true);
 
@@ -144,8 +173,9 @@ export function SignPledgeForm({
           stack: error.stack
         });
         
-        // Specific error handling
-        if (error.message?.includes("Invalid API key")) {
+        if (error.message === 'USER_EXISTS') {
+          errorMessage = "An account with this email already exists. Please log in.";
+        } else if (error.message?.includes("Invalid API key")) {
           errorMessage = "Configuration error: Invalid API key. Please contact support.";
         } else if (error.message?.includes("rate limit")) {
           errorMessage = "Too many requests. Please wait a moment and try again.";
@@ -203,6 +233,12 @@ export function SignPledgeForm({
               className="inline-block w-auto min-w-[140px] md:min-w-[150px] mx-1 md:mx-2 px-2 md:px-3 py-0.5 md:py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-base md:text-lg h-auto"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             />
+            {isCheckingName && (
+              <span className="text-sm text-gray-500 ml-2">Checking...</span>
+            )}
+            {nameError && (
+              <span className="text-sm text-red-500 ml-2">{nameError}</span>
+            )}
 
             <span
               className="font-serif"
@@ -334,7 +370,7 @@ export function SignPledgeForm({
             type="submit"
             className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
             size="lg"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !!nameError || isCheckingName}
           >
             {isSealing ? (
               <span className="flex items-center justify-center gap-2">
