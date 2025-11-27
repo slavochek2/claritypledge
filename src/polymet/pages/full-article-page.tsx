@@ -9,11 +9,7 @@ import { ArrowLeftIcon, BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, Chev
 import articleContent from "../content/full-article.md?raw";
 import { getCurrentUser, signOut } from "@/polymet/data/api";
 
-interface FullArticlePageProps {
-  onTakePledge?: () => void;
-}
-
-export function FullArticlePage({ onTakePledge }: FullArticlePageProps) {
+export function FullArticlePage() {
   const navigate = useNavigate();
   const [activeId, setActiveId] = useState("");
   const [isMobileTocOpen, setIsMobileTocOpen] = useState(false);
@@ -163,13 +159,12 @@ export function FullArticlePage({ onTakePledge }: FullArticlePageProps) {
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    onClick={onTakePledge}
-                    size="sm"
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  <Link
+                    to="/sign-pledge"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-blue-500 hover:bg-blue-600 text-white h-9 px-3"
                   >
                     Take the Pledge
-                  </Button>
+                  </Link>
                 )}
               </>
             )}
@@ -272,14 +267,13 @@ export function FullArticlePage({ onTakePledge }: FullArticlePageProps) {
               {/* Quick CTA for converters */}
               {!isLoadingUser && !currentUser && (
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 items-center">
-                  <Button
-                    onClick={onTakePledge}
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base px-8 py-6 h-auto"
+                  <Link
+                    to="/sign-pledge"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base px-8 py-6 h-auto"
                   >
                     Take the Pledge Now
                     <ArrowRightIcon className="ml-2 w-5 h-5" />
-                  </Button>
+                  </Link>
                   <button
                     onClick={() => {
                       const articleStart = document.getElementById('i-the-frustration-when-humility-is-blocked-by-unwillingness-to-cooperate');
@@ -340,14 +334,13 @@ export function FullArticlePage({ onTakePledge }: FullArticlePageProps) {
                             <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3">
                               Ready to stop paying the Clarity Tax?
                             </p>
-                            <Button
-                              onClick={onTakePledge}
-                              size="sm"
-                              className="bg-blue-500 hover:bg-blue-600 text-white"
+                            <Link
+                              to="/sign-pledge"
+                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm h-9 px-3"
                             >
                               Take the Pledge
                               <ArrowRightIcon className="ml-2 w-4 h-4" />
-                            </Button>
+                            </Link>
                           </div>
                         )}
                       </>
@@ -408,13 +401,12 @@ export function FullArticlePage({ onTakePledge }: FullArticlePageProps) {
                 <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
                   Take the Clarity Pledge and become part of a community committed to verified alignment.
                 </p>
-                <Button
-                  onClick={onTakePledge}
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-10 py-6 h-auto"
+                <Link
+                  to="/sign-pledge"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto"
                 >
                   Take the Clarity Pledge
-                </Button>
+                </Link>
               </div>
             )}
           </main>
@@ -424,14 +416,13 @@ export function FullArticlePage({ onTakePledge }: FullArticlePageProps) {
       {/* Floating CTA Button */}
       {showFloatingCTA && (
         <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4">
-          <Button
-            onClick={onTakePledge}
-            size="lg"
-            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl px-8 py-6 h-auto"
+          <Link
+            to="/sign-pledge"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl text-lg px-8 py-6 h-auto"
           >
             Take the Pledge
             <ArrowRightIcon className="ml-2 w-5 h-5" />
-          </Button>
+          </Link>
         </div>
       )}
     </div>

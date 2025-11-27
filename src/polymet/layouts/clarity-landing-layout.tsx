@@ -1,15 +1,12 @@
-import { ReactNode, useState } from "react";
+import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
-import { PledgeModal } from "@/polymet/components/pledge-modal";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
 }
 
 export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
-  const [isPledgeModalOpen, setIsPledgeModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"sign" | "login">("sign");
   const location = useLocation();
 
   // Don't show navigation on pages that have their own navigation
@@ -19,16 +16,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {!isLandingPage && !isFullArticlePage && (
-        <ClarityNavigation
-          onTakePledge={() => {
-            setModalMode("sign");
-            setIsPledgeModalOpen(true);
-          }}
-          onSignIn={() => {
-            setModalMode("login");
-            setIsPledgeModalOpen(true);
-          }}
-        />
+        <ClarityNavigation />
       )}
       <main className={!isLandingPage && !isFullArticlePage ? "pt-16 lg:pt-20" : ""}>{children}</main>
     </div>

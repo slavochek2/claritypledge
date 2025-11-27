@@ -8,18 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, LayoutDashboardIcon, EyeIcon, SettingsIcon, FileTextIcon, UsersIcon, BriefcaseIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, LayoutDashboardIcon, EyeIcon, SettingsIcon } from "lucide-react";
 import { useUser } from "@/hooks/use-user";
 
-interface ClarityNavigationProps {
-  onTakePledge: () => void;
-  onSignIn?: () => void;
-}
-
-export function ClarityNavigation({
-  onTakePledge,
-  onSignIn,
-}: ClarityNavigationProps) {
+export function ClarityNavigation() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -32,14 +24,6 @@ export function ClarityNavigation({
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-      setIsMobileMenuOpen(false);
-    }
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -153,22 +137,18 @@ export function ClarityNavigation({
                   </DropdownMenu>
                 ) : (
                   <>
-                    {onSignIn && (
-                      <Button
-                        onClick={onSignIn}
-                        variant="ghost"
-                        className="text-base font-medium hover:text-primary transition-colors"
-                      >
-                        Log In
-                      </Button>
-                    )}
-                    <Button
-                      onClick={onTakePledge}
-                      size="lg"
-                      className="bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
+                    >
+                      Log In
+                    </Link>
+                    <Link
+                      to="/sign-pledge"
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
                     >
                       Take the Pledge
-                    </Button>
+                    </Link>
                   </>
                 )}
               </>
@@ -252,21 +232,20 @@ export function ClarityNavigation({
                   >
                     Our Services
                   </Link>
-                  {onSignIn && (
-                    <button
-                      onClick={onSignIn}
-                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    >
-                      Log In
-                    </button>
-                  )}
-                  <Button
-                    onClick={onTakePledge}
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                  <Link
+                    to="/login"
+                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Log In
+                  </Link>
+                  <Link
+                    to="/sign-pledge"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                    onClick={() => setIsMobileMenuOpen(false)}
                   >
                     Take the Pledge
-                  </Button>
+                  </Link>
                 </>
               )}
             </div>

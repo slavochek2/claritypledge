@@ -42,26 +42,21 @@ vi.mock('@/hooks/use-pledge-form', () => ({
 // The components rendered are mostly presentational or rely on providers/hooks we can mock or ignore
 
 describe('ClarityPledgeLanding', () => {
-  it('opens the pledge modal when "Take the Pledge" is clicked', async () => {
+  it('has "Take the Pledge" links that navigate to /sign-pledge', async () => {
     render(
       <MemoryRouter>
         <ClarityPledgeLanding />
       </MemoryRouter>
     );
 
-    // Find the "Take the Pledge" button. 
-    // There are multiple, so we can get all and click the first one, or be specific.
-    // The hero section has one.
-    const pledgeButtons = screen.getAllByRole('button', { name: /Take the Pledge/i });
-    expect(pledgeButtons.length).toBeGreaterThan(0);
+    // Find all "Take the Pledge" links (navigation, hero section, CTA section)
+    const pledgeLinks = screen.getAllByRole('link', { name: /Take the Pledge/i });
+    expect(pledgeLinks.length).toBeGreaterThan(0);
 
-    // Click the first one
-    fireEvent.click(pledgeButtons[0]);
-
-    // Check if the modal content appears
-    // We look for the "Sign the Pledge" button which is inside the form in the modal
-    const signButton = await screen.findByRole('button', { name: /Sign the Pledge/i });
-    expect(signButton).toBeInTheDocument();
+    // Verify they all link to /sign-pledge
+    pledgeLinks.forEach(link => {
+      expect(link).toHaveAttribute('href', '/sign-pledge');
+    });
   });
 });
 

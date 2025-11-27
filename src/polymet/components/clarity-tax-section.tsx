@@ -1,13 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { RefreshCwIcon, AlertTriangleIcon, ShieldOffIcon } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
-interface ClarityTaxSectionProps {
-  onTakePledge: () => void;
-}
-
-export function ClarityTaxSection({ onTakePledge }: ClarityTaxSectionProps) {
+export function ClarityTaxSection() {
   const [isLoaded, setIsLoaded] = useState(false);
   const navigate = useNavigate();
 
@@ -82,13 +78,12 @@ export function ClarityTaxSection({ onTakePledge }: ClarityTaxSectionProps) {
 
           {/* CTAs - Low Friction */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Button
-              onClick={onTakePledge}
-              size="lg"
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
+            <Link
+              to="/sign-pledge"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
             >
               Take the Pledge
-            </Button>
+            </Link>
             <Button
               onClick={() => navigate("/manifesto")}
               variant="outline"

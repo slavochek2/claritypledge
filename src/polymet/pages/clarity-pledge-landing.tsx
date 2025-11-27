@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
 import { ClarityTaxSection } from "@/polymet/components/clarity-tax-section";
 import { HowItWorks } from "@/polymet/components/how-it-works";
@@ -10,28 +10,24 @@ import { ProfileCertificate } from "@/polymet/components/profile-certificate";
 import { FAQSection } from "@/polymet/components/faq-section";
 import { CTASection } from "@/polymet/components/cta-section";
 import { ClarityFooter } from "@/polymet/components/clarity-footer";
-import { PledgeModal } from "@/polymet/components/pledge-modal";
 
 export function ClarityPledgeLanding() {
   const [searchParams] = useSearchParams();
-  const [isPledgeModalOpen, setIsPledgeModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"sign" | "login">("sign");
+  const navigate = useNavigate();
   const [visibleSections, setVisibleSections] = useState<Set<number>>(
     new Set([0])
   );
 
-  // Auto-open modal if referrer or login param is present
+  // Auto-navigate if referrer or login param is present
   useEffect(() => {
     const referrer = searchParams.get("referrer");
     const login = searchParams.get("login");
     if (referrer) {
-      setModalMode("sign");
-      setIsPledgeModalOpen(true);
+      navigate("/sign-pledge");
     } else if (login) {
-      setModalMode("login");
-      setIsPledgeModalOpen(true);
+      navigate("/login");
     }
-  }, [searchParams]);
+  }, [searchParams, navigate]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -63,25 +59,11 @@ export function ClarityPledgeLanding() {
   return (
     <div className="relative">
       {/* Navigation */}
-      <ClarityNavigation
-        onTakePledge={() => {
-          setModalMode("sign");
-          setIsPledgeModalOpen(true);
-        }}
-        onSignIn={() => {
-          setModalMode("login");
-          setIsPledgeModalOpen(true);
-        }}
-      />
+      <ClarityNavigation />
 
       {/* 1. Clarity Tax Section (Hero) */}
       <div data-section-index="0" className={getSectionClassName(0)}>
-        <ClarityTaxSection
-          onTakePledge={() => {
-            setModalMode("sign");
-            setIsPledgeModalOpen(true);
-          }}
-        />
+        <ClarityTaxSection />
       </div>
 
       {/* 2. Founder's Certificate */}
@@ -131,12 +113,7 @@ export function ClarityPledgeLanding() {
 
       {/* Final CTA */}
       <div data-section-index="6" className={getSectionClassName(6)}>
-        <CTASection
-          onTakePledge={() => {
-            setModalMode("sign");
-            setIsPledgeModalOpen(true);
-          }}
-        />
+        <CTASection />
       </div>
 
       {/* FAQ */}
@@ -146,13 +123,6 @@ export function ClarityPledgeLanding() {
 
       {/* Footer */}
       <ClarityFooter />
-
-      {/* Pledge Modal */}
-      <PledgeModal
-        open={isPledgeModalOpen}
-        onOpenChange={setIsPledgeModalOpen}
-        initialMode={modalMode}
-      />
     </div>
   );
 }

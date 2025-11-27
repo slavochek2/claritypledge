@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { useState } from "react";
 import { ClarityLandingLayout } from "@/polymet/layouts/clarity-landing-layout";
 import { ClarityPledgeLanding } from "@/polymet/pages/clarity-pledge-landing";
 import { ClarityChampionsPage } from "@/polymet/pages/clarity-champions-page";
@@ -7,7 +6,6 @@ import { PledgeCardPage } from "@/polymet/pages/pledge-card-page";
 import { ProfilePage } from "@/polymet/pages/profile-page";
 import { DashboardPage } from "@/polymet/pages/dashboard-page";
 import { SettingsPage } from "@/polymet/pages/settings-page";
-import { SignatoriesPage } from "@/polymet/pages/signatories-page";
 import { VerifyEmailPage } from "@/polymet/pages/verify-email-page";
 import { VerifyEndorsementPage } from "@/polymet/pages/verify-endorsement-page";
 import { AuthCallbackPage } from "@/polymet/pages/auth-callback-page";
@@ -16,17 +14,10 @@ import { DebugPage } from "@/polymet/pages/debug-page";
 import { TestDbPage } from "@/polymet/pages/test-db-page";
 import { ProfileDiagnosticPage } from "@/polymet/pages/profile-diagnostic-page";
 import { FullArticlePage } from "@/polymet/pages/full-article-page";
-import { PledgeModal } from "@/polymet/components/pledge-modal";
+import { LoginPage } from "@/polymet/pages/login-page";
+import { SignPledgePage } from "@/polymet/pages/sign-pledge-page";
 
 export default function ClarityPledgeApp() {
-  const [isPledgeModalOpen, setIsPledgeModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"sign" | "login">("sign");
-
-  const openPledgeModal = (mode: "sign" | "login" = "sign") => {
-    setModalMode(mode);
-    setIsPledgeModalOpen(true);
-  };
-
   return (
     <Router>
       <Routes>
@@ -35,6 +26,24 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <ClarityPledgeLanding />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/login"
+          element={
+            <ClarityLandingLayout>
+              <LoginPage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/sign-pledge"
+          element={
+            <ClarityLandingLayout>
+              <SignPledgePage />
             </ClarityLandingLayout>
           }
         />
@@ -151,7 +160,7 @@ export default function ClarityPledgeApp() {
           path="/manifesto"
           element={
             <ClarityLandingLayout>
-              <FullArticlePage onTakePledge={() => openPledgeModal("sign")} />
+              <FullArticlePage />
             </ClarityLandingLayout>
           }
         />
@@ -160,18 +169,11 @@ export default function ClarityPledgeApp() {
           path="/article"
           element={
             <ClarityLandingLayout>
-              <FullArticlePage onTakePledge={() => openPledgeModal("sign")} />
+              <FullArticlePage />
             </ClarityLandingLayout>
           }
         />
       </Routes>
-
-      {/* Global Pledge Modal */}
-      <PledgeModal
-        open={isPledgeModalOpen}
-        onOpenChange={setIsPledgeModalOpen}
-        initialMode={modalMode}
-      />
     </Router>
   );
 }

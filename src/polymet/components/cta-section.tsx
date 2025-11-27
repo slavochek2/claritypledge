@@ -1,10 +1,6 @@
-import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
-interface CTASectionProps {
-  onTakePledge: () => void;
-}
-
-export function CTASection({ onTakePledge }: CTASectionProps) {
+export function CTASection() {
   return (
     <section className="py-20 lg:py-32 px-4">
       <div className="container mx-auto max-w-5xl text-center">
@@ -20,13 +16,12 @@ export function CTASection({ onTakePledge }: CTASectionProps) {
         </p>
 
         {/* CTA Button */}
-        <Button
-          onClick={onTakePledge}
-          size="lg"
-          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
+        <Link
+          to="/sign-pledge"
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
         >
           Take the Pledge
-        </Button>
+        </Link>
       </div>
     </section>
   );
