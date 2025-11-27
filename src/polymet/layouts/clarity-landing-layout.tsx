@@ -31,14 +31,6 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
         />
       )}
       <main className={!isLandingPage && !isFullArticlePage ? "pt-16 lg:pt-20" : ""}>{children}</main>
-
-      {!isLandingPage && !isFullArticlePage && (
-        <PledgeModal
-          open={isPledgeModalOpen}
-          onOpenChange={setIsPledgeModalOpen}
-          initialMode={modalMode}
-        />
-      )}
     </div>
   );
 }

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
-import { getProfile, getProfileBySlug, addWitness, getCurrentUser, type Profile } from "@/polymet/data/api";
+import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/polymet/data/api";
 import { ProfileVisitorView } from "@/polymet/components/profile-visitor-view";
 import { OwnerPreviewBanner } from "@/polymet/components/owner-preview-banner";
 import { UnverifiedProfileBanner } from "@/polymet/components/unverified-profile-banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
+import { useUser } from "@/hooks/use-user";
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -14,10 +15,9 @@ export function ProfilePage() {
   const firstTime = searchParams.get("firstTime") === "true";
   
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const { user: currentUser, isLoading: isUserLoading } = useUser();
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('ProfilePage: useEffect triggered. ID:', id, 'firstTime:', firstTime);
@@ -31,8 +31,7 @@ export function ProfilePage() {
         console.log('🔍 ProfilePage: Loading profile with ID/slug:', id);
         
         // Load profile and current user in parallel for better performance
-        const [profileData, userData] = await Promise.all([
-          (async () => {
+        const profileData = await (async () => {
             // Try to load by slug first, then fall back to ID
             let data = await getProfileBySlug(id);
             console.log('📊 ProfilePage: getProfileBySlug result:', data ? 'Found' : 'Not found');
@@ -55,26 +54,17 @@ export function ProfilePage() {
             }
             
             return data;
-          })(),
-          getCurrentUser()
-        ]);
+          })();
         
         setProfile(profileData);
-        setCurrentUser(userData);
-        console.log('ProfilePage: Profile and User data set. Profile:', profileData, 'User:', userData);
+        console.log('ProfilePage: Profile data set. Profile:', profileData);
         
         // Show welcome dialog for first-time visitors (owners only)
-        if (firstTime && userData && profileData && userData.id === profileData.id) {
+        if (firstTime && currentUser && profileData && currentUser.id === profileData.id) {
           setShowWelcome(true);
-          // Clear firstTimePledge flag from local storage once user is logged in and viewing their own profile
+          // Clear flags from local storage once user is viewing their own profile
           localStorage.removeItem('firstTimePledge');
-          localStorage.removeItem('pendingVerificationEmail');
-        } else if (firstTime && !userData) {
-          // If it's first time but user is not logged in yet (i.e., just signed up, waiting for email verification)
-          const email = localStorage.getItem('pendingVerificationEmail');
-          if (email) {
-            setPendingVerificationEmail(email);
-          }
+          localStorage.removeItem('pendingProfile'); // Use new key
         }
       } catch (error) {
         console.error("❌ ProfilePage: Failed to load profile:", error);
@@ -85,11 +75,11 @@ export function ProfilePage() {
     };
 
     loadProfile();
-  }, [id, firstTime]);
+  }, [id, firstTime, currentUser]);
 
   console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser);
 
-  if (loading) {
+  if (loading || isUserLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading Pledge...</div>
@@ -97,7 +87,7 @@ export function ProfilePage() {
     );
   }
 
-  if (!profile && !firstTime && !pendingVerificationEmail) {
+  if (!profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -121,8 +111,8 @@ export function ProfilePage() {
   const isVerified = profile?.isVerified ?? false;
   const profileUrl = `${window.location.origin}/p/${profile?.slug || profile?.id}`;
 
-  // Determine if we should show the unverified banner based on local storage for first-time sign-ups
-  const showUnverifiedBannerForFirstTimeSignup = !isOwner && firstTime && pendingVerificationEmail && profile?.email === pendingVerificationEmail;
+  // The unverified banner is now driven by the user state from the hook
+  const showUnverifiedBanner = isOwner && (!isVerified || (currentUser as any)?.isPending);
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
     if (!profile) return;
@@ -150,9 +140,8 @@ export function ProfilePage() {
     <>
       <div className="min-h-screen bg-background">
         {/* Banners */}
-        {isOwner && !isVerified && <UnverifiedProfileBanner email={profile.email} />}
-        {showUnverifiedBannerForFirstTimeSignup && <UnverifiedProfileBanner email={pendingVerificationEmail!} />}
-        {isOwner && isVerified && <OwnerPreviewBanner profileUrl={profileUrl} />}
+        {showUnverifiedBanner && <UnverifiedProfileBanner email={profile.email} />}
+        {isOwner && isVerified && !(currentUser as any)?.isPending && <OwnerPreviewBanner profileUrl={profileUrl} />}
         
         <div className="container mx-auto max-w-5xl py-12 px-4">
           {profile && (

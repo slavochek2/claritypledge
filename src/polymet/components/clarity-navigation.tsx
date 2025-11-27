@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, LogOutIcon, LayoutDashboardIcon, EyeIcon, SettingsIcon, FileTextIcon, UsersIcon, BriefcaseIcon } from "lucide-react";
-import { getCurrentUser, signOut } from "@/polymet/data/api";
+import { useUser } from "@/hooks/use-user";
 
 interface ClarityNavigationProps {
   onTakePledge: () => void;
@@ -23,8 +23,7 @@ export function ClarityNavigation({
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const { user: currentUser, isLoading: isLoadingUser, signOut } = useUser();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,25 +31,6 @@ export function ClarityNavigation({
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      setIsLoadingUser(true);
-      const user = await getCurrentUser();
-      console.log('🔍 Navigation: Current user loaded:', {
-        id: user?.id,
-        name: user?.name,
-        slug: user?.slug,
-        email: user?.email,
-        hasSlug: !!user?.slug,
-        hasId: !!user?.id,
-        fallbackValue: user?.slug || user?.id
-      });
-      setCurrentUser(user);
-      setIsLoadingUser(false);
-    };
-    loadUser();
   }, []);
 
   const scrollToSection = (id: string) => {
@@ -63,7 +43,6 @@ export function ClarityNavigation({
 
   const handleSignOut = async () => {
     await signOut();
-    setCurrentUser(null);
     setIsMobileMenuOpen(false);
     // Redirect to home page after sign out
     navigate("/");

@@ -1,5 +1,0 @@
----
-tags:
-  - ressource
-Area: "[[Inguro]]"
----

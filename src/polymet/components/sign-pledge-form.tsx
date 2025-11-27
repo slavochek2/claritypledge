@@ -152,6 +152,15 @@ export function SignPledgeForm({
         reason.trim() || undefined
       );
 
+      // Store complete pending profile for useUser hook
+      const pendingProfile = {
+        name: name.trim(),
+        email: email.trim(),
+        slug,
+        role: role.trim() || undefined,
+      };
+      localStorage.setItem('pendingProfile', JSON.stringify(pendingProfile));
+
       // Trigger confetti only on success
       triggerConfetti();
       
