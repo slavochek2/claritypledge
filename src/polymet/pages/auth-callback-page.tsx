@@ -26,36 +26,44 @@ export function AuthCallbackPage() {
         if (data.session) {
           const params = new URLSearchParams(location.search);
           const slugFromQuery = params.get('slug');
+          const isFirstTime = !!slugFromQuery;
 
-          // If a slug is in the query, this is the first login for a new user.
-          if (slugFromQuery) {
-            console.log(`🔀 New user detected. Redirecting to unverified profile: /p/${slugFromQuery}`);
-            // The DB trigger has already created the profile, so we can redirect.
-            
-            // Mark the profile as verified in the database
-            const userId = data.session.user.id;
-            const { verifyProfile } = await import("@/polymet/data/api");
+          // SAFETY NET: Always fetch the profile from the database to get the authoritative slug
+          // This ensures we redirect to the correct URL even if the backend had to rename
+          // the slug due to a collision (e.g., john-doe -> john-doe-1)
+          const userId = data.session.user.id;
+          const { getProfile, verifyProfile } = await import("@/polymet/data/api");
+          const profile = await getProfile(userId);
+
+          if (!profile || !profile.slug) {
+            console.error('❌ Profile not found or missing slug. User ID:', userId);
+            setError('Profile not found. Please try signing up again.');
+            return;
+          }
+
+          console.log(`✅ Profile fetched from database. Slug: ${profile.slug}`);
+
+          // Log if slug differs from URL param (helps debug collisions)
+          if (slugFromQuery && slugFromQuery !== profile.slug) {
+            console.warn(
+              `⚠️ Slug collision detected! URL had "${slugFromQuery}" but database has "${profile.slug}"`
+            );
+          }
+
+          // If this is a first-time login, mark the profile as verified
+          if (isFirstTime) {
+            console.log(`🔀 New user detected. Verifying profile for: ${profile.name}`);
             const { error: verifyError } = await verifyProfile(userId);
 
             if (verifyError) {
               console.error("❌ Error verifying profile:", verifyError);
-              // Even if verification fails, proceed to profile page, but the banner might still show
+              // Even if verification fails, proceed to profile page
             }
 
-            navigate(`/p/${slugFromQuery}?firstTime=true`, { replace: true });
+            navigate(`/p/${profile.slug}?firstTime=true`, { replace: true });
           } else {
-            // This is a returning user. Fetch their profile to get their slug.
-            const userId = data.session.user.id;
-            const { getProfile } = await import("@/polymet/data/api");
-            const profile = await getProfile(userId);
-            
-            if (profile && profile.slug) {
-              console.log(`🔀 Returning user detected. Redirecting to: /p/${profile.slug}`);
-              navigate(`/p/${profile.slug}`, { replace: true });
-            } else {
-              console.error('❌ Profile not found for returning user. Redirecting to dashboard.');
-              navigate('/dashboard', { replace: true });
-            }
+            console.log(`🔀 Returning user detected. Redirecting to: /p/${profile.slug}`);
+            navigate(`/p/${profile.slug}`, { replace: true });
           }
         } else {
           setError("No session found. Please try signing in again.");

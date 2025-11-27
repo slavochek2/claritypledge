@@ -6,7 +6,23 @@ export function SignPledgePage() {
   const navigate = useNavigate();
 
   const handleSuccess = () => {
-    toast.success("Thank you for signing! Please check your email to seal your pledge.");
+    // Check if this is a returning user
+    const returningUserInfo = localStorage.getItem('returningUserInfo');
+
+    if (returningUserInfo) {
+      try {
+        const { name } = JSON.parse(returningUserInfo);
+        toast.success(`Welcome back, ${name}! We've sent you a login link to access your profile.`);
+        localStorage.removeItem('returningUserInfo'); // Clean up
+      } catch {
+        // Fallback if parsing fails
+        toast.success("Welcome back! We've sent you a login link to access your profile.");
+      }
+    } else {
+      // New user
+      toast.success("Thank you for signing! Please check your email to seal your pledge.");
+    }
+
     navigate("/");
   };
 

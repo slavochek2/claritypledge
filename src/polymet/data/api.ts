@@ -122,7 +122,7 @@ export async function checkSlugExists(slug: string): Promise<boolean> {
   if (!slug) {
     return false;
   }
-  
+
   const { data, error } = await supabase
     .from('profiles')
     .select('id')
@@ -133,8 +133,92 @@ export async function checkSlugExists(slug: string): Promise<boolean> {
     console.error('Error checking slug:', error);
     return true; // Assume exists on error to be safe
   }
-  
+
   return !!data;
+}
+
+/**
+ * Check if an email already has a profile (for UX feedback)
+ * Returns the profile if it exists, null otherwise
+ */
+export async function getProfileByEmail(email: string): Promise<Profile | null> {
+  if (!email || !email.trim()) {
+    return null;
+  }
+
+  console.log('🔍 Checking if email has existing profile:', email);
+
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error) {
+      // PGRST116 = "not found" error - this is normal for new users
+      if (error.code === 'PGRST116') {
+        console.log('✅ Email is new - no existing profile');
+        return null;
+      }
+      console.error('❌ Error checking email:', error);
+      return null;
+    }
+
+    if (profile) {
+      console.log(`✅ Found existing profile for email: ${profile.name}`);
+
+      // Fetch witnesses separately
+      const { data: witnesses } = await supabase
+        .from('witnesses')
+        .select('*')
+        .eq('profile_id', profile.id);
+
+      return mapProfileFromDb({ ...profile, witnesses: witnesses || [] });
+    }
+
+    return null;
+  } catch (err) {
+    console.error('❌ Unexpected error checking email:', err);
+    return null;
+  }
+}
+
+/**
+ * Find an available slug by checking for collisions and appending numbers if needed
+ * Example: "john-doe" -> "john-doe" (if free) or "john-doe-1" (if taken)
+ */
+async function findAvailableSlug(baseSlug: string): Promise<string> {
+  console.log(`🔍 Checking availability for slug: ${baseSlug}`);
+
+  // Check if the base slug is available
+  const baseExists = await checkSlugExists(baseSlug);
+  if (!baseExists) {
+    console.log(`✅ Slug "${baseSlug}" is available`);
+    return baseSlug;
+  }
+
+  // If base slug is taken, try appending numbers
+  let attempt = 1;
+  const maxAttempts = 100; // Safety limit to prevent infinite loops
+
+  while (attempt <= maxAttempts) {
+    const candidateSlug = `${baseSlug}-${attempt}`;
+    console.log(`🔍 Checking availability for slug: ${candidateSlug}`);
+
+    const exists = await checkSlugExists(candidateSlug);
+    if (!exists) {
+      console.log(`✅ Slug "${candidateSlug}" is available`);
+      return candidateSlug;
+    }
+
+    attempt++;
+  }
+
+  // Fallback: append timestamp if we exhausted all attempts
+  const timestampSlug = `${baseSlug}-${Date.now()}`;
+  console.warn(`⚠️ Could not find available slug after ${maxAttempts} attempts. Using timestamp: ${timestampSlug}`);
+  return timestampSlug;
 }
 
 // Authentication handles profile creation via trigger
@@ -145,9 +229,9 @@ export async function createProfile(
   role?: string,
   linkedinUrl?: string,
   reason?: string
-): Promise<{ slug: string }> {
+): Promise<{ slug: string; isReturningUser: boolean; existingProfile?: Profile }> {
   console.log('📧 Creating profile with email:', email);
-  
+
   // Validate inputs
   if (!name || !name.trim()) {
     throw new Error('Name is required');
@@ -155,28 +239,44 @@ export async function createProfile(
   if (!email || !email.trim()) {
     throw new Error('Email is required');
   }
-  
+
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     throw new Error('Invalid email format');
   }
-  
-  // Generate slug from name
-  const slug = generateSlug(name);
-  console.log('🔤 Generated slug:', slug);
-  
+
+  // Check if this email already has a profile (for UX feedback)
+  const existingProfile = await getProfileByEmail(email);
+  const isReturningUser = !!existingProfile;
+
+  if (isReturningUser) {
+    console.log('🔄 Returning user detected:', existingProfile?.name);
+  }
+
+  // NOTE: There's a timing window where user hasn't clicked first email yet
+  // In this case, we can't detect them as "returning" until profile exists
+  // This is acceptable - Supabase prevents duplicate auth users anyway
+
+  // Generate base slug from name
+  const baseSlug = generateSlug(name);
+  console.log('🔤 Generated base slug:', baseSlug);
+
+  // Find an available slug (handles collisions)
+  const availableSlug = await findAvailableSlug(baseSlug);
+  console.log('🎯 Using slug:', availableSlug);
+
   try {
-    const redirectUrl = `${window.location.origin}/auth/callback?slug=${slug}`;
+    const redirectUrl = `${window.location.origin}/auth/callback?slug=${availableSlug}`;
     console.log('🔗 Redirect URL:', redirectUrl);
-    
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: redirectUrl,
         data: {
           name,
-          slug,
+          slug: availableSlug,
           role,
           linkedin_url: linkedinUrl,
           reason,
@@ -193,13 +293,18 @@ export async function createProfile(
       });
       throw error;
     }
-    
+
     // Store email and firstTimePledge flag in local storage
     localStorage.setItem('pendingVerificationEmail', email);
     localStorage.setItem('firstTimePledge', 'true');
 
     console.log('✅ Magic link sent successfully to:', email);
-    return { slug };
+
+    return {
+      slug: availableSlug,
+      isReturningUser,
+      existingProfile: existingProfile || undefined
+    };
   } catch (err) {
     console.error('❌ Error in createProfile:', err);
     throw err;

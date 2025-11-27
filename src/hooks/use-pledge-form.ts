@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createProfile, checkSlugExists, generateSlug } from "@/polymet/data/api";
 import { useDebounce } from "@/hooks/use-debounce";
 import { triggerConfetti } from "@/lib/confetti";
+import { FEATURES } from "@/lib/feature-flags";
 import type { Profile } from "@/polymet/types";
 
 export function usePledgeForm(onSuccess?: () => void) {
@@ -27,6 +28,13 @@ export function usePledgeForm(onSuccess?: () => void) {
         setNameError("");
         return;
       }
+
+      // If duplicate names are allowed, skip the uniqueness check
+      if (FEATURES.ALLOW_DUPLICATE_NAMES) {
+        setNameError("");
+        return;
+      }
+
       setIsCheckingName(true);
       const slug = generateSlug(debouncedName);
       const exists = await checkSlugExists(slug);
@@ -43,17 +51,18 @@ export function usePledgeForm(onSuccess?: () => void) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Clear any previous errors
     setError("");
-    
+
     // Validate required fields
     if (!name.trim() || !email.trim()) {
       setError("Please fill in your name and email to sign the pledge.");
       return;
     }
 
-    if (nameError) {
+    // Only block submission for name errors if duplicate names are NOT allowed
+    if (nameError && !FEATURES.ALLOW_DUPLICATE_NAMES) {
       setError(nameError);
       return;
     }
@@ -69,13 +78,23 @@ export function usePledgeForm(onSuccess?: () => void) {
       }
 
       // Create the profile in Supabase
-      const { slug } = await createProfile(
+      const { slug, isReturningUser, existingProfile } = await createProfile(
         name.trim(),
         email.trim(),
         role.trim() || undefined,
         normalizedLinkedInUrl || undefined,
         reason.trim() || undefined
       );
+
+      // Store returning user info for UX messaging
+      if (isReturningUser && existingProfile) {
+        localStorage.setItem('returningUserInfo', JSON.stringify({
+          name: existingProfile.name,
+          slug: existingProfile.slug
+        }));
+      } else {
+        localStorage.removeItem('returningUserInfo');
+      }
 
       // Store complete pending profile for useUser hook and optimistic UI
       // This matches the Profile interface to avoid "Profile Not Found" issues
