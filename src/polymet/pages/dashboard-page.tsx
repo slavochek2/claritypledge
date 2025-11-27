@@ -1,38 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getCurrentUser, type Profile } from "@/polymet/data/api";
+import { useUser } from "@/hooks/use-user";
 import { ShareTools } from "@/polymet/components/share-tools";
 import { InviteEndorsers } from "@/polymet/components/invite-endorsers";
 import { Button } from "@/components/ui/button";
 import { StampIcon, EyeIcon, UsersIcon, TrendingUpIcon } from "lucide-react";
 
 export function DashboardPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: profile, isLoading } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const user = await getCurrentUser();
-        if (!user) {
-          // Not logged in, redirect to home
-          navigate("/");
-          return;
-        }
-        setProfile(user);
-      } catch (error) {
-        console.error("Failed to load profile:", error);
-        navigate("/");
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!isLoading && !profile) {
+      navigate("/");
+    }
+  }, [profile, isLoading, navigate]);
 
-    loadProfile();
-  }, [navigate]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading Dashboard...</div>
