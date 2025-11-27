@@ -40,6 +40,12 @@ export function PledgeModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-[#F5F5F0] border-none shadow-2xl p-4 md:p-8">
         {mode === "sign" ? (
           <div>
+            <DialogHeader className="sr-only">
+              <DialogTitle>Sign the Clarity Pledge</DialogTitle>
+              <DialogDescription>
+                Fill out the form below to take the pledge.
+              </DialogDescription>
+            </DialogHeader>
             <SignPledgeForm
               onSuccess={handleSignSuccess}
               onSwitchToLogin={() => setMode("login")}

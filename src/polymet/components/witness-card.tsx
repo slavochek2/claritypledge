@@ -128,23 +128,6 @@ export function WitnessCard({
     return <RecipocationCard referrerId={profileId} />;
   }
 
-  if (!currentUser) {
-    return (
-      <div className="border-2 border-[#1A1A1A] dark:border-border rounded-lg p-8 bg-[#FDFBF7] dark:bg-card text-center">
-        <p className="text-lg font-medium mb-4">
-          Please log in to accept the pledge.
-        </p>
-        <Button
-          onClick={handleLogin}
-          className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
-          size="lg"
-        >
-          Log In to Accept
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="border-2 border-[#1A1A1A] dark:border-border rounded-lg p-8 bg-[#FDFBF7] dark:bg-card">
       <div className="space-y-6">
