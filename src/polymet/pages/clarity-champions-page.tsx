@@ -51,29 +51,29 @@ export function ClarityChampionsPage() {
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
         <div className="text-center mb-12 space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/10 dark:bg-blue-500/20 mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/10 dark:bg-blue-500/20">
             <UsersIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold">
             Clarity Champions
           </h1>
           <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-            These verified individuals have committed to building a foundation
-            of clarity and mutual understanding.
+            {loading ? (
+              "Discover people who've taken the pledge."
+            ) : (
+              <>
+                Showing{" "}
+                <strong className="text-foreground">
+                  {verifiedProfiles.length}
+                </strong>{" "}
+                verified{" "}
+                {verifiedProfiles.length === 1
+                  ? "champion"
+                  : "champions"}{" "}
+                who've taken the pledge.
+              </>
+            )}
           </p>
-
-          {!loading && (
-            <p className="text-lg text-muted-foreground">
-              Showing{" "}
-              <strong className="text-foreground">
-                {verifiedProfiles.length}
-              </strong>{" "}
-              verified{" "}
-              {verifiedProfiles.length === 1
-                ? "Clarity Champion"
-                : "Clarity Champions"}
-            </p>
-          )}
         </div>
 
         {/* Admin Note: Only show in development */}

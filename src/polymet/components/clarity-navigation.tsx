@@ -50,8 +50,8 @@ export function ClarityNavigation() {
             Clarity Pledge
           </Link>
 
-          {/* Desktop Navigation - Only show public links when logged out */}
-          {!isLoadingUser && !currentUser && (
+          {/* Desktop Navigation - Only show public links when logged out or loading */}
+          {!currentUser && (
             <div className="hidden md:flex items-center gap-8">
               <Link
                 to="/article"
@@ -76,83 +76,80 @@ export function ClarityNavigation() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            {!isLoadingUser && (
+            {currentUser ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="gap-2"
+                    aria-label="User menu"
+                  >
+                    <MenuIcon className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/dashboard"
+                      className="cursor-pointer"
+                    >
+                      <LayoutDashboardIcon className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to={`/p/${currentUser.slug || currentUser.id}`}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        const urlPath = `/p/${currentUser.slug || currentUser.id}`;
+                        console.log('🔗 Navigating to profile:', {
+                          slug: currentUser.slug,
+                          id: currentUser.id,
+                          generatedPath: urlPath
+                        });
+                      }}
+                    >
+                      <EyeIcon className="w-4 h-4 mr-2" />
+                      View My Pledge
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/settings"
+                      className="cursor-pointer"
+                    >
+                      <SettingsIcon className="w-4 h-4 mr-2" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="cursor-pointer"
+                  >
+                    <LogOutIcon className="w-4 h-4 mr-2" />
+                    Log Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : !isLoadingUser ? (
               <>
-                {currentUser ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="gap-2"
-                      >
-                        <MenuIcon className="w-5 h-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to="/dashboard"
-                          className="cursor-pointer"
-                        >
-                          <LayoutDashboardIcon className="w-4 h-4 mr-2" />
-                          Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to={`/p/${currentUser.slug || currentUser.id}`}
-                          className="cursor-pointer"
-                          onClick={() => {
-                            const urlPath = `/p/${currentUser.slug || currentUser.id}`;
-                            console.log('🔗 Navigating to profile:', {
-                              slug: currentUser.slug,
-                              id: currentUser.id,
-                              generatedPath: urlPath
-                            });
-                          }}
-                        >
-                          <EyeIcon className="w-4 h-4 mr-2" />
-                          View My Pledge
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to="/settings"
-                          className="cursor-pointer"
-                        >
-                          <SettingsIcon className="w-4 h-4 mr-2" />
-                          Settings
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={handleSignOut}
-                        className="cursor-pointer"
-                      >
-                        <LogOutIcon className="w-4 h-4 mr-2" />
-                        Log Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <>
-                    <Link
-                      to="/login"
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
-                    >
-                      Log In
-                    </Link>
-                    <Link
-                      to="/sign-pledge"
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-                    >
-                      Take the Pledge
-                    </Link>
-                  </>
-                )}
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
+                >
+                  Log In
+                </Link>
+                <Link
+                  to="/sign-pledge"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                >
+                  Take the Pledge
+                </Link>
               </>
-            )}
+            ) : null}
           </div>
 
           {/* Mobile Menu Button */}
@@ -169,7 +166,7 @@ export function ClarityNavigation() {
         </div>
 
         {/* Mobile Menu */}
-        {isMobileMenuOpen && !isLoadingUser && (
+        {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border bg-background">
             <div className="flex flex-col gap-4">
               {currentUser ? (
