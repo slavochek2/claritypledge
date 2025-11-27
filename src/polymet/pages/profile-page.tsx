@@ -55,6 +55,27 @@ export function ProfilePage() {
             
             return data;
           })();
+
+        // Optimistic update: check if current user matches the requested profile (by slug or pending ID)
+        // This handles the race condition where the profile is created but not yet fully indexed/available
+        // or simply when we want to show the pending state immediately.
+        if (!profileData && currentUser) {
+          const isPendingMatch = (currentUser as any).isPending && (currentUser.slug === id || currentUser.id === id);
+          if (isPendingMatch) {
+            console.log('⚡ ProfilePage: Using pending profile from currentUser hook');
+            setProfile(currentUser);
+            setLoading(false);
+            
+             // Show welcome dialog if it's a first time pledge
+            if (firstTime) {
+                setShowWelcome(true);
+                // Clear flags from local storage once user is viewing their own profile
+                localStorage.removeItem('firstTimePledge');
+                // Don't clear pendingProfile yet as we still rely on it until verified
+            }
+            return;
+          }
+        }
         
         setProfile(profileData);
         console.log('ProfilePage: Profile data set. Profile:', profileData);
@@ -75,7 +96,7 @@ export function ProfilePage() {
     };
 
     loadProfile();
-  }, [id, firstTime, currentUser]);
+  }, [id, firstTime, currentUser]); // Added currentUser dependency to re-check when user state resolves
 
   console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser);
 
@@ -107,7 +128,7 @@ export function ProfilePage() {
     );
   }
 
-  const isOwner = currentUser && profile && currentUser.id === profile.id;
+  const isOwner = currentUser && (currentUser.id === profile.id || (currentUser as any).isPending);
   const isVerified = profile?.isVerified ?? false;
   const profileUrl = `${window.location.origin}/p/${profile?.slug || profile?.id}`;
 

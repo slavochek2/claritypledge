@@ -185,71 +185,15 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 ```
 
-## Database Schema
+## Technical Documentation
 
-### profiles
+For more detailed technical information, please see the following documents:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key (matches auth.users.id) |
-| email | text | User's email |
-| name | text | User's full name |
-| role | text | Job title/role (optional) |
-| linkedin_url | text | LinkedIn profile (optional) |
-| reason | text | Why they signed the pledge |
-| avatar_color | text | Profile color theme |
-| is_verified | boolean | Email verified status |
-| created_at | timestamp | Signup timestamp |
-
-### witnesses
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid | Primary key |
-| profile_id | uuid | Foreign key to profiles |
-| witness_name | text | Endorser's name |
-| witness_linkedin_url | text | Endorser's LinkedIn (optional) |
-| is_verified | boolean | Endorsement verified status |
-| created_at | timestamp | Endorsement timestamp |
-
-## Authentication Flow
-
-1. **User signs pledge** → `createProfile()` in `api.ts`
-2. **Supabase sends magic link** via `signInWithOtp()`
-3. **User clicks link** → redirects to `/auth/callback`
-4. **Callback page** exchanges hash for session
-5. **Database trigger fires** → creates profile with metadata
-6. **Redirect to verification** → `/verify/:id`
-7. **Verification success** → redirects to `/p/:id`
-8. **Profile displayed** with user data
-
-## Debugging
-
-### Debug Page
-
-Visit `/debug` for real-time diagnostics:
-- Authentication status
-- Current user session
-- Profile data
-- Test authentication flow
-- View logs
-
-### Test DB Page
-
-Visit `/test-db` to:
-- Test database connection
-- View all profiles
-- Create test data
-- Check for errors
-
-### SQL Diagnostics
-
-Run these scripts in Supabase SQL Editor:
-
-- `diagnose.sql` - Full system check
-- `check_trigger.sql` - Verify trigger exists
-- `check_profile.sql` - Check specific profile
-- `manual_create_profiles.sql` - Fix orphaned auth users
+- [Database Schema](./_docs/technical/database.md)
+- [Authentication Flow](./_docs/technical/authentication.md)
+- [Deployment Guide](./_docs/technical/deployment.md)
+- [Testing Checklist](./_docs/technical/testing.md)
+- [Debugging Guide](./_docs/technical/debugging.md)
 
 ## Common Issues
 
