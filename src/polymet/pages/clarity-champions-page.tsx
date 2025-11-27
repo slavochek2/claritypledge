@@ -47,17 +47,17 @@ export function ClarityChampionsPage() {
   };
 
   return (
-    <div className="min-h-screen py-20 px-4">
+    <div className="min-h-screen py-12 px-4">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
-        <div className="text-center mb-16 space-y-6">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-500/10 dark:bg-blue-500/20 mb-4">
-            <UsersIcon className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+        <div className="text-center mb-12 space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/10 dark:bg-blue-500/20 mb-4">
+            <UsersIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold">
+          <h1 className="text-3xl sm:text-4xl font-bold">
             Clarity Champions
           </h1>
-          <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
             These verified individuals have committed to building a foundation
             of clarity and mutual understanding.
           </p>

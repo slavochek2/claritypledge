@@ -27,9 +27,12 @@ export function ProfilePage() {
     }
     
     const loadProfile = async () => {
+      // Reset loading state on navigation changes
+      setLoading(true);
+
       try {
         console.log('🔍 ProfilePage: Loading profile with ID/slug:', id);
-        
+
         // Load profile and current user in parallel for better performance
         const profileData = await (async () => {
             // Try to load by slug first, then fall back to ID
@@ -90,13 +93,25 @@ export function ProfilePage() {
       } catch (error) {
         console.error("❌ ProfilePage: Failed to load profile:", error);
       } finally {
-        setLoading(false);
+        // Only set loading to false if user is not loading
+        // This prevents the "Profile Not Found" flicker when user auth is still resolving
+        if (!isUserLoading) {
+          setLoading(false);
+        }
         console.log('ProfilePage: Loading finished.');
       }
     };
 
     loadProfile();
-  }, [id, firstTime, currentUser]); // Added currentUser dependency to re-check when user state resolves
+  }, [id, firstTime, currentUser, isUserLoading]); // Added isUserLoading dependency
+
+  // Handle the case where user loading completes after profile loading
+  useEffect(() => {
+    if (!isUserLoading && loading && profile === null && !currentUser) {
+      // User has finished loading, profile fetch is done, but no profile found
+      setLoading(false);
+    }
+  }, [isUserLoading, loading, profile, currentUser]);
 
   console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser);
 
@@ -184,11 +199,11 @@ export function ProfilePage() {
               <CheckCircleIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <DialogTitle className="text-center text-2xl">
-              Welcome! Your Clarity Pledge is Created
+              Pledge Sealed
             </DialogTitle>
             <DialogDescription className="text-center space-y-4 pt-4">
               <p>
-                This is how others will see your commitment to clarity.
+                Your public promise is live!
               </p>
               {!profile?.isVerified && (
                 <p className="text-sm bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -198,13 +213,8 @@ export function ProfilePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 mt-4">
-            <Link to="/dashboard" className="w-full">
-              <Button className="w-full bg-[#0044CC] hover:bg-[#003399]">
-                Go to Dashboard
-              </Button>
-            </Link>
             <Button variant="outline" onClick={handleCloseWelcome} className="w-full">
-              Stay Here
+              OK
             </Button>
           </div>
         </DialogContent>
