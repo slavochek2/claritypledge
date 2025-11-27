@@ -97,7 +97,10 @@ export function ClarityChampionsPage() {
         {/* Champions Grid */}
         {loading ? (
           <div className="flex justify-center py-20">
-            <LoaderIcon className="w-8 h-8 animate-spin text-muted-foreground" />
+            <LoaderIcon
+              data-testid="loader"
+              className="w-8 h-8 animate-spin text-muted-foreground"
+            />
           </div>
         ) : verifiedProfiles.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

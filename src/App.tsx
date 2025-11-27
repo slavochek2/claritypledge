@@ -103,7 +103,7 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
-          path="/work-with-slava"
+          path="/our-services"
           element={
             <ClarityLandingLayout>
               <WorkWithSlavaPage />
