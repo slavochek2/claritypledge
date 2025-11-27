@@ -9,6 +9,8 @@ interface UserState {
   signOut: () => Promise<void>;
 }
 
+export const PROFILE_UPDATED_EVENT = 'polymet:profile-updated';
+
 export function useUser(): UserState {
   const [user, setUser] = useState<(Profile & { isPending?: boolean }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +25,25 @@ export function useUser(): UserState {
         // Do not return here, let the auth state check override if a session exists
       }
     };
+
+    const handleProfileUpdate = () => {
+      const pendingProfileStr = localStorage.getItem('pendingProfile');
+      if (pendingProfileStr) {
+        const pendingProfile = JSON.parse(pendingProfileStr);
+        setUser({ ...pendingProfile, isPending: true });
+        setIsLoading(false);
+      } else {
+        // If pending profile is removed, we need to check if we have a session
+        // If not, clear the user
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session) {
+            setUser(null);
+          }
+        });
+      }
+    };
+
+    window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdate);
 
     checkPendingProfile();
 
@@ -68,12 +89,14 @@ export function useUser(): UserState {
 
     return () => {
       authListener.subscription.unsubscribe();
+      window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdate);
     };
   }, []);
 
   const signOut = async () => {
     await apiSignOut();
     localStorage.removeItem('pendingProfile');
+    window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
     setUser(null);
   };
 

@@ -4,6 +4,7 @@ import { createProfile, checkSlugExists, generateSlug } from "@/polymet/data/api
 import { useDebounce } from "@/hooks/use-debounce";
 import { triggerConfetti } from "@/lib/confetti";
 import { FEATURES } from "@/lib/feature-flags";
+import { PROFILE_UPDATED_EVENT } from "@/hooks/use-user";
 import type { Profile } from "@/polymet/types";
 
 export function usePledgeForm(onSuccess?: () => void) {
@@ -115,6 +116,9 @@ export function usePledgeForm(onSuccess?: () => void) {
       
       // Store in localStorage
       localStorage.setItem('pendingProfile', JSON.stringify(pendingProfile));
+      // Notify components (like navigation) that profile state has changed
+      window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
+      
       // Store flag that this is a first-time pledge (for the welcome modal)
       localStorage.setItem('firstTimePledge', 'true');
 
