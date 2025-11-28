@@ -1,3 +1,12 @@
+/**
+ * @file verify-endorsement-page.tsx
+ * @description This page handles the verification of an endorsement.
+ * When a user invites someone to endorse their pledge, the recipient gets an email with a unique link.
+ * This link leads to this page, which then officially records the endorsement in the database.
+ * The page provides feedback to the endorser, confirming their action,
+ * and then encourages them to take the pledge themselves, creating a viral loop.
+ * This is a key feature for the social proof and growth of the pledge community.
+ */
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";

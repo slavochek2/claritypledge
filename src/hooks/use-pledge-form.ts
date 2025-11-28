@@ -1,10 +1,6 @@
-import { useState, useEffect } from "react";
-import { createProfile, checkSlugExists, generateSlug } from "@/polymet/data/api";
-import { useDebounce } from "@/hooks/use-debounce";
+import { useState } from "react";
+import { createProfile } from "@/polymet/data/api";
 import { triggerConfetti } from "@/lib/confetti";
-import { FEATURES } from "@/lib/feature-flags";
-import { PROFILE_UPDATED_EVENT } from "@/hooks/use-user";
-import type { Profile } from "@/polymet/types";
 
 export function usePledgeForm(onSuccess?: () => void) {
   const [name, setName] = useState("");
@@ -14,71 +10,26 @@ export function usePledgeForm(onSuccess?: () => void) {
   const [reason, setReason] = useState("");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSealing, setIsSealing] = useState(false);
   const [error, setError] = useState("");
-  const [nameError, setNameError] = useState("");
-  const [isCheckingName, setIsCheckingName] = useState(false);
-  
-  // const navigate = useNavigate(); // Navigation is now handled by the page component
-  const debouncedName = useDebounce(name, 500);
-
-  useEffect(() => {
-    const checkName = async () => {
-      if (debouncedName.trim().length < 2) {
-        setNameError("");
-        return;
-      }
-
-      // If duplicate names are allowed, skip the uniqueness check
-      if (FEATURES.ALLOW_DUPLICATE_NAMES) {
-        setNameError("");
-        return;
-      }
-
-      setIsCheckingName(true);
-      const slug = generateSlug(debouncedName);
-      const exists = await checkSlugExists(slug);
-      if (exists) {
-        setNameError("This name is already taken. Please choose another one.");
-      } else {
-        setNameError("");
-      }
-      setIsCheckingName(false);
-    };
-
-    checkName();
-  }, [debouncedName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Clear any previous errors
     setError("");
 
-    // Validate required fields
     if (!name.trim() || !email.trim()) {
       setError("Please fill in your name and email to sign the pledge.");
       return;
     }
 
-    // Only block submission for name errors if duplicate names are NOT allowed
-    if (nameError && !FEATURES.ALLOW_DUPLICATE_NAMES) {
-      setError(nameError);
-      return;
-    }
-
     setIsSubmitting(true);
-    setIsSealing(true);
 
     try {
-      // Normalize LinkedIn URL - add https:// if missing
       let normalizedLinkedInUrl = linkedinUrl.trim();
       if (normalizedLinkedInUrl && !normalizedLinkedInUrl.match(/^https?:\/\//i)) {
         normalizedLinkedInUrl = `https://${normalizedLinkedInUrl}`;
       }
 
-      // Create the profile in Supabase
-      const { slug, isReturningUser, existingProfile } = await createProfile(
+      await createProfile(
         name.trim(),
         email.trim(),
         role.trim() || undefined,
@@ -86,57 +37,25 @@ export function usePledgeForm(onSuccess?: () => void) {
         reason.trim() || undefined
       );
 
-      // Store returning user info for UX messaging
-      if (isReturningUser && existingProfile) {
-        localStorage.setItem('returningUserInfo', JSON.stringify({
-          name: existingProfile.name,
-          slug: existingProfile.slug
-        }));
-      } else {
-        localStorage.removeItem('returningUserInfo');
-      }
-
-      // Store flag that this is a first-time pledge (for the welcome modal)
       localStorage.setItem('firstTimePledge', 'true');
-
-      // Trigger confetti only on success
       triggerConfetti();
       
       if (onSuccess) {
         onSuccess();
       }
       
-      // No more auto-navigation or "pending" state hacks.
-      // The Page component will handle showing the success message.
-
-
     } catch (error) {
       console.error("Error signing pledge:", error);
-      
-      // Provide more detailed error message
       let errorMessage = "Failed to sign pledge. Please try again.";
-      
       if (error instanceof Error) {
-        console.error("Error details:", {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        });
-        
-        if (error.message === 'USER_EXISTS') {
-          errorMessage = "An account with this email already exists. Please log in.";
-        } else if (error.message?.includes("Invalid API key")) {
-          errorMessage = "Configuration error: Invalid API key. Please contact support.";
-        } else if (error.message?.includes("rate limit")) {
+        if (error.message?.includes("rate limit")) {
           errorMessage = "Too many requests. Please wait a moment and try again.";
         } else if (error.message?.includes("Invalid email")) {
           errorMessage = "Please enter a valid email address.";
         }
       }
-      
       setError(errorMessage);
       setIsSubmitting(false);
-      setIsSealing(false);
     }
   };
 
@@ -148,10 +67,7 @@ export function usePledgeForm(onSuccess?: () => void) {
       linkedinUrl,
       reason,
       isSubmitting,
-      isSealing,
       error,
-      nameError,
-      isCheckingName
     },
     setters: {
       setName,

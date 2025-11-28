@@ -1,97 +1,78 @@
+/*
+ * CRITICAL AUTHENTICATION MODULE - WRITER
+ * -----------------------------------------------------------------------------
+ * This page is the "Writer" of the authentication system.
+ * It is responsible for the critical transaction of:
+ * 1. Verifying the incoming auth session
+ * 2. Creating the user profile if it doesn't exist (Sign Up)
+ * 3. Redirecting the user to their profile (Sign In)
+ *
+ * This logic is isolated here to prevent race conditions.
+ * DO NOT move this logic to a global hook or context.
+ * -----------------------------------------------------------------------------
+ */
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { getProfile } from "@/polymet/data/api";
 import { LoaderIcon } from "lucide-react";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("Finalizing authentication...");
 
   useEffect(() => {
-    console.log('🚀 AuthCallbackPage mounted');
-    
-    const handleAuthCallback = async () => {
-      try {
-        console.log('🔐 Starting auth callback handling...');
-        
-        const { data, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("Auth error:", sessionError);
-          setError(sessionError.message);
-          return;
-        }
+    const processAuth = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        if (data.session) {
-          const params = new URLSearchParams(location.search);
-          const slugFromQuery = params.get('slug');
-          const isFirstTime = !!slugFromQuery;
-
-          // SAFETY NET: Always fetch the profile from the database to get the authoritative slug
-          // This ensures we redirect to the correct URL even if the backend had to rename
-          // the slug due to a collision (e.g., john-doe -> john-doe-1)
-          const userId = data.session.user.id;
-          const { getProfile, verifyProfile } = await import("@/polymet/data/api");
-          const profile = await getProfile(userId);
-
-          if (!profile || !profile.slug) {
-            console.error('❌ Profile not found or missing slug. User ID:', userId);
-            setError('Profile not found. Please try signing up again.');
-            return;
-          }
-
-          console.log(`✅ Profile fetched from database. Slug: ${profile.slug}`);
-
-          // Log if slug differs from URL param (helps debug collisions)
-          if (slugFromQuery && slugFromQuery !== profile.slug) {
-            console.warn(
-              `⚠️ Slug collision detected! URL had "${slugFromQuery}" but database has "${profile.slug}"`
-            );
-          }
-
-          // If this is a first-time login, mark the profile as verified
-          if (isFirstTime) {
-            console.log(`🔀 New user detected. Verifying profile for: ${profile.name}`);
-            const { error: verifyError } = await verifyProfile(userId);
-
-            if (verifyError) {
-              console.error("❌ Error verifying profile:", verifyError);
-              // Even if verification fails, proceed to profile page
-            }
-
-            navigate(`/p/${profile.slug}?firstTime=true`, { replace: true });
-          } else {
-            console.log(`🔀 Returning user detected. Redirecting to: /p/${profile.slug}`);
-            navigate(`/p/${profile.slug}`, { replace: true });
-          }
-        } else {
-          setError("No session found. Please try signing in again.");
-        }
-      } catch (err) {
-        console.error("Error handling auth callback:", err);
-        setError("An unexpected error occurred.");
+      if (sessionError || !session) {
+        setStatus("Authentication error. Please try again.");
+        console.error("Error getting session:", sessionError);
+        return;
       }
+
+      const { user } = session;
+      const existingProfile = await getProfile(user.id);
+
+      // If a profile already exists, the user is just logging in.
+      // We can redirect them to their profile page.
+      if (existingProfile) {
+        setStatus("Redirecting...");
+        navigate(`/p/${existingProfile.slug}`, { replace: true });
+        return;
+      }
+
+      // If no profile exists, this is a new user signing up.
+      // We'll create their profile now.
+      setStatus("Creating your profile...");
+      const { user_metadata } = user;
+      const { error: upsertError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email!,
+          name: user_metadata.name || 'Anonymous',
+          slug: user_metadata.slug,
+          role: user_metadata.role,
+          linkedin_url: user_metadata.linkedin_url,
+          reason: user_metadata.reason,
+          avatar_color: user_metadata.avatar_color,
+          is_verified: true, // They have verified their email by clicking the magic link.
+        }, { onConflict: 'id' });
+
+      if (upsertError) {
+        setStatus("Error creating profile. Please contact support.");
+        console.error("Error upserting profile:", upsertError);
+        return;
+      }
+
+      // Profile created successfully! Redirect to the new profile page.
+      setStatus("Redirecting...");
+      navigate(`/p/${user_metadata.slug}`, { replace: true });
     };
 
-    handleAuthCallback();
-  }, [navigate, location]);
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Authentication Error</h1>
-            <p className="text-lg text-muted-foreground">{error}</p>
-            <p className="text-sm text-muted-foreground mt-4">
-              Please try signing the pledge again from the homepage.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    processAuth();
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -101,9 +82,7 @@ export function AuthCallbackPage() {
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">Completing Verification</h1>
-          <p className="text-lg text-muted-foreground">
-            Just a moment while we set up your profile...
-          </p>
+          <p className="text-lg text-muted-foreground">{status}</p>
         </div>
       </div>
     </div>

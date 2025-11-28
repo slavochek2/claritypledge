@@ -1,3 +1,11 @@
+/**
+ * @file sign-pledge-page.tsx
+ * @description This page is where new users officially sign the Polymet Clarity Pledge.
+ * It contains a form that collects the user's name, email, and other optional information.
+ * This is the primary conversion point for the entire application.
+ * After the user submits the form, it triggers the authentication flow (sending a magic link)
+ * and shows a success message, instructing them to check their email to verify their pledge.
+ */
 import { SignPledgeForm } from "@/polymet/components/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";

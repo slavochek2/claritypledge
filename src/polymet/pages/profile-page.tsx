@@ -1,3 +1,13 @@
+/**
+ * @file profile-page.tsx
+ * @description This page displays a user's public profile.
+ * It's the canonical page for a single pledge, showing the user's name, role, the reason they signed,
+ * and a list of people who have witnessed their pledge.
+ * This page is viewable by anyone, but it has two states: one for the profile owner and one for visitors.
+ * Owners see a preview banner and other management tools, while visitors see the public-facing profile
+ * and have the option to "witness" the pledge themselves.
+ * It's a cornerstone of the application, making the pledges public and verifiable.
+ */
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/polymet/data/api";

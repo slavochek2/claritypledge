@@ -1,5 +1,4 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { UserProvider } from "@/polymet/contexts/user-context";
 import { ClarityLandingLayout } from "@/polymet/layouts/clarity-landing-layout";
 import { ClarityPledgeLanding } from "@/polymet/pages/clarity-pledge-landing";
 import { ClarityChampionsPage } from "@/polymet/pages/clarity-champions-page";
@@ -20,9 +19,8 @@ import { SignPledgePage } from "@/polymet/pages/sign-pledge-page";
 
 export default function ClarityPledgeApp() {
   return (
-    <UserProvider>
-      <Router>
-        <Routes>
+    <Router>
+      <Routes>
         <Route
           path="/"
           element={
@@ -175,8 +173,7 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
-        </Routes>
-      </Router>
-    </UserProvider>
+      </Routes>
+    </Router>
   );
 }

@@ -1,3 +1,12 @@
+/**
+ * @file login-page.tsx
+ * @description This page provides a simple interface for existing users to log in.
+ * It features a form where users can enter their email to receive a magic link,
+ * which is the primary method of authentication.
+ * This page is essential for returning users who want to access their dashboard,
+ * manage their pledge, or view their profile.
+ * It's a straightforward, single-purpose page designed to get users authenticated quickly.
+ */
 import { LoginForm } from "@/polymet/components/login-form";
 
 export function LoginPage() {

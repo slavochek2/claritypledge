@@ -1,3 +1,12 @@
+/**
+ * @file full-article-page.tsx
+ * @description This page displays the long-form article that explains the philosophy and reasoning behind the Polymet Clarity Pledge.
+ * It's a deep dive into the concepts of the "Clarity Tax," the "Illusion of Shared Reality,"
+ * and the cognitive biases that lead to miscommunication.
+ * The page is designed for readability, with a table of contents for easy navigation.
+ * The primary purpose of this page is to provide a comprehensive, persuasive argument for why the pledge is needed,
+ * targeting readers who want to understand the theory before committing.
+ */
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";

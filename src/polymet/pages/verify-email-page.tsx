@@ -1,3 +1,12 @@
+/**
+ * @file verify-email-page.tsx
+ * @description This page handles the verification of a user's email address.
+ * When a user signs the pledge, they receive an email with a verification link.
+ * This link leads to this page, which then marks the user's profile as verified in the database.
+ * It provides feedback to the user, showing a success or error message,
+ * and then automatically redirects them to their newly verified profile page.
+ * This step is crucial for ensuring the authenticity of the pledges.
+ */
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { getProfile } from "@/polymet/data/api";

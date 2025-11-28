@@ -1,3 +1,12 @@
+/**
+ * @file test-db-page.tsx
+ * @description This is a developer-facing tool for testing the database connection and data integrity.
+ * It provides a simple interface to view all profiles in the database,
+ * check their verification status, and manually verify them.
+ * This page is crucial for developers to ensure that the database is working as expected,
+ * that Row Level Security (RLS) policies are correctly configured,
+ * and to quickly fix data inconsistencies during development and testing.
+ */
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";

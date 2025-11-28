@@ -1,3 +1,11 @@
+/**
+ * @file settings-page.tsx
+ * @description This page allows logged-in users to update their profile information.
+ * It provides a form where users can change their name, role, LinkedIn URL, and the reason they took the pledge.
+ * This is a private page, accessible only to authenticated users.
+ * Its purpose is to give users control over their public-facing information,
+ * ensuring that their profile accurately reflects their identity and motivations.
+ */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser, updateProfile, type Profile } from "@/polymet/data/api";

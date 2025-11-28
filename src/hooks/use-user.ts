@@ -1,101 +1,65 @@
-import { useState, useEffect, useRef } from 'react';
+/*
+ * CRITICAL AUTHENTICATION MODULE - READ ONLY
+ * -----------------------------------------------------------------------------
+ * This hook is the "Reader" of the authentication system.
+ * It is responsible ONLY for:
+ * 1. observing Supabase auth state changes
+ * 2. fetching the user profile
+ *
+ * DO NOT add logic here to create users, update profiles, or handle redirects.
+ * Any write operations must happen in the `auth-callback-page.tsx`.
+ * -----------------------------------------------------------------------------
+ */
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getProfile, signOut as apiSignOut } from '@/polymet/data/api';
 import type { Profile } from '@/polymet/types';
 
 interface UserState {
-  user: (Profile & { isPending?: boolean }) | null;
+  user: Profile | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
 }
 
-export const PROFILE_UPDATED_EVENT = 'polymet:profile-updated'; // Deprecated but kept for compatibility
-
 export function useUser(): UserState {
-  const [user, setUser] = useState<(Profile & { isPending?: boolean }) | null>(null);
+  const [user, setUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
-
-    // Helper to safely update state only if mounted
-    const safeSetUser = (newUser: (Profile & { isPending?: boolean }) | null) => {
-      if (isMountedRef.current) {
-        setUser(newUser);
-      }
-    };
-
-    const safeSetLoading = (loading: boolean) => {
-      if (isMountedRef.current) {
-        setIsLoading(loading);
-      }
-    };
-
-    // Main initialization function
-    const initialize = async () => {
-      safeSetLoading(true);
-
-      // Check for existing session first
+    // This function will be called when the component mounts and on auth state changes.
+    const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-
+      
       if (session?.user) {
-        // User is authenticated - fetch their profile
-        try {
-          const profile = await getProfile(session.user.id);
-          safeSetUser(profile);
-        } catch (error) {
-          console.error('Error fetching profile:', error);
-          safeSetUser(null);
-        }
+        // If a session exists, fetch the user's profile.
+        const profile = await getProfile(session.user.id);
+        setUser(profile);
       } else {
-        // No session
-        safeSetUser(null);
+        setUser(null);
       }
-
-      safeSetLoading(false);
+      setIsLoading(false);
     };
 
-    // Set up auth state change listener
-    const setupAuthListener = () => {
-      authListener = supabase.auth.onAuthStateChange(
-        async (_event, session) => {
-          if (!isMountedRef.current) return;
+    // We check the session once on initial load.
+    checkSession();
 
-          safeSetLoading(true);
-
-          if (session?.user) {
-            // User signed in or session refreshed
-            try {
-              const profile = await getProfile(session.user.id);
-              safeSetUser(profile);
-            } catch (error) {
-              console.error('Error fetching profile on auth change:', error);
-              safeSetUser(null);
-            }
-          } else {
-            // User signed out
-            safeSetUser(null);
-          }
-
-          safeSetLoading(false);
+    // The onAuthStateChange listener will handle all auth events:
+    // SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          getProfile(session.user.id).then(profile => setUser(profile));
+        } else {
+          setUser(null);
         }
-      );
-    };
-
-    // Run initialization
-    setupAuthListener();
-    initialize();
-
-    // Cleanup function
-    return () => {
-      isMountedRef.current = false;
-      if (authListener?.data.subscription) {
-        authListener.data.subscription.unsubscribe();
       }
+    );
+
+    // The cleanup function will unsubscribe from the listener when the component unmounts.
+    return () => {
+      authListener.subscription.unsubscribe();
     };
-  }, []); // Empty dependency array - only run once
+  }, []);
 
   const signOut = async () => {
     await apiSignOut();

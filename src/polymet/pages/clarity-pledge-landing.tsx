@@ -1,3 +1,11 @@
+/**
+ * @file clarity-pledge-landing.tsx
+ * @description This is the main landing page for the Polymet Clarity Pledge.
+ * It serves as the primary entry point for new visitors, explaining what the pledge is,
+ * why it's important, and how it works. It's composed of several sections,
+ * each highlighting a different aspect of the pledge, from the "clarity tax" to the benefits of signing.
+ * The goal of this page is to educate and persuade visitors to take the pledge.
+ */
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { SimpleNavigation } from "@/polymet/components/simple-navigation";

@@ -1,3 +1,12 @@
+/**
+ * @file work-with-slava-page.tsx
+ * @description This page is a personal promotional page for the author, Slava.
+ * It's not directly related to the pledge itself, but it's linked from the main application.
+ * The page advertises a "Cognitive Clarity Audit" service,
+ * explaining what it is, how it works, and providing a contact form for interested visitors.
+ * Its purpose is to leverage the traffic and credibility of the pledge application
+ * to generate leads for the author's consulting services.
+ */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

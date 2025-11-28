@@ -1,3 +1,12 @@
+/**
+ * @file debug-page.tsx
+ * @description This page is a developer-facing tool for debugging authentication and profile-related issues.
+ * It provides a simple interface to check the current authentication status,
+ * view the user's profile data from the database, and perform common debugging tasks
+ * like manually creating a profile or fixing a missing slug.
+ * It's not intended for public use and is a crucial tool for developers to quickly diagnose
+ * and resolve issues related to user data and authentication flows.
+ */
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";

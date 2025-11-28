@@ -1,3 +1,13 @@
+/**
+ * @file dashboard-page.tsx
+ * @description This is the user's personal dashboard.
+ * After a user signs the pledge, this is their main hub for managing their pledge,
+ * tracking its impact, and accessing tools to share their commitment.
+ * It's a private page, accessible only to logged-in users.
+ * The dashboard displays key stats like the number of endorsements and reciprocations,
+ * and provides tools for sharing the pledge and inviting others to endorse it.
+ * If the user's profile is not yet verified, it prompts them to check their email.
+ */
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useUser } from "@/hooks/use-user";

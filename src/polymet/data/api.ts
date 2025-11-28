@@ -1,9 +1,23 @@
+/**
+ * @file api.ts
+ * CRITICAL DATA LAYER
+ * -------------------
+ * This file handles data transport.
+ * The `createProfile` function here is an "Initiator" - it only sends the email.
+ * It DOES NOT write to the database. Do not add database writes to the signup flow here.
+ */
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/polymet/types';
 
 // Re-export types for convenience
 export type { Profile, Witness } from '@/polymet/types';
 
+/**
+ * Fetches a single user profile by their UUID.
+ * This function retrieves the profile and its associated witnesses.
+ * @param {string} id - The UUID of the user profile to fetch.
+ * @returns {Promise<Profile | null>} A promise that resolves to the user's profile object or null if not found.
+ */
 export async function getProfile(id: string): Promise<Profile | null> {
   console.log('🔍 Fetching profile for ID:', id);
   
@@ -53,6 +67,12 @@ export async function getProfile(id: string): Promise<Profile | null> {
   }
 }
 
+/**
+ * Fetches all profiles that have been marked as verified.
+ * This is used to populate the "Clarity Champions" page, showcasing all users who have completed the pledge process.
+ * The function also fetches and attaches all witnesses for each profile.
+ * @returns {Promise<Profile[]>} A promise that resolves to an array of verified profile objects.
+ */
 export async function getVerifiedProfiles(): Promise<Profile[]> {
   console.log('🔍 Fetching verified profiles...');
   
@@ -116,201 +136,64 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
 }
 
 /**
- * Check if a slug already exists in the database
+ * Initiates the user signup process by sending a magic link (One-Time Password) to the user's email.
+ * This function handles both new user registration and login for existing users.
+ * User metadata (name, role, etc.) is passed in the options and is used to create or update the user's profile
+ * via a database trigger when the user clicks the magic link.
+ * @param {string} name - The user's full name.
+ * @param {string} email - The user's email address.
+ * @param {string} [role] - The user's professional role or title.
+ * @param {string} [linkedinUrl] - A URL to the user's LinkedIn profile.
+ * @param {string} [reason] - The user's reason for taking the pledge.
+ * @returns {Promise<void>} A promise that resolves when the magic link has been sent.
  */
-export async function checkSlugExists(slug: string): Promise<boolean> {
-  if (!slug) {
-    return false;
-  }
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('slug', slug)
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
-    console.error('Error checking slug:', error);
-    return true; // Assume exists on error to be safe
-  }
-
-  return !!data;
-}
-
-/**
- * Check if an email already has a profile (for UX feedback)
- * Returns the profile if it exists, null otherwise
- */
-export async function getProfileByEmail(email: string): Promise<Profile | null> {
-  if (!email || !email.trim()) {
-    return null;
-  }
-
-  console.log('🔍 Checking if email has existing profile:', email);
-
-  try {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .single();
-
-    if (error) {
-      // PGRST116 = "not found" error - this is normal for new users
-      if (error.code === 'PGRST116') {
-        console.log('✅ Email is new - no existing profile');
-        return null;
-      }
-      console.error('❌ Error checking email:', error);
-      return null;
-    }
-
-    if (profile) {
-      console.log(`✅ Found existing profile for email: ${profile.name}`);
-
-      // Fetch witnesses separately
-      const { data: witnesses } = await supabase
-        .from('witnesses')
-        .select('*')
-        .eq('profile_id', profile.id);
-
-      return mapProfileFromDb({ ...profile, witnesses: witnesses || [] });
-    }
-
-    return null;
-  } catch (err) {
-    console.error('❌ Unexpected error checking email:', err);
-    return null;
-  }
-}
-
-/**
- * Find an available slug by checking for collisions and appending numbers if needed
- * Example: "john-doe" -> "john-doe" (if free) or "john-doe-1" (if taken)
- */
-async function findAvailableSlug(baseSlug: string): Promise<string> {
-  console.log(`🔍 Checking availability for slug: ${baseSlug}`);
-
-  // Check if the base slug is available
-  const baseExists = await checkSlugExists(baseSlug);
-  if (!baseExists) {
-    console.log(`✅ Slug "${baseSlug}" is available`);
-    return baseSlug;
-  }
-
-  // If base slug is taken, try appending numbers
-  let attempt = 1;
-  const maxAttempts = 100; // Safety limit to prevent infinite loops
-
-  while (attempt <= maxAttempts) {
-    const candidateSlug = `${baseSlug}-${attempt}`;
-    console.log(`🔍 Checking availability for slug: ${candidateSlug}`);
-
-    const exists = await checkSlugExists(candidateSlug);
-    if (!exists) {
-      console.log(`✅ Slug "${candidateSlug}" is available`);
-      return candidateSlug;
-    }
-
-    attempt++;
-  }
-
-  // Fallback: append timestamp if we exhausted all attempts
-  const timestampSlug = `${baseSlug}-${Date.now()}`;
-  console.warn(`⚠️ Could not find available slug after ${maxAttempts} attempts. Using timestamp: ${timestampSlug}`);
-  return timestampSlug;
-}
-
-// Authentication handles profile creation via trigger
-// For Magic Link flow, we use signInWithOtp
 export async function createProfile(
   name: string,
   email: string,
   role?: string,
   linkedinUrl?: string,
   reason?: string
-): Promise<{ slug: string; isReturningUser: boolean; existingProfile?: Profile }> {
-  console.log('📧 Creating profile with email:', email);
+): Promise<void> {
+  console.log('📧 Sending magic link to:', email);
 
-  // Validate inputs
-  if (!name || !name.trim()) {
-    throw new Error('Name is required');
-  }
-  if (!email || !email.trim()) {
-    throw new Error('Email is required');
-  }
+  // We are simplifying this. The `createProfile` function will ONLY send the magic link.
+  // The actual profile creation will be handled on the AuthCallbackPage after the user
+  // has verified their email. This is a more robust and reliable flow.
 
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new Error('Invalid email format');
-  }
+  const redirectUrl = `${window.location.origin}/auth/callback`;
+  const slug = `${generateSlug(name)}-${Date.now()}`; // still generating a unique slug to pass along
 
-  // Check if this email already has a profile (for UX feedback)
-  const existingProfile = await getProfileByEmail(email);
-  const isReturningUser = !!existingProfile;
-
-  if (isReturningUser) {
-    console.log('🔄 Returning user detected:', existingProfile?.name);
-  }
-
-  // NOTE: There's a timing window where user hasn't clicked first email yet
-  // In this case, we can't detect them as "returning" until profile exists
-  // This is acceptable - Supabase prevents duplicate auth users anyway
-
-  // Generate base slug from name
-  const baseSlug = generateSlug(name);
-  console.log('🔤 Generated base slug:', baseSlug);
-
-  // Find an available slug (handles collisions)
-  const availableSlug = await findAvailableSlug(baseSlug);
-  console.log('🎯 Using slug:', availableSlug);
-
-  try {
-    const redirectUrl = `${window.location.origin}/auth/callback?slug=${availableSlug}`;
-    console.log('🔗 Redirect URL:', redirectUrl);
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          name,
-          slug: availableSlug,
-          role,
-          linkedin_url: linkedinUrl,
-          reason,
-          avatar_color: getRandomColor(),
-        },
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: redirectUrl,
+      data: {
+        name,
+        slug,
+        role,
+        linkedin_url: linkedinUrl,
+        reason,
+        avatar_color: getRandomColor(),
       },
-    });
+    },
+  });
 
-    if (error) {
-      console.error('❌ Supabase auth error:', {
-        message: error.message,
-        code: error.status,
-        details: error
-      });
-      throw error;
-    }
-
-    // Store email and firstTimePledge flag in local storage
-    localStorage.setItem('pendingVerificationEmail', email);
-    localStorage.setItem('firstTimePledge', 'true');
-
-    console.log('✅ Magic link sent successfully to:', email);
-
-    return {
-      slug: availableSlug,
-      isReturningUser,
-      existingProfile: existingProfile || undefined
-    };
-  } catch (err) {
-    console.error('❌ Error in createProfile:', err);
-    throw err;
+  if (error) {
+    console.error('❌ Supabase auth error:', error);
+    throw error;
   }
+
+  console.log('✅ Magic link sent successfully to:', email);
 }
 
+/**
+ * Adds a new witness to a user's profile.
+ * A witness is someone who has endorsed or acknowledged a user's pledge.
+ * @param {string} profileId - The UUID of the profile being witnessed.
+ * @param {string} witnessName - The name of the person witnessing the pledge.
+ * @param {string} [linkedinUrl] - An optional URL to the witness's LinkedIn profile.
+ * @returns {Promise<string | null>} A promise that resolves to the new witness's ID, or null if an error occurred.
+ */
 export async function addWitness(
   profileId: string,
   witnessName: string,
@@ -333,6 +216,13 @@ export async function addWitness(
   return data.id;
 }
 
+/**
+ * Sends a magic link to a user's email for login.
+ * This is a simplified version of `createProfile` used for logging in existing users
+ * where no profile data needs to be created or updated.
+ * @param {string} email - The email address to send the magic link to.
+ * @returns {Promise<{ error: any }>} A promise that resolves with an error object if the sign-in failed.
+ */
 export async function signInWithEmail(email: string) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -344,6 +234,12 @@ export async function signInWithEmail(email: string) {
   return { error };
 }
 
+/**
+ * Fetches the profile of the currently authenticated user.
+ * This function first gets the current user session from Supabase Auth,
+ * then uses the user's ID to fetch their full profile information.
+ * @returns {Promise<Profile | null>} A promise that resolves to the current user's profile object, or null if no user is logged in.
+ */
 export async function getCurrentUser(): Promise<Profile | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -351,11 +247,20 @@ export async function getCurrentUser(): Promise<Profile | null> {
   return getProfile(user.id);
 }
 
+/**
+ * Signs the current user out of the application.
+ * @returns {Promise<void>}
+ */
 export async function signOut() {
   await supabase.auth.signOut();
 }
 
-// Helper to map DB columns (snake_case) to frontend interface (camelCase)
+/**
+ * A private helper function to map data from the database (snake_case) to the frontend-friendly `Profile` interface (camelCase).
+ * It also ensures a valid slug exists, generating one from the user's name if necessary.
+ * @param {any} dbProfile - The raw profile object from the Supabase database.
+ * @returns {Profile} The mapped profile object.
+ */
 function mapProfileFromDb(dbProfile: any): Profile {
   // Generate a safe slug if one doesn't exist or is empty
   // Priority: 1) existing slug 2) generate from name 3) use id as fallback
@@ -392,14 +297,22 @@ function mapProfileFromDb(dbProfile: any): Profile {
   };
 }
 
+/**
+ * A private helper function to select a random color from a predefined palette.
+ * This is used to assign a default avatar color to new users.
+ * @returns {string} A hex color code.
+ */
 function getRandomColor() {
   const colors = ["#0044CC", "#002B5C", "#FFD700", "#FF6B6B", "#4ECDC4"];
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
 /**
- * Generate a URL-friendly slug from a name
+ * Generates a URL-friendly slug from a given string (typically a user's name).
+ * Converts the string to lowercase, replaces spaces with hyphens, and removes special characters.
  * Example: "John Doe" -> "john-doe"
+ * @param {string} name - The input string.
+ * @returns {string} The generated slug.
  */
 export function generateSlug(name: string): string {
   return name
@@ -411,7 +324,11 @@ export function generateSlug(name: string): string {
 }
 
 /**
- * Ensure slug uniqueness by appending a number if needed
+ * A private helper function to ensure a generated slug is unique in the database.
+ * If a slug already exists, it appends a number (e.g., "john-doe-2") and checks again until a unique slug is found.
+ * @param {string} baseSlug - The initial slug generated from a name.
+ * @param {string} [excludeId] - An optional user ID to exclude from the uniqueness check (used when updating a user's own profile).
+ * @returns {Promise<string>} A promise that resolves to a unique slug.
  */
 async function ensureUniqueSlug(baseSlug: string, excludeId?: string): Promise<string> {
   let slug = baseSlug;
@@ -436,7 +353,10 @@ async function ensureUniqueSlug(baseSlug: string, excludeId?: string): Promise<s
 }
 
 /**
- * Get profile by slug (readable URL)
+ * Fetches a single user profile by their unique, URL-friendly slug.
+ * This is the primary method for retrieving profiles for public-facing pages.
+ * @param {string} slug - The slug of the user profile to fetch.
+ * @returns {Promise<Profile | null>} A promise that resolves to the user's profile object or null if not found.
  */
 export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   console.log('🔍 Fetching profile for slug:', slug);
@@ -481,7 +401,12 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
 }
 
 /**
- * Update profile information
+ * Updates a user's profile information.
+ * This function takes a set of updates, converts them to the database's snake_case format,
+ * and applies them to the specified user profile. If the name is changed, it also regenerates and updates the slug.
+ * @param {string} id - The UUID of the user profile to update.
+ * @param {Partial<Pick<Profile, 'name' | 'role' | 'linkedinUrl' | 'reason'>>} updates - An object containing the fields to update.
+ * @returns {Promise<{ error: any }>} A promise that resolves with an error object if the update failed.
  */
 export async function updateProfile(
   id: string,
@@ -508,6 +433,12 @@ export async function updateProfile(
   return { error };
 }
 
+/**
+ * Marks a user's profile as verified.
+ * This is typically called after a user clicks the verification link in their email.
+ * @param {string} id - The UUID of the user profile to verify.
+ * @returns {Promise<{ error: any }>} A promise that resolves with an error object if the verification failed.
+ */
 export async function verifyProfile(id: string): Promise<{ error: any }> {
   const { error } = await supabase
     .from('profiles')
@@ -517,6 +448,13 @@ export async function verifyProfile(id: string): Promise<{ error: any }> {
   return { error };
 }
 
+/**
+ * Marks a specific endorsement (a witness entry) as verified.
+ * This is called when an endorser clicks the verification link in their invitation email.
+ * @param {string} profileId - The UUID of the profile that was endorsed.
+ * @param {string} witnessId - The UUID of the witness entry to verify.
+ * @returns {Promise<Profile | null>} A promise that resolves to null, as this action does not create a new user profile.
+ */
 export async function verifyEndorsement(
   profileId: string,
   witnessId: string
@@ -540,8 +478,16 @@ export async function verifyEndorsement(
 }
 
 /**
- * Send an invitation email to endorse someone's pledge
- * Uses Supabase's built-in email sending via Edge Function
+ * Sends an email invitation to a potential endorser.
+ * This function uses a Supabase Edge Function to send a templated email.
+ * The email contains a unique link that, when clicked, will verify the endorsement.
+ * @param {string} inviterProfileId - The ID of the user sending the invitation.
+ * @param {string} inviterName - The name of the user sending the invitation.
+ * @param {string} recipientFirstName - The first name of the person being invited.
+ * @param {string} recipientEmail - The email address of the person being invited.
+ * @param {string} personalMessage - A custom message from the inviter to the recipient.
+ * @param {string} profileUrl - The URL of the inviter's public profile page.
+ * @returns {Promise<{ success: boolean; error?: string }>} A promise that resolves with a success flag and an optional error message.
  */
 export async function sendEndorsementInvitation(
   inviterProfileId: string,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useUser } from "@/hooks/use-user";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, LogOutIcon, LayoutDashboardIcon, EyeIcon, SettingsIcon, Loader2Icon } from "lucide-react";
-import { useUserContext } from "@/polymet/contexts/user-context";
 
 export function SimpleNavigation() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ export function SimpleNavigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Use shared context instead of local hook
-  const { user: currentUser, isLoading, signOut } = useUserContext();
+  const { user: currentUser, isLoading, signOut } = useUser();
 
   useEffect(() => {
     const handleScroll = () => {

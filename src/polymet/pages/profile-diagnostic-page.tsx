@@ -1,3 +1,12 @@
+/**
+ * @file profile-diagnostic-page.tsx
+ * @description This is another developer-facing tool, specifically for diagnosing issues related to user profiles and slugs.
+ * A "slug" is the user-friendly URL part that identifies a user's profile.
+ * This page helps developers check if slugs are being generated correctly,
+ * identify profiles with missing slugs, and provides tools to fix them,
+ * either individually or in batches.
+ * It's an essential internal tool for maintaining data integrity and ensuring that profile URLs work correctly.
+ */
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";

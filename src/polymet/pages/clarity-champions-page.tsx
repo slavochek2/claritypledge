@@ -1,3 +1,10 @@
+/**
+ * @file clarity-champions-page.tsx
+ * @description This page displays a gallery of all the users who have signed the Polymet Peldge and have been verified.
+ * It's a public-facing page that showcases the community of "Clarity Champions".
+ * It fetches the profiles from the database and displays them in a grid,
+ * allowing visitors to see who has taken the pledge and view their profiles.
+ */
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getVerifiedProfiles, type Profile } from "@/polymet/data/api";
