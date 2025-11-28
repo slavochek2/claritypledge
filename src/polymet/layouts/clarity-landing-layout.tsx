@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
+import { SimpleNavigation } from "@/polymet/components/simple-navigation";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
@@ -16,7 +16,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {!isLandingPage && !isFullArticlePage && (
-        <ClarityNavigation />
+        <SimpleNavigation />
       )}
       <main className={!isLandingPage && !isFullArticlePage ? "pt-16 lg:pt-20" : ""}>{children}</main>
     </div>

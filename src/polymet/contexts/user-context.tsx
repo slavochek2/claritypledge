@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getProfile, signOut as apiSignOut } from '@/polymet/data/api';
 import type { Profile } from '@/polymet/types';
@@ -9,9 +9,11 @@ interface UserState {
   signOut: () => Promise<void>;
 }
 
+const UserContext = createContext<UserState | undefined>(undefined);
+
 export const PROFILE_UPDATED_EVENT = 'polymet:profile-updated'; // Deprecated but kept for compatibility
 
-export function useUser(): UserState {
+export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<(Profile & { isPending?: boolean }) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
@@ -37,24 +39,28 @@ export function useUser(): UserState {
     const initialize = async () => {
       safeSetLoading(true);
 
-      // Check for existing session first
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        // Check for existing session first
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        // User is authenticated - fetch their profile
-        try {
-          const profile = await getProfile(session.user.id);
-          safeSetUser(profile);
-        } catch (error) {
-          console.error('Error fetching profile:', error);
+        if (session?.user) {
+          // User is authenticated - fetch their profile
+          try {
+            const profile = await getProfile(session.user.id);
+            safeSetUser(profile);
+          } catch (error) {
+            console.error('Error fetching profile:', error);
+            safeSetUser(null);
+          }
+        } else {
+          // No session
           safeSetUser(null);
         }
-      } else {
-        // No session
-        safeSetUser(null);
+      } catch (err) {
+        console.error('Error initializing user session:', err);
+      } finally {
+        safeSetLoading(false);
       }
-
-      safeSetLoading(false);
     };
 
     // Set up auth state change listener
@@ -65,21 +71,23 @@ export function useUser(): UserState {
 
           safeSetLoading(true);
 
-          if (session?.user) {
-            // User signed in or session refreshed
-            try {
-              const profile = await getProfile(session.user.id);
-              safeSetUser(profile);
-            } catch (error) {
-              console.error('Error fetching profile on auth change:', error);
+          try {
+            if (session?.user) {
+              // User signed in or session refreshed
+              try {
+                const profile = await getProfile(session.user.id);
+                safeSetUser(profile);
+              } catch (error) {
+                console.error('Error fetching profile on auth change:', error);
+                safeSetUser(null);
+              }
+            } else {
+              // User signed out
               safeSetUser(null);
             }
-          } else {
-            // User signed out
-            safeSetUser(null);
+          } finally {
+            safeSetLoading(false);
           }
-
-          safeSetLoading(false);
         }
       );
     };
@@ -102,5 +110,18 @@ export function useUser(): UserState {
     setUser(null);
   };
 
-  return { user, isLoading, signOut };
+  return (
+    <UserContext.Provider value={{ user, isLoading, signOut }}>
+      {children}
+    </UserContext.Provider>
+  );
 }
+
+export function useUserContext() {
+  const context = useContext(UserContext);
+  if (context === undefined) {
+    throw new Error('useUserContext must be used within a UserProvider');
+  }
+  return context;
+}
+

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
+import { SimpleNavigation } from "@/polymet/components/simple-navigation";
 import { ClarityTaxSection } from "@/polymet/components/clarity-tax-section";
 import { HowItWorks } from "@/polymet/components/how-it-works";
 import { BenefitsSection } from "@/polymet/components/benefits-section";
@@ -59,7 +59,7 @@ export function ClarityPledgeLanding() {
   return (
     <div className="relative">
       {/* Navigation */}
-      <ClarityNavigation />
+      <SimpleNavigation />
 
       {/* 1. Clarity Tax Section (Hero) */}
       <div data-section-index="0" className={getSectionClassName(0)}>

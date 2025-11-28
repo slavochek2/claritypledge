@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { createProfile, checkSlugExists, generateSlug } from "@/polymet/data/api";
 import { useDebounce } from "@/hooks/use-debounce";
 import { triggerConfetti } from "@/lib/confetti";
@@ -20,7 +19,7 @@ export function usePledgeForm(onSuccess?: () => void) {
   const [nameError, setNameError] = useState("");
   const [isCheckingName, setIsCheckingName] = useState(false);
   
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Navigation is now handled by the page component
   const debouncedName = useDebounce(name, 500);
 
   useEffect(() => {
@@ -97,28 +96,6 @@ export function usePledgeForm(onSuccess?: () => void) {
         localStorage.removeItem('returningUserInfo');
       }
 
-      // Store complete pending profile for useUser hook and optimistic UI
-      // This matches the Profile interface to avoid "Profile Not Found" issues
-      const pendingProfile: Profile = {
-        id: 'pending-' + Date.now(), // Temporary ID
-        slug,
-        name: name.trim(),
-        email: email.trim(),
-        role: role.trim() || undefined,
-        linkedinUrl: normalizedLinkedInUrl || undefined,
-        reason: reason.trim() || undefined,
-        signedAt: new Date().toISOString(),
-        isVerified: false,
-        witnesses: [],
-        reciprocations: 0,
-        avatarColor: "#0044CC" // Default fallback color
-      };
-      
-      // Store in localStorage
-      localStorage.setItem('pendingProfile', JSON.stringify(pendingProfile));
-      // Notify components (like navigation) that profile state has changed
-      window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT));
-      
       // Store flag that this is a first-time pledge (for the welcome modal)
       localStorage.setItem('firstTimePledge', 'true');
 
@@ -129,8 +106,9 @@ export function usePledgeForm(onSuccess?: () => void) {
         onSuccess();
       }
       
-      // Redirect to the new profile page
-      navigate(`/p/${slug}?firstTime=true`);
+      // No more auto-navigation or "pending" state hacks.
+      // The Page component will handle showing the success message.
+
 
     } catch (error) {
       console.error("Error signing pledge:", error);

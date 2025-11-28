@@ -1,7 +1,8 @@
 import { render, screen, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
+import { SimpleNavigation } from "@/polymet/components/simple-navigation";
+import { UserProvider } from "@/polymet/contexts/user-context";
 import { usePledgeForm } from "@/hooks/use-pledge-form";
 
 // Mock Supabase and API
@@ -31,6 +32,7 @@ vi.mock("@/polymet/data/api", () => ({
 vi.mock("@/lib/feature-flags", () => ({
   FEATURES: {
     ALLOW_DUPLICATE_NAMES: false,
+    ALLOW_DUPLICATE_EMAILS: true
   },
 }));
 
@@ -58,7 +60,7 @@ function TestPledgeForm() {
   );
 }
 
-describe("Auth Menu Issue Reproduction", () => {
+describe("Auth Menu Stability", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -69,27 +71,27 @@ describe("Auth Menu Issue Reproduction", () => {
     vi.restoreAllMocks();
   });
 
-  it("updates menu when pledge is signed (fix verification)", async () => {
+  it("does NOT auto-login when pledge is signed (stability check)", async () => {
     // 1. Initial State: Logged out
     const { container } = render(
-      <MemoryRouter>
-        <ClarityNavigation />
-        <TestPledgeForm />
-      </MemoryRouter>
+      <UserProvider>
+        <MemoryRouter>
+          <SimpleNavigation />
+          <TestPledgeForm />
+        </MemoryRouter>
+      </UserProvider>
     );
 
     // Verify "Log In" is present (guest menu)
     await waitFor(() => {
       expect(screen.getByText("Log In")).toBeInTheDocument();
     });
-    expect(screen.queryByText("View My Pledge")).not.toBeInTheDocument();
-
+    
     // 2. Sign the pledge (simulates form submission)
     const nameInput = screen.getByPlaceholderText("Name");
     const emailInput = screen.getByPlaceholderText("Email");
     const submitBtn = screen.getByText("Submit Pledge");
 
-    // Manually trigger change events to update state
     const { fireEvent } = await import("@testing-library/react");
     
     fireEvent.change(nameInput, { target: { value: "Test User" } });
@@ -99,16 +101,14 @@ describe("Auth Menu Issue Reproduction", () => {
       fireEvent.click(submitBtn);
     });
     
-    // Wait for menu to update (Guest "Log In" should disappear)
+    // 3. Verify "Log In" is STILL present (we are waiting for email verification)
+    // The menu should NOT update to "View My Pledge" or "Dashboard"
     await waitFor(() => {
-        expect(screen.queryByText("Log In")).not.toBeInTheDocument();
+        expect(screen.getByText("Log In")).toBeInTheDocument();
     });
 
-    // Verify User Menu trigger is present
-    // The presence of this button (aria-haspopup="menu") confirms that `currentUser` is set,
-    // causing ClarityNavigation to render UserMenu instead of GuestMenu.
+    // Ensure NO user menu trigger is present
     const userMenuTrigger = container.querySelector('button[aria-haspopup="menu"]');
-    expect(userMenuTrigger).toBeInTheDocument();
+    expect(userMenuTrigger).not.toBeInTheDocument();
   });
 });
-
