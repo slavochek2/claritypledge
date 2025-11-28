@@ -11,47 +11,35 @@
  * -----------------------------------------------------------------------------
  */
 import { useState, useEffect } from 'react';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { getProfile, signOut as apiSignOut } from '@/polymet/data/api';
 import type { Profile } from '@/polymet/types';
 
 interface UserState {
   user: Profile | null;
+  session: Session | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
 }
 
 export function useUser(): UserState {
   const [user, setUser] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // This function will be called when the component mounts and on auth state changes.
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // If a session exists, fetch the user's profile.
-        const profile = await getProfile(session.user.id);
-        setUser(profile);
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    };
-
-    // We check the session once on initial load.
-    checkSession();
-
     // The onAuthStateChange listener will handle all auth events:
-    // SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, etc.
+    // SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, INITIAL_SESSION, etc.
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        setSession(session);
         if (session?.user) {
           getProfile(session.user.id).then(profile => setUser(profile));
         } else {
           setUser(null);
         }
+        setIsLoading(false);
       }
     );
 
@@ -64,7 +52,8 @@ export function useUser(): UserState {
   const signOut = async () => {
     await apiSignOut();
     setUser(null);
+    setSession(null);
   };
 
-  return { user, isLoading, signOut };
+  return { user, session, isLoading, signOut };
 }

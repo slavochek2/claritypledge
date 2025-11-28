@@ -14,43 +14,43 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
-import { getProfile } from "@/polymet/data/api";
+import { useUser } from "@/hooks/use-user";
 import { LoaderIcon } from "lucide-react";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Finalizing authentication...");
+  const { user, session, isLoading } = useUser();
 
   useEffect(() => {
-    const processAuth = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (isLoading) return;
 
-      if (sessionError || !session) {
+    const processAuth = async () => {
+      if (!session) {
         setStatus("Authentication error. Please try again.");
-        console.error("Error getting session:", sessionError);
+        console.error("No session found after loading.");
         return;
       }
 
-      const { user } = session;
-      const existingProfile = await getProfile(user.id);
-
       // If a profile already exists, the user is just logging in.
       // We can redirect them to their profile page.
-      if (existingProfile) {
+      if (user) {
         setStatus("Redirecting...");
-        navigate(`/p/${existingProfile.slug}`, { replace: true });
+        navigate(`/p/${user.slug}`, { replace: true });
         return;
       }
 
       // If no profile exists, this is a new user signing up.
       // We'll create their profile now.
       setStatus("Creating your profile...");
-      const { user_metadata } = user;
+      const { user: authUser } = session;
+      const { user_metadata } = authUser;
+      
       const { error: upsertError } = await supabase
         .from('profiles')
         .upsert({
-          id: user.id,
-          email: user.email!,
+          id: authUser.id,
+          email: authUser.email!,
           name: user_metadata.name || 'Anonymous',
           slug: user_metadata.slug,
           role: user_metadata.role,
@@ -72,7 +72,7 @@ export function AuthCallbackPage() {
     };
 
     processAuth();
-  }, [navigate]);
+  }, [isLoading, session, user, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -88,4 +88,3 @@ export function AuthCallbackPage() {
     </div>
   );
 }
-
