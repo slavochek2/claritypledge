@@ -105,14 +105,6 @@ export function ProfilePage() {
     loadProfile();
   }, [id, firstTime, currentUser, isUserLoading]); // Added isUserLoading dependency
 
-  // Handle the case where user loading completes after profile loading
-  useEffect(() => {
-    if (!isUserLoading && loading && profile === null && !currentUser) {
-      // User has finished loading, profile fetch is done, but no profile found
-      setLoading(false);
-    }
-  }, [isUserLoading, loading, profile, currentUser]);
-
   console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser);
 
   if (loading || isUserLoading) {

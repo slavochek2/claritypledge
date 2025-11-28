@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProfilePage } from "./profile-page";
@@ -115,6 +115,48 @@ describe("ProfilePage", () => {
         expect(screen.getByRole("heading", { name: mockPendingProfile.name })).toBeInTheDocument();
       }, { timeout: 3000 });
       expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
+    });
+
+    it("should NOT show 'Profile Not Found' while profile is fetching for guest user", async () => {
+      // Create a promise that we can control
+      let resolveProfile: (value: Profile | null) => void;
+      const profilePromise = new Promise<Profile | null>((resolve) => {
+        resolveProfile = resolve;
+      });
+
+      vi.mocked(api.getProfileBySlug).mockReturnValue(profilePromise as any);
+      vi.mocked(api.getProfile).mockReturnValue(Promise.resolve(null));
+
+      // User is NOT loading (guest)
+      vi.spyOn(useUser, "useUser").mockReturnValue({
+        user: null,
+        isLoading: false,
+        signOut: vi.fn(),
+      });
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Should initially show loading
+      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      
+      // Crucially: Should NOT show "Profile Not Found" yet
+      expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
+
+      // Now resolve the profile
+      await act(async () => {
+          resolveProfile!(mockProfile);
+      });
+
+      // Should show profile
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: mockProfile.name })).toBeInTheDocument();
+      });
     });
   });
 
