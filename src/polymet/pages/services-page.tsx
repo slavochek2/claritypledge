@@ -1,5 +1,5 @@
 /**
- * @file work-with-slava-page.tsx
+ * @file services-page.tsx
  * @description This page is a personal promotional page for the author, Slava.
  * It's not directly related to the pledge itself, but it's linked from the main application.
  * The page advertises a "Cognitive Clarity Audit" service,
@@ -17,7 +17,7 @@ import {
   LinkedinIcon
 } from "lucide-react";
 
-export function WorkWithSlavaPage() {
+export function ServicesPage() {
   const [formData, setFormData] = useState({
     email: "",
     bottleneck: "",

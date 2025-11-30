@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, LayoutDashboardIcon, EyeIcon, SettingsIcon, Loader2Icon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon } from "lucide-react";
 
 export function SimpleNavigation() {
   const navigate = useNavigate();
@@ -71,7 +71,7 @@ export function SimpleNavigation() {
                 to="/our-services"
                 className="text-base font-medium hover:text-primary transition-colors"
               >
-                Our Services
+                Services
               </Link>
             </div>
           )}
@@ -94,15 +94,6 @@ export function SimpleNavigation() {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuItem asChild>
                     <Link
-                      to="/dashboard"
-                      className="cursor-pointer"
-                    >
-                      <LayoutDashboardIcon className="w-4 h-4 mr-2" />
-                      Dashboard
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link
                       to={`/p/${currentUser.slug || currentUser.id}`}
                       className="cursor-pointer"
                     >
@@ -111,15 +102,6 @@ export function SimpleNavigation() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to="/settings"
-                      className="cursor-pointer"
-                    >
-                      <SettingsIcon className="w-4 h-4 mr-2" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleSignOut}
                     className="cursor-pointer"
@@ -169,14 +151,6 @@ export function SimpleNavigation() {
                 <>
                   {/* User Links */}
                   <Link
-                    to="/dashboard"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <LayoutDashboardIcon className="w-4 h-4 inline mr-2" />
-                    Dashboard
-                  </Link>
-                  <Link
                     to={`/p/${currentUser.slug || currentUser.id}`}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -185,15 +159,7 @@ export function SimpleNavigation() {
                     View My Pledge
                   </Link>
                   <div className="border-t border-border my-2"></div>
-                  {/* Settings & Logout */}
-                  <Link
-                    to="/settings"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <SettingsIcon className="w-4 h-4 inline mr-2" />
-                    Settings
-                  </Link>
+                  {/* Logout */}
                   <button
                     onClick={handleSignOut}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -223,7 +189,7 @@ export function SimpleNavigation() {
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    Our Services
+                    Services
                   </Link>
                   <Link
                     to="/login"

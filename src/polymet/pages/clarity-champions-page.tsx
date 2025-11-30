@@ -19,20 +19,12 @@ import {
 export function ClarityChampionsPage() {
   const [verifiedProfiles, setVerifiedProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [totalProfiles, setTotalProfiles] = useState(0);
 
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
         const profiles = await getVerifiedProfiles();
         setVerifiedProfiles(profiles);
-        
-        // Also fetch total count for debugging
-        const { supabase } = await import("@/lib/supabase");
-        const { count } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
-        setTotalProfiles(count || 0);
       } catch (error) {
         console.error("Failed to fetch verified profiles", error);
       } finally {
@@ -83,23 +75,6 @@ export function ClarityChampionsPage() {
           </p>
         </div>
 
-        {/* Admin Note: Only show in development */}
-        {import.meta.env.DEV && totalProfiles > verifiedProfiles.length && (
-          <div className="max-w-2xl mx-auto mb-12 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
-            <p className="text-sm text-orange-800 dark:text-orange-300">
-              <strong>Admin Note:</strong> There are{" "}
-              {totalProfiles - verifiedProfiles.length} unverified profiles in
-              the database.{" "}
-              <a
-                href="/test-db"
-                className="underline hover:text-orange-900 dark:hover:text-orange-200"
-              >
-                Go to Test DB page
-              </a>{" "}
-              to verify them.
-            </p>
-          </div>
-        )}
 
         {/* Champions Grid */}
         {loading ? (
