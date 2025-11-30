@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { AuthCallbackPage } from '../polymet/pages/auth-callback-page';
-import { useUser } from '../hooks/use-user';
+import { AuthCallbackPage, useAuth } from '@/auth';
 import { renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -62,11 +61,11 @@ describe('CRITICAL AUTH FLOW', () => {
     vi.clearAllMocks();
   });
 
-  describe('The Reader: useUser Hook', () => {
+  describe('The Reader: useAuth Hook', () => {
     it('should initialize with no user', async () => {
       mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
-      
-      const { result } = renderHook(() => useUser());
+
+      const { result } = renderHook(() => useAuth());
       
       expect(result.current.isLoading).toBe(true);
       
@@ -83,8 +82,8 @@ describe('CRITICAL AUTH FLOW', () => {
       
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(mockProfile);
-      
-      const { result } = renderHook(() => useUser());
+
+      const { result } = renderHook(() => useAuth());
       
       await waitFor(() => {
         expect(result.current.user).toEqual(mockProfile);

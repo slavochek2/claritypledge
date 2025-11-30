@@ -5,8 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
 
 // Mock useUser to simulate logged-out state
-vi.mock("@/hooks/use-user", () => ({
-  useUser: () => ({
+vi.mock("@/auth", () => ({
+  useAuth: () => ({
     user: null,
     isLoading: false,
     signOut: vi.fn(),

@@ -3,7 +3,7 @@ import { ClarityLandingLayout } from "@/polymet/layouts/clarity-landing-layout";
 import { ClarityPledgeLanding } from "@/polymet/pages/clarity-pledge-landing";
 import { ClarityChampionsPage } from "@/polymet/pages/clarity-champions-page";
 import { ProfilePage } from "@/polymet/pages/profile-page";
-import { AuthCallbackPage } from "@/polymet/pages/auth-callback-page";
+import { AuthCallbackPage } from "@/auth";
 import { ServicesPage } from "@/polymet/pages/services-page";
 import { FullArticlePage } from "@/polymet/pages/full-article-page";
 import { LoginPage } from "@/polymet/pages/login-page";

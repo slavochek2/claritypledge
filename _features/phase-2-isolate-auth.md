@@ -170,36 +170,6 @@ npm run dev
 
 **If breaks:** Stop, fix, test again.
 
----
 
-### 9. Git Commit (1 min)
-
-```bash
-git add src/auth/
-git add src/App.tsx
-git add src/polymet/components/
-git add -u
-
-git commit -m "refactor: isolate auth into /src/auth/ module
-
-- Moved use-user.ts → src/auth/useAuth.ts
-- Moved auth-callback-page.tsx → src/auth/AuthCallbackPage.tsx
-- Created public API in src/auth/index.ts
-- Updated all imports
-- Deleted old files
-
-Auth is now isolated. Signup/login still working.
-
-Next: Lock with E2E tests"
-```
-
----
-
-## ✅ Done!
-
-- [ ] Auth module created
-- [ ] All imports updated
-- [ ] Signup/login tested and working
-- [ ] Git committed
 
 **Next:** → [phase-3-e2e-tests.md](phase-3-e2e-tests.md)

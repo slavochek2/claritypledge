@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +17,7 @@ export function SimpleNavigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Use shared context instead of local hook
-  const { user: currentUser, isLoading, signOut } = useUser();
+  const { user: currentUser, isLoading, signOut } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {

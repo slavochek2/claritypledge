@@ -4,8 +4,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { ClarityPledgeLanding } from './clarity-pledge-landing';
 
 // Mock the useUser hook
-vi.mock('@/hooks/use-user', () => ({
-  useUser: () => ({
+vi.mock('@/auth', () => ({
+  useAuth: () => ({
     user: null,
     isLoading: false,
     signOut: vi.fn(),

@@ -2,11 +2,11 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ProfilePage } from "./profile-page";
-import * as useUser from "@/hooks/use-user";
+import * as auth from "@/auth";
 import * as api from "@/polymet/data/api";
 import type { Profile } from "@/polymet/types";
 
-vi.mock("@/hooks/use-user");
+vi.mock("@/auth");
 vi.mock("@/polymet/data/api");
 
 describe("ProfilePage", () => {
@@ -46,7 +46,7 @@ describe("ProfilePage", () => {
       vi.mocked(api.getProfile).mockResolvedValue(null);
 
       // Mock useUser to simulate loading state
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: true, // Key: user is still loading
         signOut: vi.fn(),
@@ -76,7 +76,7 @@ describe("ProfilePage", () => {
       vi.mocked(api.getProfile).mockResolvedValue(null);
 
       // Start with user loading
-      const useUserSpy = vi.spyOn(useUser, "useUser");
+      const useUserSpy = vi.spyOn(auth, "useAuth");
       useUserSpy.mockReturnValue({
         user: null,
         isLoading: true,
@@ -128,7 +128,7 @@ describe("ProfilePage", () => {
       vi.mocked(api.getProfile).mockReturnValue(Promise.resolve(null));
 
       // User is NOT loading (guest)
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: false,
         signOut: vi.fn(),
@@ -163,7 +163,7 @@ describe("ProfilePage", () => {
   describe("Normal Profile Loading", () => {
     it("should load and display a verified profile by slug", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: false,
         signOut: vi.fn(),
@@ -188,7 +188,7 @@ describe("ProfilePage", () => {
     it("should fallback to getProfile by ID if getProfileBySlug fails", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(mockProfile);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: false,
         signOut: vi.fn(),
@@ -214,7 +214,7 @@ describe("ProfilePage", () => {
     it("should show 'Profile Not Found' when profile does not exist and user is not loading", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(null);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: false, // Key: user is NOT loading
         signOut: vi.fn(),
@@ -239,7 +239,7 @@ describe("ProfilePage", () => {
       // This simulates the optimistic update case
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(null);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: mockPendingProfile,
         isLoading: false,
         signOut: vi.fn(),
@@ -262,7 +262,7 @@ describe("ProfilePage", () => {
     it("should show unverified banner for pending profile owner", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(null);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: mockPendingProfile,
         isLoading: false,
         signOut: vi.fn(),
@@ -290,7 +290,7 @@ describe("ProfilePage", () => {
   describe("Owner vs Visitor Views", () => {
     it("should show owner preview banner for verified profile owner", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: mockProfile,
         isLoading: false,
         signOut: vi.fn(),
@@ -322,7 +322,7 @@ describe("ProfilePage", () => {
       };
 
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: otherUser,
         isLoading: false,
         signOut: vi.fn(),
@@ -349,7 +349,7 @@ describe("ProfilePage", () => {
   describe("First Time User Flow", () => {
     it("should show welcome dialog for first-time profile owner", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: mockProfile,
         isLoading: false,
         signOut: vi.fn(),
@@ -375,7 +375,7 @@ describe("ProfilePage", () => {
       };
 
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: otherUser,
         isLoading: false,
         signOut: vi.fn(),
@@ -402,7 +402,7 @@ describe("ProfilePage", () => {
     it("should handle API errors gracefully", async () => {
       vi.mocked(api.getProfileBySlug).mockRejectedValue(new Error("API Error"));
       vi.mocked(api.getProfile).mockRejectedValue(new Error("API Error"));
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: false,
         signOut: vi.fn(),
@@ -437,7 +437,7 @@ describe("ProfilePage", () => {
         return Promise.resolve(null);
       });
 
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
         isLoading: false,
         signOut: vi.fn(),

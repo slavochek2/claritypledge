@@ -1,6 +1,12 @@
-/*
- * CRITICAL AUTHENTICATION MODULE - WRITER
- * -----------------------------------------------------------------------------
+/**
+ * @file AuthCallbackPage.tsx
+ * @module auth
+ *
+ * CRITICAL - DO NOT MODIFY WITHOUT E2E TEST APPROVAL
+ *
+ * Writer for auth system. Creates profiles after magic link verification.
+ * This is the ONLY place profiles are created (not in hooks or triggers).
+ *
  * This page is the "Writer" of the authentication system.
  * It is responsible for the critical transaction of:
  * 1. Verifying the incoming auth session
@@ -9,18 +15,17 @@
  *
  * This logic is isolated here to prevent race conditions.
  * DO NOT move this logic to a global hook or context.
- * -----------------------------------------------------------------------------
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "./useAuth";
 import { LoaderIcon } from "lucide-react";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Finalizing authentication...");
-  const { user, session, isLoading } = useUser();
+  const { user, session, isLoading } = useAuth();
 
   useEffect(() => {
     if (isLoading) return;
@@ -45,7 +50,7 @@ export function AuthCallbackPage() {
       setStatus("Creating your profile...");
       const { user: authUser } = session;
       const { user_metadata } = authUser;
-      
+
       const { error: upsertError } = await supabase
         .from('profiles')
         .upsert({

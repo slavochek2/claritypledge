@@ -17,7 +17,7 @@ import { UnverifiedProfileBanner } from "@/polymet/components/unverified-profile
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/auth";
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +25,7 @@ export function ProfilePage() {
   const firstTime = searchParams.get("firstTime") === "true";
   
   const [profile, setProfile] = useState<Profile | null>(null);
-  const { user: currentUser, isLoading: isUserLoading } = useUser();
+  const { user: currentUser, isLoading: isUserLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
 

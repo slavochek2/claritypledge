@@ -2,9 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { ClarityNavigation } from "@/polymet/components/clarity-navigation";
-import * as useUser from "@/hooks/use-user";
+import * as auth from "@/auth";
 
-vi.mock("@/hooks/use-user");
+vi.mock("@/auth");
 
 describe("Navigation Loading States - Menu Visibility", () => {
   beforeEach(() => {
@@ -14,8 +14,10 @@ describe("Navigation Loading States - Menu Visibility", () => {
   describe("Critical: Menu must never disappear during loading", () => {
     it("should show public menu when loading is true and user is null", async () => {
       // This is the critical case: during initial load, show public menu
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
+        session: null,
+        session: null,
         isLoading: true,
         signOut: vi.fn(),
       });
@@ -40,11 +42,13 @@ describe("Navigation Loading States - Menu Visibility", () => {
 
     it("should maintain menu visibility during rapid loading state changes", async () => {
       // Simulate rapid state changes: loading -> loaded -> loading
-      const useUserSpy = vi.spyOn(useUser, "useUser");
+      const useAuthSpy = vi.spyOn(auth, "useAuth");
 
       // Start: loading
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
+        session: null,
         isLoading: true,
         signOut: vi.fn(),
       });
@@ -59,8 +63,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
       expect(screen.getByText("Clarity Pledge")).toBeInTheDocument();
 
       // Change to: loaded, no user (show public menu)
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
         isLoading: false,
         signOut: vi.fn(),
       });
@@ -79,8 +84,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
       });
 
       // Change back to: loading again (simulating race condition)
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
         isLoading: true,
         signOut: vi.fn(),
       });
@@ -101,7 +107,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
     });
 
     it("should handle transition from logged-out to loading to logged-in", async () => {
-      const useUserSpy = vi.spyOn(useUser, "useUser");
+      const useAuthSpy = vi.spyOn(auth, "useAuth");
       const mockUser = {
         id: "user-123",
         slug: "test-user",
@@ -118,8 +124,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
       };
 
       // Start: logged out
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
         isLoading: false,
         signOut: vi.fn(),
       });
@@ -134,8 +141,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
       expect(screen.getByText("Log In")).toBeInTheDocument();
 
       // Transition to loading
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
         isLoading: true,
         signOut: vi.fn(),
       });
@@ -150,7 +158,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
       expect(screen.getByText("Clarity Pledge")).toBeInTheDocument();
 
       // Transition to logged in
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: mockUser,
         isLoading: false,
         signOut: vi.fn(),
@@ -172,8 +180,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
 
   describe("Menu content during different states", () => {
     it("should show public menu when not loading and no user", async () => {
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: null,
+        session: null,
         isLoading: false,
         signOut: vi.fn(),
       });
@@ -209,7 +218,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
         avatarColor: "#4A90E2",
       };
 
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: mockUser,
         isLoading: false,
         signOut: vi.fn(),
@@ -249,7 +258,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
         avatarColor: "#4A90E2",
       };
 
-      vi.spyOn(useUser, "useUser").mockReturnValue({
+      vi.spyOn(auth, "useAuth").mockReturnValue({
         user: mockPendingUser,
         isLoading: false,
         signOut: vi.fn(),
@@ -271,10 +280,11 @@ describe("Navigation Loading States - Menu Visibility", () => {
 
   describe("Edge cases and race conditions", () => {
     it("should handle multiple rapid rerenders without losing menu", async () => {
-      const useUserSpy = vi.spyOn(useUser, "useUser");
+      const useAuthSpy = vi.spyOn(auth, "useAuth");
 
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
         isLoading: true,
         signOut: vi.fn(),
       });
@@ -287,8 +297,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
 
       // Simulate 10 rapid state changes
       for (let i = 0; i < 10; i++) {
-        useUserSpy.mockReturnValue({
+        useAuthSpy.mockReturnValue({
           user: null,
+        session: null,
           isLoading: i % 2 === 0, // Toggle loading state
           signOut: vi.fn(),
         });
@@ -305,7 +316,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
     });
 
     it("should handle user changing from null to defined to null", async () => {
-      const useUserSpy = vi.spyOn(useUser, "useUser");
+      const useAuthSpy = vi.spyOn(auth, "useAuth");
       const mockUser = {
         id: "user-123",
         slug: "test-user",
@@ -322,7 +333,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
       };
 
       // Start with user
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: mockUser,
         isLoading: false,
         signOut: vi.fn(),
@@ -337,8 +348,9 @@ describe("Navigation Loading States - Menu Visibility", () => {
       expect(screen.getByText("Clarity Pledge")).toBeInTheDocument();
 
       // Remove user (sign out)
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: null,
+        session: null,
         isLoading: false,
         signOut: vi.fn(),
       });
@@ -355,7 +367,7 @@ describe("Navigation Loading States - Menu Visibility", () => {
       });
 
       // Add user back (sign in)
-      useUserSpy.mockReturnValue({
+      useAuthSpy.mockReturnValue({
         user: mockUser,
         isLoading: false,
         signOut: vi.fn(),

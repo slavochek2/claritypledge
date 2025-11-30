@@ -1,14 +1,19 @@
-/*
- * CRITICAL AUTHENTICATION MODULE - READ ONLY
- * -----------------------------------------------------------------------------
+/**
+ * @file useAuth.ts
+ * @module auth
+ *
+ * CRITICAL - DO NOT MODIFY WITHOUT E2E TEST APPROVAL
+ *
+ * Reader-only auth hook. Observes auth state, fetches profile.
+ * Does NOT create profiles or handle redirects.
+ *
  * This hook is the "Reader" of the authentication system.
  * It is responsible ONLY for:
  * 1. observing Supabase auth state changes
  * 2. fetching the user profile
  *
  * DO NOT add logic here to create users, update profiles, or handle redirects.
- * Any write operations must happen in the `auth-callback-page.tsx`.
- * -----------------------------------------------------------------------------
+ * Any write operations must happen in AuthCallbackPage.tsx.
  */
 import { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
@@ -16,14 +21,14 @@ import { supabase } from '@/lib/supabase';
 import { getProfile, signOut as apiSignOut } from '@/polymet/data/api';
 import type { Profile } from '@/polymet/types';
 
-interface UserState {
+interface AuthState {
   user: Profile | null;
   session: Session | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
 }
 
-export function useUser(): UserState {
+export function useAuth(): AuthState {
   const [user, setUser] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
