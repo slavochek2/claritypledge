@@ -224,6 +224,33 @@ interface Witness {
 - shadcn/ui patterns for UI components
 - Comprehensive console logging in data layer for debugging
 
+## Code Quality Principles
+
+### DRY (Don't Repeat Yourself)
+- Before writing new code, search for existing implementations that can be reused
+- Extract repeated logic (3+ occurrences) into shared utilities or components
+- Check these locations before creating new code:
+  - `src/lib/` - Utility functions
+  - `src/hooks/` - Shared React hooks
+  - `src/components/ui/` - Base UI components
+  - `src/app/components/` - Feature components
+
+### Avoid Duplication Checklist
+Before creating a new function, hook, or component:
+1. Search the codebase for similar functionality using grep/glob
+2. Check if an existing utility can be extended rather than duplicated
+3. If similar code exists in 2+ places, refactor into a shared location
+
+### KISS (Keep It Simple)
+- Prefer straightforward solutions over clever ones
+- Avoid premature abstraction - wait until patterns emerge
+- Three similar lines of code is often better than a premature abstraction
+
+### YAGNI (You Aren't Gonna Need It)
+- Only implement what's currently needed
+- Don't add "just in case" features or configuration
+- Delete unused code rather than commenting it out
+
 ## File Creation Rules
 
 ### NEVER create without asking:

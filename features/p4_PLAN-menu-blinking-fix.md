@@ -1,186 +1,120 @@
-# Plan: Fix Menu Blinking Issue
+# Plan: Fix Menu Blinking & Refactor Navigation
 
 **Status**: PLANNING
 **Priority**: Medium
-**Estimated Time**: 20-30 minutes
+**Estimated Time**: 25 minutes
 
 ---
 
 ## Problem Statement
 
-The navigation menu shows a visible transition during page load:
-1. Page loads → Empty space shown (loading state)
-2. Auth check completes → Menu appears (logged-in or logged-out version)
-3. **User sees a "blink" or "flash" as content appears**
-
-Current implementation in `src/polymet/components/simple-navigation.tsx`:
-```typescript
-{isLoading ? (
-  <div className="w-24 h-10" />  // ← Empty space during loading
-) : currentUser ? (
-  // User menu
-) : (
-  // Public menu
-)}
-```
-
----
-
-## User Requirement
-
-**Option B**: Show NOTHING during auth check, then show the correct menu (no visible transition)
+1.  **Blinking Issue**: Logged-in users see the "Log In" button flash briefly before their avatar appears because the app doesn't wait for the profile data to load before rendering the guest menu.
+2.  **Incoherent Navigation**:
+    *   `SimpleNavigation` has inline code for the guest menu.
+    *   There is a broken, unused file `src/app/components/navigation/guest-menu.tsx` that references a missing context (`pledge-modal-context`).
+    *   This leads to confusion and potential code duplication.
 
 ---
 
 ## Proposed Solution
 
-Use CSS visibility/opacity instead of conditional rendering to eliminate re-render flashing.
+We will kill two birds with one stone: fix the race condition and clean up the component structure.
 
-### Approach 1: CSS Visibility (Recommended)
+### 1. Fix the Logic (The Blink)
 
-**Pros**:
-- No DOM changes (elements always present)
-- Instant visibility toggle
-- No layout shift
-- Clean implementation
-
-**Cons**:
-- Elements still take up DOM space (minimal performance impact)
-
-**Implementation**:
+Derive a `showLoading` state in `SimpleNavigation`:
 ```typescript
-// Desktop menu
-<div className="hidden md:flex items-center gap-4">
-  {/* User Menu - Hidden when loading or not logged in */}
-  <div className={isLoading || !currentUser ? 'invisible' : 'visible'}>
-    <DropdownMenu>...</DropdownMenu>
-  </div>
-
-  {/* Public Menu - Hidden when loading or logged in */}
-  <div className={isLoading || currentUser ? 'invisible' : 'visible'}>
-    <Link to="/login">Log In</Link>
-    <Link to="/sign-pledge">Take the Pledge</Link>
-  </div>
-</div>
+// We are "loading" if:
+// 1. The auth check is running (isLoading)
+// 2. OR we have a session but no profile yet (fetching profile)
+const showLoading = isLoading || (!!session && !currentUser);
 ```
 
-### Approach 2: Skeleton Loading State
+### 2. Refactor Components (The Coherence)
 
-**Pros**:
-- Gives user visual feedback during loading
-- Matches final menu size (no layout shift)
-- Feels more responsive
+We will standardize the navigation components:
+1.  **Delete** the broken `src/app/components/navigation/guest-menu.tsx`.
+2.  **Create** a NEW `src/app/components/navigation/guest-menu.tsx` that contains the *actual, working* guest buttons (using `Link` to `/login` and `/sign-pledge`) currently inline in `SimpleNavigation`.
+3.  **Update** `SimpleNavigation` to use this new `GuestMenu` component.
 
-**Cons**:
-- Still technically shows something during loading
-- More code to maintain
+This ensures that "Guest Menu" means one thing: the buttons we actually use.
 
-**Implementation**:
+---
+
+## Implementation Details
+
+### Step 1: Clean Up
+- Delete `src/app/components/navigation/guest-menu.tsx`.
+
+### Step 2: Create New GuestMenu
+Create `src/app/components/navigation/guest-menu.tsx` with:
 ```typescript
-{isLoading ? (
-  <div className="flex items-center gap-4">
-    <div className="h-10 w-20 bg-gray-200 animate-pulse rounded" />
-    <div className="h-10 w-32 bg-gray-200 animate-pulse rounded" />
-  </div>
-) : currentUser ? (
-  // User menu
-) : (
-  // Public menu
-)}
+import { Link } from "react-router-dom";
+
+export function GuestMenu() {
+  return (
+    <>
+      <Link
+        to="/login"
+        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
+      >
+        Log In
+      </Link>
+      <Link
+        to="/sign-pledge"
+        className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+      >
+        Take the Pledge
+      </Link>
+    </>
+  );
+}
 ```
 
-### Approach 3: Opacity Transition
+### Step 3: Update SimpleNavigation
+Modify `src/app/components/simple-navigation.tsx`:
+1.  Import `GuestMenu` and `useAuth` (with session).
+2.  Implement `showLoading` logic.
+3.  Replace inline buttons with `<GuestMenu />`.
 
-**Pros**:
-- Smooth fade-in effect
-- Professional appearance
-- No layout shift
-
-**Cons**:
-- Slight delay in visibility (transition duration)
-- More complex CSS
-
-**Implementation**:
 ```typescript
-<div className={`hidden md:flex items-center gap-4 transition-opacity duration-200 ${
-  isLoading ? 'opacity-0' : 'opacity-100'
-}`}>
-  {currentUser ? (
-    // User menu
-  ) : (
-    // Public menu
+// ... imports
+import { GuestMenu } from "./navigation/guest-menu";
+
+export function SimpleNavigation() {
+  // ... hooks
+  const { user: currentUser, session, isLoading, signOut } = useAuth();
+  
+  // Derived state to prevent blinking
+  const showLoading = isLoading || (!!session && !currentUser);
+
+  // ... render
+  {/* Desktop Navigation - Public Links */}
+  {(!currentUser && !showLoading) && (
+     // ... Links to Manifesto, Champions, Services
   )}
-</div>
+
+  {/* CTA Buttons / User Menu */}
+  <div className="hidden md:flex items-center gap-4">
+    {showLoading ? (
+      <div className="w-24 h-10" />
+    ) : currentUser ? (
+      // User Menu (Dropdown)
+    ) : (
+      <GuestMenu />
+    )}
+  </div>
 ```
-
----
-
-## Recommended Approach
-
-**Approach 1 (CSS Visibility)** because:
-- Simplest implementation
-- Meets user requirement exactly (nothing visible during loading)
-- No performance impact
-- No layout shift
-- No transition delay
-
----
-
-## Files to Modify
-
-1. **`src/polymet/components/simple-navigation.tsx`**
-   - Desktop menu (lines ~80-131)
-   - Mobile menu (lines ~150-212)
-
----
-
-## Implementation Steps
-
-1. Update desktop menu to use CSS visibility
-2. Update mobile menu to use CSS visibility
-3. Test on dev server with page reload
-4. Verify no visible blink/flash
-5. Test with both logged-in and logged-out states
 
 ---
 
 ## Testing Checklist
 
-- [ ] Menu doesn't flash on initial page load (logged out)
-- [ ] Menu doesn't flash on page reload (logged in)
-- [ ] Correct menu appears after auth check (no wrong menu shown first)
-- [ ] Mobile menu works correctly
-- [ ] Desktop menu works correctly
-- [ ] No console errors
-- [ ] No layout shift/jumping
-
----
-
-## Alternative If Issue Persists
-
-If CSS visibility still shows some transition, consider:
-1. Pre-render both menus server-side (if using SSR)
-2. Use localStorage to remember last auth state (show cached state immediately)
-3. Accept minimal flash as unavoidable with client-side auth
-
----
+- [ ] **Code Quality**: Ensure no dead code (`pledge-modal-context` refs) remains.
+- [ ] **Logged Out**: Guest Menu appears correctly using the new component.
+- [ ] **Logged In**: No blinking. Loading gap -> User Menu.
+- [ ] **Mobile**: Ensure Mobile menu also uses the correct logic (though it might need its own inline links or a specific MobileGuestMenu if styles differ significantly). *Note: Mobile menu uses "w-full" on buttons, so we might leave mobile inline or pass a prop.*
 
 ## Time Estimate
-
 - Implementation: 15 minutes
 - Testing: 10 minutes
-- Debugging (if needed): 5 minutes
-- **Total: 20-30 minutes**
-
----
-
-## Success Criteria
-
-✅ No visible menu transition on page load
-✅ Correct menu appears immediately after ~200ms auth check
-✅ Works for both logged-in and logged-out users
-✅ Works on both desktop and mobile
-
----
-
-**Status**: Ready for implementation when prioritized
