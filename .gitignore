@@ -26,4 +26,11 @@ lerna-debug.log*
 .env.production
 .env.development
 
+# Personal/local files
+.local/
+
+# Playwright test artifacts
+test-results/
+playwright-report/
+
 

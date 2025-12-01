@@ -19,10 +19,15 @@ npm run preview          # Preview production build
 # Code Quality
 npm run lint             # Run ESLint
 
-# Testing
-npm test                 # Run all tests with Vitest
+# Unit Tests (Vitest)
+npm test                 # Run all unit tests
 npm test -- <file>       # Run specific test file
 npm test -- --watch      # Watch mode
+
+# E2E Tests (Playwright)
+npm run test:e2e         # Run all E2E tests
+npm run test:e2e:ui      # Run with Playwright UI
+npm run test:e2e:headed  # Run in headed browser
 ```
 
 ## Configuration
@@ -38,6 +43,42 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 - `@components/*` → `src/components/*`
 - `@lib/*` → `src/lib/*`
 
+## Project Structure
+
+```
+/
+├── docs/                     # Documentation (not deployed)
+│   └── technical/            # Technical guides (auth, db, testing, e2e)
+│
+├── features/                 # Feature planning
+│   ├── done/                 # Completed feature docs
+│   └── *.md                  # Active features (p4_*, p5_*, etc.)
+│
+├── e2e/                      # Playwright E2E tests
+│   └── helpers/              # Test utilities
+│
+├── src/                      # Application source code
+│   ├── app/                  # Main application
+│   │   ├── components/       # Feature components
+│   │   ├── content/          # App content (articles, copy)
+│   │   ├── data/             # API layer (api.ts)
+│   │   ├── pages/            # Route pages
+│   │   └── types/            # TypeScript interfaces
+│   ├── components/ui/        # Base UI (shadcn/ui)
+│   ├── hooks/                # Shared React hooks
+│   ├── lib/                  # Utilities (supabase clients)
+│   └── tests/                # Unit tests (Vitest)
+│
+└── supabase/                 # Database (schema.sql, RLS)
+```
+
+### Conventions
+
+- **docs/technical/** - How things work (for developers)
+- **features/** - What we're building (planning docs, prefix: `p{N}_{name}.md`)
+- **src/app/** - All application code lives here
+- **src/app/content/** - All app content (articles, copy)
+
 ## Architecture
 
 ### Authentication Flow (CRITICAL)
@@ -46,19 +87,19 @@ The authentication system uses a **Reader-Writer pattern** to prevent race condi
 
 1. **Reader** ([use-user.ts](src/hooks/use-user.ts)): Read-only hook that observes auth state and fetches user profiles. Never writes to database or handles redirects.
 
-2. **Writer** ([auth-callback-page.tsx](src/polymet/pages/auth-callback-page.tsx)): Handles the critical transaction after magic link verification:
+2. **Writer** ([auth-callback-page.tsx](src/app/pages/auth-callback-page.tsx)): Handles the critical transaction after magic link verification:
    - Verifies incoming session
    - Creates profile for new users (signup)
    - Redirects existing users to their profile (login)
 
 **DO NOT move profile creation logic to hooks or global context.** This separation is intentional to avoid race conditions that occurred in earlier implementations.
 
-### Data Layer ([api.ts](src/polymet/data/api.ts))
+### Data Layer ([api.ts](src/app/data/api.ts))
 
-All Supabase interactions go through `src/polymet/data/api.ts`. Key patterns:
+All Supabase interactions go through `src/app/data/api.ts`. Key patterns:
 
 - **`createProfile()`**: Sends magic link only. Does NOT write to database. Profile creation happens in auth callback.
-- **Database writes**: Profiles are created via `upsert()` in [auth-callback-page.tsx](src/polymet/pages/auth-callback-page.tsx:49-61) after email verification.
+- **Database writes**: Profiles are created via `upsert()` in [auth-callback-page.tsx](src/app/pages/auth-callback-page.tsx:49-61) after email verification.
 - **Profile fetching**: Profiles and witnesses are fetched separately (not via joins) to avoid Supabase PostgREST limitations.
 - **Slug generation**: Slugs are created from names (`john-doe`) and must be unique. See `generateSlug()` and `ensureUniqueSlug()`.
 
@@ -86,12 +127,12 @@ Two main tables with RLS policies:
 - Built with class-variance-authority for variants
 - Styled with Tailwind CSS
 
-**App Components** (`src/polymet/components/`):
+**App Components** (`src/app/components/`):
 - Feature components (pledge forms, certificates, witness lists)
 - Navigation components in `navigation/` subdirectory
 - Profile views split into owner/visitor views
 
-**Pages** (`src/polymet/pages/`): Route components
+**Pages** (`src/app/pages/`): Route components
 - All pages wrapped in `ClarityLandingLayout`
 - Routes defined in [App.tsx](src/App.tsx)
 
@@ -108,7 +149,7 @@ Two main tables with RLS policies:
 
 ## Type Definitions
 
-Core types in [src/polymet/types/index.ts](src/polymet/types/index.ts):
+Core types in [src/app/types/index.ts](src/app/types/index.ts):
 
 ```typescript
 interface Profile {
@@ -147,24 +188,27 @@ interface Witness {
 
 4. **Email verification**: Users aren't "verified" until they click the magic link. Profile creation happens on callback, not during signup.
 
-5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check [clarity-navigation.tsx](src/polymet/components/clarity-navigation.tsx) for current implementation.
+5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check [clarity-navigation.tsx](src/app/components/clarity-navigation.tsx) for current implementation.
 
 ## Testing
 
-Tests use Vitest + React Testing Library + jsdom:
-- Setup file: [src/tests/setup.ts](src/tests/setup.ts)
-- Test files colocated with components or in `src/tests/`
-- Critical auth flow tests in [critical-auth-flow.test.tsx](src/tests/critical-auth-flow.test.tsx)
+**Unit Tests** (Vitest + React Testing Library + jsdom):
+- Setup: [src/tests/setup.ts](src/tests/setup.ts)
+- Location: `src/tests/` or colocated with components
+- Critical tests: [critical-auth-flow.test.tsx](src/tests/critical-auth-flow.test.tsx)
 
-## Known Issues & Solutions
+**E2E Tests** (Playwright):
+- Location: `e2e/*.spec.ts`
+- Helpers: [e2e/helpers/test-user.ts](e2e/helpers/test-user.ts)
+- Config: [playwright.config.ts](playwright.config.ts)
+- Requires: `.env.test.local` with `SUPABASE_SERVICE_ROLE_KEY`
+- Full guide: [docs/technical/e2e-testing.md](docs/technical/e2e-testing.md)
 
-See README's "Common Issues" section and full troubleshooting in `TROUBLESHOOTING.md` (if it exists).
+## Known Issues
 
-Most common issues relate to:
-- Magic link auth configuration (redirect URLs)
-- Profile creation timing (should only happen in auth callback)
-- Supabase RLS policies
-- Slug uniqueness
+- Magic link auth requires correct redirect URLs in Supabase dashboard
+- Profile creation must only happen in auth callback (not hooks)
+- E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing.md](docs/technical/e2e-testing.md))
 
 ## Code Style Conventions
 
@@ -174,3 +218,29 @@ Most common issues relate to:
 - Tailwind CSS for styling (utility-first)
 - shadcn/ui patterns for UI components
 - Comprehensive console logging in data layer for debugging
+
+## File Creation Rules
+
+### NEVER create without asking:
+- README.md files in subdirectories
+- New documentation files (*.md)
+- New folders or directories
+- Configuration files
+
+### Generated artifacts (gitignored, OK to create):
+- `test-results/` - Playwright test output
+- `playwright-report/` - Playwright HTML reports
+- `dist/` - Build output
+
+### Where files go:
+| Type | Location |
+|------|----------|
+| Technical docs | `docs/technical/` |
+| Feature planning | `features/` |
+| Source code | `src/app/` |
+| Unit tests | `src/tests/` or colocated |
+| E2E tests | `e2e/` |
+| UI components | `src/components/ui/` |
+
+### When unsure:
+Ask the user before creating any new file or folder.

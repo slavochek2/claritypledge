@@ -16,4 +16,4 @@ export { useAuth } from './useAuth';
 export { AuthCallbackPage } from './AuthCallbackPage';
 
 // Re-export types for convenience
-export type { Profile } from '@/polymet/types';
+export type { Profile } from '@/app/types';

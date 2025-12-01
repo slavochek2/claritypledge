@@ -47,7 +47,7 @@ vi.mock('@/lib/supabase', () => ({
 
 // Mock API - we want to mock getProfile to control if a user "exists"
 const mockGetProfile = vi.fn();
-vi.mock('@/polymet/data/api', () => ({
+vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
   signOut: vi.fn(),
 }));
@@ -160,6 +160,9 @@ describe('CRITICAL AUTH FLOW', () => {
     });
   });
 });
+
+
+
 
 
 

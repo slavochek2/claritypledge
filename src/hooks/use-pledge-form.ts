@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createProfile } from "@/polymet/data/api";
+import { createProfile } from "@/app/data/api";
 import { triggerConfetti } from "@/lib/confetti";
 
 export function usePledgeForm(onSuccess?: () => void) {

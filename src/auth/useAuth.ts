@@ -18,8 +18,8 @@
 import { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getProfile, signOut as apiSignOut } from '@/polymet/data/api';
-import type { Profile } from '@/polymet/types';
+import { getProfile, signOut as apiSignOut } from '@/app/data/api';
+import type { Profile } from '@/app/types';
 
 interface AuthState {
   user: Profile | null;

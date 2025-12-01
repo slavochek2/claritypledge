@@ -1,13 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { ClarityLandingLayout } from "@/polymet/layouts/clarity-landing-layout";
-import { ClarityPledgeLanding } from "@/polymet/pages/clarity-pledge-landing";
-import { ClarityChampionsPage } from "@/polymet/pages/clarity-champions-page";
-import { ProfilePage } from "@/polymet/pages/profile-page";
+import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
+import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
+import { ClarityChampionsPage } from "@/app/pages/clarity-champions-page";
+import { ProfilePage } from "@/app/pages/profile-page";
 import { AuthCallbackPage } from "@/auth";
-import { ServicesPage } from "@/polymet/pages/services-page";
-import { FullArticlePage } from "@/polymet/pages/full-article-page";
-import { LoginPage } from "@/polymet/pages/login-page";
-import { SignPledgePage } from "@/polymet/pages/sign-pledge-page";
+import { ServicesPage } from "@/app/pages/services-page";
+import { FullArticlePage } from "@/app/pages/full-article-page";
+import { LoginPage } from "@/app/pages/login-page";
+import { SignPledgePage } from "@/app/pages/sign-pledge-page";
 
 export default function ClarityPledgeApp() {
   return (
