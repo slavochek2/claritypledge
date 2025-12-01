@@ -20,7 +20,7 @@ vi.mock('react-router-dom', async () => {
 
 // Mock Supabase
 const mockGetSession = vi.fn();
-const mockOnAuthStateChange = vi.fn();
+let authStateCallback: ((event: string, session: any) => void) | null = null;
 const mockUpsert = vi.fn();
 const mockFrom = vi.fn();
 
@@ -29,7 +29,13 @@ vi.mock('@/lib/supabase', () => ({
     auth: {
       getSession: () => mockGetSession(),
       onAuthStateChange: (cb: any) => {
-        mockOnAuthStateChange(cb);
+        authStateCallback = cb;
+        // Immediately fire the callback with current session state
+        setTimeout(() => {
+          mockGetSession().then((result: any) => {
+            cb('INITIAL_SESSION', result.data?.session ?? null);
+          });
+        }, 0);
         return { data: { subscription: { unsubscribe: vi.fn() } } };
       },
     },
@@ -59,6 +65,7 @@ vi.mock('@/app/data/api', () => ({
 describe('CRITICAL AUTH FLOW', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authStateCallback = null;
   });
 
   describe('The Reader: useAuth Hook', () => {

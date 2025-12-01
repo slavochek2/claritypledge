@@ -40,11 +40,24 @@ export function useAuth(): AuthState {
       (_event, session) => {
         setSession(session);
         if (session?.user) {
-          getProfile(session.user.id).then(profile => setUser(profile));
+          // Set loading true before fetching to prevent blink on subsequent auth events
+          setIsLoading(true);
+          getProfile(session.user.id)
+            .then(profile => {
+              setUser(profile);
+              setIsLoading(false);
+            })
+            .catch((error) => {
+              // On transient errors, keep existing user data to avoid false logout appearance
+              // Only log the error - session is still valid, just profile fetch failed
+              console.error('Profile fetch failed:', error);
+              setIsLoading(false);
+              // Don't setUser(null) - keep existing user data if available
+            });
         } else {
           setUser(null);
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     );
 
