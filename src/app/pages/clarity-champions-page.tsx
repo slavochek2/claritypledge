@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getVerifiedProfiles, type Profile } from "@/app/data/api";
-import { CheckCircleIcon, UsersIcon, InfoIcon, LoaderIcon } from "lucide-react";
+import { CheckCircleIcon, UsersIcon, LoaderIcon } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -89,7 +89,7 @@ export function ClarityChampionsPage() {
             {verifiedProfiles.map((profile) => (
               <Link
                 key={profile.id}
-                to={`/p/${profile.id}`}
+                to={`/p/${profile.slug}`}
                 className="group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
               >
                 {/* Avatar and Info */}

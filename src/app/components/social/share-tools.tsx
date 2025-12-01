@@ -10,15 +10,28 @@ import {
 
 interface ShareToolsProps {
   profileUrl: string;
-  name: string;
 }
 
-export function ShareTools({ profileUrl, name }: ShareToolsProps) {
+export function ShareTools({ profileUrl }: ShareToolsProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(profileUrl);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(profileUrl);
+      } else {
+        // Fallback for older browsers or non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = profileUrl;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+      }
       setCopied(true);
       toast.success("Link copied! Share it anywhere - LinkedIn, Slack, email, etc.");
       setTimeout(() => setCopied(false), 2000);
@@ -29,11 +42,10 @@ export function ShareTools({ profileUrl, name }: ShareToolsProps) {
   };
 
   const shareOnLinkedIn = () => {
-    const text = `I've taken the Clarity Pledge. I commit to explaining back what I think you've said, so you can confirm or correct my understanding.`;
     const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
       profileUrl
     )}`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (

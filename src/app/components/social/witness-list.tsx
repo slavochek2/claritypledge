@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type Witness } from "@/app/data/api";
-import { CheckCircle2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CheckCircle2Icon } from "lucide-react";
 
 interface WitnessListProps {
   witnesses: Witness[];
@@ -64,10 +64,18 @@ export function WitnessList({ witnesses }: WitnessListProps) {
           >
             <div className="flex flex-col items-center text-center gap-2">
               {/* Avatar */}
-              <div
-                className={`w-12 h-12 rounded-full ${getAvatarColor(witness.name)} flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}
-              >
-                {getInitials(witness.name)}
+              <div className="relative">
+                <div
+                  className={`w-12 h-12 rounded-full ${getAvatarColor(witness.name)} flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}
+                >
+                  {getInitials(witness.name)}
+                </div>
+                {witness.isVerified && (
+                  <CheckCircle2Icon
+                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 text-blue-600 dark:text-blue-400 bg-background rounded-full"
+                    aria-label="Verified witness"
+                  />
+                )}
               </div>
 
               {/* Name with optional LinkedIn link */}
