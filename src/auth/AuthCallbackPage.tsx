@@ -10,8 +10,11 @@
  * This page is the "Writer" of the authentication system.
  * It is responsible for the critical transaction of:
  * 1. Verifying the incoming auth session
- * 2. Creating the user profile if it doesn't exist (Sign Up)
- * 3. Redirecting the user to their profile (Sign In)
+ * 2. Upserting the user profile with is_verified=true (handles both new and existing users)
+ * 3. Redirecting the user to their profile
+ *
+ * NOTE: Always upserts to handle race condition where database trigger creates
+ * profile before this callback, leaving is_verified=false.
  *
  * This logic is isolated here to prevent race conditions.
  * DO NOT move this logic to a global hook or context.
@@ -37,31 +40,26 @@ export function AuthCallbackPage() {
         return;
       }
 
-      // If a profile already exists, the user is just logging in.
-      // We can redirect them to their profile page.
-      if (user) {
-        setStatus("Redirecting...");
-        navigate(`/p/${user.slug}`, { replace: true });
-        return;
-      }
-
-      // If no profile exists, this is a new user signing up.
-      // We'll create their profile now.
-      setStatus("Creating your profile...");
       const { user: authUser } = session;
       const { user_metadata } = authUser;
+      const isReturningUser = !!user;
+
+      // Always upsert to ensure is_verified is set to true.
+      // This handles the race condition where the database trigger creates the profile
+      // before this callback runs, leaving is_verified as false.
+      setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
       const { error: upsertError } = await supabase
         .from('profiles')
         .upsert({
           id: authUser.id,
           email: authUser.email!,
-          name: user_metadata.name || 'Anonymous',
-          slug: user_metadata.slug,
-          role: user_metadata.role,
-          linkedin_url: user_metadata.linkedin_url,
-          reason: user_metadata.reason,
-          avatar_color: user_metadata.avatar_color,
+          name: user?.name || user_metadata.name || 'Anonymous',
+          slug: user?.slug || user_metadata.slug,
+          role: user?.role || user_metadata.role,
+          linkedin_url: user?.linkedinUrl || user_metadata.linkedin_url,
+          reason: user?.reason || user_metadata.reason,
+          avatar_color: user?.avatarColor || user_metadata.avatar_color,
           is_verified: true, // They have verified their email by clicking the magic link.
         }, { onConflict: 'id' });
 
@@ -71,9 +69,10 @@ export function AuthCallbackPage() {
         return;
       }
 
-      // Profile created successfully! Redirect to the new profile page.
+      // Redirect to profile page.
       setStatus("Redirecting...");
-      navigate(`/p/${user_metadata.slug}`, { replace: true });
+      const slug = user?.slug || user_metadata.slug;
+      navigate(`/p/${slug}`, { replace: true });
     };
 
     processAuth();

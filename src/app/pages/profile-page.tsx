@@ -13,7 +13,6 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
 import { OwnerPreviewBanner } from "@/app/components/profile/owner-preview-banner";
-import { UnverifiedProfileBanner } from "@/app/components/profile/unverified-profile-banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
@@ -36,60 +35,42 @@ export function ProfilePage() {
       return;
     }
     
-    const loadProfile = async () => {
+    const loadProfile = async (retryCount = 0) => {
       // Reset loading state on navigation changes
       setLoading(true);
 
       try {
-        console.log('🔍 ProfilePage: Loading profile with ID/slug:', id);
+        console.log('🔍 ProfilePage: Loading profile with ID/slug:', id, retryCount > 0 ? `(retry ${retryCount})` : '');
 
-        // Load profile and current user in parallel for better performance
-        const profileData = await (async () => {
-            // Try to load by slug first, then fall back to ID
-            let data = await getProfileBySlug(id);
-            console.log('📊 ProfilePage: getProfileBySlug result:', data ? 'Found' : 'Not found');
-            
-            if (!data) {
-              console.log('🔄 ProfilePage: Trying getProfile with ID...');
-              data = await getProfile(id);
-              console.log('📊 ProfilePage: getProfile result:', data ? 'Found' : 'Not found');
-            }
-            
-            if (data) {
-              console.log('✅ ProfilePage: Profile loaded successfully:', {
-                id: data.id,
-                name: data.name,
-                slug: data.slug,
-                isVerified: data.isVerified
-              });
-            } else {
-              console.error('❌ ProfilePage: No profile found for:', id);
-            }
-            
-            return data;
-          })();
+        // Try to load by slug first, then fall back to ID
+        let profileData = await getProfileBySlug(id);
+        console.log('📊 ProfilePage: getProfileBySlug result:', profileData ? 'Found' : 'Not found');
 
-        // Optimistic update: check if current user matches the requested profile (by slug or pending ID)
-        // This handles the race condition where the profile is created but not yet fully indexed/available
-        // or simply when we want to show the pending state immediately.
-        if (!profileData && currentUser) {
-          const isPendingMatch = (currentUser as any).isPending && (currentUser.slug === id || currentUser.id === id);
-          if (isPendingMatch) {
-            console.log('⚡ ProfilePage: Using pending profile from currentUser hook');
-            setProfile(currentUser);
-            setLoading(false);
-            
-             // Show welcome dialog if it's a first time pledge
-            if (firstTime) {
-                setShowWelcome(true);
-                // Clear flags from local storage once user is viewing their own profile
-                localStorage.removeItem('firstTimePledge');
-                // Don't clear pendingProfile yet as we still rely on it until verified
-            }
-            return;
-          }
+        if (!profileData) {
+          console.log('🔄 ProfilePage: Trying getProfile with ID...');
+          profileData = await getProfile(id);
+          console.log('📊 ProfilePage: getProfile result:', profileData ? 'Found' : 'Not found');
         }
-        
+
+        // If profile not found but current user's slug matches, retry once after a short delay.
+        // This handles the rare case where the DB write from AuthCallbackPage hasn't propagated yet.
+        if (!profileData && currentUser && (currentUser.slug === id || currentUser.id === id) && retryCount === 0) {
+          console.log('🔄 ProfilePage: Profile not found but user matches. Retrying in 500ms...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return loadProfile(1);
+        }
+
+        if (profileData) {
+          console.log('✅ ProfilePage: Profile loaded successfully:', {
+            id: profileData.id,
+            name: profileData.name,
+            slug: profileData.slug,
+            isVerified: profileData.isVerified
+          });
+        } else {
+          console.error('❌ ProfilePage: No profile found for:', id);
+        }
+
         setProfile(profileData);
         console.log('ProfilePage: Profile data set. Profile:', profileData);
         
@@ -145,12 +126,8 @@ export function ProfilePage() {
     );
   }
 
-  const isOwner = currentUser && (currentUser.id === profile.id || (currentUser as any).isPending);
-  const isVerified = profile?.isVerified ?? false;
+  const isOwner = currentUser && currentUser.id === profile.id;
   const profileUrl = `${window.location.origin}/p/${profile?.slug || profile?.id}`;
-
-  // The unverified banner is now driven by the user state from the hook
-  const showUnverifiedBanner = isOwner && (!isVerified || (currentUser as any)?.isPending);
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
     if (!profile) return;
@@ -177,9 +154,8 @@ export function ProfilePage() {
   return (
     <>
       <div className="min-h-screen bg-background">
-        {/* Banners */}
-        {showUnverifiedBanner && <UnverifiedProfileBanner email={profile.email} />}
-        {isOwner && isVerified && !(currentUser as any)?.isPending && <OwnerPreviewBanner profileUrl={profileUrl} />}
+        {/* Owner Banner */}
+        {isOwner && <OwnerPreviewBanner profileUrl={profileUrl} />}
         
         <div className="container mx-auto max-w-5xl py-12 px-4">
           {profile && (
@@ -207,11 +183,6 @@ export function ProfilePage() {
               <p>
                 Your public promise is live!
               </p>
-              {!profile?.isVerified && (
-                <p className="text-sm bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <strong>Next step:</strong> Check your email to verify your pledge and unlock sharing tools.
-                </p>
-              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 mt-4">

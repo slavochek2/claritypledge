@@ -25,12 +25,6 @@ describe("ProfilePage", () => {
     avatarColor: "#4A90E2",
   };
 
-  const mockPendingProfile: Profile & { isPending: boolean } = {
-    ...mockProfile,
-    isVerified: false,
-    isPending: true,
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -68,8 +62,8 @@ describe("ProfilePage", () => {
     it("should show profile when user loads after initial public profile fetch fails", async () => {
       // This test simulates the complete flow:
       // 1. Public profile fetch completes with 404
-      // 2. User auth resolves with pending profile
-      // 3. Component should show the pending profile
+      // 2. User auth resolves with profile
+      // 3. Component should show "Profile Not Found" since profile doesn't exist in DB
 
       // Mock the API to return null initially
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
@@ -94,9 +88,9 @@ describe("ProfilePage", () => {
       // Initially should show loading
       expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
 
-      // Simulate user auth completing with pending profile
+      // Simulate user auth completing (profile still doesn't exist in DB)
       useUserSpy.mockReturnValue({
-        user: mockPendingProfile,
+        user: mockProfile,
         isLoading: false,
         signOut: vi.fn(),
       });
@@ -110,11 +104,10 @@ describe("ProfilePage", () => {
         </MemoryRouter>
       );
 
-      // Should now show the profile, not "Profile Not Found"
+      // Should show "Profile Not Found" since profile doesn't exist in DB
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: mockPendingProfile.name })).toBeInTheDocument();
+        expect(screen.getByText(/Profile Not Found/i)).toBeInTheDocument();
       }, { timeout: 3000 });
-      expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
     });
 
     it("should NOT show 'Profile Not Found' while profile is fetching for guest user", async () => {
@@ -231,59 +224,6 @@ describe("ProfilePage", () => {
       await waitFor(() => {
         expect(screen.getByText(/Profile Not Found/i)).toBeInTheDocument();
       });
-    });
-  });
-
-  describe("Pending Profile Handling", () => {
-    it("should display pending profile from currentUser when public profile not found", async () => {
-      // This simulates the optimistic update case
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
-      vi.mocked(api.getProfile).mockResolvedValue(null);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: mockPendingProfile,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        const nameElements = screen.queryAllByText(mockPendingProfile.name);
-        expect(nameElements.length).toBeGreaterThan(0);
-      }, { timeout: 3000 });
-    });
-
-    it("should show unverified banner for pending profile owner", async () => {
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
-      vi.mocked(api.getProfile).mockResolvedValue(null);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: mockPendingProfile,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        const nameElements = screen.queryAllByText(mockPendingProfile.name);
-        expect(nameElements.length).toBeGreaterThan(0);
-      }, { timeout: 3000 });
-
-      // Should show unverified banner for owner
-      // Note: This depends on the UnverifiedProfileBanner component rendering
-      // We're just ensuring the component renders without errors
     });
   });
 
