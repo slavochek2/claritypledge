@@ -349,8 +349,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 This E2E testing effort validates the **Reader-Writer authentication pattern** documented in [CLAUDE.md](../../CLAUDE.md):
 
-- **Reader:** [use-user.ts](../../src/hooks/use-user.ts) - Read-only hook that observes auth state
-- **Writer:** [auth-callback-page.tsx](../../src/polymet/pages/auth-callback-page.tsx) - Handles profile creation after magic link verification
+- **Reader:** [useAuth.ts](../../src/auth/useAuth.ts) - Read-only hook that observes auth state
+- **Writer:** [AuthCallbackPage.tsx](../../src/auth/AuthCallbackPage.tsx) - Handles profile creation after magic link verification
 
 The E2E tests that DO work validate:
 - Form UIs render correctly (Reader pattern)
@@ -432,7 +432,7 @@ npx playwright show-trace test-results/<test-name>/trace.zip
 
 ### Updated
 - [package.json](../../package.json) - Added Playwright dependencies + scripts
-- [simple-navigation.tsx](../../src/polymet/components/simple-navigation.tsx) - Fixed menu blinking
+- [simple-navigation.tsx](../../src/app/components/layout/simple-navigation.tsx) - Fixed menu blinking
 
 ### Deleted
 - `src/tests/auth-navigation.test.tsx`
@@ -454,7 +454,7 @@ npx playwright show-trace test-results/<test-name>/trace.zip
    - Unskip 6 tests and verify they pass
 
 ### Long-term (3-4 hours)
-1. Add integration tests for [auth-callback-page.tsx](../../src/polymet/pages/auth-callback-page.tsx)
+1. Add integration tests for [AuthCallbackPage.tsx](../../src/auth/AuthCallbackPage.tsx)
    - Test token verification logic
    - Test profile creation for new users
    - Test existing user redirect (no duplicate profiles)

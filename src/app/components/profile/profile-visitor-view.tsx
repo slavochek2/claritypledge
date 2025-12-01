@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { type Profile } from "@/app/data/api";
-import { ProfileCertificate } from "@/app/components/profile-certificate";
-import { WitnessCard } from "@/app/components/witness-card";
-import { WitnessList } from "@/app/components/witness-list";
+import { ProfileCertificate } from "@/app/components/profile/profile-certificate";
+import { WitnessCard } from "@/app/components/social/witness-card";
+import { WitnessList } from "@/app/components/social/witness-list";
 import { ShieldCheckIcon, AlertCircleIcon, HandshakeIcon } from "lucide-react";
 
 interface ProfileVisitorViewProps {

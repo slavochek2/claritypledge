@@ -6,7 +6,7 @@
  * After the user submits the form, it triggers the authentication flow (sending a magic link)
  * and shows a success message, instructing them to check their email to verify their pledge.
  */
-import { SignPledgeForm } from "@/app/components/sign-pledge-form";
+import { SignPledgeForm } from "@/app/components/pledge/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";

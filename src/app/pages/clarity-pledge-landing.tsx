@@ -8,16 +8,16 @@
  */
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { SimpleNavigation } from "@/app/components/simple-navigation";
-import { ClarityTaxSection } from "@/app/components/clarity-tax-section";
-import { HowItWorks } from "@/app/components/how-it-works";
-import { BenefitsSection } from "@/app/components/benefits-section";
-import { TargetAudience } from "@/app/components/target-audience";
-import { SignatureWall } from "@/app/components/signature-wall";
-import { ProfileCertificate } from "@/app/components/profile-certificate";
-import { FAQSection } from "@/app/components/faq-section";
-import { CTASection } from "@/app/components/cta-section";
-import { ClarityFooter } from "@/app/components/clarity-footer";
+import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { ClarityFooter } from "@/app/components/layout/clarity-footer";
+import { ClarityTaxSection } from "@/app/components/landing/clarity-tax-section";
+import { HowItWorks } from "@/app/components/landing/how-it-works";
+import { BenefitsSection } from "@/app/components/landing/benefits-section";
+import { TargetAudience } from "@/app/components/landing/target-audience";
+import { FAQSection } from "@/app/components/landing/faq-section";
+import { CTASection } from "@/app/components/landing/cta-section";
+import { SignatureWall } from "@/app/components/social/signature-wall";
+import { ProfileCertificate } from "@/app/components/profile/profile-certificate";
 
 export function ClarityPledgeLanding() {
   const [searchParams] = useSearchParams();

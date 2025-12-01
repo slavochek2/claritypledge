@@ -11,9 +11,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
-import { ProfileVisitorView } from "@/app/components/profile-visitor-view";
-import { OwnerPreviewBanner } from "@/app/components/owner-preview-banner";
-import { UnverifiedProfileBanner } from "@/app/components/unverified-profile-banner";
+import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
+import { OwnerPreviewBanner } from "@/app/components/profile/owner-preview-banner";
+import { UnverifiedProfileBanner } from "@/app/components/profile/unverified-profile-banner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";

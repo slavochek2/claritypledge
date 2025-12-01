@@ -7,7 +7,7 @@
  * manage their pledge, or view their profile.
  * It's a straightforward, single-purpose page designed to get users authenticated quickly.
  */
-import { LoginForm } from "@/app/components/login-form";
+import { LoginForm } from "@/app/components/pledge/login-form";
 
 export function LoginPage() {
   return (

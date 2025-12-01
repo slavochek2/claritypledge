@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { SimpleNavigation } from "@/app/components/simple-navigation";
+import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;

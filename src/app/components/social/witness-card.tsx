@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RecipocationCard } from "@/app/components/reciprocation-card";
+import { RecipocationCard } from "@/app/components/social/reciprocation-card";
 import { type Profile } from "@/app/data/api";
-import { useNavigate } from "react-router-dom";
 
 interface WitnessCardProps {
   profileName: string;
@@ -23,7 +22,6 @@ export function WitnessCard({
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (currentUser) {
@@ -97,10 +95,6 @@ export function WitnessCard({
       }
       createConfetti();
     }, 50);
-  };
-
-  const handleLogin = () => {
-    navigate("/signup");
   };
 
   const handleSubmit = (e: React.FormEvent) => {

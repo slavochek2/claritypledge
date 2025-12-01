@@ -61,11 +61,13 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 │
 ├── src/                      # Application source code
 │   ├── app/                  # Main application
-│   │   ├── components/       # Feature components
+│   │   ├── components/       # Feature components (organized by domain)
 │   │   ├── content/          # App content (articles, copy)
 │   │   ├── data/             # API layer (api.ts)
+│   │   ├── layouts/          # Layout components
 │   │   ├── pages/            # Route pages
 │   │   └── types/            # TypeScript interfaces
+│   ├── auth/                 # Auth module (Reader-Writer pattern)
 │   ├── components/ui/        # Base UI (shadcn/ui)
 │   ├── hooks/                # Shared React hooks
 │   ├── lib/                  # Utilities (supabase clients)
@@ -87,12 +89,14 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 The authentication system uses a **Reader-Writer pattern** to prevent race conditions:
 
-1. **Reader** ([use-user.ts](src/hooks/use-user.ts)): Read-only hook that observes auth state and fetches user profiles. Never writes to database or handles redirects.
+1. **Reader** ([useAuth.ts](src/auth/useAuth.ts)): Read-only hook that observes auth state and fetches user profiles. Never writes to database or handles redirects. Import via `import { useAuth } from '@/auth'`.
 
-2. **Writer** ([auth-callback-page.tsx](src/app/pages/auth-callback-page.tsx)): Handles the critical transaction after magic link verification:
+2. **Writer** ([AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx)): Handles the critical transaction after magic link verification:
    - Verifies incoming session
    - Creates profile for new users (signup)
    - Redirects existing users to their profile (login)
+
+The auth module (`src/auth/`) is a self-contained feature module with its own public API via `index.ts`. Import from `@/auth`, never from internal files directly.
 
 **DO NOT move profile creation logic to hooks or global context.** This separation is intentional to avoid race conditions that occurred in earlier implementations.
 
@@ -101,7 +105,7 @@ The authentication system uses a **Reader-Writer pattern** to prevent race condi
 All Supabase interactions go through `src/app/data/api.ts`. Key patterns:
 
 - **`createProfile()`**: Sends magic link only. Does NOT write to database. Profile creation happens in auth callback.
-- **Database writes**: Profiles are created via `upsert()` in [auth-callback-page.tsx](src/app/pages/auth-callback-page.tsx:49-61) after email verification.
+- **Database writes**: Profiles are created via `upsert()` in [AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx) after email verification.
 - **Profile fetching**: Profiles and witnesses are fetched separately (not via joins) to avoid Supabase PostgREST limitations.
 - **Slug generation**: Slugs are created from names (`john-doe`) and must be unique. See `generateSlug()` and `ensureUniqueSlug()`.
 
@@ -184,7 +188,7 @@ interface Witness {
 
 1. **Profile lookup**: Routes use `slug` (e.g., `/p/john-doe`), not UUID. Use `getProfileBySlug()` for routes, `getProfile(id)` when you have UUID.
 
-2. **Auth race conditions**: The app previously had issues with "Profile Not Found" errors during auth. This was fixed by isolating profile creation in `auth-callback-page.tsx`. Don't create profiles elsewhere.
+2. **Auth race conditions**: The app previously had issues with "Profile Not Found" errors during auth. This was fixed by isolating profile creation in `AuthCallbackPage.tsx` (in `src/auth/`). Don't create profiles elsewhere.
 
 3. **Witness fetching**: Always fetch witnesses separately from profiles. Nested `select()` queries don't work reliably with Supabase.
 
