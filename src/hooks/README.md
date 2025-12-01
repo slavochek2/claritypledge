@@ -35,3 +35,5 @@ import { useUser } from "@/hooks/use-user";
 
 const { user, isLoading, signOut } = useUser();
 ```
+
+

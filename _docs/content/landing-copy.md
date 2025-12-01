@@ -5,17 +5,18 @@
 *   **Menu Links:**
     *   The Manifesto
     *   Who Took The Pledge
+    *   About the Founder
 *   **CTA Button:** Take the Pledge
 
 ---
 
 ## 1. Hero Section: The Stand
-**Headline:** Eliminate Clarity Tax.
-**Subheadline:** Replace assumed with verified understanding.
+**Headline:** Stop The Mutual Hallucination.
+**Subheadline:** Replace the polite lie of "I agree" with the verified truth of "I understand."
 **Dynamic Text:** "Ensure clarity wins over **[Comfort] [Fear] [Ego]**."
 **Primary CTA:** [Take the Pledge]
 **Secondary CTA:** Read the Manifesto
-**Micro-Copy:** "Make verification of mutual understanding a cultural norm."
+**Micro-Copy:** "Join the movement to end Intellectual Moral Injury."
 
 ---
 
@@ -48,11 +49,11 @@ We pay this tax because it is not socially safe to verify understanding. Questio
 >
 > **YOUR RIGHT**
 >
-> When we talk, if you need to check whether I understood your idea in the way you meant it, please ask me to explain back to you how I understood it.
+> You have the right to know if I actually understand you. At any time, please ask me to play back what I heard. Do not let me nod if you think I am drifting.
 >
 > **MY PROMISE**
 >
-> I promise to try to explain back what I think you meant without judgment or criticism so you can confirm or correct my understanding. If I cannot follow this promise, I will explain why.
+> I promise to explain back your meaning without judgment. **Crucially, I promise not to pretend.** If I do not understand, I will not fake agreement to be polite. I will ask.
 
 ---
 

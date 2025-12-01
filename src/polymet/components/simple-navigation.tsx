@@ -52,8 +52,8 @@ export function SimpleNavigation() {
           </Link>
 
           {/* Desktop Navigation - Public Links */}
-          {/* Always show these if NOT logged in, or if loading (safe default) */}
-          {(!currentUser) && (
+          {/* Only show public links when NOT logged in AND finished loading */}
+          {(!currentUser && !isLoading) && (
             <div className="hidden md:flex items-center gap-8">
               <Link
                 to="/article"
@@ -78,7 +78,10 @@ export function SimpleNavigation() {
 
           {/* CTA Buttons / User Menu */}
           <div className="hidden md:flex items-center gap-4">
-            {currentUser ? (
+            {isLoading ? (
+              // Loading state - show nothing to prevent blink
+              <div className="w-24 h-10" />
+            ) : currentUser ? (
               // User Menu
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -112,7 +115,7 @@ export function SimpleNavigation() {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              // Public Actions (Show even when loading)
+              // Public Actions (only when NOT loading)
               <>
                 <Link
                   to="/login"
@@ -147,7 +150,9 @@ export function SimpleNavigation() {
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border bg-background">
             <div className="flex flex-col gap-4">
-              {currentUser ? (
+              {isLoading ? (
+                <div className="text-center text-sm text-muted-foreground py-2">Loading...</div>
+              ) : currentUser ? (
                 <>
                   {/* User Links */}
                   <Link

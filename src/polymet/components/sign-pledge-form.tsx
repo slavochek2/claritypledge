@@ -139,7 +139,7 @@ export function SignPledgeForm({
             </Label>
             <Input
               id="email"
-              type="email"
+              type="text"
               placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

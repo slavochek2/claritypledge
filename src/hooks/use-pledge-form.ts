@@ -21,6 +21,13 @@ export function usePledgeForm(onSuccess?: () => void) {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -37,6 +44,8 @@ export function usePledgeForm(onSuccess?: () => void) {
         reason.trim() || undefined
       );
 
+      // Store email for success page display
+      localStorage.setItem('pendingVerificationEmail', email.trim());
       localStorage.setItem('firstTimePledge', 'true');
       triggerConfetti();
       

@@ -180,6 +180,12 @@ export async function createProfile(
 
   if (error) {
     console.error('❌ Supabase auth error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      status: error.status,
+      name: error.name,
+      code: error.code
+    });
     throw error;
   }
 

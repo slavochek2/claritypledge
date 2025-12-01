@@ -24,3 +24,5 @@
 | witness_linkedin_url | text | Endorser's LinkedIn (optional) |
 | is_verified | boolean | Endorsement verified status |
 | created_at | timestamp | Endorsement timestamp |
+
+

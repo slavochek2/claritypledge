@@ -19,3 +19,5 @@ Output goes to `dist/` folder.
 - Set up environment variables
 - Configure Supabase redirect URLs
 - Update CORS settings if needed
+
+

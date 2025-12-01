@@ -21,6 +21,13 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
     e.preventDefault();
     if (!email.trim()) return;
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
@@ -76,7 +83,7 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
           </Label>
           <Input
             id="login-email"
-            type="email"
+            type="text"
             placeholder="your@email.com"
             value={email}
             onChange={(e) => {
