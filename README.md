@@ -86,41 +86,26 @@ App will be available at `http://localhost:5173`
 
 ## Project Structure
 
+See [CLAUDE.md](./CLAUDE.md) for detailed project structure and architecture documentation.
+
 ```
 polymet-clarity-pledge-app/
 ├── src/
-│   ├── lib/
-│   │   └── supabase.ts          # Supabase client configuration
-│   ├── hooks/
-│   │   ├── use-toast.ts         # Toast notifications hook
-│   │   └── use-mobile.tsx       # Mobile detection hook
-│   ├── components/
-│   │   └── ui/                  # Reusable UI components (Radix)
-│   └── polymet/                 # Main application code
-│       ├── components/          # App-specific components
-│       │   ├── clarity-hero.tsx
-│       │   ├── sign-pledge-form.tsx
-│       │   ├── profile-*.tsx
-│       │   └── ...
-│       ├── pages/               # Route pages
-│       │   ├── clarity-pledge-landing.tsx
-│       │   ├── profile-page.tsx
-│       │   ├── signatories-page.tsx
-│       │   ├── verify-email-page.tsx
-│       │   ├── debug-page.tsx   # Debug tools
-│       │   └── test-db-page.tsx # DB testing
-│       ├── data/
-│       │   └── api.ts           # Supabase API functions
-│       └── layouts/
-│           └── clarity-landing-layout.tsx
-├── supabase/                    # SQL migrations and utilities
-│   ├── migration_with_trigger.sql   # Main setup
-│   ├── diagnose.sql             # Diagnostics
-│   └── ...
-├── public/
-│   └── polymet-logo.svg
-├── TROUBLESHOOTING.md           # Detailed troubleshooting guide
-└── README.md                    # This file
+│   ├── app/                 # Main application code
+│   │   ├── components/      # Feature components
+│   │   ├── pages/           # Route pages
+│   │   ├── data/            # API layer (api.ts)
+│   │   └── types/           # TypeScript interfaces
+│   ├── auth/                # Authentication module
+│   ├── components/ui/       # Base UI components (shadcn/ui)
+│   ├── hooks/               # Shared React hooks
+│   └── lib/                 # Utilities (supabase clients)
+├── docs/                    # Documentation
+│   └── technical/           # Technical guides
+├── features/                # Feature planning docs
+├── e2e/                     # Playwright E2E tests
+├── supabase/                # Database schema and migrations
+└── CLAUDE.md                # AI agent instructions & architecture
 ```
 
 ## Key Features
@@ -189,11 +174,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 For more detailed technical information, please see the following documents:
 
-- [Database Schema](./_docs/technical/database.md)
-- [Authentication Flow](./_docs/technical/authentication.md)
-- [Deployment Guide](./_docs/technical/deployment.md)
-- [Testing Checklist](./_docs/technical/testing.md)
-- [Debugging Guide](./_docs/technical/debugging.md)
+- [Database Schema](./docs/technical/database.md)
+- [Authentication Flow](./docs/technical/authentication.md)
+- [Deployment Guide](./docs/technical/deployment.md)
+- [Testing Checklist](./docs/technical/testing.md)
+- [Debugging Guide](./docs/technical/debugging.md)
+- [E2E Testing Guide](./docs/technical/e2e-testing.md)
 
 ## Common Issues
 

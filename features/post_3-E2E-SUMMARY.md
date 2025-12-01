@@ -2,7 +2,7 @@
 
 **Completed:** 2025-11-30 to 2025-12-01
 **Status:** Infrastructure complete, 10/17 tests passing
-**Technical docs:** [_docs/technical/e2e-testing.md](../_docs/technical/e2e-testing.md)
+**Technical docs:** [docs/technical/e2e-testing.md](../docs/technical/e2e-testing.md)
 
 ---
 
@@ -86,7 +86,7 @@ Despite 6 skipped tests, we delivered significant value:
 5. **Fixed menu blinking** bug (bonus!)
 
 **Time invested:** ~6 hours
-**Technical documentation:** Complete and consolidated in `_docs/technical/`
+**Technical documentation:** Complete and consolidated in `docs/technical/`
 **Next engineer onboarding time saved:** ~4 hours (documented what doesn't work)
 
 ---
@@ -94,7 +94,7 @@ Despite 6 skipped tests, we delivered significant value:
 ## Files
 
 **Technical documentation:**
-- [_docs/technical/e2e-testing.md](../_docs/technical/e2e-testing.md) - Comprehensive E2E testing guide
+- [docs/technical/e2e-testing.md](../docs/technical/e2e-testing.md) - Comprehensive E2E testing guide
 
 **Tests:**
 - [e2e/01-signup-flow.spec.ts](../e2e/01-signup-flow.spec.ts) - 7 tests (5 passing, 2 skipped)
@@ -121,7 +121,7 @@ npm run test:e2e
 ```
 
 **Read full technical details:**
-See [_docs/technical/e2e-testing.md](../_docs/technical/e2e-testing.md)
+See [docs/technical/e2e-testing.md](../docs/technical/e2e-testing.md)
 
 **Next steps:**
 See "What We Recommend" section above

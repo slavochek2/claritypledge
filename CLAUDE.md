@@ -1,6 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance when working with code in this repository.
+This file provides guidance for AI agents working with code in this repository.
+
+**For humans:** See [README.md](./README.md) for setup instructions and deployment guide.
 
 ## Project Overview
 
@@ -263,11 +265,30 @@ Before creating a new function, hook, or component:
 | Type | Location |
 |------|----------|
 | Technical docs | `docs/technical/` |
+| Product docs (learnings, plans) | `docs/` |
 | Feature planning | `features/` |
+| BMAD workflow outputs | `docs/bmad/` |
+| BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
 | Source code | `src/app/` |
 | Unit tests | `src/tests/` or colocated |
 | E2E tests | `e2e/` |
 | UI components | `src/components/ui/` |
+
+### Documentation Folder Structure
+```
+docs/
+├── technical/          # How things work (auth, db, testing, e2e)
+├── bmad/               # BMAD workflow status files
+├── plan.md             # Product planning
+├── learnings.md        # Project learnings
+└── product-requirements.md
+
+bmad/
+└── artifacts/          # Tech-specs and sprint artifacts
+
+features/               # Feature planning docs (p{N}_{name}.md)
+└── done/               # Completed features
+```
 
 ### When unsure:
 Ask the user before creating any new file or folder.
