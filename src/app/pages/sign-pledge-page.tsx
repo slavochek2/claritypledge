@@ -66,8 +66,7 @@ export function SignPledgePage() {
         </div>
         
         <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-          Please click the link in that email to <strong>seal your pledge</strong>. 
-          Your profile will not be public until you verify your email.
+          Click the link in your email to <strong>complete your pledge</strong> and make your profile public.
         </p>
         
         <button 
