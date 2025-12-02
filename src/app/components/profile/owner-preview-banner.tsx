@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { LayoutDashboardIcon, InfoIcon, Link2Icon, CheckIcon } from "lucide-react";
+import { InfoIcon, Link2Icon, CheckIcon } from "lucide-react";
 
 interface OwnerPreviewBannerProps {
   profileUrl?: string;
@@ -37,7 +36,7 @@ export function OwnerPreviewBanner({ profileUrl }: OwnerPreviewBannerProps) {
                 You are viewing your pledge
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                This is how others see your commitment
+                Share your link to invite others to accept your pledge
               </p>
             </div>
           </div>
@@ -62,15 +61,6 @@ export function OwnerPreviewBanner({ profileUrl }: OwnerPreviewBannerProps) {
                 )}
               </Button>
             )}
-            
-            <Link to="/dashboard">
-              <Button 
-                className="bg-[#0044CC] hover:bg-[#003399] text-white shadow-sm"
-              >
-                <LayoutDashboardIcon className="w-4 h-4 mr-2" />
-                Go to Dashboard
-              </Button>
-            </Link>
           </div>
         </div>
       </div>

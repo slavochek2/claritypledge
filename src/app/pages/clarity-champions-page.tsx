@@ -1,11 +1,11 @@
 /**
  * @file clarity-champions-page.tsx
- * @description This page displays a gallery of all the users who have signed the Polymet Peldge and have been verified.
+ * @description This page displays a gallery of all the users who have signed the Clarity Pledge and have been verified.
  * It's a public-facing page that showcases the community of "Clarity Champions".
  * It fetches the profiles from the database and displays them in a grid,
  * allowing visitors to see who has taken the pledge and view their profiles.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { getVerifiedProfiles, type Profile } from "@/app/data/api";
 import { CheckCircleIcon, UsersIcon, LoaderIcon } from "lucide-react";
@@ -15,10 +15,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getInitials } from "@/lib/utils";
 
 export function ClarityChampionsPage() {
   const [verifiedProfiles, setVerifiedProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -35,15 +38,22 @@ export function ClarityChampionsPage() {
     fetchProfiles();
   }, []);
 
-  // Generate initials from name
-  const getInitials = (fullName: string) => {
-    return fullName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  // Track scroll position for dot indicators on mobile
+  useEffect(() => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+
+    const handleScroll = () => {
+      const scrollLeft = carousel.scrollLeft;
+      // Account for 85% card width + 16px gap (gap-4)
+      const cardWidth = carousel.offsetWidth * 0.85 + 16;
+      const newIndex = Math.round(scrollLeft / cardWidth);
+      setCurrentIndex(Math.min(newIndex, verifiedProfiles.length - 1));
+    };
+
+    carousel.addEventListener("scroll", handleScroll, { passive: true });
+    return () => carousel.removeEventListener("scroll", handleScroll);
+  }, [verifiedProfiles]);
 
   return (
     <div className="min-h-screen py-12 px-4">
@@ -85,13 +95,145 @@ export function ClarityChampionsPage() {
             />
           </div>
         ) : verifiedProfiles.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {verifiedProfiles.map((profile) => (
-              <Link
-                key={profile.id}
-                to={`/p/${profile.slug}`}
-                className="group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
-              >
+          <>
+            {/* Mobile: Horizontal swipe carousel */}
+            <div
+              ref={carouselRef}
+              className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {verifiedProfiles.map((profile) => (
+                <Link
+                  key={profile.id}
+                  to={`/p/${profile.slug}`}
+                  className="group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 flex-shrink-0 w-[85%] snap-center"
+                >
+                  {/* Avatar and Info */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0"
+                      style={{
+                        backgroundColor: profile.avatarColor || "#0044CC",
+                      }}
+                    >
+                      {getInitials(profile.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-lg font-bold truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {profile.name}
+                        </h3>
+                        <CheckCircleIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                      </div>
+                      {profile.role && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {profile.role}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reason - if provided */}
+                  {profile.reason && (
+                    <div className="mt-4">
+                      <p className="text-sm text-muted-foreground italic line-clamp-2">
+                        "{profile.reason}"
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                    <TooltipProvider>
+                      <div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <p className="text-2xl font-bold text-foreground">
+                                {profile.witnesses.length}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Accepted By
+                              </p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              People who accepted their commitment
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <p className="text-2xl font-bold text-foreground">
+                                {profile.reciprocations}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Inspired
+                              </p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              People inspired to take the pledge
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
+                  </div>
+
+                  {/* Signed Date */}
+                  <div className="mt-4 pt-4 border-t border-border">
+                    <p className="text-xs text-muted-foreground">
+                      Signed on{" "}
+                      {new Date(profile.signedAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* Mobile: Dot indicators */}
+            <div className="md:hidden flex justify-center gap-2 mt-4">
+              {verifiedProfiles.map((_, index) => (
+                <button
+                  key={index}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === currentIndex
+                      ? "bg-blue-600 w-4"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                  onClick={() => {
+                    const carousel = carouselRef.current;
+                    if (carousel) {
+                      const cardWidth = carousel.offsetWidth * 0.85;
+                      carousel.scrollTo({
+                        left: index * cardWidth,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
+                  aria-label={`Go to profile ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Desktop: Grid layout */}
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {verifiedProfiles.map((profile) => (
+                <Link
+                  key={profile.id}
+                  to={`/p/${profile.slug}`}
+                  className="group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
+                >
                 {/* Avatar and Info */}
                 <div className="flex items-start gap-4 mb-4">
                   <div
@@ -183,7 +325,8 @@ export function ClarityChampionsPage() {
                 </div>
               </Link>
             ))}
-          </div>
+            </div>
+          </>
         ) : (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">

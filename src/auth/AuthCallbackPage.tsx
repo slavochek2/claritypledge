@@ -28,7 +28,7 @@ import { LoaderIcon } from "lucide-react";
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Finalizing authentication...");
-  const { user, session, isLoading } = useAuth();
+  const { user, session, isLoading, refreshProfile } = useAuth();
 
   useEffect(() => {
     console.log('🔄 AuthCallback useEffect triggered:', { isLoading, hasSession: !!session, hasUser: !!user });
@@ -91,6 +91,11 @@ export function AuthCallbackPage() {
       }
       console.log('✅ Profile upsert successful!');
 
+      // Refresh profile in auth context so nav/header shows correct user data
+      // This fixes race condition where initial fetch happened before upsert completed
+      await refreshProfile();
+      console.log('✅ Profile refreshed in auth context');
+
       // Redirect to profile page.
       setStatus("Redirecting...");
       const slug = user?.slug || user_metadata.slug;
@@ -98,7 +103,7 @@ export function AuthCallbackPage() {
     };
 
     processAuth();
-  }, [isLoading, session, user, navigate]);
+  }, [isLoading, session, user, navigate, refreshProfile]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

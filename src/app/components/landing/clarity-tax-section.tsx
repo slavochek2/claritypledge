@@ -77,10 +77,10 @@ export function ClarityTaxSection() {
           </div>
 
           {/* CTAs - Low Friction */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 w-full sm:w-auto">
             <Link
               to="/sign-pledge"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all w-full sm:w-auto"
             >
               Take the Pledge
             </Link>
@@ -88,14 +88,14 @@ export function ClarityTaxSection() {
               onClick={() => navigate("/manifesto")}
               variant="outline"
               size="lg"
-              className="text-lg font-medium border-2 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 px-10 py-6 h-auto"
+              className="text-base sm:text-lg font-medium border-2 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 px-8 py-4 sm:px-10 sm:py-6 h-auto w-full sm:w-auto"
             >
               Read Manifesto
             </Button>
           </div>
 
           {/* Trust Signal */}
-          <p className="text-sm text-muted-foreground flex items-center justify-center gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
             <span className="inline-flex items-center gap-1">
               <svg
                 className="w-4 h-4 text-blue-500"
@@ -110,7 +110,7 @@ export function ClarityTaxSection() {
               </svg>
               Free
             </span>
-            <span className="text-muted-foreground/50">•</span>
+            <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
               <svg
                 className="w-4 h-4 text-blue-500"
@@ -125,7 +125,7 @@ export function ClarityTaxSection() {
               </svg>
               Join the movement
             </span>
-            <span className="text-muted-foreground/50">•</span>
+            <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
               <svg
                 className="w-4 h-4 text-blue-500"

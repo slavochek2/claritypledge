@@ -1,3 +1,5 @@
+import { getInitials } from "@/lib/utils";
+
 interface ProfileCertificateProps {
   name: string;
   signedAt: string;
@@ -13,16 +15,6 @@ export function ProfileCertificate({
   role,
   linkedinUrl,
 }: ProfileCertificateProps) {
-  // Generate initials from name
-  const getInitials = (fullName: string) => {
-    return fullName
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <div
       className="relative rounded-lg p-8 md:p-12 bg-[#FDFBF7] dark:bg-card shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)]"
@@ -108,9 +100,9 @@ export function ProfileCertificate({
         </div>
 
         {/* Bottom Section - Signature Layout */}
-        <div className="pt-6 border-t-2 border-[#002B5C] dark:border-border grid grid-cols-3 gap-4 items-end">
+        <div className="pt-6 border-t-2 border-[#002B5C] dark:border-border grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-4 items-center sm:items-end">
           {/* Bottom Left: Name, Title, Avatar */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 justify-center sm:justify-start order-2 sm:order-1">
             {/* Avatar with Initials */}
             <div className="w-14 h-14 rounded-full bg-[#0044CC] dark:bg-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
               {getInitials(name)}
@@ -164,7 +156,7 @@ export function ProfileCertificate({
           </div>
 
           {/* Bottom Center: Official Seal */}
-          <div className="flex justify-center">
+          <div className="flex justify-center order-1 sm:order-2">
             <div className="relative">
               {isVerified ? (
                 <>
@@ -221,7 +213,7 @@ export function ProfileCertificate({
           </div>
 
           {/* Bottom Right: Date */}
-          <div className="text-right">
+          <div className="text-center sm:text-right order-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
               Date
             </p>

@@ -10,7 +10,7 @@
  *
  * This separation prevents race conditions from multiple onAuthStateChange events.
  */
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { getProfile, signOut as apiSignOut } from '@/app/data/api';
@@ -21,6 +21,7 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -34,17 +35,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Track user state via ref to avoid stale closure in useEffect
+  // This prevents the ESLint exhaustive-deps warning without causing infinite loops
+  const userRef = useRef<Profile | null>(null);
+
   // Effect 1: Session management only
   // This follows Supabase's recommended pattern - onAuthStateChange just updates session
   useEffect(() => {
     // Get initial session
     const initSession = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      console.log('🔐 AuthContext: Initial session:', initialSession ? 'Found' : 'None');
-      setSession(initialSession);
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
 
-      // Only set loading false here if NO session (profile effect won't run)
-      if (!initialSession) {
+        if (error) {
+          console.error('🔐 AuthContext: Error getting session:', error);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('🔐 AuthContext: Initial session:', initialSession ? 'Found' : 'None');
+        setSession(initialSession);
+
+        // Only set loading false here if NO session (profile effect won't run)
+        if (!initialSession) {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('🔐 AuthContext: Failed to get session:', error);
         setIsLoading(false);
       }
     };
@@ -72,31 +89,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // This prevents re-fetching when Supabase fires multiple SIGNED_IN events
   const userId = session?.user?.id;
 
+  // Shared profile fetch logic - used by both effect and manual refresh
+  const fetchProfileForUser = async (id: string): Promise<Profile | null> => {
+    console.log('🔐 AuthContext: Fetching profile for:', id);
+    try {
+      const profile = await getProfile(id);
+      console.log('🔐 AuthContext: Profile loaded:', profile?.name ?? 'Not found');
+      return profile;
+    } catch (error) {
+      console.error('🔐 AuthContext: Failed to fetch profile:', error);
+      // Return null on error, but caller decides whether to update state
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchProfile = async () => {
       if (userId) {
-        console.log('🔐 AuthContext: Fetching profile for:', userId);
         setIsLoading(true);
+        const profile = await fetchProfileForUser(userId);
 
-        try {
-          const profile = await getProfile(userId);
-          console.log('🔐 AuthContext: Profile loaded:', profile?.name ?? 'Not found');
+        // Only update user state if we got a valid profile OR if user was null
+        // This prevents wiping existing user data on transient network errors
+        if (profile !== null) {
           setUser(profile);
-        } catch (error) {
-          console.error('🔐 AuthContext: Failed to fetch profile:', error);
+          userRef.current = profile;
+        } else if (userRef.current === null) {
+          // Profile not found and we have no cached user - this is a new/deleted user
           setUser(null);
-        } finally {
-          setIsLoading(false);
         }
+        // If profile fetch failed but we have cached user, keep the cached user
+        // (handles transient network errors without logging user out)
+
+        setIsLoading(false);
       } else {
         // No session = no user, loading complete
         setUser(null);
+        userRef.current = null;
         setIsLoading(false);
       }
     };
 
     fetchProfile();
   }, [userId]); // Only runs when user ID actually changes (primitive comparison)
+
+  // Manual refresh - called by AuthCallbackPage after profile upsert
+  const refreshProfile = async () => {
+    if (!userId) {
+      console.warn('🔐 AuthContext: Cannot refresh profile - no user ID');
+      return;
+    }
+
+    console.log('🔐 AuthContext: Manual profile refresh requested');
+    const profile = await fetchProfileForUser(userId);
+
+    if (profile) {
+      setUser(profile);
+    }
+    // On failure, keep existing user state (don't wipe on transient errors)
+  };
 
   const signOut = async () => {
     try {
@@ -112,7 +163,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

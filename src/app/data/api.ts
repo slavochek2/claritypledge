@@ -68,6 +68,89 @@ export async function getProfile(id: string): Promise<Profile | null> {
 }
 
 /**
+ * Fetches featured verified profiles for the landing page.
+ * Returns up to 6 verified profiles, prioritizing those with reasons.
+ * Ordering: profiles with reasons first (most recent), then profiles without reasons (most recent).
+ * @returns {Promise<Profile[]>} A promise that resolves to an array of up to 6 verified profile objects.
+ */
+export async function getFeaturedProfiles(): Promise<Profile[]> {
+  console.log('🔍 Fetching featured profiles (up to 6, reason-first)...');
+
+  try {
+    const selectFields = 'id, slug, name, role, reason, avatar_color, created_at, is_verified';
+
+    // First query: profiles WITH non-empty reasons (prioritized)
+    const { data: withReasons, error: withReasonsError } = await supabase
+      .from('profiles')
+      .select(selectFields)
+      .eq('is_verified', true)
+      .not('reason', 'is', null)
+      .neq('reason', '')
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    if (withReasonsError) {
+      console.error('❌ Error fetching profiles with reasons:', withReasonsError);
+      return [];
+    }
+
+    // Filter out whitespace-only reasons
+    const validWithReasons = (withReasons || []).filter(
+      p => p.reason && p.reason.trim().length > 0
+    );
+
+    console.log('✅ Profiles with reasons:', validWithReasons.length);
+
+    // If we have 6 profiles with reasons, we're done
+    if (validWithReasons.length >= 6) {
+      return validWithReasons.slice(0, 6).map(p => mapProfileFromDb({ ...p, witnesses: [] }));
+    }
+
+    // Backfill: fetch profiles WITHOUT reasons to fill remaining slots
+    const remaining = 6 - validWithReasons.length;
+    const existingIds = validWithReasons.map(p => p.id);
+
+    // Build query - only add exclusion filter if we have IDs to exclude
+    // Empty `()` in PostgREST is invalid syntax, so skip when no IDs
+    let backfillQuery = supabase
+      .from('profiles')
+      .select(selectFields)
+      .eq('is_verified', true)
+      .order('created_at', { ascending: false })
+      .limit(remaining);
+
+    if (existingIds.length > 0) {
+      backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.join(',')})`);
+    }
+
+    const { data: withoutReasons, error: withoutReasonsError } = await backfillQuery;
+
+    if (withoutReasonsError) {
+      console.warn('⚠️ Error fetching backfill profiles (non-fatal):', withoutReasonsError);
+      // Continue with what we have
+    }
+
+    // Filter backfill to only include profiles without valid reasons
+    const validWithoutReasons = (withoutReasons || []).filter(
+      p => !p.reason || p.reason.trim().length === 0
+    );
+
+    const combined = [...validWithReasons, ...validWithoutReasons];
+    console.log('✅ Featured profiles fetched:', combined.length, '(with reasons:', validWithReasons.length, ', backfill:', validWithoutReasons.length, ')');
+
+    if (combined.length === 0) {
+      console.log('ℹ️ No verified profiles found for featured section');
+      return [];
+    }
+
+    return combined.map(p => mapProfileFromDb({ ...p, witnesses: [] }));
+  } catch (err) {
+    console.error('❌ Unexpected error in getFeaturedProfiles:', err);
+    return [];
+  }
+}
+
+/**
  * Fetches all profiles that have been marked as verified.
  * This is used to populate the "Clarity Champions" page, showcasing all users who have completed the pledge process.
  * The function also fetches and attaches all witnesses for each profile.

@@ -3,7 +3,7 @@ import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { ClarityChampionsPage } from "@/app/pages/clarity-champions-page";
 import { ProfilePage } from "@/app/pages/profile-page";
-import { AuthCallbackPage } from "@/auth";
+import { AuthCallbackPage, AuthProvider } from "@/auth";
 import { ServicesPage } from "@/app/pages/services-page";
 import { FullArticlePage } from "@/app/pages/full-article-page";
 import { LoginPage } from "@/app/pages/login-page";
@@ -12,6 +12,7 @@ import { SignPledgePage } from "@/app/pages/sign-pledge-page";
 export default function ClarityPledgeApp() {
   return (
     <Router>
+      <AuthProvider>
       <Routes>
         <Route
           path="/"
@@ -94,6 +95,7 @@ export default function ClarityPledgeApp() {
           }
         />
       </Routes>
+      </AuthProvider>
     </Router>
   );
 }

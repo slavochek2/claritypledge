@@ -150,23 +150,15 @@ export function FullArticlePage() {
             {!isLoadingUser && (
               <>
                 {currentUser ? (
-                  <>
-                    <Link
-                      to={`/dashboard`}
-                      className="text-sm font-medium hover:text-primary transition-colors hidden sm:block"
-                    >
-                      Dashboard
-                    </Link>
-                    <Button
-                      onClick={handleSignOut}
-                      variant="outline"
-                      size="sm"
-                      className="gap-1"
-                    >
-                      <LogOutIcon className="w-3 h-3" />
-                      <span className="hidden sm:inline">Log Out</span>
-                    </Button>
-                  </>
+                  <Button
+                    onClick={handleSignOut}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                  >
+                    <LogOutIcon className="w-3 h-3" />
+                    <span className="hidden sm:inline">Log Out</span>
+                  </Button>
                 ) : (
                   <Link
                     to="/sign-pledge"

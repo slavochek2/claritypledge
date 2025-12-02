@@ -2,19 +2,10 @@ import { useState } from "react";
 import { type Witness } from "@/app/data/api";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2Icon } from "lucide-react";
+import { getInitials } from "@/lib/utils";
 
 interface WitnessListProps {
   witnesses: Witness[];
-}
-
-// Helper function to get initials from name
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 // Helper function to generate consistent color from name

@@ -48,50 +48,52 @@ export function ProfileVisitorView({
         />
       </div>
 
-      {/* What [Name] Is Offering You */}
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-card border border-border rounded-xl p-10 md:p-12 shadow-sm">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">
-            Your benefits
-          </h2>
-          <div className="text-center mb-12 leading-relaxed space-y-3">
-            <p className="text-lg md:text-xl text-muted-foreground">
-              Asking to repeat back what you understood
-              <br className="hidden md:block" /> feels rude and awkward.
-            </p>
-            <p className="text-base md:text-lg font-medium text-foreground">
-              Clarity Pledge is the fix.
-            </p>
-          </div>
-
-          <div className="space-y-8">
-            <div className="flex items-center gap-6 group">
-              <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#0044CC]/20 dark:group-hover:bg-blue-500/20">
-                <ShieldCheckIcon className="w-8 h-8 text-[#0044CC] dark:text-blue-400" />
-              </div>
-              <h3 className="text-xl md:text-2xl font-semibold">
-                Prevent Conflicts
-              </h3>
+      {/* What [Name] Is Offering You - Only show to visitors */}
+      {!isOwner && (
+        <div className="max-w-3xl mx-auto">
+          <div className="bg-card border border-border rounded-xl p-10 md:p-12 shadow-sm">
+            <h2 className="text-2xl md:text-3xl font-bold text-center mb-4">
+              Your benefits
+            </h2>
+            <div className="text-center mb-12 leading-relaxed space-y-3">
+              <p className="text-lg md:text-xl text-muted-foreground">
+                Asking to repeat back what you understood
+                <br className="hidden md:block" /> feels rude and awkward.
+              </p>
+              <p className="text-base md:text-lg font-medium text-foreground">
+                Clarity Pledge is the fix.
+              </p>
             </div>
 
-            <div className="flex items-center gap-6 group">
-              <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#0044CC]/20 dark:group-hover:bg-blue-500/20">
-                <AlertCircleIcon className="w-8 h-8 text-[#0044CC] dark:text-blue-400" />
+            <div className="space-y-8">
+              <div className="flex items-center gap-6 group">
+                <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#0044CC]/20 dark:group-hover:bg-blue-500/20">
+                  <ShieldCheckIcon className="w-8 h-8 text-[#0044CC] dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl md:text-2xl font-semibold">
+                  Prevent Conflicts
+                </h3>
               </div>
-              <h3 className="text-xl md:text-2xl font-semibold">
-                Eliminate Errors
-              </h3>
-            </div>
 
-            <div className="flex items-center gap-6 group">
-              <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#0044CC]/20 dark:group-hover:bg-blue-500/20">
-                <HandshakeIcon className="w-8 h-8 text-[#0044CC] dark:text-blue-400" />
+              <div className="flex items-center gap-6 group">
+                <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#0044CC]/20 dark:group-hover:bg-blue-500/20">
+                  <AlertCircleIcon className="w-8 h-8 text-[#0044CC] dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl md:text-2xl font-semibold">
+                  Eliminate Errors
+                </h3>
               </div>
-              <h3 className="text-xl md:text-2xl font-semibold">Build Trust</h3>
+
+              <div className="flex items-center gap-6 group">
+                <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:bg-[#0044CC]/20 dark:group-hover:bg-blue-500/20">
+                  <HandshakeIcon className="w-8 h-8 text-[#0044CC] dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl md:text-2xl font-semibold">Build Trust</h3>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Why They Took This Pledge - Personal story for emotional connection */}
       {profile.reason && (
