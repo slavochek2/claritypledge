@@ -120,7 +120,7 @@ export async function getFeaturedProfiles(): Promise<Profile[]> {
       .limit(remaining);
 
     if (existingIds.length > 0) {
-      backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.map(id => `"${id}"`).join(',')})`);
+      backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.join(',')})`);
     }
 
     const { data: withoutReasons, error: withoutReasonsError } = await backfillQuery;

@@ -158,21 +158,6 @@ export function ProfileVisitorView({
         </div>
       )}
       
-      {/* Owner viewing their own pledge - show message instead */}
-      {isOwner && (
-        <div className="max-w-2xl mx-auto">
-          <div className="border-2 border-blue-200 dark:border-blue-800 rounded-lg p-8 bg-blue-50/50 dark:bg-blue-950/20">
-            <div className="text-center space-y-3">
-              <p className="text-lg font-semibold text-foreground">
-                This is how others see your pledge
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Share your pledge link to invite people to accept your commitment to clarity
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

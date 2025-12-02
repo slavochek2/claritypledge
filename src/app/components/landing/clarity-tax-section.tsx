@@ -1,30 +1,12 @@
-import { Button } from "@/components/ui/button";
-import { RefreshCwIcon, AlertTriangleIcon, ShieldOffIcon } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export function ClarityTaxSection() {
   const [isLoaded, setIsLoaded] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     setIsLoaded(true);
   }, []);
-
-  const painPoints = [
-    {
-      icon: RefreshCwIcon,
-      title: "Rework",
-    },
-    {
-      icon: AlertTriangleIcon,
-      title: "Mistakes",
-    },
-    {
-      icon: ShieldOffIcon,
-      title: "Mistrust",
-    },
-  ];
 
   return (
     <section className="relative px-4 py-20 lg:py-32">
@@ -37,61 +19,30 @@ export function ClarityTaxSection() {
           {/* Headline - Benefit-Driven */}
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              Prevent dangerous{" "}
+              Achieve clarity.{" "}
               <span
                 className={`text-blue-500 inline-block transition-all duration-1000 delay-300 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                misunderstandings
+                Prevent misunderstandings.
               </span>
             </h1>
 
-            {/* Sub-headline - Problem Definition (No Box!) */}
+            {/* Sub-headline - Value Proposition */}
             <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              Asking to{" "}
-              <span className="text-foreground font-medium">
-                repeat back what you understood
-              </span>{" "}
-              feels rude and awkward. Fix it with the Clarity Pledge.
+              A public commitment to verify understanding — so nobody has to guess.
             </p>
           </div>
 
-          {/* Pain Points - PRIMARY Visual Hierarchy */}
-          <div className="flex flex-wrap justify-center gap-3 lg:gap-4">
-            {painPoints.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={index}
-                  className="inline-flex items-center gap-2 px-5 py-3 bg-destructive/10 dark:bg-destructive/20 border-2 border-destructive/20 dark:border-destructive/30 rounded-full"
-                >
-                  <Icon className="w-5 h-5 text-destructive" />
-
-                  <span className="text-base lg:text-lg font-semibold text-foreground">
-                    {item.title}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* CTAs - Low Friction */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-4 w-full sm:w-auto">
+          {/* CTA - Single Primary Action */}
+          <div className="flex items-center justify-center pt-4">
             <Link
               to="/sign-pledge"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
             >
-              Take the Pledge
+              Take the Clarity Pledge
             </Link>
-            <Button
-              onClick={() => navigate("/manifesto")}
-              variant="outline"
-              size="lg"
-              className="text-base sm:text-lg font-medium border-2 border-blue-500 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950 px-8 py-4 sm:px-10 sm:py-6 h-auto w-full sm:w-auto"
-            >
-              Read Manifesto
-            </Button>
           </div>
 
           {/* Trust Signal */}

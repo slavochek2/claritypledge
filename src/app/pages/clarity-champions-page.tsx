@@ -99,13 +99,8 @@ export function ClarityChampionsPage() {
             {/* Mobile: Horizontal swipe carousel */}
             <div
               ref={carouselRef}
-              className="md:hidden pb-4 -mx-4 px-4"
+              className="md:hidden flex flex-row flex-nowrap gap-4 overflow-x-auto pb-4 -mx-4 px-4"
               style={{
-                display: "flex",
-                flexDirection: "row",
-                flexWrap: "nowrap",
-                gap: "16px",
-                overflowX: "auto",
                 scrollSnapType: "x mandatory",
                 scrollbarWidth: "none",
                 msOverflowStyle: "none",

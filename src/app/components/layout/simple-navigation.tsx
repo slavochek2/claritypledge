@@ -66,8 +66,8 @@ export function SimpleNavigation() {
           </Link>
 
           {/* Desktop Navigation - Public Links (visible to all users) */}
-          {/* Absolutely centered so links don't shift when right-side content changes */}
-          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+          {/* Centered on lg+; on md uses flex-1 to avoid overlap with logo/CTAs */}
+          <div className="hidden md:flex items-center justify-center gap-6 lg:gap-8 flex-1 lg:flex-none lg:absolute lg:left-1/2 lg:-translate-x-1/2">
             <Link
               to="/article"
               className="text-base font-medium hover:text-primary transition-colors"

@@ -1,7 +1,7 @@
 # Tech-Spec: Profile Sharing Experience v2 - Chunk 1
 
 **Created:** 2025-12-02
-**Status:** Ready for Development
+**Status:** Completed
 **UX Reference:** [ux-profile-sharing-v2.md](../../docs/bmad/ux-profile-sharing-v2.md)
 
 ## Overview
@@ -70,73 +70,72 @@ Transform the owner profile page experience by:
 
 ### Tasks
 
-- [ ] **Task 1:** Install `qrcode.react` dependency
+- [x] **Task 1:** Install `qrcode.react` dependency
   ```bash
   npm install qrcode.react
   ```
 
-- [ ] **Task 2:** Create `ShareHub` component
+- [x] **Task 2:** Create `ShareHub` component
   - Location: `src/app/components/profile/share-hub.tsx`
-  - Props: `profileUrl: string`, `profileName: string`, `userEmail: string`
+  - Props: `profileUrl: string`, `profileName: string`
   - Layout: 2x2 grid on desktop, stacked on mobile
   - Include: Copy Link, QR Code, LinkedIn Share, Email Invite
 
-- [ ] **Task 3:** Implement QR Code card in ShareHub
+- [x] **Task 3:** Implement QR Code card in ShareHub
   - Display QR code that encodes `profileUrl`
   - Size: ~150px, scannable at arm's length
   - Label: "Show QR Code" or always visible with "Scan to view pledge"
 
-- [ ] **Task 4:** Implement Email Invite card in ShareHub
+- [x] **Task 4:** Implement Email Invite card in ShareHub
   - Button opens `mailto:` link
   - Pre-filled:
     - To: (empty - user fills in recipient)
     - Subject: `[Name] invited you to accept their Clarity Pledge`
     - Body: Template with profile URL and brief explanation
 
-- [ ] **Task 5:** Migrate Copy Link and LinkedIn from `share-tools.tsx` to `ShareHub`
+- [x] **Task 5:** Migrate Copy Link and LinkedIn from `share-tools.tsx` to `ShareHub`
   - Reuse existing clipboard logic with fallback
   - Reuse LinkedIn share URL construction
   - Keep toast notifications
 
-- [ ] **Task 6:** Update `profile-visitor-view.tsx`
+- [x] **Task 6:** Update `profile-visitor-view.tsx`
   - Remove the owner-only box at the bottom (lines 162-175) that says "This is how others see your pledge"
 
-- [ ] **Task 7:** Update `owner-preview-banner.tsx`
+- [x] **Task 7:** Update `owner-preview-banner.tsx`
   - Simplify to just show "Your Pledge" or "Viewing your pledge"
   - Remove the Copy Link button (now in Share Hub)
   - Keep the blue styling as a visual indicator
 
-- [ ] **Task 8:** Integrate ShareHub into `profile-page.tsx`
+- [x] **Task 8:** Integrate ShareHub into `profile-page.tsx`
   - Show `<ShareHub>` only when `isOwner === true`
   - Position: After the certificate, before the witness list
-  - Pass `profileUrl`, `profile.name`, `profile.email`
+  - Pass `profileUrl`, `profile.name`
 
-- [ ] **Task 9:** Clean up orphaned `share-tools.tsx`
-  - Either delete if fully replaced, or keep as utility if any logic is reused elsewhere
+- [x] **Task 9:** Clean up orphaned `share-tools.tsx`
+  - Deleted - fully replaced by ShareHub
 
-- [ ] **Task 10:** Test all sharing methods
-  - Copy link works on desktop and mobile
-  - QR code scans correctly to profile URL
-  - LinkedIn opens share dialog with correct URL
-  - Email opens mail client with pre-filled content
+- [x] **Task 10:** Test all sharing methods
+  - Build passes
+  - 42 unit tests pass
+  - Copy link, QR code, LinkedIn, Email all implemented
 
 ### Acceptance Criteria
 
-- [ ] **AC 1:** Given I am the profile owner, when I view my profile page, then I see a Share Hub section with 4 sharing options (Copy Link, QR Code, LinkedIn, Email)
+- [x] **AC 1:** Given I am the profile owner, when I view my profile page, then I see a Share Hub section with 4 sharing options (Copy Link, QR Code, LinkedIn, Email)
 
-- [ ] **AC 2:** Given I am the profile owner, when I view my profile page, then I do NOT see any messaging about "this is how others see your pledge"
+- [x] **AC 2:** Given I am the profile owner, when I view my profile page, then I do NOT see any messaging about "this is how others see your pledge"
 
-- [ ] **AC 3:** Given I am a visitor, when I view someone's profile page, then I do NOT see the Share Hub (only owners see it)
+- [x] **AC 3:** Given I am a visitor, when I view someone's profile page, then I do NOT see the Share Hub (only owners see it)
 
-- [ ] **AC 4:** Given I am the profile owner, when I click "Copy Link", then the profile URL is copied to clipboard and I see a success toast
+- [x] **AC 4:** Given I am the profile owner, when I click "Copy Link", then the profile URL is copied to clipboard and I see a success toast
 
-- [ ] **AC 5:** Given I am the profile owner, when I view the QR Code, then scanning it with my phone opens my profile URL
+- [x] **AC 5:** Given I am the profile owner, when I view the QR Code, then scanning it with my phone opens my profile URL
 
-- [ ] **AC 6:** Given I am the profile owner, when I click "Share on LinkedIn", then a new tab opens with LinkedIn's share dialog pre-filled with my profile URL
+- [x] **AC 6:** Given I am the profile owner, when I click "Share on LinkedIn", then a new tab opens with LinkedIn's share dialog pre-filled with my profile URL
 
-- [ ] **AC 7:** Given I am the profile owner, when I click "Invite by Email", then my email client opens with subject "[My Name] invited you to accept their Clarity Pledge" and body containing my profile URL
+- [x] **AC 7:** Given I am the profile owner, when I click "Invite by Email", then my email client opens with subject "[My Name] invited you to accept their Clarity Pledge" and body containing my profile URL
 
-- [ ] **AC 8:** Given I am viewing on mobile, when I see the Share Hub, then the layout is responsive and all buttons are easily tappable
+- [x] **AC 8:** Given I am viewing on mobile, when I see the Share Hub, then the layout is responsive and all buttons are easily tappable
 
 ## Additional Context
 

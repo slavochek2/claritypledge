@@ -482,7 +482,96 @@ Perform these tests on the production URL:
 | **UptimeRobot** | Uptime monitoring | High |
 | **Google Analytics** | User analytics | Medium |
 
-#### Supabase Monitoring
+---
+
+### 7.2 Sentry Setup (Error Tracking) - IMPLEMENTED
+
+Sentry is already integrated into the codebase. Follow these steps to activate it:
+
+#### Step 1: Create Sentry Project
+
+1. **Sign up/Login** at [sentry.io](https://sentry.io)
+2. **Create new project:**
+   - Platform: **React**
+   - Project name: `clarity-pledge`
+   - Team: Create or select
+3. **Get your DSN** from: Project Settings → Client Keys (DSN)
+
+#### Step 2: Configure Vercel Environment Variables
+
+Add these in **Vercel Project Settings → Environment Variables**:
+
+| Variable | Value | Environment |
+|----------|-------|-------------|
+| `VITE_SENTRY_DSN` | `https://xxx@o123.ingest.sentry.io/456` | Production |
+| `SENTRY_ORG` | Your Sentry org slug | Production |
+| `SENTRY_PROJECT` | `clarity-pledge` | Production |
+| `SENTRY_AUTH_TOKEN` | Generate from Sentry → API Keys | Production |
+
+**To generate Auth Token:**
+1. Go to [sentry.io/settings/auth-tokens](https://sentry.io/settings/auth-tokens/)
+2. Create token with scopes: `project:releases`, `org:read`
+
+#### Step 3: What Sentry Captures
+
+| Event Type | Description | Sample Rate |
+|------------|-------------|-------------|
+| **JavaScript Errors** | Uncaught exceptions, promise rejections | 100% |
+| **React Errors** | Component crashes via ErrorBoundary | 100% |
+| **Performance Traces** | Page loads, API calls | 10% |
+| **Session Replays** | Video-like recordings on error | 100% on error, 10% normal |
+
+#### Step 4: Alerts to Configure in Sentry
+
+Navigate to **Alerts → Create Alert Rule**:
+
+| Alert | Condition | Action |
+|-------|-----------|--------|
+| **High Error Rate** | > 10 errors in 1 hour | Email immediately |
+| **New Error Type** | First occurrence of issue | Email + Slack |
+| **Auth Flow Error** | Error contains "auth" or "login" | Email immediately |
+| **P95 Latency** | > 3 seconds | Email daily digest |
+
+---
+
+### 7.3 Vercel Analytics Setup
+
+#### Enable Analytics
+
+1. Go to **Vercel Dashboard → Project → Analytics**
+2. Click **Enable Analytics** (free tier available)
+3. No code changes needed - Vercel injects automatically
+
+#### Key Metrics to Track for Clarity Pledge
+
+| Metric | Target | Why It Matters |
+|--------|--------|----------------|
+| **Web Vitals - LCP** | < 2.5s | First meaningful paint for landing page |
+| **Web Vitals - FID** | < 100ms | Form interaction responsiveness |
+| **Web Vitals - CLS** | < 0.1 | Layout stability during load |
+| **Unique Visitors** | Baseline + growth | Overall reach |
+| **Page Views** | By path | Popular pages |
+
+#### Critical Pages to Monitor
+
+| Page | Path | What to Watch |
+|------|------|---------------|
+| **Landing** | `/` | Bounce rate, scroll depth |
+| **Sign Pledge** | `/sign-pledge` | Form completion rate |
+| **Auth Callback** | `/auth/callback` | Success vs error rate |
+| **Profile** | `/p/*` | Share rate, time on page |
+| **Champions** | `/clarity-champions` | Discovery patterns |
+
+#### Vercel Analytics Dashboard Views
+
+1. **Real-time** - Monitor during launch
+2. **Web Vitals** - Performance scores by page
+3. **Audiences** - Geographic, device breakdown
+4. **Top Pages** - Most visited routes
+
+---
+
+### 7.4 Supabase Monitoring
 
 - **Database:** Project → Database → Metrics
 - **Auth:** Project → Authentication → Logs
@@ -497,7 +586,7 @@ Perform these tests on the production URL:
 | Response time | > 500ms | Optimize queries |
 | Error rate | > 1% | Review error logs |
 
-### 7.2 First 24 Hours
+### 7.5 First 24 Hours
 
 - [ ] Monitor error logs every 2 hours
 - [ ] Check email delivery rate
@@ -505,7 +594,7 @@ Perform these tests on the production URL:
 - [ ] Watch for auth flow issues
 - [ ] Respond to user reports immediately
 
-### 7.3 First Week
+### 7.6 First Week
 
 - [ ] Review all error reports
 - [ ] Analyze user feedback

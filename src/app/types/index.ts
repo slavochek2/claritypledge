@@ -14,7 +14,7 @@ export interface Profile {
   id: string;
   slug: string;
   name: string;
-  email: string;
+  email?: string;  // Optional: not all queries fetch email (e.g., getFeaturedProfiles)
   role?: string;
   linkedinUrl?: string;
   reason?: string;

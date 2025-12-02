@@ -13,6 +13,7 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
 import { OwnerPreviewBanner } from "@/app/components/profile/owner-preview-banner";
+import { ShareHub } from "@/app/components/profile/share-hub";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
@@ -177,16 +178,28 @@ export function ProfilePage() {
     <>
       <div className="min-h-screen bg-background">
         {/* Owner Banner */}
-        {isOwner && <OwnerPreviewBanner profileUrl={profileUrl} />}
+        {isOwner && <OwnerPreviewBanner />}
         
         <div className="container mx-auto max-w-5xl py-12 px-4">
           {profile && (
-            <ProfileVisitorView 
-              profile={profile} 
-              onWitness={handleWitness}
-              isOwner={!!isOwner}
-              currentUser={currentUser}
-            />
+            <>
+              <ProfileVisitorView
+                profile={profile}
+                onWitness={handleWitness}
+                isOwner={!!isOwner}
+                currentUser={currentUser}
+              />
+
+              {/* Share Hub - Only for profile owners */}
+              {isOwner && (
+                <div className="mt-16">
+                  <ShareHub
+                    profileUrl={profileUrl}
+                    profileName={profile.name}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
