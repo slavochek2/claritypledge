@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { getFeaturedProfiles } from "@/app/data/api";
-import type { Profile } from "@/app/types";
+import type { ProfileSummary } from "@/app/types";
 import { getInitials } from "@/lib/utils";
 
 export function SignatureWall() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

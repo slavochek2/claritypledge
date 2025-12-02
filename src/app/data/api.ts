@@ -7,10 +7,10 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
-import type { Profile, DbProfile, DbWitness } from '@/app/types';
+import type { Profile, ProfileSummary, DbProfile, DbProfileSummary, DbWitness } from '@/app/types';
 
 // Re-export types for convenience
-export type { Profile, Witness } from '@/app/types';
+export type { Profile, ProfileSummary, Witness } from '@/app/types';
 
 /**
  * Fetches a single user profile by their UUID.
@@ -71,9 +71,9 @@ export async function getProfile(id: string): Promise<Profile | null> {
  * Fetches featured verified profiles for the landing page.
  * Returns up to 6 verified profiles, prioritizing those with reasons.
  * Ordering: profiles with reasons first (most recent), then profiles without reasons (most recent).
- * @returns {Promise<Profile[]>} A promise that resolves to an array of up to 6 verified profile objects.
+ * @returns A promise that resolves to an array of up to 6 profile summary objects.
  */
-export async function getFeaturedProfiles(): Promise<Profile[]> {
+export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
   console.log('🔍 Fetching featured profiles (up to 6, reason-first)...');
 
   try {
@@ -103,7 +103,7 @@ export async function getFeaturedProfiles(): Promise<Profile[]> {
 
     // If we have 6 profiles with reasons, we're done
     if (validWithReasons.length >= 6) {
-      return validWithReasons.slice(0, 6).map(p => mapProfileFromDb({ ...p, witnesses: [] }));
+      return validWithReasons.slice(0, 6).map(mapProfileSummaryFromDb);
     }
 
     // Backfill: fetch profiles WITHOUT reasons to fill remaining slots
@@ -120,7 +120,7 @@ export async function getFeaturedProfiles(): Promise<Profile[]> {
       .limit(remaining);
 
     if (existingIds.length > 0) {
-      backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.join(',')})`);
+      backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.map(id => `"${id}"`).join(',')})`);
     }
 
     const { data: withoutReasons, error: withoutReasonsError } = await backfillQuery;
@@ -143,7 +143,7 @@ export async function getFeaturedProfiles(): Promise<Profile[]> {
       return [];
     }
 
-    return combined.map(p => mapProfileFromDb({ ...p, witnesses: [] }));
+    return combined.map(mapProfileSummaryFromDb);
   } catch (err) {
     console.error('❌ Unexpected error in getFeaturedProfiles:', err);
     return [];
@@ -345,10 +345,34 @@ export async function signOut() {
 }
 
 /**
+ * Maps a partial database profile (without email/witnesses) to ProfileSummary.
+ * Used for list views like featured profiles and champions page.
+ */
+function mapProfileSummaryFromDb(dbProfile: DbProfileSummary): ProfileSummary {
+  let safeSlug: string;
+  if (dbProfile.slug && dbProfile.slug.trim() !== '') {
+    safeSlug = dbProfile.slug;
+  } else if (dbProfile.name && dbProfile.name.trim() !== '') {
+    safeSlug = generateSlug(dbProfile.name);
+  } else {
+    safeSlug = dbProfile.id || 'user';
+  }
+
+  return {
+    id: dbProfile.id,
+    slug: safeSlug,
+    name: dbProfile.name || 'Anonymous',
+    role: dbProfile.role,
+    reason: dbProfile.reason,
+    signedAt: dbProfile.created_at,
+    isVerified: dbProfile.is_verified,
+    avatarColor: dbProfile.avatar_color,
+  };
+}
+
+/**
  * A private helper function to map data from the database (snake_case) to the frontend-friendly `Profile` interface (camelCase).
  * It also ensures a valid slug exists, generating one from the user's name if necessary.
- * @param {DbProfile} dbProfile - The raw profile object from the Supabase database.
- * @returns {Profile} The mapped profile object.
  */
 function mapProfileFromDb(dbProfile: DbProfile): Profile {
   // Generate a safe slug if one doesn't exist or is empty

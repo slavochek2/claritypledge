@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import * as Sentry from "@sentry/react";
-import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
+import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { ClarityChampionsPage } from "@/app/pages/clarity-champions-page";
 import { ProfilePage } from "@/app/pages/profile-page";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
@@ -10,9 +10,11 @@ import { FullArticlePage } from "@/app/pages/full-article-page";
 import { LoginPage } from "@/app/pages/login-page";
 import { SignPledgePage } from "@/app/pages/sign-pledge-page";
 
+// ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
+// so it cannot use any router hooks like useLocation, useNavigate, etc.
 function ErrorFallback() {
   return (
-    <ClarityLandingLayout>
+    <div className="min-h-screen bg-background text-foreground">
       <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">
           Something went wrong
@@ -27,7 +29,7 @@ function ErrorFallback() {
           Refresh Page
         </button>
       </div>
-    </ClarityLandingLayout>
+    </div>
   );
 }
 

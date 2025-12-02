@@ -14,7 +14,7 @@ export interface Profile {
   id: string;
   slug: string;
   name: string;
-  email?: string;  // Optional: not all queries fetch email (e.g., getFeaturedProfiles)
+  email: string;
   role?: string;
   linkedinUrl?: string;
   reason?: string;
@@ -22,6 +22,21 @@ export interface Profile {
   isVerified: boolean;
   witnesses: Witness[];
   reciprocations: number;
+  avatarColor?: string;
+}
+
+/**
+ * Lightweight profile type for list views (champions page, featured profiles)
+ * where we don't need or fetch sensitive data like email
+ */
+export interface ProfileSummary {
+  id: string;
+  slug: string;
+  name: string;
+  role?: string;
+  reason?: string;
+  signedAt: string;
+  isVerified: boolean;
   avatarColor?: string;
 }
 
@@ -40,13 +55,27 @@ export interface DbProfile {
   id: string;
   slug?: string;
   name?: string;
-  email?: string;  // Optional: not all queries select email (e.g., featured profiles)
+  email: string;
   role?: string;
   linkedin_url?: string;
   reason?: string;
   created_at: string;
   is_verified: boolean;
   witnesses?: DbWitness[];
+  avatar_color?: string;
+}
+
+/**
+ * Database row type for partial selects (featured profiles, list views)
+ */
+export interface DbProfileSummary {
+  id: string;
+  slug?: string;
+  name?: string;
+  role?: string;
+  reason?: string;
+  created_at: string;
+  is_verified: boolean;
   avatar_color?: string;
 }
 

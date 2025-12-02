@@ -5,29 +5,35 @@ import * as Sentry from "@sentry/react";
 import App from "./App";
 import "./index.css";
 
-// Initialize Sentry for error tracking
-Sentry.init({
-  dsn: "https://ae54b9481a99fa1ef834253a1b212621@o4510465553072128.ingest.de.sentry.io/4510465564868688",
+// Initialize Sentry for error tracking (production only)
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 
-  // Send default PII data (IP address collection)
-  sendDefaultPii: true,
+if (sentryDsn && import.meta.env.PROD) {
+  Sentry.init({
+    dsn: sentryDsn,
+    environment: import.meta.env.MODE,
 
-  // Performance monitoring
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration({
-      maskAllText: false,
-      blockAllMedia: false,
-    }),
-  ],
+    // Privacy: Do NOT send PII without explicit user consent
+    sendDefaultPii: false,
 
-  // Performance Monitoring - sample rate for production
-  tracesSampleRate: 0.1, // 10% of transactions
+    // Performance monitoring
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        // Privacy: Mask all text and block media in replays
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ],
 
-  // Session Replay - sample rates
-  replaysSessionSampleRate: 0.1, // 10% of sessions
-  replaysOnErrorSampleRate: 1.0, // 100% of sessions with errors
-});
+    // Performance Monitoring - sample rate for production
+    tracesSampleRate: 0.1, // 10% of transactions
+
+    // Session Replay - reduced sampling, only on errors
+    replaysSessionSampleRate: 0, // Disabled for privacy - only capture on errors
+    replaysOnErrorSampleRate: 1.0, // 100% of sessions with errors (masked)
+  });
+}
 
 // Make React and ReactDOM globally available immediately (not in useEffect)
 window.React = React;
