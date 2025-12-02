@@ -43,27 +43,8 @@ export function ProfileCertificate({
           className="text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground font-serif"
           style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
         >
-          I,{" "}
-          {linkedinUrl ? (
-            <a
-              href={linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold hover:text-[#0044CC] dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1"
-            >
-              {name}
-              <svg
-                className="w-4 h-4 inline-block"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-              </svg>
-            </a>
-          ) : (
-            <span className="font-bold">{name}</span>
-          )}
-          , hereby commit to <span className="font-semibold">everyone</span>
+          I, <span className="font-bold">{name}</span>, hereby commit to{" "}
+          <span className="font-semibold">everyone</span>
           —including strangers, people I disagree with, and even those I
           dislike:
         </div>
@@ -108,29 +89,9 @@ export function ProfileCertificate({
               {getInitials(name)}
             </div>
             <div>
-              {linkedinUrl ? (
-                <a
-                  href={linkedinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 group"
-                >
-                  <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight group-hover:text-[#0044CC] dark:group-hover:text-blue-400 transition-colors">
-                    {name}
-                  </h3>
-                  <svg
-                    className="w-4 h-4 text-[#0044CC] dark:text-blue-400 opacity-70 group-hover:opacity-100 transition-opacity"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                  </svg>
-                </a>
-              ) : (
-                <h3 className="text-base font-semibold text-[#1A1A1A] dark:text-foreground leading-tight">
-                  {name}
-                </h3>
-              )}
+              <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight">
+                {name}
+              </h3>
               {role && (
                 <p className="text-sm text-[#1A1A1A]/70 dark:text-muted-foreground mt-0.5">
                   {role}
@@ -151,6 +112,23 @@ export function ProfileCertificate({
                   </svg>
                   <span className="font-medium">Verified</span>
                 </div>
+              )}
+              {linkedinUrl && (
+                <a
+                  href={linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 text-xs font-medium text-[#0A66C2] bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 rounded transition-colors"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                  LinkedIn
+                </a>
               )}
             </div>
           </div>
