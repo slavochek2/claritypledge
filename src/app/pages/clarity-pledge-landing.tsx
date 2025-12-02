@@ -93,7 +93,7 @@ export function ClarityPledgeLanding() {
               signedAt="2025-11-01"
               role="Founder, The Clarity Pledge"
               isVerified={true}
-              linkedinUrl="https://linkedin.com/in/vyacheslavladischenski"
+              linkedinUrl="https://linkedin.com/in/ladischenski"
             />
           </div>
         </section>

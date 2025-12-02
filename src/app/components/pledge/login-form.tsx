@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +10,6 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSwitchToSign }: LoginFormProps) {
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,7 +40,7 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
         setIsSubmitting(false);
         setIsSubmitted(true);
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
       setIsSubmitting(false);
     }

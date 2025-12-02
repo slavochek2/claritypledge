@@ -1,54 +1,13 @@
-# About The Founder: Vyacheslav Ladischenski
+## About the Founder
 
-## The Origin: The Republic of Ideas
+Before the Clarity Pledge, I spent years in B2B sales and as a founder: raising over $392k for a SaaS startup, parting ways with multiple co‑founders, and coaching teams on how to close deals instead of just talk about them. Again and again, the most expensive mistakes came from misalignment, vague promises, and conversations where everyone nodded but nobody meant the same thing.
 
-I am from a country that no longer exists (the USSR), was raised in a country where I was always a guest (Germany), and now live as a global citizen (currently Thailand).
+But for me, this wasn't just a business problem. It was personal. As a 'Third Culture Kid'—from a country that no longer exists (USSR), raised in another (Germany)—I never had the luxury of assumed understanding. Combined with being neurodivergent, I was wired to need explicit communication to function, while the corporate world seemed to thrive on strategic ambiguity.
 
-Sociologists might call me a "Third Culture Kid" or an "Eternal Stranger." I simply call it being **Rootless**.
+This created a constant, painful friction I now call **Intellectual Moral Injury**: the deep dissonance of being forced to pretend that nonsense makes sense to protect a paycheck. I watched good people burn out, trapped in collective hallucinations, and realized the cost of ambiguity wasn't just financial, it was human.
 
-For most people, "Clarity" is a professional soft skill—a way to be more efficient. For me, clarity was a **survival mechanism**.
+The Clarity Pledge started as my survival mechanism. It was a practical fix. I began documenting every painful mistake—around hiring, partners, and trust—and turning them into simple, testable rules. Influenced by tools like Ray Dalio’s *Principles*, I refined pages of notes into the core commitments that now form the pledge.
 
-When you have no "home" culture, you never have the luxury of **Assumed Alignment**. I could never assume that a German, a Ukrainian, or a Thai person meant the same thing by words like "respect," "urgent," or "agreement." To survive, I had to stop assuming and start verifying. I had to build a bridge of explicit understanding for every single interaction.
-
-## The Injury: Why This Matters
-
-This project was born not from academic theory, but from **Moral Injury**.
-
-**The Corporate Injury**
-I spent years working in multinational corporations. I entered them believing that "Professionalism" meant a shared, rational pursuit of value. Instead, I found environments that thrived on **Strategic Ambiguity**.
-I watched leaders nod at plans they didn't understand. I saw "truth" subordinated to "hierarchy." I saw the immense human cost—stress, burnout, cynicism—paid by good people forced to participate in collective hallucinations to protect their paychecks.
-This wasn't just inefficient; it was physically painful. It was **Intellectual Moral Injury**—the deep dissonance of being forced to pretend that nonsense makes sense.
-
-**The Personal Injury**
-The cost wasn't just professional. I have lost friendships and relationships because we failed to bridge the Reality Gap. We used the same words but lived in different worlds, and by the time we realized we were misaligned, the damage was done.
-
-## The Pivot: From Tribe to Truth
-
-Isaiah Berlin argued that every human needs a "Homeland" to belong to. He believed the "Eternal Stranger" suffers because they lack this tribe.
-
-I tried to find that tribe in nations (Germany, Ukraine), in heritage (Jewish roots), and in corporate cultures. None of them fit. They all demanded that I accept their "Assumed Truths" without question.
-
-I realized my "Homeland" is not a place on a map. My Homeland is the **Republic of Ideas**.
-
-My tribe is not defined by blood, soil, or religion. It is defined by **Epistemic Integrity**. My people are the ones who refuse to fake understanding. My people are the ones who care more about what is *true* than what is *polite*.
-
-## The Invitation
-
-The **Clarity Pledge** is the constitution of this new territory.
-
-It is an invitation to stop being a "German" or a "Manager" or a "Partner" for a moment, and simply be a **Verifier of Reality**.
-
-If you have ever felt the physical flinch of nodding along to a lie...
-If you have ever felt the loneliness of being the only one who asks "What does that actually mean?"...
-
-Then you are already a citizen. Welcome home.
-
----
-
-### Work With Me
-
-If you are a leader or an organization ready to stop paying the Clarity Tax and start operating with Epistemic Integrity, I offer specialized guidance.
-
-[Link to Coaching & Workshops]
+If you’ve ever felt that physical flinch of nodding along to a lie, or paid a high price for miscommunication in sales, hiring, or co‑founder decisions, this was built for you. It's for anyone who cares more about what is *true* than what is polite. Welcome.
 
 

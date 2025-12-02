@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { AuthCallbackPage, useAuth } from '@/auth';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 // -----------------------------------------------------------------------------
@@ -20,7 +20,6 @@ vi.mock('react-router-dom', async () => {
 
 // Mock Supabase
 const mockGetSession = vi.fn();
-let authStateCallback: ((event: string, session: any) => void) | null = null;
 const mockUpsert = vi.fn();
 const mockFrom = vi.fn();
 
@@ -28,11 +27,10 @@ vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: () => mockGetSession(),
-      onAuthStateChange: (cb: any) => {
-        authStateCallback = cb;
+      onAuthStateChange: (cb: (event: string, session: unknown) => void) => {
         // Immediately fire the callback with current session state
         setTimeout(() => {
-          mockGetSession().then((result: any) => {
+          mockGetSession().then((result: { data?: { session?: unknown } }) => {
             cb('INITIAL_SESSION', result.data?.session ?? null);
           });
         }, 0);
@@ -42,7 +40,7 @@ vi.mock('@/lib/supabase', () => ({
     from: (table: string) => {
       mockFrom(table);
       return {
-        upsert: (data: any, opts: any) => {
+        upsert: (data: unknown, opts: unknown) => {
           mockUpsert(data, opts);
           return { error: null };
         }
@@ -65,7 +63,6 @@ vi.mock('@/app/data/api', () => ({
 describe('CRITICAL AUTH FLOW', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    authStateCallback = null;
   });
 
   describe('The Reader: useAuth Hook', () => {
@@ -99,11 +96,26 @@ describe('CRITICAL AUTH FLOW', () => {
   });
 
   describe('The Writer: AuthCallbackPage', () => {
-    it('should redirect existing users immediately (no write)', async () => {
-      // 1. Setup: User exists
-      const mockSession = { user: { id: 'existing-user-id', email: 'test@example.com' } };
-      const mockProfile = { id: 'existing-user-id', slug: 'existing-slug' };
-      
+    it('should upsert existing users to ensure is_verified is true', async () => {
+      // 1. Setup: User exists (profile was created by database trigger with is_verified=false)
+      const mockSession = {
+        user: {
+          id: 'existing-user-id',
+          email: 'test@example.com',
+          user_metadata: {
+            name: 'Existing User',
+            slug: 'existing-slug',
+            role: 'Developer'
+          }
+        }
+      };
+      const mockProfile = {
+        id: 'existing-user-id',
+        slug: 'existing-slug',
+        name: 'Existing User',
+        role: 'Developer'
+      };
+
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(mockProfile);
 
@@ -116,8 +128,14 @@ describe('CRITICAL AUTH FLOW', () => {
 
       // 3. Assertions
       await waitFor(() => {
-        // Should NOT try to create a profile
-        expect(mockUpsert).not.toHaveBeenCalled();
+        // Should ALWAYS upsert to ensure is_verified=true (fixes race condition)
+        expect(mockUpsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'existing-user-id',
+            is_verified: true
+          }),
+          { onConflict: 'id' }
+        );
         // Should redirect to existing slug
         expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug', { replace: true });
       });
