@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
 import {
   DropdownMenu,
@@ -9,15 +8,30 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon } from "lucide-react";
+
+// Get initials from name (e.g., "John Doe" -> "JD")
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
 
 export function SimpleNavigation() {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Use shared context instead of local hook
-  const { user: currentUser, isLoading, signOut } = useAuth();
+
+  // session: instant auth check (from localStorage, no DB call)
+  // user: profile data (requires DB fetch)
+  // isLoading: true until initial session check completes
+  const { session, user: currentUser, isLoading, signOut } = useAuth();
+
+  // User is considered logged in if session exists (instant check)
+  // Don't show public CTAs while auth state is loading to avoid flicker
+  const isLoggedIn = !!session;
+  const showPublicCTAs = !isLoading && !isLoggedIn;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -51,53 +65,49 @@ export function SimpleNavigation() {
             Clarity Pledge
           </Link>
 
-          {/* Desktop Navigation - Public Links */}
-          {/* Only show public links when NOT logged in AND finished loading */}
-          {(!currentUser && !isLoading) && (
-            <div className="hidden md:flex items-center gap-8">
-              <Link
-                to="/article"
-                className="text-base font-medium hover:text-primary transition-colors"
-              >
-                Manifesto
-              </Link>
-              <Link
-                to="/clarity-champions"
-                className="text-base font-medium hover:text-primary transition-colors"
-              >
-                Clarity Champions
-              </Link>
-              <Link
-                to="/our-services"
-                className="text-base font-medium hover:text-primary transition-colors"
-              >
-                Services
-              </Link>
-            </div>
-          )}
+          {/* Desktop Navigation - Public Links (visible to all users) */}
+          <div className="hidden md:flex items-center gap-8">
+            <Link
+              to="/article"
+              className="text-base font-medium hover:text-primary transition-colors"
+            >
+              Manifesto
+            </Link>
+            <Link
+              to="/clarity-champions"
+              className="text-base font-medium hover:text-primary transition-colors"
+            >
+              Clarity Champions
+            </Link>
+            <Link
+              to="/our-services"
+              className="text-base font-medium hover:text-primary transition-colors"
+            >
+              Services
+            </Link>
+          </div>
 
           {/* CTA Buttons / User Menu */}
           <div className="hidden md:flex items-center gap-4">
-            {isLoading ? (
-              // Loading state - show nothing to prevent blink
-              <div className="w-24 h-10" />
-            ) : currentUser ? (
-              // User Menu
-              <DropdownMenu>
+            {isLoggedIn && (
+              // User Menu - show when logged in
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="gap-2"
+                  <button
+                    className="flex items-center justify-center w-10 h-10 rounded-full text-white font-semibold text-sm hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    style={{
+                      backgroundColor: currentUser?.avatarColor || "#3b82f6",
+                    }}
                     aria-label="User menu"
                   >
-                    <MenuIcon className="w-5 h-5" />
-                  </Button>
+                    {currentUser ? getInitials(currentUser.name) : <UserIcon className="w-5 h-5" />}
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" sideOffset={8} className="w-56">
                   <DropdownMenuItem asChild>
+                    {/* Use profile slug if loaded, otherwise session user id */}
                     <Link
-                      to={`/p/${currentUser.slug || currentUser.id}`}
+                      to={`/p/${currentUser?.slug || session?.user?.id}`}
                       className="cursor-pointer"
                     >
                       <EyeIcon className="w-4 h-4 mr-2" />
@@ -114,8 +124,9 @@ export function SimpleNavigation() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
-              // Public Actions (only when NOT loading)
+            )}
+            {showPublicCTAs && (
+              // Public Actions - show only when auth state known AND not logged in
               <>
                 <Link
                   to="/login"
@@ -150,13 +161,35 @@ export function SimpleNavigation() {
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border bg-background">
             <div className="flex flex-col gap-4">
-              {isLoading ? (
-                <div className="text-center text-sm text-muted-foreground py-2">Loading...</div>
-              ) : currentUser ? (
+              {/* Navigation Links - always visible */}
+              <Link
+                to="/article"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Manifesto
+              </Link>
+              <Link
+                to="/clarity-champions"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Clarity Champions
+              </Link>
+              <Link
+                to="/our-services"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Services
+              </Link>
+
+              {/* Logged in user links */}
+              {isLoggedIn && (
                 <>
-                  {/* User Links */}
+                  <div className="border-t border-border my-2"></div>
                   <Link
-                    to={`/p/${currentUser.slug || currentUser.id}`}
+                    to={`/p/${currentUser?.slug || session?.user?.id}`}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
@@ -164,7 +197,6 @@ export function SimpleNavigation() {
                     View My Pledge
                   </Link>
                   <div className="border-t border-border my-2"></div>
-                  {/* Logout */}
                   <button
                     onClick={handleSignOut}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -173,29 +205,11 @@ export function SimpleNavigation() {
                     Log Out
                   </button>
                 </>
-              ) : (
+              )}
+
+              {/* Public CTAs - only when auth state known and not logged in */}
+              {showPublicCTAs && (
                 <>
-                  <Link
-                    to="/article"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Manifesto
-                  </Link>
-                  <Link
-                    to="/clarity-champions"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Clarity Champions
-                  </Link>
-                  <Link
-                    to="/our-services"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    Services
-                  </Link>
                   <Link
                     to="/login"
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"

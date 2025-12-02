@@ -24,9 +24,13 @@ export function ProfilePage() {
   const firstTime = searchParams.get("firstTime") === "true";
   
   const [profile, setProfile] = useState<Profile | null>(null);
-  const { user: currentUser, isLoading: isUserLoading } = useAuth();
+  const { user: currentUser, session, isLoading: isUserLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Track current user ID for retry logic (stable reference)
+  const currentUserId = currentUser?.id;
+  const currentUserSlug = currentUser?.slug;
 
   useEffect(() => {
     console.log('ProfilePage: useEffect triggered. ID:', id, 'firstTime:', firstTime);
@@ -34,9 +38,26 @@ export function ProfilePage() {
       console.error('❌ ProfilePage: No ID provided in URL params');
       return;
     }
-    
+
+    // Don't refetch if we already have the profile for this slug/id
+    if (profile && (profile.slug === id || profile.id === id)) {
+      console.log('ProfilePage: Profile already loaded, skipping fetch');
+      // Still handle firstTime welcome dialog
+      if (firstTime && currentUserId && profile.id === currentUserId) {
+        setShowWelcome(true);
+        localStorage.removeItem('firstTimePledge');
+        localStorage.removeItem('pendingProfile');
+      }
+      return;
+    }
+
+    // Clear stale profile when navigating to a different profile
+    // This prevents showing old profile data while new one loads
+    if (profile && profile.slug !== id && profile.id !== id) {
+      setProfile(null);
+    }
+
     const loadProfile = async (retryCount = 0) => {
-      // Reset loading state on navigation changes
       setLoading(true);
 
       try {
@@ -54,7 +75,7 @@ export function ProfilePage() {
 
         // If profile not found but current user's slug matches, retry once after a short delay.
         // This handles the rare case where the DB write from AuthCallbackPage hasn't propagated yet.
-        if (!profileData && currentUser && (currentUser.slug === id || currentUser.id === id) && retryCount === 0) {
+        if (!profileData && (currentUserSlug === id || currentUserId === id) && retryCount === 0) {
           console.log('🔄 ProfilePage: Profile not found but user matches. Retrying in 500ms...');
           await new Promise(resolve => setTimeout(resolve, 500));
           return loadProfile(1);
@@ -73,32 +94,31 @@ export function ProfilePage() {
 
         setProfile(profileData);
         console.log('ProfilePage: Profile data set. Profile:', profileData);
-        
+
         // Show welcome dialog for first-time visitors (owners only)
-        if (firstTime && currentUser && profileData && currentUser.id === profileData.id) {
+        if (firstTime && currentUserId && profileData && currentUserId === profileData.id) {
           setShowWelcome(true);
           // Clear flags from local storage once user is viewing their own profile
           localStorage.removeItem('firstTimePledge');
-          localStorage.removeItem('pendingProfile'); // Use new key
+          localStorage.removeItem('pendingProfile');
         }
       } catch (error) {
         console.error("❌ ProfilePage: Failed to load profile:", error);
       } finally {
-        // Only set loading to false if user is not loading
-        // This prevents the "Profile Not Found" flicker when user auth is still resolving
-        if (!isUserLoading) {
-          setLoading(false);
-        }
+        // Always set loading to false when profile fetch completes
+        setLoading(false);
         console.log('ProfilePage: Loading finished.');
       }
     };
 
     loadProfile();
-  }, [id, firstTime, currentUser, isUserLoading]); // Added isUserLoading dependency
+  }, [id, firstTime, currentUserId, currentUserSlug, profile]); // Removed isUserLoading - profile page fetches independently
 
-  console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser);
+  console.log('ProfilePage: Render. Loading:', loading, 'Profile:', profile, 'CurrentUser:', currentUser, 'isUserLoading:', isUserLoading);
 
-  if (loading || isUserLoading) {
+  // Only wait for profile loading, not auth loading
+  // The profile page can render the public view while auth is still loading
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading Pledge...</div>
@@ -126,7 +146,9 @@ export function ProfilePage() {
     );
   }
 
-  const isOwner = currentUser && currentUser.id === profile.id;
+  // Use session.user.id for instant owner detection (no DB fetch needed)
+  // This prevents "visitor view flicker" while profile is still loading
+  const isOwner = session?.user?.id === profile.id;
   const profileUrl = `${window.location.origin}/p/${profile?.slug || profile?.id}`;
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
