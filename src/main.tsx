@@ -9,17 +9,6 @@ import "./index.css";
 Sentry.init({
   dsn: "https://ae54b9481a99fa1ef834253a1b212621@o4510465553072128.ingest.de.sentry.io/4510465564868688",
 
-  // Only enable in production
-  enabled: import.meta.env.PROD,
-
-  // Set environment
-  environment: import.meta.env.MODE,
-
-  // Enable structured logging
-  _experiments: {
-    enableLogs: true,
-  },
-
   // Send default PII data (IP address collection)
   sendDefaultPii: true,
 
@@ -27,7 +16,6 @@ Sentry.init({
   integrations: [
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration({
-      // Capture 10% of sessions, 100% of sessions with errors
       maskAllText: false,
       blockAllMedia: false,
     }),
