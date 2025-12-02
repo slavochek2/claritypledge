@@ -99,10 +99,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [userId]); // Only runs when user ID actually changes (primitive comparison)
 
   const signOut = async () => {
-    // Clear state immediately for instant UI feedback
-    setUser(null);
-    setSession(null);
-    await apiSignOut();
+    try {
+      await apiSignOut();
+      // Only clear state after successful sign-out to prevent ghost sessions
+      setUser(null);
+      setSession(null);
+    } catch (error) {
+      console.error('🔐 AuthContext: Sign-out failed:', error);
+      // Don't clear state if sign-out failed - token may still be valid
+      throw error;
+    }
   };
 
   return (

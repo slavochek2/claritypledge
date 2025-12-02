@@ -31,7 +31,12 @@ export function AuthCallbackPage() {
   const { user, session, isLoading } = useAuth();
 
   useEffect(() => {
-    if (isLoading) return;
+    console.log('🔄 AuthCallback useEffect triggered:', { isLoading, hasSession: !!session, hasUser: !!user });
+
+    if (isLoading) {
+      console.log('⏳ Still loading, waiting...');
+      return;
+    }
 
     const processAuth = async () => {
       if (!session) {
@@ -49,25 +54,42 @@ export function AuthCallbackPage() {
       // before this callback runs, leaving is_verified as false.
       setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
+      const upsertData = {
+        id: authUser.id,
+        email: authUser.email!,
+        name: user?.name || user_metadata.name || 'Anonymous',
+        slug: user?.slug || user_metadata.slug,
+        role: user?.role || user_metadata.role,
+        linkedin_url: user?.linkedinUrl || user_metadata.linkedin_url,
+        reason: user?.reason || user_metadata.reason,
+        avatar_color: user?.avatarColor || user_metadata.avatar_color,
+        is_verified: true,
+      };
+
+      console.log('🔄 Profile data to save:', upsertData);
+      console.log('🔄 Auth user ID:', authUser.id);
+      console.log('🔄 Existing user from useAuth:', user);
+
+      // Always upsert the FULL profile data to handle:
+      // 1. New users: creates profile with all fields
+      // 2. Existing users: updates all fields including any changes made in the form
+      // 3. Race condition: trigger may have created profile with is_verified=false
       const { error: upsertError } = await supabase
         .from('profiles')
-        .upsert({
-          id: authUser.id,
-          email: authUser.email!,
-          name: user?.name || user_metadata.name || 'Anonymous',
-          slug: user?.slug || user_metadata.slug,
-          role: user?.role || user_metadata.role,
-          linkedin_url: user?.linkedinUrl || user_metadata.linkedin_url,
-          reason: user?.reason || user_metadata.reason,
-          avatar_color: user?.avatarColor || user_metadata.avatar_color,
-          is_verified: true, // They have verified their email by clicking the magic link.
-        }, { onConflict: 'id' });
+        .upsert(upsertData, { onConflict: 'id' });
 
       if (upsertError) {
         setStatus("Error creating profile. Please contact support.");
-        console.error("Error upserting profile:", upsertError);
+        console.error("❌ Error upserting profile:", upsertError);
+        console.error("❌ Error details:", {
+          message: upsertError.message,
+          code: upsertError.code,
+          details: upsertError.details,
+          hint: upsertError.hint,
+        });
         return;
       }
+      console.log('✅ Profile upsert successful!');
 
       // Redirect to profile page.
       setStatus("Redirecting...");

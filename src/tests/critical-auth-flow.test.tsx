@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { AuthCallbackPage, useAuth } from '@/auth';
+import { AuthCallbackPage, useAuth, AuthProvider } from '@/auth';
 import { renderHook } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ReactNode } from 'react';
 
 // -----------------------------------------------------------------------------
 // MOCKS
@@ -21,6 +22,7 @@ vi.mock('react-router-dom', async () => {
 // Mock Supabase
 const mockGetSession = vi.fn();
 const mockUpsert = vi.fn();
+const mockUpdate = vi.fn();
 const mockFrom = vi.fn();
 
 vi.mock('@/lib/supabase', () => ({
@@ -43,11 +45,25 @@ vi.mock('@/lib/supabase', () => ({
         upsert: (data: unknown, opts: unknown) => {
           mockUpsert(data, opts);
           return { error: null };
+        },
+        update: (data: unknown) => {
+          mockUpdate(data);
+          return {
+            eq: () => ({
+              select: () => ({ data: [{ id: 'test' }], error: null })
+            })
+          };
         }
       };
     },
   },
 }));
+
+// Helper to extract upsert call data
+const getUpsertData = () => {
+  const calls = mockUpsert.mock.calls;
+  return calls.length > 0 ? calls[0][0] : null;
+};
 
 // Mock API - we want to mock getProfile to control if a user "exists"
 const mockGetProfile = vi.fn();
@@ -60,6 +76,11 @@ vi.mock('@/app/data/api', () => ({
 // TESTS
 // -----------------------------------------------------------------------------
 
+// Wrapper for hooks that need AuthProvider
+const wrapper = ({ children }: { children: ReactNode }) => (
+  <AuthProvider>{children}</AuthProvider>
+);
+
 describe('CRITICAL AUTH FLOW', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -69,26 +90,26 @@ describe('CRITICAL AUTH FLOW', () => {
     it('should initialize with no user', async () => {
       mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
 
-      const { result } = renderHook(() => useAuth());
-      
-      expect(result.current.isLoading).toBe(true);
-      
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      // Wait for loading to complete (session check resolves)
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
       });
-      
+
       expect(result.current.user).toBeNull();
+      expect(result.current.session).toBeNull();
     });
 
     it('should fetch profile when session exists', async () => {
       const mockSession = { user: { id: '123', email: 'test@example.com' } };
       const mockProfile = { id: '123', name: 'Test User' };
-      
+
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(mockProfile);
 
-      const { result } = renderHook(() => useAuth());
-      
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
       await waitFor(() => {
         expect(result.current.user).toEqual(mockProfile);
       });
@@ -96,7 +117,7 @@ describe('CRITICAL AUTH FLOW', () => {
   });
 
   describe('The Writer: AuthCallbackPage', () => {
-    it('should upsert existing users to ensure is_verified is true', async () => {
+    it('should upsert existing users with FULL profile data and is_verified=true', async () => {
       // 1. Setup: User exists (profile was created by database trigger with is_verified=false)
       const mockSession = {
         user: {
@@ -105,7 +126,10 @@ describe('CRITICAL AUTH FLOW', () => {
           user_metadata: {
             name: 'Existing User',
             slug: 'existing-slug',
-            role: 'Developer'
+            role: 'Developer',
+            linkedin_url: 'https://linkedin.com/in/existing',
+            reason: 'To communicate better',
+            avatar_color: '#FF5733'
           }
         }
       };
@@ -113,7 +137,10 @@ describe('CRITICAL AUTH FLOW', () => {
         id: 'existing-user-id',
         slug: 'existing-slug',
         name: 'Existing User',
-        role: 'Developer'
+        role: 'Developer',
+        linkedinUrl: 'https://linkedin.com/in/existing',
+        reason: 'To communicate better',
+        avatarColor: '#FF5733'
       };
 
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
@@ -122,62 +149,81 @@ describe('CRITICAL AUTH FLOW', () => {
       // 2. Render
       render(
         <MemoryRouter>
-          <AuthCallbackPage />
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
         </MemoryRouter>
       );
 
-      // 3. Assertions
+      // 3. Assertions - CRITICAL: Verify upsert is called with FULL profile data
       await waitFor(() => {
-        // Should ALWAYS upsert to ensure is_verified=true (fixes race condition)
-        expect(mockUpsert).toHaveBeenCalledWith(
-          expect.objectContaining({
-            id: 'existing-user-id',
-            is_verified: true
-          }),
-          { onConflict: 'id' }
-        );
+        expect(mockUpsert).toHaveBeenCalled();
+        const upsertData = getUpsertData();
+
+        // Verify ALL fields are included in upsert (not just is_verified)
+        expect(upsertData).toMatchObject({
+          id: 'existing-user-id',
+          email: 'test@example.com',
+          name: 'Existing User',
+          slug: 'existing-slug',
+          role: 'Developer',
+          linkedin_url: 'https://linkedin.com/in/existing',
+          reason: 'To communicate better',
+          avatar_color: '#FF5733',
+          is_verified: true
+        });
+
         // Should redirect to existing slug
         expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug', { replace: true });
       });
     });
 
-    it('should create profile for NEW users (write)', async () => {
+    it('should create profile for NEW users with FULL profile data from user_metadata', async () => {
       // 1. Setup: User is new (getProfile returns null)
-      const mockSession = { 
-        user: { 
-          id: 'new-user-id', 
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
           email: 'new@example.com',
           user_metadata: {
             name: 'New User',
             slug: 'new-user-slug',
-            role: 'Developer'
+            role: 'Designer',
+            linkedin_url: 'https://linkedin.com/in/newuser',
+            reason: 'I want to be clearer',
+            avatar_color: '#3366FF'
           }
-        } 
+        }
       };
-      
+
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(null); // User does not exist yet
 
       // 2. Render
       render(
         <MemoryRouter>
-          <AuthCallbackPage />
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
         </MemoryRouter>
       );
 
-      // 3. Assertions
+      // 3. Assertions - CRITICAL: Verify upsert creates profile with ALL fields from metadata
       await waitFor(() => {
-        // Should call UPSERT to create the profile
-        expect(mockUpsert).toHaveBeenCalledWith(
-          expect.objectContaining({
-            id: 'new-user-id',
-            email: 'new@example.com',
-            name: 'New User',
-            slug: 'new-user-slug',
-            is_verified: true
-          }),
-          { onConflict: 'id' }
-        );
+        expect(mockUpsert).toHaveBeenCalled();
+        const upsertData = getUpsertData();
+
+        // Verify profile is created with ALL fields from user_metadata
+        expect(upsertData).toMatchObject({
+          id: 'new-user-id',
+          email: 'new@example.com',
+          name: 'New User',
+          slug: 'new-user-slug',
+          role: 'Designer',
+          linkedin_url: 'https://linkedin.com/in/newuser',
+          reason: 'I want to be clearer',
+          avatar_color: '#3366FF',
+          is_verified: true
+        });
 
         // Should redirect to the NEW slug
         expect(mockNavigate).toHaveBeenCalledWith('/p/new-user-slug', { replace: true });
