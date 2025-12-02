@@ -14,6 +14,15 @@
 
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
 import { Page } from '@playwright/test';
+import { User } from '@supabase/supabase-js';
+
+/** Return type for createTestUser helper */
+export interface TestUser {
+  user: User;
+  email: string;
+  slug: string;
+  name: string;
+}
 
 /**
  * Generates a unique email for testing
@@ -51,7 +60,7 @@ export async function createTestUser(options: {
   role?: string;
   linkedinUrl?: string;
   reason?: string;
-} = {}) {
+} = {}): Promise<TestUser> {
   const name = options.name || 'Test User';
   const email = options.email || generateTestEmail();
   const slug = generateTestSlug(name);

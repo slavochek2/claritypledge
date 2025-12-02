@@ -12,7 +12,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
+import { createTestUser, deleteTestUser, setTestSession, TestUser } from './helpers/test-user';
 
 test.describe('Auth Callback & Profile Creation', () => {
   test.skip('should create profile for NEW user after magic link', async ({ page }) => {
@@ -23,7 +23,7 @@ test.describe('Auth Callback & Profile Creation', () => {
     // We use admin API to create auth user but NOT profile
     // This simulates the state right after clicking magic link
 
-    let testUser: any;
+    let testUser: TestUser | undefined;
 
     try {
       // Create test user (this simulates clicking the magic link)
@@ -61,7 +61,7 @@ test.describe('Auth Callback & Profile Creation', () => {
     const testName = `Existing User ${Date.now()}`;
     const testEmail = `e2e-existing-${Date.now()}@gmail.com`;
 
-    let testUser: any;
+    let testUser: TestUser | undefined;
 
     try {
       // Step 1: Create user (simulating they signed up before)

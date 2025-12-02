@@ -11,7 +11,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
+import { createTestUser, deleteTestUser, setTestSession, TestUser } from './helpers/test-user';
 
 test.describe('Signup Flow', () => {
 
@@ -48,7 +48,7 @@ test.describe('Signup Flow', () => {
   test.skip('should complete signup with Admin API', async ({ page }) => {
     const testName = 'E2E Test User';
     const testEmail = `e2e-signup-${Date.now()}@gmail.com`;
-    let testUser: any;
+    let testUser: TestUser | undefined;
 
     try {
       // Create user via Admin API (bypasses form submission)
@@ -79,7 +79,7 @@ test.describe('Signup Flow', () => {
   test.skip('should handle duplicate signup with Admin API', async ({ page }) => {
     const testName = 'E2E Duplicate User';
     const testEmail = `e2e-duplicate-${Date.now()}@gmail.com`;
-    let testUser: any;
+    let testUser: TestUser | undefined;
 
     try {
       // Create user first time

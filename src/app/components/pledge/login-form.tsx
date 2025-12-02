@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,10 +11,21 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSwitchToSign }: LoginFormProps) {
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Reset form state when user navigates to this page (e.g., clicking "Log In" again)
+  // The location.key changes on each navigation, even to the same route
+  const [locationKey, setLocationKey] = useState(location.key);
+  if (location.key !== locationKey) {
+    setLocationKey(location.key);
+    setIsSubmitted(false);
+    setEmail("");
+    setError("");
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

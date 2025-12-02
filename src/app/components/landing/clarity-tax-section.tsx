@@ -36,7 +36,7 @@ export function ClarityTaxSection() {
         <div className="text-center space-y-10">
           {/* Headline - Benefit-Driven */}
           <div className="space-y-6">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
               Prevent dangerous{" "}
               <span
                 className={`text-blue-500 inline-block transition-all duration-1000 delay-300 ${

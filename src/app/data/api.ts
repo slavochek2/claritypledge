@@ -7,7 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
-import type { Profile } from '@/app/types';
+import type { Profile, DbProfile, DbWitness } from '@/app/types';
 
 // Re-export types for convenience
 export type { Profile, Witness } from '@/app/types';
@@ -347,17 +347,17 @@ export async function signOut() {
 /**
  * A private helper function to map data from the database (snake_case) to the frontend-friendly `Profile` interface (camelCase).
  * It also ensures a valid slug exists, generating one from the user's name if necessary.
- * @param {any} dbProfile - The raw profile object from the Supabase database.
+ * @param {DbProfile} dbProfile - The raw profile object from the Supabase database.
  * @returns {Profile} The mapped profile object.
  */
-function mapProfileFromDb(dbProfile: any): Profile {
+function mapProfileFromDb(dbProfile: DbProfile): Profile {
   // Generate a safe slug if one doesn't exist or is empty
   // Priority: 1) existing slug 2) generate from name 3) use id as fallback
   let safeSlug: string;
-  
-  if (dbProfile.slug && typeof dbProfile.slug === 'string' && dbProfile.slug.trim() !== '') {
+
+  if (dbProfile.slug && dbProfile.slug.trim() !== '') {
     safeSlug = dbProfile.slug;
-  } else if (dbProfile.name && typeof dbProfile.name === 'string' && dbProfile.name.trim() !== '') {
+  } else if (dbProfile.name && dbProfile.name.trim() !== '') {
     safeSlug = generateSlug(dbProfile.name);
   } else {
     // Fallback to id if both slug and name are missing
@@ -374,7 +374,7 @@ function mapProfileFromDb(dbProfile: any): Profile {
     reason: dbProfile.reason,
     signedAt: dbProfile.created_at,
     isVerified: dbProfile.is_verified,
-    witnesses: (dbProfile.witnesses || []).map((w: any) => ({
+    witnesses: (dbProfile.witnesses || []).map((w: DbWitness) => ({
       id: w.id,
       name: w.witness_name,
       linkedinUrl: w.witness_linkedin_url,

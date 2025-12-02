@@ -16,13 +16,13 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { ArrowLeftIcon, BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import articleContent from "../content/full-article.md?raw";
-import { getCurrentUser, signOut } from "@/app/data/api";
+import { getCurrentUser, signOut, Profile } from "@/app/data/api";
 
 export function FullArticlePage() {
   const navigate = useNavigate();
   const [activeId, setActiveId] = useState("");
   const [isMobileTocOpen, setIsMobileTocOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);

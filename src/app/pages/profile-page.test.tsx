@@ -117,7 +117,7 @@ describe("ProfilePage", () => {
         resolveProfile = resolve;
       });
 
-      vi.mocked(api.getProfileBySlug).mockReturnValue(profilePromise as any);
+      vi.mocked(api.getProfileBySlug).mockImplementation(() => profilePromise);
       vi.mocked(api.getProfile).mockReturnValue(Promise.resolve(null));
 
       // User is NOT loading (guest)

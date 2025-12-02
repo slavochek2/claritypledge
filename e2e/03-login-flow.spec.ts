@@ -11,7 +11,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, setTestSession } from './helpers/test-user';
+import { createTestUser, deleteTestUser, setTestSession, TestUser } from './helpers/test-user';
 
 test.describe('Login Flow', () => {
   test('should display login page correctly', async ({ page }) => {
@@ -31,7 +31,7 @@ test.describe('Login Flow', () => {
   test.skip('should login existing user with Admin API', async ({ page }) => {
     const testName = 'Login Test User';
     const testEmail = `e2e-login-${Date.now()}@gmail.com`;
-    let testUser: any;
+    let testUser: TestUser | undefined;
 
     try {
       // Create existing user
@@ -78,7 +78,7 @@ test.describe('Login Flow', () => {
   test.skip('should complete full re-login flow', async ({ page }) => {
     const testName = `Relogin User ${Date.now()}`;
     const testEmail = `e2e-relogin-${Date.now()}@gmail.com`;
-    let testUser: any;
+    let testUser: TestUser | undefined;
 
     try {
       // Step 1: Create existing user

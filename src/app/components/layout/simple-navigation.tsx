@@ -56,7 +56,7 @@ export function SimpleNavigation() {
       }`}
     >
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="flex items-center justify-between h-16 lg:h-20">
+        <div className="relative flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link
             to="/"
@@ -66,7 +66,8 @@ export function SimpleNavigation() {
           </Link>
 
           {/* Desktop Navigation - Public Links (visible to all users) */}
-          <div className="hidden md:flex items-center gap-8">
+          {/* Absolutely centered so links don't shift when right-side content changes */}
+          <div className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
             <Link
               to="/article"
               className="text-base font-medium hover:text-primary transition-colors"

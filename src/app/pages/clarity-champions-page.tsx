@@ -99,14 +99,30 @@ export function ClarityChampionsPage() {
             {/* Mobile: Horizontal swipe carousel */}
             <div
               ref={carouselRef}
-              className="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-4 -mx-4 px-4"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              className="md:hidden pb-4 -mx-4 px-4"
+              style={{
+                display: "flex",
+                flexDirection: "row",
+                flexWrap: "nowrap",
+                gap: "16px",
+                overflowX: "auto",
+                scrollSnapType: "x mandatory",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                WebkitOverflowScrolling: "touch"
+              }}
             >
               {verifiedProfiles.map((profile) => (
                 <Link
                   key={profile.id}
                   to={`/p/${profile.slug}`}
-                  className="group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 flex-shrink-0 w-[85%] snap-center"
+                  className="group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
+                  style={{
+                    flexShrink: 0,
+                    minWidth: "85%",
+                    width: "85%",
+                    scrollSnapAlign: "center"
+                  }}
                 >
                   {/* Avatar and Info */}
                   <div className="flex items-start gap-4 mb-4">
