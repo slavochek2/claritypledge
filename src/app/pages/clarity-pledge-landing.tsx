@@ -80,12 +80,10 @@ export function ClarityPledgeLanding() {
           <div className="container mx-auto max-w-4xl px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Break the Illusion of Shared Reality
+                Get your clarity certificate
               </h2>
               <p className="text-lg text-muted-foreground">
-                We assume we understand each other, but often it’s just a guess.
-                The Clarity Pledge is a public promise to stop guessing and
-                start verifying.
+                Eliminate rework, mistakes, and mistrust.
               </p>
             </div>
             <ProfileCertificate
