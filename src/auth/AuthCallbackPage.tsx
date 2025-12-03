@@ -187,7 +187,7 @@ export function AuthCallbackPage() {
       console.log('✅ Profile refreshed in auth context');
 
       // Clear pending verification email now that user is verified
-      localStorage.removeItem('pendingVerificationEmail');
+      sessionStorage.removeItem('pendingVerificationEmail');
 
       // Redirect to profile page using the slug we actually saved
       // (may have been modified due to conflict resolution)

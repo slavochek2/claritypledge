@@ -20,9 +20,10 @@ export function SignPledgePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [socialProofLoaded, setSocialProofLoaded] = useState(false);
 
-  // If user already has a pending verification, redirect to confirmation
+  // If user has a recent pending verification (within last hour), redirect to confirmation
+  // This prevents stale entries from previous sessions from trapping users
   useEffect(() => {
-    const pendingEmail = localStorage.getItem('pendingVerificationEmail');
+    const pendingEmail = sessionStorage.getItem('pendingVerificationEmail');
     if (pendingEmail) {
       navigate(`/sign-pledge/confirm?email=${encodeURIComponent(pendingEmail)}`, { replace: true });
     }
@@ -49,8 +50,8 @@ export function SignPledgePage() {
   }, []);
 
   const handleSuccess = () => {
-    // Get email from local storage (set by usePledgeForm/createProfile)
-    const pendingEmail = localStorage.getItem('pendingVerificationEmail');
+    // Get email from session storage (set by usePledgeForm/createProfile)
+    const pendingEmail = sessionStorage.getItem('pendingVerificationEmail');
 
     // Check if this is a returning user
     const returningUserInfo = localStorage.getItem('returningUserInfo');

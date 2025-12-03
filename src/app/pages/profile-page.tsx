@@ -44,8 +44,8 @@ export function ProfilePage() {
       // Still handle firstTime welcome dialog
       if (firstTime && currentUserId && profile.id === currentUserId) {
         setShowWelcome(true);
-        localStorage.removeItem('firstTimePledge');
-        localStorage.removeItem('pendingProfile');
+        sessionStorage.removeItem('firstTimePledge');
+        sessionStorage.removeItem('pendingProfile');
       }
       return;
     }
@@ -97,9 +97,9 @@ export function ProfilePage() {
         // Show welcome dialog for first-time visitors (owners only)
         if (firstTime && currentUserId && profileData && currentUserId === profileData.id) {
           setShowWelcome(true);
-          // Clear flags from local storage once user is viewing their own profile
-          localStorage.removeItem('firstTimePledge');
-          localStorage.removeItem('pendingProfile');
+          // Clear flags from session storage once user is viewing their own profile
+          sessionStorage.removeItem('firstTimePledge');
+          sessionStorage.removeItem('pendingProfile');
         }
       } catch (error) {
         console.error("❌ ProfilePage: Failed to load profile:", error);

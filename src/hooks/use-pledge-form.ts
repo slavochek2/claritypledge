@@ -51,9 +51,9 @@ export function usePledgeForm(onSuccess?: () => void) {
         reason.trim() || undefined
       );
 
-      // Store email for success page display
-      localStorage.setItem('pendingVerificationEmail', email.trim());
-      localStorage.setItem('firstTimePledge', 'true');
+      // Store email for success page display (sessionStorage expires with browser session)
+      sessionStorage.setItem('pendingVerificationEmail', email.trim());
+      sessionStorage.setItem('firstTimePledge', 'true');
       triggerConfetti();
       setIsSubmitting(false);
 

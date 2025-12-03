@@ -60,29 +60,38 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
   try {
     const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, created_at, is_verified';
 
-    // Single query: fetch more than needed, sort client-side by reason presence
-    // This reduces 2 profile queries to 1
-    const { data: allProfiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select(selectFields)
-      .eq('is_verified', true)
-      .order('created_at', { ascending: false })
-      .limit(20); // Fetch extra to ensure we get 6 after filtering
+    // Two queries in parallel to guarantee profiles with reasons are included:
+    // 1. Profiles WITH reasons (up to 6, most recent)
+    // 2. Profiles WITHOUT reasons (up to 6, most recent) - for backfill
+    const [withReasonsResult, withoutReasonsResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select(selectFields)
+        .eq('is_verified', true)
+        .neq('reason', '')
+        .not('reason', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(6),
+      supabase
+        .from('profiles')
+        .select(selectFields)
+        .eq('is_verified', true)
+        .or('reason.is.null,reason.eq.')
+        .order('created_at', { ascending: false })
+        .limit(6)
+    ]);
 
-    if (profilesError || !allProfiles) {
-      return [];
-    }
+    const withReasons = withReasonsResult.data || [];
+    const withoutReasons = withoutReasonsResult.data || [];
 
-    // Sort: profiles with reasons first, then without
-    const withReasons = allProfiles.filter(p => p.reason && p.reason.trim().length > 0);
-    const withoutReasons = allProfiles.filter(p => !p.reason || p.reason.trim().length === 0);
+    // Combine: all profiles with reasons first, then backfill with those without
     const combined = [...withReasons, ...withoutReasons].slice(0, 6);
 
     if (combined.length === 0) {
       return [];
     }
 
-    // Fetch witness and reciprocation counts in parallel (2 queries instead of 4)
+    // Fetch witness and reciprocation counts in parallel
     const profileIds = combined.map(p => p.id);
     const [witnessResult, reciprocationsResult] = await Promise.all([
       supabase.from('witnesses').select('profile_id').in('profile_id', profileIds),
