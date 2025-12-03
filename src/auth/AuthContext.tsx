@@ -35,9 +35,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Track user state via ref to avoid stale closure in useEffect
-  // This prevents the ESLint exhaustive-deps warning without causing infinite loops
-  const userRef = useRef<Profile | null>(null);
+  // Track previous user state to preserve data on transient network errors
+  const previousUserRef = useRef<Profile | null>(null);
 
   // Effect 1: Session management only
   // This follows Supabase's recommended pattern - onAuthStateChange just updates session
@@ -113,8 +112,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // This prevents wiping existing user data on transient network errors
         if (profile !== null) {
           setUser(profile);
-          userRef.current = profile;
-        } else if (userRef.current === null) {
+          previousUserRef.current = profile;
+        } else if (previousUserRef.current === null) {
           // Profile not found and we have no cached user - this is a new/deleted user
           setUser(null);
         }
@@ -125,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else {
         // No session = no user, loading complete
         setUser(null);
-        userRef.current = null;
+        previousUserRef.current = null;
         setIsLoading(false);
       }
     };

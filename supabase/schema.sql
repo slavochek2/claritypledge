@@ -59,24 +59,34 @@ create policy "Authenticated users can insert witnesses"
   on public.witnesses for insert
   with check ( true );
 
--- Helper to handle new user signup
+-- ⚠️ DEPRECATED: This trigger creates a double-write issue with AuthCallbackPage.tsx
+-- The client-side callback is the primary profile creation path (sets is_verified=true).
+-- This trigger runs first but leaves is_verified=false, creating inconsistent state.
+-- Additionally, createProfile() never sets 'slug' in user_metadata, so this inserts NULL.
+--
+-- TODO: Remove this trigger from Supabase dashboard. Keep this comment for documentation.
+-- The AuthCallbackPage.tsx upsert handles all profile creation reliably.
+--
+-- Helper to handle new user signup (DEPRECATED - kept as fallback only)
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
 begin
+  -- Only insert if profile doesn't already exist (fallback for edge cases)
   insert into public.profiles (id, email, name, slug, role, linkedin_url, reason, avatar_color)
   values (
     new.id,
     new.email,
-    new.raw_user_meta_data->>'name',
-    new.raw_user_meta_data->>'slug',
+    coalesce(new.raw_user_meta_data->>'name', 'Anonymous'),
+    null, -- Slug is generated client-side in AuthCallbackPage
     new.raw_user_meta_data->>'role',
     new.raw_user_meta_data->>'linkedin_url',
     new.raw_user_meta_data->>'reason',
     new.raw_user_meta_data->>'avatar_color'
-  );
+  )
+  on conflict (id) do nothing; -- Don't overwrite if AuthCallbackPage already created profile
   return new;
 end;
 $$;

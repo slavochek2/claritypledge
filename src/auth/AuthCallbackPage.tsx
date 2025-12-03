@@ -108,6 +108,7 @@ export function AuthCallbackPage() {
       console.log('🔄 Existing user from useAuth:', user);
 
       // Try to upsert with retry logic for slug conflicts
+      // Gives users memorable slugs like john-doe-2 instead of timestamps
       let upsertError = null;
       let retries = 0;
 
@@ -117,20 +118,15 @@ export function AuthCallbackPage() {
           .upsert(upsertData, { onConflict: 'id' });
 
         if (!error) {
-          console.log('✅ Profile upsert successful!');
           break;
         }
 
-        // Check if this is a slug uniqueness constraint violation
-        // Postgres unique violation code is 23505
+        // Check if this is a slug uniqueness constraint violation (Postgres code 23505)
         if (error.code === '23505' && error.message?.includes('slug')) {
           retries++;
-          console.log(`⚠️ Slug conflict detected, retry ${retries}/${MAX_SLUG_RETRIES}`);
 
           // Query for existing slugs to find next available number
-          // This gives users short, memorable slugs like john-doe-2
           const baseSlug = generateSlug(name);
-          // Escape special chars for LIKE pattern (%, _, \)
           const escapedSlug = escapeLikePattern(baseSlug);
           const { data: similarSlugs } = await supabase
             .from('profiles')
@@ -138,7 +134,6 @@ export function AuthCallbackPage() {
             .or(`slug.eq.${baseSlug},slug.like.${escapedSlug}-%`);
 
           // Find highest existing number (base slug counts as 1)
-          // Escape regex metacharacters to prevent ReDoS and incorrect matches
           const escapedRegex = escapeRegex(baseSlug);
           const existingNumbers = (similarSlugs || [])
             .map(s => {
@@ -154,9 +149,7 @@ export function AuthCallbackPage() {
 
           slug = `${baseSlug}-${nextNumber}`;
           upsertData.slug = slug;
-          console.log('🔄 Trying new slug:', slug);
         } else {
-          // Different error, don't retry
           upsertError = error;
           break;
         }
@@ -166,7 +159,6 @@ export function AuthCallbackPage() {
       if (retries >= MAX_SLUG_RETRIES && !upsertError) {
         slug = `${generateSlug(name)}-${Date.now()}`;
         upsertData.slug = slug;
-        console.log('🔄 Final fallback slug:', slug);
 
         const { error: finalError } = await supabase
           .from('profiles')
@@ -174,8 +166,6 @@ export function AuthCallbackPage() {
 
         if (finalError) {
           upsertError = finalError;
-        } else {
-          console.log('✅ Profile upsert successful with fallback slug!');
         }
       }
 
@@ -195,6 +185,9 @@ export function AuthCallbackPage() {
       // This fixes race condition where initial fetch happened before upsert completed
       await refreshProfile();
       console.log('✅ Profile refreshed in auth context');
+
+      // Clear pending verification email now that user is verified
+      localStorage.removeItem('pendingVerificationEmail');
 
       // Redirect to profile page using the slug we actually saved
       // (may have been modified due to conflict resolution)

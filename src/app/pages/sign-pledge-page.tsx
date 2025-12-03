@@ -20,6 +20,14 @@ export function SignPledgePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [socialProofLoaded, setSocialProofLoaded] = useState(false);
 
+  // If user already has a pending verification, redirect to confirmation
+  useEffect(() => {
+    const pendingEmail = localStorage.getItem('pendingVerificationEmail');
+    if (pendingEmail) {
+      navigate(`/sign-pledge/confirm?email=${encodeURIComponent(pendingEmail)}`, { replace: true });
+    }
+  }, [navigate]);
+
   // Fetch social proof data
   useEffect(() => {
     async function loadSocialProof() {
@@ -80,20 +88,24 @@ export function SignPledgePage() {
             </div>
             <div className="h-4 w-48 bg-muted rounded" />
           </div>
-        ) : totalCount > 0 ? (
+        ) : totalCount > 0 && champions.length > 0 ? (
           <div className="flex flex-col items-center gap-3 mb-4 animate-in fade-in duration-300">
             <div className="flex items-center -space-x-2" role="group" aria-label="Recent clarity champions">
-              {champions.map((champion) => (
-                <div
-                  key={champion.id}
-                  role="img"
-                  aria-label={champion.name}
-                  className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-medium"
-                  style={{ backgroundColor: champion.avatarColor || '#002B5C' }}
-                >
-                  {getInitials(champion.name)}
-                </div>
-              ))}
+              {champions.map((champion) => {
+                // Defensive: skip rendering if champion data is malformed
+                if (!champion?.id || !champion?.name) return null;
+                return (
+                  <div
+                    key={champion.id}
+                    role="img"
+                    aria-label={champion.name}
+                    className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-medium"
+                    style={{ backgroundColor: champion.avatarColor || '#002B5C' }}
+                  >
+                    {getInitials(champion.name)}
+                  </div>
+                );
+              })}
               {totalCount > champions.length && (
                 <div
                   className="w-8 h-8 rounded-full border-2 border-white bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground"

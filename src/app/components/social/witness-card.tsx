@@ -37,10 +37,17 @@ export function WitnessCard({
 
     setIsSubmitting(true);
 
-    // Normalize LinkedIn URL - add https:// if missing
+    // Normalize and validate LinkedIn URL
     let normalizedLinkedInUrl = linkedinUrl.trim();
-    if (normalizedLinkedInUrl && !normalizedLinkedInUrl.match(/^https?:\/\//i)) {
-      normalizedLinkedInUrl = `https://${normalizedLinkedInUrl}`;
+    if (normalizedLinkedInUrl) {
+      // Add https:// if missing
+      if (!normalizedLinkedInUrl.match(/^https?:\/\//i)) {
+        normalizedLinkedInUrl = `https://${normalizedLinkedInUrl}`;
+      }
+      // Only accept linkedin.com URLs - reject other domains for security
+      if (!normalizedLinkedInUrl.match(/^https?:\/\/(www\.)?linkedin\.com\//i)) {
+        normalizedLinkedInUrl = ''; // Discard non-LinkedIn URLs
+      }
     }
 
     // Instant witnessing - no email verification needed
