@@ -102,10 +102,11 @@ export function SignPledgeForm({
             <Input
               id="name"
               type="text"
-              placeholder="[Your Full Name]"
+              placeholder="John Smith"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              title="Enter your full name as it will appear on your certificate"
               className="inline-block w-auto min-w-[140px] md:min-w-[150px] mx-1 md:mx-2 px-2 md:px-3 py-0.5 md:py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-base md:text-lg h-auto"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             />

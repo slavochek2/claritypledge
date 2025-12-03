@@ -358,8 +358,8 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 }}
               >
                 {acceptanceCount === 1
-                  ? "1 person accepted my pledge"
-                  : `${acceptanceCount} people accepted my pledge`}
+                  ? `1 person accepted ${displayName.split(" ")[0]}'s pledge`
+                  : `${acceptanceCount} people accepted ${displayName.split(" ")[0]}'s pledge`}
               </p>
             )}
             <p

@@ -21,6 +21,13 @@ export function usePledgeForm(onSuccess?: () => void) {
       return;
     }
 
+    // Validate full name (at least first and last name, each at least 2 characters)
+    const nameParts = name.trim().split(/\s+/);
+    if (nameParts.length < 2 || nameParts.some(part => part.length < 2)) {
+      setError("Please enter your full name (first and last, each at least 2 characters) for the official pledge.");
+      return;
+    }
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
@@ -48,11 +55,12 @@ export function usePledgeForm(onSuccess?: () => void) {
       localStorage.setItem('pendingVerificationEmail', email.trim());
       localStorage.setItem('firstTimePledge', 'true');
       triggerConfetti();
-      
+      setIsSubmitting(false);
+
       if (onSuccess) {
         onSuccess();
       }
-      
+
     } catch (error) {
       console.error("Error signing pledge:", error);
       let errorMessage = "Failed to sign pledge. Please try again.";

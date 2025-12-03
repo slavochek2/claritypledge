@@ -9,9 +9,11 @@ import { ServicesPage } from "@/app/pages/services-page";
 import { FullArticlePage } from "@/app/pages/full-article-page";
 import { LoginPage } from "@/app/pages/login-page";
 import { SignPledgePage } from "@/app/pages/sign-pledge-page";
+import { PledgeConfirmationPage } from "@/app/pages/pledge-confirmation-page";
 import { PrivacyPolicyPage } from "@/app/pages/privacy-policy-page";
 import { TermsOfServicePage } from "@/app/pages/terms-of-service-page";
 import { SettingsPage } from "@/app/pages/settings-page";
+import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
 // so it cannot use any router hooks like useLocation, useNavigate, etc.
@@ -40,6 +42,7 @@ export default function ClarityPledgeApp() {
   return (
     <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog>
     <Router>
+      <ScrollToTop />
       <AuthProvider>
       <Routes>
         <Route
@@ -65,6 +68,15 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <SignPledgePage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/sign-pledge/confirm"
+          element={
+            <ClarityLandingLayout>
+              <PledgeConfirmationPage />
             </ClarityLandingLayout>
           }
         />

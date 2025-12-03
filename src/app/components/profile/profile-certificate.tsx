@@ -21,7 +21,7 @@ interface ProfileCertificateProps {
   profileUrl?: string;
   /** Number of people who accepted the pledge */
   acceptanceCount?: number;
-  /** Export mode: fixed dimensions, no responsive, no hover states */
+  /** Export mode: shows acceptance count and watermark at bottom */
   exportMode?: boolean;
 }
 
@@ -364,8 +364,8 @@ export function ProfileCertificate({
             {acceptanceCount > 0 && (
               <p className="text-sm text-[#0044CC] font-medium">
                 {acceptanceCount === 1
-                  ? "1 person accepted my pledge"
-                  : `${acceptanceCount} people accepted my pledge`}
+                  ? `1 person accepted ${name.split(" ")[0]}'s pledge`
+                  : `${acceptanceCount} people accepted ${name.split(" ")[0]}'s pledge`}
               </p>
             )}
             <p className="text-xs text-[#1A1A1A]/50 tracking-wide">

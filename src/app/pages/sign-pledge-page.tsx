@@ -10,15 +10,12 @@ import { SignPledgeForm } from "@/app/components/pledge/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { MailIcon } from "lucide-react";
 import { getFeaturedProfiles, getVerifiedProfileCount } from "@/app/data/api";
 import { getInitials } from "@/lib/utils";
 import type { ProfileSummary } from "@/app/types";
 
 export function SignPledgePage() {
   const navigate = useNavigate();
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
   const [champions, setChampions] = useState<ProfileSummary[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [socialProofLoaded, setSocialProofLoaded] = useState(false);
@@ -46,12 +43,7 @@ export function SignPledgePage() {
   const handleSuccess = () => {
     // Get email from local storage (set by usePledgeForm/createProfile)
     const pendingEmail = localStorage.getItem('pendingVerificationEmail');
-    if (pendingEmail) {
-        setEmail(pendingEmail);
-    }
-    
-    setIsSuccess(true);
-    
+
     // Check if this is a returning user
     const returningUserInfo = localStorage.getItem('returningUserInfo');
 
@@ -59,51 +51,18 @@ export function SignPledgePage() {
       try {
         const { name } = JSON.parse(returningUserInfo);
         toast.success(`Welcome back, ${name}! Link sent.`);
-        localStorage.removeItem('returningUserInfo'); 
+        localStorage.removeItem('returningUserInfo');
       } catch {
         toast.success("Welcome back! Link sent.");
       }
     } else {
       toast.success("Pledge signed! Check your email.");
     }
-    
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
-  if (isSuccess) {
-    return (
-      <div className="container mx-auto px-4 py-16 max-w-2xl text-center">
-        <div className="mb-8 flex justify-center">
-          <div className="h-24 w-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-             <MailIcon className="h-12 w-12 text-green-600 dark:text-green-400" />
-          </div>
-        </div>
-        
-        <h1 className="text-3xl md:text-4xl font-bold mb-6">Almost Done!</h1>
-        
-        <div className="bg-muted/50 p-6 rounded-lg mb-8 border border-border">
-          <p className="text-xl mb-4">
-            We've sent a verification link to:
-          </p>
-          <p className="text-2xl font-bold text-primary break-all">
-             {email || "your email"}
-          </p>
-        </div>
-        
-        <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-          Click the link in your email to <strong>complete your pledge</strong> and make your profile public.
-        </p>
-        
-        <button 
-            onClick={() => navigate('/')}
-            className="text-primary hover:underline font-medium"
-        >
-            Return to Home
-        </button>
-      </div>
-    );
-  }
+    // Redirect to confirmation page with email as query param
+    const emailParam = pendingEmail ? encodeURIComponent(pendingEmail) : '';
+    navigate(`/sign-pledge/confirm?email=${emailParam}`);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
