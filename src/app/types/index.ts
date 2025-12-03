@@ -27,7 +27,7 @@ export interface Profile {
 
 /**
  * Lightweight profile type for list views (champions page, featured profiles)
- * where we don't need or fetch sensitive data like email
+ * Does not include sensitive data like email for privacy
  */
 export interface ProfileSummary {
   id: string;

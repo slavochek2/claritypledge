@@ -33,7 +33,7 @@ export function ChampionCard({
   linkedinUrl,
   reason,
   signedAt,
-  avatarColor,
+  avatarColor = "#0044CC",
   witnessCount = 0,
   reciprocations = 0,
   showStats = true,
@@ -49,9 +49,10 @@ export function ChampionCard({
     >
       {/* Avatar and Info */}
       <div className="flex items-start gap-4 mb-4">
+        {/* Initials-only avatar for public lists (no email exposure) */}
         <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0"
-          style={{ backgroundColor: avatarColor || "#0044CC" }}
+          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
+          style={{ backgroundColor: avatarColor }}
         >
           {getInitials(name)}
         </div>

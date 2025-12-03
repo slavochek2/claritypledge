@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { MailIcon } from "lucide-react";
 import { getFeaturedProfiles, getVerifiedProfileCount } from "@/app/data/api";
+import { getInitials } from "@/lib/utils";
 import type { ProfileSummary } from "@/app/types";
 
 export function SignPledgePage() {
@@ -25,13 +26,19 @@ export function SignPledgePage() {
   // Fetch social proof data
   useEffect(() => {
     async function loadSocialProof() {
-      const [profiles, count] = await Promise.all([
-        getFeaturedProfiles(),
-        getVerifiedProfileCount()
-      ]);
-      setChampions(profiles.slice(0, 6)); // Max 6 avatars
-      setTotalCount(count);
-      setSocialProofLoaded(true);
+      try {
+        const [profiles, count] = await Promise.all([
+          getFeaturedProfiles(),
+          getVerifiedProfileCount()
+        ]);
+        setChampions(profiles.slice(0, 6)); // Max 6 avatars
+        setTotalCount(count);
+      } catch (error) {
+        console.error('Failed to load social proof:', error);
+        // Fail gracefully - social proof is non-critical
+      } finally {
+        setSocialProofLoaded(true);
+      }
     }
     loadSocialProof();
   }, []);
@@ -98,57 +105,50 @@ export function SignPledgePage() {
     );
   }
 
-  // Helper to get initials from name
-  const getInitials = (name: string) => {
-    const parts = name.split(' ').filter(Boolean);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
       <div className="mb-8 text-center">
         <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4">Take the Pledge</h1>
 
         {/* Social Proof - Compact Avatar Row */}
-        <div className="flex flex-col items-center gap-3 mb-4 min-h-[60px]">
-          {!socialProofLoaded ? (
-            // Skeleton placeholder - prevents layout shift
-            <div className="flex flex-col items-center gap-3 animate-pulse">
-              <div className="flex items-center -space-x-2">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-muted" />
-                ))}
-              </div>
-              <div className="h-4 w-48 bg-muted rounded" />
+        {!socialProofLoaded ? (
+          // Skeleton placeholder - prevents layout shift
+          <div className="flex flex-col items-center gap-3 mb-4 animate-pulse" aria-hidden="true">
+            <div className="flex items-center -space-x-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-muted" />
+              ))}
             </div>
-          ) : totalCount > 0 ? (
-            <div className="flex flex-col items-center gap-3 animate-in fade-in duration-300">
-              <div className="flex items-center -space-x-2">
-                {champions.map((champion) => (
-                  <div
-                    key={champion.id}
-                    className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-medium"
-                    style={{ backgroundColor: champion.avatarColor || '#002B5C' }}
-                    title={champion.name}
-                  >
-                    {getInitials(champion.name)}
-                  </div>
-                ))}
-                {totalCount > champions.length && (
-                  <div className="w-8 h-8 rounded-full border-2 border-white bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                    +{totalCount - champions.length}
-                  </div>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Join {totalCount} clarity champion{totalCount !== 1 ? 's' : ''} who've taken the pledge
-              </p>
+            <div className="h-4 w-48 bg-muted rounded" />
+          </div>
+        ) : totalCount > 0 ? (
+          <div className="flex flex-col items-center gap-3 mb-4 animate-in fade-in duration-300">
+            <div className="flex items-center -space-x-2" role="group" aria-label="Recent clarity champions">
+              {champions.map((champion) => (
+                <div
+                  key={champion.id}
+                  role="img"
+                  aria-label={champion.name}
+                  className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-medium"
+                  style={{ backgroundColor: champion.avatarColor || '#002B5C' }}
+                >
+                  {getInitials(champion.name)}
+                </div>
+              ))}
+              {totalCount > champions.length && (
+                <div
+                  className="w-8 h-8 rounded-full border-2 border-white bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground"
+                  aria-label={`${totalCount - champions.length} more champions`}
+                >
+                  +{totalCount - champions.length}
+                </div>
+              )}
             </div>
-          ) : null}
-        </div>
+            <p className="text-sm text-muted-foreground">
+              Join {totalCount} clarity champion{totalCount !== 1 ? 's' : ''} who've taken the pledge
+            </p>
+          </div>
+        ) : null}
       </div>
       <SignPledgeForm
         onSuccess={handleSuccess}

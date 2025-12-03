@@ -1,19 +1,39 @@
-import { getInitials } from "@/lib/utils";
+import { GravatarAvatar } from "@/app/components/ui/gravatar-avatar";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  PLEDGE_TEXT,
+  YourRightTextTailwind,
+  MyPromiseTextTailwind,
+} from "@/app/content/pledge-text";
 
 interface ProfileCertificateProps {
   name: string;
+  email?: string;
   signedAt: string;
   isVerified?: boolean;
   role?: string;
   linkedinUrl?: string;
+  /** Show QR code in certificate (for export) */
+  showQrCode?: boolean;
+  /** Profile URL for QR code */
+  profileUrl?: string;
+  /** Number of people who accepted the pledge */
+  acceptanceCount?: number;
+  /** Export mode: fixed dimensions, no responsive, no hover states */
+  exportMode?: boolean;
 }
 
 export function ProfileCertificate({
   name,
+  email,
   signedAt,
   isVerified = false,
   role,
   linkedinUrl,
+  showQrCode = false,
+  profileUrl,
+  acceptanceCount = 0,
+  exportMode = false,
 }: ProfileCertificateProps) {
   return (
     <div
@@ -31,10 +51,10 @@ export function ProfileCertificate({
             className="text-3xl md:text-4xl font-serif tracking-wide text-[#1A1A1A] dark:text-foreground"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            The Clarity Pledge
+            {PLEDGE_TEXT.title}
           </h2>
           <p className="text-xs text-[#1A1A1A]/60 dark:text-muted-foreground uppercase tracking-[0.2em] font-sans">
-            A Public Promise
+            {PLEDGE_TEXT.subtitle}
           </p>
         </div>
 
@@ -55,28 +75,20 @@ export function ProfileCertificate({
         {/* Your Right Section */}
         <div className="space-y-4">
           <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
-            YOUR RIGHT
+            {PLEDGE_TEXT.yourRight.heading}
           </h4>
           <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
-            When we talk, if you need to check whether I understood your idea in
-            the way you meant it, please ask me to{" "}
-            <span className="font-bold">explain back</span> to you how I
-            understood it.
+            <YourRightTextTailwind />
           </p>
         </div>
 
         {/* My Promise Section */}
         <div className="space-y-4">
           <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
-            MY PROMISE
+            {PLEDGE_TEXT.myPromise.heading}
           </h4>
           <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
-            I promise to <span className="font-bold">try</span> to{" "}
-            <span className="font-bold">explain back</span> what I think you
-            meant
-            <span className="font-bold"> without judgment or criticism</span> so
-            you can confirm or correct my understanding. If I cannot follow this
-            promise, I will explain why.
+            <MyPromiseTextTailwind />
           </p>
         </div>
 
@@ -193,15 +205,32 @@ export function ProfileCertificate({
                 })}
               </p>
             </div>
+
+            {/* QR Code - Mobile */}
+            {showQrCode && profileUrl && (
+              <div className="bg-white p-3 rounded-lg shadow-sm">
+                <QRCodeSVG
+                  value={profileUrl}
+                  size={100}
+                  level="M"
+                />
+                <p className="text-xs text-center text-muted-foreground mt-2">
+                  Scan to view
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Desktop: Horizontal balanced layout */}
           <div className="hidden md:flex items-center gap-8">
             {/* Left: Avatar + Name */}
             <div className="flex-1 flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-[#0044CC] dark:bg-blue-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                {getInitials(name)}
-              </div>
+              <GravatarAvatar
+                email={email}
+                name={name}
+                size="md"
+                avatarColor="#0044CC"
+              />
               <div>
                 <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight">
                   {name}
@@ -298,21 +327,49 @@ export function ProfileCertificate({
               )}
             </div>
 
-            {/* Right: Date */}
-            <div className="flex-1 text-right">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
-                Date
-              </p>
-              <p className="text-base font-semibold text-[#1A1A1A] dark:text-foreground">
-                {new Date(signedAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-            </div>
+            {/* Right: QR Code (export mode) or Date */}
+            {showQrCode && profileUrl ? (
+              <div className="flex-1 flex justify-end">
+                <div className="bg-white p-2 rounded">
+                  <QRCodeSVG
+                    value={profileUrl}
+                    size={80}
+                    level="M"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 text-right">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                  Date
+                </p>
+                <p className="text-base font-semibold text-[#1A1A1A] dark:text-foreground">
+                  {new Date(signedAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Export mode: Acceptance count and watermark */}
+        {exportMode && (
+          <div className="mt-6 pt-4 border-t border-[#1A1A1A]/10 text-center space-y-2">
+            {acceptanceCount > 0 && (
+              <p className="text-sm text-[#0044CC] font-medium">
+                {acceptanceCount === 1
+                  ? "1 person accepted my pledge"
+                  : `${acceptanceCount} people accepted my pledge`}
+              </p>
+            )}
+            <p className="text-xs text-[#1A1A1A]/50 tracking-wide">
+              claritypledge.com
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -92,6 +92,8 @@ export function ClarityPledgeLanding() {
               role="Founder, The Clarity Pledge"
               isVerified={true}
               linkedinUrl="https://linkedin.com/in/ladischenski"
+              showQrCode={true}
+              profileUrl="https://claritypledge.com/p/vyacheslav-ladischenski"
             />
           </div>
         </section>

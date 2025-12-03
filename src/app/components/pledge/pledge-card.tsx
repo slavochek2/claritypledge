@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Pledge } from "@/app/types";
+import { LinkedinIcon } from "lucide-react";
 import {
-  LinkedinIcon,
-} from "lucide-react";
+  PLEDGE_TEXT,
+  YourRightTextTailwind,
+  MyPromiseTextTailwind,
+} from "@/app/content/pledge-text";
 
 interface PledgeCardProps extends Omit<Pledge, 'id' | 'reason' | 'signedAt'> {
   isSigned?: boolean;
@@ -47,11 +50,11 @@ export function PledgeCard({
             <div className="p-10 lg:p-16">
               {/* Card Title */}
               <div className="text-center space-y-2 mb-12">
-                <h3 className="text-3xl lg:text-4xl font-bold tracking-wider text-[#1A1A1A] dark:text-foreground">
-                  THE CLARITY PLEDGE
+                <h3 className="text-3xl lg:text-4xl font-bold tracking-wider text-[#1A1A1A] dark:text-foreground uppercase">
+                  {PLEDGE_TEXT.title}
                 </h3>
                 <p className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-                  A PUBLIC PROMISE
+                  {PLEDGE_TEXT.subtitle.toUpperCase()}
                 </p>
                 <div className="w-24 h-0.5 bg-[#0044CC] dark:bg-blue-500 mx-auto" />
               </div>
@@ -68,31 +71,20 @@ export function PledgeCard({
               {/* Your Right Section */}
               <div className="mb-10">
                 <h4 className="text-2xl lg:text-3xl font-bold text-[#0044CC] dark:text-blue-400 mb-5 tracking-wide">
-                  YOUR RIGHT
+                  {PLEDGE_TEXT.yourRight.heading}
                 </h4>
                 <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
-                  When we talk, if you need to check whether I understood your
-                  idea in the way you meant it, please ask me to{" "}
-                  <span className="font-bold">explain back</span> to you how I
-                  understood it.
+                  <YourRightTextTailwind />
                 </p>
               </div>
 
               {/* My Promise Section */}
               <div className="mb-10">
                 <h4 className="text-2xl lg:text-3xl font-bold text-[#0044CC] dark:text-blue-400 mb-5 tracking-wide">
-                  MY PROMISE
+                  {PLEDGE_TEXT.myPromise.heading}
                 </h4>
                 <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
-                  I promise to <span className="font-bold">try</span> to{" "}
-                  <span className="font-bold">explain back</span> what I think
-                  you meant
-                  <span className="font-bold">
-                    {" "}
-                    without judgment or criticism
-                  </span>{" "}
-                  so you can confirm or correct my understanding. If I cannot
-                  follow this promise, I will explain why.
+                  <MyPromiseTextTailwind />
                 </p>
               </div>
 

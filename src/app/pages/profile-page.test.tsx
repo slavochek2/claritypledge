@@ -9,6 +9,22 @@ import type { Profile } from "@/app/types";
 vi.mock("@/auth");
 vi.mock("@/app/data/api");
 
+// Helper to create properly typed auth mocks
+// Uses ReturnType to infer the correct type from useAuth
+const createAuthMock = (overrides: {
+  user?: Profile | null;
+  sessionUserId?: string | null;
+  isLoading?: boolean;
+} = {}): ReturnType<typeof auth.useAuth> => ({
+  session: overrides.sessionUserId
+    ? ({ user: { id: overrides.sessionUserId } } as ReturnType<typeof auth.useAuth>["session"])
+    : null,
+  user: overrides.user ?? null,
+  isLoading: overrides.isLoading ?? false,
+  signOut: vi.fn(),
+  refreshProfile: vi.fn(),
+});
+
 describe("ProfilePage", () => {
   const mockProfile: Profile = {
     id: "test-user-id",
@@ -39,12 +55,10 @@ describe("ProfilePage", () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(null);
 
-      // Mock useUser to simulate loading state
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: true, // Key: user is still loading
-        signOut: vi.fn(),
-      });
+      // Mock useAuth to simulate loading state
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ isLoading: true })
+      );
 
       render(
         <MemoryRouter initialEntries={["/p/test-user"]}>
@@ -146,9 +160,9 @@ describe("ProfilePage", () => {
           resolveProfile!(mockProfile);
       });
 
-      // Should show profile
+      // Should show profile - heading includes "signed the Clarity Pledge"
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: mockProfile.name })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: `${mockProfile.name} signed the Clarity Pledge` })).toBeInTheDocument();
       });
     });
   });

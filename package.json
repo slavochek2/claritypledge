@@ -30,6 +30,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "framer-motion": "^11.3.24",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.477.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@playwright/test": "^1.57.0",
+    "@sentry/vite-plugin": "^4.6.1",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -69,7 +71,6 @@
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",
     "vite": "^6.2.0",
-    "vitest": "^4.0.14",
-    "@sentry/vite-plugin": "^4.6.1"
+    "vitest": "^4.0.14"
   }
 }

@@ -5,6 +5,11 @@ import { BadgeCheckIcon, PenToolIcon } from "lucide-react";
 import { usePledgeForm } from "@/hooks/use-pledge-form";
 import { Link } from "react-router-dom";
 import { useMemo } from "react";
+import {
+  PLEDGE_TEXT,
+  YourRightTextTailwind,
+  MyPromiseTextTailwind,
+} from "@/app/content/pledge-text";
 
 interface SignPledgeFormProps {
   onSuccess: () => void;
@@ -35,8 +40,12 @@ export function SignPledgeForm({
     handleSubmit
   } = usePledgeForm(onSuccess);
 
-  // Profile strength calculation - 0% until email, then 15% baseline + optional fields
+  // Profile strength calculation - 0% until email, then baseline + optional fields
   const profileStrength = useMemo(() => {
+    const BASELINE_PERCENTAGE = 15; // Email alone gives this baseline
+    const OPTIONAL_FIELDS_COUNT = 3; // role, linkedin, reason
+    const REMAINING_PERCENTAGE = 85; // Distributed across optional fields
+
     const hasEmail = email.trim().length > 0;
     if (!hasEmail) return { filled: 0, percentage: 0 };
 
@@ -44,8 +53,8 @@ export function SignPledgeForm({
     if (role.trim()) filled++;
     if (linkedinUrl.trim()) filled++;
     if (reason.trim()) filled++;
-    // Email gives 15% baseline, then ~28% per optional field
-    const percentage = 15 + Math.round((filled / 3) * 85);
+
+    const percentage = BASELINE_PERCENTAGE + Math.round((filled / OPTIONAL_FIELDS_COUNT) * REMAINING_PERCENTAGE);
     return { filled, percentage };
   }, [email, role, linkedinUrl, reason]);
 
@@ -74,10 +83,10 @@ export function SignPledgeForm({
             className="text-2xl md:text-4xl font-serif tracking-wide text-[#1A1A1A]"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            The Clarity Pledge
+            {PLEDGE_TEXT.title}
           </h2>
           <p className="text-[10px] md:text-xs text-[#1A1A1A]/60 uppercase tracking-[0.2em] font-sans">
-            A Public Promise
+            {PLEDGE_TEXT.subtitle}
           </p>
         </div>
 
@@ -117,31 +126,20 @@ export function SignPledgeForm({
           {/* Your Right Section - Matching Certificate Design */}
           <div className="space-y-2 md:space-y-4">
             <h3 className="text-lg md:text-2xl font-bold text-[#0044CC] tracking-wide">
-              YOUR RIGHT
+              {PLEDGE_TEXT.yourRight.heading}
             </h3>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
-              When we talk, if you need to check whether I understood your idea
-              in the way you meant it, please ask me to{" "}
-              <span className="font-bold">explain back</span> to you how I
-              understood it.
+              <YourRightTextTailwind />
             </p>
           </div>
 
           {/* My Promise Section - Matching Certificate Design */}
           <div className="space-y-2 md:space-y-4">
             <h3 className="text-lg md:text-2xl font-bold text-[#0044CC] tracking-wide">
-              MY PROMISE
+              {PLEDGE_TEXT.myPromise.heading}
             </h3>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
-              I promise to <span className="font-bold">try</span> to{" "}
-              <span className="font-bold">explain back</span> what I think you
-              meant
-              <span className="font-bold">
-                {" "}
-                without judgment or criticism
-              </span>{" "}
-              so you can confirm or correct my understanding. If I cannot follow
-              this promise, I will explain why.
+              <MyPromiseTextTailwind />
             </p>
           </div>
         </div>
@@ -179,7 +177,7 @@ export function SignPledgeForm({
             </Label>
             <Input
               id="email"
-              type="text"
+              type="email"
               placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

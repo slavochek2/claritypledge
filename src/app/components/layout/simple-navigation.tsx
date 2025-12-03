@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth";
-import { getInitials } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon } from "lucide-react";
+import { GravatarAvatar } from "@/app/components/ui/gravatar-avatar";
 
 // Navigation links config - single source of truth
 const NAV_LINKS = [
@@ -95,17 +95,21 @@ export function SimpleNavigation() {
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className={`flex items-center justify-center w-10 h-10 rounded-full text-white font-semibold text-sm hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
-                      !currentUser?.avatarColor ? "bg-blue-500" : ""
-                    }`}
-                    style={
-                      currentUser?.avatarColor
-                        ? { backgroundColor: currentUser.avatarColor }
-                        : undefined
-                    }
+                    className="flex items-center justify-center hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
                     aria-label="User menu"
                   >
-                    {currentUser ? getInitials(currentUser.name) : <UserIcon className="w-5 h-5" />}
+                    {currentUser ? (
+                      <GravatarAvatar
+                        email={currentUser.email}
+                        name={currentUser.name}
+                        size="sm"
+                        avatarColor={currentUser.avatarColor}
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <UserIcon className="w-5 h-5 text-white" />
+                      </div>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={8} className="w-56">

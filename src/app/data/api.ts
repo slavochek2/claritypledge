@@ -315,7 +315,7 @@ export async function createProfile(
   // has verified their email. This is a more robust and reliable flow.
 
   const redirectUrl = `${window.location.origin}/auth/callback`;
-  const slug = `${generateSlug(name)}-${Date.now()}`; // still generating a unique slug to pass along
+  const slug = await ensureUniqueSlug(name);
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -512,6 +512,54 @@ export function generateSlug(name: string): string {
     .replace(/[^\w\s-]/g, '') // Remove special characters
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/--+/g, '-'); // Replace multiple hyphens with single hyphen
+}
+
+/**
+ * Generates a unique slug by checking database availability.
+ * Tries the base slug first (e.g., "john-doe"), then appends incrementing
+ * numbers if taken (e.g., "john-doe-2", "john-doe-3").
+ * @param {string} name - The user's name to generate slug from.
+ * @returns {Promise<string>} A unique slug guaranteed not to exist in the database.
+ */
+export async function ensureUniqueSlug(name: string): Promise<string> {
+  const baseSlug = generateSlug(name);
+
+  if (!baseSlug) {
+    return `user-${Date.now()}`;
+  }
+
+  // Check if base slug is available
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('slug')
+    .eq('slug', baseSlug)
+    .single();
+
+  if (!existing) {
+    console.log('✅ Slug available:', baseSlug);
+    return baseSlug;
+  }
+
+  // Base slug taken, find next available number
+  const { data: similarSlugs } = await supabase
+    .from('profiles')
+    .select('slug')
+    .like('slug', `${baseSlug}-%`);
+
+  const existingNumbers = (similarSlugs || [])
+    .map(p => {
+      const match = p.slug.match(new RegExp(`^${baseSlug}-(\\d+)$`));
+      return match ? parseInt(match[1], 10) : 0;
+    })
+    .filter(n => n > 0);
+
+  const nextNumber = existingNumbers.length > 0
+    ? Math.max(...existingNumbers) + 1
+    : 2;
+
+  const uniqueSlug = `${baseSlug}-${nextNumber}`;
+  console.log('✅ Generated unique slug:', uniqueSlug);
+  return uniqueSlug;
 }
 
 /**

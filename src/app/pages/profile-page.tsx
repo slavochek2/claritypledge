@@ -196,6 +196,12 @@ export function ProfilePage() {
                   <ShareHub
                     profileUrl={profileUrl}
                     profileName={profile.name}
+                    slug={profile.slug}
+                    role={profile.role}
+                    signedAt={profile.signedAt}
+                    isVerified={profile.isVerified}
+                    acceptanceCount={profile.witnesses?.length || 0}
+                    isOwner={true}
                   />
                 </div>
               )}

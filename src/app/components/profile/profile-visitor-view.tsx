@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { type Profile } from "@/app/data/api";
 import { ProfileCertificate } from "@/app/components/profile/profile-certificate";
+import { ExportCertificate } from "@/app/components/profile/export-certificate";
 import { WitnessCard } from "@/app/components/social/witness-card";
 import { WitnessList } from "@/app/components/social/witness-list";
-import { ShieldCheckIcon, AlertCircleIcon, HandshakeIcon } from "lucide-react";
+import { ShieldCheckIcon, AlertCircleIcon, HandshakeIcon, LinkIcon, ImageIcon, CheckIcon, LoaderIcon } from "lucide-react";
+import { toast } from "sonner";
+import { toPng } from "html-to-image";
 
 interface ProfileVisitorViewProps {
   profile: Profile;
@@ -19,32 +22,104 @@ export function ProfileVisitorView({
   currentUser,
 }: ProfileVisitorViewProps) {
   const [hasAccepted, setHasAccepted] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  const profileUrl = `${window.location.origin}/p/${profile.slug}`;
 
   const handleWitness = (witnessName: string, linkedinUrl?: string) => {
     setHasAccepted(true);
     onWitness(witnessName, linkedinUrl);
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setLinkCopied(true);
+      toast.success("Link copied!");
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!exportRef.current) return;
+    setIsExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+      const link = document.createElement("a");
+      link.download = `clarity-pledge-${profile.slug}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success("Certificate downloaded!");
+    } catch {
+      toast.error("Failed to download. Try a screenshot instead.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-16">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-          {profile.name} signed the Clarity Pledge
-        </h1>
-        <p className="text-xl text-muted-foreground font-medium">
-          A public promise to prevent dangerous misunderstandings
-        </p>
-      </div>
+      {/* Header - only for visitors */}
+      {!isOwner && (
+        <div className="text-center space-y-4">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
+            {profile.name} signed the Clarity Pledge
+          </h1>
+          <p className="text-xl text-muted-foreground font-medium">
+            A public promise to prevent dangerous misunderstandings
+          </p>
+        </div>
+      )}
+
+      {/* Quick Actions for Owner */}
+      {isOwner && (
+        <div className="max-w-3xl mx-auto flex justify-end gap-2">
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium"
+            title="Copy link"
+          >
+            {linkCopied ? (
+              <CheckIcon className="w-4 h-4 text-green-600" />
+            ) : (
+              <LinkIcon className="w-4 h-4" />
+            )}
+            {linkCopied ? "Copied!" : "Copy Link"}
+          </button>
+          <button
+            onClick={handleDownloadImage}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium disabled:opacity-50"
+            title="Download certificate image"
+          >
+            {isExporting ? (
+              <LoaderIcon className="w-4 h-4 animate-spin" />
+            ) : (
+              <ImageIcon className="w-4 h-4" />
+            )}
+            {isExporting ? "Exporting..." : "Download Image"}
+          </button>
+        </div>
+      )}
 
       {/* Certificate - FIRST to show what they committed to */}
       <div className="max-w-3xl mx-auto">
         <ProfileCertificate
           name={profile.name}
+          email={profile.email}
           signedAt={profile.signedAt}
           isVerified={profile.isVerified}
           role={profile.role}
           linkedinUrl={profile.linkedinUrl}
+          showQrCode={true}
+          profileUrl={`https://claritypledge.com/p/${profile.slug}`}
         />
       </div>
 
@@ -157,7 +232,28 @@ export function ProfileVisitorView({
           </div>
         </div>
       )}
-      
+
+      {/* Hidden certificate for export - rendered off-screen */}
+      {isOwner && (
+        <div
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: "-9999px",
+          }}
+          aria-hidden="true"
+        >
+          <ExportCertificate
+            ref={exportRef}
+            name={profile.name}
+            role={profile.role}
+            signedAt={profile.signedAt}
+            isVerified={profile.isVerified}
+            slug={profile.slug}
+            acceptanceCount={profile.witnesses.length}
+          />
+        </div>
+      )}
     </div>
   );
 }
