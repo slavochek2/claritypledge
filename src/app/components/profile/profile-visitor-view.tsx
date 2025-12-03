@@ -71,6 +71,7 @@ export function ProfileVisitorView({
           isVerified={profile.isVerified}
           role={profile.role}
           linkedinUrl={profile.linkedinUrl}
+          avatarColor={profile.avatarColor}
           showQrCode={true}
           profileUrl={`https://claritypledge.com/p/${profile.slug}`}
         />

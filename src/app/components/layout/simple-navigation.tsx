@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon, SettingsIcon } from "lucide-react";
-import { GravatarAvatar } from "@/app/components/ui/gravatar-avatar";
+import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
 // Navigation links config - single source of truth
 const NAV_LINKS = [

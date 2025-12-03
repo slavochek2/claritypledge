@@ -1,4 +1,4 @@
-import { GravatarAvatar } from "@/app/components/ui/gravatar-avatar";
+import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { QRCodeSVG } from "qrcode.react";
 import {
   PLEDGE_TEXT,
@@ -13,6 +13,8 @@ interface ProfileCertificateProps {
   isVerified?: boolean;
   role?: string;
   linkedinUrl?: string;
+  /** User's avatar color */
+  avatarColor?: string;
   /** Show QR code in certificate (for export) */
   showQrCode?: boolean;
   /** Profile URL for QR code */
@@ -30,6 +32,7 @@ export function ProfileCertificate({
   isVerified = false,
   role,
   linkedinUrl,
+  avatarColor = "#0044CC",
   showQrCode = false,
   profileUrl,
   acceptanceCount = 0,
@@ -229,7 +232,7 @@ export function ProfileCertificate({
                 email={email}
                 name={name}
                 size="md"
-                avatarColor="#0044CC"
+                avatarColor={avatarColor}
               />
               <div>
                 <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight">

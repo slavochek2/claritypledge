@@ -20,7 +20,7 @@ export type { Profile, ProfileSummary, Witness } from '@/app/types';
  */
 export async function getProfile(id: string): Promise<Profile | null> {
   console.log('🔍 Fetching profile for ID:', id);
-  
+
   try {
     // First, get the profile
     const { data: profile, error: profileError } = await supabase
@@ -55,12 +55,23 @@ export async function getProfile(id: string): Promise<Profile | null> {
 
     if (witnessesError) {
       console.warn('⚠️ Error fetching witnesses (non-fatal):', witnessesError);
-      // Continue without witnesses
-      return mapProfileFromDb({ ...profile, witnesses: [] });
     }
 
     console.log('✅ Witnesses fetched:', witnesses?.length || 0);
-    return mapProfileFromDb({ ...profile, witnesses: witnesses || [] });
+
+    // Get reciprocations count (profiles where this user is a witness)
+    const { count: reciprocationsCount, error: reciprocationsError } = await supabase
+      .from('witnesses')
+      .select('*', { count: 'exact', head: true })
+      .eq('witness_profile_id', id);
+
+    if (reciprocationsError) {
+      console.warn('⚠️ Error fetching reciprocations (non-fatal):', reciprocationsError);
+    }
+
+    console.log('✅ Reciprocations count:', reciprocationsCount || 0);
+
+    return mapProfileFromDb({ ...profile, witnesses: witnesses || [] }, reciprocationsCount || 0);
   } catch (err) {
     console.error('❌ Unexpected error in getProfile:', err);
     return null;
@@ -453,8 +464,10 @@ function mapProfileSummaryFromDb(
 /**
  * A private helper function to map data from the database (snake_case) to the frontend-friendly `Profile` interface (camelCase).
  * It also ensures a valid slug exists, generating one from the user's name if necessary.
+ * @param dbProfile - The database profile row
+ * @param reciprocations - Count of profiles where this user is a witness (how many people they've inspired)
  */
-function mapProfileFromDb(dbProfile: DbProfile): Profile {
+function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Profile {
   // Generate a safe slug if one doesn't exist or is empty
   // Priority: 1) existing slug 2) generate from name 3) use id as fallback
   let safeSlug: string;
@@ -485,7 +498,7 @@ function mapProfileFromDb(dbProfile: DbProfile): Profile {
       timestamp: w.created_at,
       isVerified: w.is_verified,
     })),
-    reciprocations: (dbProfile.witnesses || []).length, // Simplified count
+    reciprocations,
     avatarColor: dbProfile.avatar_color,
   };
 }
@@ -604,7 +617,7 @@ export async function updateProfile(
  */
 export async function getProfileBySlug(slug: string): Promise<Profile | null> {
   console.log('🔍 Fetching profile for slug:', slug);
-  
+
   try {
     // First, get the profile by slug
     const { data: profile, error: profileError } = await supabase
@@ -633,11 +646,23 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
 
     if (witnessesError) {
       console.warn('⚠️ Error fetching witnesses (non-fatal):', witnessesError);
-      return mapProfileFromDb({ ...profile, witnesses: [] });
     }
 
     console.log('✅ Witnesses fetched:', witnesses?.length || 0);
-    return mapProfileFromDb({ ...profile, witnesses: witnesses || [] });
+
+    // Get reciprocations count (profiles where this user is a witness)
+    const { count: reciprocationsCount, error: reciprocationsError } = await supabase
+      .from('witnesses')
+      .select('*', { count: 'exact', head: true })
+      .eq('witness_profile_id', profile.id);
+
+    if (reciprocationsError) {
+      console.warn('⚠️ Error fetching reciprocations (non-fatal):', reciprocationsError);
+    }
+
+    console.log('✅ Reciprocations count:', reciprocationsCount || 0);
+
+    return mapProfileFromDb({ ...profile, witnesses: witnesses || [] }, reciprocationsCount || 0);
   } catch (err) {
     console.error('❌ Unexpected error in getProfileBySlug:', err);
     return null;

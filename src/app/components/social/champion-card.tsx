@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getInitials } from "@/lib/utils";
+import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 
 export interface ChampionCardProps {
   /** Profile ID - kept for API compatibility with ProfileSummary type */
@@ -50,13 +50,12 @@ export function ChampionCard({
     >
       {/* Avatar and Info */}
       <div className="flex items-start gap-4 mb-4">
-        {/* Initials-only avatar for public lists (no email exposure) */}
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold flex-shrink-0"
-          style={{ backgroundColor: avatarColor }}
-        >
-          {getInitials(name)}
-        </div>
+        {/* GravatarAvatar - will show initials fallback since no email in public lists */}
+        <GravatarAvatar
+          name={name}
+          size="lg"
+          avatarColor={avatarColor}
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-lg font-bold truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
