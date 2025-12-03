@@ -26,6 +26,19 @@ import { useAuth } from "./useAuth";
 import { LoaderIcon } from "lucide-react";
 import { generateSlug, getProfile } from "@/app/data/api";
 
+/** Maximum retry attempts for slug conflicts before using timestamp fallback */
+const MAX_SLUG_RETRIES = 3;
+
+/** Escape special characters for use in regex patterns */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Escape special characters for use in PostgreSQL LIKE patterns */
+function escapeLikePattern(str: string): string {
+  return str.replace(/[%_\\]/g, '\\$&');
+}
+
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Finalizing authentication...");
@@ -70,9 +83,17 @@ export function AuthCallbackPage() {
       const name = existingProfile?.name || user_metadata.name || 'Anonymous';
       let slug = existingProfile?.slug || generateSlug(name);
 
+      // Validate email exists (should always be present from auth, but be defensive)
+      const email = authUser.email;
+      if (!email) {
+        setStatus("Error: No email found. Please contact support.");
+        console.error("❌ Auth user has no email:", authUser.id);
+        return;
+      }
+
       const upsertData = {
         id: authUser.id,
-        email: authUser.email!,
+        email,
         name,
         slug,
         role: existingProfile?.role || user_metadata.role,
@@ -89,9 +110,8 @@ export function AuthCallbackPage() {
       // Try to upsert with retry logic for slug conflicts
       let upsertError = null;
       let retries = 0;
-      const maxRetries = 3;
 
-      while (retries <= maxRetries) {
+      while (retries < MAX_SLUG_RETRIES) {
         const { error } = await supabase
           .from('profiles')
           .upsert(upsertData, { onConflict: 'id' });
@@ -105,21 +125,57 @@ export function AuthCallbackPage() {
         // Postgres unique violation code is 23505
         if (error.code === '23505' && error.message?.includes('slug')) {
           retries++;
-          console.log(`⚠️ Slug conflict detected, retry ${retries}/${maxRetries}`);
+          console.log(`⚠️ Slug conflict detected, retry ${retries}/${MAX_SLUG_RETRIES}`);
 
-          if (retries > maxRetries) {
-            upsertError = error;
-            break;
-          }
+          // Query for existing slugs to find next available number
+          // This gives users short, memorable slugs like john-doe-2
+          const baseSlug = generateSlug(name);
+          // Escape special chars for LIKE pattern (%, _, \)
+          const escapedSlug = escapeLikePattern(baseSlug);
+          const { data: similarSlugs } = await supabase
+            .from('profiles')
+            .select('slug')
+            .or(`slug.eq.${baseSlug},slug.like.${escapedSlug}-%`);
 
-          // Generate a new unique slug with timestamp suffix
-          slug = `${generateSlug(name)}-${Date.now()}`;
+          // Find highest existing number (base slug counts as 1)
+          // Escape regex metacharacters to prevent ReDoS and incorrect matches
+          const escapedRegex = escapeRegex(baseSlug);
+          const existingNumbers = (similarSlugs || [])
+            .map(s => {
+              if (s.slug === baseSlug) return 1;
+              const match = s.slug.match(new RegExp(`^${escapedRegex}-(\\d+)$`));
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter(n => n > 0);
+
+          const nextNumber = existingNumbers.length > 0
+            ? Math.max(...existingNumbers) + 1
+            : 2;
+
+          slug = `${baseSlug}-${nextNumber}`;
           upsertData.slug = slug;
           console.log('🔄 Trying new slug:', slug);
         } else {
           // Different error, don't retry
           upsertError = error;
           break;
+        }
+      }
+
+      // If we exhausted retries, use timestamp fallback to guarantee uniqueness
+      if (retries >= MAX_SLUG_RETRIES && !upsertError) {
+        slug = `${generateSlug(name)}-${Date.now()}`;
+        upsertData.slug = slug;
+        console.log('🔄 Final fallback slug:', slug);
+
+        const { error: finalError } = await supabase
+          .from('profiles')
+          .upsert(upsertData, { onConflict: 'id' });
+
+        if (finalError) {
+          upsertError = finalError;
+        } else {
+          console.log('✅ Profile upsert successful with fallback slug!');
         }
       }
 

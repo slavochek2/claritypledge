@@ -24,6 +24,8 @@ const mockGetSession = vi.fn();
 const mockUpsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockFrom = vi.fn();
+const mockSelect = vi.fn();
+const mockOr = vi.fn();
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
@@ -44,7 +46,8 @@ vi.mock('@/lib/supabase', () => ({
       return {
         upsert: (data: unknown, opts: unknown) => {
           mockUpsert(data, opts);
-          return { error: null };
+          // Return the configured upsert response (default: success)
+          return mockUpsert.mock.results[mockUpsert.mock.calls.length - 1]?.value ?? { error: null };
         },
         update: (data: unknown) => {
           mockUpdate(data);
@@ -52,6 +55,16 @@ vi.mock('@/lib/supabase', () => ({
             eq: () => ({
               select: () => ({ data: [{ id: 'test' }], error: null })
             })
+          };
+        },
+        select: (fields: string) => {
+          mockSelect(fields);
+          return {
+            or: (filter: string) => {
+              mockOr(filter);
+              // Return configured similar slugs (default: empty)
+              return mockOr.mock.results[mockOr.mock.calls.length - 1]?.value ?? { data: [], error: null };
+            }
           };
         }
       };
@@ -232,6 +245,143 @@ describe('CRITICAL AUTH FLOW', () => {
 
         // Should redirect to the generated slug
         expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
+      });
+    });
+
+    it('should retry with sequential slug on conflict (john-doe-2)', async () => {
+      // Setup: New user with name that already exists
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
+          email: 'new@example.com',
+          user_metadata: {
+            name: 'John Doe',
+            role: 'Designer',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null);
+
+      // First upsert fails with slug conflict, second succeeds
+      mockUpsert
+        .mockReturnValueOnce({ error: { code: '23505', message: 'duplicate key value violates unique constraint "profiles_slug_key"' } })
+        .mockReturnValueOnce({ error: null });
+
+      // Return existing slugs for query
+      mockOr.mockReturnValueOnce({ data: [{ slug: 'john-doe' }], error: null });
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(mockUpsert).toHaveBeenCalledTimes(2);
+        // Second call should have slug with -2 suffix
+        const secondCall = mockUpsert.mock.calls[1][0];
+        expect(secondCall.slug).toBe('john-doe-2');
+        expect(mockNavigate).toHaveBeenCalledWith('/p/john-doe-2', { replace: true });
+      });
+    });
+
+    it('should use timestamp fallback after max retries exhausted', async () => {
+      // Setup: New user
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
+          email: 'new@example.com',
+          user_metadata: {
+            name: 'Popular Name',
+            role: 'Designer',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null);
+
+      // Mock Date.now for predictable timestamp BEFORE any renders
+      const mockTimestamp = 1733270400000;
+      vi.spyOn(Date, 'now').mockReturnValue(mockTimestamp);
+
+      // All 3 retries fail, then timestamp fallback succeeds
+      const slugError = { code: '23505', message: 'duplicate key value violates unique constraint "profiles_slug_key"' };
+
+      // Configure upsert to return error for first 3 calls, then success
+      let upsertCallCount = 0;
+      mockUpsert.mockImplementation(() => {
+        upsertCallCount++;
+        // First 3 calls fail with slug error, 4th succeeds (timestamp fallback)
+        if (upsertCallCount <= 3) {
+          return { error: slugError };
+        }
+        return { error: null };
+      });
+
+      // Return existing slugs each time - these cover 2, 3, 4
+      mockOr.mockReturnValue({
+        data: [
+          { slug: 'popular-name' },
+          { slug: 'popular-name-2' },
+          { slug: 'popular-name-3' },
+          { slug: 'popular-name-4' }
+        ],
+        error: null
+      });
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        // Should have attempted: initial + 3 retries (in while loop) + 1 timestamp fallback = 4 calls
+        expect(mockUpsert).toHaveBeenCalledTimes(4);
+        // Final call should have timestamp slug
+        const finalCall = mockUpsert.mock.calls[3][0];
+        expect(finalCall.slug).toBe(`popular-name-${mockTimestamp}`);
+        expect(mockNavigate).toHaveBeenCalledWith(`/p/popular-name-${mockTimestamp}`, { replace: true });
+      });
+
+      vi.restoreAllMocks();
+    });
+
+    it('should show error when auth user has no email', async () => {
+      // Setup: User with no email (edge case)
+      const mockSession = {
+        user: {
+          id: 'no-email-user',
+          email: null, // No email!
+          user_metadata: {
+            name: 'No Email User',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null);
+
+      const { container } = render(
+        <MemoryRouter>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        // Should NOT call upsert
+        expect(mockUpsert).not.toHaveBeenCalled();
+        // Should show error status
+        expect(container.textContent).toContain('No email found');
       });
     });
   });

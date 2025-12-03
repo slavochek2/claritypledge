@@ -161,17 +161,32 @@ ${firstName}`
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+        {/* Download Image Button */}
+        <button
+          onClick={handleDownloadCertificate}
+          disabled={isExporting}
+          className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium disabled:opacity-50 w-full sm:w-auto"
+          title="Download certificate image"
+        >
+          {isExporting ? (
+            <LoaderIcon className="w-4 h-4 animate-spin" />
+          ) : (
+            <DownloadIcon className="w-4 h-4" />
+          )}
+          {isExporting ? "Exporting..." : "Download Image"}
+        </button>
+
         {/* Share Dropdown */}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium">
+            <button className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0044CC] hover:bg-[#0033AA] text-white transition-colors text-sm font-medium w-full sm:w-auto">
               <LinkIcon className="w-4 h-4" />
               Share
               <ChevronDownIcon className="w-4 h-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="end" className="w-56">
             {/* Copy Link */}
             <DropdownMenuItem
               onClick={handleCopyLink}
@@ -219,21 +234,6 @@ ${firstName}`
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Download Image Button */}
-        <button
-          onClick={handleDownloadCertificate}
-          disabled={isExporting}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium disabled:opacity-50"
-          title="Download certificate image"
-        >
-          {isExporting ? (
-            <LoaderIcon className="w-4 h-4 animate-spin" />
-          ) : (
-            <DownloadIcon className="w-4 h-4" />
-          )}
-          {isExporting ? "Exporting..." : "Download Image"}
-        </button>
       </div>
 
       {/* LinkedIn Share Guide Modal */}

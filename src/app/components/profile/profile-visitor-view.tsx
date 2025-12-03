@@ -45,8 +45,8 @@ export function ProfileVisitorView({
       {/* Owner Banner - integrated with actions */}
       {isOwner && (
         <div className="max-w-3xl mx-auto mb-4">
-          <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100 text-center sm:text-left">
               Your Pledge
             </p>
             <ShareDropdown
