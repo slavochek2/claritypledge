@@ -55,22 +55,30 @@ export function AuthCallbackPage() {
       // before this callback runs, leaving is_verified as false.
       setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
+      // For returning users, the profile from useAuth might not be loaded yet.
+      // Fetch directly to ensure we preserve existing slugs for returning users.
+      // This prevents generating a new slug when an existing user re-verifies.
+      let existingProfile = user;
+      if (!existingProfile) {
+        existingProfile = await getProfile(authUser.id);
+      }
+
       // Generate slug at profile creation time to prevent race conditions.
       // If we generated in createProfile (before email verification), two users
       // signing up simultaneously with the same name would both get the same slug
       // since neither profile exists yet when they query.
-      const name = user?.name || user_metadata.name || 'Anonymous';
-      let slug = user?.slug || generateSlug(name);
+      const name = existingProfile?.name || user_metadata.name || 'Anonymous';
+      let slug = existingProfile?.slug || generateSlug(name);
 
       const upsertData = {
         id: authUser.id,
         email: authUser.email!,
         name,
         slug,
-        role: user?.role || user_metadata.role,
-        linkedin_url: user?.linkedinUrl || user_metadata.linkedin_url,
-        reason: user?.reason || user_metadata.reason,
-        avatar_color: user?.avatarColor || user_metadata.avatar_color,
+        role: existingProfile?.role || user_metadata.role,
+        linkedin_url: existingProfile?.linkedinUrl || user_metadata.linkedin_url,
+        reason: existingProfile?.reason || user_metadata.reason,
+        avatar_color: existingProfile?.avatarColor || user_metadata.avatar_color,
         is_verified: true,
       };
 
