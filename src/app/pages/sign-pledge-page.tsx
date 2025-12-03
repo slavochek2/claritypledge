@@ -10,7 +10,7 @@ import { SignPledgeForm } from "@/app/components/pledge/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getFeaturedProfiles, getVerifiedProfileCount } from "@/app/data/api";
+import { getFeaturedProfiles, getVerifiedProfileCount, MAX_FEATURED_PROFILES } from "@/app/data/api";
 import { getInitials } from "@/lib/utils";
 import type { ProfileSummary } from "@/app/types";
 
@@ -37,7 +37,7 @@ export function SignPledgePage() {
           getFeaturedProfiles(),
           getVerifiedProfileCount()
         ]);
-        setChampions(profiles.slice(0, 6)); // Max 6 avatars
+        setChampions(profiles.slice(0, MAX_FEATURED_PROFILES));
         setTotalCount(count);
       } catch (error) {
         console.error('Failed to load social proof:', error);
@@ -100,8 +100,7 @@ export function SignPledgePage() {
                     key={champion.id}
                     role="img"
                     aria-label={champion.name}
-                    className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-medium"
-                    style={{ backgroundColor: champion.avatarColor || '#002B5C' }}
+                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium"
                   >
                     {getInitials(champion.name)}
                   </div>
@@ -109,7 +108,7 @@ export function SignPledgePage() {
               })}
               {totalCount > champions.length && (
                 <div
-                  className="w-8 h-8 rounded-full border-2 border-white bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground"
+                  className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
                   aria-label={`${totalCount - champions.length} more champions`}
                 >
                   +{totalCount - champions.length}

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ExportCertificate } from "./export-certificate";
 import { PLEDGE_TEXT } from "@/app/content/pledge-text";
+import { copyToClipboard } from "@/lib/utils";
 
 interface ShareHubProps {
   profileUrl: string;
@@ -23,12 +24,12 @@ interface ShareHubProps {
   role?: string;
   /** Date signed */
   signedAt: string;
-  /** Whether profile is verified */
-  isVerified: boolean;
   /** Number of people who accepted the pledge (witnesses) */
   acceptanceCount: number;
   /** Whether this is the profile owner viewing (show download button) */
   isOwner?: boolean;
+  /** User's avatar color */
+  avatarColor?: string;
 }
 
 export function ShareHub({
@@ -37,9 +38,9 @@ export function ShareHub({
   slug,
   role,
   signedAt,
-  isVerified,
   acceptanceCount,
   isOwner = false,
+  avatarColor,
 }: ShareHubProps) {
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -69,31 +70,6 @@ export function ShareHub({
       toast.error("Failed to download certificate. Try taking a screenshot instead.");
     } finally {
       setIsExporting(false);
-    }
-  };
-
-  // Clipboard helper with fallback for older browsers
-  const copyToClipboard = async (text: string): Promise<boolean> => {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } else {
-        // Fallback for older browsers or non-secure contexts
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const success = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        return success;
-      }
-    } catch {
-      return false;
     }
   };
 
@@ -374,9 +350,9 @@ ${firstName}`
             name={profileName}
             role={role}
             signedAt={signedAt}
-            isVerified={isVerified}
             slug={slug}
             acceptanceCount={acceptanceCount}
+            avatarColor={avatarColor}
           />
         </div>
       )}

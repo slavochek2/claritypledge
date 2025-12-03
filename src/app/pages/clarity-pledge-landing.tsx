@@ -90,10 +90,10 @@ export function ClarityPledgeLanding() {
               name="Vyacheslav Ladischenski"
               signedAt="2025-11-01"
               role="Founder, The Clarity Pledge"
-              isVerified={true}
               linkedinUrl="https://linkedin.com/in/ladischenski"
               showQrCode={true}
               profileUrl="https://claritypledge.com/p/slava"
+              photoUrl="/founder-photo.jpg"
             />
           </div>
         </section>

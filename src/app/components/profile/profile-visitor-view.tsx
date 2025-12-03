@@ -54,8 +54,8 @@ export function ProfileVisitorView({
               slug={profile.slug}
               role={profile.role}
               signedAt={profile.signedAt}
-              isVerified={profile.isVerified}
               acceptanceCount={profile.witnesses.length}
+              avatarColor={profile.avatarColor}
             />
           </div>
         </div>

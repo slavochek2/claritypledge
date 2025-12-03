@@ -38,3 +38,32 @@ export async function getGravatarUrl(email?: string, size = 160): Promise<string
     return undefined;
   }
 }
+
+/**
+ * Copy text to clipboard with fallback for older browsers.
+ * Uses modern Clipboard API when available, falls back to execCommand.
+ * @returns true if copy succeeded, false otherwise
+ */
+export async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } else {
+      // Fallback for older browsers or non-secure contexts
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const success = document.execCommand("copy");
+      document.body.removeChild(textArea);
+      return success;
+    }
+  } catch {
+    return false;
+  }
+}

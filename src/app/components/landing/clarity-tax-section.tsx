@@ -1,11 +1,32 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { getFeaturedProfiles, getVerifiedProfileCount, MAX_FEATURED_PROFILES } from "@/app/data/api";
+import type { ProfileSummary } from "@/app/types";
+import { getInitials } from "@/lib/utils";
 
 export function ClarityTaxSection() {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    async function loadSocialProof() {
+      try {
+        const [data, count] = await Promise.all([
+          getFeaturedProfiles(),
+          getVerifiedProfileCount()
+        ]);
+        setProfiles(data.slice(0, MAX_FEATURED_PROFILES));
+        setTotalCount(count);
+      } catch (err) {
+        console.error("Failed to load social proof:", err);
+      }
+    }
+    loadSocialProof();
   }, []);
 
   return (
@@ -45,6 +66,33 @@ export function ClarityTaxSection() {
               Take the Clarity Pledge
             </Link>
           </div>
+
+          {/* Social Proof - Compact Avatar Stack */}
+          {totalCount > 0 && profiles.length > 0 && (
+            <Link
+              to="/clarity-champions"
+              className="flex flex-col items-center gap-2 group pt-2"
+            >
+              <div className="flex items-center -space-x-2">
+                {profiles.map((profile) => (
+                  <div
+                    key={profile.id}
+                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium transition-transform group-hover:scale-105"
+                  >
+                    {getInitials(profile.name)}
+                  </div>
+                ))}
+                {totalCount > profiles.length && (
+                  <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+                    +{totalCount - profiles.length}
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground group-hover:text-blue-600 transition-colors">
+                Join {totalCount} who've taken the pledge
+              </p>
+            </Link>
+          )}
 
           {/* Trust Signal */}
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 sm:gap-3 flex-wrap">

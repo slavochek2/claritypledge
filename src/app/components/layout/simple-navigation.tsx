@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/auth";
 import {
   DropdownMenu,
@@ -8,31 +8,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon, SettingsIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
-
-// Navigation links config - single source of truth
-const NAV_LINKS = [
-  { to: "/article", label: "Manifesto" },
-  { to: "/clarity-champions", label: "Clarity Champions" },
-  // { to: "/our-services", label: "Services" }, // Hidden until ready
-] as const;
+import { ClarityLogo } from "@/components/ui/clarity-logo";
+import { NAV_LINKS } from "./nav-links";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
 export function SimpleNavigation() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // session: instant auth check (from localStorage, no DB call)
-  // user: profile data (requires DB fetch)
-  // isLoading: true until initial session check completes
   const { session, user: currentUser, isLoading, signOut } = useAuth();
 
-  // User is considered logged in if session exists (instant check)
-  // Don't show public CTAs while auth state is loading to avoid flicker
+  // Show user menu when logged in (session exists)
   const isLoggedIn = !!session;
+
+  // Show public CTAs only when auth state is resolved and user is not logged in
   const showPublicCTAs = !isLoading && !isLoggedIn;
 
   useEffect(() => {
@@ -69,9 +63,15 @@ export function SimpleNavigation() {
           {/* Logo */}
           <Link
             to="/"
-            className="text-xl lg:text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity"
+            onClick={(e) => {
+              if (location.pathname === "/") {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
           >
-            Clarity Pledge
+            <ClarityLogo size="sm" />
           </Link>
 
           {/* Desktop Navigation - Public Links (visible to all users) */}
@@ -98,18 +98,12 @@ export function SimpleNavigation() {
                     className="flex items-center justify-center hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
                     aria-label="User menu"
                   >
-                    {currentUser ? (
-                      <GravatarAvatar
-                        email={currentUser.email}
-                        name={currentUser.name}
-                        size="sm"
-                        avatarColor={currentUser.avatarColor}
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
-                        <UserIcon className="w-5 h-5 text-white" />
-                      </div>
-                    )}
+                    <GravatarAvatar
+                      email={currentUser?.email}
+                      name={currentUser?.name || ""}
+                      size="sm"
+                      avatarColor={currentUser?.avatarColor}
+                    />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={8} className="w-56">

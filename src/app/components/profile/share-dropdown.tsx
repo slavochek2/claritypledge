@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ExportCertificate } from "./export-certificate";
 import { PLEDGE_TEXT } from "@/app/content/pledge-text";
+import { copyToClipboard } from "@/lib/utils";
 
 interface ShareDropdownProps {
   profileUrl: string;
@@ -27,8 +28,8 @@ interface ShareDropdownProps {
   slug: string;
   role?: string;
   signedAt: string;
-  isVerified: boolean;
   acceptanceCount: number;
+  avatarColor?: string;
 }
 
 export function ShareDropdown({
@@ -37,38 +38,14 @@ export function ShareDropdown({
   slug,
   role,
   signedAt,
-  isVerified,
   acceptanceCount,
+  avatarColor,
 }: ShareDropdownProps) {
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showLinkedInGuide, setShowLinkedInGuide] = useState(false);
   const [linkedInTextCopied, setLinkedInTextCopied] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
-
-  // Clipboard helper with fallback for older browsers
-  const copyToClipboard = async (text: string): Promise<boolean> => {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return true;
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const success = document.execCommand("copy");
-        document.body.removeChild(textArea);
-        return success;
-      }
-    } catch {
-      return false;
-    }
-  };
 
   const handleCopyLink = async () => {
     const success = await copyToClipboard(profileUrl);
@@ -348,9 +325,9 @@ ${firstName}`
           name={profileName}
           role={role}
           signedAt={signedAt}
-          isVerified={isVerified}
           slug={slug}
           acceptanceCount={acceptanceCount}
+          avatarColor={avatarColor}
         />
       </div>
     </>

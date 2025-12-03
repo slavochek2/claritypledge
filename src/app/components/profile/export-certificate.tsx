@@ -6,9 +6,11 @@ interface ExportCertificateProps {
   name: string;
   role?: string;
   signedAt: string;
-  isVerified: boolean;
   slug: string;
   acceptanceCount: number;
+  avatarColor?: string;
+  /** @deprecated No longer used - all users are verified. Kept for API compatibility. */
+  isVerified?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface ExportCertificateProps {
  * Renders at 1080x1080 pixels with inline styles for html-to-image compatibility.
  */
 export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificateProps>(
-  ({ name, role, signedAt, isVerified, slug, acceptanceCount }, ref) => {
+  ({ name, role, signedAt, slug, acceptanceCount, avatarColor }, ref) => {
     // Use production domain for QR code (export is for sharing externally)
     const profileUrl = `https://claritypledge.com/p/${slug}`;
 
@@ -169,13 +171,13 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
           >
             {/* Left: Avatar + Name + Date */}
             <div style={{ display: "flex", alignItems: "center", gap: "16px", flex: 1 }}>
-              {/* Avatar circle */}
+              {/* Avatar circle - uses user's avatar color if available */}
               <div
                 style={{
                   width: "64px",
                   height: "64px",
                   borderRadius: "50%",
-                  backgroundColor: "#0044CC",
+                  backgroundColor: avatarColor || "#1A1A1A",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -209,49 +211,23 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                     {displayRole}
                   </p>
                 )}
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  {isVerified && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        color: "#0044CC",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span style={{ fontWeight: "500" }}>Verified</span>
-                    </div>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      color: "rgba(26, 26, 26, 0.5)",
-                    }}
-                  >
-                    {new Date(signedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
+                {/* Date signed - removed "Verified" badge as all users are verified */}
+                <span
+                  style={{
+                    fontSize: "14px",
+                    color: "rgba(26, 26, 26, 0.5)",
+                  }}
+                >
+                  Signed {new Date(signedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
               </div>
             </div>
 
-            {/* Center: Seal - fixed width container for centering */}
+            {/* Center: Seal - Logo mark as official stamp */}
             <div
               style={{
                 width: "120px",
@@ -260,69 +236,37 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 flexShrink: 0,
               }}
             >
-              {isVerified ? (
-                <div
-                  style={{
-                    width: "80px",
-                    height: "80px",
-                    borderRadius: "50%",
-                    border: "5px solid #0044CC",
-                    backgroundColor: "#FDFBF7",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 4px 12px rgba(0, 68, 204, 0.3)",
-                  }}
+              <div
+                style={{
+                  width: "80px",
+                  height: "80px",
+                  borderRadius: "50%",
+                  border: "4px solid #1A1A1A",
+                  backgroundColor: "#FDFBF7",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(26, 26, 26, 0.2)",
+                }}
+              >
+                {/* Logo mark as seal */}
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 128 128"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
                 >
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "50%",
-                      backgroundColor: "#0044CC",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      fill="none"
-                      stroke="white"
-                      viewBox="0 0 24 24"
-                      strokeWidth={3}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    width: "80px",
-                    height: "80px",
-                    borderRadius: "50%",
-                    border: "2px dashed rgba(26, 26, 26, 0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      borderRadius: "50%",
-                      backgroundColor: "rgba(26, 26, 26, 0.05)",
-                    }}
+                  <rect width="128" height="128" rx="24" fill="#1A1A1A" />
+                  <path
+                    d="M88 40.5C82 35 73 32 64 32C44 32 32 48 32 64C32 80 44 96 64 96C73 96 82 93 88 87.5"
+                    stroke="#FDFBF7"
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                    fill="none"
                   />
-                </div>
-              )}
+                </svg>
+              </div>
             </div>
 
             {/* Right: QR Code (larger) */}
@@ -358,20 +302,46 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 }}
               >
                 {acceptanceCount === 1
-                  ? `1 person accepted ${displayName.split(" ")[0]}'s pledge`
-                  : `${acceptanceCount} people accepted ${displayName.split(" ")[0]}'s pledge`}
+                  ? `1 person accepted ${name.split(" ")[0]}'s pledge`
+                  : `${acceptanceCount} people accepted ${name.split(" ")[0]}'s pledge`}
               </p>
             )}
-            <p
+            <div
               style={{
-                fontSize: "14px",
-                color: "rgba(26, 26, 26, 0.5)",
-                letterSpacing: "0.1em",
-                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
               }}
             >
-              claritypledge.com
-            </p>
+              {/* Inline logo mark for html-to-image compatibility */}
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 128 128"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect width="128" height="128" rx="24" fill="#1A1A1A" />
+                <path
+                  d="M88 40.5C82 35 73 32 64 32C44 32 32 48 32 64C32 80 44 96 64 96C73 96 82 93 88 87.5"
+                  stroke="#FDFBF7"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "rgba(26, 26, 26, 0.5)",
+                  letterSpacing: "0.1em",
+                  margin: 0,
+                }}
+              >
+                claritypledge.com
+              </p>
+            </div>
           </div>
         </div>
       </div>

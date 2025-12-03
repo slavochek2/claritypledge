@@ -219,7 +219,7 @@ export function SignPledgeForm({
 
           <div className="space-y-1 md:space-y-2">
             <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
-              Why does clarity matter to you?
+              What inspired you to take the pledge?
             </Label>
             <textarea
               id="reason"

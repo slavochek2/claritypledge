@@ -107,7 +107,7 @@ All Supabase interactions go through `src/app/data/api.ts`. Key patterns:
 - **`createProfile()`**: Sends magic link only. Does NOT write to database. Profile creation happens in auth callback.
 - **Database writes**: Profiles are created via `upsert()` in [AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx) after email verification.
 - **Profile fetching**: Profiles and witnesses are fetched separately (not via joins) to avoid Supabase PostgREST limitations.
-- **Slug generation**: Slugs are created from names (`john-doe`) and must be unique. See `generateSlug()` and `ensureUniqueSlug()`.
+- **Slug generation**: Slugs are created from names (`john-doe`) and must be unique. On conflict, sequential suffixes are used (`john-doe-2`, `john-doe-3`). This is intentional for memorable URLs - timestamp fallback only after 3 retries. See `generateSlug()` in api.ts and slug conflict handling in AuthCallbackPage.tsx.
 
 ### Database Schema ([schema.sql](supabase/schema.sql))
 
@@ -125,7 +125,7 @@ Two main tables with RLS policies:
 - `witness_profile_id` (optional FK if witness is also a user)
 - `is_verified`, timestamps
 
-**Trigger:** `handle_new_user()` creates profile on auth.users insert. Currently used as fallback; primary profile creation happens in auth callback.
+**Trigger:** `handle_new_user()` is DEPRECATED - uses `ON CONFLICT DO NOTHING` as fallback only. Primary profile creation happens in AuthCallbackPage.tsx which sets `is_verified=true` and generates the slug. The trigger is documented for removal from Supabase dashboard.
 
 ### Component Organization
 

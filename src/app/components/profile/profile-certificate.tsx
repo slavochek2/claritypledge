@@ -5,6 +5,7 @@ import {
   YourRightTextTailwind,
   MyPromiseTextTailwind,
 } from "@/app/content/pledge-text";
+import { ClarityLogoMark } from "@/components/ui/clarity-logo";
 
 interface ProfileCertificateProps {
   name: string;
@@ -15,6 +16,8 @@ interface ProfileCertificateProps {
   linkedinUrl?: string;
   /** User's avatar color */
   avatarColor?: string;
+  /** Direct photo URL for avatar */
+  photoUrl?: string;
   /** Show QR code in certificate (for export) */
   showQrCode?: boolean;
   /** Profile URL for QR code */
@@ -29,10 +32,10 @@ export function ProfileCertificate({
   name,
   email,
   signedAt,
-  isVerified = false,
   role,
   linkedinUrl,
   avatarColor = "#0044CC",
+  photoUrl,
   showQrCode = false,
   profileUrl,
   acceptanceCount = 0,
@@ -99,53 +102,9 @@ export function ProfileCertificate({
         <div className="pt-8 border-t-2 border-[#002B5C] dark:border-border">
           {/* Mobile: Stacked centered layout */}
           <div className="flex flex-col items-center gap-6 md:hidden">
-            {/* Seal */}
-            <div className="relative">
-              {isVerified ? (
-                <>
-                  <div
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background:
-                        "conic-gradient(from 0deg, #0044CC 0deg 18deg, transparent 18deg 36deg, #0044CC 36deg 54deg, transparent 54deg 72deg, #0044CC 72deg 90deg, transparent 90deg 108deg, #0044CC 108deg 126deg, transparent 126deg 144deg, #0044CC 144deg 162deg, transparent 162deg 180deg, #0044CC 180deg 198deg, transparent 198deg 216deg, #0044CC 216deg 234deg, transparent 234deg 252deg, #0044CC 252deg 270deg, transparent 270deg 288deg, #0044CC 288deg 306deg, transparent 306deg 324deg, #0044CC 324deg 342deg, transparent 342deg 360deg)",
-                      width: "80px",
-                      height: "80px",
-                      transform: "translate(-50%, -50%)",
-                      top: "50%",
-                      left: "50%",
-                    }}
-                  />
-                  <div
-                    className="relative w-20 h-20 rounded-full border-[5px] border-[#0044CC] dark:border-blue-500 flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg"
-                    style={{
-                      boxShadow:
-                        "inset 0 0 0 2px #FDFBF7, inset 0 0 0 4px #0044CC, 0 4px 12px rgba(0, 68, 204, 0.3)",
-                    }}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#0044CC] dark:bg-blue-500 flex items-center justify-center shadow-inner">
-                      <svg
-                        className="w-6 h-6 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        strokeWidth={3}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="relative w-20 h-20 rounded-full border-2 border-dashed border-[#1A1A1A]/20 dark:border-white/20 flex items-center justify-center bg-transparent">
-                  <div className="w-12 h-12 rounded-full bg-[#1A1A1A]/5 dark:bg-white/5 flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border border-[#1A1A1A]/10 dark:border-white/10" />
-                  </div>
-                </div>
-              )}
+            {/* Seal - Logo mark as official stamp */}
+            <div className="w-20 h-20 rounded-full border-4 border-[#1A1A1A] dark:border-foreground flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg">
+              <ClarityLogoMark size={48} className="text-[#1A1A1A] dark:text-foreground" />
             </div>
 
             {/* Name and info - centered */}
@@ -158,23 +117,8 @@ export function ProfileCertificate({
                   {role}
                 </p>
               )}
+              {/* LinkedIn link - removed "Verified" badge as all users are verified */}
               <div className="flex items-center justify-center gap-3 mt-3">
-                {isVerified && (
-                  <div className="flex items-center gap-1 text-xs text-[#0044CC] dark:text-blue-400">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="font-medium">Verified</span>
-                  </div>
-                )}
                 {linkedinUrl && (
                   <a
                     href={linkedinUrl}
@@ -233,6 +177,7 @@ export function ProfileCertificate({
                 name={name}
                 size="md"
                 avatarColor={avatarColor}
+                photoUrl={photoUrl}
               />
               <div>
                 <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight">
@@ -243,23 +188,8 @@ export function ProfileCertificate({
                     {role}
                   </p>
                 )}
+                {/* LinkedIn link - removed "Verified" badge as all users are verified */}
                 <div className="flex items-center gap-3 mt-1.5">
-                  {isVerified && (
-                    <div className="flex items-center gap-1 text-xs text-[#0044CC] dark:text-blue-400">
-                      <svg
-                        className="w-3.5 h-3.5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span className="font-medium">Verified</span>
-                    </div>
-                  )}
                   {linkedinUrl && (
                     <a
                       href={linkedinUrl}
@@ -281,53 +211,9 @@ export function ProfileCertificate({
               </div>
             </div>
 
-            {/* Center: Seal */}
-            <div className="relative flex-shrink-0">
-              {isVerified ? (
-                <>
-                  <div
-                    className="absolute inset-0 rounded-full"
-                    style={{
-                      background:
-                        "conic-gradient(from 0deg, #0044CC 0deg 18deg, transparent 18deg 36deg, #0044CC 36deg 54deg, transparent 54deg 72deg, #0044CC 72deg 90deg, transparent 90deg 108deg, #0044CC 108deg 126deg, transparent 126deg 144deg, #0044CC 144deg 162deg, transparent 162deg 180deg, #0044CC 180deg 198deg, transparent 198deg 216deg, #0044CC 216deg 234deg, transparent 234deg 252deg, #0044CC 252deg 270deg, transparent 270deg 288deg, #0044CC 288deg 306deg, transparent 306deg 324deg, #0044CC 324deg 342deg, transparent 342deg 360deg)",
-                      width: "80px",
-                      height: "80px",
-                      transform: "translate(-50%, -50%)",
-                      top: "50%",
-                      left: "50%",
-                    }}
-                  />
-                  <div
-                    className="relative w-20 h-20 rounded-full border-[5px] border-[#0044CC] dark:border-blue-500 flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg"
-                    style={{
-                      boxShadow:
-                        "inset 0 0 0 2px #FDFBF7, inset 0 0 0 4px #0044CC, 0 4px 12px rgba(0, 68, 204, 0.3)",
-                    }}
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[#0044CC] dark:bg-blue-500 flex items-center justify-center shadow-inner">
-                      <svg
-                        className="w-6 h-6 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        strokeWidth={3}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="relative w-20 h-20 rounded-full border-2 border-dashed border-[#1A1A1A]/20 dark:border-white/20 flex items-center justify-center bg-transparent">
-                  <div className="w-12 h-12 rounded-full bg-[#1A1A1A]/5 dark:bg-white/5 flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border border-[#1A1A1A]/10 dark:border-white/10" />
-                  </div>
-                </div>
-              )}
+            {/* Center: Seal - Logo mark as official stamp */}
+            <div className="w-20 h-20 rounded-full border-4 border-[#1A1A1A] dark:border-foreground flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg flex-shrink-0">
+              <ClarityLogoMark size={48} className="text-[#1A1A1A] dark:text-foreground" />
             </div>
 
             {/* Right: QR Code (export mode) or Date */}

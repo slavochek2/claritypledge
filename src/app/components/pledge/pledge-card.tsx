@@ -6,6 +6,7 @@ import {
   YourRightTextTailwind,
   MyPromiseTextTailwind,
 } from "@/app/content/pledge-text";
+import { ClarityLogoMark } from "@/components/ui/clarity-logo";
 
 interface PledgeCardProps extends Omit<Pledge, 'id' | 'reason' | 'signedAt'> {
   isSigned?: boolean;
@@ -129,11 +130,7 @@ export function PledgeCard({
                   </p>
                   <div className="flex justify-center mt-4">
                     <div className="w-16 h-16 rounded-full border-4 border-[#0044CC] dark:border-blue-500 flex items-center justify-center bg-[#FDFBF7] dark:bg-card">
-                      <div className="w-12 h-12 rounded-full bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-[#0044CC] dark:text-blue-400">
-                          {new Date().getFullYear()}
-                        </span>
-                      </div>
+                      <ClarityLogoMark size={36} className="text-[#0044CC] dark:text-blue-400" />
                     </div>
                   </div>
                 </div>
