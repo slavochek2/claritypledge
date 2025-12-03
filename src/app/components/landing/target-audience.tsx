@@ -10,8 +10,8 @@ export function TargetAudience() {
         "who refuses to engage in polarized noise and demands shared meaning.",
     },
     {
-      title: "The Human",
-      description: "who understands that kindness without clarity is not real.",
+      title: "The Neurodivergent",
+      description: "who can't fake understanding.",
     },
   ];
 

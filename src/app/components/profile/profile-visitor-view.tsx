@@ -33,7 +33,7 @@ export function ProfileVisitorView({
           {profile.name} signed the Clarity Pledge
         </h1>
         <p className="text-xl text-muted-foreground font-medium">
-          A public promise to prevent dangerous missunderstandings
+          A public promise to prevent dangerous misunderstandings
         </p>
       </div>
 

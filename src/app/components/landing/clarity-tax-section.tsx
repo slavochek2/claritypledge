@@ -16,22 +16,23 @@ export function ClarityTaxSection() {
       <div className="container mx-auto max-w-4xl">
         {/* Centered Single-Column Layout */}
         <div className="text-center space-y-10">
-          {/* Headline - Benefit-Driven */}
+          {/* Headline - Emotional Hook */}
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              Prevent dangerous{" "}
               <span
                 className={`text-blue-500 inline-block transition-all duration-1000 delay-300 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                misunderstandings
+                Stop pretending
               </span>
+              <br />
+              nonsense makes sense
             </h1>
 
-            {/* Sub-headline - Value Proposition */}
+            {/* Sub-headline - Consequence */}
             <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              A public commitment to verify understanding — so nobody has to guess.
+              Prevent dangerous misunderstandings
             </p>
           </div>
 
@@ -59,7 +60,7 @@ export function ClarityTaxSection() {
                   clipRule="evenodd"
                 />
               </svg>
-              Free
+              Join the movement
             </span>
             <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
@@ -74,7 +75,7 @@ export function ClarityTaxSection() {
                   clipRule="evenodd"
                 />
               </svg>
-              Join the movement
+              Free
             </span>
             <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
