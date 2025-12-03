@@ -21,6 +21,7 @@ export function WitnessCard({
 }: WitnessCardProps) {
   const [name, setName] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [linkedinError, setLinkedinError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
 
@@ -35,7 +36,8 @@ export function WitnessCard({
     e.preventDefault();
     if (!name.trim()) return;
 
-    setIsSubmitting(true);
+    // Clear previous error
+    setLinkedinError("");
 
     // Normalize and validate LinkedIn URL
     let normalizedLinkedInUrl = linkedinUrl.trim();
@@ -44,11 +46,14 @@ export function WitnessCard({
       if (!normalizedLinkedInUrl.match(/^https?:\/\//i)) {
         normalizedLinkedInUrl = `https://${normalizedLinkedInUrl}`;
       }
-      // Only accept linkedin.com URLs - reject other domains for security
+      // Only accept linkedin.com URLs - show error for other domains
       if (!normalizedLinkedInUrl.match(/^https?:\/\/(www\.)?linkedin\.com\//i)) {
-        normalizedLinkedInUrl = ''; // Discard non-LinkedIn URLs
+        setLinkedinError("Please enter a valid LinkedIn URL (e.g., linkedin.com/in/yourprofile)");
+        return;
       }
     }
+
+    setIsSubmitting(true);
 
     // Instant witnessing - no email verification needed
     setTimeout(() => {
@@ -92,10 +97,20 @@ export function WitnessCard({
               type="text"
               placeholder="linkedin.com/in/yourprofile"
               value={linkedinUrl}
-              onChange={(e) => setLinkedinUrl(e.target.value)}
+              onChange={(e) => {
+                setLinkedinUrl(e.target.value);
+                if (linkedinError) setLinkedinError("");
+              }}
               disabled={isSubmitting}
-              className="w-full"
+              className={`w-full ${linkedinError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+              aria-invalid={!!linkedinError}
+              aria-describedby={linkedinError ? "linkedin-error" : undefined}
             />
+            {linkedinError && (
+              <p id="linkedin-error" className="text-sm text-red-500">
+                {linkedinError}
+              </p>
+            )}
           </div>
 
           <Button

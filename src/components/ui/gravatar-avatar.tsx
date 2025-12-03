@@ -7,6 +7,8 @@ interface GravatarAvatarProps {
   size?: "sm" | "md" | "lg";
   avatarColor?: string;
   className?: string;
+  /** Direct photo URL - takes priority over Gravatar */
+  photoUrl?: string;
 }
 
 const sizeClasses = {
@@ -27,11 +29,21 @@ export function GravatarAvatar({
   size = "md",
   avatarColor = "#0044CC",
   className = "",
+  photoUrl,
 }: GravatarAvatarProps) {
   const [gravatarUrl, setGravatarUrl] = useState<string | undefined>(undefined);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
+    // Reset error state when inputs change - allows re-attempting image load
+    setImageError(false);
+
+    // Skip Gravatar lookup if we have a direct photo URL
+    if (photoUrl) {
+      setGravatarUrl(undefined);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadGravatar() {
@@ -43,15 +55,16 @@ export function GravatarAvatar({
       const url = await getGravatarUrl(email, sizePx[size]);
       if (!cancelled) {
         setGravatarUrl(url);
-        setImageError(false);
       }
     }
 
     loadGravatar();
     return () => { cancelled = true; };
-  }, [email, size]);
+  }, [email, size, photoUrl]);
 
-  const showImage = gravatarUrl && !imageError;
+  // photoUrl takes priority, then Gravatar
+  const imageUrl = photoUrl || gravatarUrl;
+  const showImage = imageUrl && !imageError;
 
   return (
     <div
@@ -60,7 +73,7 @@ export function GravatarAvatar({
     >
       {showImage ? (
         <img
-          src={gravatarUrl}
+          src={imageUrl}
           alt={`${name}'s avatar`}
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}
