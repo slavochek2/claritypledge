@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth";
+import { getInitials } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,13 +11,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon } from "lucide-react";
 
-// Get initials from name (e.g., "John Doe" -> "JD")
-function getInitials(name?: string): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
+// Navigation links config - single source of truth
+const NAV_LINKS = [
+  { to: "/article", label: "Manifesto" },
+  { to: "/clarity-champions", label: "Clarity Champions" },
+  { to: "/our-services", label: "Services" },
+] as const;
+
+const MOBILE_MENU_ID = "mobile-navigation-menu";
 
 export function SimpleNavigation() {
   const navigate = useNavigate();
@@ -42,10 +44,17 @@ export function SimpleNavigation() {
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
-    setIsMobileMenuOpen(false);
-    navigate("/");
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    } finally {
+      setIsMobileMenuOpen(false);
+      navigate("/");
+    }
   };
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
     <nav
@@ -68,24 +77,15 @@ export function SimpleNavigation() {
           {/* Desktop Navigation - Public Links (visible to all users) */}
           {/* Centered on lg+; on md uses flex-1 to avoid overlap with logo/CTAs */}
           <div className="hidden md:flex items-center justify-center gap-6 lg:gap-8 flex-1 lg:flex-none lg:absolute lg:left-1/2 lg:-translate-x-1/2">
-            <Link
-              to="/article"
-              className="text-base font-medium hover:text-primary transition-colors"
-            >
-              Manifesto
-            </Link>
-            <Link
-              to="/clarity-champions"
-              className="text-base font-medium hover:text-primary transition-colors"
-            >
-              Clarity Champions
-            </Link>
-            <Link
-              to="/our-services"
-              className="text-base font-medium hover:text-primary transition-colors"
-            >
-              Services
-            </Link>
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="text-base font-medium hover:text-primary transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
           {/* CTA Buttons / User Menu */}
@@ -95,10 +95,14 @@ export function SimpleNavigation() {
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex items-center justify-center w-10 h-10 rounded-full text-white font-semibold text-sm hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    style={{
-                      backgroundColor: currentUser?.avatarColor || "#3b82f6",
-                    }}
+                    className={`flex items-center justify-center w-10 h-10 rounded-full text-white font-semibold text-sm hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+                      !currentUser?.avatarColor ? "bg-blue-500" : ""
+                    }`}
+                    style={
+                      currentUser?.avatarColor
+                        ? { backgroundColor: currentUser.avatarColor }
+                        : undefined
+                    }
                     aria-label="User menu"
                   >
                     {currentUser ? getInitials(currentUser.name) : <UserIcon className="w-5 h-5" />}
@@ -149,6 +153,9 @@ export function SimpleNavigation() {
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden p-2"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls={MOBILE_MENU_ID}
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
             {isMobileMenuOpen ? (
               <XIcon className="w-6 h-6" />
@@ -160,30 +167,22 @@ export function SimpleNavigation() {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border bg-background">
+          <div
+            id={MOBILE_MENU_ID}
+            className="md:hidden py-4 border-t border-border bg-background"
+          >
             <div className="flex flex-col gap-4">
               {/* Navigation Links - always visible */}
-              <Link
-                to="/article"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Manifesto
-              </Link>
-              <Link
-                to="/clarity-champions"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Clarity Champions
-              </Link>
-              <Link
-                to="/our-services"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Services
-              </Link>
+              {NAV_LINKS.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  {link.label}
+                </Link>
+              ))}
 
               {/* Logged in user links */}
               {isLoggedIn && (
@@ -192,7 +191,7 @@ export function SimpleNavigation() {
                   <Link
                     to={`/p/${currentUser?.slug || session?.user?.id}`}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     View My Pledge
@@ -214,14 +213,14 @@ export function SimpleNavigation() {
                   <Link
                     to="/login"
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                   >
                     Log In
                   </Link>
                   <Link
                     to="/sign-pledge"
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    onClick={closeMobileMenu}
                   >
                     Take the Pledge
                   </Link>
@@ -234,4 +233,3 @@ export function SimpleNavigation() {
     </nav>
   );
 }
-

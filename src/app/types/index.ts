@@ -34,10 +34,13 @@ export interface ProfileSummary {
   slug: string;
   name: string;
   role?: string;
+  linkedinUrl?: string;
   reason?: string;
   signedAt: string;
   isVerified: boolean;
   avatarColor?: string;
+  witnessCount?: number;
+  reciprocations?: number;
 }
 
 /**
@@ -73,6 +76,7 @@ export interface DbProfileSummary {
   slug?: string;
   name?: string;
   role?: string;
+  linkedin_url?: string;
   reason?: string;
   created_at: string;
   is_verified: boolean;

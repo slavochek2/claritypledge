@@ -71,13 +71,14 @@ export async function getProfile(id: string): Promise<Profile | null> {
  * Fetches featured verified profiles for the landing page.
  * Returns up to 6 verified profiles, prioritizing those with reasons.
  * Ordering: profiles with reasons first (most recent), then profiles without reasons (most recent).
+ * Also fetches witness counts for each profile.
  * @returns A promise that resolves to an array of up to 6 profile summary objects.
  */
 export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
   console.log('🔍 Fetching featured profiles (up to 6, reason-first)...');
 
   try {
-    const selectFields = 'id, slug, name, role, reason, avatar_color, created_at, is_verified';
+    const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, created_at, is_verified';
 
     // First query: profiles WITH non-empty reasons (prioritized)
     const { data: withReasons, error: withReasonsError } = await supabase
@@ -101,49 +102,88 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
 
     console.log('✅ Profiles with reasons:', validWithReasons.length);
 
+    let combined: DbProfileSummary[];
+
     // If we have 6 profiles with reasons, we're done
     if (validWithReasons.length >= 6) {
-      return validWithReasons.slice(0, 6).map(mapProfileSummaryFromDb);
+      combined = validWithReasons.slice(0, 6);
+    } else {
+      // Backfill: fetch profiles WITHOUT reasons to fill remaining slots
+      const remaining = 6 - validWithReasons.length;
+      const existingIds = validWithReasons.map(p => p.id);
+
+      // Build query - only add exclusion filter if we have IDs to exclude
+      // Empty `()` in PostgREST is invalid syntax, so skip when no IDs
+      let backfillQuery = supabase
+        .from('profiles')
+        .select(selectFields)
+        .eq('is_verified', true)
+        .order('created_at', { ascending: false })
+        .limit(remaining);
+
+      if (existingIds.length > 0) {
+        backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.map(id => `"${id}"`).join(',')})`);
+      }
+
+      const { data: withoutReasons, error: withoutReasonsError } = await backfillQuery;
+
+      if (withoutReasonsError) {
+        console.warn('⚠️ Error fetching backfill profiles (non-fatal):', withoutReasonsError);
+        // Continue with what we have
+      }
+
+      // Filter backfill to only include profiles without valid reasons
+      const validWithoutReasons = (withoutReasons || []).filter(
+        p => !p.reason || p.reason.trim().length === 0
+      );
+
+      combined = [...validWithReasons, ...validWithoutReasons];
     }
 
-    // Backfill: fetch profiles WITHOUT reasons to fill remaining slots
-    const remaining = 6 - validWithReasons.length;
-    const existingIds = validWithReasons.map(p => p.id);
-
-    // Build query - only add exclusion filter if we have IDs to exclude
-    // Empty `()` in PostgREST is invalid syntax, so skip when no IDs
-    let backfillQuery = supabase
-      .from('profiles')
-      .select(selectFields)
-      .eq('is_verified', true)
-      .order('created_at', { ascending: false })
-      .limit(remaining);
-
-    if (existingIds.length > 0) {
-      backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.map(id => `"${id}"`).join(',')})`);
-    }
-
-    const { data: withoutReasons, error: withoutReasonsError } = await backfillQuery;
-
-    if (withoutReasonsError) {
-      console.warn('⚠️ Error fetching backfill profiles (non-fatal):', withoutReasonsError);
-      // Continue with what we have
-    }
-
-    // Filter backfill to only include profiles without valid reasons
-    const validWithoutReasons = (withoutReasons || []).filter(
-      p => !p.reason || p.reason.trim().length === 0
-    );
-
-    const combined = [...validWithReasons, ...validWithoutReasons];
-    console.log('✅ Featured profiles fetched:', combined.length, '(with reasons:', validWithReasons.length, ', backfill:', validWithoutReasons.length, ')');
+    console.log('✅ Featured profiles fetched:', combined.length);
 
     if (combined.length === 0) {
       console.log('ℹ️ No verified profiles found for featured section');
       return [];
     }
 
-    return combined.map(mapProfileSummaryFromDb);
+    // Fetch witness counts for all featured profiles
+    const profileIds = combined.map(p => p.id);
+    const { data: witnesses, error: witnessesError } = await supabase
+      .from('witnesses')
+      .select('profile_id')
+      .in('profile_id', profileIds);
+
+    if (witnessesError) {
+      console.warn('⚠️ Error fetching witness counts (non-fatal):', witnessesError);
+    }
+
+    // Count witnesses per profile
+    const witnessCounts: Record<string, number> = {};
+    (witnesses || []).forEach(w => {
+      witnessCounts[w.profile_id] = (witnessCounts[w.profile_id] || 0) + 1;
+    });
+
+    // Fetch reciprocation counts (profiles where this user is a witness)
+    const { data: reciprocations, error: reciprocationsError } = await supabase
+      .from('witnesses')
+      .select('witness_profile_id')
+      .in('witness_profile_id', profileIds)
+      .not('witness_profile_id', 'is', null);
+
+    if (reciprocationsError) {
+      console.warn('⚠️ Error fetching reciprocation counts (non-fatal):', reciprocationsError);
+    }
+
+    // Count reciprocations per profile
+    const reciprocationCounts: Record<string, number> = {};
+    (reciprocations || []).forEach(r => {
+      if (r.witness_profile_id) {
+        reciprocationCounts[r.witness_profile_id] = (reciprocationCounts[r.witness_profile_id] || 0) + 1;
+      }
+    });
+
+    return combined.map(p => mapProfileSummaryFromDb(p, witnessCounts[p.id] || 0, reciprocationCounts[p.id] || 0));
   } catch (err) {
     console.error('❌ Unexpected error in getFeaturedProfiles:', err);
     return [];
@@ -154,11 +194,12 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
  * Fetches all profiles that have been marked as verified.
  * This is used to populate the "Clarity Champions" page, showcasing all users who have completed the pledge process.
  * The function also fetches and attaches all witnesses for each profile.
+ * Profiles with reasons are shown first, then those without.
  * @returns {Promise<Profile[]>} A promise that resolves to an array of verified profile objects.
  */
 export async function getVerifiedProfiles(): Promise<Profile[]> {
   console.log('🔍 Fetching verified profiles...');
-  
+
   try {
     // First, fetch profiles only (without nested witnesses query)
     const { data: profiles, error: profilesError } = await supabase
@@ -186,8 +227,14 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
       return [];
     }
 
+    // Sort profiles: those with meaningful reasons first, then others
+    // Within each group, maintain created_at desc order
+    const withReasons = profiles.filter(p => p.reason && p.reason.trim().length > 0);
+    const withoutReasons = profiles.filter(p => !p.reason || p.reason.trim().length === 0);
+    const sortedProfiles = [...withReasons, ...withoutReasons];
+
     // Then, fetch witnesses for all profiles
-    const profileIds = profiles.map(p => p.id);
+    const profileIds = sortedProfiles.map(p => p.id);
     const { data: allWitnesses, error: witnessesError } = await supabase
       .from('witnesses')
       .select('*')
@@ -196,7 +243,7 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
     if (witnessesError) {
       console.warn('⚠️ Error fetching witnesses (non-fatal):', witnessesError);
       // Continue without witnesses
-      const mapped = profiles.map(p => mapProfileFromDb({ ...p, witnesses: [] }));
+      const mapped = sortedProfiles.map(p => mapProfileFromDb({ ...p, witnesses: [] }));
       console.log('✅ Mapped profiles (without witnesses):', mapped);
       return mapped;
     }
@@ -204,7 +251,7 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
     console.log('✅ Witnesses fetched:', allWitnesses?.length || 0);
 
     // Attach witnesses to their profiles
-    const profilesWithWitnesses = profiles.map(profile => ({
+    const profilesWithWitnesses = sortedProfiles.map(profile => ({
       ...profile,
       witnesses: (allWitnesses || []).filter(w => w.profile_id === profile.id)
     }));
@@ -348,7 +395,11 @@ export async function signOut() {
  * Maps a partial database profile (without email/witnesses) to ProfileSummary.
  * Used for list views like featured profiles and champions page.
  */
-function mapProfileSummaryFromDb(dbProfile: DbProfileSummary): ProfileSummary {
+function mapProfileSummaryFromDb(
+  dbProfile: DbProfileSummary,
+  witnessCount: number = 0,
+  reciprocations: number = 0
+): ProfileSummary {
   let safeSlug: string;
   if (dbProfile.slug && dbProfile.slug.trim() !== '') {
     safeSlug = dbProfile.slug;
@@ -363,10 +414,13 @@ function mapProfileSummaryFromDb(dbProfile: DbProfileSummary): ProfileSummary {
     slug: safeSlug,
     name: dbProfile.name || 'Anonymous',
     role: dbProfile.role,
+    linkedinUrl: dbProfile.linkedin_url,
     reason: dbProfile.reason,
     signedAt: dbProfile.created_at,
     isVerified: dbProfile.is_verified,
     avatarColor: dbProfile.avatar_color,
+    witnessCount,
+    reciprocations,
   };
 }
 

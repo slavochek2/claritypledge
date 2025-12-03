@@ -12,30 +12,38 @@ export function ClarityFooter() {
               to="/article"
               className="text-base text-muted-foreground hover:text-foreground transition-colors"
             >
-              Read "The Clarity Tax"
+              Read Manifesto
             </Link>
           </div>
 
           {/* The Movement */}
           <div>
             <h3 className="text-lg font-bold mb-3">The Movement</h3>
-            <a
-              href="#"
+            <Link
+              to="/our-services"
               className="text-base text-muted-foreground hover:text-foreground transition-colors"
             >
-              About 22Minds
-            </a>
+              About Us
+            </Link>
           </div>
 
-          {/* Contact */}
+          {/* Legal */}
           <div>
-            <h3 className="text-lg font-bold mb-3">Contact</h3>
-            <a
-              href="#"
-              className="text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Get in Touch
-            </a>
+            <h3 className="text-lg font-bold mb-3">Legal</h3>
+            <div className="space-y-2">
+              <Link
+                to="/privacy-policy"
+                className="block text-base text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                to="/terms-of-service"
+                className="block text-base text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Terms of Service
+              </Link>
+            </div>
           </div>
         </div>
 

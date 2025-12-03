@@ -28,7 +28,7 @@ export function HowItWorks() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-            How it works
+            Why it matters
           </h2>
           <p className="text-2xl lg:text-3xl text-muted-foreground font-medium">
             Clarity Pledge Improves the Communication Culture
@@ -40,9 +40,7 @@ export function HowItWorks() {
           {steps.map((step, index) => (
             <div
               key={index}
-              className={`flex flex-col items-center text-center p-8 rounded-lg ${
-                index % 2 === 0 ? "bg-background" : "bg-muted/50"
-              }`}
+              className="flex flex-col items-center text-center p-8 rounded-lg bg-background transition-all duration-200 hover:shadow-lg hover:-translate-y-1"
             >
               {/* Icon */}
               <div className="w-20 h-20 lg:w-24 lg:h-24 flex items-center justify-center mb-6">

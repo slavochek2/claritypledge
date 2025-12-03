@@ -18,10 +18,10 @@ export function BenefitsSection() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-            Earn reputation by helping others
+            Your impact
           </h2>
           <p className="text-xl lg:text-2xl text-muted-foreground font-medium">
-            The pledge isn't for you — it's for everyone you communicate with.
+            Clear communication creates ripple effects — for your team, your projects, and your reputation.
           </p>
         </div>
 
@@ -29,7 +29,7 @@ export function BenefitsSection() {
         <div className="flex flex-col sm:flex-row justify-center items-center gap-8 sm:gap-12 lg:gap-16">
           {benefits.map((item, index) => (
             <div key={index} className="flex flex-col items-center gap-3 text-center">
-              <item.icon className="w-10 h-10 lg:w-12 lg:h-12 text-blue-500 stroke-[1.5]" />
+              <item.icon className="w-14 h-14 lg:w-16 lg:h-16 text-blue-500 stroke-[1.5]" />
               <p className="text-lg lg:text-xl font-medium">{item.text}</p>
             </div>
           ))}

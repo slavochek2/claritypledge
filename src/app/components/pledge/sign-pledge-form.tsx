@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BadgeCheckIcon, PenToolIcon } from "lucide-react";
 import { usePledgeForm } from "@/hooks/use-pledge-form";
+import { Link } from "react-router-dom";
+import { useMemo } from "react";
 
 interface SignPledgeFormProps {
   onSuccess: () => void;
@@ -13,7 +15,7 @@ export function SignPledgeForm({
   onSuccess,
   onSwitchToLogin,
 }: SignPledgeFormProps) {
-  const { 
+  const {
     formState: {
       name,
       email,
@@ -21,10 +23,7 @@ export function SignPledgeForm({
       linkedinUrl,
       reason,
       isSubmitting,
-      isSealing,
       error,
-      nameError,
-      isCheckingName
     },
     setters: {
       setName,
@@ -35,6 +34,24 @@ export function SignPledgeForm({
     },
     handleSubmit
   } = usePledgeForm(onSuccess);
+
+  // Profile strength calculation
+  const profileStrength = useMemo(() => {
+    let filled = 0;
+    const total = 3;
+    if (role.trim()) filled++;
+    if (linkedinUrl.trim()) filled++;
+    if (reason.trim()) filled++;
+    return { filled, total, percentage: Math.round((filled / total) * 100) };
+  }, [role, linkedinUrl, reason]);
+
+  const strengthLabel = profileStrength.filled === 0
+    ? "Basic"
+    : profileStrength.filled === 1
+      ? "Good"
+      : profileStrength.filled === 2
+        ? "Strong"
+        : "Complete";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
@@ -79,12 +96,6 @@ export function SignPledgeForm({
               className="inline-block w-auto min-w-[140px] md:min-w-[150px] mx-1 md:mx-2 px-2 md:px-3 py-0.5 md:py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-base md:text-lg h-auto"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
             />
-            {isCheckingName && (
-              <span className="text-sm text-gray-500 ml-2">Checking...</span>
-            )}
-            {nameError && (
-              <span className="text-sm text-red-500 ml-2">{nameError}</span>
-            )}
 
             <span
               className="font-serif"
@@ -133,9 +144,35 @@ export function SignPledgeForm({
 
         {/* Verification Details Section */}
         <div className="space-y-3 md:space-y-4 pt-4 md:pt-6 border-t-2 border-[#002B5C]">
+          {/* Profile Strength Indicator */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[#1A1A1A]/60">Profile strength</span>
+              <span className={`font-medium ${
+                profileStrength.filled === 3 ? "text-green-600" :
+                profileStrength.filled === 2 ? "text-blue-600" :
+                profileStrength.filled === 1 ? "text-amber-600" :
+                "text-[#1A1A1A]/40"
+              }`}>
+                {strengthLabel}
+              </span>
+            </div>
+            <div className="h-1.5 bg-[#1A1A1A]/10 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 rounded-full ${
+                  profileStrength.filled === 3 ? "bg-green-500" :
+                  profileStrength.filled === 2 ? "bg-blue-500" :
+                  profileStrength.filled === 1 ? "bg-amber-500" :
+                  "bg-[#1A1A1A]/20"
+                }`}
+                style={{ width: `${profileStrength.percentage}%` }}
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5 md:space-y-2">
             <Label htmlFor="email" className="text-sm text-[#1A1A1A]/70">
-              Signed with: Email
+              Email
             </Label>
             <Input
               id="email"
@@ -151,12 +188,12 @@ export function SignPledgeForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-1 md:space-y-2">
               <Label htmlFor="role" className="text-sm text-[#1A1A1A]/70">
-                Role <span className="text-[#1A1A1A]/50">(Optional)</span>
+                Role
               </Label>
               <Input
                 id="role"
                 type="text"
-                placeholder="e.g., Product Designer"
+                placeholder="Product Designer"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 className="border-0 border-b-2 border-[#1A1A1A]/40 rounded-none focus-visible:border-[#1A1A1A] focus-visible:ring-0 bg-transparent px-0"
@@ -165,13 +202,12 @@ export function SignPledgeForm({
 
             <div className="space-y-1 md:space-y-2">
               <Label htmlFor="linkedin" className="text-sm text-[#1A1A1A]/70">
-                LinkedIn{" "}
-                <span className="text-[#1A1A1A]/50">(For verification)</span>
+                LinkedIn
               </Label>
               <Input
                 id="linkedin"
                 type="text"
-                placeholder="linkedin.com/in/yourname"
+                placeholder="linkedin.com/in/you"
                 value={linkedinUrl}
                 onChange={(e) => setLinkedinUrl(e.target.value)}
                 className="border-0 border-b-2 border-[#1A1A1A]/40 rounded-none focus-visible:border-[#1A1A1A] focus-visible:ring-0 bg-transparent px-0"
@@ -181,24 +217,19 @@ export function SignPledgeForm({
 
           <div className="space-y-1 md:space-y-2">
             <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
-              Why are you taking this pledge?{" "}
-              <span className="text-[#1A1A1A]/50">
-                (Optional but encouraged)
-              </span>
+              Why does clarity matter to you?
             </Label>
             <textarea
               id="reason"
-              placeholder="Share what you hope to achieve, why this matters to you, or how you'll use this commitment..."
+              placeholder="To build trust with my team..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows={2} // Reduced default rows
+              rows={2}
               maxLength={280}
               className="w-full px-0 py-2 border-0 border-b-2 border-[#1A1A1A]/40 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[#1A1A1A] resize-none text-sm md:h-auto"
             />
-
             <p className="text-[10px] md:text-xs text-[#1A1A1A]/50">
-              {reason.length}/280 characters • Your reason will be public and
-              help inspire others
+              {reason.length}/280 • Appears on your public profile
             </p>
           </div>
         </div>
@@ -216,9 +247,9 @@ export function SignPledgeForm({
             type="submit"
             className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
             size="lg"
-            disabled={isSubmitting || !!nameError || isCheckingName}
+            disabled={isSubmitting}
           >
-            {isSealing ? (
+            {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
                 <BadgeCheckIcon className="w-5 h-5 animate-pulse" />
                 Signing...
@@ -233,8 +264,15 @@ export function SignPledgeForm({
 
           {/* Helper Text */}
           <p className="text-[10px] md:text-xs text-center text-[#1A1A1A]/60 leading-relaxed">
-            We will send a verification link to your email. Your pledge becomes
-            public only after you click it.
+            By signing, you agree to our{" "}
+            <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy-policy" className="underline hover:text-[#1A1A1A]">
+              Privacy Policy
+            </Link>
+            .
           </p>
         </div>
 
