@@ -42,22 +42,27 @@ export function ProfileVisitorView({
         </div>
       )}
 
-      {/* Share Actions for Owner - Consolidated dropdown + download */}
+      {/* Owner Banner - integrated with actions */}
       {isOwner && (
-        <div className="max-w-3xl mx-auto flex justify-end">
-          <ShareDropdown
-            profileUrl={profileUrl}
-            profileName={profile.name}
-            slug={profile.slug}
-            role={profile.role}
-            signedAt={profile.signedAt}
-            isVerified={profile.isVerified}
-            acceptanceCount={profile.witnesses.length}
-          />
+        <div className="max-w-3xl mx-auto mb-4">
+          <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              Your Pledge
+            </p>
+            <ShareDropdown
+              profileUrl={profileUrl}
+              profileName={profile.name}
+              slug={profile.slug}
+              role={profile.role}
+              signedAt={profile.signedAt}
+              isVerified={profile.isVerified}
+              acceptanceCount={profile.witnesses.length}
+            />
+          </div>
         </div>
       )}
 
-      {/* Certificate - FIRST to show what they committed to */}
+      {/* Certificate */}
       <div className="max-w-3xl mx-auto">
         <ProfileCertificate
           name={profile.name}

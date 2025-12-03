@@ -24,6 +24,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { LoaderIcon } from "lucide-react";
+import { generateSlug, getProfile } from "@/app/data/api";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -54,11 +55,18 @@ export function AuthCallbackPage() {
       // before this callback runs, leaving is_verified as false.
       setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
+      // Generate slug at profile creation time to prevent race conditions.
+      // If we generated in createProfile (before email verification), two users
+      // signing up simultaneously with the same name would both get the same slug
+      // since neither profile exists yet when they query.
+      const name = user?.name || user_metadata.name || 'Anonymous';
+      let slug = user?.slug || generateSlug(name);
+
       const upsertData = {
         id: authUser.id,
         email: authUser.email!,
-        name: user?.name || user_metadata.name || 'Anonymous',
-        slug: user?.slug || user_metadata.slug,
+        name,
+        slug,
         role: user?.role || user_metadata.role,
         linkedin_url: user?.linkedinUrl || user_metadata.linkedin_url,
         reason: user?.reason || user_metadata.reason,
@@ -70,13 +78,42 @@ export function AuthCallbackPage() {
       console.log('🔄 Auth user ID:', authUser.id);
       console.log('🔄 Existing user from useAuth:', user);
 
-      // Always upsert the FULL profile data to handle:
-      // 1. New users: creates profile with all fields
-      // 2. Existing users: updates all fields including any changes made in the form
-      // 3. Race condition: trigger may have created profile with is_verified=false
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert(upsertData, { onConflict: 'id' });
+      // Try to upsert with retry logic for slug conflicts
+      let upsertError = null;
+      let retries = 0;
+      const maxRetries = 3;
+
+      while (retries <= maxRetries) {
+        const { error } = await supabase
+          .from('profiles')
+          .upsert(upsertData, { onConflict: 'id' });
+
+        if (!error) {
+          console.log('✅ Profile upsert successful!');
+          break;
+        }
+
+        // Check if this is a slug uniqueness constraint violation
+        // Postgres unique violation code is 23505
+        if (error.code === '23505' && error.message?.includes('slug')) {
+          retries++;
+          console.log(`⚠️ Slug conflict detected, retry ${retries}/${maxRetries}`);
+
+          if (retries > maxRetries) {
+            upsertError = error;
+            break;
+          }
+
+          // Generate a new unique slug with timestamp suffix
+          slug = `${generateSlug(name)}-${Date.now()}`;
+          upsertData.slug = slug;
+          console.log('🔄 Trying new slug:', slug);
+        } else {
+          // Different error, don't retry
+          upsertError = error;
+          break;
+        }
+      }
 
       if (upsertError) {
         setStatus("Error creating profile. Please contact support.");
@@ -89,16 +126,15 @@ export function AuthCallbackPage() {
         });
         return;
       }
-      console.log('✅ Profile upsert successful!');
 
       // Refresh profile in auth context so nav/header shows correct user data
       // This fixes race condition where initial fetch happened before upsert completed
       await refreshProfile();
       console.log('✅ Profile refreshed in auth context');
 
-      // Redirect to profile page.
+      // Redirect to profile page using the slug we actually saved
+      // (may have been modified due to conflict resolution)
       setStatus("Redirecting...");
-      const slug = user?.slug || user_metadata.slug;
       navigate(`/p/${slug}`, { replace: true });
     };
 

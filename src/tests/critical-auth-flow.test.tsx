@@ -70,6 +70,8 @@ const mockGetProfile = vi.fn();
 vi.mock('@/app/data/api', () => ({
   getProfile: (id: string) => mockGetProfile(id),
   signOut: vi.fn(),
+  // generateSlug is now imported by AuthCallbackPage for slug generation at profile creation time
+  generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
 }));
 
 // -----------------------------------------------------------------------------
@@ -125,7 +127,7 @@ describe('CRITICAL AUTH FLOW', () => {
           email: 'test@example.com',
           user_metadata: {
             name: 'Existing User',
-            slug: 'existing-slug',
+            // Note: slug is NOT in user_metadata anymore - it's generated at profile creation time
             role: 'Developer',
             linkedin_url: 'https://linkedin.com/in/existing',
             reason: 'To communicate better',
@@ -135,7 +137,7 @@ describe('CRITICAL AUTH FLOW', () => {
       };
       const mockProfile = {
         id: 'existing-user-id',
-        slug: 'existing-slug',
+        slug: 'existing-slug', // Existing user already has a slug in their profile
         name: 'Existing User',
         role: 'Developer',
         linkedinUrl: 'https://linkedin.com/in/existing',
@@ -161,11 +163,12 @@ describe('CRITICAL AUTH FLOW', () => {
         const upsertData = getUpsertData();
 
         // Verify ALL fields are included in upsert (not just is_verified)
+        // For existing users, slug comes from the existing profile (user.slug)
         expect(upsertData).toMatchObject({
           id: 'existing-user-id',
           email: 'test@example.com',
           name: 'Existing User',
-          slug: 'existing-slug',
+          slug: 'existing-slug', // From existing profile
           role: 'Developer',
           linkedin_url: 'https://linkedin.com/in/existing',
           reason: 'To communicate better',
@@ -186,7 +189,7 @@ describe('CRITICAL AUTH FLOW', () => {
           email: 'new@example.com',
           user_metadata: {
             name: 'New User',
-            slug: 'new-user-slug',
+            // Note: slug is NOT in user_metadata - it's generated at profile creation time from the name
             role: 'Designer',
             linkedin_url: 'https://linkedin.com/in/newuser',
             reason: 'I want to be clearer',
@@ -213,11 +216,13 @@ describe('CRITICAL AUTH FLOW', () => {
         const upsertData = getUpsertData();
 
         // Verify profile is created with ALL fields from user_metadata
+        // Slug is now generated at profile creation time from the name ("New User" -> "new-user")
+        // This prevents race conditions where multiple users with the same name sign up simultaneously
         expect(upsertData).toMatchObject({
           id: 'new-user-id',
           email: 'new@example.com',
           name: 'New User',
-          slug: 'new-user-slug',
+          slug: 'new-user', // Generated from name at creation time
           role: 'Designer',
           linkedin_url: 'https://linkedin.com/in/newuser',
           reason: 'I want to be clearer',
@@ -225,8 +230,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // Should redirect to the NEW slug
-        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user-slug', { replace: true });
+        // Should redirect to the generated slug
+        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
       });
     });
   });

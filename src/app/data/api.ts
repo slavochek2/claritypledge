@@ -315,7 +315,10 @@ export async function createProfile(
   // has verified their email. This is a more robust and reliable flow.
 
   const redirectUrl = `${window.location.origin}/auth/callback`;
-  const slug = await ensureUniqueSlug(name);
+  // NOTE: Slug is generated at profile creation time in AuthCallbackPage, not here.
+  // This prevents race conditions when multiple users with the same name sign up simultaneously.
+  // If we generated the slug here, both would query the DB before any profile exists,
+  // both would get the same slug, and one would fail with a constraint violation.
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -323,7 +326,6 @@ export async function createProfile(
       emailRedirectTo: redirectUrl,
       data: {
         name,
-        slug,
         role,
         linkedin_url: linkedinUrl,
         reason,
