@@ -1,6 +1,6 @@
 import {
   ShieldCheckIcon,
-  AlertCircleIcon,
+  TargetIcon,
   HeartHandshakeIcon,
   ClockIcon,
 } from "lucide-react";
@@ -8,7 +8,7 @@ import {
 export function BenefitsSection() {
   const benefits = [
     { icon: ShieldCheckIcon, text: "Prevent conflicts" },
-    { icon: AlertCircleIcon, text: "Eliminate errors" },
+    { icon: TargetIcon, text: "Eliminate errors" },
     { icon: HeartHandshakeIcon, text: "Build trust" },
   ];
 

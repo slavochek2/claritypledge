@@ -35,15 +35,19 @@ export function SignPledgeForm({
     handleSubmit
   } = usePledgeForm(onSuccess);
 
-  // Profile strength calculation
+  // Profile strength calculation - 0% until email, then 15% baseline + optional fields
   const profileStrength = useMemo(() => {
+    const hasEmail = email.trim().length > 0;
+    if (!hasEmail) return { filled: 0, percentage: 0 };
+
     let filled = 0;
-    const total = 3;
     if (role.trim()) filled++;
     if (linkedinUrl.trim()) filled++;
     if (reason.trim()) filled++;
-    return { filled, total, percentage: Math.round((filled / total) * 100) };
-  }, [role, linkedinUrl, reason]);
+    // Email gives 15% baseline, then ~28% per optional field
+    const percentage = 15 + Math.round((filled / 3) * 85);
+    return { filled, percentage };
+  }, [email, role, linkedinUrl, reason]);
 
   const strengthLabel = profileStrength.filled === 0
     ? "Basic"
@@ -148,24 +152,23 @@ export function SignPledgeForm({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-[#1A1A1A]/60">Profile strength</span>
-              <span className={`font-medium ${
-                profileStrength.filled === 3 ? "text-green-600" :
-                profileStrength.filled === 2 ? "text-blue-600" :
-                profileStrength.filled === 1 ? "text-amber-600" :
-                "text-[#1A1A1A]/40"
-              }`}>
+              <span className="font-medium text-[#0044CC]">
                 {strengthLabel}
               </span>
             </div>
-            <div className="h-1.5 bg-[#1A1A1A]/10 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[#002B5C]/10 rounded-full overflow-hidden">
               <div
-                className={`h-full transition-all duration-300 rounded-full ${
-                  profileStrength.filled === 3 ? "bg-green-500" :
-                  profileStrength.filled === 2 ? "bg-blue-500" :
-                  profileStrength.filled === 1 ? "bg-amber-500" :
-                  "bg-[#1A1A1A]/20"
-                }`}
-                style={{ width: `${profileStrength.percentage}%` }}
+                className="h-full transition-all duration-300 rounded-full"
+                style={{
+                  width: `${profileStrength.percentage}%`,
+                  backgroundColor: profileStrength.filled === 3
+                    ? "#002B5C"
+                    : profileStrength.filled === 2
+                      ? "#0044CC"
+                      : profileStrength.filled === 1
+                        ? "#3366DD"
+                        : "#6699EE"
+                }}
               />
             </div>
           </div>
@@ -242,7 +245,7 @@ export function SignPledgeForm({
         )}
 
         {/* Sign & Seal Button */}
-        <div className="space-y-2 md:space-y-3">
+        <div className="space-y-2">
           <Button
             type="submit"
             className="w-full bg-[#002B5C] hover:bg-[#001f45] text-white font-semibold text-base md:text-lg py-4 md:py-6 relative overflow-hidden group"
@@ -262,29 +265,30 @@ export function SignPledgeForm({
             )}
           </Button>
 
-          {/* Helper Text */}
-          <p className="text-[10px] md:text-xs text-center text-[#1A1A1A]/60 leading-relaxed">
+          {/* Helper Text - Combined single line */}
+          <p className="text-[10px] md:text-xs text-center text-[#1A1A1A]/60">
             By signing, you agree to our{" "}
             <Link to="/terms-of-service" className="underline hover:text-[#1A1A1A]">
-              Terms of Service
+              Terms
             </Link>{" "}
-            and{" "}
+            &{" "}
             <Link to="/privacy-policy" className="underline hover:text-[#1A1A1A]">
-              Privacy Policy
+              Privacy
             </Link>
             .
           </p>
         </div>
+      </div>
 
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={onSwitchToLogin}
-            className="text-sm text-muted-foreground hover:text-foreground underline"
-          >
-            Already Pledged? Log In
-          </button>
-        </div>
+      {/* Already Pledged - Outside certificate frame */}
+      <div className="text-center pt-2">
+        <button
+          type="button"
+          onClick={onSwitchToLogin}
+          className="text-sm text-muted-foreground hover:text-foreground underline"
+        >
+          Already pledged? Log in
+        </button>
       </div>
     </form>
   );

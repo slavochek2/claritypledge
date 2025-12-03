@@ -191,6 +191,30 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
 }
 
 /**
+ * Gets the count of verified profiles.
+ * Used for social proof display (e.g., "Join 47 champions who've taken the pledge").
+ * @returns {Promise<number>} The count of verified profiles.
+ */
+export async function getVerifiedProfileCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_verified', true);
+
+    if (error) {
+      console.error('❌ Error fetching verified profile count:', error);
+      return 0;
+    }
+
+    return count || 0;
+  } catch (err) {
+    console.error('❌ Unexpected error in getVerifiedProfileCount:', err);
+    return 0;
+  }
+}
+
+/**
  * Fetches all profiles that have been marked as verified.
  * This is used to populate the "Clarity Champions" page, showcasing all users who have completed the pledge process.
  * The function also fetches and attaches all witnesses for each profile.
