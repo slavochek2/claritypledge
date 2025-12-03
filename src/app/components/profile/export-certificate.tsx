@@ -17,14 +17,12 @@ interface ExportCertificateProps {
  */
 export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificateProps>(
   ({ name, role, signedAt, isVerified, slug, acceptanceCount }, ref) => {
+    // Use production domain for QR code (export is for sharing externally)
     const profileUrl = `https://claritypledge.com/p/${slug}`;
 
     // Truncate long names/roles
     const displayName = name.length > 30 ? name.slice(0, 27) + "..." : name;
     const displayRole = role && role.length > 40 ? role.slice(0, 37) + "..." : role;
-
-    // Get first name for acceptance text
-    const firstName = name.split(" ")[0];
 
     return (
       <div
@@ -47,9 +45,9 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
         <div
           style={{
             textAlign: "center",
-            paddingBottom: "30px",
+            paddingBottom: "20px",
             borderBottom: "3px solid #002B5C",
-            marginBottom: "40px",
+            marginBottom: "30px",
           }}
         >
           <h2
@@ -84,7 +82,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             lineHeight: "1.6",
             color: "#1A1A1A",
             fontFamily: "Georgia, serif",
-            marginBottom: "30px",
+            marginBottom: "20px",
           }}
         >
           I, <span style={{ fontWeight: "bold" }}>{displayName}</span>, hereby commit to{" "}
@@ -96,12 +94,12 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
         <div
           style={{
             borderTop: "1px solid rgba(26, 26, 26, 0.2)",
-            marginBottom: "30px",
+            marginBottom: "20px",
           }}
         />
 
         {/* Your Right Section */}
-        <div style={{ marginBottom: "30px" }}>
+        <div style={{ marginBottom: "20px" }}>
           <h4
             style={{
               fontSize: "28px",
@@ -126,7 +124,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
         </div>
 
         {/* My Promise Section */}
-        <div style={{ marginBottom: "40px" }}>
+        <div style={{ marginBottom: "20px" }}>
           <h4
             style={{
               fontSize: "28px",
@@ -156,7 +154,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
         {/* Bottom Section */}
         <div
           style={{
-            paddingTop: "30px",
+            paddingTop: "20px",
             borderTop: "3px solid #002B5C",
           }}
         >
@@ -166,7 +164,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: "20px",
+              marginBottom: "16px",
             }}
           >
             {/* Left: Avatar + Name + Date */}
@@ -346,7 +344,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
           <div
             style={{
               textAlign: "center",
-              paddingTop: "20px",
+              paddingTop: "12px",
               borderTop: "1px solid rgba(26, 26, 26, 0.1)",
             }}
           >
@@ -360,8 +358,8 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 }}
               >
                 {acceptanceCount === 1
-                  ? `1 person accepted ${firstName}'s pledge`
-                  : `${acceptanceCount} people accepted ${firstName}'s pledge`}
+                  ? "1 person accepted my pledge"
+                  : `${acceptanceCount} people accepted my pledge`}
               </p>
             )}
             <p

@@ -131,7 +131,7 @@ export function PledgeCard({
                     <div className="w-16 h-16 rounded-full border-4 border-[#0044CC] dark:border-blue-500 flex items-center justify-center bg-[#FDFBF7] dark:bg-card">
                       <div className="w-12 h-12 rounded-full bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center">
                         <span className="text-xs font-bold text-[#0044CC] dark:text-blue-400">
-                          2025
+                          {new Date().getFullYear()}
                         </span>
                       </div>
                     </div>

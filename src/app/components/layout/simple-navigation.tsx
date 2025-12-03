@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon, UserIcon, SettingsIcon } from "lucide-react";
 import { GravatarAvatar } from "@/app/components/ui/gravatar-avatar";
 
 // Navigation links config - single source of truth
@@ -123,6 +123,12 @@ export function SimpleNavigation() {
                       View My Pledge
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings" className="cursor-pointer">
+                      <SettingsIcon className="w-4 h-4 mr-2" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handleSignOut}
@@ -199,6 +205,14 @@ export function SimpleNavigation() {
                   >
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     View My Pledge
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                    onClick={closeMobileMenu}
+                  >
+                    <SettingsIcon className="w-4 h-4 inline mr-2" />
+                    Settings
                   </Link>
                   <div className="border-t border-border my-2"></div>
                   <button

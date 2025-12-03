@@ -563,6 +563,38 @@ export async function ensureUniqueSlug(name: string): Promise<string> {
 }
 
 /**
+ * Updates an existing user profile.
+ * Only the profile owner can update their profile (enforced by RLS).
+ * @param {string} userId - The UUID of the profile to update.
+ * @param {object} updates - The fields to update.
+ * @returns {Promise<{ error: Error | null }>} A promise with error if update failed.
+ */
+export async function updateProfile(
+  userId: string,
+  updates: {
+    name?: string;
+    role?: string;
+    linkedin_url?: string;
+    reason?: string;
+  }
+): Promise<{ error: Error | null }> {
+  console.log('📝 Updating profile for:', userId);
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId);
+
+  if (error) {
+    console.error('❌ Error updating profile:', error);
+    return { error: new Error(error.message) };
+  }
+
+  console.log('✅ Profile updated successfully');
+  return { error: null };
+}
+
+/**
  * Fetches a single user profile by their unique, URL-friendly slug.
  * This is the primary method for retrieving profiles for public-facing pages.
  * @param {string} slug - The slug of the user profile to fetch.

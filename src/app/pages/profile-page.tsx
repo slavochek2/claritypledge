@@ -13,7 +13,6 @@ import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
 import { OwnerPreviewBanner } from "@/app/components/profile/owner-preview-banner";
-import { ShareHub } from "@/app/components/profile/share-hub";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
@@ -150,7 +149,6 @@ export function ProfilePage() {
   // Use session.user.id for instant owner detection (no DB fetch needed)
   // This prevents "visitor view flicker" while profile is still loading
   const isOwner = session?.user?.id === profile.id;
-  const profileUrl = `${window.location.origin}/p/${profile?.slug || profile?.id}`;
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
     if (!profile) return;
@@ -189,22 +187,6 @@ export function ProfilePage() {
                 isOwner={!!isOwner}
                 currentUser={currentUser}
               />
-
-              {/* Share Hub - Only for profile owners */}
-              {isOwner && (
-                <div className="mt-16">
-                  <ShareHub
-                    profileUrl={profileUrl}
-                    profileName={profile.name}
-                    slug={profile.slug}
-                    role={profile.role}
-                    signedAt={profile.signedAt}
-                    isVerified={profile.isVerified}
-                    acceptanceCount={profile.witnesses?.length || 0}
-                    isOwner={true}
-                  />
-                </div>
-              )}
             </>
           )}
         </div>

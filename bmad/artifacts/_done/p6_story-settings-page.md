@@ -120,15 +120,15 @@ Add "Settings" link to user dropdown/nav when authenticated:
 
 ## Acceptance Criteria
 
-- [ ] Settings page accessible at `/settings` route
-- [ ] Unauthenticated users redirected to sign-pledge page
-- [ ] Form pre-populated with current profile data
-- [ ] Name field required, cannot be empty
-- [ ] LinkedIn URL validated if provided (must contain `linkedin.com`)
-- [ ] Save button disabled while no changes made
-- [ ] Success message shown after save
-- [ ] Profile data refreshed in auth context after save
-- [ ] Navigation link added for authenticated users
+- [x] Settings page accessible at `/settings` route
+- [x] Unauthenticated users redirected to sign-pledge page
+- [x] Form pre-populated with current profile data
+- [x] Name field required, cannot be empty
+- [x] LinkedIn URL validated if provided (must contain `linkedin.com`)
+- [x] Save button disabled while no changes made
+- [x] Success message shown after save
+- [x] Profile data refreshed in auth context after save
+- [x] Navigation link added for authenticated users
 
 ## Edge Cases
 
@@ -151,3 +151,28 @@ Add "Settings" link to user dropdown/nav when authenticated:
 - Avatar color picker
 - Profile picture upload
 - Account deletion
+
+---
+
+## Dev Agent Record
+
+### Status
+**Done** - All acceptance criteria implemented and tested.
+
+### File List
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/app/pages/settings-page.tsx` | Created | Protected settings page with form validation |
+| `src/app/pages/settings-page.test.tsx` | Created | Comprehensive unit tests (route protection, validation, submission) |
+| `src/App.tsx` | Modified | Added `/settings` route |
+| `src/app/components/layout/simple-navigation.tsx` | Modified | Added Settings link to desktop dropdown and mobile menu |
+| `src/app/data/api.ts` | Modified | Added `updateProfile()` function |
+
+### Change Log
+
+- **2025-12-03**: Initial implementation of settings page
+- **2025-12-03**: Code review fixes:
+  - Strengthened LinkedIn URL validation (require HTTPS, proper domain check)
+  - Added `aria-describedby` and `aria-invalid` for form accessibility
+  - Added comprehensive unit tests for all acceptance criteria

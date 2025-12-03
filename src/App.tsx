@@ -11,6 +11,7 @@ import { LoginPage } from "@/app/pages/login-page";
 import { SignPledgePage } from "@/app/pages/sign-pledge-page";
 import { PrivacyPolicyPage } from "@/app/pages/privacy-policy-page";
 import { TermsOfServicePage } from "@/app/pages/terms-of-service-page";
+import { SettingsPage } from "@/app/pages/settings-page";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
 // so it cannot use any router hooks like useLocation, useNavigate, etc.
@@ -136,6 +137,15 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <TermsOfServicePage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ClarityLandingLayout>
+              <SettingsPage />
             </ClarityLandingLayout>
           }
         />

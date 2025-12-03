@@ -85,11 +85,7 @@ describe("ProfilePage", () => {
 
       // Start with user loading
       const useUserSpy = vi.spyOn(auth, "useAuth");
-      useUserSpy.mockReturnValue({
-        user: null,
-        isLoading: true,
-        signOut: vi.fn(),
-      });
+      useUserSpy.mockReturnValue(createAuthMock({ isLoading: true }));
 
       const { rerender } = render(
         <MemoryRouter initialEntries={["/p/test-user"]}>
@@ -103,11 +99,9 @@ describe("ProfilePage", () => {
       expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
 
       // Simulate user auth completing (profile still doesn't exist in DB)
-      useUserSpy.mockReturnValue({
-        user: mockProfile,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      useUserSpy.mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
 
       // Force re-render with new user state
       rerender(
@@ -135,11 +129,7 @@ describe("ProfilePage", () => {
       vi.mocked(api.getProfile).mockReturnValue(Promise.resolve(null));
 
       // User is NOT loading (guest)
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
       render(
         <MemoryRouter initialEntries={["/p/test-user"]}>
@@ -170,11 +160,7 @@ describe("ProfilePage", () => {
   describe("Normal Profile Loading", () => {
     it("should load and display a verified profile by slug", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
       render(
         <MemoryRouter initialEntries={["/p/test-user"]}>
@@ -195,11 +181,7 @@ describe("ProfilePage", () => {
     it("should fallback to getProfile by ID if getProfileBySlug fails", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
       render(
         <MemoryRouter initialEntries={["/p/test-user-id"]}>
@@ -221,11 +203,7 @@ describe("ProfilePage", () => {
     it("should show 'Profile Not Found' when profile does not exist and user is not loading", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(null);
       vi.mocked(api.getProfile).mockResolvedValue(null);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: false, // Key: user is NOT loading
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
       render(
         <MemoryRouter initialEntries={["/p/nonexistent"]}>
@@ -244,11 +222,9 @@ describe("ProfilePage", () => {
   describe("Owner vs Visitor Views", () => {
     it("should show owner preview banner for verified profile owner", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: mockProfile,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
 
       render(
         <MemoryRouter initialEntries={["/p/test-user"]}>
@@ -276,11 +252,9 @@ describe("ProfilePage", () => {
       };
 
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: otherUser,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: otherUser, sessionUserId: otherUser.id })
+      );
 
       render(
         <MemoryRouter initialEntries={["/p/test-user"]}>
@@ -303,11 +277,9 @@ describe("ProfilePage", () => {
   describe("First Time User Flow", () => {
     it("should show welcome dialog for first-time profile owner", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: mockProfile,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
 
       render(
         <MemoryRouter initialEntries={["/p/test-user?firstTime=true"]}>
@@ -329,11 +301,9 @@ describe("ProfilePage", () => {
       };
 
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: otherUser,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: otherUser, sessionUserId: otherUser.id })
+      );
 
       render(
         <MemoryRouter initialEntries={["/p/test-user?firstTime=true"]}>
@@ -356,11 +326,7 @@ describe("ProfilePage", () => {
     it("should handle API errors gracefully", async () => {
       vi.mocked(api.getProfileBySlug).mockRejectedValue(new Error("API Error"));
       vi.mocked(api.getProfile).mockRejectedValue(new Error("API Error"));
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
       // Mock console.error to avoid test output noise
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -391,11 +357,7 @@ describe("ProfilePage", () => {
         return Promise.resolve(null);
       });
 
-      vi.spyOn(auth, "useAuth").mockReturnValue({
-        user: null,
-        isLoading: false,
-        signOut: vi.fn(),
-      });
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
       render(
         <MemoryRouter initialEntries={["/p/user-1"]}>

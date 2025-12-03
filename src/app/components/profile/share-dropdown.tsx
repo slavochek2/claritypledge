@@ -3,35 +3,35 @@ import { toast } from "sonner";
 import { toPng } from "html-to-image";
 import {
   CheckIcon,
+  ChevronDownIcon,
   CopyIcon,
   DownloadIcon,
   LinkedinIcon,
+  LinkIcon,
   LoaderIcon,
   MailIcon,
-  ShareIcon,
   XIcon,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ExportCertificate } from "./export-certificate";
 import { PLEDGE_TEXT } from "@/app/content/pledge-text";
 
-interface ShareHubProps {
+interface ShareDropdownProps {
   profileUrl: string;
   profileName: string;
-  /** Profile slug for filename and QR code */
   slug: string;
-  /** User's role/title */
   role?: string;
-  /** Date signed */
   signedAt: string;
-  /** Whether profile is verified */
   isVerified: boolean;
-  /** Number of people who accepted the pledge (witnesses) */
   acceptanceCount: number;
-  /** Whether this is the profile owner viewing (show download button) */
-  isOwner?: boolean;
 }
 
-export function ShareHub({
+export function ShareDropdown({
   profileUrl,
   profileName,
   slug,
@@ -39,38 +39,12 @@ export function ShareHub({
   signedAt,
   isVerified,
   acceptanceCount,
-  isOwner = false,
-}: ShareHubProps) {
+}: ShareDropdownProps) {
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showLinkedInGuide, setShowLinkedInGuide] = useState(false);
   const [linkedInTextCopied, setLinkedInTextCopied] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
-
-  const handleDownloadCertificate = async () => {
-    if (!exportRef.current) return;
-
-    setIsExporting(true);
-    try {
-      const dataUrl = await toPng(exportRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-      });
-
-      // Create download link
-      const link = document.createElement("a");
-      link.download = `clarity-pledge-${slug}.png`;
-      link.href = dataUrl;
-      link.click();
-
-      toast.success("Certificate downloaded!");
-    } catch (error) {
-      console.error("Failed to export certificate:", error);
-      toast.error("Failed to download certificate. Try taking a screenshot instead.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   // Clipboard helper with fallback for older browsers
   const copyToClipboard = async (text: string): Promise<boolean> => {
@@ -79,7 +53,6 @@ export function ShareHub({
         await navigator.clipboard.writeText(text);
         return true;
       } else {
-        // Fallback for older browsers or non-secure contexts
         const textArea = document.createElement("textarea");
         textArea.value = text;
         textArea.style.position = "fixed";
@@ -101,10 +74,10 @@ export function ShareHub({
     const success = await copyToClipboard(profileUrl);
     if (success) {
       setCopied(true);
-      toast.success("Link copied to clipboard!");
+      toast.success("Link copied!");
       setTimeout(() => setCopied(false), 2000);
     } else {
-      toast.error("Failed to copy link. Please try again.");
+      toast.error("Failed to copy link");
     }
   };
 
@@ -162,107 +135,109 @@ ${firstName}`
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
+  const handleDownloadCertificate = async () => {
+    if (!exportRef.current) return;
+
+    setIsExporting(true);
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+
+      const link = document.createElement("a");
+      link.download = `clarity-pledge-${slug}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      toast.success("Certificate downloaded!");
+    } catch (error) {
+      console.error("Failed to export certificate:", error);
+      toast.error("Failed to download. Try a screenshot instead.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-full bg-[#0044CC]/10 dark:bg-blue-500/10 flex items-center justify-center">
-            <ShareIcon className="w-5 h-5 text-[#0044CC] dark:text-blue-400" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Share Your Pledge</h2>
-            <p className="text-sm text-muted-foreground">
-              Invite others to accept your commitment to clarity
-            </p>
-          </div>
-        </div>
-
-        {/* 2x2 Grid on desktop, stacked on mobile */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Copy Link */}
-          <button
-            onClick={handleCopyLink}
-            className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
-          >
-            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-              {copied ? (
-                <CheckIcon className="w-6 h-6 text-green-600" />
-              ) : (
-                <CopyIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-              )}
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">
-                {copied ? "Copied!" : "Copy Link"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Share anywhere
-              </p>
-            </div>
-          </button>
-
-          {/* LinkedIn */}
-          <button
-            onClick={() => isOwner ? setShowLinkedInGuide(!showLinkedInGuide) : shareOnLinkedIn()}
-            className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
-          >
-            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-[#0A66C2]/10 flex items-center justify-center">
-              <LinkedinIcon className="w-6 h-6 text-[#0A66C2]" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">Share on LinkedIn</p>
-              <p className="text-sm text-muted-foreground">
-                {isOwner ? "Share with your certificate" : "Post to your network"}
-              </p>
-            </div>
-          </button>
-
-          {/* Email Invite */}
-          <button
-            onClick={handleEmailInvite}
-            className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
-          >
-            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <MailIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">Invite by Email</p>
-              <p className="text-sm text-muted-foreground">
-                Send a personal invite
-              </p>
-            </div>
-          </button>
-
-          {/* Download Certificate - Owner only */}
-          {isOwner && (
-            <button
-              onClick={handleDownloadCertificate}
-              disabled={isExporting}
-              className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed sm:col-span-2"
-            >
-              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                {isExporting ? (
-                  <LoaderIcon className="w-6 h-6 text-purple-600 dark:text-purple-400 animate-spin" />
-                ) : (
-                  <DownloadIcon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                )}
-              </div>
-              <div>
-                <p className="font-semibold text-foreground">
-                  {isExporting ? "Generating..." : "Download Certificate"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Share on social media
-                </p>
-              </div>
+    <>
+      <div className="flex items-center gap-2">
+        {/* Share Dropdown */}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium">
+              <LinkIcon className="w-4 h-4" />
+              Share
+              <ChevronDownIcon className="w-4 h-4" />
             </button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {/* Copy Link */}
+            <DropdownMenuItem
+              onClick={handleCopyLink}
+              className="cursor-pointer py-3"
+            >
+              <div className="flex items-start gap-3">
+                {copied ? (
+                  <CheckIcon className="w-4 h-4 text-green-600 mt-0.5" />
+                ) : (
+                  <CopyIcon className="w-4 h-4 text-muted-foreground mt-0.5" />
+                )}
+                <div>
+                  <p className="font-medium">{copied ? "Copied!" : "Copy Link"}</p>
+                  <p className="text-xs text-muted-foreground">Share anywhere</p>
+                </div>
+              </div>
+            </DropdownMenuItem>
 
+            {/* Share on LinkedIn */}
+            <DropdownMenuItem
+              onClick={() => setShowLinkedInGuide(true)}
+              className="cursor-pointer py-3"
+            >
+              <div className="flex items-start gap-3">
+                <LinkedinIcon className="w-4 h-4 text-[#0A66C2] mt-0.5" />
+                <div>
+                  <p className="font-medium">Share on LinkedIn</p>
+                  <p className="text-xs text-muted-foreground">Post with certificate</p>
+                </div>
+              </div>
+            </DropdownMenuItem>
+
+            {/* Invite by Email */}
+            <DropdownMenuItem
+              onClick={handleEmailInvite}
+              className="cursor-pointer py-3"
+            >
+              <div className="flex items-start gap-3">
+                <MailIcon className="w-4 h-4 text-green-600 mt-0.5" />
+                <div>
+                  <p className="font-medium">Invite by Email</p>
+                  <p className="text-xs text-muted-foreground">Send personal invite</p>
+                </div>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Download Image Button */}
+        <button
+          onClick={handleDownloadCertificate}
+          disabled={isExporting}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-sm font-medium disabled:opacity-50"
+          title="Download certificate image"
+        >
+          {isExporting ? (
+            <LoaderIcon className="w-4 h-4 animate-spin" />
+          ) : (
+            <DownloadIcon className="w-4 h-4" />
+          )}
+          {isExporting ? "Exporting..." : "Download Image"}
+        </button>
       </div>
 
-      {/* LinkedIn Share Guide Modal - Owner only */}
-      {showLinkedInGuide && isOwner && (
+      {/* LinkedIn Share Guide Modal */}
+      {showLinkedInGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
@@ -360,26 +335,24 @@ ${firstName}`
       )}
 
       {/* Hidden certificate for export - rendered off-screen */}
-      {isOwner && (
-        <div
-          style={{
-            position: "absolute",
-            left: "-9999px",
-            top: "-9999px",
-          }}
-          aria-hidden="true"
-        >
-          <ExportCertificate
-            ref={exportRef}
-            name={profileName}
-            role={role}
-            signedAt={signedAt}
-            isVerified={isVerified}
-            slug={slug}
-            acceptanceCount={acceptanceCount}
-          />
-        </div>
-      )}
-    </div>
+      <div
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "-9999px",
+        }}
+        aria-hidden="true"
+      >
+        <ExportCertificate
+          ref={exportRef}
+          name={profileName}
+          role={role}
+          signedAt={signedAt}
+          isVerified={isVerified}
+          slug={slug}
+          acceptanceCount={acceptanceCount}
+        />
+      </div>
+    </>
   );
 }

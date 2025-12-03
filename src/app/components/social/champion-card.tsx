@@ -10,7 +10,8 @@ import {
 import { getInitials } from "@/lib/utils";
 
 export interface ChampionCardProps {
-  id: string;
+  /** Profile ID - kept for API compatibility with ProfileSummary type */
+  id?: string;
   slug: string;
   name: string;
   role?: string;
