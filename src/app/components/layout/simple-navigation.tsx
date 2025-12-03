@@ -15,7 +15,7 @@ import { GravatarAvatar } from "@/app/components/ui/gravatar-avatar";
 const NAV_LINKS = [
   { to: "/article", label: "Manifesto" },
   { to: "/clarity-champions", label: "Clarity Champions" },
-  { to: "/our-services", label: "Services" },
+  // { to: "/our-services", label: "Services" }, // Hidden until ready
 ] as const;
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";

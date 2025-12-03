@@ -16,7 +16,7 @@ export function ClarityFooter() {
             </Link>
           </div>
 
-          {/* The Movement */}
+          {/* The Movement - hidden until services page is ready
           <div>
             <h3 className="text-lg font-bold mb-3">The Movement</h3>
             <Link
@@ -26,6 +26,7 @@ export function ClarityFooter() {
               About Us
             </Link>
           </div>
+          */}
 
           {/* Legal */}
           <div>

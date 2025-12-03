@@ -93,7 +93,7 @@ export function ClarityPledgeLanding() {
               isVerified={true}
               linkedinUrl="https://linkedin.com/in/ladischenski"
               showQrCode={true}
-              profileUrl="https://claritypledge.com/p/vyacheslav-ladischenski"
+              profileUrl="https://claritypledge.com/p/slava"
             />
           </div>
         </section>
