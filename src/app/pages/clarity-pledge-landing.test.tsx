@@ -7,8 +7,11 @@ import { ClarityPledgeLanding } from './clarity-pledge-landing';
 vi.mock('@/auth', () => ({
   useAuth: () => ({
     user: null,
+    session: null,
     isLoading: false,
+    sessionChecked: true,
     signOut: vi.fn(),
+    refreshProfile: vi.fn(),
   }),
 }));
 

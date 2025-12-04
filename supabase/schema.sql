@@ -59,33 +59,9 @@ create policy "Authenticated users can insert witnesses"
   on public.witnesses for insert
   with check ( true );
 
--- Helper to handle new user signup
--- DEPRECATED: This trigger is a fallback only. Primary profile creation happens
--- in AuthCallbackPage.tsx which sets is_verified=true and generates unique slugs.
--- The ON CONFLICT DO NOTHING prevents errors when AuthCallbackPage creates the profile first.
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer set search_path = public
-as $$
-begin
-  insert into public.profiles (id, email, name, slug, role, linkedin_url, reason, avatar_color)
-  values (
-    new.id,
-    new.email,
-    new.raw_user_meta_data->>'name',
-    new.raw_user_meta_data->>'slug',
-    new.raw_user_meta_data->>'role',
-    new.raw_user_meta_data->>'linkedin_url',
-    new.raw_user_meta_data->>'reason',
-    new.raw_user_meta_data->>'avatar_color'
-  )
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
--- Trigger the function every time a user is created
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+-- NOTE: Database trigger for automatic profile creation has been REMOVED.
+-- Profile creation is handled ONLY by AuthCallbackPage.tsx after email verification.
+-- This ensures proper slug generation and is_verified=true is always set.
+--
+-- The old trigger (on_auth_user_created) was removed from production on 2025-12-04
+-- because it created profiles with NULL slugs (metadata didn't include slug).

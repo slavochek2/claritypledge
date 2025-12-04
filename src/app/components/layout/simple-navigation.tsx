@@ -21,13 +21,21 @@ export function SimpleNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const { session, user: currentUser, isLoading, signOut } = useAuth();
+  const { session, user: currentUser, isLoading, sessionChecked, signOut } = useAuth();
 
-  // Show user menu when logged in (session exists)
-  const isLoggedIn = !!session;
+  // Auth state phases:
+  // 1. sessionChecked=false → show nothing (checking session)
+  // 2. sessionChecked=true, session=null → show public CTAs (not logged in)
+  // 3. sessionChecked=true, session exists, isLoading=true → show nothing (profile loading)
+  // 4. sessionChecked=true, session exists, isLoading=false, currentUser exists → show user menu
 
-  // Show public CTAs only when auth state is resolved and user is not logged in
-  const showPublicCTAs = !isLoading && !isLoggedIn;
+  // Show user menu only when BOTH session AND profile are loaded
+  // This prevents the "?" avatar flash when session loads before profile
+  const showUserMenu = sessionChecked && !isLoading && !!session && !!currentUser;
+
+  // Show public CTAs only when session check done AND no session found
+  // This prevents the "Log In" flash when page loads
+  const showPublicCTAs = sessionChecked && !session;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -90,8 +98,8 @@ export function SimpleNavigation() {
 
           {/* CTA Buttons / User Menu */}
           <div className="hidden md:flex items-center gap-4">
-            {isLoggedIn && (
-              // User Menu - show when logged in
+            {showUserMenu && (
+              // User Menu - show when session AND profile are loaded
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -99,18 +107,17 @@ export function SimpleNavigation() {
                     aria-label="User menu"
                   >
                     <GravatarAvatar
-                      email={currentUser?.email}
-                      name={currentUser?.name || ""}
+                      email={currentUser.email}
+                      name={currentUser.name}
                       size="sm"
-                      avatarColor={currentUser?.avatarColor}
+                      avatarColor={currentUser.avatarColor}
                     />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" sideOffset={8} className="w-56">
                   <DropdownMenuItem asChild>
-                    {/* Use profile slug if loaded, otherwise session user id */}
                     <Link
-                      to={`/p/${currentUser?.slug || session?.user?.id}`}
+                      to={`/p/${currentUser.slug}`}
                       className="cursor-pointer"
                     >
                       <EyeIcon className="w-4 h-4 mr-2" />
@@ -189,11 +196,11 @@ export function SimpleNavigation() {
               ))}
 
               {/* Logged in user links */}
-              {isLoggedIn && (
+              {showUserMenu && (
                 <>
                   <div className="border-t border-border my-2"></div>
                   <Link
-                    to={`/p/${currentUser?.slug || session?.user?.id}`}
+                    to={`/p/${currentUser.slug}`}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
                     onClick={closeMobileMenu}
                   >

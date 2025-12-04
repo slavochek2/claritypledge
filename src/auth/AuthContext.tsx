@@ -20,6 +20,8 @@ interface AuthState {
   user: Profile | null;
   session: Session | null;
   isLoading: boolean;
+  /** True once initial session check completes (before profile fetch) */
+  sessionChecked: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -38,6 +40,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Track previous user state to preserve data on transient network errors
   const previousUserRef = useRef<Profile | null>(null);
 
+  // Track if initial session check is complete
+  const [sessionChecked, setSessionChecked] = useState(false);
+
   // Effect 1: Session management only
   // This follows Supabase's recommended pattern - onAuthStateChange just updates session
   useEffect(() => {
@@ -48,12 +53,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         if (error) {
           console.error('🔐 AuthContext: Error getting session:', error);
+          setSessionChecked(true);
           setIsLoading(false);
           return;
         }
 
         console.log('🔐 AuthContext: Initial session:', initialSession ? 'Found' : 'None');
         setSession(initialSession);
+        setSessionChecked(true);
 
         // Only set loading false here if NO session (profile effect won't run)
         if (!initialSession) {
@@ -61,6 +68,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error) {
         console.error('🔐 AuthContext: Failed to get session:', error);
+        setSessionChecked(true);
         setIsLoading(false);
       }
     };
@@ -162,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, isLoading, sessionChecked, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

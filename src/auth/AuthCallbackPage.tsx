@@ -20,11 +20,12 @@
  * DO NOT move this logic to a global hook or context.
  */
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
-import { LoaderIcon } from "lucide-react";
+import { LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { generateSlug, getProfile } from "@/app/data/api";
+import * as Sentry from "@sentry/react";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -42,19 +43,31 @@ function escapeLikePattern(str: string): string {
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState("Finalizing authentication...");
-  const { user, session, isLoading, refreshProfile } = useAuth();
+  const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
 
   useEffect(() => {
-    console.log('🔄 AuthCallback useEffect triggered:', { isLoading, hasSession: !!session, hasUser: !!user });
+    console.log('🔄 AuthCallback useEffect triggered:', { isLoading, sessionChecked, hasSession: !!session, hasUser: !!user });
 
-    if (isLoading) {
+    // Wait for session check to complete before deciding if there's an error
+    if (!sessionChecked || isLoading) {
       console.log('⏳ Still loading, waiting...');
       return;
     }
 
     const processAuth = async () => {
       if (!session) {
-        setStatus("Authentication error. Please try again.");
+        // Log to Sentry for debugging production auth failures
+        Sentry.captureMessage('Auth callback: No session found', {
+          level: 'warning',
+          tags: { component: 'AuthCallbackPage' },
+          extra: {
+            isLoading,
+            sessionChecked,
+            hasUser: !!user,
+            url: window.location.href
+          }
+        });
+        setStatus("auth_error");
         console.error("No session found after loading.");
         return;
       }
@@ -206,8 +219,44 @@ export function AuthCallbackPage() {
     };
 
     processAuth();
-  }, [isLoading, session, user, navigate, refreshProfile]);
+  }, [isLoading, sessionChecked, session, user, navigate, refreshProfile]);
 
+  // Error state - show helpful recovery options
+  if (status === "auth_error") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center space-y-6 max-w-md">
+          <div className="flex justify-center">
+            <div className="h-16 w-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+              <AlertCircleIcon className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold">Link Expired or Invalid</h1>
+            <p className="text-lg text-muted-foreground">
+              Magic links are valid for 1 hour. Please request a new one.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+            <Link
+              to="/sign-pledge"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              Request New Link
+            </Link>
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
+            >
+              Return Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading/processing state
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="text-center space-y-6 max-w-md">

@@ -125,7 +125,7 @@ Two main tables with RLS policies:
 - `witness_profile_id` (optional FK if witness is also a user)
 - `is_verified`, timestamps
 
-**Trigger:** `handle_new_user()` is DEPRECATED - uses `ON CONFLICT DO NOTHING` as fallback only. Primary profile creation happens in AuthCallbackPage.tsx which sets `is_verified=true` and generates the slug. The trigger is documented for removal from Supabase dashboard.
+**Note:** There is NO database trigger for profile creation. The old `handle_new_user()` trigger was removed (2025-12-04) because it created profiles with NULL slugs. Profile creation happens ONLY in AuthCallbackPage.tsx after email verification.
 
 ### Component Organization
 
