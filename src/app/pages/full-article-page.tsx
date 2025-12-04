@@ -104,10 +104,12 @@ export function FullArticlePage() {
   return (
     <div className="min-h-screen bg-background">
       <style>{`
+        /* Prevent horizontal scroll without breaking sticky */
+        html, body { overflow-x: hidden; }
         /* Better math formula styling */
         .katex { font-size: 1.1em; }
-        .katex-display { 
-          margin: 2rem 0; 
+        .katex-display {
+          margin: 2rem 0;
           padding: 1.5rem;
           background: hsl(var(--muted) / 0.3);
           border-radius: 0.5rem;
@@ -205,12 +207,12 @@ export function FullArticlePage() {
         <div className="flex gap-6 lg:gap-12">
           {/* TOC Sidebar - Tablet and Desktop */}
           <aside className="hidden lg:block w-72 flex-shrink-0">
-            <div className="sticky top-24">
+            <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
               <div className="flex items-center gap-2 text-sm font-bold mb-6 text-foreground">
                 <BookOpenIcon className="w-5 h-5" />
                 <span className="text-base">Contents</span>
               </div>
-              <nav className="space-y-0.5">
+              <nav className="space-y-0.5 pb-8">
                 {headers.map((header) => (
                   <a
                     key={header.id}
@@ -250,7 +252,7 @@ export function FullArticlePage() {
                 </p>
               </div>
               
-              <div className="prose prose-lg dark:prose-invert max-w-none">
+              <div className="prose prose-lg dark:prose-invert max-w-none text-justify">
                 <p className="text-lg leading-relaxed">
                   We assume we understand each other, but often we're just guessing. When those guesses are wrong, we pay the price—in rework, in mistakes, in conflicts, in broken trust.
                 </p>
@@ -289,8 +291,8 @@ export function FullArticlePage() {
               )}
             </div>
 
-            <article className="prose prose-lg dark:prose-invert mx-auto
-              prose-headings:scroll-mt-24 prose-headings:font-serif
+            <article className="prose prose-lg dark:prose-invert mx-auto text-justify
+              prose-headings:scroll-mt-24 prose-headings:font-serif prose-headings:text-left
               prose-h1:text-4xl prose-h1:font-bold prose-h1:mb-8 prose-h1:mt-8
               prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-16 prose-h2:mb-6 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border
               prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-10 prose-h3:mb-4
@@ -416,10 +418,10 @@ export function FullArticlePage() {
 
       {/* Floating CTA Button */}
       {showFloatingCTA && (
-        <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-40 animate-in slide-in-from-bottom-4">
           <Link
             to="/sign-pledge"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl text-lg px-8 py-6 h-auto"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-2xl text-base sm:text-lg px-6 py-4 sm:px-8 sm:py-6 h-auto"
           >
             Take the Pledge
             <ArrowRightIcon className="ml-2 w-5 h-5" />

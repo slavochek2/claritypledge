@@ -316,13 +316,13 @@ It is a clear, actionable clarity contract that participants explicitly accept b
 
 ---
 
-**THE CLARITY PRINCIPLE**
+**THE CLARITY PLEDGE**
 
 **YOUR RIGHT**
-When we talk, if you need to check whether my understanding of your idea matches your original intention and aligns with your subjective reality, please ask me to explain back to you how I understand it.
+When we talk, if you need to check whether I understood your idea in the way you meant it, please ask me to explain back to you how I understood it.
 
-**MY COMMITMENT**
-I promise to try to explain back what I think you meant without judgment or criticism. This will allow you to confirm or correct my understanding of your original intention and align it with your subjective reality. If I cannot follow this promise, I will explain why.
+**MY PROMISE**
+I promise to try to explain back what I think you meant without judgment or criticism so you can confirm or correct my understanding. Crucially, I promise not to pretend I understand your idea if I don't. If I cannot follow this promise, I will explain why.
 
 ---
 

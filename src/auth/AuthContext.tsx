@@ -52,13 +52,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('🔐 AuthContext: Error getting session:', error);
           setSessionChecked(true);
           setIsLoading(false);
           return;
         }
 
-        console.log('🔐 AuthContext: Initial session:', initialSession ? 'Found' : 'None');
         setSession(initialSession);
         setSessionChecked(true);
 
@@ -66,8 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (!initialSession) {
           setIsLoading(false);
         }
-      } catch (error) {
-        console.error('🔐 AuthContext: Failed to get session:', error);
+      } catch {
         setSessionChecked(true);
         setIsLoading(false);
       }
@@ -77,8 +74,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Listen for auth changes - ONLY update session, don't fetch profile here
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        console.log('🔐 AuthContext: Auth event:', event);
+      (_event, newSession) => {
         setSession(newSession);
 
         // Clear user immediately on sign out
@@ -98,13 +94,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Shared profile fetch logic - used by both effect and manual refresh
   const fetchProfileForUser = async (id: string): Promise<Profile | null> => {
-    console.log('🔐 AuthContext: Fetching profile for:', id);
     try {
       const profile = await getProfile(id);
-      console.log('🔐 AuthContext: Profile loaded:', profile?.name ?? 'Not found');
       return profile;
-    } catch (error) {
-      console.error('🔐 AuthContext: Failed to fetch profile:', error);
+    } catch {
       // Return null on error, but caller decides whether to update state
       return null;
     }
@@ -143,11 +136,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Manual refresh - called by AuthCallbackPage after profile upsert
   const refreshProfile = async () => {
     if (!userId) {
-      console.warn('🔐 AuthContext: Cannot refresh profile - no user ID');
       return;
     }
 
-    console.log('🔐 AuthContext: Manual profile refresh requested');
     const profile = await fetchProfileForUser(userId);
 
     if (profile) {
@@ -157,16 +148,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
-    try {
-      await apiSignOut();
-      // Only clear state after successful sign-out to prevent ghost sessions
-      setUser(null);
-      setSession(null);
-    } catch (error) {
-      console.error('🔐 AuthContext: Sign-out failed:', error);
-      // Don't clear state if sign-out failed - token may still be valid
-      throw error;
-    }
+    await apiSignOut();
+    // Only clear state after successful sign-out to prevent ghost sessions
+    setUser(null);
+    setSession(null);
   };
 
   return (

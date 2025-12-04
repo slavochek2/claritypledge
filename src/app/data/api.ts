@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import type { AuthError } from '@supabase/supabase-js';
 import type { Profile, ProfileSummary, DbProfile, DbProfileSummary, DbWitness } from '@/app/types';
 
 // Re-export types for convenience
@@ -15,17 +16,75 @@ export type { Profile, ProfileSummary, Witness } from '@/app/types';
 /** Maximum number of featured profiles to display on landing/sign-up pages */
 export const MAX_FEATURED_PROFILES = 6;
 
+// ============================================================================
+// Result Types - Discriminated unions for proper error handling
+// ============================================================================
+
+/** Result type for operations that can fail with different error types */
+export type ApiResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: 'not_found' | 'server_error'; message?: string };
+
+// ============================================================================
+// Private Helpers - Shared logic to avoid duplication
+// ============================================================================
+
+/**
+ * Enriches a raw database profile with witnesses and reciprocation count.
+ * This is the shared logic used by both getProfile and getProfileBySlug.
+ */
+async function enrichProfileWithRelations(
+  profile: DbProfile
+): Promise<{ witnesses: DbWitness[]; reciprocationsCount: number }> {
+  // Fetch witnesses
+  const { data: witnesses, error: witnessesError } = await supabase
+    .from('witnesses')
+    .select('*')
+    .eq('profile_id', profile.id);
+
+  if (witnessesError) {
+    // Non-fatal - continue without witnesses
+  }
+
+  // Fetch reciprocations count
+  const { count: reciprocationsCount, error: reciprocationsError } = await supabase
+    .from('witnesses')
+    .select('*', { count: 'exact', head: true })
+    .eq('witness_profile_id', profile.id);
+
+  if (reciprocationsError) {
+    // Non-fatal - continue with 0 reciprocations
+  }
+
+  return {
+    witnesses: witnesses || [],
+    reciprocationsCount: reciprocationsCount || 0,
+  };
+}
+
 /**
  * Fetches a single user profile by their UUID.
  * This function retrieves the profile and its associated witnesses.
+ *
  * @param {string} id - The UUID of the user profile to fetch.
  * @returns {Promise<Profile | null>} A promise that resolves to the user's profile object or null if not found.
+ *
+ * @deprecated Use getProfileResult() for proper error handling (distinguishes not_found vs server_error)
  */
 export async function getProfile(id: string): Promise<Profile | null> {
-  console.log('🔍 Fetching profile for ID:', id);
+  const result = await getProfileResult(id);
+  return result.success ? result.data : null;
+}
 
+/**
+ * Fetches a single user profile by their UUID with proper error handling.
+ * Returns a discriminated union that distinguishes between "not found" and "server error".
+ *
+ * @param {string} id - The UUID of the user profile to fetch.
+ * @returns {Promise<ApiResult<Profile>>} Success with profile data, or failure with error type.
+ */
+export async function getProfileResult(id: string): Promise<ApiResult<Profile>> {
   try {
-    // First, get the profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -33,173 +92,92 @@ export async function getProfile(id: string): Promise<Profile | null> {
       .single();
 
     if (profileError) {
-      console.error('❌ Error fetching profile:', profileError);
-      console.error('Error details:', {
-        message: profileError.message,
-        code: profileError.code,
-        details: profileError.details,
-        hint: profileError.hint
-      });
-      return null;
+      // PGRST116 = "no rows returned" = not found
+      if (profileError.code === 'PGRST116') {
+        return { success: false, error: 'not_found' };
+      }
+      return { success: false, error: 'server_error', message: profileError.message };
     }
 
     if (!profile) {
-      console.error('❌ No profile data returned for ID:', id);
-      return null;
+      return { success: false, error: 'not_found' };
     }
 
-    console.log('✅ Profile fetched successfully:', profile.name);
+    // Use shared helper to fetch witnesses and reciprocations
+    const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile);
 
-    // Then, get witnesses separately
-    const { data: witnesses, error: witnessesError } = await supabase
-      .from('witnesses')
-      .select('*')
-      .eq('profile_id', id);
-
-    if (witnessesError) {
-      console.warn('⚠️ Error fetching witnesses (non-fatal):', witnessesError);
-    }
-
-    console.log('✅ Witnesses fetched:', witnesses?.length || 0);
-
-    // Get reciprocations count (profiles where this user is a witness)
-    const { count: reciprocationsCount, error: reciprocationsError } = await supabase
-      .from('witnesses')
-      .select('*', { count: 'exact', head: true })
-      .eq('witness_profile_id', id);
-
-    if (reciprocationsError) {
-      console.warn('⚠️ Error fetching reciprocations (non-fatal):', reciprocationsError);
-    }
-
-    console.log('✅ Reciprocations count:', reciprocationsCount || 0);
-
-    return mapProfileFromDb({ ...profile, witnesses: witnesses || [] }, reciprocationsCount || 0);
-  } catch (err) {
-    console.error('❌ Unexpected error in getProfile:', err);
-    return null;
+    return {
+      success: true,
+      data: mapProfileFromDb({ ...profile, witnesses }, reciprocationsCount),
+    };
+  } catch {
+    return { success: false, error: 'server_error' };
   }
 }
 
 /**
  * Fetches featured verified profiles for the landing page.
  * Returns up to MAX_FEATURED_PROFILES verified profiles, prioritizing those with reasons.
- * Ordering: profiles with reasons first (most recent), then profiles without reasons (most recent).
- * Also fetches witness counts for each profile.
+ *
+ * Uses a single query approach: fetches extra profiles and sorts client-side.
+ * This is more efficient than the previous two-query approach.
+ *
  * @returns A promise that resolves to an array of up to MAX_FEATURED_PROFILES profile summary objects.
  */
 export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
-  console.log(`🔍 Fetching featured profiles (up to ${MAX_FEATURED_PROFILES}, reason-first)...`);
-
   try {
     const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, created_at, is_verified';
 
-    // First query: profiles WITH non-empty reasons (prioritized)
-    const { data: withReasons, error: withReasonsError } = await supabase
+    // Single query: fetch more than needed, then sort/filter client-side
+    // This avoids the two-query backfill approach
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select(selectFields)
       .eq('is_verified', true)
-      .not('reason', 'is', null)
-      .neq('reason', '')
       .order('created_at', { ascending: false })
-      .limit(MAX_FEATURED_PROFILES);
+      .limit(MAX_FEATURED_PROFILES * 3); // Fetch extra to ensure we have enough after filtering
 
-    if (withReasonsError) {
-      console.error('❌ Error fetching profiles with reasons:', withReasonsError);
+    if (profilesError) {
       return [];
     }
 
-    // Filter out whitespace-only reasons
-    const validWithReasons = (withReasons || []).filter(
-      p => p.reason && p.reason.trim().length > 0
-    );
-
-    console.log('✅ Profiles with reasons:', validWithReasons.length);
-
-    let combined: DbProfileSummary[];
-
-    // If we have enough profiles with reasons, we're done
-    if (validWithReasons.length >= MAX_FEATURED_PROFILES) {
-      combined = validWithReasons.slice(0, MAX_FEATURED_PROFILES);
-    } else {
-      // Backfill: fetch profiles WITHOUT reasons to fill remaining slots
-      const remaining = MAX_FEATURED_PROFILES - validWithReasons.length;
-      const existingIds = validWithReasons.map(p => p.id);
-
-      // Build query - only add exclusion filter if we have IDs to exclude
-      // Empty `()` in PostgREST is invalid syntax, so skip when no IDs
-      let backfillQuery = supabase
-        .from('profiles')
-        .select(selectFields)
-        .eq('is_verified', true)
-        .order('created_at', { ascending: false })
-        .limit(remaining);
-
-      if (existingIds.length > 0) {
-        backfillQuery = backfillQuery.not('id', 'in', `(${existingIds.map(id => `"${id}"`).join(',')})`);
-      }
-
-      const { data: withoutReasons, error: withoutReasonsError } = await backfillQuery;
-
-      if (withoutReasonsError) {
-        console.warn('⚠️ Error fetching backfill profiles (non-fatal):', withoutReasonsError);
-        // Continue with what we have
-      }
-
-      // Filter backfill to only include profiles without valid reasons
-      const validWithoutReasons = (withoutReasons || []).filter(
-        p => !p.reason || p.reason.trim().length === 0
-      );
-
-      combined = [...validWithReasons, ...validWithoutReasons];
+    if (!profiles || profiles.length === 0) {
+      return [];
     }
 
-    console.log('✅ Featured profiles fetched:', combined.length);
+    // Sort: profiles with valid reasons first, then without
+    const withReasons = profiles.filter(p => p.reason && p.reason.trim().length > 0);
+    const withoutReasons = profiles.filter(p => !p.reason || p.reason.trim().length === 0);
+    const combined = [...withReasons, ...withoutReasons].slice(0, MAX_FEATURED_PROFILES);
 
     if (combined.length === 0) {
-      console.log('ℹ️ No verified profiles found for featured section');
       return [];
     }
 
-    // Fetch witness counts for all featured profiles
+    // Fetch witness and reciprocation counts in parallel
     const profileIds = combined.map(p => p.id);
-    const { data: witnesses, error: witnessesError } = await supabase
-      .from('witnesses')
-      .select('profile_id')
-      .in('profile_id', profileIds);
 
-    if (witnessesError) {
-      console.warn('⚠️ Error fetching witness counts (non-fatal):', witnessesError);
-    }
+    const [witnessResult, reciprocationsResult] = await Promise.all([
+      supabase.from('witnesses').select('profile_id').in('profile_id', profileIds),
+      supabase.from('witnesses').select('witness_profile_id').in('witness_profile_id', profileIds).not('witness_profile_id', 'is', null),
+    ]);
 
     // Count witnesses per profile
     const witnessCounts: Record<string, number> = {};
-    (witnesses || []).forEach(w => {
+    (witnessResult.data || []).forEach(w => {
       witnessCounts[w.profile_id] = (witnessCounts[w.profile_id] || 0) + 1;
     });
 
-    // Fetch reciprocation counts (profiles where this user is a witness)
-    const { data: reciprocations, error: reciprocationsError } = await supabase
-      .from('witnesses')
-      .select('witness_profile_id')
-      .in('witness_profile_id', profileIds)
-      .not('witness_profile_id', 'is', null);
-
-    if (reciprocationsError) {
-      console.warn('⚠️ Error fetching reciprocation counts (non-fatal):', reciprocationsError);
-    }
-
     // Count reciprocations per profile
     const reciprocationCounts: Record<string, number> = {};
-    (reciprocations || []).forEach(r => {
+    (reciprocationsResult.data || []).forEach(r => {
       if (r.witness_profile_id) {
         reciprocationCounts[r.witness_profile_id] = (reciprocationCounts[r.witness_profile_id] || 0) + 1;
       }
     });
 
     return combined.map(p => mapProfileSummaryFromDb(p, witnessCounts[p.id] || 0, reciprocationCounts[p.id] || 0));
-  } catch (err) {
-    console.error('❌ Unexpected error in getFeaturedProfiles:', err);
+  } catch {
     return [];
   }
 }
@@ -217,13 +195,11 @@ export async function getVerifiedProfileCount(): Promise<number> {
       .eq('is_verified', true);
 
     if (error) {
-      console.error('❌ Error fetching verified profile count:', error);
       return 0;
     }
 
     return count || 0;
-  } catch (err) {
-    console.error('❌ Unexpected error in getVerifiedProfileCount:', err);
+  } catch {
     return 0;
   }
 }
@@ -236,57 +212,28 @@ export async function getVerifiedProfileCount(): Promise<number> {
  * @returns {Promise<Profile[]>} A promise that resolves to an array of verified profile objects.
  */
 export async function getVerifiedProfiles(): Promise<Profile[]> {
-  console.log('🔍 Fetching verified profiles...');
-
   try {
-    // First, fetch profiles only (without nested witnesses query)
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .eq('is_verified', true)
       .order('created_at', { ascending: false });
 
-    if (profilesError) {
-      console.error('❌ Error fetching verified profiles:', profilesError);
-      console.error('Error details:', {
-        message: profilesError.message,
-        code: profilesError.code,
-        details: profilesError.details,
-        hint: profilesError.hint
-      });
-      return [];
-    }
-
-    console.log('✅ Verified profiles fetched:', profiles?.length || 0);
-    console.log('Raw profile data:', profiles);
-
-    if (!profiles || profiles.length === 0) {
-      console.warn('⚠️ No verified profiles found in database');
+    if (profilesError || !profiles || profiles.length === 0) {
       return [];
     }
 
     // Sort profiles: those with meaningful reasons first, then others
-    // Within each group, maintain created_at desc order
     const withReasons = profiles.filter(p => p.reason && p.reason.trim().length > 0);
     const withoutReasons = profiles.filter(p => !p.reason || p.reason.trim().length === 0);
     const sortedProfiles = [...withReasons, ...withoutReasons];
 
-    // Then, fetch witnesses for all profiles
+    // Fetch witnesses for all profiles
     const profileIds = sortedProfiles.map(p => p.id);
-    const { data: allWitnesses, error: witnessesError } = await supabase
+    const { data: allWitnesses } = await supabase
       .from('witnesses')
       .select('*')
       .in('profile_id', profileIds);
-
-    if (witnessesError) {
-      console.warn('⚠️ Error fetching witnesses (non-fatal):', witnessesError);
-      // Continue without witnesses
-      const mapped = sortedProfiles.map(p => mapProfileFromDb({ ...p, witnesses: [] }));
-      console.log('✅ Mapped profiles (without witnesses):', mapped);
-      return mapped;
-    }
-
-    console.log('✅ Witnesses fetched:', allWitnesses?.length || 0);
 
     // Attach witnesses to their profiles
     const profilesWithWitnesses = sortedProfiles.map(profile => ({
@@ -294,11 +241,8 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
       witnesses: (allWitnesses || []).filter(w => w.profile_id === profile.id)
     }));
 
-    const mapped = profilesWithWitnesses.map(mapProfileFromDb);
-    console.log('✅ Mapped profiles:', mapped);
-    return mapped;
-  } catch (err) {
-    console.error('❌ Unexpected error in getVerifiedProfiles:', err);
+    return profilesWithWitnesses.map(p => mapProfileFromDb(p));
+  } catch {
     return [];
   }
 }
@@ -322,17 +266,12 @@ export async function createProfile(
   linkedinUrl?: string,
   reason?: string
 ): Promise<void> {
-  console.log('📧 Sending magic link to:', email);
-
-  // We are simplifying this. The `createProfile` function will ONLY send the magic link.
-  // The actual profile creation will be handled on the AuthCallbackPage after the user
-  // has verified their email. This is a more robust and reliable flow.
-
-  const redirectUrl = `${window.location.origin}/auth/callback`;
+  // The `createProfile` function ONLY sends the magic link.
+  // The actual profile creation is handled in AuthCallbackPage after email verification.
   // NOTE: Slug is generated at profile creation time in AuthCallbackPage, not here.
   // This prevents race conditions when multiple users with the same name sign up simultaneously.
-  // If we generated the slug here, both would query the DB before any profile exists,
-  // both would get the same slug, and one would fail with a constraint violation.
+
+  const redirectUrl = `${window.location.origin}/auth/callback`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -349,17 +288,8 @@ export async function createProfile(
   });
 
   if (error) {
-    console.error('❌ Supabase auth error:', error);
-    console.error('Error details:', {
-      message: error.message,
-      status: error.status,
-      name: error.name,
-      code: error.code
-    });
     throw error;
   }
-
-  console.log('✅ Magic link sent successfully to:', email);
 }
 
 /**
@@ -386,7 +316,6 @@ export async function addWitness(
     .single();
 
   if (error) {
-    console.error('Error adding witness:', error);
     return null;
   }
   return data.id;
@@ -397,14 +326,13 @@ export async function addWitness(
  * This is a simplified version of `createProfile` used for logging in existing users
  * where no profile data needs to be created or updated.
  * @param {string} email - The email address to send the magic link to.
- * @returns {Promise<{ error: any }>} A promise that resolves with an error object if the sign-in failed.
+ * @returns {Promise<{ error: AuthError | null }>} A promise that resolves with an error object if the sign-in failed.
  */
-export async function signInWithEmail(email: string) {
+export async function signInWithEmail(email: string): Promise<{ error: AuthError | null }> {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      // url to redirect to after clicking magic link
-      emailRedirectTo: `${window.location.origin}/auth/callback`, 
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
     },
   });
   return { error };
@@ -554,7 +482,6 @@ export async function ensureUniqueSlug(name: string): Promise<string> {
     .single();
 
   if (!existing) {
-    console.log('✅ Slug available:', baseSlug);
     return baseSlug;
   }
 
@@ -576,7 +503,6 @@ export async function ensureUniqueSlug(name: string): Promise<string> {
     : 2;
 
   const uniqueSlug = `${baseSlug}-${nextNumber}`;
-  console.log('✅ Generated unique slug:', uniqueSlug);
   return uniqueSlug;
 }
 
@@ -596,33 +522,41 @@ export async function updateProfile(
     reason?: string;
   }
 ): Promise<{ error: Error | null }> {
-  console.log('📝 Updating profile for:', userId);
-
   const { error } = await supabase
     .from('profiles')
     .update(updates)
     .eq('id', userId);
 
   if (error) {
-    console.error('❌ Error updating profile:', error);
     return { error: new Error(error.message) };
   }
 
-  console.log('✅ Profile updated successfully');
   return { error: null };
 }
 
 /**
  * Fetches a single user profile by their unique, URL-friendly slug.
  * This is the primary method for retrieving profiles for public-facing pages.
+ *
  * @param {string} slug - The slug of the user profile to fetch.
  * @returns {Promise<Profile | null>} A promise that resolves to the user's profile object or null if not found.
+ *
+ * @deprecated Use getProfileBySlugResult() for proper error handling (distinguishes not_found vs server_error)
  */
 export async function getProfileBySlug(slug: string): Promise<Profile | null> {
-  console.log('🔍 Fetching profile for slug:', slug);
+  const result = await getProfileBySlugResult(slug);
+  return result.success ? result.data : null;
+}
 
+/**
+ * Fetches a single user profile by slug with proper error handling.
+ * Returns a discriminated union that distinguishes between "not found" and "server error".
+ *
+ * @param {string} slug - The slug of the user profile to fetch.
+ * @returns {Promise<ApiResult<Profile>>} Success with profile data, or failure with error type.
+ */
+export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Profile>> {
   try {
-    // First, get the profile by slug
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -630,44 +564,25 @@ export async function getProfileBySlug(slug: string): Promise<Profile | null> {
       .single();
 
     if (profileError) {
-      console.error('❌ Error fetching profile by slug:', profileError);
-      return null;
+      // PGRST116 = "no rows returned" = not found
+      if (profileError.code === 'PGRST116') {
+        return { success: false, error: 'not_found' };
+      }
+      return { success: false, error: 'server_error', message: profileError.message };
     }
 
     if (!profile) {
-      console.error('❌ No profile data returned for slug:', slug);
-      return null;
+      return { success: false, error: 'not_found' };
     }
 
-    console.log('✅ Profile fetched successfully:', profile.name);
+    // Use shared helper to fetch witnesses and reciprocations
+    const { witnesses, reciprocationsCount } = await enrichProfileWithRelations(profile);
 
-    // Then, get witnesses separately
-    const { data: witnesses, error: witnessesError } = await supabase
-      .from('witnesses')
-      .select('*')
-      .eq('profile_id', profile.id);
-
-    if (witnessesError) {
-      console.warn('⚠️ Error fetching witnesses (non-fatal):', witnessesError);
-    }
-
-    console.log('✅ Witnesses fetched:', witnesses?.length || 0);
-
-    // Get reciprocations count (profiles where this user is a witness)
-    const { count: reciprocationsCount, error: reciprocationsError } = await supabase
-      .from('witnesses')
-      .select('*', { count: 'exact', head: true })
-      .eq('witness_profile_id', profile.id);
-
-    if (reciprocationsError) {
-      console.warn('⚠️ Error fetching reciprocations (non-fatal):', reciprocationsError);
-    }
-
-    console.log('✅ Reciprocations count:', reciprocationsCount || 0);
-
-    return mapProfileFromDb({ ...profile, witnesses: witnesses || [] }, reciprocationsCount || 0);
-  } catch (err) {
-    console.error('❌ Unexpected error in getProfileBySlug:', err);
-    return null;
+    return {
+      success: true,
+      data: mapProfileFromDb({ ...profile, witnesses }, reciprocationsCount),
+    };
+  } catch {
+    return { success: false, error: 'server_error' };
   }
 }

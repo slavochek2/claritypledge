@@ -48,11 +48,11 @@ export function SimpleNavigation() {
   const handleSignOut = async () => {
     try {
       await signOut();
-    } catch (error) {
-      console.error("Sign out failed:", error);
-    } finally {
       setIsMobileMenuOpen(false);
       navigate("/");
+    } catch {
+      // Sign out failed - don't navigate, user is still logged in
+      setIsMobileMenuOpen(false);
     }
   };
 

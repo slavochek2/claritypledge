@@ -46,176 +46,170 @@ export function AuthCallbackPage() {
   const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
 
   useEffect(() => {
-    console.log('🔄 AuthCallback useEffect triggered:', { isLoading, sessionChecked, hasSession: !!session, hasUser: !!user });
-
     // Wait for session check to complete before deciding if there's an error
     if (!sessionChecked || isLoading) {
-      console.log('⏳ Still loading, waiting...');
       return;
     }
 
     const processAuth = async () => {
-      if (!session) {
-        // Log to Sentry for debugging production auth failures
-        Sentry.captureMessage('Auth callback: No session found', {
-          level: 'warning',
-          tags: { component: 'AuthCallbackPage' },
-          extra: {
-            isLoading,
-            sessionChecked,
-            hasUser: !!user,
-            url: window.location.href
-          }
-        });
-        setStatus("auth_error");
-        console.error("No session found after loading.");
-        return;
-      }
-
-      const { user: authUser } = session;
-      const { user_metadata } = authUser;
-      const isReturningUser = !!user;
-
-      // Always upsert to ensure is_verified is set to true.
-      // This handles the race condition where the database trigger creates the profile
-      // before this callback runs, leaving is_verified as false.
-      setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
-
-      // For returning users, the profile from useAuth might not be loaded yet.
-      // Fetch directly to ensure we preserve existing slugs for returning users.
-      // This prevents generating a new slug when an existing user re-verifies.
-      let existingProfile = user;
-      if (!existingProfile) {
-        existingProfile = await getProfile(authUser.id);
-      }
-
-      // Generate slug at profile creation time to prevent race conditions.
-      // If we generated in createProfile (before email verification), two users
-      // signing up simultaneously with the same name would both get the same slug
-      // since neither profile exists yet when they query.
-      const name = existingProfile?.name || user_metadata.name || 'Anonymous';
-      let slug = existingProfile?.slug || generateSlug(name);
-
-      // Validate email exists (should always be present from auth, but be defensive)
-      const email = authUser.email;
-      if (!email) {
-        setStatus("Error: No email found. Please contact support.");
-        console.error("❌ Auth user has no email:", authUser.id);
-        return;
-      }
-
-      const upsertData = {
-        id: authUser.id,
-        email,
-        name,
-        slug,
-        role: existingProfile?.role || user_metadata.role,
-        linkedin_url: existingProfile?.linkedinUrl || user_metadata.linkedin_url,
-        reason: existingProfile?.reason || user_metadata.reason,
-        avatar_color: existingProfile?.avatarColor || user_metadata.avatar_color,
-        is_verified: true,
-      };
-
-      console.log('🔄 Profile data to save:', upsertData);
-      console.log('🔄 Auth user ID:', authUser.id);
-      console.log('🔄 Existing user from useAuth:', user);
-
-      // Try to upsert with retry logic for slug conflicts
-      let upsertError = null;
-      let retries = 0;
-
-      while (retries < MAX_SLUG_RETRIES) {
-        const { error } = await supabase
-          .from('profiles')
-          .upsert(upsertData, { onConflict: 'id' });
-
-        if (!error) {
-          console.log('✅ Profile upsert successful!');
-          break;
+      try {
+        if (!session) {
+          // Log to Sentry for debugging production auth failures
+          Sentry.captureMessage('Auth callback: No session found', {
+            level: 'warning',
+            tags: { component: 'AuthCallbackPage' },
+            extra: {
+              isLoading,
+              sessionChecked,
+              hasUser: !!user,
+              url: window.location.href
+            }
+          });
+          setStatus("auth_error");
+          return;
         }
 
-        // Check if this is a slug uniqueness constraint violation
-        // Postgres unique violation code is 23505
-        if (error.code === '23505' && error.message?.includes('slug')) {
-          retries++;
-          console.log(`⚠️ Slug conflict detected, retry ${retries}/${MAX_SLUG_RETRIES}`);
+        const { user: authUser } = session;
+        const { user_metadata } = authUser;
+        const isReturningUser = !!user;
 
-          // Query for existing slugs to find next available number
-          // This gives users short, memorable slugs like john-doe-2
-          const baseSlug = generateSlug(name);
-          // Escape special chars for LIKE pattern (%, _, \)
-          const escapedSlug = escapeLikePattern(baseSlug);
-          const { data: similarSlugs } = await supabase
+        // Always upsert to ensure is_verified is set to true.
+        // This handles the race condition where the database trigger creates the profile
+        // before this callback runs, leaving is_verified as false.
+        setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
+
+        // For returning users, the profile from useAuth might not be loaded yet.
+        // Fetch directly to ensure we preserve existing slugs for returning users.
+        // This prevents generating a new slug when an existing user re-verifies.
+        let existingProfile = user;
+        if (!existingProfile) {
+          existingProfile = await getProfile(authUser.id);
+        }
+
+        // Generate slug at profile creation time to prevent race conditions.
+        // If we generated in createProfile (before email verification), two users
+        // signing up simultaneously with the same name would both get the same slug
+        // since neither profile exists yet when they query.
+        const name = existingProfile?.name || user_metadata.name || 'Anonymous';
+        let slug = existingProfile?.slug || generateSlug(name);
+
+        // Validate email exists (should always be present from auth, but be defensive)
+        const email = authUser.email;
+        if (!email) {
+          setStatus("Error: No email found. Please contact support.");
+          Sentry.captureMessage('Auth callback: No email on auth user', {
+            level: 'error',
+            tags: { component: 'AuthCallbackPage' },
+            extra: { userId: authUser.id }
+          });
+          return;
+        }
+
+        const upsertData = {
+          id: authUser.id,
+          email,
+          name,
+          slug,
+          role: existingProfile?.role || user_metadata.role,
+          linkedin_url: existingProfile?.linkedinUrl || user_metadata.linkedin_url,
+          reason: existingProfile?.reason || user_metadata.reason,
+          avatar_color: existingProfile?.avatarColor || user_metadata.avatar_color,
+          is_verified: true,
+        };
+
+        // Try to upsert with retry logic for slug conflicts
+        let upsertError = null;
+        let retries = 0;
+
+        while (retries < MAX_SLUG_RETRIES) {
+          const { error } = await supabase
             .from('profiles')
-            .select('slug')
-            .or(`slug.eq.${baseSlug},slug.like.${escapedSlug}-%`);
+            .upsert(upsertData, { onConflict: 'id' });
 
-          // Find highest existing number (base slug counts as 1)
-          // Escape regex metacharacters to prevent ReDoS and incorrect matches
-          const escapedRegex = escapeRegex(baseSlug);
-          const existingNumbers = (similarSlugs || [])
-            .map(s => {
-              if (s.slug === baseSlug) return 1;
-              const match = s.slug.match(new RegExp(`^${escapedRegex}-(\\d+)$`));
-              return match ? parseInt(match[1], 10) : 0;
-            })
-            .filter(n => n > 0);
+          if (!error) {
+            break;
+          }
 
-          const nextNumber = existingNumbers.length > 0
-            ? Math.max(...existingNumbers) + 1
-            : 2;
+          // Check if this is a slug uniqueness constraint violation
+          // Postgres unique violation code is 23505
+          if (error.code === '23505' && error.message?.includes('slug')) {
+            retries++;
 
-          slug = `${baseSlug}-${nextNumber}`;
+            // Query for existing slugs to find next available number
+            // This gives users short, memorable slugs like john-doe-2
+            const baseSlug = generateSlug(name);
+            // Escape special chars for LIKE pattern (%, _, \)
+            const escapedSlug = escapeLikePattern(baseSlug);
+            const { data: similarSlugs } = await supabase
+              .from('profiles')
+              .select('slug')
+              .or(`slug.eq.${baseSlug},slug.like.${escapedSlug}-%`);
+
+            // Find highest existing number (base slug counts as 1)
+            // Escape regex metacharacters to prevent ReDoS and incorrect matches
+            const escapedRegex = escapeRegex(baseSlug);
+            const existingNumbers = (similarSlugs || [])
+              .map(s => {
+                if (s.slug === baseSlug) return 1;
+                const match = s.slug.match(new RegExp(`^${escapedRegex}-(\\d+)$`));
+                return match ? parseInt(match[1], 10) : 0;
+              })
+              .filter(n => n > 0);
+
+            const nextNumber = existingNumbers.length > 0
+              ? Math.max(...existingNumbers) + 1
+              : 2;
+
+            slug = `${baseSlug}-${nextNumber}`;
+            upsertData.slug = slug;
+          } else {
+            // Different error, don't retry
+            upsertError = error;
+            break;
+          }
+        }
+
+        // If we exhausted retries, use timestamp fallback to guarantee uniqueness
+        if (retries >= MAX_SLUG_RETRIES && !upsertError) {
+          slug = `${generateSlug(name)}-${Date.now()}`;
           upsertData.slug = slug;
-          console.log('🔄 Trying new slug:', slug);
-        } else {
-          // Different error, don't retry
-          upsertError = error;
-          break;
+
+          const { error: finalError } = await supabase
+            .from('profiles')
+            .upsert(upsertData, { onConflict: 'id' });
+
+          if (finalError) {
+            upsertError = finalError;
+          }
         }
-      }
 
-      // If we exhausted retries, use timestamp fallback to guarantee uniqueness
-      if (retries >= MAX_SLUG_RETRIES && !upsertError) {
-        slug = `${generateSlug(name)}-${Date.now()}`;
-        upsertData.slug = slug;
-        console.log('🔄 Final fallback slug:', slug);
-
-        const { error: finalError } = await supabase
-          .from('profiles')
-          .upsert(upsertData, { onConflict: 'id' });
-
-        if (finalError) {
-          upsertError = finalError;
-        } else {
-          console.log('✅ Profile upsert successful with fallback slug!');
+        if (upsertError) {
+          setStatus("Error creating profile. Please contact support.");
+          Sentry.captureException(upsertError, {
+            tags: { component: 'AuthCallbackPage', action: 'upsert' },
+            extra: { userId: authUser.id }
+          });
+          return;
         }
-      }
 
-      if (upsertError) {
-        setStatus("Error creating profile. Please contact support.");
-        console.error("❌ Error upserting profile:", upsertError);
-        console.error("❌ Error details:", {
-          message: upsertError.message,
-          code: upsertError.code,
-          details: upsertError.details,
-          hint: upsertError.hint,
+        // Refresh profile in auth context so nav/header shows correct user data
+        // This fixes race condition where initial fetch happened before upsert completed
+        await refreshProfile();
+
+        // Clear pending verification email now that user is verified
+        sessionStorage.removeItem('pendingVerificationEmail');
+
+        // Redirect to profile page using the slug we actually saved
+        // (may have been modified due to conflict resolution)
+        setStatus("Redirecting...");
+        navigate(`/p/${slug}`, { replace: true });
+      } catch (error) {
+        // Catch any unexpected errors (network issues, etc.)
+        setStatus("Something went wrong. Please try again.");
+        Sentry.captureException(error, {
+          tags: { component: 'AuthCallbackPage', action: 'processAuth' }
         });
-        return;
       }
-
-      // Refresh profile in auth context so nav/header shows correct user data
-      // This fixes race condition where initial fetch happened before upsert completed
-      await refreshProfile();
-      console.log('✅ Profile refreshed in auth context');
-
-      // Clear pending verification email now that user is verified
-      sessionStorage.removeItem('pendingVerificationEmail');
-
-      // Redirect to profile page using the slug we actually saved
-      // (may have been modified due to conflict resolution)
-      setStatus("Redirecting...");
-      navigate(`/p/${slug}`, { replace: true });
     };
 
     processAuth();

@@ -125,7 +125,14 @@ Two main tables with RLS policies:
 - `witness_profile_id` (optional FK if witness is also a user)
 - `is_verified`, timestamps
 
+**RLS Design Decision:** The witnesses insert policy intentionally allows ANY authenticated user to add witnesses to ANY profile. This enables users to endorse someone's pledge without requiring the endorsee to have an account. This is a feature, not a security gap.
+
 **Note:** There is NO database trigger for profile creation. The old `handle_new_user()` trigger was removed (2025-12-04) because it created profiles with NULL slugs. Profile creation happens ONLY in AuthCallbackPage.tsx after email verification.
+
+**Client-Side Slug Generation Trade-off:** The slug conflict resolution logic in AuthCallbackPage.tsx runs in the browser, not in a database function. This is a deliberate trade-off:
+- **Why not server-side:** Supabase doesn't support custom server functions without Edge Functions, which adds deployment complexity.
+- **Safety guarantees:** The retry loop (up to 3 attempts) with timestamp fallback ensures eventual success. Worst case: user gets `john-doe-1733270400000` instead of `john-doe-2`.
+- **Risk accepted:** If browser closes mid-transaction, user can re-verify via magic link. No data corruption possible.
 
 ### Component Organization
 
