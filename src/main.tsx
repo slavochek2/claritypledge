@@ -2,11 +2,17 @@ import React from "react";
 import * as ReactDOM from "react-dom";
 import { createRoot } from "react-dom/client";
 import * as Sentry from "@sentry/react";
+import LogRocket from "logrocket";
 import App from "./App";
 import "./index.css";
 
 // Initialize Sentry for error tracking (production only)
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+
+// Initialize LogRocket for session replay (production only)
+if (import.meta.env.PROD) {
+  LogRocket.init("alblur/claritypledge");
+}
 
 if (sentryDsn && import.meta.env.PROD) {
   Sentry.init({
