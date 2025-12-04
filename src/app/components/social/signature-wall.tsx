@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { getFeaturedProfiles } from "@/app/data/api";
@@ -8,6 +8,8 @@ import { ChampionCard } from "./champion-card";
 export function SignatureWall() {
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadProfiles() {
@@ -22,6 +24,22 @@ export function SignatureWall() {
     }
     loadProfiles();
   }, []);
+
+  // Track scroll position for dot indicators on mobile
+  useEffect(() => {
+    const carousel = carouselRef.current;
+    if (!carousel) return;
+
+    const handleScroll = () => {
+      const scrollLeft = carousel.scrollLeft;
+      const cardWidth = carousel.offsetWidth * 0.85 + 16;
+      const newIndex = Math.round(scrollLeft / cardWidth);
+      setCurrentIndex(Math.min(newIndex, profiles.length - 1));
+    };
+
+    carousel.addEventListener("scroll", handleScroll, { passive: true });
+    return () => carousel.removeEventListener("scroll", handleScroll);
+  }, [profiles]);
 
   // Don't render the section if there are no profiles and we're done loading
   if (!isLoading && profiles.length === 0) {
@@ -73,25 +91,88 @@ export function SignatureWall() {
           </div>
         )}
 
-        {/* Signature Grid */}
+        {/* Signature Cards */}
         {!isLoading && profiles.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {profiles.map((profile) => (
-              <ChampionCard
-                key={profile.id}
-                id={profile.id}
-                slug={profile.slug}
-                name={profile.name}
-                role={profile.role}
-                linkedinUrl={profile.linkedinUrl}
-                reason={profile.reason}
-                signedAt={profile.signedAt}
-                avatarColor={profile.avatarColor}
-                showStats={false}
-                showDate={false}
-              />
-            ))}
-          </div>
+          <>
+            {/* Mobile: Horizontal swipe carousel */}
+            <div
+              ref={carouselRef}
+              className="md:hidden flex flex-row flex-nowrap gap-4 overflow-x-auto pb-4 -mx-4 px-4 mb-8"
+              style={{
+                scrollSnapType: "x mandatory",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+                WebkitOverflowScrolling: "touch"
+              }}
+            >
+              {profiles.map((profile) => (
+                <ChampionCard
+                  key={profile.id}
+                  id={profile.id}
+                  slug={profile.slug}
+                  name={profile.name}
+                  role={profile.role}
+                  linkedinUrl={profile.linkedinUrl}
+                  reason={profile.reason}
+                  signedAt={profile.signedAt}
+                  avatarColor={profile.avatarColor}
+                  showStats={false}
+                  showDate={false}
+                  className="flex-shrink-0"
+                  style={{
+                    minWidth: "85%",
+                    width: "85%",
+                    height: "280px",
+                    scrollSnapAlign: "center"
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Mobile: Dot indicators */}
+            <div className="md:hidden flex justify-center gap-2 mb-12">
+              {profiles.map((_, index) => (
+                <button
+                  key={index}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === currentIndex
+                      ? "bg-blue-600 w-4"
+                      : "bg-gray-300 dark:bg-gray-600"
+                  }`}
+                  onClick={() => {
+                    const carousel = carouselRef.current;
+                    if (carousel) {
+                      const cardWidth = carousel.offsetWidth * 0.85;
+                      carousel.scrollTo({
+                        left: index * cardWidth,
+                        behavior: "smooth",
+                      });
+                    }
+                  }}
+                  aria-label={`Go to profile ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Desktop: Grid layout */}
+            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              {profiles.map((profile) => (
+                <ChampionCard
+                  key={profile.id}
+                  id={profile.id}
+                  slug={profile.slug}
+                  name={profile.name}
+                  role={profile.role}
+                  linkedinUrl={profile.linkedinUrl}
+                  reason={profile.reason}
+                  signedAt={profile.signedAt}
+                  avatarColor={profile.avatarColor}
+                  showStats={false}
+                  showDate={false}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         {/* View All Button */}

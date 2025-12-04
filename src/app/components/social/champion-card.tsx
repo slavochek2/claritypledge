@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -8,6 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { ClarityLogoMark } from "@/components/ui/clarity-logo";
 
 export interface ChampionCardProps {
   /** Profile ID - kept for API compatibility with ProfileSummary type */
@@ -43,7 +43,7 @@ export function ChampionCard({
   return (
     <Link
       to={`/p/${slug}`}
-      className={`group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 block ${className}`}
+      className={`group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 flex flex-col h-full ${className}`}
       style={style}
     >
       {/* Avatar and Info */}
@@ -69,7 +69,7 @@ export function ChampionCard({
       {/* Reason - if provided */}
       {reason && (
         <div className="mt-4">
-          <p className="text-sm text-muted-foreground italic line-clamp-2">
+          <p className="text-sm text-muted-foreground italic line-clamp-4">
             "{reason}"
           </p>
         </div>
@@ -127,10 +127,13 @@ export function ChampionCard({
         </div>
       )}
 
-      {/* View Pledge CTA - appears on hover */}
-      <div className="flex items-center justify-end gap-1 mt-4 text-sm text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-        <span>View Pledge</span>
-        <ArrowRight className="w-4 h-4" />
+      {/* Spacer to push Open pledge to bottom */}
+      <div className="flex-grow" />
+
+      {/* Open pledge link - always visible on mobile, hover on desktop */}
+      <div className="flex items-center justify-end gap-1.5 mt-4 text-sm text-muted-foreground md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <ClarityLogoMark size={16} />
+        <span>Open pledge</span>
       </div>
     </Link>
   );

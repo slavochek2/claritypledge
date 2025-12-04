@@ -33,10 +33,10 @@ export function ProfileVisitorView({
       {!isOwner && (
         <div className="text-center space-y-4">
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-            {profile.name} signed the Clarity Pledge
+            {profile.name} made a public promise to you
           </h1>
           <p className="text-xl text-muted-foreground font-medium">
-            A public promise to prevent dangerous misunderstandings
+            {profile.name.split(" ")[0]} invites you to read it and accept the new right they gave you
           </p>
         </div>
       )}
@@ -117,11 +117,11 @@ export function ProfileVisitorView({
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold mb-2">
-              Who accepted {profile.name.split(" ")[0]}'s pledge
+              People who claimed their right
             </h2>
             <p className="text-lg text-muted-foreground">
               {profile.witnesses.length}{" "}
-              {profile.witnesses.length === 1 ? "person" : "people"} accepted
+              {profile.witnesses.length === 1 ? "person" : "people"} claimed their right
             </p>
           </div>
           <WitnessList witnesses={profile.witnesses} />
@@ -135,15 +135,15 @@ export function ProfileVisitorView({
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold mb-2">
                 {hasAccepted
-                  ? `You have accepted ${profile.name.split(" ")[0]}'s Pledge`
-                  : `Accept ${profile.name.split(" ")[0]}'s Pledge`}
+                  ? "You claimed your right"
+                  : `${profile.name.split(" ")[0]} made you a promise. Claim your right.`}
               </h2>
               <p className="text-muted-foreground">
                 {hasAccepted
-                  ? "Thank you for your commitment to clarity"
+                  ? `You're now holding ${profile.name.split(" ")[0]} accountable`
                   : profile.witnesses.length > 0
-                    ? `Join ${profile.witnesses.length} ${profile.witnesses.length === 1 ? "other who" : "others who"} accepted`
-                    : "Be the first to accept"}
+                    ? `${profile.witnesses.length} ${profile.witnesses.length === 1 ? "person" : "people"} claimed their right`
+                    : "Be the first to claim your right"}
               </p>
             </div>
             <WitnessCard

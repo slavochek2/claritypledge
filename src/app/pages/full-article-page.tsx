@@ -102,10 +102,8 @@ export function FullArticlePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-clip">
       <style>{`
-        /* Prevent horizontal scroll without breaking sticky */
-        html, body { overflow-x: hidden; }
         /* Better math formula styling */
         .katex { font-size: 1.1em; }
         .katex-display {
@@ -127,25 +125,26 @@ export function FullArticlePage() {
           className="absolute top-0 left-0 h-0.5 bg-blue-500 transition-all duration-300"
           style={{ width: `${scrollProgress}%` }}
         />
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between max-w-6xl">
-          <div className="flex items-center gap-2">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between max-w-6xl">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate("/")}
+              className="px-2 sm:px-3"
             >
-              <ArrowLeftIcon className="w-4 h-4 mr-2" />
-              Back to Home
+              <ArrowLeftIcon className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Back to Home</span>
             </Button>
             {/* Mobile TOC Toggle */}
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden"
+              className="md:hidden px-2 sm:px-3"
               onClick={() => setIsMobileTocOpen(!isMobileTocOpen)}
             >
-              <MenuIcon className="w-4 h-4 mr-2" />
-              Contents
+              <MenuIcon className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Contents</span>
             </Button>
           </div>
           <div className="flex items-center gap-2">
@@ -164,7 +163,7 @@ export function FullArticlePage() {
                 ) : (
                   <Link
                     to="/sign-pledge"
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-blue-500 hover:bg-blue-600 text-white h-9 px-3"
+                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs sm:text-sm font-medium transition-colors bg-blue-500 hover:bg-blue-600 text-white h-8 sm:h-9 px-2 sm:px-3"
                   >
                     Take the Pledge
                   </Link>

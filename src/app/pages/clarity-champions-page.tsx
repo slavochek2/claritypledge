@@ -98,6 +98,7 @@ export function ClarityChampionsPage() {
                   style={{
                     minWidth: "85%",
                     width: "85%",
+                    height: "280px",
                     scrollSnapAlign: "center"
                   }}
                 />

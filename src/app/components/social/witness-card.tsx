@@ -121,16 +121,16 @@ export function WitnessCard({
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
-                <span className="animate-pulse">Accepting...</span>
+                <span className="animate-pulse">Claiming...</span>
               </span>
             ) : (
-              "I Accept"
+              "Claim Your Right"
             )}
           </Button>
 
           <p className="text-xs text-muted-foreground text-center mt-3 leading-relaxed">
-            No cost or obligation. You are simply acknowledging{" "}
-            {profileName.split(" ")[0]}'s promise.
+            No account needed. You're simply telling{" "}
+            {profileName.split(" ")[0]}: "I expect you to keep your promise."
           </p>
         </form>
       </div>

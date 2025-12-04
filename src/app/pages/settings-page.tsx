@@ -225,16 +225,26 @@ export function SettingsPage() {
             htmlFor="reason"
             className="block text-sm font-medium mb-2"
           >
-            Why I took the pledge
+            What inspired me to take the pledge?
           </label>
           <textarea
             id="reason"
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value.length <= 280) {
+                setReason(e.target.value);
+              }
+            }}
+            maxLength={280}
             rows={4}
             className="w-full px-4 py-3 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             placeholder="Share why clear communication matters to you..."
           />
+          <div className="flex justify-end mt-1">
+            <span className={`text-sm ${reason.length >= 280 ? 'text-red-500' : 'text-muted-foreground'}`}>
+              {reason.length}/280
+            </span>
+          </div>
         </div>
 
         {/* Submit Button */}

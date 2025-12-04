@@ -39,7 +39,7 @@ export function WitnessList({ witnesses }: WitnessListProps) {
     return (
       <div className="text-center py-12 border-2 border-dashed border-border rounded-lg">
         <p className="text-muted-foreground">
-          No one has accepted yet. Share your pledge to get started!
+          No one has claimed their right yet. Share your pledge to get started!
         </p>
       </div>
     );
@@ -112,7 +112,7 @@ export function WitnessList({ witnesses }: WitnessListProps) {
             onClick={() => setShowAll(!showAll)}
             className="min-w-[200px]"
           >
-            {showAll ? `Show Less` : `Show All ${witnesses.length} Acceptances`}
+            {showAll ? `Show Less` : `Show All ${witnesses.length} Claims`}
           </Button>
         </div>
       )}
