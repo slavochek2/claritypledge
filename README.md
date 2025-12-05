@@ -57,24 +57,18 @@ const supabaseAnonKey = 'YOUR_ANON_KEY'; // Should start with "eyJ..."
 
 ### 3. Setup Database
 
-**Run the main migration:**
+If setting up a fresh Supabase project, run the schema in the SQL Editor:
 
-1. Go to Supabase SQL Editor: [SQL Editor](https://supabase.com/dashboard/project/YOUR_PROJECT/sql)
-2. Copy the entire contents of `supabase/migration_with_trigger.sql`
+1. Go to [Supabase SQL Editor](https://supabase.com/dashboard/project/YOUR_PROJECT/sql)
+2. Copy the contents of `supabase/schema.sql`
 3. Paste and execute
 
 This creates:
 - `profiles` table for user data
 - `witnesses` table for endorsements
-- Database trigger for auto-profile creation
 - Row Level Security (RLS) policies
 
-**Verify setup:**
-
-Run `supabase/diagnose.sql` to confirm:
-- Tables created
-- Trigger installed
-- Policies active
+**Note:** Profile creation happens in application code (not via database trigger). See [CLAUDE.md](./CLAUDE.md) for architecture details.
 
 ### 4. Run Development Server
 
@@ -113,7 +107,7 @@ polymet-clarity-pledge-app/
 ### 1. Pledge Signing
 - Users fill out a form with their name, email, role, and reason
 - Magic link authentication via email (no passwords)
-- Profile auto-created via database trigger
+- Profile created after email verification
 
 ### 2. Email Verification
 - Magic link sent to user's email
@@ -154,21 +148,20 @@ npm run lint
 
 ## Environment Variables
 
-No `.env` file required! All configuration is in `src/lib/supabase.ts`.
+Copy `.env.example` to `.env.local` and fill in your values:
 
-For production deployment, you may want to use environment variables:
+```bash
+cp .env.example .env.local
+```
+
+Required variables:
 
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_anon_key
 ```
 
-Then update `src/lib/supabase.ts` to use them:
-
-```typescript
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-```
+See `.env.example` for optional configuration (feature flags, Sentry).
 
 ## Technical Documentation
 
@@ -229,12 +222,7 @@ Before deploying, test these flows:
 
 ## Contributing
 
-This is a private project for the Clarity Pledge movement. If you'd like to contribute:
-
-1. Create a feature branch
-2. Make your changes
-3. Test thoroughly
-4. Submit for review
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and development guidelines.
 
 ## License
 
