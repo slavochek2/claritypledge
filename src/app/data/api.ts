@@ -13,8 +13,8 @@ import type { Profile, ProfileSummary, DbProfile, DbProfileSummary, DbWitness } 
 // Re-export types for convenience
 export type { Profile, ProfileSummary, Witness } from '@/app/types';
 
-/** Maximum number of featured profiles to fetch (used for SignatureWall full grid) */
-export const MAX_FEATURED_PROFILES = 20;
+/** Maximum number of featured profiles to fetch (used for SignatureWall on landing page) */
+export const MAX_FEATURED_PROFILES = 6;
 
 /** Display limits for compact avatar row in hero sections */
 export const AVATAR_ROW_LIMIT_MOBILE = 5;
