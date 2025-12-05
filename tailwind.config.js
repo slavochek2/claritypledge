@@ -128,13 +128,22 @@ export default {
                 "100%": {
                     "transform": "translateX(-100%)"
                 }
+            },
+            "pulse-subtle-green": {
+                "0%, 100%": {
+                    "box-shadow": "0 0 0 0 rgba(34, 197, 94, 0)"
+                },
+                "50%": {
+                    "box-shadow": "0 0 0 12px rgba(34, 197, 94, 0.2)"
+                }
             }
         },
         "animation": {
             "slide-from-left": "slide-from-left 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
             "slide-to-left": "slide-to-left 0.25s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
             "accordion-down": "accordion-down 0.2s ease-out",
-            "accordion-up": "accordion-up 0.2s ease-out"
+            "accordion-up": "accordion-up 0.2s ease-out",
+            "pulse-subtle-green": "pulse-subtle-green 1.5s ease-in-out 3"
         }
     }
 },

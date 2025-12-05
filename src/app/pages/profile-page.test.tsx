@@ -150,9 +150,9 @@ describe("ProfilePage", () => {
           resolveProfile!(mockProfile);
       });
 
-      // Should show profile - heading includes "signed the Clarity Pledge"
+      // Should show profile - heading shows visitor view text
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: `${mockProfile.name} signed the Clarity Pledge` })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: `${mockProfile.name} made you a promise` })).toBeInTheDocument();
       });
     });
   });

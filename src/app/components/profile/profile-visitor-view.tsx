@@ -4,10 +4,30 @@ import { ProfileCertificate } from "@/app/components/profile/profile-certificate
 import { ShareDropdown } from "@/app/components/profile/share-dropdown";
 import { WitnessCard } from "@/app/components/social/witness-card";
 import { WitnessList } from "@/app/components/social/witness-list";
+import { getInitials } from "@/lib/utils";
+
+// Helper function to generate consistent color from name
+function getAvatarColor(name: string): string {
+  const colors = [
+    "bg-blue-500",
+    "bg-purple-500",
+    "bg-green-500",
+    "bg-orange-500",
+    "bg-pink-500",
+    "bg-teal-500",
+    "bg-indigo-500",
+    "bg-red-500",
+  ];
+
+  const index = name
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return colors[index % colors.length];
+}
 
 interface ProfileVisitorViewProps {
   profile: Profile;
-  onWitness: (witnessName: string, linkedinUrl?: string) => void;
+  onWitness: (witnessName: string, linkedinUrl?: string) => Promise<void>;
   isOwner?: boolean;
   currentUser: Profile | null;
 }
@@ -22,9 +42,9 @@ export function ProfileVisitorView({
 
   const profileUrl = `${window.location.origin}/p/${profile.slug}`;
 
-  const handleWitness = (witnessName: string, linkedinUrl?: string) => {
+  const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
+    await onWitness(witnessName, linkedinUrl);
     setHasAccepted(true);
-    onWitness(witnessName, linkedinUrl);
   };
 
   return (
@@ -33,10 +53,10 @@ export function ProfileVisitorView({
       {!isOwner && (
         <div className="text-center space-y-4">
           <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-            {profile.name} made a public promise to you
+            {profile.name} made you a promise
           </h1>
           <p className="text-xl text-muted-foreground font-medium">
-            {profile.name.split(" ")[0]} invites you to read it and accept the new right they gave you
+            Read it and decide if you'll accept
           </p>
         </div>
       )}
@@ -112,16 +132,16 @@ export function ProfileVisitorView({
       )}
 
 
-      {/* Social Proof - Who else accepted */}
-      {profile.witnesses.length > 0 && (
+      {/* Social Proof - Full list only for owner */}
+      {isOwner && profile.witnesses.length > 0 && (
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold mb-2">
-              People who claimed their right
+              People who accepted
             </h2>
             <p className="text-lg text-muted-foreground">
               {profile.witnesses.length}{" "}
-              {profile.witnesses.length === 1 ? "person" : "people"} claimed their right
+              {profile.witnesses.length === 1 ? "person" : "people"} accepted
             </p>
           </div>
           <WitnessList witnesses={profile.witnesses} />
@@ -131,20 +151,44 @@ export function ProfileVisitorView({
       {/* Call-to-Action - Accept form AFTER showing value */}
       {!isOwner && (
         <div className="max-w-2xl mx-auto">
-          <div className="border border-[#0044CC]/30 dark:border-blue-500/30 rounded-lg p-8 bg-gradient-to-br from-blue-50/50 to-transparent dark:from-blue-950/30 dark:to-transparent">
+          <div className={`border rounded-lg p-8 bg-gradient-to-br transition-all ${
+            hasAccepted
+              ? "border-green-500/50 from-green-50/50 to-transparent dark:from-green-950/30 dark:to-transparent animate-pulse-subtle-green"
+              : "border-[#0044CC]/30 dark:border-blue-500/30 from-blue-50/50 to-transparent dark:from-blue-950/30 dark:to-transparent"
+          }`}>
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold mb-2">
                 {hasAccepted
-                  ? "You claimed your right"
-                  : `${profile.name.split(" ")[0]} made you a promise. Claim your right.`}
+                  ? `You accepted ${profile.name.split(" ")[0]}'s promise`
+                  : `${profile.name.split(" ")[0]} made you a promise. Will you accept?`}
               </h2>
-              <p className="text-muted-foreground">
-                {hasAccepted
-                  ? `You're now holding ${profile.name.split(" ")[0]} accountable`
-                  : profile.witnesses.length > 0
-                    ? `${profile.witnesses.length} ${profile.witnesses.length === 1 ? "person" : "people"} claimed their right`
-                    : "Be the first to claim your right"}
-              </p>
+              {hasAccepted ? (
+                <p className="text-muted-foreground">
+                  You're now holding {profile.name.split(" ")[0]} accountable
+                </p>
+              ) : profile.witnesses.length > 0 ? (
+                <div className="flex items-center justify-center gap-2">
+                  <div className="flex -space-x-2">
+                    {profile.witnesses.slice(0, 4).map((witness, index) => (
+                      <div
+                        key={witness.id}
+                        className={`w-8 h-8 rounded-full ${getAvatarColor(witness.name)} flex items-center justify-center text-white text-xs font-semibold border-2 border-white dark:border-gray-900`}
+                        style={{ zIndex: 4 - index }}
+                        title={witness.name}
+                      >
+                        {getInitials(witness.name)}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-muted-foreground">
+                    {profile.witnesses.length > 4
+                      ? `+${profile.witnesses.length - 4} accepted`
+                      : `${profile.witnesses.length} accepted`}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Be the first to accept</p>
+              )}
             </div>
             <WitnessCard
               profileName={profile.name}

@@ -310,13 +310,14 @@ export async function createProfile(
  * @param profileId - The UUID of the profile being witnessed.
  * @param witnessName - The name of the person witnessing the pledge.
  * @param linkedinUrl - An optional URL to the witness's LinkedIn profile.
- * @returns A promise that resolves to the new witness's ID, or null if an error occurred.
+ * @returns A promise that resolves to the new witness's ID.
+ * @throws Error if the database operation fails.
  */
 export async function addWitness(
   profileId: string,
   witnessName: string,
   linkedinUrl?: string
-): Promise<string | null> {
+): Promise<string> {
   const { data, error } = await supabase
     .from('witnesses')
     .insert({
@@ -329,7 +330,7 @@ export async function addWitness(
 
   if (error) {
     console.error('Error adding witness:', error.message);
-    return null;
+    throw new Error(error.message);
   }
   return data.id;
 }

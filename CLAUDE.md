@@ -272,6 +272,11 @@ Before creating a new function, hook, or component:
 - `playwright-report/` - Playwright HTML reports
 - `dist/` - Build output
 
+### Temporary/Debug files
+- Do NOT create log files, debug dumps, or temporary output files anywhere
+- Terminal output is sufficient for debugging — no need to capture to files
+- Test artifacts go to existing gitignored folders: `test-results/`, `playwright-report/`
+
 ### Where files go:
 | Type | Location |
 |------|----------|

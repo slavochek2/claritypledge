@@ -106,21 +106,12 @@ export function PledgeConfirmationPage() {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <button
-          onClick={() => navigate("/")}
-          className="text-primary hover:underline font-medium"
-        >
-          Return to Home
-        </button>
-        <span className="hidden sm:inline text-muted-foreground">•</span>
-        <button
-          onClick={() => navigate("/sign-pledge")}
-          className="text-muted-foreground hover:text-primary hover:underline font-medium"
-        >
-          Use different email
-        </button>
-      </div>
+      <button
+        onClick={() => navigate("/sign-pledge")}
+        className="text-sm text-muted-foreground hover:text-primary hover:underline"
+      >
+        Use different email
+      </button>
     </div>
   );
 }

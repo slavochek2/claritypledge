@@ -150,18 +150,15 @@ export function ProfilePage() {
   const isOwner = session?.user?.id === profile.id;
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
-    if (!profile) return;
-    try {
-      const witnessId = await addWitness(profile.id, witnessName, linkedinUrl);
-      console.log(`Witness added: ${witnessName} with witnessId: ${witnessId}`);
-      // Refresh profile to show new witness
-      const updatedProfile = profile.slug 
-        ? await getProfileBySlug(profile.slug)
-        : await getProfile(profile.id);
-      if (updatedProfile) setProfile(updatedProfile);
-    } catch (error) {
-      console.error("Error adding witness:", error);
-    }
+    if (!profile) throw new Error("No profile loaded");
+
+    const witnessId = await addWitness(profile.id, witnessName, linkedinUrl);
+    console.log(`Witness added: ${witnessName} with witnessId: ${witnessId}`);
+    // Refresh profile to show new witness
+    const updatedProfile = profile.slug
+      ? await getProfileBySlug(profile.slug)
+      : await getProfile(profile.id);
+    if (updatedProfile) setProfile(updatedProfile);
   };
 
   const handleCloseWelcome = () => {
