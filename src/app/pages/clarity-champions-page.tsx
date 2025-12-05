@@ -104,7 +104,7 @@ export function ClarityChampionsPage() {
                   style={{
                     minWidth: "85%",
                     width: "85%",
-                    height: "280px",
+                    height: "340px",
                     scrollSnapAlign: "center"
                   }}
                 />
@@ -151,6 +151,7 @@ export function ClarityChampionsPage() {
                   avatarColor={profile.avatarColor}
                   showStats={false}
                   showDate={false}
+                  className="h-[340px]"
                 />
               ))}
             </div>

@@ -40,31 +40,37 @@ export function SignPledgeForm({
     handleSubmit
   } = usePledgeForm(onSuccess);
 
-  // Profile strength calculation - 0% until email, then baseline + optional fields
+  // Profile strength calculation - requires email + reason (min 10 chars), then optional fields
   const profileStrength = useMemo(() => {
-    const BASELINE_PERCENTAGE = 15; // Email alone gives this baseline
-    const OPTIONAL_FIELDS_COUNT = 3; // role, linkedin, reason
-    const REMAINING_PERCENTAGE = 85; // Distributed across optional fields
+    const OPTIONAL_FIELDS_COUNT = 2; // role, linkedin only (reason is now required)
 
     const hasEmail = email.trim().length > 0;
-    if (!hasEmail) return { filled: 0, percentage: 0 };
+    const hasReason = reason.trim().length >= 10;
+
+    // Must have required fields to show any strength
+    if (!hasEmail || !hasReason) return { filled: 0, percentage: 0 };
 
     let filled = 0;
     if (role.trim()) filled++;
     if (linkedinUrl.trim()) filled++;
-    if (reason.trim()) filled++;
 
-    const percentage = BASELINE_PERCENTAGE + Math.round((filled / OPTIONAL_FIELDS_COUNT) * REMAINING_PERCENTAGE);
+    // Base 50% for required fields, remaining 50% split between optional
+    const percentage = 50 + Math.round((filled / OPTIONAL_FIELDS_COUNT) * 50);
     return { filled, percentage };
   }, [email, role, linkedinUrl, reason]);
 
-  const strengthLabel = profileStrength.filled === 0
-    ? "Basic"
-    : profileStrength.filled === 1
+  const strengthLabel = profileStrength.percentage === 0
+    ? ""
+    : profileStrength.filled === 0
       ? "Good"
-      : profileStrength.filled === 2
+      : profileStrength.filled === 1
         ? "Strong"
         : "Complete";
+
+  // Reason validation
+  const reasonError = reason.trim().length > 0 && reason.trim().length < 10
+    ? "Please write at least 10 characters"
+    : "";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
@@ -160,13 +166,11 @@ export function SignPledgeForm({
                 className="h-full transition-all duration-300 rounded-full"
                 style={{
                   width: `${profileStrength.percentage}%`,
-                  backgroundColor: profileStrength.filled === 3
-                    ? "#002B5C"
-                    : profileStrength.filled === 2
-                      ? "#0044CC"
-                      : profileStrength.filled === 1
-                        ? "#3366DD"
-                        : "#6699EE"
+                  backgroundColor: profileStrength.filled === 2
+                    ? "#002B5C"  // Complete
+                    : profileStrength.filled === 1
+                      ? "#0044CC"  // Strong
+                      : "#3366DD"  // Good
                 }}
               />
             </div>
@@ -187,10 +191,39 @@ export function SignPledgeForm({
             />
           </div>
 
+          <div className="space-y-1 md:space-y-2">
+            <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
+              What does clarity mean to you?
+            </Label>
+            <textarea
+              id="reason"
+              placeholder=""
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              required
+              minLength={10}
+              rows={2}
+              maxLength={280}
+              className={`w-full px-0 py-2 border-0 border-b-2 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 resize-none text-sm md:h-auto ${
+                reasonError ? "border-red-400 focus-visible:border-red-500" : "border-[#1A1A1A] focus-visible:border-[#0044CC]"
+              }`}
+            />
+            <div className="flex justify-between items-center">
+              {reasonError ? (
+                <p className="text-[10px] md:text-xs text-red-500">{reasonError}</p>
+              ) : (
+                <p className="text-[10px] md:text-xs text-[#1A1A1A]/50">Appears on your public profile</p>
+              )}
+              <p className="text-[10px] md:text-xs text-[#1A1A1A]/50">
+                {reason.length}/280
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-1 md:space-y-2">
               <Label htmlFor="role" className="text-sm text-[#1A1A1A]/70">
-                Role
+                Role <span className="text-[#1A1A1A]/40">(optional)</span>
               </Label>
               <Input
                 id="role"
@@ -204,7 +237,7 @@ export function SignPledgeForm({
 
             <div className="space-y-1 md:space-y-2">
               <Label htmlFor="linkedin" className="text-sm text-[#1A1A1A]/70">
-                LinkedIn
+                LinkedIn <span className="text-[#1A1A1A]/40">(optional)</span>
               </Label>
               <Input
                 id="linkedin"
@@ -215,24 +248,6 @@ export function SignPledgeForm({
                 className="border-0 border-b-2 border-[#1A1A1A]/40 rounded-none focus-visible:border-[#1A1A1A] focus-visible:ring-0 bg-transparent px-0"
               />
             </div>
-          </div>
-
-          <div className="space-y-1 md:space-y-2">
-            <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
-              What inspired you to take the pledge?
-            </Label>
-            <textarea
-              id="reason"
-              placeholder="To build trust with my team..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={2}
-              maxLength={280}
-              className="w-full px-0 py-2 border-0 border-b-2 border-[#1A1A1A]/40 rounded-none bg-transparent focus-visible:outline-none focus-visible:ring-0 focus-visible:border-[#1A1A1A] resize-none text-sm md:h-auto"
-            />
-            <p className="text-[10px] md:text-xs text-[#1A1A1A]/50">
-              {reason.length}/280 • Appears on your public profile
-            </p>
           </div>
         </div>
 

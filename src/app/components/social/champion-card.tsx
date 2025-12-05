@@ -69,7 +69,7 @@ export function ChampionCard({
       {/* Reason - if provided */}
       {reason && (
         <div className="mt-4">
-          <p className="text-sm text-muted-foreground italic line-clamp-4">
+          <p className="text-sm text-muted-foreground italic">
             "{reason}"
           </p>
         </div>
