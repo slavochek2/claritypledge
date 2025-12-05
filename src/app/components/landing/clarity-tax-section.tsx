@@ -40,18 +40,20 @@ export function ClarityTaxSection() {
           {/* Headline - Emotional Hook */}
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
+              We all crave clarity
+              <br className="hidden sm:block" />
               <span
-                className={`inline-block transition-all duration-1000 delay-300 ${
+                className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                Stop assuming. <span className="text-blue-500">Start verifying.</span>
+                {" "}Let's commit to it.
               </span>
             </h1>
 
             {/* Sub-headline - Consequence */}
             <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              Prevent dangerous misunderstandings, false agreements and disagreements.
+              A public promise to stop sacrificing truth for the sake of comfort.
             </p>
           </div>
 

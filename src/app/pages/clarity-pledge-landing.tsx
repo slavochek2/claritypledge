@@ -83,7 +83,7 @@ export function ClarityPledgeLanding() {
                 Get your clarity certificate
               </h2>
               <p className="text-lg text-muted-foreground">
-                Eliminate rework, mistakes, and mistrust.
+                Prevent the rework, mistakes and mistrust caused by false agreements.
               </p>
             </div>
             <ProfileCertificate
