@@ -2,6 +2,16 @@
 
 Welcome! This guide will help you get up and running quickly.
 
+## Contributor License Agreement
+
+By submitting code, documentation, or any other contribution to this repository, you agree that:
+
+1. **Your contributions are licensed under AGPL-3.0** — The same license as the project ([LICENSE](./LICENSE)).
+2. **You have the right to submit** — Your contributions are your original work, or you have permission to submit them.
+3. **You grant perpetual license** — Your contributions may be used, modified, and distributed as part of this project indefinitely.
+
+This ensures all contributions remain open source and the project can be maintained by the community.
+
 ## Quick Start
 
 ### 1. Clone and Install
