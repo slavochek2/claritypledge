@@ -10,7 +10,7 @@ import { SignPledgeForm } from "@/app/components/pledge/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getFeaturedProfiles, getVerifiedProfileCount, MAX_FEATURED_PROFILES } from "@/app/data/api";
+import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, AVATAR_ROW_LIMIT_DESKTOP } from "@/app/data/api";
 import { getInitials } from "@/lib/utils";
 import type { ProfileSummary } from "@/app/types";
 
@@ -37,7 +37,7 @@ export function SignPledgePage() {
           getFeaturedProfiles(),
           getVerifiedProfileCount()
         ]);
-        setChampions(profiles.slice(0, MAX_FEATURED_PROFILES));
+        setChampions(profiles);
         setTotalCount(count);
       } catch (error) {
         console.error('Failed to load social proof:', error);
@@ -91,9 +91,9 @@ export function SignPledgePage() {
           </div>
         ) : totalCount > 0 && champions.length > 0 ? (
           <div className="flex flex-col items-center gap-3 mb-4 animate-in fade-in duration-300">
-            <div className="flex items-center -space-x-2" role="group" aria-label="Recent clarity champions">
-              {champions.map((champion) => {
-                // Defensive: skip rendering if champion data is malformed
+            {/* Mobile: Show limited avatars */}
+            <div className="flex items-center -space-x-2 sm:hidden" role="group" aria-label="Recent clarity champions">
+              {champions.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
                   <div
@@ -106,12 +106,36 @@ export function SignPledgePage() {
                   </div>
                 );
               })}
-              {totalCount > champions.length && (
+              {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
                 <div
                   className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
-                  aria-label={`${totalCount - champions.length} more champions`}
+                  aria-label={`${totalCount - AVATAR_ROW_LIMIT_MOBILE} more champions`}
                 >
-                  +{totalCount - champions.length}
+                  +{totalCount - AVATAR_ROW_LIMIT_MOBILE}
+                </div>
+              )}
+            </div>
+            {/* Desktop: Show more avatars */}
+            <div className="hidden sm:flex items-center -space-x-2" role="group" aria-label="Recent clarity champions">
+              {champions.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((champion) => {
+                if (!champion?.id || !champion?.name) return null;
+                return (
+                  <div
+                    key={champion.id}
+                    role="img"
+                    aria-label={champion.name}
+                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium"
+                  >
+                    {getInitials(champion.name)}
+                  </div>
+                );
+              })}
+              {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
+                <div
+                  className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
+                  aria-label={`${totalCount - AVATAR_ROW_LIMIT_DESKTOP} more champions`}
+                >
+                  +{totalCount - AVATAR_ROW_LIMIT_DESKTOP}
                 </div>
               )}
             </div>

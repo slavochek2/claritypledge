@@ -11,6 +11,8 @@ import { getVerifiedProfiles, type Profile } from "@/app/data/api";
 import { UsersIcon, LoaderIcon } from "lucide-react";
 import { ChampionCard } from "@/app/components/social/champion-card";
 
+const MAX_MOBILE_CAROUSEL = 20;
+
 export function ClarityChampionsPage() {
   const [verifiedProfiles, setVerifiedProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,12 +44,16 @@ export function ClarityChampionsPage() {
       // Account for 85% card width + 16px gap (gap-4)
       const cardWidth = carousel.offsetWidth * 0.85 + 16;
       const newIndex = Math.round(scrollLeft / cardWidth);
-      setCurrentIndex(Math.min(newIndex, verifiedProfiles.length - 1));
+      const maxIndex = Math.min(verifiedProfiles.length, MAX_MOBILE_CAROUSEL) - 1;
+      setCurrentIndex(Math.min(newIndex, maxIndex));
     };
 
     carousel.addEventListener("scroll", handleScroll, { passive: true });
     return () => carousel.removeEventListener("scroll", handleScroll);
   }, [verifiedProfiles]);
+
+  // Limit mobile carousel to avoid too many dots
+  const mobileProfiles = verifiedProfiles.slice(0, MAX_MOBILE_CAROUSEL);
 
   return (
     <div className="min-h-screen py-12 px-4">
@@ -70,7 +76,7 @@ export function ClarityChampionsPage() {
           </div>
         ) : verifiedProfiles.length > 0 ? (
           <>
-            {/* Mobile: Horizontal swipe carousel */}
+            {/* Mobile: Horizontal swipe carousel (limited to MAX_MOBILE_CAROUSEL) */}
             <div
               ref={carouselRef}
               className="md:hidden flex flex-row flex-nowrap gap-4 overflow-x-auto pb-4 -mx-4 px-4"
@@ -81,7 +87,7 @@ export function ClarityChampionsPage() {
                 WebkitOverflowScrolling: "touch"
               }}
             >
-              {verifiedProfiles.map((profile) => (
+              {mobileProfiles.map((profile) => (
                 <ChampionCard
                   key={profile.id}
                   id={profile.id}
@@ -107,7 +113,7 @@ export function ClarityChampionsPage() {
 
             {/* Mobile: Dot indicators */}
             <div className="md:hidden flex justify-center gap-2 mt-4">
-              {verifiedProfiles.map((_, index) => (
+              {mobileProfiles.map((_, index) => (
                 <button
                   key={index}
                   className={`w-2 h-2 rounded-full transition-all ${

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getFeaturedProfiles, getVerifiedProfileCount, MAX_FEATURED_PROFILES } from "@/app/data/api";
+import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, AVATAR_ROW_LIMIT_DESKTOP } from "@/app/data/api";
 import type { ProfileSummary } from "@/app/types";
 import { getInitials } from "@/lib/utils";
 
@@ -20,7 +20,7 @@ export function ClarityTaxSection() {
           getFeaturedProfiles(),
           getVerifiedProfileCount()
         ]);
-        setProfiles(data.slice(0, MAX_FEATURED_PROFILES));
+        setProfiles(data);
         setTotalCount(count);
       } catch (err) {
         console.error("Failed to load social proof:", err);
@@ -41,19 +41,17 @@ export function ClarityTaxSection() {
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
               <span
-                className={`text-blue-500 inline-block transition-all duration-1000 delay-300 ${
+                className={`inline-block transition-all duration-1000 delay-300 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                Stop pretending
+                Stop assuming. <span className="text-blue-500">Start verifying.</span>
               </span>
-              <br />
-              nonsense makes sense
             </h1>
 
             {/* Sub-headline - Consequence */}
             <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              Prevent dangerous misunderstandings
+              Prevent dangerous misunderstandings, false agreements and disagreements.
             </p>
           </div>
 
@@ -73,8 +71,9 @@ export function ClarityTaxSection() {
               to="/clarity-champions"
               className="flex flex-col items-center gap-2 group pt-2"
             >
-              <div className="flex items-center -space-x-2">
-                {profiles.map((profile) => (
+              {/* Mobile: Show limited avatars */}
+              <div className="flex items-center -space-x-2 sm:hidden">
+                {profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((profile) => (
                   <div
                     key={profile.id}
                     className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium transition-transform group-hover:scale-105"
@@ -82,9 +81,25 @@ export function ClarityTaxSection() {
                     {getInitials(profile.name)}
                   </div>
                 ))}
-                {totalCount > profiles.length && (
+                {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
                   <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
-                    +{totalCount - profiles.length}
+                    +{totalCount - AVATAR_ROW_LIMIT_MOBILE}
+                  </div>
+                )}
+              </div>
+              {/* Desktop: Show more avatars */}
+              <div className="hidden sm:flex items-center -space-x-2">
+                {profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((profile) => (
+                  <div
+                    key={profile.id}
+                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium transition-transform group-hover:scale-105"
+                  >
+                    {getInitials(profile.name)}
+                  </div>
+                ))}
+                {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
+                  <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
+                    +{totalCount - AVATAR_ROW_LIMIT_DESKTOP}
                   </div>
                 )}
               </div>

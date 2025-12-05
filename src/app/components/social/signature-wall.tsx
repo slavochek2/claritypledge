@@ -142,7 +142,7 @@ export function SignatureWall() {
                   onClick={() => {
                     const carousel = carouselRef.current;
                     if (carousel) {
-                      const cardWidth = carousel.offsetWidth * 0.85;
+                      const cardWidth = carousel.offsetWidth * 0.85 + 16;
                       carousel.scrollTo({
                         left: index * cardWidth,
                         behavior: "smooth",

@@ -6,9 +6,7 @@ export function CTASection() {
       <div className="container mx-auto max-w-5xl text-center">
         {/* Headline */}
         <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-8">
-          <span className="text-blue-500">Stop pretending</span>
-          <br />
-          nonsense makes sense
+          Stop assuming. <span className="text-blue-500">Start verifying.</span>
         </h2>
 
         {/* Body */}
