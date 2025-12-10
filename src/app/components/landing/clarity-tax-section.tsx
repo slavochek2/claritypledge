@@ -40,14 +40,13 @@ export function ClarityTaxSection() {
           {/* Headline - Emotional Hook */}
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              We all crave clarity
-              <br className="hidden sm:block" />
+              We all crave being understood.
               <span
-                className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
+                className={`block transition-all duration-1000 delay-300 text-blue-500 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                {" "}Let's commit to it.
+                Let's commit to listen.
               </span>
             </h1>
 
@@ -63,14 +62,14 @@ export function ClarityTaxSection() {
               to="/sign-pledge"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
             >
-              Take the Clarity Pledge
+              Take the Understanding Pledge
             </Link>
           </div>
 
           {/* Social Proof - Compact Avatar Stack */}
           {totalCount > 0 && profiles.length > 0 && (
             <Link
-              to="/clarity-champions"
+              to="/understanding-champions"
               className="flex flex-col items-center gap-2 group pt-2"
             >
               {/* Mobile: Show limited avatars */}

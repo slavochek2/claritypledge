@@ -1,7 +1,7 @@
 /**
- * @file clarity-champions-page.tsx
- * @description This page displays a gallery of all the users who have signed the Clarity Pledge and have been verified.
- * It's a public-facing page that showcases the community of "Clarity Champions".
+ * @file understanding-champions-page.tsx
+ * @description This page displays a gallery of all the users who have signed the Understanding Pledge and have been verified.
+ * It's a public-facing page that showcases the community of "Understanding Champions".
  * It fetches the profiles from the database and displays them in a grid,
  * allowing visitors to see who has taken the pledge and view their profiles.
  */
@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import { getVerifiedProfiles, type Profile } from "@/app/data/api";
 import { UsersIcon, LoaderIcon } from "lucide-react";
 import { ChampionCard } from "@/app/components/social/champion-card";
+import { analytics } from "@/lib/mixpanel";
 
 const MAX_MOBILE_CAROUSEL = 20;
 
@@ -18,12 +19,21 @@ export function ClarityChampionsPage() {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const hasTrackedPageView = useRef(false);
 
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
         const profiles = await getVerifiedProfiles();
         setVerifiedProfiles(profiles);
+
+        // Track page view once profiles are loaded
+        if (!hasTrackedPageView.current) {
+          hasTrackedPageView.current = true;
+          analytics.track('champions_page_viewed', {
+            champion_count: profiles.length,
+          });
+        }
       } catch (error) {
         console.error("Failed to fetch verified profiles", error);
       } finally {
@@ -61,7 +71,7 @@ export function ClarityChampionsPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold">
-            Clarity Champions
+            Understanding Champions
           </h1>
         </div>
 
@@ -175,7 +185,7 @@ export function ClarityChampionsPage() {
           <div className="text-center mt-20">
             <h2 className="text-3xl font-bold mb-4">Ready to Join Them?</h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Become a part of the movement towards greater clarity and mutual
+              Become a part of the movement towards greater mutual
               understanding.
             </p>
             <Link

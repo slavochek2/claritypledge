@@ -10,7 +10,7 @@ export function HowItWorks() {
     },
     {
       icon: ArrowLeftRightIcon,
-      title: "Help Others Experience Clarity",
+      title: "Help Others Feel Understood",
       description:
         "You empower others to satisfy their universal human need to be understood.",
     },
@@ -18,7 +18,7 @@ export function HowItWorks() {
       icon: RepeatIcon,
       title: "Inspire Reciprocity",
       description:
-        "You make clarity contagious and gain authority to ask for verification of understanding yourself.",
+        "You make understanding contagious and gain authority to ask for verification of understanding yourself.",
     },
   ];
 
@@ -31,7 +31,7 @@ export function HowItWorks() {
             Why it matters
           </h2>
           <p className="text-2xl lg:text-3xl text-muted-foreground font-medium">
-            Clarity Pledge Improves the Communication Culture
+            Understanding Pledge Improves the Communication Culture
           </p>
         </div>
 

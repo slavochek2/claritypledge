@@ -20,7 +20,7 @@ interface ExportCertificateProps {
 export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificateProps>(
   ({ name, role, signedAt, slug, acceptanceCount, avatarColor }, ref) => {
     // Use production domain for QR code (export is for sharing externally)
-    const profileUrl = `https://claritypledge.com/p/${slug}`;
+    const profileUrl = `https://understandingpledge.com/p/${slug}`;
 
     // Truncate long names/roles
     const displayName = name.length > 30 ? name.slice(0, 27) + "..." : name;
@@ -259,7 +259,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 >
                   <rect width="128" height="128" rx="24" fill="#1A1A1A" />
                   <path
-                    d="M88 40.5C82 35 73 32 64 32C44 32 32 48 32 64C32 80 44 96 64 96C73 96 82 93 88 87.5"
+                    d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
                     stroke="#FDFBF7"
                     strokeWidth="14"
                     strokeLinecap="round"
@@ -324,7 +324,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
               >
                 <rect width="128" height="128" rx="24" fill="#1A1A1A" />
                 <path
-                  d="M88 40.5C82 35 73 32 64 32C44 32 32 48 32 64C32 80 44 96 64 96C73 96 82 93 88 87.5"
+                  d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
                   stroke="#FDFBF7"
                   strokeWidth="14"
                   strokeLinecap="round"
@@ -339,7 +339,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                   margin: 0,
                 }}
               >
-                claritypledge.com
+                understandingpledge.com
               </p>
             </div>
           </div>

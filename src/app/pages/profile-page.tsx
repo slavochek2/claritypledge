@@ -8,7 +8,7 @@
  * and have the option to "witness" the pledge themselves.
  * It's a cornerstone of the application, making the pledges public and verifiable.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
 import { useAuth } from "@/auth";
+import { analytics } from "@/lib/mixpanel";
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,7 @@ export function ProfilePage() {
   const { user: currentUser, session, isLoading: isUserLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
+  const hasTrackedPageView = useRef(false);
 
   // Track current user ID for retry logic (stable reference)
   const currentUserId = currentUser?.id;
@@ -87,6 +89,16 @@ export function ProfilePage() {
             slug: profileData.slug,
             isVerified: profileData.isVerified
           });
+
+          // Track profile page view (once per page load)
+          if (!hasTrackedPageView.current) {
+            hasTrackedPageView.current = true;
+            analytics.track('profile_page_viewed', {
+              profile_slug: profileData.slug,
+              is_owner: currentUserId === profileData.id,
+              witness_count: profileData.witnesses?.length || 0,
+            });
+          }
         } else {
           console.error('❌ ProfilePage: No profile found for:', id);
         }
@@ -97,6 +109,7 @@ export function ProfilePage() {
         // Show welcome dialog for first-time visitors (owners only)
         if (firstTime && currentUserId && profileData && currentUserId === profileData.id) {
           setShowWelcome(true);
+          analytics.track('welcome_dialog_shown', { profile_slug: profileData.slug });
           // Clear flags from session storage once user is viewing their own profile
           sessionStorage.removeItem('firstTimePledge');
           sessionStorage.removeItem('pendingProfile');

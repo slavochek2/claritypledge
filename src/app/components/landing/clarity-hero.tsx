@@ -37,7 +37,7 @@ export function ClarityHero({ onSignPledge }: ClarityHeroProps) {
       <div className="container mx-auto max-w-5xl text-center">
         {/* Main Headline */}
         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-tight">
-          Sign the Clarity Pledge
+          Sign the Understanding Pledge
         </h1>
 
         {/* Subheadline */}
@@ -48,7 +48,7 @@ export function ClarityHero({ onSignPledge }: ClarityHeroProps) {
 
         {/* Dynamic Text */}
         <div className="text-xl sm:text-2xl lg:text-3xl font-medium mb-4 h-12 flex items-center justify-center">
-          <span className="mr-2">Make clarity win over</span>
+          <span className="mr-2">Make understanding win over</span>
           <span className="inline-block min-w-[140px] text-left">
             <span
               key={currentWord}

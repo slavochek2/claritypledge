@@ -45,7 +45,7 @@ export function ClarityFooter() {
         {/* Copyright */}
         <div className="text-center pt-8 border-t border-border">
           <p className="text-sm text-muted-foreground">
-            © 2025 The Clarity Project.
+            © 2025 The Understanding Project.
           </p>
         </div>
       </div>

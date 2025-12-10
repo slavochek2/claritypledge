@@ -1,6 +1,6 @@
 /**
  * @file sign-pledge-page.tsx
- * @description This page is where new users officially sign the Polymet Clarity Pledge.
+ * @description This page is where new users officially sign the Polymet Understanding Pledge.
  * It contains a form that collects the user's name, email, and other optional information.
  * This is the primary conversion point for the entire application.
  * After the user submits the form, it triggers the authentication flow (sending a magic link)
@@ -9,16 +9,28 @@
 import { SignPledgeForm } from "@/app/components/pledge/sign-pledge-form";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, AVATAR_ROW_LIMIT_DESKTOP } from "@/app/data/api";
 import { getInitials } from "@/lib/utils";
 import type { ProfileSummary } from "@/app/types";
+import { analytics } from "@/lib/mixpanel";
 
 export function SignPledgePage() {
   const navigate = useNavigate();
   const [champions, setChampions] = useState<ProfileSummary[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [socialProofLoaded, setSocialProofLoaded] = useState(false);
+  const hasTrackedPageView = useRef(false);
+
+  // Track page view once social proof is loaded (to include champion_count)
+  useEffect(() => {
+    if (socialProofLoaded && !hasTrackedPageView.current) {
+      hasTrackedPageView.current = true;
+      analytics.track('sign_pledge_page_viewed', {
+        champion_count: totalCount,
+      });
+    }
+  }, [socialProofLoaded, totalCount]);
 
   // If user has a recent pending verification (within last hour), redirect to confirmation
   // This prevents stale entries from previous sessions from trapping users
@@ -92,7 +104,7 @@ export function SignPledgePage() {
         ) : totalCount > 0 && champions.length > 0 ? (
           <div className="flex flex-col items-center gap-3 mb-4 animate-in fade-in duration-300">
             {/* Mobile: Show limited avatars */}
-            <div className="flex items-center -space-x-2 sm:hidden" role="group" aria-label="Recent clarity champions">
+            <div className="flex items-center -space-x-2 sm:hidden" role="group" aria-label="Recent understanding champions">
               {champions.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
@@ -116,7 +128,7 @@ export function SignPledgePage() {
               )}
             </div>
             {/* Desktop: Show more avatars */}
-            <div className="hidden sm:flex items-center -space-x-2" role="group" aria-label="Recent clarity champions">
+            <div className="hidden sm:flex items-center -space-x-2" role="group" aria-label="Recent understanding champions">
               {champions.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
@@ -140,7 +152,7 @@ export function SignPledgePage() {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Join {totalCount} clarity champion{totalCount !== 1 ? 's' : ''} who've taken the pledge
+              Join {totalCount} understanding champion{totalCount !== 1 ? 's' : ''} who've taken the pledge
             </p>
           </div>
         ) : null}

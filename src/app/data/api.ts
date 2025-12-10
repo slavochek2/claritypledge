@@ -207,7 +207,7 @@ export async function getVerifiedProfileCount(): Promise<number> {
 
 /**
  * Fetches all profiles that have been marked as verified.
- * This is used to populate the "Clarity Champions" page, showcasing all users who have completed the pledge process.
+ * This is used to populate the "Understanding Champions" page, showcasing all users who have completed the pledge process.
  * The function also fetches and attaches all witnesses for each profile.
  * Profiles with reasons are shown first, then those without.
  * @returns A promise that resolves to an array of verified profile objects.
@@ -445,6 +445,7 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     })),
     reciprocations,
     avatarColor: dbProfile.avatar_color,
+    pledgeVersion: dbProfile.pledge_version || 2,
   };
 }
 

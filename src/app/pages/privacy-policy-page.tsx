@@ -1,6 +1,6 @@
 /**
  * @file privacy-policy-page.tsx
- * @description Privacy Policy page for The Clarity Pledge.
+ * @description Privacy Policy page for The Understanding Pledge.
  * Explains what data is collected, how it's used, and user rights.
  */
 import { Link } from "react-router-dom";
@@ -26,7 +26,7 @@ export function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Overview</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Clarity Pledge ("we," "us," or "our") is committed to protecting your privacy.
+              The Understanding Pledge ("we," "us," or "our") is committed to protecting your privacy.
               This policy explains what information we collect, how we use it, and your rights
               regarding your data.
             </p>
@@ -35,7 +35,7 @@ export function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Information We Collect</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              When you sign the Clarity Pledge, we collect:
+              When you sign the Understanding Pledge, we collect:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
               <li><strong className="text-foreground">Name</strong> — displayed on your public pledge profile</li>

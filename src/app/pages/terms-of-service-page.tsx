@@ -1,6 +1,6 @@
 /**
  * @file terms-of-service-page.tsx
- * @description Terms of Service page for The Clarity Pledge.
+ * @description Terms of Service page for The Understanding Pledge.
  * Outlines the rules and expectations for using the platform.
  */
 import { Link } from "react-router-dom";
@@ -24,18 +24,18 @@ export function TermsOfServicePage() {
         {/* Content */}
         <div className="prose prose-lg dark:prose-invert max-w-none space-y-8">
           <section>
-            <h2 className="text-2xl font-bold mb-4">Welcome to The Clarity Pledge</h2>
+            <h2 className="text-2xl font-bold mb-4">Welcome to The Understanding Pledge</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By signing The Clarity Pledge or using our website, you agree to these terms.
+              By signing The Understanding Pledge or using our website, you agree to these terms.
               Please read them carefully. If you don't agree with these terms, please don't
               use our service.
             </p>
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">What Is The Clarity Pledge?</h2>
+            <h2 className="text-2xl font-bold mb-4">What Is The Understanding Pledge?</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Clarity Pledge is a public commitment platform where professionals pledge
+              The Understanding Pledge is a public commitment platform where professionals pledge
               to communicate clearly, honestly, and without unnecessary jargon. When you sign,
               you receive a public profile page and a shareable certificate that demonstrates
               your commitment.
@@ -51,7 +51,7 @@ export function TermsOfServicePage() {
               <li><strong className="text-foreground">Provide accurate information</strong> — Your name, role, and LinkedIn profile should be truthful</li>
               <li><strong className="text-foreground">Use your real identity</strong> — The pledge is a professional commitment tied to your reputation</li>
               <li><strong className="text-foreground">Respect the community</strong> — Don't use the platform to spam, harass, or mislead others</li>
-              <li><strong className="text-foreground">Honor the spirit of the pledge</strong> — While we can't enforce clarity, we expect good faith effort</li>
+              <li><strong className="text-foreground">Honor the spirit of the pledge</strong> — While we can't enforce understanding, we expect good faith effort</li>
             </ul>
           </section>
 
@@ -74,7 +74,7 @@ export function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Endorsements (Witnesses)</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The witness feature allows colleagues to publicly endorse your commitment to clarity.
+              The witness feature allows colleagues to publicly endorse your commitment to understanding.
               By inviting witnesses or accepting endorsements, you understand that:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground mt-4">
@@ -103,7 +103,7 @@ export function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Clarity Pledge name, logo, and website design are our property. Your profile
+              The Understanding Pledge name, logo, and website design are our property. Your profile
               content (name, role, reason) remains yours. By posting content, you grant us a
               license to display it publicly as part of the platform.
             </p>
@@ -112,7 +112,7 @@ export function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Disclaimer</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Clarity Pledge is provided "as is" without warranties of any kind. We don't
+              The Understanding Pledge is provided "as is" without warranties of any kind. We don't
               guarantee that signing the pledge will improve your communication skills, advance
               your career, or produce any specific outcome. The pledge is a symbolic commitment,
               not a certification or qualification.

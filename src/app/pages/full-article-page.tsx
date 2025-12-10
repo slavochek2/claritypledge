@@ -1,6 +1,6 @@
 /**
  * @file full-article-page.tsx
- * @description This page displays the long-form article that explains the philosophy and reasoning behind the Polymet Clarity Pledge.
+ * @description This page displays the long-form article that explains the philosophy and reasoning behind the Polymet Understanding Pledge.
  * It's a deep dive into the concepts of the "Clarity Tax," the "Illusion of Shared Reality,"
  * and the cognitive biases that lead to miscommunication.
  * The page is designed for readability, with a table of contents for easy navigation.
@@ -244,7 +244,7 @@ export function FullArticlePage() {
                   TL;DR — 3 min read
                 </span>
                 <h1 className="text-4xl sm:text-5xl font-bold mb-6">
-                  The Clarity Pledge
+                  The Understanding Pledge
                 </h1>
                 <p className="text-xl sm:text-2xl text-muted-foreground mb-6">
                   Stop paying the hidden cost of miscommunication
@@ -256,13 +256,13 @@ export function FullArticlePage() {
                   We assume we understand each other, but often we're just guessing. When those guesses are wrong, we pay the price—in rework, in mistakes, in conflicts, in broken trust.
                 </p>
                 <p className="text-lg leading-relaxed">
-                  This is the <strong className="text-amber-500">Clarity Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S.
+                  This is the <strong className="text-amber-500">Understanding Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S.
                 </p>
                 <p className="text-lg leading-relaxed">
                   The problem isn't that we're careless—it's that we're human. Cognitive biases make us overestimate how clearly we communicate and how well we understand others. We operate under an <em>illusion of shared reality</em>.
                 </p>
                 <p className="text-lg leading-relaxed">
-                  <strong>The Clarity Pledge</strong> is a public commitment to break this illusion. It grants others explicit permission to verify your understanding and commits you to respond without judgment. It's a new social contract that makes verification the default, not the exception.
+                  <strong>The Understanding Pledge</strong> is a public commitment to break this illusion. It grants others explicit permission to verify your understanding and commits you to respond without judgment. It's a new social contract that makes verification the default, not the exception.
                 </p>
               </div>
 
@@ -334,7 +334,7 @@ export function FullArticlePage() {
                         {shouldShowInlineCTA && !isLoadingUser && !currentUser && (
                           <div className="not-prose my-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                             <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3">
-                              Ready to stop paying the Clarity Tax?
+                              Ready to stop paying the Understanding Tax?
                             </p>
                             <Link
                               to="/sign-pledge"
@@ -401,13 +401,13 @@ export function FullArticlePage() {
               <div className="mt-16 p-8 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-2 border-blue-200 dark:border-blue-800 rounded-2xl text-center">
                 <h2 className="text-3xl font-bold mb-4">Ready to Join the Movement?</h2>
                 <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Take the Clarity Pledge and become part of a community committed to verified alignment.
+                  Take the Understanding Pledge and become part of a community committed to verified alignment.
                 </p>
                 <Link
                   to="/sign-pledge"
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto"
                 >
-                  Take the Clarity Pledge
+                  Take the Understanding Pledge
                 </Link>
               </div>
             )}

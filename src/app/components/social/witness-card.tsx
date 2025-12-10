@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { type Profile } from "@/app/data/api";
 import { Link } from "react-router-dom";
 import { CheckIcon, ArrowRightIcon } from "lucide-react";
+import { analytics } from "@/lib/mixpanel";
 
 interface WitnessCardProps {
   profileName: string;
@@ -56,11 +57,17 @@ export function WitnessCard({
     }
 
     setIsSubmitting(true);
+    analytics.track('witness_submitted', {
+      profile_id: profileId,
+      has_linkedin: !!normalizedLinkedInUrl,
+    });
 
     try {
       await onWitness(name, normalizedLinkedInUrl || undefined);
+      analytics.track('witness_success', { profile_id: profileId });
       setIsComplete(true);
     } catch {
+      analytics.track('witness_error', { profile_id: profileId });
       setSubmitError("Failed to submit. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -71,7 +78,11 @@ export function WitnessCard({
   if (isComplete) {
     return (
       <div className="space-y-4">
-        <Link to={`/?referrer=${profileId}`} className="block">
+        <Link
+          to={`/?referrer=${profileId}`}
+          className="block"
+          onClick={() => analytics.track('witness_cta_clicked', { referrer_profile_id: profileId })}
+        >
           <Button
             className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white transition-all"
             size="lg"

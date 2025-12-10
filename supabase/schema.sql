@@ -12,6 +12,7 @@ create table public.profiles (
   reason text,
   avatar_color text,
   is_verified boolean default false,
+  pledge_version integer default 2,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

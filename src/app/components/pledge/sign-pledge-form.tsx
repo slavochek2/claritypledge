@@ -193,7 +193,7 @@ export function SignPledgeForm({
 
           <div className="space-y-1 md:space-y-2">
             <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
-              What does clarity mean to you?
+              What does understanding mean to you?
             </Label>
             <textarea
               id="reason"

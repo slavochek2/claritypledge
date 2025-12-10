@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createProfile } from "@/app/data/api";
 import { triggerConfetti } from "@/lib/confetti";
+import { analytics } from "@/lib/mixpanel";
 
 export function usePledgeForm(onSuccess?: () => void) {
   const [name, setName] = useState("");
@@ -51,6 +52,13 @@ export function usePledgeForm(onSuccess?: () => void) {
         reason.trim() || undefined
       );
 
+      // Track successful pledge submission
+      analytics.track('pledge_form_submitted', {
+        has_role: !!role.trim(),
+        has_linkedin: !!normalizedLinkedInUrl,
+        has_reason: !!reason.trim(),
+      });
+
       // Store email for success page display (sessionStorage expires with browser session)
       sessionStorage.setItem('pendingVerificationEmail', email.trim());
       sessionStorage.setItem('firstTimePledge', 'true');
@@ -64,13 +72,17 @@ export function usePledgeForm(onSuccess?: () => void) {
     } catch (error) {
       console.error("Error signing pledge:", error);
       let errorMessage = "Failed to sign pledge. Please try again.";
+      let errorType = 'unknown';
       if (error instanceof Error) {
         if (error.message?.includes("rate limit")) {
           errorMessage = "Too many requests. Please wait a moment and try again.";
+          errorType = 'rate_limit';
         } else if (error.message?.includes("Invalid email")) {
           errorMessage = "Please enter a valid email address.";
+          errorType = 'invalid_email';
         }
       }
+      analytics.track('pledge_form_error', { error_type: errorType });
       setError(errorMessage);
       setIsSubmitting(false);
     }

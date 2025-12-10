@@ -1,6 +1,6 @@
 /**
  * @file clarity-pledge-landing.tsx
- * @description This is the main landing page for the Polymet Clarity Pledge.
+ * @description This is the main landing page for the Polymet Understanding Pledge.
  * It serves as the primary entry point for new visitors, explaining what the pledge is,
  * why it's important, and how it works. It's composed of several sections,
  * each highlighting a different aspect of the pledge, from the "clarity tax" to the benefits of signing.
@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { analytics } from "@/lib/mixpanel";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { ClarityTaxSection } from "@/app/components/landing/clarity-tax-section";
 import { HowItWorks } from "@/app/components/landing/how-it-works";
@@ -25,6 +26,14 @@ export function ClarityPledgeLanding() {
   const [visibleSections, setVisibleSections] = useState<Set<number>>(
     new Set([0])
   );
+
+  // Track landing page view (intentionally fires once on mount)
+  useEffect(() => {
+    analytics.track('landing_page_viewed', {
+      referrer: searchParams.get('referrer') || undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-navigate if referrer or login param is present
   useEffect(() => {
@@ -80,7 +89,7 @@ export function ClarityPledgeLanding() {
           <div className="container mx-auto max-w-4xl px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Get your clarity certificate
+                Get your understanding certificate
               </h2>
               <p className="text-lg text-muted-foreground">
                 Prevent the rework, mistakes and mistrust caused by false agreements.
@@ -89,10 +98,10 @@ export function ClarityPledgeLanding() {
             <ProfileCertificate
               name="Vyacheslav Ladischenski"
               signedAt="2025-11-01"
-              role="Founder, The Clarity Pledge"
+              role="Founder, The Understanding Pledge"
               linkedinUrl="https://linkedin.com/in/ladischenski"
               showQrCode={true}
-              profileUrl="https://claritypledge.com/p/slava"
+              profileUrl="https://understandingpledge.com/p/slava"
               photoUrl="/founder-photo.jpg"
             />
           </div>

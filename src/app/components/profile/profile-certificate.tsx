@@ -1,9 +1,11 @@
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  PLEDGE_TEXT,
+  PLEDGE_VERSIONS,
   YourRightTextTailwind,
   MyPromiseTextTailwind,
+  ExceptionTextTailwind,
+  type PledgeVersion,
 } from "@/app/content/pledge-text";
 import { ClarityLogoMark } from "@/components/ui/clarity-logo";
 
@@ -26,6 +28,8 @@ interface ProfileCertificateProps {
   acceptanceCount?: number;
   /** Export mode: shows acceptance count and watermark at bottom */
   exportMode?: boolean;
+  /** Pledge version: 1 = Understanding Pledge (v1), 2 = Understanding Pledge (v2) */
+  pledgeVersion?: PledgeVersion;
 }
 
 export function ProfileCertificate({
@@ -40,7 +44,12 @@ export function ProfileCertificate({
   profileUrl,
   acceptanceCount = 0,
   exportMode = false,
+  pledgeVersion = 2,
 }: ProfileCertificateProps) {
+  // Get the pledge content for this version
+  const pledgeContent = PLEDGE_VERSIONS[pledgeVersion];
+  const isV2 = pledgeVersion === 2;
+
   return (
     <div
       className="relative rounded-lg p-8 md:p-12 bg-[#FDFBF7] dark:bg-card shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)]"
@@ -57,11 +66,17 @@ export function ProfileCertificate({
             className="text-3xl md:text-4xl font-serif tracking-wide text-[#1A1A1A] dark:text-foreground"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
-            {PLEDGE_TEXT.title}
+            {pledgeContent.title}
           </h2>
           <p className="text-xs text-[#1A1A1A]/60 dark:text-muted-foreground uppercase tracking-[0.2em] font-sans">
-            {PLEDGE_TEXT.subtitle}
+            {pledgeContent.subtitle}
           </p>
+          {/* V2: Show header tagline */}
+          {isV2 && 'header' in pledgeContent && (
+            <p className="text-sm text-[#1A1A1A]/80 dark:text-muted-foreground italic mt-2">
+              {pledgeContent.header}
+            </p>
+          )}
         </div>
 
         {/* Commitment Statement */}
@@ -81,22 +96,34 @@ export function ProfileCertificate({
         {/* Your Right Section */}
         <div className="space-y-4">
           <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
-            {PLEDGE_TEXT.yourRight.heading}
+            {pledgeContent.yourRight.heading}
           </h4>
           <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
-            <YourRightTextTailwind />
+            <YourRightTextTailwind version={pledgeVersion} />
           </p>
         </div>
 
         {/* My Promise Section */}
         <div className="space-y-4">
           <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
-            {PLEDGE_TEXT.myPromise.heading}
+            {pledgeContent.myPromise.heading}
           </h4>
           <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
-            <MyPromiseTextTailwind />
+            <MyPromiseTextTailwind version={pledgeVersion} />
           </p>
         </div>
+
+        {/* V2: The Exception Section */}
+        {isV2 && 'exception' in pledgeContent && (
+          <div className="space-y-4">
+            <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
+              {pledgeContent.exception.heading}
+            </h4>
+            <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground">
+              <ExceptionTextTailwind />
+            </p>
+          </div>
+        )}
 
         {/* Bottom Section - Signature Layout */}
         <div className="pt-8 border-t-2 border-[#002B5C] dark:border-border">
@@ -255,7 +282,7 @@ export function ProfileCertificate({
               </p>
             )}
             <p className="text-xs text-[#1A1A1A]/50 tracking-wide">
-              claritypledge.com
+              understandingpledge.com
             </p>
           </div>
         )}

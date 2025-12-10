@@ -52,7 +52,7 @@ export function SignatureWall() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
-            Meet the Clarity Champions
+            Meet the Understanding Champions
           </h2>
         </div>
 
@@ -183,7 +183,7 @@ export function SignatureWall() {
             size="lg"
             className="text-lg font-semibold"
           >
-            <Link to="/clarity-champions">View All Clarity Champions</Link>
+            <Link to="/understanding-champions">View All Understanding Champions</Link>
           </Button>
         </div>
       </div>

@@ -17,7 +17,7 @@ export function ManifestoSection() {
 
             <p className="text-foreground">
               This is the{" "}
-              <strong className="text-amber-500">Clarity Tax</strong>: the
+              <strong className="text-amber-500">Understanding Tax</strong>: the
               hidden cost of unverified understanding.
             </p>
 
@@ -29,7 +29,7 @@ export function ManifestoSection() {
             </p>
 
             <p className="text-foreground">
-              The Clarity Pledge changes this. It's a public commitment that
+              The Understanding Pledge changes this. It's a public commitment that
               says:{" "}
               <em>
                 "You have the right to verify my understanding. I welcome it. I
@@ -40,7 +40,7 @@ export function ManifestoSection() {
             <p className="text-foreground">
               This isn't about being nice. It's about being real. It's about
               replacing the comfort of assumption with the rigor of alignment.
-              It's about making clarity win over comfort, fear, and ego.
+              It's about making understanding win over comfort, fear, and ego.
             </p>
 
             <p className="text-foreground font-semibold text-xl lg:text-2xl">

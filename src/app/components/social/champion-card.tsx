@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { ClarityLogoMark } from "@/components/ui/clarity-logo";
+import { analytics } from "@/lib/mixpanel";
 
 export interface ChampionCardProps {
   /** Profile ID - kept for API compatibility with ProfileSummary type */
@@ -45,6 +46,7 @@ export function ChampionCard({
       to={`/p/${slug}`}
       className={`group border border-border rounded-lg p-6 bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200 flex flex-col h-full ${className}`}
       style={style}
+      onClick={() => analytics.track('champion_card_clicked', { champion_slug: slug })}
     >
       {/* Avatar and Info */}
       <div className="flex items-start gap-4 mb-4">

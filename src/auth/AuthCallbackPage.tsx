@@ -26,6 +26,7 @@ import { useAuth } from "./useAuth";
 import { LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { generateSlug, getProfile } from "@/app/data/api";
 import * as Sentry from "@sentry/react";
+import { analytics } from "@/lib/mixpanel";
 
 /** Maximum retry attempts for slug conflicts before using timestamp fallback */
 const MAX_SLUG_RETRIES = 3;
@@ -67,6 +68,7 @@ export function AuthCallbackPage() {
             url: window.location.href
           }
         });
+        analytics.track('auth_callback_failed', { reason: 'no_session' });
         setStatus("auth_error");
         console.error("No session found after loading.");
         return;
@@ -114,6 +116,8 @@ export function AuthCallbackPage() {
         reason: existingProfile?.reason || user_metadata.reason,
         avatar_color: existingProfile?.avatarColor || user_metadata.avatar_color,
         is_verified: true,
+        // Preserve existing pledge version for returning users, default to v2 for new signups
+        pledge_version: existingProfile?.pledgeVersion || 2,
       };
 
       console.log('🔄 Profile data to save:', upsertData);
@@ -193,6 +197,7 @@ export function AuthCallbackPage() {
       }
 
       if (upsertError) {
+        analytics.track('auth_callback_failed', { reason: 'profile_upsert_failed' });
         setStatus("Error creating profile. Please contact support.");
         console.error("❌ Error upserting profile:", upsertError);
         console.error("❌ Error details:", {
@@ -203,6 +208,23 @@ export function AuthCallbackPage() {
         });
         return;
       }
+
+      // Identify user and track successful auth
+      analytics.identify(authUser.id);
+      analytics.setUserProperties({
+        email: authUser.email,
+        name,
+        has_role: !!upsertData.role,
+        has_linkedin: !!upsertData.linkedin_url,
+        profile_slug: slug,
+        created_at: new Date().toISOString(),
+      });
+      analytics.track(isReturningUser ? 'login_complete' : 'profile_created', {
+        slug,
+        has_role: !!upsertData.role,
+        has_linkedin: !!upsertData.linkedin_url,
+        has_reason: !!upsertData.reason,
+      });
 
       // Refresh profile in auth context so nav/header shows correct user data
       // This fixes race condition where initial fetch happened before upsert completed

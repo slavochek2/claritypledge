@@ -1,11 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { ClarityChampionsPage } from "@/app/pages/clarity-champions-page";
 import { ProfilePage } from "@/app/pages/profile-page";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
-import { ServicesPage } from "@/app/pages/services-page";
+import { AboutPage } from "@/app/pages/about-page";
 import { FullArticlePage } from "@/app/pages/full-article-page";
 import { LoginPage } from "@/app/pages/login-page";
 import { SignPledgePage } from "@/app/pages/sign-pledge-page";
@@ -91,7 +91,7 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
-          path="/clarity-champions"
+          path="/understanding-champions"
           element={
             <ClarityLandingLayout>
               <ClarityChampionsPage />
@@ -99,11 +99,17 @@ export default function ClarityPledgeApp() {
           }
         />
 
+        {/* Redirect old route for backwards compatibility */}
         <Route
-          path="/our-services"
+          path="/clarity-champions"
+          element={<Navigate to="/understanding-champions" replace />}
+        />
+
+        <Route
+          path="/about"
           element={
             <ClarityLandingLayout>
-              <ServicesPage />
+              <AboutPage />
             </ClarityLandingLayout>
           }
         />

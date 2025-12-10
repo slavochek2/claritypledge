@@ -1,5 +1,5 @@
 /**
- * Core TypeScript interfaces for the Clarity Pledge application
+ * Core TypeScript interfaces for the Understanding Pledge application
  */
 
 export interface Witness {
@@ -23,6 +23,7 @@ export interface Profile {
   witnesses: Witness[];
   reciprocations: number;
   avatarColor?: string;
+  pledgeVersion?: number; // 1 = Understanding Pledge (v1), 2 = Understanding Pledge (v2)
 }
 
 /**
@@ -66,6 +67,7 @@ export interface DbProfile {
   is_verified: boolean;
   witnesses?: DbWitness[];
   avatar_color?: string;
+  pledge_version?: number;
 }
 
 /**

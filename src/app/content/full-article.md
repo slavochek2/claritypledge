@@ -1,6 +1,5 @@
 # The Clarity Tax: A Coordination Failure Externality
 
-**Author:** Vyacheslav Ladischenski  
 **Date:** November 2025
 
 ---

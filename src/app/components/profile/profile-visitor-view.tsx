@@ -93,6 +93,7 @@ export function ProfileVisitorView({
           avatarColor={profile.avatarColor}
           showQrCode={true}
           profileUrl={profileUrl}
+          pledgeVersion={profile.pledgeVersion as 1 | 2}
         />
       </div>
 

@@ -18,8 +18,8 @@ const sizeMap = {
 } as const;
 
 /**
- * Clarity Pledge logo component.
- * Uses the same "C" mark as the favicon for brand consistency.
+ * Understanding Pledge logo component.
+ * Uses the same "U" mark as the favicon for brand consistency.
  */
 export function ClarityLogo({
   size = "md",
@@ -30,7 +30,7 @@ export function ClarityLogo({
 
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      {/* Logo Mark - matches favicon design */}
+      {/* Logo Mark - U shape matches favicon design */}
       <svg
         width={icon}
         height={icon}
@@ -41,7 +41,7 @@ export function ClarityLogo({
       >
         <rect width="128" height="128" rx="24" fill="currentColor" className="text-foreground" />
         <path
-          d="M88 40.5C82 35 73 32 64 32C44 32 32 48 32 64C32 80 44 96 64 96C73 96 82 93 88 87.5"
+          d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
           stroke="currentColor"
           strokeWidth="14"
           strokeLinecap="round"
@@ -52,7 +52,7 @@ export function ClarityLogo({
 
       {!iconOnly && (
         <span className={cn("font-bold tracking-tight", text)}>
-          Clarity Pledge
+          Understanding Pledge
         </span>
       )}
     </span>
@@ -82,7 +82,7 @@ export function ClarityLogoMark({
     >
       <rect width="128" height="128" rx="24" fill="currentColor" className="text-foreground" />
       <path
-        d="M88 40.5C82 35 73 32 64 32C44 32 32 48 32 64C32 80 44 96 64 96C73 96 82 93 88 87.5"
+        d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
         stroke="currentColor"
         strokeWidth="14"
         strokeLinecap="round"

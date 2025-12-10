@@ -6,8 +6,8 @@ export function CTASection() {
       <div className="container mx-auto max-w-5xl text-center">
         {/* Headline */}
         <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-8">
-          We all crave clarity<br className="hidden sm:block" />
-          <span className="text-blue-500"> Let's commit.</span>
+          We all crave being understood<br className="hidden sm:block" />
+          <span className="text-blue-500"> Let's commit to listen.</span>
         </h2>
 
         {/* Body */}
@@ -21,7 +21,7 @@ export function CTASection() {
           to="/sign-pledge"
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
         >
-          Take the Clarity Pledge
+          Take the Understanding Pledge
         </Link>
       </div>
     </section>

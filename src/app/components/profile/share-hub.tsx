@@ -14,6 +14,7 @@ import {
 import { ExportCertificate } from "./export-certificate";
 import { PLEDGE_TEXT } from "@/app/content/pledge-text";
 import { copyToClipboard } from "@/lib/utils";
+import { analytics } from "@/lib/mixpanel";
 
 interface ShareHubProps {
   profileUrl: string;
@@ -60,13 +61,15 @@ export function ShareHub({
 
       // Create download link
       const link = document.createElement("a");
-      link.download = `clarity-pledge-${slug}.png`;
+      link.download = `understanding-pledge-${slug}.png`;
       link.href = dataUrl;
       link.click();
 
+      analytics.track('certificate_downloaded', { profile_slug: slug });
       toast.success("Certificate downloaded!");
     } catch (error) {
       console.error("Failed to export certificate:", error);
+      analytics.track('certificate_download_failed', { profile_slug: slug });
       toast.error("Failed to download certificate. Try taking a screenshot instead.");
     } finally {
       setIsExporting(false);
@@ -76,6 +79,7 @@ export function ShareHub({
   const handleCopyLink = async () => {
     const success = await copyToClipboard(profileUrl);
     if (success) {
+      analytics.track('share_link_copied', { profile_slug: slug });
       setCopied(true);
       toast.success("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
@@ -84,7 +88,7 @@ export function ShareHub({
     }
   };
 
-  const linkedInPostText = `I signed the Clarity Pledge - a public commitment to clear communication.
+  const linkedInPostText = `I signed the Understanding Pledge - a public commitment to clear communication.
 
 YOUR RIGHT: ${PLEDGE_TEXT.yourRight.text}
 
@@ -92,9 +96,10 @@ MY PROMISE: ${PLEDGE_TEXT.myPromise.text}
 
 See my pledge: ${profileUrl}
 
-#ClarityPledge #Communication #Leadership`;
+#UnderstandingPledge #Communication #Leadership`;
 
   const shareOnLinkedIn = () => {
+    analytics.track('share_linkedin_clicked', { profile_slug: slug, is_owner: isOwner });
     const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
       profileUrl
     )}`;
@@ -104,6 +109,7 @@ See my pledge: ${profileUrl}
   const handleCopyLinkedInText = async () => {
     const success = await copyToClipboard(linkedInPostText);
     if (success) {
+      analytics.track('linkedin_text_copied', { profile_slug: slug });
       setLinkedInTextCopied(true);
       toast.success("Text copied!");
       setTimeout(() => setLinkedInTextCopied(false), 2000);
@@ -113,24 +119,25 @@ See my pledge: ${profileUrl}
   };
 
   const handleEmailInvite = () => {
+    analytics.track('share_email_clicked', { profile_slug: slug });
     const firstName = profileName.split(" ")[0];
     const subject = encodeURIComponent(
-      `${profileName} invited you to accept their Clarity Pledge`
+      `${profileName} invited you to accept their Understanding Pledge`
     );
     const body = encodeURIComponent(
       `Hi,
 
-I signed the Clarity Pledge - a public commitment to prevent dangerous misunderstandings through clear communication.
+I signed the Understanding Pledge - a public commitment to prevent dangerous misunderstandings through clear communication.
 
 I'd be honored if you'd accept my pledge:
 ${profileUrl}
 
-The Clarity Pledge means I commit to:
+The Understanding Pledge means I commit to:
 • Asking "What did you understand?" instead of "Do you understand?"
 • Welcoming requests for clarification without judgment
 • Taking responsibility for being understood, not just speaking
 
-Learn more at claritypledge.com
+Learn more at understandingpledge.com
 
 Best,
 ${firstName}`
@@ -148,7 +155,7 @@ ${firstName}`
           <div>
             <h2 className="text-xl font-bold text-foreground">Share Your Pledge</h2>
             <p className="text-sm text-muted-foreground">
-              Invite others to accept your commitment to clarity
+              Invite others to accept your commitment to understanding
             </p>
           </div>
         </div>
@@ -179,7 +186,14 @@ ${firstName}`
 
           {/* LinkedIn */}
           <button
-            onClick={() => isOwner ? setShowLinkedInGuide(!showLinkedInGuide) : shareOnLinkedIn()}
+            onClick={() => {
+              if (isOwner) {
+                analytics.track('linkedin_guide_opened', { profile_slug: slug });
+                setShowLinkedInGuide(!showLinkedInGuide);
+              } else {
+                shareOnLinkedIn();
+              }
+            }}
             className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background hover:bg-muted/50 transition-colors text-left"
           >
             <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-[#0A66C2]/10 flex items-center justify-center">
