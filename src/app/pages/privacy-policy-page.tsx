@@ -116,7 +116,7 @@ export function PrivacyPolicyPage() {
             <p className="text-muted-foreground leading-relaxed mt-4">
               To exercise any of these rights, contact us at{" "}
               <span className="text-blue-600 dark:text-blue-400">
-                privacy [at] claritypledge [dot] com
+                contact [at] understandingpledge [dot] com
               </span>
             </p>
           </section>
@@ -143,7 +143,7 @@ export function PrivacyPolicyPage() {
             <p className="text-muted-foreground leading-relaxed">
               Questions about this policy? Contact us at{" "}
               <span className="text-blue-600 dark:text-blue-400">
-                privacy [at] claritypledge [dot] com
+                contact [at] understandingpledge [dot] com
               </span>
             </p>
           </section>

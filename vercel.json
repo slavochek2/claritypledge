@@ -1,4 +1,18 @@
 {
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "claritypledge.com" }],
+      "destination": "https://understandingpledge.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.claritypledge.com" }],
+      "destination": "https://understandingpledge.com/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/((?!api|_next|.*\\..*).*)", "destination": "/index.html" }
   ],

@@ -143,7 +143,7 @@ export function TermsOfServicePage() {
             <p className="text-muted-foreground leading-relaxed">
               Questions about these terms? Contact us at{" "}
               <span className="text-blue-600 dark:text-blue-400">
-                privacy [at] claritypledge [dot] com
+                contact [at] understandingpledge [dot] com
               </span>
             </p>
           </section>
