@@ -74,7 +74,7 @@ export function ClarityPledgeLanding() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative overflow-x-hidden">
       {/* Navigation */}
       <SimpleNavigation />
 

@@ -41,12 +41,13 @@ export function ClarityTaxSection() {
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
               We all crave being understood.
+              <br className="hidden sm:block" />
               <span
-                className={`block transition-all duration-1000 delay-300 text-blue-500 ${
+                className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                Let's commit to listen.
+                {" "}Let's commit to listen.
               </span>
             </h1>
 
