@@ -360,17 +360,34 @@ This mechanism works because:
 
 This is not about forcing compliance. It's about creating transparent choice and allowing people to self-select into environments where intellectual integrity is the explicit norm.
 
-### Part B: The Practice—The Reality Gap Test (Elevated CLC)
+### Part B: The Diagnostic—The Understanding Gap Test
 
-The **Clarity Principle** provides the authorization (the "Right"); the **Reality Gap Test** provides the tool (the "How").
+Before we can solve the problem, we must see it. The biggest barrier to mutual understanding is not that we are bad at listening, but that we are **miscalibrated**. We systematically overestimate how well we understand others.
 
-Once the commitment is in place, the practice becomes straightforward. But it requires more than just repeating words.
+Standard communication provides no metric for this error. We walk away feeling "9/10" confident, while our actual understanding might be "4/10". This mismatch is the **Understanding Gap**.
 
-Standard Closed-Loop Communication (like ordering coffee: "One latte?" "One latte.") only checks transmission fidelity. It solves "Did I hear you?" but leaves the **Reality Gap** wide open. We might agree on the words but mean completely different things.
+To see this gap, we use the **Understanding Gap Test**. This is a calibration exercise designed to expose the **Illusion of Shared Reality** and prove the necessity of verification.
 
-To solve the Illusion of Shared Reality, we need to elevate this to a **Reality Gap Test**. We do this by adding a **"Because" clause**—reading back not just the *what*, but the *why* (the intent).
+**The Understanding Gap Test:**
+1.  **Paraphrase:** The Listener plays back what they heard to the Speaker.
+2.  **Estimate (The Bet):** The Listener rates their confidence: *"On a scale of 0-10, how well do I believe I understand the Speaker's idea?"* (e.g., "I feel I got it perfectly: 9/10").
+3.  **Calibrate:** The Speaker rates the accuracy of the playback: *"On a scale of 0-10, how accurately does that reflect my actual intent?"* (e.g., "You missed the core nuance: 4/10").
+4.  **The Reveal:** Compare the numbers.
 
-This protocol is effectively an operational version of the **Ideological Turing Test**. While the Ideological Turing Test asks you to argue an opponent's philosophy until they agree you understand it, the **Reality Gap Test** asks you to simulate your colleague's *operational intent* until they confirm you share their reality. It brings the rigor of high-level intellectual debate down to the practical level of project execution.
+**The Insight:**
+The difference between the Listener's confidence (9/10) and the Speaker's rating (4/10) is the **Understanding Calibration Gap**. This number quantifies the **Dunning-Kruger effect** of that specific interaction.
+
+When teams practice this, they almost always discover they are significantly overconfident. This objective data point is transformative. It proves that the "feeling of understanding" is an unreliable signal.
+
+Once a person sees their own calibration gap, the value equation changes. They stop viewing verification as "wasting time" and start viewing it as essential error correction. They realize that **Closed-Loop Communication** is not "extra work"—it is the only way to close the gap they now know exists.
+
+### Part C: The Practice—The Clarity Protocol
+
+Once we accept that we cannot trust our "feeling" of understanding, we need a reliable protocol to ensure it.
+
+Standard Closed-Loop Communication (like ordering coffee: "One latte?" "One latte.") checks transmission fidelity ("Did I hear the words?") but leaves the meaning ambiguous. We need to verify the *mental model*, not just the text.
+
+To do this, we use the **Understanding Pledge** (an elevated form of Closed-Loop Communication). The core mechanism is adding a **"Because" clause**—reading back not just the *what*, but the *why* (the intent).
 
 **The Protocol:**
 1.  **Sender:** States the message. ("We need to ship by Friday.")
@@ -380,18 +397,7 @@ This protocol is effectively an operational version of the **Ideological Turing 
 **The Result:**
 The action (Ship Friday) was identical, but the *Reality* (Competitor vs. Budget) was totally different. Without the "Because" clause, they would have proceeded in a **Shared Hallucination**—aligned on action but misaligned on strategy.
 
-**The Function: Reality Calibration**
-
-Think of this protocol as **Reality Calibration**.
-
-*(Note: This is distinct from "confidence calibration" in forecasting, which measures how well your confidence matches objective outcomes. Reality Calibration measures our ability to accurately estimate the difference between our mental maps.)*
-
-Just as engineers calibrate two instruments to know exactly how their readings differ, we must calibrate our mental models. The goal is to become **aware of the uncertainty**. The problem is not just that we misunderstand each other, but that we are numb to the difference—we mistakenly believe we share a reality when we don't.
-
-The "playback" is the **Reality Gap Test**. It reveals the fog so we can choose when to clear it. It acts like a "Diff Checker" in software engineering:
-
-*   **It guarantees Visibility, not Agreement.** It ensures we are both looking at the same map.
-*   **It reveals the Reality Gap.** If the gap is small, the protocol bridges it (convergence). If the gap is fundamental (e.g., different values), the protocol highlights it immediately so you can walk away instead of wasting weeks on a "false agreement."
+This protocol is effectively an operational version of the **Ideological Turing Test**: you must simulate your colleague's *operational intent* until they confirm you share their reality.
 
 **Example in Practice:**
 - Manager: "We need the report by EOD Friday"
@@ -399,11 +405,9 @@ The "playback" is the **Reality Gap Test**. It reveals the fog so we can choose 
 - Manager: "Actually, I need the customer satisfaction report, not revenue. But yes, 5pm Friday."
 - Employee: "Got it—customer satisfaction report by 5pm Pacific Friday."
 
-This 30-second exchange just prevented a week of wasted work.
+This 30-second exchange just prevented a week of wasted work. The Clarity Principle removes the psychological barrier to this practice. Instead of the employee worrying "Will I look stupid if I ask for clarification?", they simply exercise the right that has been explicitly granted.
 
-The Clarity Principle removes the psychological barrier to this practice. Instead of the employee worrying "Will I look stupid if I ask for clarification?", they simply exercise the right that has been explicitly granted and the commitment that has been explicitly made.
-
-### Part C: The Reinforcement Loop—Making Alignment Visible
+### Part D: The Reinforcement Loop—Making Alignment Visible
 
 The commitment and the practice are powerful, but they need reinforcement to become a sustained cultural norm. This is where visibility and celebration enter.
 
@@ -419,7 +423,7 @@ This creates a positive feedback loop: The commitment creates permission → Per
 
 For more on how technology might support this, see Appendix B: The Celebration Engine Concept.
 
-### Part D: Handling Objections—Speed, Culture, and Power
+### Part E: Handling Objections—Speed, Culture, and Power
 
 Implementing the Clarity Principle often faces three predictable objections: that it is too slow, that it is socially awkward, or that it undermines authority. Here is how to address them.
 
