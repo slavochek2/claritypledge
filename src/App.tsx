@@ -91,7 +91,7 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
-          path="/understanding-champions"
+          path="/clarity-champions"
           element={
             <ClarityLandingLayout>
               <ClarityChampionsPage />
@@ -101,8 +101,8 @@ export default function ClarityPledgeApp() {
 
         {/* Redirect old route for backwards compatibility */}
         <Route
-          path="/clarity-champions"
-          element={<Navigate to="/understanding-champions" replace />}
+          path="/understanding-champions"
+          element={<Navigate to="/clarity-champions" replace />}
         />
 
         <Route

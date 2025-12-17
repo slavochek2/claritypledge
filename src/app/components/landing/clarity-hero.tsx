@@ -37,7 +37,7 @@ export function ClarityHero({ onSignPledge }: ClarityHeroProps) {
       <div className="container mx-auto max-w-5xl text-center">
         {/* Main Headline */}
         <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 leading-tight">
-          Sign the Understanding Pledge
+          Sign the Clarity Pledge
         </h1>
 
         {/* Subheadline */}

@@ -20,7 +20,7 @@ interface ExportCertificateProps {
 export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificateProps>(
   ({ name, role, signedAt, slug, acceptanceCount, avatarColor }, ref) => {
     // Use production domain for QR code (export is for sharing externally)
-    const profileUrl = `https://understandingpledge.com/p/${slug}`;
+    const profileUrl = `https://claritypledge.com/p/${slug}`;
 
     // Truncate long names/roles
     const displayName = name.length > 30 ? name.slice(0, 27) + "..." : name;
@@ -339,7 +339,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                   margin: 0,
                 }}
               >
-                understandingpledge.com
+                claritypledge.com
               </p>
             </div>
           </div>

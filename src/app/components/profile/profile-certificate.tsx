@@ -28,7 +28,7 @@ interface ProfileCertificateProps {
   acceptanceCount?: number;
   /** Export mode: shows acceptance count and watermark at bottom */
   exportMode?: boolean;
-  /** Pledge version: 1 = Understanding Pledge (v1), 2 = Understanding Pledge (v2) */
+  /** Pledge version: 1 = Clarity Pledge (v1), 2 = Clarity Pledge (v2) */
   pledgeVersion?: PledgeVersion;
 }
 
@@ -282,7 +282,7 @@ export function ProfileCertificate({
               </p>
             )}
             <p className="text-xs text-[#1A1A1A]/50 tracking-wide">
-              understandingpledge.com
+              claritypledge.com
             </p>
           </div>
         )}

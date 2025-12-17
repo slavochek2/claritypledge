@@ -1,6 +1,6 @@
 /**
  * @file sign-pledge-page.tsx
- * @description This page is where new users officially sign the Polymet Understanding Pledge.
+ * @description This page is where new users officially sign the Clarity Pledge.
  * It contains a form that collects the user's name, email, and other optional information.
  * This is the primary conversion point for the entire application.
  * After the user submits the form, it triggers the authentication flow (sending a magic link)

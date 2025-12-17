@@ -18,8 +18,8 @@ const sizeMap = {
 } as const;
 
 /**
- * Understanding Pledge logo component.
- * Uses the same "U" mark as the favicon for brand consistency.
+ * Clarity Pledge logo component.
+ * Uses the same mark as the favicon for brand consistency.
  */
 export function ClarityLogo({
   size = "md",
@@ -52,7 +52,7 @@ export function ClarityLogo({
 
       {!iconOnly && (
         <span className={cn("font-bold tracking-tight", text)}>
-          Understanding Pledge
+          Clarity Pledge
         </span>
       )}
     </span>

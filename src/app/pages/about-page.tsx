@@ -1,6 +1,6 @@
 /**
  * @file about-page.tsx
- * @description About page for the Understanding Pledge movement.
+ * @description About page for the Clarity Pledge movement.
  * Contains the founder's story, open source information, and a contact form.
  */
 import { useState } from "react";
@@ -32,8 +32,8 @@ export function AboutPage() {
       formPayload.append("access_key", "5c88ffaa-4e5a-4c82-9c73-e7fb0ad3ad01");
       formPayload.append("email", formData.email);
       formPayload.append("message", formData.message);
-      formPayload.append("subject", "Understanding Pledge - Contact");
-      formPayload.append("from_name", "Understanding Pledge - About Page");
+      formPayload.append("subject", "Clarity Pledge - Contact");
+      formPayload.append("from_name", "Clarity Pledge - About Page");
 
       const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
@@ -74,7 +74,7 @@ export function AboutPage() {
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-            About the Understanding Pledge
+            About the Clarity Pledge
           </h1>
           <p className="text-xl text-muted-foreground">
             The Story Behind the Movement
@@ -86,7 +86,7 @@ export function AboutPage() {
           <div className="bg-card border border-border rounded-lg p-8">
             <div className="space-y-6">
               <p className="text-lg leading-relaxed text-muted-foreground">
-                Before the Understanding Pledge, I spent years in B2B sales and as a founder: raising over $392k for a SaaS startup, parting ways with multiple co-founders, and coaching teams on how to close deals instead of just talk about them. Again and again, the most expensive mistakes came from misalignment, vague promises, and conversations where everyone nodded but nobody meant the same thing.
+                Before the Clarity Pledge, I spent years in B2B sales and as a founder: raising over $392k for a SaaS startup, parting ways with multiple co-founders, and coaching teams on how to close deals instead of just talk about them. Again and again, the most expensive mistakes came from misalignment, vague promises, and conversations where everyone nodded but nobody meant the same thing.
               </p>
 
               <p className="text-lg leading-relaxed text-muted-foreground">
@@ -109,7 +109,7 @@ export function AboutPage() {
               </p>
 
               <p className="text-lg leading-relaxed text-muted-foreground">
-                The Understanding Pledge started as my survival mechanism. A practical fix. I began documenting every painful mistake—around hiring, partners, and trust—and turning them into simple, testable rules. Influenced by tools like Ray Dalio's <em>Principles</em>, I refined pages of notes into the core commitments that now form the pledge.
+                The Clarity Pledge started as my survival mechanism. A practical fix. I began documenting every painful mistake—around hiring, partners, and trust—and turning them into simple, testable rules. Influenced by tools like Ray Dalio's <em>Principles</em>, I refined pages of notes into the core commitments that now form the pledge.
               </p>
 
               <p className="text-lg leading-relaxed text-foreground font-medium">

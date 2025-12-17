@@ -193,7 +193,7 @@ export function SignPledgeForm({
 
           <div className="space-y-1 md:space-y-2">
             <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
-              What past experiences motivate you to take the Understanding Pledge?
+              What past experiences motivate you to take the Clarity Pledge?
             </Label>
             <textarea
               id="reason"

@@ -29,7 +29,7 @@ export function ManifestoSection() {
             </p>
 
             <p className="text-foreground">
-              The Understanding Pledge changes this. It's a public commitment that
+              The Clarity Pledge changes this. It's a public commitment that
               says:{" "}
               <em>
                 "You have the right to verify my understanding. I welcome it. I

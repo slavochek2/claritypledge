@@ -1,7 +1,7 @@
 /**
- * @file understanding-champions-page.tsx
- * @description This page displays a gallery of all the users who have signed the Understanding Pledge and have been verified.
- * It's a public-facing page that showcases the community of "Understanding Champions".
+ * @file clarity-champions-page.tsx
+ * @description This page displays a gallery of all the users who have signed the Clarity Pledge and have been verified.
+ * It's a public-facing page that showcases the community of "Clarity Champions".
  * It fetches the profiles from the database and displays them in a grid,
  * allowing visitors to see who has taken the pledge and view their profiles.
  */
@@ -71,7 +71,7 @@ export function ClarityChampionsPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold">
-            Understanding Champions
+            Clarity Champions
           </h1>
         </div>
 

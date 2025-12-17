@@ -63,14 +63,14 @@ export function ClarityTaxSection() {
               to="/sign-pledge"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
             >
-              Take the Understanding Pledge
+              Take the Clarity Pledge
             </Link>
           </div>
 
           {/* Social Proof - Compact Avatar Stack */}
           {totalCount > 0 && profiles.length > 0 && (
             <Link
-              to="/understanding-champions"
+              to="/clarity-champions"
               className="flex flex-col items-center gap-2 group pt-2"
             >
               {/* Mobile: Show limited avatars */}

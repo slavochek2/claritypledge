@@ -31,7 +31,7 @@ export function HowItWorks() {
             Why it matters
           </h2>
           <p className="text-2xl lg:text-3xl text-muted-foreground font-medium">
-            Understanding Pledge Improves the Communication Culture
+            Clarity Pledge Improves the Communication Culture
           </p>
         </div>
 

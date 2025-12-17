@@ -4,8 +4,8 @@ import { ReactNode } from "react";
  * Centralized pledge text content with versioning support.
  * Single source of truth for all pledge wording across the application.
  *
- * Version 1: "The Understanding Pledge" - Original pledge text (renamed from Clarity Pledge)
- * Version 2: "The Understanding Pledge" - Updated pledge text (Dec 2024)
+ * Version 1: "The Clarity Pledge" - Original pledge text
+ * Version 2: "The Clarity Pledge" - Updated pledge text (Dec 2024)
  *
  * Used by:
  * - ProfileCertificate (profile page display)
@@ -34,7 +34,7 @@ export const PLEDGE_VERSIONS = {
     },
   },
   2: {
-    title: "The Understanding Pledge",
+    title: "The Clarity Pledge",
     subtitle: "A Public Promise",
     header: "We all crave being understood. Let's commit to listen.",
     commitmentIntro: (name: string) =>

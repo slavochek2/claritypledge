@@ -1,6 +1,6 @@
 /**
  * @file clarity-pledge-landing.tsx
- * @description This is the main landing page for the Polymet Understanding Pledge.
+ * @description This is the main landing page for the Clarity Pledge.
  * It serves as the primary entry point for new visitors, explaining what the pledge is,
  * why it's important, and how it works. It's composed of several sections,
  * each highlighting a different aspect of the pledge, from the "clarity tax" to the benefits of signing.
@@ -89,7 +89,7 @@ export function ClarityPledgeLanding() {
           <div className="container mx-auto max-w-4xl px-4">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Get your understanding certificate
+                Get your clarity certificate
               </h2>
               <p className="text-lg text-muted-foreground">
                 Prevent the rework, mistakes and mistrust caused by false agreements.
@@ -98,10 +98,10 @@ export function ClarityPledgeLanding() {
             <ProfileCertificate
               name="Vyacheslav Ladischenski"
               signedAt="2025-11-01"
-              role="Founder, The Understanding Pledge"
+              role="Founder, The Clarity Pledge"
               linkedinUrl="https://linkedin.com/in/ladischenski"
               showQrCode={true}
-              profileUrl="https://understandingpledge.com/p/slava"
+              profileUrl="https://claritypledge.com/p/slava"
               photoUrl="/founder-photo.jpg"
             />
           </div>

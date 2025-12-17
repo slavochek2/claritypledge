@@ -2,26 +2,26 @@
   "redirects": [
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "claritypledge.com" }],
-      "destination": "https://understandingpledge.com/",
+      "has": [{ "type": "host", "value": "understandingpledge.com" }],
+      "destination": "https://claritypledge.com/",
       "permanent": true
     },
     {
       "source": "/:path(.*)",
-      "has": [{ "type": "host", "value": "claritypledge.com" }],
-      "destination": "https://understandingpledge.com/:path",
+      "has": [{ "type": "host", "value": "understandingpledge.com" }],
+      "destination": "https://claritypledge.com/:path",
       "permanent": true
     },
     {
       "source": "/",
-      "has": [{ "type": "host", "value": "www.claritypledge.com" }],
-      "destination": "https://understandingpledge.com/",
+      "has": [{ "type": "host", "value": "www.understandingpledge.com" }],
+      "destination": "https://claritypledge.com/",
       "permanent": true
     },
     {
       "source": "/:path(.*)",
-      "has": [{ "type": "host", "value": "www.claritypledge.com" }],
-      "destination": "https://understandingpledge.com/:path",
+      "has": [{ "type": "host", "value": "www.understandingpledge.com" }],
+      "destination": "https://claritypledge.com/:path",
       "permanent": true
     }
   ],

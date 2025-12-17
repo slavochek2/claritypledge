@@ -25,7 +25,7 @@ export function PledgeCard({
         {/* Section Header - Simplified */}
         <div className="text-center mb-12 lg:mb-16">
           <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
-            Sign the Understanding Pledge
+            Sign the Clarity Pledge
           </h2>
           <p className="text-xl lg:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             A public promise to{" "}

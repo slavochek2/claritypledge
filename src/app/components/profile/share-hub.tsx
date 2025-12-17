@@ -61,7 +61,7 @@ export function ShareHub({
 
       // Create download link
       const link = document.createElement("a");
-      link.download = `understanding-pledge-${slug}.png`;
+      link.download = `clarity-pledge-${slug}.png`;
       link.href = dataUrl;
       link.click();
 
@@ -88,7 +88,7 @@ export function ShareHub({
     }
   };
 
-  const linkedInPostText = `I signed the Understanding Pledge - a public commitment to clear communication.
+  const linkedInPostText = `I signed the Clarity Pledge - a public commitment to clear communication.
 
 YOUR RIGHT: ${PLEDGE_TEXT.yourRight.text}
 
@@ -96,7 +96,7 @@ MY PROMISE: ${PLEDGE_TEXT.myPromise.text}
 
 See my pledge: ${profileUrl}
 
-#UnderstandingPledge #Communication #Leadership`;
+#ClarityPledge #Communication #Leadership`;
 
   const shareOnLinkedIn = () => {
     analytics.track('share_linkedin_clicked', { profile_slug: slug, is_owner: isOwner });
@@ -122,22 +122,22 @@ See my pledge: ${profileUrl}
     analytics.track('share_email_clicked', { profile_slug: slug });
     const firstName = profileName.split(" ")[0];
     const subject = encodeURIComponent(
-      `${profileName} invited you to accept their Understanding Pledge`
+      `${profileName} invited you to accept their Clarity Pledge`
     );
     const body = encodeURIComponent(
       `Hi,
 
-I signed the Understanding Pledge - a public commitment to prevent dangerous misunderstandings through clear communication.
+I signed the Clarity Pledge - a public commitment to prevent dangerous misunderstandings through clear communication.
 
 I'd be honored if you'd accept my pledge:
 ${profileUrl}
 
-The Understanding Pledge means I commit to:
+The Clarity Pledge means I commit to:
 • Asking "What did you understand?" instead of "Do you understand?"
 • Welcoming requests for clarification without judgment
 • Taking responsibility for being understood, not just speaking
 
-Learn more at understandingpledge.com
+Learn more at claritypledge.com
 
 Best,
 ${firstName}`

@@ -21,7 +21,7 @@ export function CTASection() {
           to="/sign-pledge"
           className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
         >
-          Take the Understanding Pledge
+          Take the Clarity Pledge
         </Link>
       </div>
     </section>

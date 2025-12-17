@@ -6,9 +6,9 @@ This file provides guidance for AI agents working with code in this repository.
 
 ## Project Overview
 
-The Understanding Pledge (formerly "Clarity Pledge") is a web application where professionals publicly commit to clear communication. Users sign a pledge via magic link authentication, receive a public profile page with a shareable certificate, and can collect endorsements from colleagues.
+The Clarity Pledge is a web application where professionals publicly commit to clear communication. Users sign a pledge via magic link authentication, receive a public profile page with a shareable certificate, and can collect endorsements from colleagues.
 
-**Domain:** `understandingpledge.com` (old domain `claritypledge.com` redirects via Vercel)
+**Domain:** `claritypledge.com` (old domain `understandingpledge.com` redirects via Vercel)
 
 **Tech Stack:** React 19 + TypeScript + Vite + Supabase (PostgreSQL + Auth) + Tailwind CSS + Radix UI
 
@@ -228,7 +228,7 @@ interface Witness {
 
 - **Web3Forms API key in source**: The contact form on `/about` uses Web3Forms with a hardcoded access key. This is intentional - Web3Forms access keys are designed to be public (like Stripe publishable keys). Moving to env var is nice-to-have.
 - **Mixpanel token in index.html**: Similarly, Mixpanel tokens are client-side by design. Environment variable would be cleaner but not a security issue.
-- **Legacy "Clarity" naming in code**: Many component names still use "Clarity" prefix (e.g., `ClarityPledgeApp`, `ClarityChampionsPage`). This is intentional to avoid massive refactor - the user-facing text has been updated to "Understanding Pledge".
+- **"Clarity" naming in code**: Component names use "Clarity" prefix (e.g., `ClarityPledgeApp`, `ClarityChampionsPage`) which matches the brand name "Clarity Pledge".
 - **Pledge Version 1 shows "Clarity Pledge"**: In `pledge-text.tsx`, version 1 of the pledge intentionally keeps the original "Clarity Pledge" title for historical accuracy. Users who signed v1 see their original pledge text.
 
 ## Code Style Conventions

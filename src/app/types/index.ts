@@ -1,5 +1,5 @@
 /**
- * Core TypeScript interfaces for the Understanding Pledge application
+ * Core TypeScript interfaces for the Clarity Pledge application
  */
 
 export interface Witness {
@@ -23,7 +23,7 @@ export interface Profile {
   witnesses: Witness[];
   reciprocations: number;
   avatarColor?: string;
-  pledgeVersion?: number; // 1 = Understanding Pledge (v1), 2 = Understanding Pledge (v2)
+  pledgeVersion?: number; // 1 = Clarity Pledge (v1), 2 = Clarity Pledge (v2)
 }
 
 /**

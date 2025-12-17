@@ -1,6 +1,6 @@
 /**
  * @file terms-of-service-page.tsx
- * @description Terms of Service page for The Understanding Pledge.
+ * @description Terms of Service page for The Clarity Pledge.
  * Outlines the rules and expectations for using the platform.
  */
 import { Link } from "react-router-dom";
@@ -24,18 +24,18 @@ export function TermsOfServicePage() {
         {/* Content */}
         <div className="prose prose-lg dark:prose-invert max-w-none space-y-8">
           <section>
-            <h2 className="text-2xl font-bold mb-4">Welcome to The Understanding Pledge</h2>
+            <h2 className="text-2xl font-bold mb-4">Welcome to The Clarity Pledge</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By signing The Understanding Pledge or using our website, you agree to these terms.
+              By signing The Clarity Pledge or using our website, you agree to these terms.
               Please read them carefully. If you don't agree with these terms, please don't
               use our service.
             </p>
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">What Is The Understanding Pledge?</h2>
+            <h2 className="text-2xl font-bold mb-4">What Is The Clarity Pledge?</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Understanding Pledge is a public commitment platform where professionals pledge
+              The Clarity Pledge is a public commitment platform where professionals pledge
               to communicate clearly, honestly, and without unnecessary jargon. When you sign,
               you receive a public profile page and a shareable certificate that demonstrates
               your commitment.
@@ -103,7 +103,7 @@ export function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Understanding Pledge name, logo, and website design are our property. Your profile
+              The Clarity Pledge name, logo, and website design are our property. Your profile
               content (name, role, reason) remains yours. By posting content, you grant us a
               license to display it publicly as part of the platform.
             </p>
@@ -112,7 +112,7 @@ export function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Disclaimer</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Understanding Pledge is provided "as is" without warranties of any kind. We don't
+              The Clarity Pledge is provided "as is" without warranties of any kind. We don't
               guarantee that signing the pledge will improve your communication skills, advance
               your career, or produce any specific outcome. The pledge is a symbolic commitment,
               not a certification or qualification.
@@ -143,7 +143,7 @@ export function TermsOfServicePage() {
             <p className="text-muted-foreground leading-relaxed">
               Questions about these terms? Contact us at{" "}
               <span className="text-blue-600 dark:text-blue-400">
-                contact [at] understandingpledge [dot] com
+                privacy AT claritypledge DOT com
               </span>
             </p>
           </section>
