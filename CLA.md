@@ -4,7 +4,7 @@ By submitting code, documentation, or any other contribution ("Contribution") to
 
 ## 1. Grant of Rights
 
-You grant to Understanding Pledge and its maintainers a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to:
+You grant to Vyacheslav Ladischenski (and their successors or assigns) a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to:
 
 - Use, reproduce, modify, display, perform, sublicense, and distribute your Contribution
 - Create derivative works from your Contribution

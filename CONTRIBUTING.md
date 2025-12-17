@@ -6,6 +6,8 @@ Welcome! This guide will help you get up and running quickly.
 
 By submitting a pull request, you agree to our [Contributor License Agreement](./CLA.md).
 
+**Why a CLA?** This project uses an [open core](https://en.wikipedia.org/wiki/Open-core_model) model. The CLA ensures we can sustain development through commercial offerings while keeping the core open source. Without it, future contributors could block monetization, making the project unmaintainable.
+
 ## Quick Start
 
 ### 1. Clone and Install
