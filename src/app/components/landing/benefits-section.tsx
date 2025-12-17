@@ -44,7 +44,7 @@ export function BenefitsSection() {
               </h3>
               <p className="text-lg text-muted-foreground leading-relaxed">
                 Checking for understanding feels slower in the moment, but it is
-                infinitely faster in the long run. The &quot;Understanding Tax&quot;—the cost of
+                infinitely faster in the long run. The &quot;Clarity Tax&quot;—the cost of
                 fixing misunderstandings later—is far more expensive than the 30
                 seconds it takes to verify now.
               </p>

@@ -256,7 +256,7 @@ export function FullArticlePage() {
                   We assume we understand each other, but often we're just guessing. When those guesses are wrong, we pay the price—in rework, in mistakes, in conflicts, in broken trust.
                 </p>
                 <p className="text-lg leading-relaxed">
-                  This is the <strong className="text-amber-500">Understanding Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S.
+                  This is the <strong className="text-amber-500">Clarity Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S.
                 </p>
                 <p className="text-lg leading-relaxed">
                   The problem isn't that we're careless—it's that we're human. Cognitive biases make us overestimate how clearly we communicate and how well we understand others. We operate under an <em>illusion of shared reality</em>.
@@ -334,7 +334,7 @@ export function FullArticlePage() {
                         {shouldShowInlineCTA && !isLoadingUser && !currentUser && (
                           <div className="not-prose my-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                             <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-3">
-                              Ready to stop paying the Understanding Tax?
+                              Ready to stop paying the Clarity Tax?
                             </p>
                             <Link
                               to="/sign-pledge"

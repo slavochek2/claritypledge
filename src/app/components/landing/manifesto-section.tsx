@@ -17,7 +17,7 @@ export function ManifestoSection() {
 
             <p className="text-foreground">
               This is the{" "}
-              <strong className="text-amber-500">Understanding Tax</strong>: the
+              <strong className="text-amber-500">Clarity Tax</strong>: the
               hidden cost of unverified understanding.
             </p>
 
