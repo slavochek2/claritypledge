@@ -32,7 +32,8 @@ The Clarity Pledge is a public commitment platform where professionals can:
 ### 1. Clone and Install
 
 ```bash
-cd 22minds/apps/polymet-clarity-pledge-app
+git clone https://github.com/your-username/understanding-pledge.git
+cd understanding-pledge
 npm install
 ```
 
@@ -226,7 +227,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and development 
 
 ## License
 
-Private - All rights reserved
+AGPL-3.0 - See [LICENSE](./LICENSE) for details.
 
 ## Support
 

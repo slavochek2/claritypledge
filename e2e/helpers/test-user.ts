@@ -208,7 +208,7 @@ export async function setTestSession(page: Page, email: string) {
     {
       access_token,
       refresh_token,
-      supabaseUrl: process.env.VITE_SUPABASE_URL || 'https://gfjctyxqlwexxwsmkakq.supabase.co'
+      supabaseUrl: process.env.VITE_SUPABASE_URL!
     }
   );
 

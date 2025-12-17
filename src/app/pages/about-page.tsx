@@ -49,11 +49,11 @@ export function AboutPage() {
           message: "",
         });
       } else {
-        alert("There was an error. Please email slavochek@googlemail.com directly.");
+        alert("There was an error submitting the form. Please try again later.");
       }
     } catch (error) {
       console.error("Form submission error:", error);
-      alert("There was an error. Please email slavochek@googlemail.com directly.");
+      alert("There was an error submitting the form. Please try again later.");
     } finally {
       setIsSubmitting(false);
     }
