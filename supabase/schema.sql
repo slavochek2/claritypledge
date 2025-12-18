@@ -66,3 +66,44 @@ create policy "Authenticated users can insert witnesses"
 --
 -- The old trigger (on_auth_user_created) was removed from production on 2025-12-04
 -- because it created profiles with NULL slugs (metadata didn't include slug).
+
+-- ============================================================================
+-- CLARITY PARTNERS TABLES (P19 MVP)
+-- ============================================================================
+
+-- Sessions (partnership container, expires after 7 days)
+CREATE TABLE public.clarity_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL, -- 6-char room code
+  creator_name TEXT NOT NULL,
+  creator_note TEXT, -- "why I'm inviting you"
+  joiner_name TEXT,
+  state JSONB NOT NULL DEFAULT '{}', -- current UI state for sync
+  demo_status TEXT CHECK (demo_status IN ('waiting', 'in_progress', 'completed')) DEFAULT 'waiting',
+  partnership_status TEXT CHECK (partnership_status IN ('pending', 'accepted', 'declined')) DEFAULT 'pending',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (now() + interval '7 days')
+);
+
+CREATE INDEX idx_clarity_sessions_code ON public.clarity_sessions(code);
+
+-- RLS for clarity_sessions
+ALTER TABLE public.clarity_sessions ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can read sessions (needed for joining)
+CREATE POLICY "Sessions are viewable by everyone"
+  ON public.clarity_sessions FOR SELECT
+  USING (true);
+
+-- Anyone can create sessions (no auth required for MVP)
+CREATE POLICY "Anyone can create sessions"
+  ON public.clarity_sessions FOR INSERT
+  WITH CHECK (true);
+
+-- Anyone can update sessions (for realtime sync)
+CREATE POLICY "Anyone can update sessions"
+  ON public.clarity_sessions FOR UPDATE
+  USING (true);
+
+-- Enable realtime for sync
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_sessions;

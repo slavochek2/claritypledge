@@ -85,3 +85,45 @@ export interface DbProfileSummary {
   avatar_color?: string;
 }
 
+// ============================================================================
+// CLARITY PARTNERS TYPES (P19 MVP)
+// ============================================================================
+
+export type DemoStatus = 'waiting' | 'in_progress' | 'completed';
+export type PartnershipStatus = 'pending' | 'accepted' | 'declined';
+
+export interface ClaritySession {
+  id: string;
+  code: string;
+  creatorName: string;
+  creatorNote?: string;
+  joinerName?: string;
+  state: ClaritySessionState;
+  demoStatus: DemoStatus;
+  partnershipStatus: PartnershipStatus;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface ClaritySessionState {
+  currentLevel?: number;
+  currentRound?: number;
+  speakerName?: string;
+  listenerName?: string;
+  // Extensible for future UI state
+  [key: string]: unknown;
+}
+
+export interface DbClaritySession {
+  id: string;
+  code: string;
+  creator_name: string;
+  creator_note?: string;
+  joiner_name?: string;
+  state: ClaritySessionState;
+  demo_status: DemoStatus;
+  partnership_status: PartnershipStatus;
+  created_at: string;
+  expires_at: string;
+}
+

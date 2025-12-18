@@ -14,6 +14,7 @@ import { PledgeConfirmationPage } from "@/app/pages/pledge-confirmation-page";
 import { PrivacyPolicyPage } from "@/app/pages/privacy-policy-page";
 import { TermsOfServicePage } from "@/app/pages/terms-of-service-page";
 import { SettingsPage } from "@/app/pages/settings-page";
+import { ClarityDemoPage } from "@/app/pages/clarity-demo-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
@@ -166,6 +167,15 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <SettingsPage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/clarity-demo"
+          element={
+            <ClarityLandingLayout>
+              <ClarityDemoPage />
             </ClarityLandingLayout>
           }
         />

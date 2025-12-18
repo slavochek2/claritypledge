@@ -8,10 +8,10 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { AuthError } from '@supabase/supabase-js';
-import type { Profile, ProfileSummary, DbProfile, DbProfileSummary, DbWitness } from '@/app/types';
+import type { Profile, ProfileSummary, DbProfile, DbProfileSummary, DbWitness, ClaritySession, DbClaritySession } from '@/app/types';
 
 // Re-export types for convenience
-export type { Profile, ProfileSummary, Witness } from '@/app/types';
+export type { Profile, ProfileSummary, Witness, ClaritySession } from '@/app/types';
 
 /** Maximum number of featured profiles to fetch (used for SignatureWall on landing page) */
 export const MAX_FEATURED_PROFILES = 6;
@@ -598,4 +598,234 @@ export async function getProfileBySlugResult(slug: string): Promise<ApiResult<Pr
     console.error('Unexpected error in getProfileBySlugResult:', err);
     return { success: false, error: 'server_error' };
   }
+}
+
+// ============================================================================
+// CLARITY PARTNERS API (P19 MVP)
+// ============================================================================
+
+/**
+ * Generates a 6-character alphanumeric room code.
+ */
+function generateRoomCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed confusing chars: I, O, 0, 1
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * Maps database session to frontend ClaritySession type.
+ */
+function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
+  return {
+    id: dbSession.id,
+    code: dbSession.code,
+    creatorName: dbSession.creator_name,
+    creatorNote: dbSession.creator_note,
+    joinerName: dbSession.joiner_name,
+    state: dbSession.state,
+    demoStatus: dbSession.demo_status,
+    partnershipStatus: dbSession.partnership_status,
+    createdAt: dbSession.created_at,
+    expiresAt: dbSession.expires_at,
+  };
+}
+
+/**
+ * Creates a new Clarity Partners session.
+ * @param creatorName - Name of the session creator
+ * @param creatorNote - Optional note explaining why the partner is being invited
+ * @returns The created session
+ */
+export async function createClaritySession(
+  creatorName: string,
+  creatorNote?: string
+): Promise<ClaritySession> {
+  // Generate unique room code (retry if collision)
+  let code = generateRoomCode();
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (attempts < maxAttempts) {
+    const { data, error } = await supabase
+      .from('clarity_sessions')
+      .insert({
+        code,
+        creator_name: creatorName,
+        creator_note: creatorNote,
+        state: {},
+        demo_status: 'waiting',
+        partnership_status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      console.log('✅ Created clarity session:', code);
+      return mapSessionFromDb(data);
+    }
+
+    // If unique constraint violation, try new code
+    if (error?.code === '23505') {
+      code = generateRoomCode();
+      attempts++;
+      continue;
+    }
+
+    // Other error
+    console.error('Error creating clarity session:', error?.message);
+    throw new Error(error?.message || 'Failed to create session');
+  }
+
+  throw new Error('Failed to generate unique room code after multiple attempts');
+}
+
+/**
+ * Joins an existing Clarity Partners session by room code.
+ * @param code - The 6-character room code
+ * @param joinerName - Name of the person joining
+ * @returns The updated session or null if not found
+ */
+export async function joinClaritySession(
+  code: string,
+  joinerName: string
+): Promise<ClaritySession | null> {
+  const normalizedCode = code.toUpperCase().trim();
+
+  // First check if session exists and is joinable
+  const { data: existing, error: fetchError } = await supabase
+    .from('clarity_sessions')
+    .select('*')
+    .eq('code', normalizedCode)
+    .single();
+
+  if (fetchError || !existing) {
+    console.log('Session not found:', normalizedCode);
+    return null;
+  }
+
+  // Check if already joined
+  if (existing.joiner_name) {
+    console.log('Session already has a joiner');
+    // Return session anyway if they're rejoining with same name
+    if (existing.joiner_name === joinerName) {
+      return mapSessionFromDb(existing);
+    }
+    return null;
+  }
+
+  // Update with joiner name
+  const { data, error } = await supabase
+    .from('clarity_sessions')
+    .update({ joiner_name: joinerName })
+    .eq('code', normalizedCode)
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error('Error joining session:', error?.message);
+    return null;
+  }
+
+  console.log('✅ Joined clarity session:', normalizedCode);
+  return mapSessionFromDb(data);
+}
+
+/**
+ * Gets a Clarity Partners session by room code.
+ * @param code - The 6-character room code
+ * @returns The session or null if not found
+ */
+export async function getClaritySession(code: string): Promise<ClaritySession | null> {
+  const normalizedCode = code.toUpperCase().trim();
+
+  const { data, error } = await supabase
+    .from('clarity_sessions')
+    .select('*')
+    .eq('code', normalizedCode)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapSessionFromDb(data);
+}
+
+/**
+ * Updates the session state (for realtime sync).
+ * @param sessionId - The session UUID
+ * @param state - Partial state to merge
+ */
+export async function updateClaritySessionState(
+  sessionId: string,
+  state: Record<string, unknown>
+): Promise<void> {
+  const { error } = await supabase
+    .from('clarity_sessions')
+    .update({ state })
+    .eq('id', sessionId);
+
+  if (error) {
+    console.error('Error updating session state:', error.message);
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Updates the demo status of a session.
+ * @param sessionId - The session UUID
+ * @param demoStatus - New demo status
+ */
+export async function updateClarityDemoStatus(
+  sessionId: string,
+  demoStatus: 'waiting' | 'in_progress' | 'completed'
+): Promise<void> {
+  const { error } = await supabase
+    .from('clarity_sessions')
+    .update({ demo_status: demoStatus })
+    .eq('id', sessionId);
+
+  if (error) {
+    console.error('Error updating demo status:', error.message);
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Subscribes to realtime changes for a session.
+ * @param sessionId - The session UUID
+ * @param onUpdate - Callback when session updates
+ * @returns Unsubscribe function
+ */
+export function subscribeToClaritySession(
+  sessionId: string,
+  onUpdate: (session: ClaritySession) => void
+): () => void {
+  const channel = supabase
+    .channel(`clarity_session:${sessionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'clarity_sessions',
+        filter: `id=eq.${sessionId}`,
+      },
+      (payload) => {
+        console.log('📡 Session update received:', payload);
+        if (payload.new) {
+          onUpdate(mapSessionFromDb(payload.new as DbClaritySession));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    console.log('📡 Unsubscribing from session:', sessionId);
+    supabase.removeChannel(channel);
+  };
 }
