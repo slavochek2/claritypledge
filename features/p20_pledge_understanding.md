@@ -1,4 +1,4 @@
-# P12: Onboarding Comprehension Check
+Onboarding Comprehension Check
 
 ## Summary
 
