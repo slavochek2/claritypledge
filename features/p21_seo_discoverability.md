@@ -15,10 +15,10 @@ Make profile pages and the manifesto discoverable by search engines (Google) and
 
 **Root Causes:**
 1. SPA renders empty HTML shell - crawlers see `<div id="root"></div>`
-2. No sitemap.xml or robots.txt (FIXED in initial SEO work)
+2. No sitemap.xml or robots.txt (FIXED)
 3. Profile pages are dynamic and not in sitemap
-4. No JSON-LD structured data for Google's Knowledge Graph
-5. OpenGraph tags need optimization (title too short, missing image)
+4. No JSON-LD structured data for Google's Knowledge Graph (FIXED)
+5. OpenGraph tags need optimization (FIXED)
 
 ## Goal
 
@@ -36,25 +36,39 @@ Make profile pages and the manifesto discoverable by search engines (Google) and
 - [x] react-helmet-async for dynamic page titles
 - [x] SEO component for per-page meta tags
 
-### Phase 2: Structured Data (IN PROGRESS)
+### Phase 2: Structured Data (DONE)
 - [x] JSON-LD Organization schema (site-wide)
 - [x] JSON-LD ProfilePage schema (for `/p/:slug`)
 - [x] JSON-LD Article schema (for `/manifesto`)
-- [ ] Fix OpenGraph issues (image, title length)
+- [x] Fix OpenGraph issues (image dimensions, longer titles)
 
-### Phase 3: Dynamic Sitemap (FUTURE)
+### Phase 3: Code Cleanup (BACKLOG)
+- [ ] Remove dead `keywords` meta tag from index.html (Google ignores since 2009)
+- [ ] Remove static robots tag from index.html (conflicts with SEO component)
+- [ ] Add default robots directive in SEO component
+- [ ] Use `VITE_SITE_URL` env variable instead of hardcoded BASE_URL
+
+### Phase 4: Dynamic Sitemap (BACKLOG)
 - [ ] Build-time sitemap generation including profile pages
 - [ ] Or: Server-side sitemap API route listing all profiles
 - [ ] Consider: Supabase Edge Function to serve dynamic sitemap
 
-### Phase 4: Pre-rendering for AI Crawlers (FUTURE)
+### Phase 5: Social Previews for Profile Pages (BACKLOG - CRITICAL)
+**Problem:** When someone shares `/p/john-doe` on LinkedIn/Twitter, crawlers see static `index.html` meta tags (homepage content) instead of the dynamic profile data. React Helmet only works client-side.
+
+**Options:**
+1. Vercel Edge Functions - Inject meta tags server-side for `/p/*` routes
+2. Prerender service (Prerender.io, Rendertron)
+3. Migrate to Next.js with SSR (big lift)
+
+### Phase 6: Pre-rendering for AI Crawlers (BACKLOG)
 - [ ] Evaluate prerender.io or similar service
 - [ ] Or: Move to Next.js/Remix for SSR
 - [ ] Or: Vite SSR plugin
 
-## Technical Approach
+## Technical Details
 
-### JSON-LD Schemas
+### JSON-LD Schemas (Implemented)
 
 **Organization (site-wide):**
 ```json
@@ -120,17 +134,10 @@ Make profile pages and the manifesto discoverable by search engines (Google) and
 | Search impressions/week | 0 | 100+ |
 | Rich snippets appearing | No | Yes |
 
-## Dependencies
+## Known Limitations (Accepted)
 
-- Google Search Console access (have it)
-- Vercel deployment (have it)
-- For dynamic sitemap: Build script or Edge Function
-
-## Risks
-
-- **SSR migration complexity** - If pre-rendering services don't work well, may need framework change
-- **Profile page indexing delay** - Dynamic content takes longer for Google to discover
-- **ChatGPT/AI access** - May require explicit allow rules or pre-rendering
+- **Profile social previews don't work** - Sharing `/p/john-doe` on LinkedIn shows generic homepage meta tags because crawlers don't execute JavaScript. Fix requires server-side rendering (Phase 5).
+- **Hardcoded production URL** - `BASE_URL` in seo.tsx is hardcoded. Preview deployments show production URLs in meta tags.
 
 ## References
 
