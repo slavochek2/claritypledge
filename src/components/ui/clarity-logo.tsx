@@ -30,7 +30,7 @@ export function ClarityLogo({
 
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      {/* Logo Mark - U shape matches favicon design */}
+      {/* Logo Mark - C shape matches favicon design */}
       <svg
         width={icon}
         height={icon}
@@ -41,7 +41,7 @@ export function ClarityLogo({
       >
         <rect width="128" height="128" rx="24" fill="currentColor" className="text-foreground" />
         <path
-          d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
+          d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
           stroke="currentColor"
           strokeWidth="14"
           strokeLinecap="round"
@@ -82,7 +82,7 @@ export function ClarityLogoMark({
     >
       <rect width="128" height="128" rx="24" fill="currentColor" className="text-foreground" />
       <path
-        d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
+        d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
         stroke="currentColor"
         strokeWidth="14"
         strokeLinecap="round"
