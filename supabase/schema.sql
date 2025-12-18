@@ -107,3 +107,75 @@ CREATE POLICY "Anyone can update sessions"
 
 -- Enable realtime for sync
 ALTER PUBLICATION supabase_realtime ADD TABLE clarity_sessions;
+
+-- Demo rounds (each paraphrase attempt within a level)
+CREATE TABLE public.clarity_demo_rounds (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES public.clarity_sessions(id) ON DELETE CASCADE NOT NULL,
+  level INT NOT NULL CHECK (level BETWEEN 1 AND 5),
+  round_number INT NOT NULL CHECK (round_number >= 1),
+  speaker_name TEXT NOT NULL,
+  listener_name TEXT NOT NULL,
+  idea_text TEXT, -- Speaker's transcribed idea (null for level 5 which uses preset text)
+  paraphrase_text TEXT, -- Listener's transcribed paraphrase
+  speaker_rating INT CHECK (speaker_rating BETWEEN 0 AND 100), -- Speaker's assessment of understanding
+  listener_self_rating INT CHECK (listener_self_rating BETWEEN 0 AND 100), -- Listener's self-assessment
+  calibration_gap INT, -- speaker_rating - listener_self_rating (computed on insert)
+  correction_text TEXT, -- Speaker's correction if not understood
+  is_accepted BOOLEAN DEFAULT false, -- Speaker accepted this round
+  position TEXT CHECK (position IN ('agree', 'disagree', 'skip')), -- Only set after understanding achieved
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_demo_rounds_session ON public.clarity_demo_rounds(session_id);
+
+-- RLS for clarity_demo_rounds
+ALTER TABLE public.clarity_demo_rounds ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Demo rounds are viewable by everyone"
+  ON public.clarity_demo_rounds FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert demo rounds"
+  ON public.clarity_demo_rounds FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update demo rounds"
+  ON public.clarity_demo_rounds FOR UPDATE
+  USING (true);
+
+-- Ideas backlog (transcribed ideas become future discussion topics)
+CREATE TABLE public.clarity_ideas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES public.clarity_sessions(id) ON DELETE CASCADE NOT NULL,
+  author_name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source_level INT CHECK (source_level BETWEEN 1 AND 5), -- Which demo level this came from (null if added later)
+  status TEXT CHECK (status IN ('pending', 'in_meeting', 'discussed', 'skipped')) DEFAULT 'pending',
+  -- Results (populated after discussion in future meetings)
+  rounds_count INT,
+  final_accuracy INT,
+  position TEXT CHECK (position IN ('agree', 'disagree', 'skip')),
+  discussed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_ideas_session ON public.clarity_ideas(session_id);
+
+-- RLS for clarity_ideas
+ALTER TABLE public.clarity_ideas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Ideas are viewable by everyone"
+  ON public.clarity_ideas FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert ideas"
+  ON public.clarity_ideas FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update ideas"
+  ON public.clarity_ideas FOR UPDATE
+  USING (true);
+
+-- Enable realtime for ideas sync
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_ideas;

@@ -3,7 +3,7 @@
  * @description Clarity Partners MVP - Session create/join and realtime demo flow.
  * Two phones sync in real-time via Supabase Realtime, each with role-specific UI.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,14 +13,25 @@ import {
   joinClaritySession,
   subscribeToClaritySession,
   updateClarityDemoStatus,
+  updateDemoFlowState,
+  saveDemoRound,
+  saveClarityIdea,
   type ClaritySession,
+  type DemoFlowState,
 } from "@/app/data/api";
 import {
   PartnerCommitmentCard,
   PARTNER_COMMITMENT_TEXT,
 } from "@/app/components/partners/partner-commitment-card";
+import { DemoLevelView } from "@/app/components/partners/demo-level-view";
+import {
+  createInitialDemoState,
+  getRolesForLevel,
+  getNextLevel,
+} from "@/app/components/partners/demo-config";
+import { CheckCircle2, PartyPopper } from "lucide-react";
 
-type ViewState = "start" | "invitation" | "waiting-creator" | "demo";
+type ViewState = "start" | "invitation" | "waiting-creator" | "demo" | "complete";
 
 export function ClarityDemoPage() {
   const [view, setView] = useState<ViewState>("start");
@@ -33,6 +44,9 @@ export function ClarityDemoPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [hasAccepted, setHasAccepted] = useState(false);
 
+  // Demo flow state (synced via session.state)
+  const [demoState, setDemoState] = useState<DemoFlowState>(createInitialDemoState());
+
   // Subscribe to session updates when we have a session
   useEffect(() => {
     if (!session) return;
@@ -41,14 +55,33 @@ export function ClarityDemoPage() {
       console.log("Session updated:", updatedSession);
       setSession(updatedSession);
 
+      // Sync demo state from session (state is stored as JSONB, cast through unknown)
+      if (updatedSession.state && updatedSession.state.currentLevel !== undefined) {
+        setDemoState(updatedSession.state as unknown as DemoFlowState);
+      }
+
       // When demo starts (joiner accepted commitment), transition creator to demo
       if (updatedSession.demoStatus === "in_progress" && view === "waiting-creator") {
         setView("demo");
+      }
+
+      // When demo completes
+      if (updatedSession.demoStatus === "completed" && view === "demo") {
+        setView("complete");
       }
     });
 
     return () => unsubscribe();
   }, [session?.id, view]);
+
+  // Initialize demo state when entering demo view
+  useEffect(() => {
+    if (view === "demo" && session && !session.state?.currentLevel) {
+      const initialState = createInitialDemoState();
+      updateDemoFlowState(session.id, initialState);
+      setDemoState(initialState);
+    }
+  }, [view, session]);
 
   const handleCreateSession = async () => {
     if (!name.trim()) {
@@ -100,6 +133,98 @@ export function ClarityDemoPage() {
       setIsLoading(false);
     }
   };
+
+  // Update demo state and sync to Supabase
+  const handleUpdateDemoState = useCallback(async (updates: Partial<DemoFlowState>) => {
+    if (!session) return;
+
+    // Optimistic update
+    setDemoState(prev => ({ ...prev, ...updates }));
+
+    // Sync to database
+    try {
+      await updateDemoFlowState(session.id, updates);
+    } catch (err) {
+      console.error("Failed to sync demo state:", err);
+    }
+  }, [session]);
+
+  // Save a completed round to the database
+  const handleSaveRound = useCallback(async () => {
+    if (!session) return;
+
+    const { speakerName, listenerName } = getRolesForLevel(
+      demoState.currentLevel,
+      session.creatorName,
+      session.joinerName || "Partner"
+    );
+
+    try {
+      // Save the round
+      await saveDemoRound({
+        sessionId: session.id,
+        level: demoState.currentLevel,
+        roundNumber: demoState.currentRound,
+        speakerName,
+        listenerName,
+        ideaText: demoState.ideaText,
+        paraphraseText: demoState.paraphraseText,
+        speakerRating: demoState.speakerRating,
+        listenerSelfRating: demoState.listenerSelfRating,
+        correctionText: demoState.correctionText,
+        isAccepted: demoState.isAccepted,
+        position: demoState.position,
+      });
+
+      // Save the idea to backlog (if it's a real idea, not Level 5 commitment)
+      if (demoState.ideaText && demoState.currentLevel < 5) {
+        await saveClarityIdea({
+          sessionId: session.id,
+          authorName: speakerName,
+          content: demoState.ideaText,
+          sourceLevel: demoState.currentLevel,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to save round:", err);
+    }
+  }, [session, demoState]);
+
+  // Move to next level
+  const handleNextLevel = useCallback(async () => {
+    if (!session) return;
+
+    const nextLevel = getNextLevel(demoState.currentLevel);
+    if (nextLevel) {
+      const newState: DemoFlowState = {
+        currentLevel: nextLevel,
+        currentRound: 1,
+        phase: 'idea',
+        ideaText: undefined,
+        ideaConfirmed: false,
+        paraphraseText: undefined,
+        paraphraseConfirmed: false,
+        speakerRating: undefined,
+        listenerSelfRating: undefined,
+        correctionText: undefined,
+        isAccepted: false,
+        askForPosition: undefined,
+        position: undefined,
+        positionConfirmed: false,
+      };
+
+      setDemoState(newState);
+      await updateDemoFlowState(session.id, newState);
+    }
+  }, [session, demoState.currentLevel]);
+
+  // Complete the demo
+  const handleDemoComplete = useCallback(async () => {
+    if (!session) return;
+
+    await updateClarityDemoStatus(session.id, "completed");
+    setView("complete");
+  }, [session]);
 
   // Determine if user is in "join mode" (has entered a room code)
   const isJoinMode = roomCode.trim().length > 0;
@@ -309,8 +434,11 @@ export function ClarityDemoPage() {
 
           <Button
             onClick={async () => {
-              // Update demo status so creator knows to transition
+              // Initialize demo state and update status
+              const initialState = createInitialDemoState();
+              await updateDemoFlowState(session.id, initialState);
               await updateClarityDemoStatus(session.id, "in_progress");
+              setDemoState(initialState);
               setView("demo");
             }}
             disabled={!hasAccepted}
@@ -324,27 +452,74 @@ export function ClarityDemoPage() {
     );
   }
 
-  // DEMO VIEW - Both connected
+  // DEMO VIEW - The actual 5-level demo
   if (view === "demo" && session) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
+        <DemoLevelView
+          session={session}
+          demoState={demoState}
+          isCreator={isCreator}
+          onUpdateState={handleUpdateDemoState}
+          onSaveRound={handleSaveRound}
+          onNextLevel={handleNextLevel}
+          onDemoComplete={handleDemoComplete}
+        />
+      </div>
+    );
+  }
+
+  // COMPLETE VIEW - Demo finished
+  if (view === "complete" && session) {
     const partnerName = isCreator ? session.joinerName : session.creatorName;
 
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
         <div className="text-center space-y-6">
-          <h1 className="text-2xl font-serif font-bold">Demo In Progress</h1>
+          <PartyPopper className="h-16 w-16 text-yellow-500 mx-auto" />
+
+          <h1 className="text-2xl font-serif font-bold">
+            Demo Complete!
+          </h1>
 
           <div className="p-6 bg-green-50 border border-green-200 rounded-lg">
+            <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-3" />
             <p className="text-green-800">
-              Connected with <strong>{partnerName}</strong>
-            </p>
-            <p className="text-sm text-green-600 mt-2">
-              Session: {session.code}
+              You and <strong>{partnerName}</strong> completed all 5 levels!
             </p>
           </div>
 
-          <p className="text-muted-foreground">
-            Demo levels coming in next iteration...
-          </p>
+          <div className="space-y-3 text-left p-4 bg-muted/50 rounded-lg">
+            <p className="font-medium">What you experienced:</p>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Sharing facts, opinions, and values</li>
+              <li>• Paraphrasing to verify understanding</li>
+              <li>• Rating calibration (how well you estimate understanding)</li>
+              <li>• Separating understanding from agreement</li>
+            </ul>
+          </div>
+
+          <div className="pt-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Ideas from this session have been saved to your backlog.
+            </p>
+            <Button
+              onClick={() => {
+                // Reset for new session
+                setView("start");
+                setSession(null);
+                setDemoState(createInitialDemoState());
+                setName("");
+                setRoomCode("");
+                setInviteNote("");
+                setHasAccepted(false);
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              Start New Session
+            </Button>
+          </div>
         </div>
       </div>
     );

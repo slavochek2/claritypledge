@@ -8,10 +8,23 @@
  */
 import { supabase } from '@/lib/supabase';
 import type { AuthError } from '@supabase/supabase-js';
-import type { Profile, ProfileSummary, DbProfile, DbProfileSummary, DbWitness, ClaritySession, DbClaritySession } from '@/app/types';
+import type {
+  Profile,
+  ProfileSummary,
+  DbProfile,
+  DbProfileSummary,
+  DbWitness,
+  ClaritySession,
+  DbClaritySession,
+  DemoFlowState,
+  DemoRound,
+  DbDemoRound,
+  ClarityIdea,
+  DbClarityIdea,
+} from '@/app/types';
 
 // Re-export types for convenience
-export type { Profile, ProfileSummary, Witness, ClaritySession } from '@/app/types';
+export type { Profile, ProfileSummary, Witness, ClaritySession, DemoFlowState, DemoRound, ClarityIdea } from '@/app/types';
 
 /** Maximum number of featured profiles to fetch (used for SignatureWall on landing page) */
 export const MAX_FEATURED_PROFILES = 6;
@@ -827,5 +840,198 @@ export function subscribeToClaritySession(
   return () => {
     console.log('📡 Unsubscribing from session:', sessionId);
     supabase.removeChannel(channel);
+  };
+}
+
+// ============================================================================
+// DEMO FLOW API (Story 2 - 5-Level Guided Demo)
+// ============================================================================
+
+/**
+ * Updates the demo flow state in the session (for realtime sync).
+ * This merges the new state with existing state.
+ * @param sessionId - The session UUID
+ * @param demoState - The demo flow state to merge
+ */
+export async function updateDemoFlowState(
+  sessionId: string,
+  demoState: Partial<DemoFlowState>
+): Promise<void> {
+  // First get current state
+  const { data: current, error: fetchError } = await supabase
+    .from('clarity_sessions')
+    .select('state')
+    .eq('id', sessionId)
+    .single();
+
+  if (fetchError) {
+    console.error('Error fetching current state:', fetchError.message);
+    throw new Error(fetchError.message);
+  }
+
+  // Merge with new state
+  const mergedState = {
+    ...(current?.state || {}),
+    ...demoState,
+  };
+
+  const { error } = await supabase
+    .from('clarity_sessions')
+    .update({ state: mergedState })
+    .eq('id', sessionId);
+
+  if (error) {
+    console.error('Error updating demo flow state:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Updated demo flow state:', demoState);
+}
+
+/**
+ * Saves a completed demo round to the database.
+ * @param round - The round data to save
+ * @returns The saved round with ID
+ */
+export async function saveDemoRound(round: Omit<DemoRound, 'id' | 'createdAt'>): Promise<DemoRound> {
+  const calibrationGap = round.speakerRating !== undefined && round.listenerSelfRating !== undefined
+    ? round.speakerRating - round.listenerSelfRating
+    : null;
+
+  const { data, error } = await supabase
+    .from('clarity_demo_rounds')
+    .insert({
+      session_id: round.sessionId,
+      level: round.level,
+      round_number: round.roundNumber,
+      speaker_name: round.speakerName,
+      listener_name: round.listenerName,
+      idea_text: round.ideaText,
+      paraphrase_text: round.paraphraseText,
+      speaker_rating: round.speakerRating,
+      listener_self_rating: round.listenerSelfRating,
+      calibration_gap: calibrationGap,
+      correction_text: round.correctionText,
+      is_accepted: round.isAccepted,
+      position: round.position,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving demo round:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Saved demo round:', data);
+  return mapDemoRoundFromDb(data);
+}
+
+/**
+ * Gets all demo rounds for a session.
+ * @param sessionId - The session UUID
+ * @returns Array of demo rounds
+ */
+export async function getDemoRounds(sessionId: string): Promise<DemoRound[]> {
+  const { data, error } = await supabase
+    .from('clarity_demo_rounds')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('level', { ascending: true })
+    .order('round_number', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching demo rounds:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapDemoRoundFromDb);
+}
+
+/**
+ * Saves an idea to the backlog.
+ * @param idea - The idea to save
+ * @returns The saved idea with ID
+ */
+export async function saveClarityIdea(
+  idea: Omit<ClarityIdea, 'id' | 'createdAt' | 'status' | 'roundsCount' | 'finalAccuracy' | 'position' | 'discussedAt'>
+): Promise<ClarityIdea> {
+  const { data, error } = await supabase
+    .from('clarity_ideas')
+    .insert({
+      session_id: idea.sessionId,
+      author_name: idea.authorName,
+      content: idea.content,
+      source_level: idea.sourceLevel,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving idea:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Saved clarity idea:', data);
+  return mapClarityIdeaFromDb(data);
+}
+
+/**
+ * Gets all ideas for a session.
+ * @param sessionId - The session UUID
+ * @returns Array of ideas
+ */
+export async function getClarityIdeas(sessionId: string): Promise<ClarityIdea[]> {
+  const { data, error } = await supabase
+    .from('clarity_ideas')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching ideas:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapClarityIdeaFromDb);
+}
+
+// ============================================================================
+// MAPPING HELPERS
+// ============================================================================
+
+function mapDemoRoundFromDb(db: DbDemoRound): DemoRound {
+  return {
+    id: db.id,
+    sessionId: db.session_id,
+    level: db.level,
+    roundNumber: db.round_number,
+    speakerName: db.speaker_name,
+    listenerName: db.listener_name,
+    ideaText: db.idea_text,
+    paraphraseText: db.paraphrase_text,
+    speakerRating: db.speaker_rating,
+    listenerSelfRating: db.listener_self_rating,
+    calibrationGap: db.calibration_gap,
+    correctionText: db.correction_text,
+    isAccepted: db.is_accepted,
+    position: db.position,
+    createdAt: db.created_at,
+  };
+}
+
+function mapClarityIdeaFromDb(db: DbClarityIdea): ClarityIdea {
+  return {
+    id: db.id,
+    sessionId: db.session_id,
+    authorName: db.author_name,
+    content: db.content,
+    sourceLevel: db.source_level,
+    status: db.status,
+    roundsCount: db.rounds_count,
+    finalAccuracy: db.final_accuracy,
+    position: db.position,
+    discussedAt: db.discussed_at,
+    createdAt: db.created_at,
   };
 }
