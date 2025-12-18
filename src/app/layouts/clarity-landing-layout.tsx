@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { OfflineBanner } from "@/app/components/offline-banner";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
@@ -15,6 +16,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <OfflineBanner />
       {!isLandingPage && !isFullArticlePage && (
         <SimpleNavigation />
       )}

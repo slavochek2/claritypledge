@@ -71,7 +71,7 @@ create policy "Authenticated users can insert witnesses"
 -- CLARITY PARTNERS TABLES (P19 MVP)
 -- ============================================================================
 
--- Sessions (partnership container, expires after 7 days)
+-- Sessions (partnership container, no expiry - chats live forever)
 CREATE TABLE public.clarity_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT UNIQUE NOT NULL, -- 6-char room code
@@ -82,7 +82,7 @@ CREATE TABLE public.clarity_sessions (
   demo_status TEXT CHECK (demo_status IN ('waiting', 'in_progress', 'completed')) DEFAULT 'waiting',
   partnership_status TEXT CHECK (partnership_status IN ('pending', 'accepted', 'declined')) DEFAULT 'pending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (now() + interval '7 days')
+  expires_at TIMESTAMP WITH TIME ZONE -- NULL means no expiry
 );
 
 CREATE INDEX idx_clarity_sessions_code ON public.clarity_sessions(code);
@@ -179,3 +179,70 @@ CREATE POLICY "Anyone can update ideas"
 
 -- Enable realtime for ideas sync
 ALTER PUBLICATION supabase_realtime ADD TABLE clarity_ideas;
+
+-- ============================================================================
+-- CLARITY CHAT TABLES (P19.2 MVP)
+-- ============================================================================
+-- Note: Reuses clarity_sessions as chat container (code, creator_name, joiner_name)
+-- The key difference: chat ideas are freeform messages, not demo-level specific
+
+-- Chat messages (ideas in chat context)
+CREATE TABLE public.clarity_chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID REFERENCES public.clarity_sessions(id) ON DELETE CASCADE NOT NULL,
+  author_name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_chat_messages_session ON public.clarity_chat_messages(session_id);
+CREATE INDEX idx_clarity_chat_messages_created ON public.clarity_chat_messages(created_at);
+
+-- RLS for clarity_chat_messages
+ALTER TABLE public.clarity_chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Chat messages are viewable by everyone"
+  ON public.clarity_chat_messages FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert chat messages"
+  ON public.clarity_chat_messages FOR INSERT
+  WITH CHECK (true);
+
+-- Enable realtime for chat messages
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_chat_messages;
+
+-- Verifications (paraphrase attempts on chat messages)
+CREATE TABLE public.clarity_verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id UUID REFERENCES public.clarity_chat_messages(id) ON DELETE CASCADE NOT NULL,
+  verifier_name TEXT NOT NULL,
+  paraphrase_text TEXT NOT NULL,
+  self_rating INT CHECK (self_rating BETWEEN 0 AND 100), -- Verifier's self-assessment
+  accuracy_rating INT CHECK (accuracy_rating BETWEEN 0 AND 100), -- NULL until author rates
+  calibration_gap INT, -- accuracy_rating - self_rating (computed when rated)
+  status TEXT CHECK (status IN ('pending', 'accepted')) DEFAULT 'pending',
+  position TEXT CHECK (position IN ('agree', 'disagree', 'dont_know')), -- NULL until set
+  audio_url TEXT, -- URL to audio recording in Supabase Storage
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_verifications_message ON public.clarity_verifications(message_id);
+
+-- RLS for clarity_verifications
+ALTER TABLE public.clarity_verifications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Verifications are viewable by everyone"
+  ON public.clarity_verifications FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert verifications"
+  ON public.clarity_verifications FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update verifications"
+  ON public.clarity_verifications FOR UPDATE
+  USING (true);
+
+-- Enable realtime for verifications
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_verifications;

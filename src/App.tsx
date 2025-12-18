@@ -15,6 +15,7 @@ import { PrivacyPolicyPage } from "@/app/pages/privacy-policy-page";
 import { TermsOfServicePage } from "@/app/pages/terms-of-service-page";
 import { SettingsPage } from "@/app/pages/settings-page";
 import { ClarityDemoPage } from "@/app/pages/clarity-demo-page";
+import { ClarityChatPage } from "@/app/pages/clarity-chat-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
@@ -172,12 +173,31 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
-          path="/clarity-demo"
+          path="/demo"
           element={
             <ClarityLandingLayout>
               <ClarityDemoPage />
             </ClarityLandingLayout>
           }
+        />
+        {/* Redirect old route for backwards compatibility */}
+        <Route
+          path="/clarity-demo"
+          element={<Navigate to="/demo" replace />}
+        />
+
+        <Route
+          path="/chat"
+          element={
+            <ClarityLandingLayout>
+              <ClarityChatPage />
+            </ClarityLandingLayout>
+          }
+        />
+        {/* Redirect old route for backwards compatibility */}
+        <Route
+          path="/clarity-chat"
+          element={<Navigate to="/chat" replace />}
         />
       </Routes>
       </AuthProvider>

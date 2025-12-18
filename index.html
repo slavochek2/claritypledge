@@ -32,6 +32,15 @@
     <meta name="robots" content="index, follow" />
     <meta name="googlebot" content="index, follow, max-video-preview:-1, max-image-preview:large, max-snippet:-1" />
 
+    <!-- PWA (manifest injected by vite-plugin-pwa) -->
+    <meta name="theme-color" content="#000000" />
+
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Clarity" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
+
     <!-- Mixpanel Analytics (production only) -->
     <script type="text/javascript">
       if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1')) {

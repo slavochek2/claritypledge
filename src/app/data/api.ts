@@ -1035,3 +1035,349 @@ function mapClarityIdeaFromDb(db: DbClarityIdea): ClarityIdea {
     createdAt: db.created_at,
   };
 }
+
+// ============================================================================
+// CLARITY CHAT API (P19.2 MVP)
+// ============================================================================
+
+import type {
+  ChatMessage,
+  DbChatMessage,
+  Verification,
+  DbVerification,
+  ChatPosition,
+} from '@/app/types';
+
+// Re-export chat types
+export type { ChatMessage, Verification, ChatPosition } from '@/app/types';
+
+/**
+ * Maps database chat message to frontend type.
+ */
+function mapChatMessageFromDb(db: DbChatMessage): ChatMessage {
+  return {
+    id: db.id,
+    sessionId: db.session_id,
+    authorName: db.author_name,
+    content: db.content,
+    createdAt: db.created_at,
+  };
+}
+
+/**
+ * Maps database verification to frontend type.
+ */
+function mapVerificationFromDb(db: DbVerification): Verification {
+  return {
+    id: db.id,
+    messageId: db.message_id,
+    verifierName: db.verifier_name,
+    paraphraseText: db.paraphrase_text,
+    selfRating: db.self_rating ?? undefined,
+    accuracyRating: db.accuracy_rating ?? undefined,
+    calibrationGap: db.calibration_gap ?? undefined,
+    status: db.status,
+    position: db.position ?? undefined,
+    audioUrl: db.audio_url ?? undefined,
+    createdAt: db.created_at,
+  };
+}
+
+/**
+ * Sends a chat message (idea) to a session.
+ * @param sessionId - The session UUID
+ * @param authorName - Who sent the message
+ * @param content - The message content
+ * @returns The created message
+ */
+export async function sendChatMessage(
+  sessionId: string,
+  authorName: string,
+  content: string
+): Promise<ChatMessage> {
+  const { data, error } = await supabase
+    .from('clarity_chat_messages')
+    .insert({
+      session_id: sessionId,
+      author_name: authorName,
+      content,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error sending chat message:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Sent chat message:', data);
+  return mapChatMessageFromDb(data);
+}
+
+/**
+ * Gets all chat messages for a session.
+ * @param sessionId - The session UUID
+ * @returns Array of messages ordered by creation time
+ */
+export async function getChatMessages(sessionId: string): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from('clarity_chat_messages')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching chat messages:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapChatMessageFromDb);
+}
+
+/**
+ * Subscribes to new chat messages in a session.
+ * @param sessionId - The session UUID
+ * @param onNewMessage - Callback when a new message arrives
+ * @returns Unsubscribe function
+ */
+export function subscribeToChatMessages(
+  sessionId: string,
+  onNewMessage: (message: ChatMessage) => void
+): () => void {
+  const channel = supabase
+    .channel(`chat_messages:${sessionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'clarity_chat_messages',
+        filter: `session_id=eq.${sessionId}`,
+      },
+      (payload) => {
+        console.log('📨 New chat message:', payload);
+        if (payload.new) {
+          onNewMessage(mapChatMessageFromDb(payload.new as DbChatMessage));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Creates a paraphrase verification for a message.
+ * @param messageId - The message being paraphrased
+ * @param verifierName - Who is paraphrasing
+ * @param paraphraseText - The paraphrase text
+ * @returns The created verification
+ */
+export async function createVerification(
+  messageId: string,
+  verifierName: string,
+  paraphraseText: string,
+  selfRating?: number,
+  audioUrl?: string
+): Promise<Verification> {
+  const { data, error } = await supabase
+    .from('clarity_verifications')
+    .insert({
+      message_id: messageId,
+      verifier_name: verifierName,
+      paraphrase_text: paraphraseText,
+      self_rating: selfRating,
+      audio_url: audioUrl,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating verification:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Created verification:', data);
+  return mapVerificationFromDb(data);
+}
+
+/**
+ * Gets all verifications for a message.
+ * @param messageId - The message UUID
+ * @returns Array of verifications
+ */
+export async function getVerificationsForMessage(messageId: string): Promise<Verification[]> {
+  const { data, error } = await supabase
+    .from('clarity_verifications')
+    .select('*')
+    .eq('message_id', messageId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching verifications:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapVerificationFromDb);
+}
+
+/**
+ * Gets all verifications for all messages in a session.
+ * @param sessionId - The session UUID
+ * @returns Map of messageId -> verifications
+ */
+export async function getVerificationsForSession(
+  sessionId: string
+): Promise<Map<string, Verification[]>> {
+  // First get all message IDs in this session
+  const { data: messages, error: msgError } = await supabase
+    .from('clarity_chat_messages')
+    .select('id')
+    .eq('session_id', sessionId);
+
+  if (msgError || !messages?.length) {
+    return new Map();
+  }
+
+  const messageIds = messages.map((m) => m.id);
+
+  // Then get all verifications for these messages
+  const { data, error } = await supabase
+    .from('clarity_verifications')
+    .select('*')
+    .in('message_id', messageIds)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching verifications:', error.message);
+    return new Map();
+  }
+
+  // Group by message ID
+  const map = new Map<string, Verification[]>();
+  for (const db of data || []) {
+    const v = mapVerificationFromDb(db);
+    const existing = map.get(v.messageId) || [];
+    existing.push(v);
+    map.set(v.messageId, existing);
+  }
+
+  return map;
+}
+
+/**
+ * Rates a verification (author rates the paraphrase).
+ * @param verificationId - The verification UUID
+ * @param rating - Accuracy rating 0-100
+ * @param accept - Whether to accept this as understood
+ * @returns Updated verification
+ */
+export async function rateVerification(
+  verificationId: string,
+  rating: number,
+  accept: boolean
+): Promise<Verification> {
+  // First get the verification to calculate calibration gap
+  const { data: existing } = await supabase
+    .from('clarity_verifications')
+    .select('self_rating')
+    .eq('id', verificationId)
+    .single();
+
+  const calibrationGap = existing?.self_rating !== undefined
+    ? rating - existing.self_rating
+    : undefined;
+
+  const { data, error } = await supabase
+    .from('clarity_verifications')
+    .update({
+      accuracy_rating: rating,
+      calibration_gap: calibrationGap,
+      status: accept ? 'accepted' : 'pending',
+    })
+    .eq('id', verificationId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error rating verification:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Rated verification:', data);
+  return mapVerificationFromDb(data);
+}
+
+/**
+ * Sets position on a verification (verifier states agree/disagree after acceptance).
+ * @param verificationId - The verification UUID
+ * @param position - The position to set
+ * @returns Updated verification
+ */
+export async function setVerificationPosition(
+  verificationId: string,
+  position: ChatPosition
+): Promise<Verification> {
+  const { data, error } = await supabase
+    .from('clarity_verifications')
+    .update({ position })
+    .eq('id', verificationId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error setting position:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Set position:', data);
+  return mapVerificationFromDb(data);
+}
+
+/**
+ * Subscribes to verification updates for a session.
+ * @param sessionId - The session UUID
+ * @param onUpdate - Callback when verification is created or updated
+ * @returns Unsubscribe function
+ */
+export function subscribeToVerifications(
+  sessionId: string,
+  onUpdate: (verification: Verification, event: 'INSERT' | 'UPDATE') => void
+): () => void {
+  // We need to listen to all verifications, then filter by session
+  // This is a limitation - ideally we'd filter by session_id directly
+  // but verifications don't have session_id, they have message_id
+  const channel = supabase
+    .channel(`verifications:${sessionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'clarity_verifications',
+      },
+      async (payload) => {
+        console.log('📡 Verification update:', payload);
+        if (payload.new && (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE')) {
+          const v = mapVerificationFromDb(payload.new as DbVerification);
+          // Check if this verification belongs to this session
+          const { data: msg } = await supabase
+            .from('clarity_chat_messages')
+            .select('session_id')
+            .eq('id', v.messageId)
+            .single();
+
+          if (msg?.session_id === sessionId) {
+            onUpdate(v, payload.eventType);
+          }
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

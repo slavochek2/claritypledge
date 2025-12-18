@@ -43,6 +43,7 @@ export function ClarityDemoPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [hasAccepted, setHasAccepted] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Demo flow state (synced via session.state)
   const [demoState, setDemoState] = useState<DemoFlowState>(createInitialDemoState());
@@ -51,8 +52,23 @@ export function ClarityDemoPage() {
   useEffect(() => {
     if (!session) return;
 
+    // Clear any previous connection error on new subscription
+    setConnectionError(null);
+
+    // Set up a heartbeat to detect stale connections
+    let lastUpdate = Date.now();
+    const heartbeatInterval = setInterval(() => {
+      const timeSinceUpdate = Date.now() - lastUpdate;
+      // If no updates for 30 seconds during active demo, show warning
+      if (timeSinceUpdate > 30000 && view === "demo") {
+        setConnectionError("Connection may be lost. Updates from your partner might be delayed.");
+      }
+    }, 10000);
+
     const unsubscribe = subscribeToClaritySession(session.id, (updatedSession) => {
       console.log("Session updated:", updatedSession);
+      lastUpdate = Date.now();
+      setConnectionError(null); // Clear error on successful update
       setSession(updatedSession);
 
       // Sync demo state from session (state is stored as JSONB, cast through unknown)
@@ -71,17 +87,25 @@ export function ClarityDemoPage() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearInterval(heartbeatInterval);
+      unsubscribe();
+    };
   }, [session?.id, view]);
 
   // Initialize demo state when entering demo view
+  // Note: Joiner already initializes state in the "Start Session" button click handler
+  // This effect is a fallback for creator when they enter demo view (triggered by realtime update)
+  // We check isCreator to avoid double-initialization race condition
   useEffect(() => {
-    if (view === "demo" && session && !session.state?.currentLevel) {
+    if (view === "demo" && session && !session.state?.currentLevel && isCreator) {
+      // Creator enters demo view after joiner starts - state should already be set by joiner
+      // Only initialize if somehow state is missing (defensive)
       const initialState = createInitialDemoState();
       updateDemoFlowState(session.id, initialState);
       setDemoState(initialState);
     }
-  }, [view, session]);
+  }, [view, session, isCreator]);
 
   const handleCreateSession = async () => {
     if (!name.trim()) {
@@ -456,6 +480,12 @@ export function ClarityDemoPage() {
   if (view === "demo" && session) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
+        {/* Connection warning banner */}
+        {connectionError && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            {connectionError}
+          </div>
+        )}
         <DemoLevelView
           session={session}
           demoState={demoState}

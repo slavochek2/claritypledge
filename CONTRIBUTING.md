@@ -2,11 +2,24 @@
 
 Welcome! This guide will help you get up and running quickly.
 
-## Contributor License Agreement
+## Licensing & Contributor License Agreement (CLA)
 
-By submitting a pull request, you agree to our [Contributor License Agreement](./CLA.md).
+This project uses a **Dual Licensing** model to ensure long-term sustainability while remaining true to open-source values.
 
-**Why a CLA?** This project uses an [open core](https://en.wikipedia.org/wiki/Open-core_model) model. The CLA ensures we can sustain development through commercial offerings while keeping the core open source. Without it, future contributors could block monetization, making the project unmaintainable.
+### 1. The Project License (AGPL v3)
+The code in this repository is licensed under the **[GNU Affero General Public License v3.0 (AGPL-3.0)](./LICENSE)**.
+- **For Users:** This ensures that if anyone builds a public service (SaaS) using this code, they must open-source their improvements. This prevents companies from taking our work, closing it off, and competing with us using our own code.
+- **For You (The Contributor):** You can use this code freely under the terms of the AGPL, **including for commercial purposes** (just like anyone else).
+
+### 2. The Contributor License Agreement (CLA)
+To contribute, you must agree to our [CLA](./CLA.md).
+- **You Retain Copyright:** You still own the code you write. You can use your own contributions in other projects or sell them elsewhere.
+- **What You Grant Us:** You give the project owner the right to use your contribution and, importantly, the right to **relicense** it.
+- **Why?** This allows the project owner to offer a "Commercial License" to companies who want to use the software without the strict open-source requirements of the AGPL. Revenue from these commercial licenses supports the project's maintenance and development.
+
+**In Short:**
+- **AGPL** keeps the code free and open for the community.
+- **CLA** allows the project to generate revenue from enterprises to pay for that freedom.
 
 ## Quick Start
 

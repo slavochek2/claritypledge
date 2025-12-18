@@ -102,7 +102,7 @@ export interface ClaritySession {
   demoStatus: DemoStatus;
   partnershipStatus: PartnershipStatus;
   createdAt: string;
-  expiresAt: string;
+  expiresAt: string | null; // NULL means no expiry (chat lives forever)
 }
 
 export interface ClaritySessionState {
@@ -230,6 +230,61 @@ export interface DbClarityIdea {
   final_accuracy?: number;
   position?: Position;
   discussed_at?: string;
+  created_at: string;
+}
+
+// ============================================================================
+// CLARITY CHAT TYPES (P19.2 MVP)
+// ============================================================================
+
+export type ChatPosition = 'agree' | 'disagree' | 'dont_know';
+export type VerificationStatus = 'pending' | 'accepted';
+
+/** Chat message (idea in chat context) */
+export interface ChatMessage {
+  id: string;
+  sessionId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+  // Joined from verifications (optional)
+  verifications?: Verification[];
+}
+
+export interface DbChatMessage {
+  id: string;
+  session_id: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+}
+
+/** Verification (paraphrase attempt on a message) */
+export interface Verification {
+  id: string;
+  messageId: string;
+  verifierName: string;
+  paraphraseText: string;
+  selfRating?: number; // 0-100, verifier's self-assessment
+  accuracyRating?: number; // 0-100, null until author rates
+  calibrationGap?: number; // accuracyRating - selfRating (positive = underestimated)
+  status: VerificationStatus;
+  position?: ChatPosition; // null until verifier states position
+  audioUrl?: string; // URL to audio recording in storage
+  createdAt: string;
+}
+
+export interface DbVerification {
+  id: string;
+  message_id: string;
+  verifier_name: string;
+  paraphrase_text: string;
+  self_rating?: number;
+  accuracy_rating?: number;
+  calibration_gap?: number;
+  status: VerificationStatus;
+  position?: ChatPosition;
+  audio_url?: string;
   created_at: string;
 }
 
