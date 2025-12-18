@@ -17,6 +17,7 @@ import "katex/dist/katex.min.css";
 import { ArrowLeftIcon, BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import articleContent from "../content/full-article.md?raw";
 import { getCurrentUser, signOut, Profile } from "@/app/data/api";
+import { SEO } from "@/app/components/seo";
 
 export function FullArticlePage() {
   const navigate = useNavigate();
@@ -103,6 +104,18 @@ export function FullArticlePage() {
 
   return (
     <div className="min-h-screen bg-background overflow-x-clip">
+      <SEO
+        title="The Clarity Pledge Manifesto"
+        description="Stop paying the hidden cost of miscommunication. Learn about the Clarity Tax - $1.2 trillion annually in the U.S. alone - and how a public commitment to verified understanding can change everything."
+        url="/manifesto"
+        type="article"
+        article={{
+          headline: "The Clarity Pledge Manifesto: Stop Paying the Hidden Cost of Miscommunication",
+          author: "Vyacheslav Ladischenski",
+          datePublished: "2025-01-01",
+          dateModified: "2025-12-01",
+        }}
+      />
       <style>{`
         /* Better math formula styling */
         .katex { font-size: 1.1em; }

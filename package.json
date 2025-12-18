@@ -37,6 +37,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-helmet-async": "^2.0.5",
     "react-hook-form": "latest",
     "react-intersection-observer": "latest",
     "react-markdown": "^10.1.0",

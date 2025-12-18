@@ -8,6 +8,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { getVerifiedProfiles, type Profile } from "@/app/data/api";
+import { SEO } from "@/app/components/seo";
 import { UsersIcon, LoaderIcon } from "lucide-react";
 import { ChampionCard } from "@/app/components/social/champion-card";
 import { analytics } from "@/lib/mixpanel";
@@ -67,6 +68,11 @@ export function ClarityChampionsPage() {
 
   return (
     <div className="min-h-screen py-12 px-4">
+      <SEO
+        title="Clarity Champions"
+        description="Meet the professionals who have publicly committed to clear, honest communication by signing the Clarity Pledge."
+        url="/clarity-champions"
+      />
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
         <div className="text-center mb-12">

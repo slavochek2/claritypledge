@@ -12,6 +12,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
+import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { CheckCircleIcon } from "lucide-react";
@@ -183,6 +184,17 @@ export function ProfilePage() {
 
   return (
     <>
+      <SEO
+        title={profile.name}
+        description={profile.reason || `${profile.name} has signed the Clarity Pledge, committing to clear, honest communication.`}
+        url={`/p/${profile.slug}`}
+        type="profile"
+        profile={{
+          name: profile.name,
+          role: profile.role,
+          signedAt: profile.signedAt,
+        }}
+      />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto max-w-5xl py-12 px-4">
           {profile && (

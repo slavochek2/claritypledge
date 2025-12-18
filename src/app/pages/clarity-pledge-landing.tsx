@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { ClarityTaxSection } from "@/app/components/landing/clarity-tax-section";
@@ -75,6 +76,10 @@ export function ClarityPledgeLanding() {
 
   return (
     <div className="relative overflow-x-hidden">
+      <SEO
+        url="/"
+        description="Join professionals worldwide in a public commitment to clear, honest communication. Sign the pledge, get your shareable certificate, and collect endorsements from colleagues."
+      />
       {/* Navigation */}
       <SimpleNavigation />
 

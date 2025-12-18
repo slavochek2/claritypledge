@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import * as Sentry from "@sentry/react";
+import { HelmetProvider } from "react-helmet-async";
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { ClarityChampionsPage } from "@/app/pages/clarity-champions-page";
@@ -40,6 +41,7 @@ function ErrorFallback() {
 
 export default function ClarityPledgeApp() {
   return (
+    <HelmetProvider>
     <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog>
     <Router>
       <ScrollToTop />
@@ -171,5 +173,6 @@ export default function ClarityPledgeApp() {
       </AuthProvider>
     </Router>
     </Sentry.ErrorBoundary>
+    </HelmetProvider>
   );
 }

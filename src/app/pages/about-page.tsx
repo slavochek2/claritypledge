@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +71,11 @@ export function AboutPage() {
 
   return (
     <div className="min-h-screen py-20 px-4">
+      <SEO
+        title="About"
+        description="Learn the story behind the Clarity Pledge movement. Founded by Vyacheslav Ladischenski to combat miscommunication and intellectual moral injury in professional settings."
+        url="/about"
+      />
       <div className="container mx-auto max-w-3xl">
         {/* Hero Section */}
         <div className="text-center mb-16">

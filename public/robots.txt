@@ -1,0 +1,11 @@
+# Clarity Pledge - robots.txt
+# https://claritypledge.com
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://claritypledge.com/sitemap.xml
+
+# Crawl-delay (optional, be nice to servers)
+Crawl-delay: 1
