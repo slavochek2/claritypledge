@@ -112,6 +112,7 @@ export function FullArticlePage() {
         article={{
           headline: "The Clarity Pledge Manifesto: Stop Paying the Hidden Cost of Miscommunication",
           author: "Vyacheslav Ladischenski",
+          authorUrl: "https://www.linkedin.com/in/ACoAABUcFYABFPJuHJrMHPJfQIW8D5pR_0KPjKk",
           datePublished: "2025-01-01",
           dateModified: "2025-12-01",
         }}

@@ -17,6 +17,7 @@ interface SEOProps {
   article?: {
     headline: string;
     author: string;
+    authorUrl?: string;
     datePublished: string;
     dateModified?: string;
   };
@@ -88,6 +89,14 @@ export function SEO({
 
   // Add Article schema for article pages
   if (article) {
+    // Ensure dates have timezone for Google Rich Results
+    const formatDateWithTimezone = (date: string) => {
+      // If already has time component, return as is
+      if (date.includes("T")) return date;
+      // Add midnight UTC timezone
+      return `${date}T00:00:00Z`;
+    };
+
     const articleSchema = {
       "@context": "https://schema.org",
       "@type": "Article",
@@ -95,10 +104,11 @@ export function SEO({
       author: {
         "@type": "Person",
         name: article.author,
+        ...(article.authorUrl && { url: article.authorUrl }),
       },
       publisher: organizationSchema,
-      datePublished: article.datePublished,
-      ...(article.dateModified && { dateModified: article.dateModified }),
+      datePublished: formatDateWithTimezone(article.datePublished),
+      ...(article.dateModified && { dateModified: formatDateWithTimezone(article.dateModified) }),
       description: description,
       mainEntityOfPage: {
         "@type": "WebPage",
