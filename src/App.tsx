@@ -16,6 +16,8 @@ import { TermsOfServicePage } from "@/app/pages/terms-of-service-page";
 import { SettingsPage } from "@/app/pages/settings-page";
 import { ClarityDemoPage } from "@/app/pages/clarity-demo-page";
 import { ClarityChatPage } from "@/app/pages/clarity-chat-page";
+import { IdeaFeedPage } from "@/app/pages/idea-feed-page";
+import { IdeaDetailPage } from "@/app/pages/idea-detail-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
@@ -198,6 +200,24 @@ export default function ClarityPledgeApp() {
         <Route
           path="/clarity-chat"
           element={<Navigate to="/chat" replace />}
+        />
+
+        <Route
+          path="/feed"
+          element={
+            <ClarityLandingLayout>
+              <IdeaFeedPage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/idea/:id"
+          element={
+            <ClarityLandingLayout>
+              <IdeaDetailPage />
+            </ClarityLandingLayout>
+          }
         />
       </Routes>
       </AuthProvider>

@@ -16,84 +16,248 @@ import {
   sendChatMessage,
   getChatMessages,
   subscribeToChatMessages,
+  subscribeToChatMessageUpdates,
   createVerification,
   getVerificationsForSession,
   subscribeToVerifications,
   rateVerification,
   setVerificationPosition,
+  requestExplanation,
+  cancelExplanationRequest,
   type ClaritySession,
   type ChatMessage,
   type Verification,
-  type ChatPosition,
 } from '@/app/data/api';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
-import { Send, MessageSquare, CheckCircle2, ThumbsUp, ThumbsDown, HelpCircle, X, Mic, Square, Play, Pause, Globe, ChevronDown, ChevronUp, MessageCircle } from 'lucide-react';
+import { Send, CheckCircle2, ThumbsUp, ThumbsDown, HelpCircle, X, Mic, Square, Play, Pause, Globe, MessageCircle, ChevronDown, ChevronRight, Undo2, RotateCcw, Clock } from 'lucide-react';
 
 type ViewState = 'start' | 'waiting' | 'chat';
 
 // Max audio recording duration (60 seconds)
 const MAX_RECORDING_SECONDS = 60;
 
-// Expandable verification/paraphrase log component
-function VerificationLog({ verifications, isOwn }: { verifications: Verification[]; isOwn: boolean }) {
+// Verification thread component with progressive disclosure
+// - Collapsed by default after completion (shows summary)
+// - Expandable to see full history
+// - Hidden when action is needed (to avoid duplicate info with action cards)
+// UX IMPROVEMENTS:
+// - Clear accordion affordance with visible expand/collapse
+// - Better visual boundaries
+// - Consistent button styling
+function VerificationThread({
+  verifications,
+  currentUserName,
+  messageAuthorName,
+  hasPendingAction, // True when rating UI is shown - hides thread to avoid duplication
+}: {
+  verifications: Verification[];
+  currentUserName: string;
+  messageAuthorName: string;
+  hasPendingAction?: boolean;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (verifications.length === 0) return null;
 
-  return (
-    <div className="w-full">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-        {verifications.length} paraphrase{verifications.length !== 1 ? 's' : ''}
-      </button>
+  // Sort by round number to show chronological order
+  const sorted = [...verifications].sort((a, b) => a.roundNumber - b.roundNumber);
+  const latestVerification = sorted[sorted.length - 1];
+  const isAccepted = latestVerification?.status === 'accepted';
+  const isPending = latestVerification?.status === 'pending' && latestVerification?.accuracyRating === undefined;
+  const needsRetry = latestVerification?.status === 'needs_retry';
+  const totalRounds = sorted.length;
 
+  // When there's a pending action (rating UI visible), only show minimal status
+  // The action card already shows the paraphrase text
+  if (hasPendingAction) {
+    return (
+      <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+        <MessageCircle className="h-3 w-3" />
+        {totalRounds > 1 && <span>Round {totalRounds}</span>}
+      </div>
+    );
+  }
+
+  // Collapsed summary view (for completed or multi-round scenarios)
+  // UX FIX: Clear button affordance with hover states and visual feedback
+  const CollapsedSummary = () => {
+    if (isAccepted) {
+      // Check if current user is the verifier (to show their self-rating)
+      const isMyVerification = latestVerification.verifierName === currentUserName;
+      const showCalibration = isMyVerification && latestVerification.selfRating !== undefined;
+      // Green only for 100% (full understanding), blue for accepted-but-imperfect
+      const isPerfect = latestVerification.accuracyRating === 100;
+
+      return (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`mt-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded-md border transition-all ${
+            isPerfect
+              ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
+              : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
+          }`}
+          title={isExpanded ? 'Hide details' : 'Show details'}
+        >
+          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          <CheckCircle2 className="h-3 w-3" />
+          <span className="font-medium">
+            {isPerfect ? 'Fully understood' : `${latestVerification.accuracyRating! / 10}/10 understood`}
+            {showCalibration && latestVerification.selfRating !== latestVerification.accuracyRating && (
+              <span className={`font-normal ml-1 ${isPerfect ? 'text-green-600/70' : 'text-blue-600/70'}`}>
+                (guessed {latestVerification.selfRating! / 10}/10)
+              </span>
+            )}
+            {totalRounds > 1 && ` · ${totalRounds} tries`}
+          </span>
+          {latestVerification.position && (
+            <span className={`ml-1 ${
+              latestVerification.position === 'agree' ? 'text-green-600' :
+              latestVerification.position === 'disagree' ? 'text-red-600' :
+              'text-gray-500'
+            }`}>
+              {latestVerification.position === 'agree' && '👍'}
+              {latestVerification.position === 'disagree' && '👎'}
+              {latestVerification.position === 'dont_know' && '❓'}
+            </span>
+          )}
+        </button>
+      );
+    }
+
+    if (isPending) {
+      // Check if current user is the verifier (to show their self-rating)
+      const isMyVerification = latestVerification.verifierName === currentUserName;
+      const showSelfRating = isMyVerification && latestVerification.selfRating !== undefined;
+
+      return (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all"
+          title={isExpanded ? 'Hide details' : 'Show details'}
+        >
+          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          <span className="animate-pulse text-blue-500">●</span>
+          <span>
+            Waiting for {messageAuthorName} to rate your understanding
+            {showSelfRating && (
+              <span className="text-blue-600/70"> · you rated yourself {latestVerification.selfRating! / 10}/10</span>
+            )}
+            {totalRounds > 1 && ` · attempt ${totalRounds}`}
+          </span>
+        </button>
+      );
+    }
+
+    if (needsRetry) {
+      // Check if current user is the verifier (to show their self-rating)
+      const isMyVerification = latestVerification.verifierName === currentUserName;
+      const showCalibration = isMyVerification && latestVerification.selfRating !== undefined;
+
+      return (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-2 flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all"
+          title={isExpanded ? 'Hide details' : 'Show details'}
+        >
+          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          <MessageCircle className="h-3 w-3" />
+          <span>
+            {latestVerification.accuracyRating}% captured · retry needed
+            {showCalibration && (
+              <span className="text-blue-600/70">
+                {' '}(guessed {latestVerification.selfRating}%)
+              </span>
+            )}
+          </span>
+        </button>
+      );
+    }
+
+    return null;
+  };
+
+  // For single pending verification with no history, show inline status only
+  if (totalRounds === 1 && isPending && !isExpanded) {
+    return <CollapsedSummary />;
+  }
+
+  return (
+    <div className="mt-2">
+      <CollapsedSummary />
+
+      {/* Expanded thread content - UX FIX: Clear visual boundary */}
       {isExpanded && (
-        <div className="mt-2 space-y-2 p-2 bg-muted/30 rounded-lg border text-xs">
-          {verifications.map((v) => (
-            <div key={v.id} className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{v.verifierName}</span>
-                {v.status === 'accepted' && (
-                  <span className="text-green-600">
-                    <CheckCircle2 className="h-3 w-3 inline" /> Accepted
-                  </span>
-                )}
-                {v.status === 'pending' && (
-                  <span className="text-amber-600">Pending</span>
-                )}
-                {v.accuracyRating !== undefined && (
-                  <span className="text-muted-foreground">
-                    {v.accuracyRating}% accuracy
-                  </span>
-                )}
-                {v.selfRating !== undefined && v.accuracyRating !== undefined && (
-                  <span className={`${
-                    (v.accuracyRating - v.selfRating) > 10 ? 'text-green-600' :
-                    (v.accuracyRating - v.selfRating) < -10 ? 'text-red-600' :
-                    'text-muted-foreground'
+        <div className="mt-2 ml-1 border-l-2 border-blue-200 pl-3 space-y-3 bg-muted/30 rounded-r-lg py-2 pr-2">
+          {sorted.map((v) => {
+            const isMyVerification = v.verifierName === currentUserName;
+            const showAsVerifier = isMyVerification;
+
+            return (
+              <div key={v.id} className="space-y-2">
+                {/* Paraphrase attempt */}
+                <div className={`p-2 rounded-lg text-sm ${
+                  showAsVerifier ? 'bg-background border shadow-sm' : 'bg-muted/50'
+                }`}>
+                  <div className="flex items-center gap-2 text-xs mb-1">
+                    <span className="font-medium">{v.verifierName}</span>
+                    {totalRounds > 1 && (
+                      <span className="text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Try #{v.roundNumber}</span>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground italic">"{v.paraphraseText}"</p>
+                </div>
+
+                {/* Rating response (if rated) - Green only at 10/10, blue otherwise */}
+                {v.accuracyRating !== undefined && (() => {
+                  const isPerfect = v.accuracyRating === 100;
+                  return (
+                    <div className={`p-2 rounded-lg text-sm ${
+                      isPerfect ? 'bg-green-50 border border-green-200' : 'bg-blue-50 border border-blue-200'
+                    }`}>
+                      <div className="flex items-center gap-2 text-xs mb-1">
+                        <span className="font-medium">{messageAuthorName}</span>
+                        <span className={`font-medium px-1.5 py-0.5 rounded ${
+                          isPerfect ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {v.accuracyRating / 10}/10
+                          {v.status === 'accepted' && ' ✓'}
+                          {v.status === 'needs_retry' && ' → retry'}
+                        </span>
+                      </div>
+                      {/* Show calibration comparison if self-rating exists */}
+                      {v.selfRating !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          {v.verifierName} predicted {v.selfRating / 10}/10; {messageAuthorName} rated {v.accuracyRating! / 10}/10
+                          {v.calibrationGap !== undefined && v.calibrationGap !== 0 && (
+                            <span className="text-blue-600">
+                              {' '}({v.calibrationGap > 0 ? '+' : ''}{v.calibrationGap / 10})
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {v.correctionText && (
+                        <p className="text-sm mt-1 p-2 bg-background rounded border-l-2 border-blue-300">"{v.correctionText}"</p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Position (after acceptance) */}
+                {v.status === 'accepted' && v.position && (
+                  <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border ${
+                    v.position === 'agree' ? 'bg-green-50 border-green-200 text-green-700' :
+                    v.position === 'disagree' ? 'bg-red-50 border-red-200 text-red-700' :
+                    'bg-gray-50 border-gray-200 text-gray-600'
                   }`}>
-                    (gap: {v.accuracyRating - v.selfRating > 0 ? '+' : ''}{v.accuracyRating - v.selfRating})
-                  </span>
+                    {v.position === 'agree' && <ThumbsUp className="h-3 w-3" />}
+                    {v.position === 'disagree' && <ThumbsDown className="h-3 w-3" />}
+                    {v.position === 'dont_know' && <HelpCircle className="h-3 w-3" />}
+                    {v.verifierName} {v.position === 'agree' ? 'agrees' : v.position === 'disagree' ? 'disagrees' : 'is unsure'}
+                  </div>
                 )}
               </div>
-              <p className="text-muted-foreground italic">"{v.paraphraseText}"</p>
-              {v.position && (
-                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
-                  v.position === 'agree' ? 'bg-green-100 text-green-700' :
-                  v.position === 'disagree' ? 'bg-red-100 text-red-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {v.position === 'agree' && <ThumbsUp className="h-2.5 w-2.5" />}
-                  {v.position === 'disagree' && <ThumbsDown className="h-2.5 w-2.5" />}
-                  {v.position === 'dont_know' && <HelpCircle className="h-2.5 w-2.5" />}
-                  {v.position.replace('_', ' ')}
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -147,10 +311,10 @@ export function ClarityChatPage() {
   // Paraphrase flow state
   const [paraphrasingMessageId, setParaphrasingMessageId] = useState<string | null>(null);
   const [paraphraseInput, setParaphraseInput] = useState('');
-  const [selfRating, setSelfRating] = useState(50); // Verifier's self-assessment
+  const [selfRating, setSelfRating] = useState<number | null>(null); // null = not yet selected
   const [ratingVerificationId, setRatingVerificationId] = useState<string | null>(null);
   const [rating, setRating] = useState(50);
-  const [positionVerificationId, setPositionVerificationId] = useState<string | null>(null);
+  const [correctionInput, setCorrectionInput] = useState(''); // Author's correction feedback
 
   // Audio recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -226,6 +390,13 @@ export function ClarityChatPage() {
       setMessages((prev) => [...prev, newMessage]);
     });
 
+    // Subscribe to message updates (for explanation requests)
+    const unsubMessageUpdates = subscribeToChatMessageUpdates(session.id, (updatedMessage) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
+      );
+    });
+
     // Subscribe to verification updates
     const unsubVerifications = subscribeToVerifications(session.id, (verification, event) => {
       setVerifications((prev) => {
@@ -249,6 +420,7 @@ export function ClarityChatPage() {
 
     return () => {
       unsubMessages();
+      unsubMessageUpdates();
       unsubVerifications();
     };
   }, [session?.id, view, name]);
@@ -329,7 +501,7 @@ export function ClarityChatPage() {
   const handleStartParaphrase = (messageId: string) => {
     setParaphrasingMessageId(messageId);
     setParaphraseInput('');
-    setSelfRating(50);
+    setSelfRating(null); // Reset to unset state
     setAudioBlob(null);
     setAudioUrl(null);
     setRecordingSeconds(0);
@@ -481,7 +653,7 @@ export function ClarityChatPage() {
 
   // Submit paraphrase (with self-rating, audio is stored separately)
   const handleSubmitParaphrase = async () => {
-    if (!paraphrasingMessageId || !paraphraseInput.trim()) return;
+    if (!paraphrasingMessageId || !paraphraseInput.trim() || selfRating === null) return;
 
     try {
       // TODO: Upload audio to Supabase Storage and get URL
@@ -489,7 +661,7 @@ export function ClarityChatPage() {
       await createVerification(paraphrasingMessageId, name, paraphraseInput.trim(), selfRating);
       setParaphrasingMessageId(null);
       setParaphraseInput('');
-      setSelfRating(50);
+      setSelfRating(null);
       setAudioBlob(null);
       setAudioUrl(null);
     } catch (err) {
@@ -498,27 +670,19 @@ export function ClarityChatPage() {
   };
 
   // Rate a paraphrase (as message author)
+  // If not accepting, can provide correction for retry
   const handleRate = async (accept: boolean) => {
     if (!ratingVerificationId) return;
 
     try {
-      await rateVerification(ratingVerificationId, rating, accept);
+      // Pass correction text only if not accepting and there is text
+      const correction = !accept && correctionInput.trim() ? correctionInput.trim() : undefined;
+      await rateVerification(ratingVerificationId, rating, accept, correction);
       setRatingVerificationId(null);
       setRating(50);
+      setCorrectionInput('');
     } catch (err) {
       console.error('Failed to rate:', err);
-    }
-  };
-
-  // Set position (as verifier, after acceptance)
-  const handleSetPosition = async (position: ChatPosition) => {
-    if (!positionVerificationId) return;
-
-    try {
-      await setVerificationPosition(positionVerificationId, position);
-      setPositionVerificationId(null);
-    } catch (err) {
-      console.error('Failed to set position:', err);
     }
   };
 
@@ -649,28 +813,52 @@ export function ClarityChatPage() {
   // CHAT VIEW
   if (view === 'chat' && session) {
     const partnerName = isCreator ? session.joinerName : session.creatorName;
+    const hasMessages = messages.length > 0;
 
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] max-w-2xl mx-auto">
-        {/* Header */}
+        {/* Header - always visible to show human-to-human context */}
         <div className="flex items-center justify-between p-4 border-b">
           <div>
-            <h1 className="font-semibold">Clarity Chat</h1>
-            <p className="text-sm text-muted-foreground">
-              with {partnerName}
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground font-mono">
-            {session.code}
+            <h1 className="font-semibold flex items-center gap-2">
+              <span className="text-lg">You</span>
+              <span className="text-muted-foreground font-normal text-sm">&</span>
+              <span className="text-lg">{partnerName}</span>
+            </h1>
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center text-muted-foreground py-8">
-              <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No messages yet. Share an idea!</p>
+        {/* Messages area */}
+        <div className={`flex-1 overflow-y-auto p-4 ${!hasMessages ? 'flex flex-col items-center justify-center' : 'space-y-4'}`}>
+          {/* GPT-style empty state */}
+          {!hasMessages && (
+            <div className="text-center max-w-md mx-auto">
+              <h2 className="text-2xl font-medium text-foreground mb-2">
+                What's on your mind?
+              </h2>
+              <p className="text-muted-foreground mb-8">
+                Share an idea with {partnerName}. They'll explain it back to make sure they understand.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 text-sm">
+                <button
+                  onClick={() => setMessageInput("I've been thinking about...")}
+                  className="px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  Share a thought
+                </button>
+                <button
+                  onClick={() => setMessageInput("What do you think about...")}
+                  className="px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  Ask a question
+                </button>
+                <button
+                  onClick={() => setMessageInput("I want to understand your view on...")}
+                  className="px-3 py-1.5 rounded-full border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  Explore a topic
+                </button>
+              </div>
             </div>
           )}
 
@@ -678,42 +866,112 @@ export function ClarityChatPage() {
             const isOwn = message.authorName === name;
             const canParaphrase = !isOwn; // Any message can be paraphrased
             const messageVerifications = verifications.get(message.id) || [];
-            const latestVerification = messageVerifications[messageVerifications.length - 1];
             const pendingRating = isOwn ? findPendingRating(message.id) : undefined;
             const acceptedVerification = messageVerifications.find(v => v.status === 'accepted');
             // Check if current user already verified this message
             const myVerification = messageVerifications.find(v => v.verifierName === name);
+            // Check if user needs to retry (has needs_retry status)
+            const myNeedsRetry = messageVerifications.find(
+              v => v.verifierName === name && v.status === 'needs_retry'
+            );
+            // Check if user has a pending verification awaiting rating
+            const myPendingVerification = messageVerifications.find(
+              v => v.verifierName === name && v.status === 'pending'
+            );
+            // Get all previous corrections for this verifier (to show context)
+            const myPreviousAttempts = messageVerifications.filter(
+              v => v.verifierName === name && v.correctionText
+            );
 
             return (
-              <div key={message.id} className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+              <div key={message.id} className={`group flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                 {/* Message bubble */}
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                     isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   }`}
                 >
-                  <p className="text-xs font-medium mb-1 opacity-70">{message.authorName}</p>
                   <p className="whitespace-pre-wrap break-words">{message.content}</p>
                 </div>
 
-                {/* Inline position buttons (after verification accepted) */}
-                {acceptedVerification && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2 max-w-[80%]">
-                    {/* Verification badge */}
-                    <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Understood
-                    </span>
+                {/* Prominent "Explain back" button for partner's messages - CORE FEATURE */}
+                {/* Also shows nudge if the speaker has requested explanation */}
+                {canParaphrase && !acceptedVerification && !myVerification && !myNeedsRetry && paraphrasingMessageId !== message.id && (
+                  <button
+                    onClick={() => handleStartParaphrase(message.id)}
+                    className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-all ${
+                      message.explanationRequestedAt
+                        ? 'font-semibold border-blue-500 bg-blue-500 text-white hover:bg-blue-600 shadow-sm'
+                        : 'font-medium border-transparent text-muted-foreground hover:text-blue-700 hover:bg-blue-50 hover:border-blue-200'
+                    }`}
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                    {message.explanationRequestedAt ? `${message.authorName} asked you to reflect back` : 'Reflect back'}
+                  </button>
+                )}
 
-                    {/* Position buttons (for verifier who hasn't set position yet) */}
-                    {acceptedVerification.verifierName === name && !acceptedVerification.position && (
-                      <>
+                {/* "Ask to explain back" button for own messages (speaker side) */}
+                {isOwn && !acceptedVerification && messageVerifications.length === 0 && (
+                  message.explanationRequestedAt ? (
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground bg-muted/50 rounded-full border">
+                        <Clock className="h-3 w-3" />
+                        Waiting for {partnerName} to reflect back...
+                      </span>
+                      <button
+                        onClick={async () => {
+                          if (!session) return;
+                          try {
+                            await cancelExplanationRequest(message.id, name);
+                          } catch (err) {
+                            console.error('Failed to cancel request:', err);
+                          }
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        title="Cancel request"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        if (!session) return;
+                        try {
+                          await requestExplanation(message.id, session.id, name);
+                        } catch (err) {
+                          console.error('Failed to request explanation:', err);
+                          // If column doesn't exist, the migration hasn't been run
+                          alert('This feature requires a database update. Please run the migration.');
+                        }
+                      }}
+                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-transparent hover:bg-blue-50 rounded-full border border-blue-200/50 hover:border-blue-300 transition-all"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      Ask {partnerName} to reflect back
+                    </button>
+                  )
+                )}
+
+                {/* Verification Thread - aligned with message (right for own, left for others) */}
+                {messageVerifications.length > 0 && (
+                  <div className={`w-full max-w-[85%] ${isOwn ? 'self-end' : 'self-start'}`}>
+                    <VerificationThread
+                      verifications={messageVerifications}
+                      currentUserName={name}
+                      messageAuthorName={message.authorName}
+                      hasPendingAction={!!pendingRating} // Hide when author has pending rating to avoid duplication
+                    />
+
+                    {/* Position buttons (for verifier who hasn't set position yet, after acceptance) */}
+                    {acceptedVerification && acceptedVerification.verifierName === name && !acceptedVerification.position && (
+                      <div className={`mt-3 flex items-center gap-2 ${isOwn ? 'justify-end mr-5' : 'ml-5'}`}>
                         <span className="text-xs text-muted-foreground">Your position:</span>
                         <div className="flex gap-1">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-6 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                            className="h-6 px-2 text-xs"
                             onClick={() => {
                               setVerificationPosition(acceptedVerification.id, 'agree');
                             }}
@@ -724,7 +982,7 @@ export function ClarityChatPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-6 px-2 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                            className="h-6 px-2 text-xs"
                             onClick={() => {
                               setVerificationPosition(acceptedVerification.id, 'disagree');
                             }}
@@ -743,57 +1001,39 @@ export function ClarityChatPage() {
                             <HelpCircle className="h-3 w-3" />
                           </Button>
                         </div>
-                      </>
+                      </div>
                     )}
 
-                    {/* Show position if already set */}
-                    {acceptedVerification.position && (
-                      <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
-                        acceptedVerification.position === 'agree' ? 'bg-green-100 text-green-700' :
-                        acceptedVerification.position === 'disagree' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {acceptedVerification.position === 'agree' && <ThumbsUp className="h-3 w-3" />}
-                        {acceptedVerification.position === 'disagree' && <ThumbsDown className="h-3 w-3" />}
-                        {acceptedVerification.position === 'dont_know' && <HelpCircle className="h-3 w-3" />}
-                        {acceptedVerification.verifierName}
-                        {acceptedVerification.position === 'agree' && ' agrees'}
-                        {acceptedVerification.position === 'disagree' && ' disagrees'}
-                        {acceptedVerification.position === 'dont_know' && ' unsure'}
-                      </span>
-                    )}
-
-                    {/* Expandable paraphrase log */}
-                    {messageVerifications.length > 0 && (
-                      <VerificationLog verifications={messageVerifications} isOwn={isOwn} />
-                    )}
+                    {/* Try Again button (for verifier when needs_retry, no pending attempt, and not currently editing) */}
+                    {myNeedsRetry && !myPendingVerification && paraphrasingMessageId !== message.id && (() => {
+                      // Find the highest round number among all my attempts
+                      const myAttempts = messageVerifications.filter(v => v.verifierName === name);
+                      const maxRound = Math.max(...myAttempts.map(v => v.roundNumber || 1));
+                      return (
+                        <div className={`mt-3 ${isOwn ? 'mr-5 text-right' : 'ml-5'}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleStartParaphrase(message.id)}
+                          >
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            Try again (attempt {maxRound + 1})
+                          </Button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
-                {/* Verification pending status */}
-                {latestVerification && latestVerification.status === 'pending' && !acceptedVerification && (
-                  <div className="mt-1 text-xs text-amber-600">
-                    Verification pending...
-                  </div>
-                )}
-
-                {/* Explain Back button (for partner's messages without accepted verification) */}
-                {canParaphrase && !acceptedVerification && !myVerification && paraphrasingMessageId !== message.id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 h-7 text-xs border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                    onClick={() => handleStartParaphrase(message.id)}
-                  >
-                    <MessageCircle className="h-3 w-3 mr-1" />
-                    Explain Back
-                  </Button>
-                )}
 
                 {/* Verify Understanding input (inline) */}
                 {paraphrasingMessageId === message.id && (
-                  <div className="mt-2 w-full max-w-[80%] space-y-3 p-3 bg-muted/50 rounded-lg border">
-                    <p className="text-xs text-muted-foreground font-medium">Explain what you understood:</p>
+                  <div className="mt-2 w-full max-w-[80%] self-start space-y-3 p-3 bg-muted/50 rounded-lg border">
+                    <p className="text-xs font-medium">
+                      {myPreviousAttempts.length > 0
+                        ? `Attempt ${myPreviousAttempts.length + 1}: Explain back what you think ${message.authorName} meant`
+                        : `Explain back what you think ${message.authorName} meant:`}
+                    </p>
 
                     {/* Text input with mic button */}
                     <div className="relative">
@@ -801,7 +1041,7 @@ export function ClarityChatPage() {
                         value={isRecording ? (liveTranscript + (interimTranscript ? ' ' + interimTranscript : '')) : paraphraseInput}
                         onChange={(e) => !isRecording && setParaphraseInput(e.target.value)}
                         placeholder={isRecording ? 'Listening...' : 'In your own words (1-3 sentences)...'}
-                        className={`min-h-[80px] pr-12 ${isRecording ? 'bg-blue-50 border-blue-300' : ''}`}
+                        className={`min-h-[80px] pr-12 ${isRecording ? 'bg-muted border-primary' : ''}`}
                         disabled={isRecording}
                       />
                       {/* Mic button inside textarea */}
@@ -857,32 +1097,43 @@ export function ClarityChatPage() {
                     )}
 
                     {/* Self-rating slider */}
-                    <div className="space-y-2">
+                    <div className={`space-y-2 p-2 rounded-lg transition-all ${selfRating === null ? 'bg-blue-50 border border-blue-200 ring-1 ring-blue-300/50' : 'bg-transparent'}`}>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">How well do you think you understood?</span>
-                        <span className="font-medium">{selfRating}%</span>
+                        <span className={selfRating === null ? 'text-blue-700 font-medium' : 'text-muted-foreground'}>
+                          How well did you capture {message.authorName}'s meaning?
+                        </span>
+                        <span className={`font-medium ${selfRating === null ? 'text-blue-600' : ''}`}>
+                          {selfRating === null ? '5/10' : `${selfRating / 10}/10`}
+                        </span>
                       </div>
-                      <Slider
-                        value={[selfRating]}
-                        onValueChange={([v]) => setSelfRating(v)}
-                        min={0}
-                        max={100}
-                        step={10}
-                      />
+                      <div className="relative">
+                        <Slider
+                          value={selfRating === null ? [50] : [selfRating]}
+                          onValueChange={([v]) => setSelfRating(v)}
+                          min={0}
+                          max={100}
+                          step={10}
+                          className={selfRating === null ? 'opacity-70' : ''}
+                        />
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>0</span>
+                          <span>10 = Full understanding</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <Button
                         size="sm"
                         onClick={handleSubmitParaphrase}
-                        disabled={!paraphraseInput.trim()}
+                        disabled={!paraphraseInput.trim() || selfRating === null}
                       >
-                        Submit Paraphrase
+                        Ask for feedback
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
+                      <button
+                        type="button"
+                        className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                         onClick={() => {
                           setParaphrasingMessageId(null);
                           setAudioBlob(null);
@@ -890,39 +1141,66 @@ export function ClarityChatPage() {
                         }}
                       >
                         Cancel
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* Rating UI (for own messages with pending paraphrase) */}
+                {/* Rating UI (for own messages with pending paraphrase) - aligned with message */}
                 {pendingRating && ratingVerificationId !== pendingRating.id && (
-                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg max-w-[80%]">
-                    <p className="text-sm font-medium text-amber-800 mb-2">
-                      {pendingRating.verifierName} paraphrased:
+                  <div className={`mt-2 p-3 bg-blue-50 rounded-lg max-w-[80%] border-l-2 border-l-blue-400 border border-blue-200`}>
+                    <p className="text-sm font-medium mb-2 text-blue-900">
+                      {pendingRating.verifierName}'s understanding:
                     </p>
-                    <p className="text-sm text-amber-900 mb-3">{pendingRating.paraphraseText}</p>
-                    <Button
-                      size="sm"
+                    <p className="text-sm text-blue-700/80 italic mb-3">"{pendingRating.paraphraseText}"</p>
+                    <button
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-blue-300 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-all"
                       onClick={() => {
                         setRatingVerificationId(pendingRating.id);
-                        setRating(50);
+                        setRating(70); // Start at 70% as more realistic default
                       }}
                     >
-                      Rate Understanding
-                    </Button>
+                      Did {pendingRating.verifierName} get it right?
+                    </button>
                   </div>
                 )}
 
-                {/* Rating slider (when rating) */}
+                {/* Rating slider (when rating) - aligned with message */}
+                {/* UX IMPROVEMENTS: Better slider with tick marks, clearer button labels, progressive disclosure */}
                 {ratingVerificationId && pendingRating?.id === ratingVerificationId && (
-                  <div className="mt-2 p-3 bg-muted rounded-lg max-w-[80%] space-y-3">
-                    <p className="text-sm font-medium">How well did they understand?</p>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Understanding</span>
-                        <span className="font-bold">{rating}/100</span>
+                  <div className="mt-2 p-4 bg-background rounded-xl max-w-[85%] space-y-4 border shadow-sm">
+                    {/* Header with attempt number */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">
+                        Rate {pendingRating.verifierName}'s understanding
+                      </p>
+                      {pendingRating.roundNumber > 1 && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                          Try #{pendingRating.roundNumber}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Their paraphrase - better visual treatment */}
+                    <div className="p-3 bg-muted/50 rounded-lg border-l-2 border-primary/30">
+                      <p className="text-sm text-muted-foreground italic">"{pendingRating.paraphraseText}"</p>
+                    </div>
+
+                    {/* Prediction context ABOVE slider - gives context before rating */}
+                    {pendingRating.selfRating !== undefined && (
+                      <div className="text-sm text-muted-foreground">
+                        {pendingRating.verifierName} predicted: <span className="font-medium text-foreground">{pendingRating.selfRating / 10}/10</span>
                       </div>
+                    )}
+
+                    {/* Rating slider - KISS: 0-10 scale (more intuitive than %) */}
+                    <div className="space-y-2">
+                      {/* Current rating display */}
+                      <div className="text-center">
+                        <span className="text-2xl font-bold text-blue-600">{rating / 10}/10</span>
+                      </div>
+
+                      {/* Simple slider */}
                       <Slider
                         value={[rating]}
                         onValueChange={([v]) => setRating(v)}
@@ -930,16 +1208,58 @@ export function ClarityChatPage() {
                         max={100}
                         step={10}
                       />
+
+                      {/* Minimal labels - endpoints with explanation at 10 */}
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>0</span>
+                        <span>10 = full understanding</span>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => handleRate(true)}>
-                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Accept
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setRatingVerificationId(null)}>
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
+
+                    {/* Correction input - always visible but optional, fixed height */}
+                    <div className="space-y-2">
+                      <Textarea
+                        value={correctionInput}
+                        onChange={(e) => setCorrectionInput(e.target.value)}
+                        placeholder="Add a note (optional)"
+                        className="min-h-[60px] text-sm resize-none"
+                      />
+                    </div>
+
+                    {/* Action buttons - Design System: blue primary, green only for 100% success */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t">
+                      {rating === 100 ? (
+                        /* 100% = Accept is primary */
+                        <Button
+                          size="sm"
+                          onClick={() => handleRate(true)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white"
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-1" />
+                          Perfect!
+                        </Button>
+                      ) : (
+                        /* <100% = Retry is primary (blue), Accept is secondary */
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => handleRate(false)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            Ask to clarify
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRate(true)}
+                            className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Close enough
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -952,83 +1272,104 @@ export function ClarityChatPage() {
 
         {/* Position modal removed - inline position buttons now appear directly on messages */}
 
-        {/* Message input - clean single-line design */}
-        <div className="p-4 border-t">
-          <div className="flex gap-2 items-center">
-            {/* Input field with mic inside */}
-            <div className="relative flex-1">
-              <Input
-                value={isRecordingMessage
-                  ? (liveTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim() || ''
-                  : messageInput}
-                onChange={(e) => !isRecordingMessage && setMessageInput(e.target.value)}
-                placeholder={isRecordingMessage
-                  ? `🎤 Listening... (${MAX_RECORDING_SECONDS - messageRecordingSeconds}s)`
-                  : 'Share an idea...'}
-                disabled={isRecordingMessage}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !isRecordingMessage) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                className={`pr-20 ${isRecordingMessage ? 'bg-red-50 border-red-300 text-red-900' : ''}`}
-              />
-              {/* Language + Mic buttons inside input */}
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
-                {/* Language picker (small) */}
-                <div className="relative">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7"
-                    onClick={() => setShowLangPicker(!showLangPicker)}
-                    title={SUPPORTED_LANGUAGES.find(l => l.code === speechLang)?.label}
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                  </Button>
-                  {showLangPicker && (
-                    <div className="absolute bottom-full right-0 mb-1 bg-background border rounded-lg shadow-lg p-1 min-w-[120px] max-h-[200px] overflow-y-auto z-50">
-                      {SUPPORTED_LANGUAGES.map((lang) => (
-                        <button
-                          key={lang.code}
-                          className={`block w-full text-left px-2 py-1 text-xs rounded hover:bg-muted ${
-                            speechLang === lang.code ? 'bg-muted font-medium' : ''
-                          }`}
-                          onClick={() => {
-                            setSpeechLang(lang.code);
-                            setShowLangPicker(false);
-                          }}
-                        >
-                          {lang.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Mic button */}
-                <Button
-                  size="icon"
-                  variant={isRecordingMessage ? 'destructive' : 'ghost'}
-                  className="h-7 w-7"
-                  onClick={isRecordingMessage ? stopMessageRecording : startMessageRecording}
-                  disabled={isRecording}
-                >
-                  {isRecordingMessage ? <Square className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                </Button>
-              </div>
-            </div>
+        {/* GPT-style pill input */}
+        <div className={`p-4 ${!hasMessages ? '' : 'border-t'}`}>
+          <div className="relative flex items-end gap-0 bg-muted/50 border border-border rounded-3xl px-4 py-2 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            {/* Textarea */}
+            <Textarea
+              value={isRecordingMessage
+                ? (liveTranscript + (interimTranscript ? ' ' + interimTranscript : '')).trim() || ''
+                : messageInput}
+              onChange={(e) => {
+                if (!isRecordingMessage) {
+                  setMessageInput(e.target.value);
+                  // Auto-resize
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
+                }
+              }}
+              placeholder={isRecordingMessage
+                ? `Listening... (${MAX_RECORDING_SECONDS - messageRecordingSeconds}s)`
+                : 'Share your thought...'}
+              disabled={isRecordingMessage}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && !isRecordingMessage) {
+                  e.preventDefault();
+                  handleSendMessage();
+                  e.currentTarget.style.height = 'auto';
+                }
+              }}
+              rows={1}
+              className={`flex-1 min-h-[24px] max-h-[150px] resize-none overflow-y-auto border-0 bg-transparent shadow-none focus-visible:ring-0 px-0 py-0 text-base placeholder:text-muted-foreground/70 ${isRecordingMessage ? 'text-red-600' : ''}`}
+            />
 
-            {/* Send button */}
-            <Button
-              onClick={handleSendMessage}
-              disabled={(!messageInput.trim() && !isRecordingMessage) || isRecordingMessage}
-              size="icon"
-              className="h-10 w-10"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            {/* Right side buttons */}
+            <div className="flex-shrink-0 flex items-center gap-1 ml-2">
+              {/* Language picker */}
+              <div className="relative">
+                <button
+                  className="p-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowLangPicker(!showLangPicker)}
+                  title={SUPPORTED_LANGUAGES.find(l => l.code === speechLang)?.label}
+                >
+                  <Globe className="h-4 w-4" />
+                </button>
+                {showLangPicker && (
+                  <div className="absolute bottom-full right-0 mb-2 bg-background border rounded-xl shadow-lg p-1 min-w-[130px] max-h-[200px] overflow-y-auto z-50">
+                    {SUPPORTED_LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.code}
+                        className={`block w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-muted transition-colors ${
+                          speechLang === lang.code ? 'bg-muted font-medium' : ''
+                        }`}
+                        onClick={() => {
+                          setSpeechLang(lang.code);
+                          setShowLangPicker(false);
+                        }}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Mic button */}
+              <button
+                className={`p-1.5 rounded-full transition-colors ${
+                  isRecordingMessage
+                    ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={isRecordingMessage ? stopMessageRecording : startMessageRecording}
+                disabled={isRecording}
+                title={isRecordingMessage ? 'Stop recording' : 'Voice input'}
+              >
+                {isRecordingMessage ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+
+              {/* Send button - circular, prominent when has content */}
+              <button
+                onClick={handleSendMessage}
+                disabled={(!messageInput.trim() && !isRecordingMessage) || isRecordingMessage}
+                className={`p-2 rounded-full transition-all ${
+                  messageInput.trim() && !isRecordingMessage
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                }`}
+                title="Send message"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
           </div>
+
+          {/* Subtle footer text */}
+          {!hasMessages && (
+            <p className="text-xs text-muted-foreground/60 text-center mt-3">
+              Clarity Chat helps you understand each other better
+            </p>
+          )}
         </div>
       </div>
     );

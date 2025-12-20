@@ -34,6 +34,44 @@ export const AVATAR_ROW_LIMIT_MOBILE = 5;
 export const AVATAR_ROW_LIMIT_DESKTOP = 8;
 
 // ============================================================================
+// Content Length Limits - Client-side validation (also enforced in DB)
+// ============================================================================
+
+/** Maximum length for idea content (about 800 words) */
+export const MAX_IDEA_LENGTH = 5000;
+
+/** Maximum length for comment content (about 300 words) */
+export const MAX_COMMENT_LENGTH = 2000;
+
+/** Maximum length for user names */
+export const MAX_NAME_LENGTH = 100;
+
+/** Maximum length for chat messages */
+export const MAX_CHAT_MESSAGE_LENGTH = 5000;
+
+/** Maximum length for paraphrase/verification text */
+export const MAX_PARAPHRASE_LENGTH = 2000;
+
+/** Maximum length for correction feedback */
+export const MAX_CORRECTION_LENGTH = 1000;
+
+/**
+ * Validates and truncates content to the specified max length.
+ * @param content - The content to validate
+ * @param maxLength - Maximum allowed length
+ * @param fieldName - Name of the field for error messages
+ * @returns Trimmed content
+ * @throws Error if content exceeds limit after trimming
+ */
+export function validateContentLength(content: string, maxLength: number, fieldName: string): string {
+  const trimmed = content.trim();
+  if (trimmed.length > maxLength) {
+    throw new Error(`${fieldName} exceeds maximum length of ${maxLength} characters (got ${trimmed.length})`);
+  }
+  return trimmed;
+}
+
+// ============================================================================
 // Result Types - Discriminated unions for proper error handling
 // ============================================================================
 
@@ -1046,10 +1084,22 @@ import type {
   Verification,
   DbVerification,
   ChatPosition,
+  FeedIdea,
+  DbFeedIdea,
+  IdeaVote,
+  DbIdeaVote,
+  IdeaVoteHistory,
+  IdeaComment,
+  DbIdeaComment,
+  FeedVote,
+  ProvenanceType,
 } from '@/app/types';
 
 // Re-export chat types
 export type { ChatMessage, Verification, ChatPosition } from '@/app/types';
+
+// Re-export feed types
+export type { FeedIdea, IdeaVote, IdeaComment, IdeaVoteHistory, FeedVote, ProvenanceType } from '@/app/types';
 
 /**
  * Maps database chat message to frontend type.
@@ -1061,6 +1111,7 @@ function mapChatMessageFromDb(db: DbChatMessage): ChatMessage {
     authorName: db.author_name,
     content: db.content,
     createdAt: db.created_at,
+    explanationRequestedAt: db.explanation_requested_at ?? null,
   };
 }
 
@@ -1076,6 +1127,8 @@ function mapVerificationFromDb(db: DbVerification): Verification {
     selfRating: db.self_rating ?? undefined,
     accuracyRating: db.accuracy_rating ?? undefined,
     calibrationGap: db.calibration_gap ?? undefined,
+    correctionText: db.correction_text ?? undefined,
+    roundNumber: db.round_number ?? 1,
     status: db.status,
     position: db.position ?? undefined,
     audioUrl: db.audio_url ?? undefined,
@@ -1170,6 +1223,7 @@ export function subscribeToChatMessages(
 
 /**
  * Creates a paraphrase verification for a message.
+ * Automatically calculates round_number based on previous attempts.
  * @param messageId - The message being paraphrased
  * @param verifierName - Who is paraphrasing
  * @param paraphraseText - The paraphrase text
@@ -1182,6 +1236,17 @@ export async function createVerification(
   selfRating?: number,
   audioUrl?: string
 ): Promise<Verification> {
+  // Get existing verifications by this verifier to determine round number
+  const { data: existing } = await supabase
+    .from('clarity_verifications')
+    .select('round_number')
+    .eq('message_id', messageId)
+    .eq('verifier_name', verifierName)
+    .order('round_number', { ascending: false })
+    .limit(1);
+
+  const roundNumber = existing && existing.length > 0 ? existing[0].round_number + 1 : 1;
+
   const { data, error } = await supabase
     .from('clarity_verifications')
     .insert({
@@ -1190,6 +1255,7 @@ export async function createVerification(
       paraphrase_text: paraphraseText,
       self_rating: selfRating,
       audio_url: audioUrl,
+      round_number: roundNumber,
     })
     .select()
     .single();
@@ -1199,7 +1265,7 @@ export async function createVerification(
     throw new Error(error.message);
   }
 
-  console.log('✅ Created verification:', data);
+  console.log(`✅ Created verification (round ${roundNumber}):`, data);
   return mapVerificationFromDb(data);
 }
 
@@ -1269,15 +1335,18 @@ export async function getVerificationsForSession(
 
 /**
  * Rates a verification (author rates the paraphrase).
+ * If not accepting, can provide correction text for retry.
  * @param verificationId - The verification UUID
  * @param rating - Accuracy rating 0-100
  * @param accept - Whether to accept this as understood
+ * @param correctionText - Optional feedback if not accepting (what was missed)
  * @returns Updated verification
  */
 export async function rateVerification(
   verificationId: string,
   rating: number,
-  accept: boolean
+  accept: boolean,
+  correctionText?: string
 ): Promise<Verification> {
   // First get the verification to calculate calibration gap
   const { data: existing } = await supabase
@@ -1290,12 +1359,22 @@ export async function rateVerification(
     ? rating - existing.self_rating
     : undefined;
 
+  // Determine status: accepted if finalized, needs_retry if requesting another round
+  let status: 'accepted' | 'needs_retry' | 'pending' = 'pending';
+  if (accept) {
+    status = 'accepted';
+  } else {
+    // Not accepting = requesting another round (correction text is optional)
+    status = 'needs_retry';
+  }
+
   const { data, error } = await supabase
     .from('clarity_verifications')
     .update({
       accuracy_rating: rating,
       calibration_gap: calibrationGap,
-      status: accept ? 'accepted' : 'pending',
+      status,
+      correction_text: correctionText || null,
     })
     .eq('id', verificationId)
     .select()
@@ -1334,6 +1413,138 @@ export async function setVerificationPosition(
 
   console.log('✅ Set position:', data);
   return mapVerificationFromDb(data);
+}
+
+/**
+ * Requests an explanation (paraphrase) on a message.
+ * Only the message author can request this.
+ * Auto-cancels any existing request by the same author on other messages.
+ * @param messageId - The message UUID to request explanation for
+ * @param sessionId - The session UUID (for auto-canceling other requests)
+ * @param authorName - The name of the message author (for validation)
+ * @returns The updated message
+ */
+export async function requestExplanation(
+  messageId: string,
+  sessionId: string,
+  authorName: string
+): Promise<ChatMessage> {
+  // First, verify this is the author's own message
+  const { data: message, error: fetchError } = await supabase
+    .from('clarity_chat_messages')
+    .select('*')
+    .eq('id', messageId)
+    .single();
+
+  if (fetchError || !message) {
+    throw new Error('Message not found');
+  }
+
+  if (message.author_name !== authorName) {
+    throw new Error('Only message author can request explanation');
+  }
+
+  // Auto-cancel any existing requests by this author in this session
+  // (implements the auto-swap behavior)
+  await supabase
+    .from('clarity_chat_messages')
+    .update({ explanation_requested_at: null })
+    .eq('session_id', sessionId)
+    .eq('author_name', authorName)
+    .not('explanation_requested_at', 'is', null);
+
+  // Set the request on the target message
+  const { data, error } = await supabase
+    .from('clarity_chat_messages')
+    .update({ explanation_requested_at: new Date().toISOString() })
+    .eq('id', messageId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error requesting explanation:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Requested explanation for message:', messageId);
+  return mapChatMessageFromDb(data);
+}
+
+/**
+ * Cancels an explanation request on a message.
+ * Only the message author can cancel their request.
+ * @param messageId - The message UUID
+ * @param authorName - The name of the message author (for validation)
+ * @returns The updated message
+ */
+export async function cancelExplanationRequest(
+  messageId: string,
+  authorName: string
+): Promise<ChatMessage> {
+  // Verify ownership
+  const { data: message, error: fetchError } = await supabase
+    .from('clarity_chat_messages')
+    .select('*')
+    .eq('id', messageId)
+    .single();
+
+  if (fetchError || !message) {
+    throw new Error('Message not found');
+  }
+
+  if (message.author_name !== authorName) {
+    throw new Error('Only message author can cancel explanation request');
+  }
+
+  const { data, error } = await supabase
+    .from('clarity_chat_messages')
+    .update({ explanation_requested_at: null })
+    .eq('id', messageId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error canceling explanation request:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Canceled explanation request for message:', messageId);
+  return mapChatMessageFromDb(data);
+}
+
+/**
+ * Subscribes to chat message updates in a session.
+ * Used to detect explanation request changes.
+ * @param sessionId - The session UUID
+ * @param onUpdate - Callback when a message is updated
+ * @returns Unsubscribe function
+ */
+export function subscribeToChatMessageUpdates(
+  sessionId: string,
+  onUpdate: (message: ChatMessage) => void
+): () => void {
+  const channel = supabase
+    .channel(`chat_message_updates:${sessionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'clarity_chat_messages',
+        filter: `session_id=eq.${sessionId}`,
+      },
+      (payload) => {
+        console.log('📡 Chat message updated:', payload);
+        if (payload.new) {
+          onUpdate(mapChatMessageFromDb(payload.new as DbChatMessage));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 /**
@@ -1379,5 +1590,618 @@ export function subscribeToVerifications(
 
   return () => {
     supabase.removeChannel(channel);
+  };
+}
+
+// ============================================================================
+// IDEA FEED API (P19.3 - Orphan Ideas)
+// ============================================================================
+
+/**
+ * Maps database feed idea to frontend type.
+ */
+function mapFeedIdeaFromDb(db: DbFeedIdea): FeedIdea {
+  return {
+    id: db.id,
+    content: db.content,
+    originatorName: db.originator_name,
+    originatorSessionId: db.originator_session_id,
+    provenanceType: db.provenance_type,
+    sourceSessionId: db.source_session_id,
+    sourceMessageId: db.source_message_id,
+    sourceCommentId: db.source_comment_id,
+    visibility: db.visibility,
+    createdAt: db.created_at,
+  };
+}
+
+/**
+ * Maps database vote to frontend type.
+ */
+function mapIdeaVoteFromDb(db: DbIdeaVote): IdeaVote {
+  return {
+    id: db.id,
+    ideaId: db.idea_id,
+    voterSessionId: db.voter_session_id,
+    voterName: db.voter_name,
+    vote: db.vote,
+    createdAt: db.created_at,
+    updatedAt: db.updated_at,
+  };
+}
+
+/**
+ * Maps database comment to frontend type.
+ */
+function mapIdeaCommentFromDb(db: DbIdeaComment): IdeaComment {
+  return {
+    id: db.id,
+    ideaId: db.idea_id,
+    authorSessionId: db.author_session_id,
+    authorName: db.author_name,
+    content: db.content,
+    elevatedToIdeaId: db.elevated_to_idea_id,
+    createdAt: db.created_at,
+  };
+}
+
+// In-memory fallback for when localStorage is unavailable
+let inMemorySessionId: string | null = null;
+let inMemoryUserName: string | null = null;
+let isUsingInMemoryFallback = false;
+
+/**
+ * Checks if the app is running in a storage-limited mode (e.g., private browsing).
+ * When true, votes and identity will not persist across page refreshes.
+ */
+export function isPrivateBrowsingMode(): boolean {
+  return isUsingInMemoryFallback;
+}
+
+/**
+ * Gets or creates an anonymous session ID for the feed.
+ * Stored in localStorage, used to track votes and authorship.
+ * Falls back to in-memory storage if localStorage is unavailable
+ * (e.g., Safari private mode, storage quota exceeded).
+ *
+ * WARNING: In private browsing mode, refreshing the page will create a new session ID,
+ * causing the user to appear as a new voter. This is a known limitation.
+ */
+export function getFeedSessionId(): string {
+  const STORAGE_KEY = 'clarity_feed_session_id';
+
+  try {
+    let sessionId = localStorage.getItem(STORAGE_KEY);
+
+    if (!sessionId) {
+      sessionId = crypto.randomUUID();
+      localStorage.setItem(STORAGE_KEY, sessionId);
+      // Verify write succeeded (Safari private mode may silently fail)
+      if (localStorage.getItem(STORAGE_KEY) !== sessionId) {
+        throw new Error('localStorage write failed');
+      }
+    }
+
+    isUsingInMemoryFallback = false;
+    return sessionId;
+  } catch {
+    // localStorage unavailable - use in-memory fallback
+    isUsingInMemoryFallback = true;
+    if (!inMemorySessionId) {
+      inMemorySessionId = crypto.randomUUID();
+      console.warn('⚠️ Private browsing detected: votes will not persist across page refreshes');
+    }
+    return inMemorySessionId;
+  }
+}
+
+/**
+ * Gets or creates a user name for the feed.
+ * Prompts for name on first use, stores in localStorage.
+ * Falls back to in-memory storage if localStorage is unavailable.
+ */
+export function getFeedUserName(): string | null {
+  const STORAGE_KEY = 'clarity_feed_user_name';
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return inMemoryUserName;
+  }
+}
+
+/**
+ * Sets the user name for the feed.
+ * Falls back to in-memory storage if localStorage is unavailable.
+ */
+export function setFeedUserName(name: string): void {
+  const STORAGE_KEY = 'clarity_feed_user_name';
+  try {
+    localStorage.setItem(STORAGE_KEY, name);
+  } catch {
+    inMemoryUserName = name;
+  }
+}
+
+/**
+ * Gets public feed ideas with vote counts.
+ * @param limit - Max number of ideas to fetch
+ * @param offset - Number of ideas to skip (for pagination)
+ * @returns Array of feed ideas with counts
+ */
+export async function getFeedIdeas(
+  limit: number = 20,
+  offset: number = 0
+): Promise<FeedIdea[]> {
+  const sessionId = getFeedSessionId();
+
+  // Fetch ideas
+  const { data: ideas, error } = await supabase
+    .from('clarity_feed_ideas')
+    .select('*')
+    .eq('visibility', 'public')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('Error fetching feed ideas:', error.message);
+    return [];
+  }
+
+  if (!ideas || ideas.length === 0) {
+    return [];
+  }
+
+  // Fetch vote counts and user votes in parallel
+  const ideaIds = ideas.map((i) => i.id);
+
+  const [votesResult, userVotesResult, commentsResult] = await Promise.all([
+    // Get all votes for vote counts
+    supabase
+      .from('clarity_idea_votes')
+      .select('idea_id, vote')
+      .in('idea_id', ideaIds),
+    // Get current user's votes
+    supabase
+      .from('clarity_idea_votes')
+      .select('idea_id, vote')
+      .in('idea_id', ideaIds)
+      .eq('voter_session_id', sessionId),
+    // Get comment counts
+    supabase
+      .from('clarity_idea_comments')
+      .select('idea_id')
+      .in('idea_id', ideaIds),
+  ]);
+
+  // Compute vote counts per idea
+  const voteCounts: Record<string, { agree: number; disagree: number; dont_know: number }> = {};
+  (votesResult.data || []).forEach((v) => {
+    if (!voteCounts[v.idea_id]) {
+      voteCounts[v.idea_id] = { agree: 0, disagree: 0, dont_know: 0 };
+    }
+    voteCounts[v.idea_id][v.vote as FeedVote]++;
+  });
+
+  // Get user's votes per idea
+  const userVotes: Record<string, FeedVote> = {};
+  (userVotesResult.data || []).forEach((v) => {
+    userVotes[v.idea_id] = v.vote as FeedVote;
+  });
+
+  // Get comment counts per idea
+  const commentCounts: Record<string, number> = {};
+  (commentsResult.data || []).forEach((c) => {
+    commentCounts[c.idea_id] = (commentCounts[c.idea_id] || 0) + 1;
+  });
+
+  return ideas.map((db) => {
+    const idea = mapFeedIdeaFromDb(db);
+    const counts = voteCounts[db.id] || { agree: 0, disagree: 0, dont_know: 0 };
+    return {
+      ...idea,
+      agreeCount: counts.agree,
+      disagreeCount: counts.disagree,
+      dontKnowCount: counts.dont_know,
+      commentCount: commentCounts[db.id] || 0,
+      userVote: userVotes[db.id],
+    };
+  });
+}
+
+/**
+ * Gets a single feed idea by ID with full data.
+ * @param ideaId - The idea UUID
+ * @returns The idea or null if not found
+ */
+export async function getFeedIdea(ideaId: string): Promise<FeedIdea | null> {
+  const sessionId = getFeedSessionId();
+
+  const { data, error } = await supabase
+    .from('clarity_feed_ideas')
+    .select('*')
+    .eq('id', ideaId)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching feed idea:', error?.message);
+    return null;
+  }
+
+  // Get vote counts
+  const { data: votes } = await supabase
+    .from('clarity_idea_votes')
+    .select('vote')
+    .eq('idea_id', ideaId);
+
+  const voteCounts = { agree: 0, disagree: 0, dont_know: 0 };
+  (votes || []).forEach((v) => {
+    voteCounts[v.vote as FeedVote]++;
+  });
+
+  // Get user's vote
+  const { data: userVote } = await supabase
+    .from('clarity_idea_votes')
+    .select('vote')
+    .eq('idea_id', ideaId)
+    .eq('voter_session_id', sessionId)
+    .single();
+
+  // Get comment count
+  const { count: commentCount } = await supabase
+    .from('clarity_idea_comments')
+    .select('*', { count: 'exact', head: true })
+    .eq('idea_id', ideaId);
+
+  const idea = mapFeedIdeaFromDb(data);
+  return {
+    ...idea,
+    agreeCount: voteCounts.agree,
+    disagreeCount: voteCounts.disagree,
+    dontKnowCount: voteCounts.dont_know,
+    commentCount: commentCount || 0,
+    userVote: userVote?.vote as FeedVote | undefined,
+  };
+}
+
+/**
+ * Creates a new feed idea.
+ * @param content - The idea text
+ * @param originatorName - Name of the person creating the idea
+ * @param provenance - Where the idea came from
+ * @returns The created idea
+ */
+export async function createFeedIdea(
+  content: string,
+  originatorName: string,
+  provenance: {
+    type: ProvenanceType;
+    sourceSessionId?: string;
+    sourceMessageId?: string;
+    sourceCommentId?: string;
+  } = { type: 'direct' }
+): Promise<FeedIdea> {
+  // Validate inputs
+  const validatedContent = validateContentLength(content, MAX_IDEA_LENGTH, 'Idea content');
+  const validatedName = validateContentLength(originatorName, MAX_NAME_LENGTH, 'Name');
+
+  const sessionId = getFeedSessionId();
+
+  const { data, error } = await supabase
+    .from('clarity_feed_ideas')
+    .insert({
+      content: validatedContent,
+      originator_name: validatedName,
+      originator_session_id: sessionId,
+      provenance_type: provenance.type,
+      source_session_id: provenance.sourceSessionId,
+      source_message_id: provenance.sourceMessageId,
+      source_comment_id: provenance.sourceCommentId,
+      visibility: 'public',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating feed idea:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Created feed idea:', data);
+  return {
+    ...mapFeedIdeaFromDb(data),
+    agreeCount: 0,
+    disagreeCount: 0,
+    dontKnowCount: 0,
+    commentCount: 0,
+  };
+}
+
+/**
+ * Votes on a feed idea (creates or updates vote).
+ * Records vote history when changing vote.
+ * @param ideaId - The idea UUID
+ * @param vote - The vote to cast
+ * @param voterName - Name of the voter
+ * @returns The vote record
+ */
+export async function voteOnIdea(
+  ideaId: string,
+  vote: FeedVote,
+  voterName: string
+): Promise<IdeaVote> {
+  // Validate inputs
+  const validatedName = validateContentLength(voterName, MAX_NAME_LENGTH, 'Name');
+
+  const sessionId = getFeedSessionId();
+
+  // Check if user already voted
+  const { data: existingVote } = await supabase
+    .from('clarity_idea_votes')
+    .select('*')
+    .eq('idea_id', ideaId)
+    .eq('voter_session_id', sessionId)
+    .single();
+
+  if (existingVote) {
+    // Record history if changing vote
+    if (existingVote.vote !== vote) {
+      await supabase.from('clarity_idea_vote_history').insert({
+        vote_id: existingVote.id,
+        idea_id: ideaId,
+        voter_session_id: sessionId,
+        voter_name: existingVote.voter_name,
+        vote: existingVote.vote,
+      });
+    }
+
+    // Update existing vote
+    const { data, error } = await supabase
+      .from('clarity_idea_votes')
+      .update({ vote, updated_at: new Date().toISOString() })
+      .eq('id', existingVote.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating vote:', error.message);
+      throw new Error(error.message);
+    }
+
+    console.log('✅ Updated vote:', data);
+    return mapIdeaVoteFromDb(data);
+  }
+
+  // Create new vote
+  const { data, error } = await supabase
+    .from('clarity_idea_votes')
+    .insert({
+      idea_id: ideaId,
+      voter_session_id: sessionId,
+      voter_name: validatedName,
+      vote,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating vote:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Created vote:', data);
+  return mapIdeaVoteFromDb(data);
+}
+
+/**
+ * Gets all voters for an idea.
+ * @param ideaId - The idea UUID
+ * @returns Array of votes
+ */
+export async function getIdeaVoters(ideaId: string): Promise<IdeaVote[]> {
+  const { data, error } = await supabase
+    .from('clarity_idea_votes')
+    .select('*')
+    .eq('idea_id', ideaId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching voters:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapIdeaVoteFromDb);
+}
+
+/**
+ * Gets vote history for a specific vote.
+ * @param voteId - The vote UUID
+ * @returns Array of vote history entries
+ */
+export async function getVoteHistory(voteId: string): Promise<IdeaVoteHistory[]> {
+  const { data, error } = await supabase
+    .from('clarity_idea_vote_history')
+    .select('*')
+    .eq('vote_id', voteId)
+    .order('changed_at', { ascending: true })
+    .limit(100); // Prevent unbounded queries
+
+  if (error) {
+    console.error('Error fetching vote history:', error.message);
+    return [];
+  }
+
+  // Map to IdeaVoteHistory format
+  return (data || []).map((db) => ({
+    id: db.id,
+    voteId: db.vote_id,
+    ideaId: db.idea_id,
+    voterSessionId: db.voter_session_id,
+    voterName: db.voter_name,
+    vote: db.vote as FeedVote,
+    changedAt: db.changed_at,
+  }));
+}
+
+/**
+ * Gets comments for an idea.
+ * @param ideaId - The idea UUID
+ * @returns Array of comments
+ */
+export async function getIdeaComments(ideaId: string): Promise<IdeaComment[]> {
+  const { data, error } = await supabase
+    .from('clarity_idea_comments')
+    .select('*')
+    .eq('idea_id', ideaId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching comments:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapIdeaCommentFromDb);
+}
+
+/**
+ * Adds a comment to an idea.
+ * @param ideaId - The idea UUID
+ * @param authorName - Name of the commenter
+ * @param content - Comment text
+ * @returns The created comment
+ */
+export async function addIdeaComment(
+  ideaId: string,
+  authorName: string,
+  content: string
+): Promise<IdeaComment> {
+  // Validate inputs
+  const validatedContent = validateContentLength(content, MAX_COMMENT_LENGTH, 'Comment');
+  const validatedName = validateContentLength(authorName, MAX_NAME_LENGTH, 'Name');
+
+  const sessionId = getFeedSessionId();
+
+  const { data, error } = await supabase
+    .from('clarity_idea_comments')
+    .insert({
+      idea_id: ideaId,
+      author_session_id: sessionId,
+      author_name: validatedName,
+      content: validatedContent,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding comment:', error.message);
+    throw new Error(error.message);
+  }
+
+  console.log('✅ Added comment:', data);
+  return mapIdeaCommentFromDb(data);
+}
+
+/**
+ * Elevates a comment to a new idea.
+ * @param commentId - The comment UUID
+ * @param authorName - Name for the new idea
+ * @returns The new feed idea
+ */
+export async function elevateCommentToIdea(
+  commentId: string,
+  authorName: string
+): Promise<FeedIdea> {
+  // Get the comment
+  const { data: comment, error: commentError } = await supabase
+    .from('clarity_idea_comments')
+    .select('*')
+    .eq('id', commentId)
+    .single();
+
+  if (commentError || !comment) {
+    throw new Error('Comment not found');
+  }
+
+  // Create new idea from comment
+  const newIdea = await createFeedIdea(comment.content, authorName, {
+    type: 'elevated_comment',
+    sourceCommentId: commentId,
+  });
+
+  // Link the comment to the new idea
+  await supabase
+    .from('clarity_idea_comments')
+    .update({ elevated_to_idea_id: newIdea.id })
+    .eq('id', commentId);
+
+  return newIdea;
+}
+
+/**
+ * Subscribes to realtime feed updates (new ideas, votes, comments).
+ * @param onNewIdea - Callback for new ideas
+ * @param onVoteChange - Callback for vote changes
+ * @returns Unsubscribe function
+ */
+export function subscribeToFeed(
+  onNewIdea?: (idea: FeedIdea) => void,
+  onVoteChange?: (ideaId: string) => void
+): () => void {
+  const channels: ReturnType<typeof supabase.channel>[] = [];
+
+  // Subscribe to new ideas
+  if (onNewIdea) {
+    const ideasChannel = supabase
+      .channel('feed_ideas')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'clarity_feed_ideas',
+          filter: 'visibility=eq.public',
+        },
+        (payload) => {
+          console.log('📡 New feed idea:', payload);
+          if (payload.new) {
+            const idea = mapFeedIdeaFromDb(payload.new as DbFeedIdea);
+            onNewIdea({
+              ...idea,
+              agreeCount: 0,
+              disagreeCount: 0,
+              dontKnowCount: 0,
+              commentCount: 0,
+            });
+          }
+        }
+      )
+      .subscribe();
+    channels.push(ideasChannel);
+  }
+
+  // Subscribe to vote changes
+  if (onVoteChange) {
+    const votesChannel = supabase
+      .channel('feed_votes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clarity_idea_votes',
+        },
+        (payload) => {
+          console.log('📡 Vote change:', payload);
+          const ideaId = (payload.new as DbIdeaVote)?.idea_id || (payload.old as DbIdeaVote)?.idea_id;
+          if (ideaId) {
+            onVoteChange(ideaId);
+          }
+        }
+      )
+      .subscribe();
+    channels.push(votesChannel);
+  }
+
+  return () => {
+    channels.forEach((channel) => supabase.removeChannel(channel));
   };
 }

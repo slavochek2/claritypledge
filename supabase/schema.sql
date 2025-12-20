@@ -192,6 +192,7 @@ CREATE TABLE public.clarity_chat_messages (
   session_id UUID REFERENCES public.clarity_sessions(id) ON DELETE CASCADE NOT NULL,
   author_name TEXT NOT NULL,
   content TEXT NOT NULL,
+  explanation_requested_at TIMESTAMP WITH TIME ZONE DEFAULT NULL, -- When author requested listener to explain back. NULL = no request.
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -213,6 +214,7 @@ CREATE POLICY "Anyone can insert chat messages"
 ALTER PUBLICATION supabase_realtime ADD TABLE clarity_chat_messages;
 
 -- Verifications (paraphrase attempts on chat messages)
+-- Supports multiple rounds: if author provides correction, verifier can retry
 CREATE TABLE public.clarity_verifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id UUID REFERENCES public.clarity_chat_messages(id) ON DELETE CASCADE NOT NULL,
@@ -221,7 +223,9 @@ CREATE TABLE public.clarity_verifications (
   self_rating INT CHECK (self_rating BETWEEN 0 AND 100), -- Verifier's self-assessment
   accuracy_rating INT CHECK (accuracy_rating BETWEEN 0 AND 100), -- NULL until author rates
   calibration_gap INT, -- accuracy_rating - self_rating (computed when rated)
-  status TEXT CHECK (status IN ('pending', 'accepted')) DEFAULT 'pending',
+  correction_text TEXT, -- Author's feedback if not accepted (what was missed/wrong)
+  round_number INT DEFAULT 1, -- Which attempt this is (1, 2, 3...)
+  status TEXT CHECK (status IN ('pending', 'accepted', 'needs_retry')) DEFAULT 'pending',
   position TEXT CHECK (position IN ('agree', 'disagree', 'dont_know')), -- NULL until set
   audio_url TEXT, -- URL to audio recording in Supabase Storage
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -246,3 +250,162 @@ CREATE POLICY "Anyone can update verifications"
 
 -- Enable realtime for verifications
 ALTER PUBLICATION supabase_realtime ADD TABLE clarity_verifications;
+
+-- Trigger: Clear explanation request when verification is created
+-- This ensures the request is "answered" when someone explains back
+CREATE OR REPLACE FUNCTION clear_explanation_request()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.clarity_chat_messages
+  SET explanation_requested_at = NULL
+  WHERE id = NEW.message_id
+    AND explanation_requested_at IS NOT NULL;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_verification_created
+  AFTER INSERT ON public.clarity_verifications
+  FOR EACH ROW
+  EXECUTE FUNCTION clear_explanation_request();
+
+-- ============================================================================
+-- IDEA FEED TABLES (P19.3 - Orphan Ideas)
+-- ============================================================================
+-- Public feed where ideas exist independently of their creators.
+-- Separate from clarity_ideas which is session-scoped for chat context.
+
+-- Feed ideas (orphan ideas - exist independently)
+CREATE TABLE public.clarity_feed_ideas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content TEXT NOT NULL,
+  originator_name TEXT NOT NULL,
+  originator_session_id UUID, -- Anonymous session ID (localStorage)
+
+  -- Provenance: where did this idea come from?
+  provenance_type TEXT NOT NULL CHECK (provenance_type IN ('direct', 'elevated_chat', 'elevated_comment')),
+  source_session_id UUID REFERENCES public.clarity_sessions(id) ON DELETE SET NULL,
+  source_message_id UUID REFERENCES public.clarity_chat_messages(id) ON DELETE SET NULL,
+  source_comment_id UUID, -- FK added after comments table exists
+
+  visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('public', 'private')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_feed_ideas_created ON public.clarity_feed_ideas(created_at DESC);
+CREATE INDEX idx_clarity_feed_ideas_originator ON public.clarity_feed_ideas(originator_session_id);
+CREATE INDEX idx_clarity_feed_ideas_visibility ON public.clarity_feed_ideas(visibility);
+
+-- RLS for clarity_feed_ideas
+ALTER TABLE public.clarity_feed_ideas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public feed ideas are viewable by everyone"
+  ON public.clarity_feed_ideas FOR SELECT
+  USING (visibility = 'public' OR true); -- For MVP, show all; refine later for private
+
+CREATE POLICY "Anyone can create feed ideas"
+  ON public.clarity_feed_ideas FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update feed ideas"
+  ON public.clarity_feed_ideas FOR UPDATE
+  USING (true);
+
+-- Enable realtime for feed ideas
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_feed_ideas;
+
+-- Comments on feed ideas (must be created before votes for FK order)
+CREATE TABLE public.clarity_idea_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idea_id UUID REFERENCES public.clarity_feed_ideas(id) ON DELETE CASCADE NOT NULL,
+  author_session_id UUID NOT NULL,
+  author_name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  elevated_to_idea_id UUID REFERENCES public.clarity_feed_ideas(id) ON DELETE SET NULL, -- If promoted to idea
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_idea_comments_idea ON public.clarity_idea_comments(idea_id);
+CREATE INDEX idx_clarity_idea_comments_created ON public.clarity_idea_comments(created_at);
+
+-- RLS for clarity_idea_comments
+ALTER TABLE public.clarity_idea_comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Comments are viewable by everyone"
+  ON public.clarity_idea_comments FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert comments"
+  ON public.clarity_idea_comments FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update comments"
+  ON public.clarity_idea_comments FOR UPDATE
+  USING (true);
+
+-- Enable realtime for comments
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_idea_comments;
+
+-- Now add FK from feed_ideas to comments (for elevated_comment provenance)
+ALTER TABLE public.clarity_feed_ideas
+  ADD CONSTRAINT fk_source_comment
+  FOREIGN KEY (source_comment_id)
+  REFERENCES public.clarity_idea_comments(id) ON DELETE SET NULL;
+
+-- Votes on feed ideas (current vote per user per idea)
+CREATE TABLE public.clarity_idea_votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idea_id UUID REFERENCES public.clarity_feed_ideas(id) ON DELETE CASCADE NOT NULL,
+  voter_session_id UUID NOT NULL, -- Anonymous session ID (localStorage)
+  voter_name TEXT NOT NULL,
+  vote TEXT NOT NULL CHECK (vote IN ('agree', 'disagree', 'dont_know')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(idea_id, voter_session_id)
+);
+
+CREATE INDEX idx_clarity_idea_votes_idea ON public.clarity_idea_votes(idea_id);
+CREATE INDEX idx_clarity_idea_votes_voter ON public.clarity_idea_votes(voter_session_id);
+
+-- RLS for clarity_idea_votes
+ALTER TABLE public.clarity_idea_votes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Votes are viewable by everyone"
+  ON public.clarity_idea_votes FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert votes"
+  ON public.clarity_idea_votes FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can update their own votes"
+  ON public.clarity_idea_votes FOR UPDATE
+  USING (true); -- For MVP, allow all; could restrict to voter_session_id match
+
+-- Enable realtime for votes
+ALTER PUBLICATION supabase_realtime ADD TABLE clarity_idea_votes;
+
+-- Vote history (every vote change is recorded)
+CREATE TABLE public.clarity_idea_vote_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vote_id UUID REFERENCES public.clarity_idea_votes(id) ON DELETE CASCADE NOT NULL,
+  idea_id UUID NOT NULL,
+  voter_session_id UUID NOT NULL,
+  voter_name TEXT NOT NULL,
+  vote TEXT NOT NULL CHECK (vote IN ('agree', 'disagree', 'dont_know')),
+  changed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_clarity_idea_vote_history_idea ON public.clarity_idea_vote_history(idea_id);
+CREATE INDEX idx_clarity_idea_vote_history_vote ON public.clarity_idea_vote_history(vote_id);
+
+-- RLS for clarity_idea_vote_history
+ALTER TABLE public.clarity_idea_vote_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Vote history is viewable by everyone"
+  ON public.clarity_idea_vote_history FOR SELECT
+  USING (true);
+
+CREATE POLICY "Anyone can insert vote history"
+  ON public.clarity_idea_vote_history FOR INSERT
+  WITH CHECK (true);

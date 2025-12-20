@@ -1,6 +1,6 @@
 # P19.3: Idea Feed & Orphan Ideas
 
-**Status:** Planning
+**Status:** In Progress (MVP Core Complete)
 **Priority:** High
 **Parent:** [P19 Clarity Partners & Common Knowledge Engine](./p19_0_clarity-partners-common-knowledge.md)
 **Builds on:** [P19.2 Clarity Chat MVP](./p19_2_clarity-chat-mvp.md)
@@ -19,12 +19,12 @@ Extends Clarity Chat with a public idea feed where ideas exist independently of 
 
 Before starting P19.3, these P19.2 features must be complete:
 
-| Feature | Why Required | P19.2 Story |
-|---------|--------------|-------------|
-| Multiple rounds of explain-back | Core verification loop - without it, verification is incomplete | Story 3 + Story 4 extension |
-| Show previous corrections for context | Users need context to improve paraphrase | Story 4 extension |
-| "Stop here" action (accept at current score) | Not all verifications reach 10/10 - need graceful exit | New story |
-| Celebration on 10/10 | Positive reinforcement for completion | Polish |
+| Feature | Why Required | P19.2 Story | Status |
+|---------|--------------|-------------|--------|
+| Multiple rounds of explain-back | Core verification loop - without it, verification is incomplete | Story 3 + Story 4 extension | ✅ Done |
+| Show previous corrections for context | Users need context to improve paraphrase | Story 4 extension | ✅ Done |
+| "Stop here" action (accept at current score) | Not all verifications reach 10/10 - need graceful exit | New story | ✅ Done |
+| Celebration on 10/10 | Positive reinforcement for completion | Polish | 🔲 TODO |
 
 ---
 
@@ -362,15 +362,16 @@ Future: N people in shared space
 ## MVP Scope
 
 ### In Scope (P19.3)
-- [ ] Idea feed UI (`/feed`)
-- [ ] Idea page (`/idea/:id`)
-- [ ] Vote buttons (Agree / Disagree / Don't Know)
-- [ ] Vote counts and voter lists
-- [ ] Vote history (visible when user changes vote)
-- [ ] Comments on ideas
-- [ ] Elevate comment to idea
-- [ ] "Discuss in Chat" → starts Clarity Chat with idea as context
+- [x] Idea feed UI (`/feed`)
+- [x] Idea page (`/idea/:id`)
+- [x] Vote buttons (Agree / Disagree / Don't Know)
+- [x] Vote counts and voter lists
+- [x] Vote history (visible when user changes vote)
+- [x] Comments on ideas
+- [x] Elevate comment to idea
+- [x] "Discuss in Chat" → starts Clarity Chat with idea as context
 - [ ] Basic profile stats
+- [ ] Verification badge on voters (Epic 5.2)
 
 ### Out of Scope (Deferred)
 - Graveyard logic (ideas live forever for MVP)
@@ -408,10 +409,10 @@ Reference mockups provided during design discussion (attach screenshots showing)
 | Ideas created | Are people posting? |
 | Votes per idea | Engagement level |
 | Vote distribution | Consensus vs controversy |
+| Vote changes | Are people reconsidering? |
 | Comments per idea | Discussion depth |
 | Elevation rate | Are comments becoming ideas? |
 | Chat starts from feed | Are people going deep? |
-| Graveyard rate | How many ideas die? |
 
 ---
 
@@ -437,13 +438,93 @@ Build P19.2 first, then layer P19.3 on top.
 
 ---
 
+## Epic & Story Breakdown
+
+### Epic 1: Idea Feed Foundation
+
+| Story | Description | Acceptance Criteria |
+|-------|-------------|---------------------|
+| **1.1** | Database schema | Tables created (votes, vote_history, comments), indexes, RLS policies, realtime enabled |
+| **1.2** | Idea feed page (`/feed`) | List view with pagination, shows public ideas, sorted by recent |
+| **1.3** | Idea card component | Displays idea text (truncated), originator, timestamp, vote counts |
+| **1.4** | Idea detail page (`/idea/:id`) | Full idea text, provenance, all actions available |
+
+### Epic 2: Voting System
+
+| Story | Description | Acceptance Criteria |
+|-------|-------------|---------------------|
+| **2.1** | Vote buttons | Agree/Disagree/Don't Know buttons on card and detail page |
+| **2.2** | Vote recording + history | Vote saved, history recorded on change, `updated_at` updated |
+| **2.3** | Vote counts (realtime) | Counts update live via Supabase realtime |
+| **2.4** | Voter list modal | Tap count → see who voted what, shows vote history if changed |
+
+### Epic 3: Idea Creation
+
+| Story | Description | Acceptance Criteria |
+|-------|-------------|---------------------|
+| **3.1** | Direct creation from feed | "New Idea" button → input → posted to feed |
+| **3.2** | Elevate message from chat | "Make this an idea" on chat messages → creates idea with provenance |
+| **3.3** | Auto-elevation on explain-back | When explain-back requested, message becomes idea automatically |
+
+### Epic 4: Comments & Discussion
+
+| Story | Description | Acceptance Criteria |
+|-------|-------------|---------------------|
+| **4.1** | Comments thread | Add comments to idea, threaded view, realtime updates |
+| **4.2** | Elevate comment to idea | "Make this an idea" on comments → new orphan idea with provenance |
+
+### Epic 5: Chat Integration
+
+| Story | Description | Acceptance Criteria |
+|-------|-------------|---------------------|
+| **5.1** | "Discuss in Chat" button | Opens Clarity Chat with idea pre-loaded as context |
+| **5.2** | Verification badge on voters | Show ✓ on voters who verified understanding (always visible for MVP) |
+
+### Epic 6: Profile Stats
+
+| Story | Description | Acceptance Criteria |
+|-------|-------------|---------------------|
+| **6.1** | Basic profile stats | Ideas originated, votes cast, verifications completed |
+
+---
+
+## Delivery Order
+
+```
+P19.2 Prerequisites (FIRST)
+    │
+    ▼
+Epic 1: Foundation (1.1 → 1.2 → 1.3 → 1.4)
+    │
+    ├──▶ Epic 2: Voting (2.1 → 2.2 → 2.3 → 2.4)
+    │
+    └──▶ Epic 3: Idea Creation (3.1, then 3.2 + 3.3 need P19.2)
+              │
+              ▼
+         Epic 4: Comments (4.1 → 4.2)
+              │
+              ▼
+         Epic 5: Chat Integration (5.1 → 5.2)
+              │
+              ▼
+         Epic 6: Profile Stats (6.1)
+```
+
+**Parallelizable:** Epic 2 and Epic 3.1 can run in parallel after Epic 1.
+
+---
+
 ## Next Steps
 
-1. [ ] Review this doc - gaps?
-2. [ ] Finalize language (explain-back vs paraphrase)
-3. [ ] Create database tables
-4. [ ] Build feed UI
-5. [ ] Implement voting
-6. [ ] Implement comments + elevation
-7. [ ] Link to Clarity Chat
-8. [ ] Test with users
+1. [x] Review decisions - captured in Decisions Log
+2. [x] Complete P19.2 prerequisites (multiple rounds, stop-here) - Done 2024-12-19
+3. [x] Start Epic 1: Foundation
+4. [x] Epic 2: Voting System (complete)
+5. [x] Epic 3.1: Direct creation from feed
+6. [x] Epic 4: Comments & Discussion (4.1 + 4.2)
+7. [x] Epic 5.1: "Discuss in Chat" button
+8. [ ] Epic 5.2: Verification badge on voters
+9. [ ] Epic 6.1: Basic profile stats
+10. [ ] Epic 3.2 + 3.3: Chat integration (now unblocked)
+11. [ ] Add celebration UI on 10/10 acceptance
+12. [ ] Test with users

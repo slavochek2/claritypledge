@@ -238,7 +238,7 @@ export interface DbClarityIdea {
 // ============================================================================
 
 export type ChatPosition = 'agree' | 'disagree' | 'dont_know';
-export type VerificationStatus = 'pending' | 'accepted';
+export type VerificationStatus = 'pending' | 'accepted' | 'needs_retry';
 
 /** Chat message (idea in chat context) */
 export interface ChatMessage {
@@ -247,6 +247,8 @@ export interface ChatMessage {
   authorName: string;
   content: string;
   createdAt: string;
+  // Explanation request (null = no pending request)
+  explanationRequestedAt?: string | null;
   // Joined from verifications (optional)
   verifications?: Verification[];
 }
@@ -257,6 +259,7 @@ export interface DbChatMessage {
   author_name: string;
   content: string;
   created_at: string;
+  explanation_requested_at?: string | null;
 }
 
 /** Verification (paraphrase attempt on a message) */
@@ -268,6 +271,8 @@ export interface Verification {
   selfRating?: number; // 0-100, verifier's self-assessment
   accuracyRating?: number; // 0-100, null until author rates
   calibrationGap?: number; // accuracyRating - selfRating (positive = underestimated)
+  correctionText?: string; // Author's feedback if not accepted
+  roundNumber: number; // Which attempt (1, 2, 3...)
   status: VerificationStatus;
   position?: ChatPosition; // null until verifier states position
   audioUrl?: string; // URL to audio recording in storage
@@ -282,9 +287,115 @@ export interface DbVerification {
   self_rating?: number;
   accuracy_rating?: number;
   calibration_gap?: number;
+  correction_text?: string;
+  round_number: number;
   status: VerificationStatus;
   position?: ChatPosition;
   audio_url?: string;
+  created_at: string;
+}
+
+// ============================================================================
+// IDEA FEED TYPES (P19.3 - Orphan Ideas)
+// ============================================================================
+
+export type FeedVote = 'agree' | 'disagree' | 'dont_know';
+export type ProvenanceType = 'direct' | 'elevated_chat' | 'elevated_comment';
+
+/** Feed idea (orphan idea - exists independently on public feed) */
+export interface FeedIdea {
+  id: string;
+  content: string;
+  originatorName: string;
+  originatorSessionId?: string;
+  provenanceType: ProvenanceType;
+  sourceSessionId?: string;
+  sourceMessageId?: string;
+  sourceCommentId?: string;
+  visibility: 'public' | 'private';
+  createdAt: string;
+  // Aggregated counts (computed)
+  agreeCount?: number;
+  disagreeCount?: number;
+  dontKnowCount?: number;
+  commentCount?: number;
+  // Current user's vote (if any)
+  userVote?: FeedVote;
+}
+
+export interface DbFeedIdea {
+  id: string;
+  content: string;
+  originator_name: string;
+  originator_session_id?: string;
+  provenance_type: ProvenanceType;
+  source_session_id?: string;
+  source_message_id?: string;
+  source_comment_id?: string;
+  visibility: 'public' | 'private';
+  created_at: string;
+}
+
+/** Vote on a feed idea */
+export interface IdeaVote {
+  id: string;
+  ideaId: string;
+  voterSessionId: string;
+  voterName: string;
+  vote: FeedVote;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbIdeaVote {
+  id: string;
+  idea_id: string;
+  voter_session_id: string;
+  voter_name: string;
+  vote: FeedVote;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Vote history entry (recorded when vote changes) */
+export interface IdeaVoteHistory {
+  id: string;
+  voteId: string;
+  ideaId: string;
+  voterSessionId: string;
+  voterName: string;
+  vote: FeedVote;
+  changedAt: string;
+}
+
+export interface DbIdeaVoteHistory {
+  id: string;
+  vote_id: string;
+  idea_id: string;
+  voter_session_id: string;
+  voter_name: string;
+  vote: FeedVote;
+  changed_at: string;
+}
+
+/** Comment on a feed idea */
+export interface IdeaComment {
+  id: string;
+  ideaId: string;
+  authorSessionId: string;
+  authorName: string;
+  content: string;
+  elevatedToIdeaId?: string;
+  createdAt: string;
+}
+
+export interface DbIdeaComment {
+  id: string;
+  idea_id: string;
+  author_session_id: string;
+  author_name: string;
+  content: string;
+  elevated_to_idea_id?: string;
   created_at: string;
 }
 

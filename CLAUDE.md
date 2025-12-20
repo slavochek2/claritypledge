@@ -231,6 +231,49 @@ interface Witness {
 - **"Clarity" naming in code**: Component names use "Clarity" prefix (e.g., `ClarityPledgeApp`, `ClarityChampionsPage`) which matches the brand name "Clarity Pledge".
 - **Pledge Version 1 shows "Clarity Pledge"**: In `pledge-text.tsx`, version 1 of the pledge intentionally keeps the original "Clarity Pledge" title for historical accuracy. Users who signed v1 see their original pledge text.
 
+## Design System
+
+**Specification:** [docs/bmad/ux-design-specification.md](docs/bmad/ux-design-specification.md)
+
+The landing page is the source of truth for visual design. All new UI should follow these patterns:
+
+### Colors
+| Token | Usage |
+|-------|-------|
+| `blue-500` | Primary CTA, accent icons, interactive elements |
+| `blue-600` | Hover states |
+| `blue-50` | Highlight backgrounds |
+| `green-500/600` | Success states only (e.g., "accepted", "verified") |
+| `red-500` | Recording indicator, destructive actions |
+| `primary` (dark) | Own message bubbles |
+| `muted` | Other message bubbles, secondary backgrounds |
+
+### Do NOT use
+- `amber-*` colors (use `blue-*` with animation for pending states)
+- `orange-*` colors (use `blue-*` with messaging for retry states)
+- Multiple semantic color palettes for similar concepts
+
+### Button Patterns
+```tsx
+// Primary CTA (blue)
+className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-md"
+
+// Secondary/Outline
+className="border border-input bg-background hover:bg-accent rounded-md"
+
+// Action pill (e.g., "Explain back")
+className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full px-3 py-1.5 text-xs font-medium"
+```
+
+### Status Badges
+```tsx
+// Accepted/Success
+className="bg-green-50 text-green-700 border border-green-200 rounded-md"
+
+// Pending/In Progress
+className="bg-blue-50 text-blue-700 border border-blue-200 rounded-md"
+```
+
 ## Code Style Conventions
 
 - React 19 patterns (no more FC type annotation needed)

@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,11 +51,11 @@ export function AboutPage() {
           message: "",
         });
       } else {
-        alert("There was an error submitting the form. Please try again later.");
+        toast.error("There was an error submitting the form. Please try again later.");
       }
     } catch (error) {
       console.error("Form submission error:", error);
-      alert("There was an error submitting the form. Please try again later.");
+      toast.error("There was an error submitting the form. Please try again later.");
     } finally {
       setIsSubmitting(false);
     }
@@ -150,12 +151,21 @@ export function AboutPage() {
               <div>
                 <h2 className="text-xl font-bold mb-3">Built in the Open</h2>
                 <p className="text-muted-foreground mb-4">
-                  This project is open source under the AGPL-3.0 license. We're preparing to make the repository public—transparency is part of the pledge.
+                  This project is open source under the AGPL-3.0 license. Transparency is part of the pledge.
                 </p>
-                <p className="text-muted-foreground">
-                  <span className="font-medium text-foreground">Want early access?</span>{" "}
-                  If you're a developer interested in contributing before the public launch, reach out below and I'll add you to the repo.
+                <p className="text-muted-foreground mb-4">
+                  <span className="font-medium text-foreground">Want to contribute?</span>{" "}
+                  Check out the code, open issues, or submit PRs—we'd love your help making clear communication the norm.
                 </p>
+                <a
+                  href="https://github.com/slavochek2/claritypledge"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <CodeIcon className="w-5 h-5" />
+                  View on GitHub
+                </a>
               </div>
             </div>
           </div>
