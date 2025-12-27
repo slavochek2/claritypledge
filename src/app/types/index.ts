@@ -491,31 +491,11 @@ export interface LiveSessionState {
   currentlySpeaking?: string;
 
   // ============================================================================
-  // V6 (P23.1): Sealed-bid rating flow - LEGACY variables (deprecated)
-  // These are kept for backward compatibility but will be removed
+  // V7 (P23.2): Check/Prove model
   // ============================================================================
 
   // Current phase of the rating flow
   ratingPhase: RatingPhase;
-
-  // DEPRECATED: Use checkerName instead
-  // Who is the speaker (person being understood) vs listener (person understanding)
-  speakerName?: string;
-  listenerName?: string;
-
-  // DEPRECATED: Use checkerRating/responderRating instead
-  // Sealed-bid ratings (hidden until both submit)
-  speakerRating?: number;
-  listenerRating?: number;
-
-  // DEPRECATED: Use checkerSubmitted/responderSubmitted instead
-  // Submission flags
-  speakerRatingSubmitted: boolean;
-  listenerRatingSubmitted: boolean;
-
-  // ============================================================================
-  // V7 (P23.2): Check/Prove model - NEW variables
-  // ============================================================================
 
   // Who tapped "Check if partner gets me" (initiator of the understanding check)
   // The checker is the person being understood
@@ -565,10 +545,6 @@ export const DEFAULT_LIVE_STATE: LiveSessionState = {
   talkTime: {},
   // V7 (P23.2) Check/Prove model defaults - starts in idle state
   ratingPhase: 'idle',
-  // Legacy (deprecated)
-  speakerRatingSubmitted: false,
-  listenerRatingSubmitted: false,
-  // New model
   checkerSubmitted: false,
   responderSubmitted: false,
   explainBackRound: 0,

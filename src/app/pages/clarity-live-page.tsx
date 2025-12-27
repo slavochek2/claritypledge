@@ -265,6 +265,15 @@ export function ClarityLivePage() {
 
   const handleStartCheck = useCallback(() => {
     if (!name || !partnerName) return;
+
+    // Guard: if a check is already in progress (someone already submitted), don't start a new local rating
+    // This prevents race condition where both users tap "I spoke" and submit simultaneously
+    const currentState = confirmedLiveStateRef.current;
+    if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
+      console.log('[Live] Check already in progress, ignoring tap');
+      return;
+    }
+
     console.log('[Live] I spoke tapped by:', name);
 
     // Just show rating screen locally - don't touch shared state
@@ -295,11 +304,6 @@ export function ClarityLivePage() {
         updates.checkerName = name;
         updates.checkerRating = rating;
         updates.checkerSubmitted = true;
-        // Legacy compatibility
-        updates.speakerName = name;
-        updates.listenerName = partnerName;
-        updates.speakerRating = rating;
-        updates.speakerRatingSubmitted = true;
       } else {
         // Checker already exists - this person is the responder
         const isChecker = currentState.checkerName === name;
@@ -308,14 +312,10 @@ export function ClarityLivePage() {
           // Checker is re-submitting (e.g., after change rating)
           updates.checkerRating = rating;
           updates.checkerSubmitted = true;
-          updates.speakerRating = rating;
-          updates.speakerRatingSubmitted = true;
         } else {
           // This is the responder submitting
           updates.responderRating = rating;
           updates.responderSubmitted = true;
-          updates.listenerRating = rating;
-          updates.listenerRatingSubmitted = true;
         }
 
         // Check if both have submitted
@@ -351,13 +351,6 @@ export function ClarityLivePage() {
       responderRating: undefined,
       checkerSubmitted: false,
       responderSubmitted: false,
-      // Clear legacy
-      speakerName: undefined,
-      listenerName: undefined,
-      speakerRating: undefined,
-      listenerRating: undefined,
-      speakerRatingSubmitted: false,
-      listenerRatingSubmitted: false,
       // Clear explain-back state
       explainBackInProgress: false,
       explainBackRequested: false,
@@ -662,7 +655,6 @@ export function ClarityLivePage() {
       <div className="flex flex-col h-[calc(100vh-4rem)] max-w-lg mx-auto">
         {mode === 'live' ? (
           <LiveModeView
-            session={session}
             liveState={liveState}
             currentUserName={name}
             partnerName={partnerName}

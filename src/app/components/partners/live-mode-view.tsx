@@ -1,25 +1,20 @@
 /**
  * @file live-mode-view.tsx
- * @description P23.1: Sealed-bid rating flow for Clarity Live sessions.
+ * @description P23: Live Clarity Meeting UI - Check/Prove model for understanding verification
  *
- * V6 Changes (sealed-bid pattern):
- * - Both users rate simultaneously, ratings hidden until both submit
- * - Speaker rates: "How much listener understands me"
- * - Listener rates: "How much I understand speaker"
- * - Gap surfaced only after both submit with explain-back options
- * - Overconfidence/underconfidence risk labeling
- * - Multiple explain-back rounds with history tracking
+ * Architecture (P23.2):
+ * - Checker/Responder model: User who taps "I spoke" becomes checker
+ * - Sealed-bid ratings: Both rate simultaneously, hidden until both submit
+ * - Gap detection with explain-back flow for resolving understanding gaps
  *
- * V9 Changes:
- * - Toast notification when responder declines explain-back request
- *
- * V10 Changes:
- * - Exit meeting button (X) in header to leave session
- * - Skip notification dialog when partner clicks "Move on" or "Good enough"
- *   (requires user to click OK to acknowledge before returning to idle)
- * - RatingCard component for reusable rating UI
- * - JourneyToUnderstanding component for rating history display
- * - Drawer-based rating interface for ExplainBackScreen checker view
+ * Key Components:
+ * - IdleScreen: Start screen with "Did you get it?" / "Did I get it?" buttons
+ * - RatingScreen: Rating input (0-10 scale)
+ * - WaitingScreen: Shows own rating while waiting for partner
+ * - GapRevealedScreen: Shows gap with explain-back option
+ * - ExplainBackScreen: Responder explains, checker re-rates
+ * - ResultsScreen: Shows rating progression history
+ * - PerfectUnderstandingScreen: Celebration when 10/10 achieved
  */
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, Mic } from 'lucide-react';
@@ -40,13 +35,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { type ClaritySession, type LiveSessionState, type GapType } from '@/app/types';
+import { type LiveSessionState, type GapType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
 import { capitalizeName, RatingButtons } from './shared';
 
 interface LiveModeViewProps {
-  /** Session object - kept for API compatibility, may be used for future features */
-  session: ClaritySession;
   liveState: LiveSessionState;
   currentUserName: string;
   partnerName: string;
@@ -69,8 +62,6 @@ interface LiveModeViewProps {
 }
 
 export function LiveModeView({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Kept for API compatibility, may be used for future features
-  session: _session,
   liveState,
   currentUserName,
   partnerName,
@@ -122,7 +113,7 @@ export function LiveModeView({
     prevDeclinedByRef.current = declinedBy;
   }, [liveState.explainBackDeclinedBy, liveState.checkerName, currentUserName, onClearDeclineNotification]);
 
-  // V10: Show dialog when partner clicks "Move on" or "Good enough"
+  // V10: Show dialog when partner clicks "Good enough" or "Good enough"
   // Dialog requires user acknowledgment before returning to idle
   useEffect(() => {
     const skippedBy = liveState.skippedBy;
@@ -178,9 +169,9 @@ export function LiveModeView({
   // Render based on phase
   const { ratingPhase } = liveState;
 
-  // V10: Skip notification dialog - shown when partner clicks "Move on" or "Good enough"
+  // V10: Skip notification dialog - shown when partner clicks "Good enough" or "Good enough"
   const skipNotificationDialog = (
-    <Dialog open={skipDialogOpen} onOpenChange={() => { /* Prevent closing by clicking outside */ }}>
+    <Dialog open={skipDialogOpen} onOpenChange={(open) => { if (!open) handleSkipDialogOk(); }}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{skipDialogName} chose to move forward</DialogTitle>
@@ -524,15 +515,13 @@ function IdleScreen({
       {/* Responder notification drawer - slides up from bottom */}
       <Drawer open={showRatingDrawer} onOpenChange={(open) => { if (!open) onSkip(); }}>
         <DrawerContent>
-          <DrawerHeader className="text-center pb-2">
-            <DrawerTitle className="text-sm font-normal text-muted-foreground">
-              {checkerName} spoke.
-            </DrawerTitle>
-            <DrawerDescription className="sr-only">
-              Rate your understanding
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Rate your understanding</DrawerTitle>
+            <DrawerDescription>
+              Rate how well you understood {checkerName}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-8 space-y-4">
+          <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
               question={`How well do you feel you understand ${checkerName}?`}
               onSelect={onRatingSubmit || (() => {})}
@@ -710,15 +699,13 @@ function RatingScreenWithOptionalDrawer({
       {/* V10: Drawer notification when partner already submitted */}
       <Drawer open={showDrawer} onOpenChange={(open) => { if (!open) onSkip(); }}>
         <DrawerContent>
-          <DrawerHeader className="text-center pb-2">
-            <DrawerTitle className="text-sm font-normal text-muted-foreground">
-              {checkerName} spoke.
-            </DrawerTitle>
-            <DrawerDescription className="sr-only">
-              Rate your understanding
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Rate your understanding</DrawerTitle>
+            <DrawerDescription>
+              Rate how well you understood {checkerName}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-8 space-y-4">
+          <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
               question={`How well do you feel you understand ${checkerName}?`}
               onSelect={onRatingSubmit}
@@ -899,7 +886,7 @@ function GapRevealedScreen({
                 onClick={onSkip}
                 className="text-muted-foreground"
               >
-                Move on
+                Good enough
               </Button>
             </div>
           ) : (
@@ -1278,7 +1265,7 @@ function ResultsScreen({
                 onClick={onSkip}
                 className="text-muted-foreground"
               >
-                Move on
+                Good enough
               </Button>
             </div>
           ) : (
@@ -1404,7 +1391,7 @@ function JourneyToUnderstanding({
               <RatingDisplay
                 label={isChecker
                   ? <><b className="text-foreground">You felt</b> understood:</>
-                  : <><b className="text-foreground">{checkerName} feels</b> understood:</>
+                  : <><b className="text-foreground">{checkerName} felt</b> understood:</>
                 }
                 rating={rating}
               />
