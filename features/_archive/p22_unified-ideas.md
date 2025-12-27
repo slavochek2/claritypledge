@@ -1,7 +1,9 @@
-# P20: Unified Ideas Architecture
+# P22: Unified Ideas Architecture
 
-**Status:** Planning
-**Priority:** High
+> **Note:** The live conversation portions of this spec have been merged into [P23: Live Clarity Meetings](./p23_live-clarity-meetings.md). This document remains as reference for the full async data model (chat message elevation, feed updates, migration) which is deferred.
+
+**Status:** Partially Implemented via P23
+**Priority:** Medium (deferred parts)
 **Depends on:** P19.2 (Clarity Chat), P19.3 (Idea Feed)
 
 ---

@@ -1,0 +1,658 @@
+/**
+ * @file clarity-live-page.tsx
+ * @description P23: Live Clarity Meetings - Two people join, talk naturally,
+ * the app acts as a quiet referee enforcing the understanding protocol.
+ */
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  createClaritySession,
+  joinClaritySession,
+  getClaritySession,
+  subscribeToClaritySession,
+  updateClaritySessionLiveState,
+  MAX_NAME_LENGTH,
+  type ClaritySession,
+} from '@/app/data/api';
+import {
+  type LiveSessionState,
+  DEFAULT_LIVE_STATE,
+} from '@/app/types';
+import { LiveModeView } from '@/app/components/partners/live-mode-view';
+import { ReviewModeView } from '@/app/components/partners/review-mode-view';
+
+type ViewState = 'start' | 'waiting' | 'live';
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/** Session persistence keys (per-tab using sessionStorage instead of localStorage) */
+const STORAGE_KEYS = {
+  SESSION_CODE: 'clarity_live_session_code',
+  USER_NAME: 'clarity_live_user_name',
+  IS_CREATOR: 'clarity_live_is_creator',
+} as const;
+
+/** Polling interval for fallback session updates (ms) */
+const POLL_INTERVAL_MS = 2000;
+
+/** Use sessionStorage for tab-isolated storage (each tab has its own session data) */
+const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
+
+export function ClarityLivePage() {
+  // Session state
+  const [view, setView] = useState<ViewState>('start');
+  const [name, setName] = useState('');
+  const [roomCode, setRoomCode] = useState('');
+  const [session, setSession] = useState<ClaritySession | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(true); // For session restoration
+
+  // Live session state (synced via session.live_state)
+  const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
+  const [mode, setMode] = useState<'live' | 'review'>('live');
+
+  // Derived values
+  const partnerName = session
+    ? isCreator
+      ? session.joinerName
+      : session.creatorName
+    : undefined;
+
+  // Ref to track if joiner has been detected (for polling comparison)
+  const hasJoinerRef = useRef(false);
+  // Ref to store session code for polling (avoids stale closure)
+  const sessionCodeRef = useRef<string | null>(null);
+  // Ref to track the last confirmed live state (for race condition prevention)
+  const confirmedLiveStateRef = useRef<LiveSessionState>(DEFAULT_LIVE_STATE);
+
+  useEffect(() => {
+    hasJoinerRef.current = !!session?.joinerName;
+    sessionCodeRef.current = session?.code ?? null;
+  }, [session?.joinerName, session?.code]);
+
+  // Keep confirmedLiveStateRef in sync with server-confirmed state
+  useEffect(() => {
+    confirmedLiveStateRef.current = liveState;
+  }, [liveState]);
+
+
+  // HIGH #6: Restore session from sessionStorage on mount
+  useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const savedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
+        const savedName = storage?.getItem(STORAGE_KEYS.USER_NAME);
+        const savedIsCreator = storage?.getItem(STORAGE_KEYS.IS_CREATOR);
+
+        if (savedCode && savedName) {
+          console.log('[Live] Restoring session:', savedCode);
+          const restoredSession = await getClaritySession(savedCode);
+
+          if (restoredSession) {
+            setSession(restoredSession);
+            setName(savedName);
+            setIsCreator(savedIsCreator === 'true');
+
+            // Sync live state from session
+            if (restoredSession.liveState) {
+              setLiveState({ ...DEFAULT_LIVE_STATE, ...restoredSession.liveState } as LiveSessionState);
+            }
+
+            // Determine view based on session state
+            if (restoredSession.joinerName) {
+              setView('live');
+            } else if (savedIsCreator === 'true') {
+              setView('waiting');
+            } else {
+              // Joiner without session - clear storage
+              clearStoredSession();
+            }
+          } else {
+            // Session expired or invalid
+            console.log('[Live] Stored session not found, clearing');
+            clearStoredSession();
+          }
+        }
+      } catch (err) {
+        console.error('[Live] Failed to restore session:', err);
+        clearStoredSession();
+      } finally {
+        setIsRestoring(false);
+      }
+    };
+
+    restoreSession();
+  }, []);
+
+  // Helper to save session to sessionStorage
+  const saveSessionToStorage = (code: string, userName: string, creator: boolean) => {
+    storage?.setItem(STORAGE_KEYS.SESSION_CODE, code);
+    storage?.setItem(STORAGE_KEYS.USER_NAME, userName);
+    storage?.setItem(STORAGE_KEYS.IS_CREATOR, creator.toString());
+  };
+
+  // Helper to clear stored session
+  const clearStoredSession = () => {
+    storage?.removeItem(STORAGE_KEYS.SESSION_CODE);
+    storage?.removeItem(STORAGE_KEYS.USER_NAME);
+    storage?.removeItem(STORAGE_KEYS.IS_CREATOR);
+  };
+
+  // Subscribe to session updates
+  // Note: We intentionally use session?.id and session?.code as dependencies
+  // rather than the full session object to avoid re-subscribing on every state change.
+  // The subscription callback uses functional updates to avoid stale closures.
+  useEffect(() => {
+    if (!session) {
+      console.log('[Live] No session yet, skipping subscription');
+      return;
+    }
+
+    const sessionId = session.id;
+    console.log('[Live] Setting up subscription for session:', sessionId);
+
+    const unsubscribe = subscribeToClaritySession(sessionId, (updatedSession) => {
+      console.log('[Live] Session updated, joinerName:', updatedSession.joinerName);
+      setSession(updatedSession);
+
+      // Sync live state from session (merge with defaults for missing fields)
+      if (updatedSession.liveState) {
+        setLiveState({ ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState);
+      }
+
+      // When joiner joins, move to live view
+      // Use functional update to avoid stale closure
+      if (updatedSession.joinerName) {
+        console.log('[Live] Joiner detected, transitioning from waiting to live');
+        setView((currentView) => {
+          console.log('[Live] Current view:', currentView, '-> transitioning to live if waiting');
+          return currentView === 'waiting' ? 'live' : currentView;
+        });
+      }
+    });
+
+    console.log('[Live] Subscription set up successfully');
+
+    // Fallback: Poll for updates as a safety net
+    // This handles cases where realtime subscription might not fire
+    const pollInterval = setInterval(async () => {
+      // Use ref to get current session code (avoids stale closure)
+      const currentCode = sessionCodeRef.current;
+      if (!currentCode) return;
+
+      try {
+        const freshSession = await getClaritySession(currentCode);
+        if (freshSession && freshSession.joinerName && !hasJoinerRef.current) {
+          console.log('[Live] Poll detected joiner, updating session');
+          setSession(freshSession);
+          if (freshSession.liveState) {
+            setLiveState({ ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState);
+          }
+          setView((currentView) => currentView === 'waiting' ? 'live' : currentView);
+        }
+      } catch (err) {
+        console.error('[Live] Poll error:', err);
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      console.log('[Live] Cleaning up subscription and poll');
+      unsubscribe();
+      clearInterval(pollInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- We intentionally use only id/code to avoid re-subscribing on every state change
+  }, [session?.id, session?.code]);
+
+  // Update live state (syncs to all participants)
+  // Uses ref for revert to avoid stale closure issues with rapid updates
+  const updateLiveState = useCallback(
+    async (updates: Partial<LiveSessionState>) => {
+      if (!session) return;
+
+      // Capture the confirmed state BEFORE we make changes (for potential revert)
+      const stateBeforeUpdate = confirmedLiveStateRef.current;
+      const newState = { ...stateBeforeUpdate, ...updates };
+
+      setLiveState(newState); // Optimistic update
+
+      try {
+        await updateClaritySessionLiveState(session.id, newState);
+        // Update confirmed state on success
+        confirmedLiveStateRef.current = newState;
+      } catch (err) {
+        console.error('[Live] Failed to update state:', err);
+        // Check if it's a migration error
+        if (err instanceof Error && err.message.includes('migration')) {
+          setError('Unable to save changes. Please refresh the page and try again.');
+        } else {
+          // Show user-friendly error for other cases
+          setError('Failed to sync with partner. Please try again.');
+        }
+        // Revert to the state before this update (using ref avoids stale closure)
+        setLiveState(stateBeforeUpdate);
+      }
+    },
+    [session]
+  );
+
+  // ============================================================================
+  // V7: Check/Prove model handlers (P23.2)
+  // ============================================================================
+
+  // P23.2: Handle "I spoke" button tap
+  // Opens rating screen locally - does NOT affect shared state
+  // checkerName is only set when someone actually submits their rating
+  // This allows both users to tap "I spoke" independently
+  const [isLocallyRating, setIsLocallyRating] = useState(false);
+
+  const handleStartCheck = useCallback(() => {
+    if (!name || !partnerName) return;
+    console.log('[Live] I spoke tapped by:', name);
+
+    // Just show rating screen locally - don't touch shared state
+    setIsLocallyRating(true);
+  }, [name, partnerName]);
+
+  // V7: Handle rating submission
+  // First person to submit becomes the checker
+  // Second person becomes the responder
+  const handleRatingSubmit = useCallback(
+    (rating: number) => {
+      if (!name || !partnerName) return;
+      console.log('[Live] Rating submitted:', rating, 'by:', name);
+
+      // Clear local rating state
+      setIsLocallyRating(false);
+
+      // Use ref to get current confirmed state (avoids stale closure)
+      const currentState = confirmedLiveStateRef.current;
+
+      const updates: Partial<LiveSessionState> = {
+        ratingPhase: 'waiting',
+      };
+
+      // If no checker yet, this person becomes the checker
+      if (!currentState.checkerName) {
+        console.log('[Live] First to submit - becoming checker:', name);
+        updates.checkerName = name;
+        updates.checkerRating = rating;
+        updates.checkerSubmitted = true;
+        // Legacy compatibility
+        updates.speakerName = name;
+        updates.listenerName = partnerName;
+        updates.speakerRating = rating;
+        updates.speakerRatingSubmitted = true;
+      } else {
+        // Checker already exists - this person is the responder
+        const isChecker = currentState.checkerName === name;
+
+        if (isChecker) {
+          // Checker is re-submitting (e.g., after change rating)
+          updates.checkerRating = rating;
+          updates.checkerSubmitted = true;
+          updates.speakerRating = rating;
+          updates.speakerRatingSubmitted = true;
+        } else {
+          // This is the responder submitting
+          updates.responderRating = rating;
+          updates.responderSubmitted = true;
+          updates.listenerRating = rating;
+          updates.listenerRatingSubmitted = true;
+        }
+
+        // Check if both have submitted
+        const bothSubmitted = isChecker
+          ? currentState.responderSubmitted
+          : currentState.checkerSubmitted;
+
+        if (bothSubmitted) {
+          updates.ratingPhase = 'revealed';
+          updates.checksCount = currentState.checksCount + 1;
+        }
+      }
+
+      updateLiveState(updates);
+    },
+    [name, partnerName, updateLiveState]
+  );
+
+  // V7: Handle skip (resets to idle state for next check)
+  const handleSkip = useCallback(() => {
+    console.log('[Live] Skip - returning to idle');
+
+    // Reset to idle state for a fresh start
+    updateLiveState({
+      ratingPhase: 'idle',
+      // Clear checker/responder
+      checkerName: undefined,
+      checkerRating: undefined,
+      responderRating: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      // Clear legacy
+      speakerName: undefined,
+      listenerName: undefined,
+      speakerRating: undefined,
+      listenerRating: undefined,
+      speakerRatingSubmitted: false,
+      listenerRatingSubmitted: false,
+      // Clear explain-back state
+      explainBackInProgress: false,
+      explainBackRequested: false,
+      explainBackRequestedBy: undefined,
+      explainBackRound: 0,
+      explainBackRatings: [],
+    });
+  }, [updateLiveState]);
+
+  // V8: Handle "Explain back" (listener starts explaining - no request/accept handshake needed)
+  const handleExplainBackStart = useCallback(() => {
+    console.log('[Live] Explain-back started (responder accepted)');
+
+    updateLiveState({
+      ratingPhase: 'explain-back',
+      explainBackInProgress: true,
+      // Clear the request flag since responder accepted
+      explainBackRequested: false,
+    });
+  }, [updateLiveState]);
+
+  // V6: Handle speaker rating after explain-back
+  const handleExplainBackRate = useCallback(
+    (rating: number) => {
+      console.log('[Live] Explain-back rated:', rating);
+
+      const currentState = confirmedLiveStateRef.current;
+      const newExplainBackRatings = [...currentState.explainBackRatings, rating];
+
+      updateLiveState({
+        ratingPhase: 'results',
+        explainBackRound: currentState.explainBackRound + 1,
+        explainBackRatings: newExplainBackRatings,
+        explainBackInProgress: false,
+        checksCount: currentState.checksCount + 1,
+        checksTotal: currentState.checksTotal + rating,
+        ...(rating >= 9 ? { ideasUnderstood: currentState.ideasUnderstood + 1 } : {}),
+      });
+    },
+    [updateLiveState]
+  );
+
+  // Toggle mode
+  const handleToggleMode = useCallback(() => {
+    setMode((prev) => (prev === 'live' ? 'review' : 'live'));
+  }, []);
+
+  // V9: Clear the decline notification after toast is shown
+  const handleClearDeclineNotification = useCallback(() => {
+    updateLiveState({
+      explainBackDeclinedBy: undefined,
+    });
+  }, [updateLiveState]);
+
+  // MEDIUM: Name validation helper
+  const validateName = (inputName: string): string | null => {
+    const trimmed = inputName.trim();
+    if (!trimmed) {
+      return 'Please enter your name';
+    }
+    if (trimmed.length > MAX_NAME_LENGTH) {
+      return `Name must be ${MAX_NAME_LENGTH} characters or less`;
+    }
+    return null;
+  };
+
+  // Create session handler
+  const handleCreate = async () => {
+    const nameError = validateName(name);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const trimmedName = name.trim();
+      const newSession = await createClaritySession(trimmedName);
+      setSession(newSession);
+      setIsCreator(true);
+      setView('waiting');
+      // HIGH #6: Save to localStorage for rejoin
+      saveSessionToStorage(newSession.code, trimmedName, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create session');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Join session handler
+  const handleJoin = async () => {
+    const nameError = validateName(name);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
+    const normalizedCode = roomCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      setError('Please enter the room code');
+      return;
+    }
+    if (normalizedCode.length !== 6 || !/^[A-Z0-9]+$/.test(normalizedCode)) {
+      setError('Room code must be 6 characters (letters and numbers only)');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const trimmedName = name.trim();
+      const joinedSession = await joinClaritySession(normalizedCode, trimmedName);
+      if (!joinedSession) {
+        setError('Session not found or already full');
+        return;
+      }
+      setSession(joinedSession);
+      setIsCreator(false);
+      setView('live');
+      // HIGH #6: Save to localStorage for rejoin
+      saveSessionToStorage(joinedSession.code, trimmedName, false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to join session');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cancel waiting and go back to start
+  const handleCancelWaiting = () => {
+    console.log('[Live] Canceling waiting, returning to start');
+    clearStoredSession();
+    setSession(null);
+    setView('start');
+    setRoomCode('');
+  };
+
+  // Show loading while restoring session
+  if (isRestoring) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
+        <div className="text-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // START VIEW
+  if (view === 'start') {
+    const isJoinMode = roomCode.trim().length > 0;
+
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-serif font-bold mb-2">Live Clarity Meeting</h1>
+          <p className="text-muted-foreground">
+            Practice understanding in real-time conversation.
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="name">Your Name</Label>
+            <Input
+              id="name"
+              placeholder="Enter your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="space-y-4 pt-4">
+            {!isJoinMode && (
+              <Button
+                onClick={handleCreate}
+                disabled={isLoading || !name.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? 'Creating...' : 'Start Live Session'}
+              </Button>
+            )}
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  {isJoinMode ? 'Join session' : 'Or join existing'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="code">Room Code</Label>
+                <Input
+                  id="code"
+                  placeholder="Enter 6-letter code"
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  className="text-center font-mono text-lg"
+                />
+              </div>
+              <Button
+                onClick={handleJoin}
+                disabled={isLoading || !name.trim() || !roomCode.trim()}
+                variant={isJoinMode ? 'default' : 'outline'}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? 'Joining...' : 'Join Session'}
+              </Button>
+            </div>
+
+            {isJoinMode && (
+              <Button
+                onClick={() => setRoomCode('')}
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                size="sm"
+              >
+                Or create a new session instead
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // WAITING VIEW
+  if (view === 'waiting' && session) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
+        <div className="text-center space-y-6">
+          <h1 className="text-2xl font-serif font-bold">Waiting for Partner</h1>
+
+          <div className="p-6 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground mb-2">Share this code:</p>
+            <p className="text-4xl font-mono font-bold tracking-widest">{session.code}</p>
+          </div>
+
+          <p className="text-muted-foreground">
+            Have your partner enter this code on their phone.
+          </p>
+
+          <div className="animate-pulse text-sm text-muted-foreground">
+            Waiting...
+          </div>
+
+          <Button
+            variant="ghost"
+            onClick={handleCancelWaiting}
+            className="text-muted-foreground"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // LIVE/REVIEW VIEW
+  if ((view === 'live') && session && partnerName) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-4rem)] max-w-lg mx-auto">
+        {mode === 'live' ? (
+          <LiveModeView
+            session={session}
+            liveState={liveState}
+            currentUserName={name}
+            partnerName={partnerName}
+            // V7 handlers (P23.2 Check/Prove model)
+            onStartCheck={handleStartCheck}
+            onRatingSubmit={handleRatingSubmit}
+            onSkip={handleSkip}
+            onBackToIdle={handleSkip}
+            // V8: Explain-back (simplified - listener sees buttons immediately)
+            onExplainBackStart={handleExplainBackStart}
+            onExplainBackRate={handleExplainBackRate}
+            onToggleMode={handleToggleMode}
+            // V9: Clear decline notification after toast shown
+            onClearDeclineNotification={handleClearDeclineNotification}
+            // V10: Local rating state
+            isLocallyRating={isLocallyRating}
+            onCancelLocalRating={() => setIsLocallyRating(false)}
+          />
+        ) : (
+          <ReviewModeView
+            session={session}
+            liveState={liveState}
+            currentUserName={name}
+            partnerName={partnerName}
+            onToggleMode={handleToggleMode}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}

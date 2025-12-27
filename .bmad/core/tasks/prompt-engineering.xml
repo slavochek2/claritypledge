@@ -1,0 +1,177 @@
+<task id="{bmad_folder}/core/tasks/prompt-engineering" name="Prompt Engineering"
+  description="Craft, optimize, or review LLM prompts using proven techniques" standalone="true">
+  <llm critical="true">
+    <i>MANDATORY: Execute ALL steps in the flow section IN EXACT ORDER</i>
+    <i>DO NOT skip steps or change the sequence</i>
+    <i>HALT immediately when halt-conditions are met</i>
+    <i>Each action xml tag within step xml tag is a REQUIRED action to complete that step</i>
+    <i>Sections outside flow (validation, output, critical-context) provide essential context - review and apply throughout execution</i>
+  </llm>
+
+  <critical-context>
+    <i>This task helps create effective LLM prompts using established techniques</i>
+    <i>Can be invoked by any agent when they need to craft or improve prompts</i>
+    <i>Focuses on: clarity, specificity, structure, examples, and output formatting</i>
+  </critical-context>
+
+  <techniques-library>
+    <technique name="role-prompting">Assign a persona/role to guide LLM behavior (e.g., "You are a senior software architect...")</technique>
+    <technique name="chain-of-thought">Encourage step-by-step reasoning ("Think through this step by step", "Let's work through this")</technique>
+    <technique name="few-shot">Provide 2-3 examples before the actual task to establish patterns</technique>
+    <technique name="output-anchoring">Specify exact output format ("Your response must begin with...", "Format as JSON...")</technique>
+    <technique name="constraint-specification">Explicit boundaries ("Do not...", "Always...", "Never...", "Maximum 3 sentences")</technique>
+    <technique name="context-framing">Provide relevant background before the task (who, what, why, constraints)</technique>
+    <technique name="self-reflection">Ask model to verify/check work ("Review your answer", "Consider edge cases")</technique>
+    <technique name="decomposition">Break complex tasks into sequential sub-prompts (prompt chaining)</technique>
+    <technique name="negative-examples">Show what NOT to do alongside what TO do</technique>
+    <technique name="structured-input">Use XML, JSON, or markdown sections to organize complex inputs</technique>
+  </techniques-library>
+
+  <anti-patterns>
+    <pattern name="vague-instructions" avoid="true">Avoid: "Make it good", "Be helpful", "Write something nice"</pattern>
+    <pattern name="contradictions" avoid="true">Avoid: Conflicting requirements in same prompt</pattern>
+    <pattern name="overloaded-prompts" avoid="true">Avoid: Too many tasks in one prompt - chain instead</pattern>
+    <pattern name="missing-format" avoid="true">Avoid: No output format specification when structure matters</pattern>
+    <pattern name="assumed-context" avoid="true">Avoid: Assuming model knows things it doesn't</pattern>
+    <pattern name="no-examples" avoid="true">Avoid: Complex patterns without examples when few-shot would help</pattern>
+  </anti-patterns>
+
+  <flow>
+    <step n="1" title="Determine Mode">
+      <action>Present options to user:</action>
+      <format>
+**Prompt Engineering - Select Mode:**
+
+[1] **Craft** - Create a new prompt from scratch (guided)
+[2] **Optimize** - Improve an existing prompt
+[3] **Review** - Quick analysis and rating of a prompt
+[4] **Template** - Create a reusable prompt template with variables
+[5] **System Prompt** - Design a system prompt for an AI agent/assistant
+[6] **Learn** - Explain a prompt engineering technique
+
+Your choice (1-6):
+      </format>
+      <action>HALT and wait for user selection</action>
+    </step>
+
+    <step n="2" title="Execute Selected Mode">
+      <case mode="1" title="Craft New Prompt">
+        <action>Ask: "What should the LLM accomplish? Describe the ideal output."</action>
+        <action>HALT for response</action>
+        <action>Ask: "Any constraints? (length, format, tone, audience, technical requirements)"</action>
+        <action>HALT for response</action>
+        <action>Analyze goal and recommend techniques from techniques-library</action>
+        <action>Draft initial prompt using: Role + Task + Context + Format structure</action>
+        <action>Present draft with explanation of design choices</action>
+        <action>Ask: "Would you like to [r]efine, [t]est with variations, or [a]ccept?"</action>
+        <action>HALT and iterate until user accepts</action>
+      </case>
+
+      <case mode="2" title="Optimize Existing Prompt">
+        <action>Ask: "Share your current prompt and describe issues or goals."</action>
+        <action>HALT for response</action>
+        <action>Analyze prompt for: clarity gaps, ambiguity, missing context, structural issues, anti-patterns</action>
+        <action>Present diagnosis: what's working, what's limiting</action>
+        <action>Propose 2-3 alternative approaches with trade-offs</action>
+        <action>Ask user to select approach or provide feedback</action>
+        <action>HALT for response</action>
+        <action>Deliver optimized prompt with changelog explaining improvements</action>
+      </case>
+
+      <case mode="3" title="Quick Review">
+        <action>Ask: "Share the prompt you want reviewed."</action>
+        <action>HALT for response</action>
+        <action>Analyze and provide:</action>
+        <i>- Effectiveness rating (1-10) with justification</i>
+        <i>- Strengths (what works well)</i>
+        <i>- Weaknesses (specific issues)</i>
+        <i>- Top 3 improvement suggestions (prioritized)</i>
+        <i>- Quick-fix version if obvious improvements exist</i>
+      </case>
+
+      <case mode="4" title="Create Template">
+        <action>Ask: "What recurring task needs this template? Give an example use."</action>
+        <action>HALT for response</action>
+        <action>Identify variable slots: {{input}}, {{context}}, {{format}}, etc.</action>
+        <action>Design structure: Fixed instructions + variable slots + output format</action>
+        <action>Add 1-2 few-shot examples if pattern benefits from them</action>
+        <action>Present template with:</action>
+        <i>- Template content with {{variable}} markers</i>
+        <i>- Variable descriptions and usage instructions</i>
+        <i>- Example of filled-in template</i>
+        <action>Ask if user wants to save to file or refine</action>
+      </case>
+
+      <case mode="5" title="System Prompt Design">
+        <action>Ask: "Describe the AI assistant/agent: What's their purpose and domain?"</action>
+        <action>HALT for response</action>
+        <action>Guide through system prompt components:</action>
+        <i>1. Identity: Who is this agent? Name, role, expertise</i>
+        <i>2. Scope: What can they do? What's explicitly off-limits?</i>
+        <i>3. Behavior: How should they handle edge cases, errors, ambiguity?</i>
+        <i>4. Output: Default formats, response patterns, length guidelines</i>
+        <i>5. Guardrails: Safety rules, consistency requirements, brand alignment</i>
+        <action>Draft complete system prompt</action>
+        <action>Walk through 2-3 example interactions to stress-test</action>
+        <action>Refine based on stress-test findings</action>
+        <action>Deliver final system prompt ready for deployment</action>
+      </case>
+
+      <case mode="6" title="Learn Technique">
+        <action>Present technique options from techniques-library</action>
+        <action>HALT for user selection</action>
+        <action>For selected technique, provide:</action>
+        <i>- Core concept in plain language</i>
+        <i>- Before/after example showing the technique in action</i>
+        <i>- When to use (and when NOT to use)</i>
+        <i>- Common pitfalls to avoid</i>
+        <action>Offer: "Want to practice with your own use case?"</action>
+        <action>If yes, guide application of technique to user's real scenario</action>
+      </case>
+    </step>
+
+    <step n="3" title="Completion">
+      <action>Summarize what was created/improved</action>
+      <action>Ask: "Would you like to [s]ave output to file, [c]ontinue with another mode, or [x] exit?"</action>
+      <case response="s">
+        <action>Save to {output_folder}/prompts/ with descriptive filename</action>
+        <action>Confirm save location</action>
+      </case>
+      <case response="c">
+        <action>Return to step 1</action>
+      </case>
+      <case response="x">
+        <action>Exit task and return control to calling agent</action>
+      </case>
+    </step>
+  </flow>
+
+  <halt-conditions critical="true">
+    <i>HALT if user wants to exit at any point</i>
+    <i>HALT and wait for user input after each question</i>
+  </halt-conditions>
+
+  <output-format>
+    <prompt-template>
+## Prompt: [Name/Purpose]
+
+### System/Role
+[Role assignment if applicable]
+
+### Context
+[Background information]
+
+### Task
+[Clear instruction]
+
+### Format
+[Output specification]
+
+### Examples (if few-shot)
+[Example input → output pairs]
+
+### Constraints
+[Boundaries and rules]
+    </prompt-template>
+  </output-format>
+</task>

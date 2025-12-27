@@ -18,6 +18,7 @@ import { ClarityDemoPage } from "@/app/pages/clarity-demo-page";
 import { ClarityChatPage } from "@/app/pages/clarity-chat-page";
 import { IdeaFeedPage } from "@/app/pages/idea-feed-page";
 import { IdeaDetailPage } from "@/app/pages/idea-detail-page";
+import { ClarityLivePage } from "@/app/pages/clarity-live-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
@@ -216,6 +217,15 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <IdeaDetailPage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/live"
+          element={
+            <ClarityLandingLayout>
+              <ClarityLivePage />
             </ClarityLandingLayout>
           }
         />

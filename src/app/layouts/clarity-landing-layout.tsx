@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { OfflineBanner } from "@/app/components/offline-banner";
+import { Toaster } from "@/components/ui/sonner";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
@@ -21,6 +22,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
         <SimpleNavigation />
       )}
       <main className={!isLandingPage && !isFullArticlePage ? "pt-16 lg:pt-20" : ""}>{children}</main>
+      <Toaster position="top-center" />
     </div>
   );
 }

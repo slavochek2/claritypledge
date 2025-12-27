@@ -1,14 +1,24 @@
 /**
  * @file rating-card.tsx
- * @description Rating UI for the paraphrase loop.
+ * @description V2: 0-10 button rating UI for the paraphrase loop.
  * Speaker rates understanding, Listener self-assesses, both see calibration gap.
+ *
+ * Changes from V1:
+ * - Replaced 0-100 slider with 0-10 buttons
+ * - Less cognitive load, faster selection
+ * - Gap calculation works on 0-10 scale
  */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import { RatingButtons } from './shared';
+
+// Helper to get label for a rating value
+function getRatingLabel(value: number): string {
+  return `${value}/10`;
+}
 
 interface RatingCardProps {
   /** Whether this is the speaker's view (rates understanding) or listener's (self-assess) */
@@ -23,7 +33,7 @@ interface RatingCardProps {
   listenerName: string;
   /** Called when rating is submitted */
   onSubmitRating: (rating: number, correction?: string) => void;
-  /** Called when speaker accepts understanding (even if < 100) */
+  /** Called when speaker accepts understanding (even if < 5) */
   onAcceptUnderstanding?: () => void;
   /** Whether waiting for the other person to rate */
   isWaiting?: boolean;
@@ -47,7 +57,6 @@ export function RatingCard({
   listenerName,
   onSubmitRating,
   onAcceptUnderstanding,
-  // isWaiting is available for future use when we show waiting states
   isWaiting: _isWaiting = false,
   otherRating,
   myRating,
@@ -55,7 +64,7 @@ export function RatingCard({
   roundNumber,
   disabled = false,
 }: RatingCardProps) {
-  const [rating, setRating] = useState(50);
+  const [rating, setRating] = useState<number | null>(null);
   const [correction, setCorrection] = useState('');
   const [hasSubmitted, setHasSubmitted] = useState(myRating !== undefined);
 
@@ -63,34 +72,24 @@ export function RatingCard({
   const bothRated = myRating !== undefined && otherRating !== undefined;
   const calibrationGap = bothRated ? (myRating - otherRating) : null;
 
-  // Silence unused variable warning - isWaiting reserved for future waiting UI enhancements
+  // Silence unused variable warning
   void _isWaiting;
 
   const handleSubmit = () => {
+    if (rating === null) return;
     setHasSubmitted(true);
     onSubmitRating(rating, isSpeaker ? correction : undefined);
   };
 
-  const getRatingLabel = (value: number): string => {
-    if (value === 100) return 'Perfect understanding';
-    if (value >= 80) return 'Very close';
-    if (value >= 60) return 'Getting there';
-    if (value >= 40) return 'Partially understood';
-    if (value >= 20) return 'Needs work';
-    return 'Not quite';
-  };
-
   const getGapLabel = (gap: number): { text: string; color: string } => {
     const absGap = Math.abs(gap);
-    if (absGap <= 10) {
+    if (absGap <= 1) {
       return { text: 'Well calibrated!', color: 'text-green-600' };
     }
     if (gap > 0) {
-      // Speaker rated higher than listener expected
-      return { text: `${listenerName} underestimated (+${gap})`, color: 'text-amber-600' };
+      return { text: `${listenerName} underestimated (+${gap})`, color: 'text-blue-600' };
     }
-    // Speaker rated lower than listener expected
-    return { text: `${listenerName} overestimated (${gap})`, color: 'text-red-600' };
+    return { text: `${listenerName} overestimated (${gap})`, color: 'text-blue-600' };
   };
 
   // Show results view when both have rated
@@ -100,7 +99,7 @@ export function RatingCard({
     return (
       <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
         <div className="text-center">
-          <p className="text-sm text-muted-foreground mb-1">Round {roundNumber} Results</p>
+          <p className="text-sm text-muted-foreground mb-1">Round {roundNumber}</p>
           <h3 className="font-medium">Calibration Check</h3>
         </div>
 
@@ -108,11 +107,11 @@ export function RatingCard({
         <div className="grid grid-cols-2 gap-4 text-center">
           <div className="p-3 bg-background rounded-lg">
             <p className="text-xs text-muted-foreground mb-1">{speakerName}'s Rating</p>
-            <p className="text-2xl font-bold">{myRating}/100</p>
+            <p className="text-2xl font-bold">{getRatingLabel(myRating)}</p>
           </div>
           <div className="p-3 bg-background rounded-lg">
             <p className="text-xs text-muted-foreground mb-1">{listenerName}'s Self-Assessment</p>
-            <p className="text-2xl font-bold">{otherRating}/100</p>
+            <p className="text-2xl font-bold">{getRatingLabel(otherRating)}</p>
           </div>
         </div>
 
@@ -124,25 +123,24 @@ export function RatingCard({
 
         {/* Correction text if provided */}
         {correctionText && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm font-medium text-amber-800 mb-1">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm font-medium text-blue-800 mb-1">
               <AlertCircle className="inline h-4 w-4 mr-1" />
               What I meant:
             </p>
-            <p className="text-amber-900">{correctionText}</p>
+            <p className="text-blue-900">{correctionText}</p>
           </div>
         )}
 
         {/* Actions - only speaker can accept or continue */}
-        {isSpeaker && myRating < 100 && (
+        {isSpeaker && myRating < 10 && (
           <div className="flex gap-3">
             <Button
               variant="outline"
               className="flex-1"
               onClick={() => {
-                // Reset for another round
                 setHasSubmitted(false);
-                setRating(50);
+                setRating(null);
                 setCorrection('');
               }}
               disabled={disabled}
@@ -160,7 +158,7 @@ export function RatingCard({
           </div>
         )}
 
-        {isSpeaker && myRating === 100 && (
+        {isSpeaker && myRating === 10 && (
           <div className="flex items-center justify-center text-green-600">
             <CheckCircle2 className="h-5 w-5 mr-2" />
             <span className="font-medium">Perfect understanding achieved!</span>
@@ -184,7 +182,7 @@ export function RatingCard({
           <p className="text-muted-foreground">
             Waiting for {isSpeaker ? listenerName : speakerName} to rate...
           </p>
-          <p className="text-2xl font-bold mt-2">Your rating: {myRating}/100</p>
+          <p className="text-2xl font-bold mt-2">Your rating: {getRatingLabel(myRating ?? 0)}</p>
         </div>
       </div>
     );
@@ -215,28 +213,19 @@ export function RatingCard({
         </div>
       </div>
 
-      {/* Rating slider */}
+      {/* Rating buttons */}
       <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-muted-foreground">Understanding</span>
-          <span className="text-lg font-bold">{rating}/100</span>
-        </div>
-        <Slider
-          value={[rating]}
-          onValueChange={([value]) => setRating(value)}
-          min={0}
-          max={100}
-          step={10}
+        <span className="text-sm text-muted-foreground">Understanding:</span>
+
+        <RatingButtons
+          selectedValue={rating}
+          onSelect={setRating}
           disabled={disabled}
-          className="py-4"
         />
-        <p className="text-center text-sm text-muted-foreground">
-          {getRatingLabel(rating)}
-        </p>
       </div>
 
-      {/* Correction field (speaker only, if rating < 100) */}
-      {isSpeaker && rating < 100 && (
+      {/* Correction field (speaker only, if rating < 10) */}
+      {isSpeaker && rating !== null && rating < 10 && (
         <div className="space-y-2">
           <Label htmlFor="correction">What did they miss? (optional)</Label>
           <Textarea
@@ -253,7 +242,7 @@ export function RatingCard({
       {/* Submit button */}
       <Button
         onClick={handleSubmit}
-        disabled={disabled}
+        disabled={disabled || rating === null}
         className="w-full"
         size="lg"
       >

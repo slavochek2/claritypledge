@@ -274,6 +274,30 @@ className="bg-green-50 text-green-700 border border-green-200 rounded-md"
 className="bg-blue-50 text-blue-700 border border-blue-200 rounded-md"
 ```
 
+### Excalidraw Wireframe Colors
+
+When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colors consistently:
+
+| Element Type | Stroke | Background | Text | When to use |
+|--------------|--------|------------|------|-------------|
+| **Primary button** | `#3b82f6` | `#3b82f6` | `#ffffff` | Main CTAs ("Let Me Explain Back") |
+| **Secondary button** | `#e0e0e0` | `#ffffff` | `#1e1e1e` | Alternative actions ("Good Enough") |
+| **Your status/action** | `#bfdbfe` | `#eff6ff` | `#1e40af` | "You're speaking...", "You rated: 6/10" |
+| **Other person's status** | `#e0e0e0` | `#f5f5f5` | `#757575` | "Slava finished speaking", "Gosha speaking..." |
+| **Content/Quotes** | `#e0e0e0` | `#fafafa` | `#1e1e1e` | "You said:...", transcript boxes |
+| **Success state** | `#22c55e` | `#dcfce7` | `#166534` | ONLY for verified/confirmed ("Understanding Verified!") |
+| **Recording indicator** | `#ef4444` | `#ef4444` | - | Red dot only |
+| **Phone frame** | `#1e1e1e` | `#ffffff` | - | Device outline |
+| **Footer area** | `#e0e0e0` | `#f5f5f5` | - | Bottom status bar |
+
+**Key rules:**
+- Blue = YOUR actions/status (things you do or your data)
+- Gray = OTHER person's actions/status or neutral info
+- Green = SUCCESS only (verified, confirmed, connected)
+- Never use yellow/amber/orange/purple
+- Buttons that look clickable should be blue (primary) or outlined (secondary)
+- Info banners should be gray, NOT blue (blue implies interactivity)
+
 ## Code Style Conventions
 
 - React 19 patterns (no more FC type annotation needed)

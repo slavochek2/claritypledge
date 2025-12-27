@@ -682,6 +682,9 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     partnershipStatus: dbSession.partnership_status,
     createdAt: dbSession.created_at,
     expiresAt: dbSession.expires_at,
+    // P23: Live Clarity Meetings
+    mode: dbSession.mode,
+    liveState: dbSession.live_state,
   };
 }
 
@@ -827,6 +830,33 @@ export async function updateClaritySessionState(
 }
 
 /**
+ * Updates the live session state (P23: Live Clarity Meetings).
+ * @param sessionId - The session UUID
+ * @param liveState - The live state to set
+ */
+export async function updateClaritySessionLiveState(
+  sessionId: string,
+  liveState: Record<string, unknown>
+): Promise<void> {
+  console.log('[Live API] Updating live state for session:', sessionId, liveState);
+
+  const { error } = await supabase
+    .from('clarity_sessions')
+    .update({ live_state: liveState, mode: 'live' })
+    .eq('id', sessionId);
+
+  if (error) {
+    console.error('[Live API] Error updating live state:', error.message, error.code, error.details);
+    // Check if this might be a missing column error
+    if (error.message.includes('column') || error.code === '42703') {
+      throw new Error('Database migration required: run supabase/migrations/20251223_p23_live_clarity_meetings.sql');
+    }
+    throw new Error(error.message);
+  }
+  console.log('[Live API] Live state updated successfully');
+}
+
+/**
  * Updates the demo status of a session.
  * @param sessionId - The session UUID
  * @param demoStatus - New demo status
@@ -856,6 +886,8 @@ export function subscribeToClaritySession(
   sessionId: string,
   onUpdate: (session: ClaritySession) => void
 ): () => void {
+  console.log('📡 Setting up realtime subscription for session:', sessionId);
+
   const channel = supabase
     .channel(`clarity_session:${sessionId}`)
     .on(
@@ -873,7 +905,9 @@ export function subscribeToClaritySession(
         }
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log('📡 Subscription status:', status);
+    });
 
   return () => {
     console.log('📡 Unsubscribing from session:', sessionId);
@@ -2203,5 +2237,131 @@ export function subscribeToFeed(
 
   return () => {
     channels.forEach((channel) => supabase.removeChannel(channel));
+  };
+}
+
+// ============================================================================
+// LIVE CLARITY MEETINGS API (P23)
+// ============================================================================
+
+import type { LiveTurn, DbLiveTurn } from '@/app/types';
+
+// Re-export live types
+export type { LiveTurn, LiveFlag } from '@/app/types';
+
+/**
+ * Maps database live turn to frontend type.
+ */
+function mapLiveTurnFromDb(db: DbLiveTurn): LiveTurn {
+  return {
+    id: db.id,
+    sessionId: db.session_id,
+    ideaId: db.idea_id,
+    speakerName: db.speaker_name,
+    listenerName: db.listener_name,
+    actorName: db.actor_name,
+    role: db.role,
+    transcript: db.transcript,
+    selfRating: db.self_rating,
+    otherRating: db.other_rating,
+    flag: db.flag,
+    roundNumber: db.round_number,
+    createdAt: db.created_at,
+  };
+}
+
+/**
+ * Saves a live turn to the database.
+ * @param turn - The turn data to save
+ * @returns The saved turn with ID
+ */
+export async function saveLiveTurn(
+  turn: Omit<LiveTurn, 'id' | 'createdAt'>
+): Promise<LiveTurn> {
+  console.log('[Live API] Saving live turn:', turn);
+
+  const { data, error } = await supabase
+    .from('clarity_live_turns')
+    .insert({
+      session_id: turn.sessionId,
+      idea_id: turn.ideaId,
+      speaker_name: turn.speakerName,
+      listener_name: turn.listenerName,
+      actor_name: turn.actorName,
+      role: turn.role,
+      transcript: turn.transcript,
+      self_rating: turn.selfRating,
+      other_rating: turn.otherRating,
+      flag: turn.flag,
+      round_number: turn.roundNumber,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[Live API] Error saving live turn:', error.message, error.code, error.details);
+    // Check if table doesn't exist
+    if (error.message.includes('relation') || error.code === '42P01') {
+      throw new Error('Database migration required: run supabase/migrations/20251223_p23_live_clarity_meetings.sql');
+    }
+    throw new Error(error.message);
+  }
+
+  console.log('[Live API] Saved live turn:', data);
+  return mapLiveTurnFromDb(data);
+}
+
+/**
+ * Gets all live turns for a session.
+ * @param sessionId - The session UUID
+ * @returns Array of live turns ordered by creation time
+ */
+export async function getLiveTurns(sessionId: string): Promise<LiveTurn[]> {
+  const { data, error } = await supabase
+    .from('clarity_live_turns')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching live turns:', error.message);
+    return [];
+  }
+
+  return (data || []).map(mapLiveTurnFromDb);
+}
+
+/**
+ * Subscribes to realtime live turn updates for a session.
+ * @param sessionId - The session UUID
+ * @param onNewTurn - Callback when a new turn is saved
+ * @returns Unsubscribe function
+ */
+export function subscribeToLiveTurns(
+  sessionId: string,
+  onNewTurn: (turn: LiveTurn) => void
+): () => void {
+  const channel = supabase
+    .channel(`live_turns:${sessionId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'clarity_live_turns',
+        filter: `session_id=eq.${sessionId}`,
+      },
+      (payload) => {
+        console.log('📡 New live turn:', payload);
+        if (payload.new) {
+          onNewTurn(mapLiveTurnFromDb(payload.new as DbLiveTurn));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    console.log('📡 Unsubscribing from live turns:', sessionId);
+    supabase.removeChannel(channel);
   };
 }

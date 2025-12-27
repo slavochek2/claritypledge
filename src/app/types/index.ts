@@ -103,6 +103,9 @@ export interface ClaritySession {
   partnershipStatus: PartnershipStatus;
   createdAt: string;
   expiresAt: string | null; // NULL means no expiry (chat lives forever)
+  // P23: Live Clarity Meetings
+  mode?: 'async' | 'live' | 'review';
+  liveState?: Record<string, unknown>;
 }
 
 export interface ClaritySessionState {
@@ -125,6 +128,9 @@ export interface DbClaritySession {
   partnership_status: PartnershipStatus;
   created_at: string;
   expires_at: string;
+  // P23: Live Clarity Meetings
+  mode?: 'async' | 'live' | 'review';
+  live_state?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -397,5 +403,222 @@ export interface DbIdeaComment {
   content: string;
   elevated_to_idea_id?: string;
   created_at: string;
+}
+
+// ============================================================================
+// LIVE CLARITY MEETINGS TYPES (P23)
+// ============================================================================
+
+export type LiveSessionMode = 'async' | 'live' | 'review';
+export type LiveRole = 'speaker' | 'listener';
+export type LiveFlag = 'new_idea' | 'judgment' | 'not_what_i_meant' | 'your_idea';
+export type LiveRatingLabel = 'not_yet' | 'getting_there' | 'almost' | 'got_it';
+
+/**
+ * P23.1 Rating flow phases for sealed-bid pattern
+ * P23.2: Added 'idle' for start screen with Check/Prove buttons
+ */
+export type RatingPhase = 'idle' | 'rating' | 'waiting' | 'revealed' | 'explain-back' | 'results';
+
+/**
+ * P23.1 Gap type for risk messaging
+ */
+export type GapType = 'overconfidence' | 'underconfidence' | 'none';
+
+/**
+ * V6 Live session state synced via clarity_sessions.live_state
+ *
+ * Key V6 model (sealed-bid):
+ * - Both users rate simultaneously, ratings hidden until both submit
+ * - Speaker rates: "How well listener understands me"
+ * - Listener rates: "How well I understand speaker"
+ * - Gap surfaced only after both submit with explain-back options
+ */
+export interface LiveSessionState {
+  // Current idea being discussed (legacy, may be removed)
+  currentIdeaId?: string;
+  currentIdeaNumber?: number;
+  currentIdeaOriginator?: string;
+
+  // Current turn state (legacy)
+  currentSpeaker?: string;
+  currentListener?: string;
+  currentRound: number;
+
+  // Role selections (legacy - kept for backward compatibility)
+  roleSelections: {
+    [userName: string]: LiveRole;
+  };
+
+  // Legacy ratings
+  selfRating?: number;
+  otherRating?: number;
+
+  // V5: Slider-based understanding ratings (legacy - kept for compatibility)
+  sliderRatings: {
+    [userName: string]: number;
+  };
+
+  // V5: Self-ratings via "Listen Actively Now" button (legacy)
+  listenActivelyRatings: {
+    [userName: string]: number;
+  };
+
+  // V5: Pending rating request (legacy)
+  pendingRatingRequest?: string;
+
+  // V5: Gap detection state (legacy)
+  gapDetected?: boolean;
+  gapValue?: number;
+
+  // V5: Understanding checks count
+  checksCount: number;
+  checksTotal: number;
+
+  // Ideas progress
+  ideasDiscussed: number;
+  ideasUnderstood: number;
+
+  // Session control
+  isRecording?: boolean;
+
+  // V5: Talk-time tracking
+  talkTime: {
+    [userName: string]: number;
+  };
+
+  // V5: Currently speaking
+  currentlySpeaking?: string;
+
+  // ============================================================================
+  // V6 (P23.1): Sealed-bid rating flow - LEGACY variables (deprecated)
+  // These are kept for backward compatibility but will be removed
+  // ============================================================================
+
+  // Current phase of the rating flow
+  ratingPhase: RatingPhase;
+
+  // DEPRECATED: Use checkerName instead
+  // Who is the speaker (person being understood) vs listener (person understanding)
+  speakerName?: string;
+  listenerName?: string;
+
+  // DEPRECATED: Use checkerRating/responderRating instead
+  // Sealed-bid ratings (hidden until both submit)
+  speakerRating?: number;
+  listenerRating?: number;
+
+  // DEPRECATED: Use checkerSubmitted/responderSubmitted instead
+  // Submission flags
+  speakerRatingSubmitted: boolean;
+  listenerRatingSubmitted: boolean;
+
+  // ============================================================================
+  // V7 (P23.2): Check/Prove model - NEW variables
+  // ============================================================================
+
+  // Who tapped "Check if partner gets me" (initiator of the understanding check)
+  // The checker is the person being understood
+  checkerName?: string;
+
+  // Ratings - both describe how well the responder understands the checker
+  // checkerRating: Checker's belief about how well partner understands them
+  // responderRating: Responder's self-assessment of how well they understand checker
+  checkerRating?: number;
+  responderRating?: number;
+
+  // Submission flags for new model
+  checkerSubmitted: boolean;
+  responderSubmitted: boolean;
+
+  // Explain-back tracking
+  explainBackRound: number;
+  explainBackRatings: number[]; // History of checker ratings after each explain-back
+
+  // Explain-back request state
+  explainBackRequested: boolean;
+  explainBackInProgress: boolean;
+
+  // V8: Drawer notification pattern - who requested the explain-back
+  // When checker requests, responder sees a drawer notification instead of instant screen change
+  explainBackRequestedBy?: string; // Name of person who requested explain-back
+
+  // V9: Decline notification - who declined the explain-back request
+  // When responder declines, checker sees a toast and UI updates
+  explainBackDeclinedBy?: string; // Name of person who declined
+}
+
+/** Default initial state for new live sessions */
+export const DEFAULT_LIVE_STATE: LiveSessionState = {
+  currentRound: 1,
+  roleSelections: {},
+  sliderRatings: {},
+  listenActivelyRatings: {},
+  checksCount: 0,
+  checksTotal: 0,
+  ideasDiscussed: 0,
+  ideasUnderstood: 0,
+  talkTime: {},
+  // V7 (P23.2) Check/Prove model defaults - starts in idle state
+  ratingPhase: 'idle',
+  // Legacy (deprecated)
+  speakerRatingSubmitted: false,
+  listenerRatingSubmitted: false,
+  // New model
+  checkerSubmitted: false,
+  responderSubmitted: false,
+  explainBackRound: 0,
+  explainBackRatings: [],
+  explainBackRequested: false,
+  explainBackInProgress: false,
+};
+
+/** Live turn record (saved to clarity_live_turns table) */
+export interface LiveTurn {
+  id: string;
+  sessionId: string;
+  ideaId?: string;
+  speakerName: string;
+  listenerName: string;
+  actorName: string;
+  role: LiveRole;
+  transcript?: string;
+  selfRating?: number;
+  otherRating?: number;
+  flag?: LiveFlag;
+  roundNumber: number;
+  createdAt: string;
+}
+
+export interface DbLiveTurn {
+  id: string;
+  session_id: string;
+  idea_id?: string;
+  speaker_name: string;
+  listener_name: string;
+  actor_name: string;
+  role: LiveRole;
+  transcript?: string;
+  self_rating?: number;
+  other_rating?: number;
+  flag?: LiveFlag;
+  round_number: number;
+  created_at: string;
+}
+
+/** Rating button mapping */
+export const LIVE_RATING_LABELS: { label: LiveRatingLabel; text: string; range: [number, number] }[] = [
+  { label: 'not_yet', text: 'Not yet', range: [0, 4] },
+  { label: 'getting_there', text: 'Getting there', range: [5, 6] },
+  { label: 'almost', text: 'Almost', range: [7, 9] },
+  { label: 'got_it', text: 'Got it!', range: [10, 10] },
+];
+
+/** Convert rating label to numeric value (midpoint of range, or 10 for got_it) */
+export function ratingLabelToValue(label: LiveRatingLabel): number {
+  const rating = LIVE_RATING_LABELS.find((r) => r.label === label);
+  if (!rating) return 5;
+  if (label === 'got_it') return 10;
+  return Math.floor((rating.range[0] + rating.range[1]) / 2);
 }
 
