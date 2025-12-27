@@ -9,6 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   createClaritySession,
   joinClaritySession,
   getClaritySession,
@@ -57,6 +65,9 @@ export function ClarityLivePage() {
   // Live session state (synced via session.live_state)
   const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
   const [mode, setMode] = useState<'live' | 'review'>('live');
+
+  // Exit confirmation dialog state
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Derived values
   const partnerName = session
@@ -324,12 +335,16 @@ export function ClarityLivePage() {
   );
 
   // V7: Handle skip (resets to idle state for next check)
+  // V10: Now tracks who skipped so partner can be notified
   const handleSkip = useCallback(() => {
-    console.log('[Live] Skip - returning to idle');
+    console.log('[Live] Skip - returning to idle, skipped by:', name);
 
     // Reset to idle state for a fresh start
+    // Set skippedBy so partner sees toast notification
     updateLiveState({
       ratingPhase: 'idle',
+      // V10: Track who skipped for partner notification
+      skippedBy: name,
       // Clear checker/responder
       checkerName: undefined,
       checkerRating: undefined,
@@ -350,7 +365,7 @@ export function ClarityLivePage() {
       explainBackRound: 0,
       explainBackRatings: [],
     });
-  }, [updateLiveState]);
+  }, [name, updateLiveState]);
 
   // V8: Handle "Explain back" (listener starts explaining - no request/accept handshake needed)
   const handleExplainBackStart = useCallback(() => {
@@ -394,6 +409,13 @@ export function ClarityLivePage() {
   const handleClearDeclineNotification = useCallback(() => {
     updateLiveState({
       explainBackDeclinedBy: undefined,
+    });
+  }, [updateLiveState]);
+
+  // V10: Clear the skip notification after toast is shown
+  const handleClearSkipNotification = useCallback(() => {
+    updateLiveState({
+      skippedBy: undefined,
     });
   }, [updateLiveState]);
 
@@ -482,6 +504,24 @@ export function ClarityLivePage() {
     setView('start');
     setRoomCode('');
   };
+
+  // Show exit confirmation dialog
+  const handleExitMeeting = useCallback(() => {
+    setShowExitConfirm(true);
+  }, []);
+
+  // Actually exit meeting after confirmation
+  const confirmExitMeeting = useCallback(() => {
+    console.log('[Live] Exiting meeting, returning to start');
+    clearStoredSession();
+    setSession(null);
+    setLiveState(DEFAULT_LIVE_STATE);
+    setIsLocallyRating(false);
+    setMode('live');
+    setView('start');
+    setRoomCode('');
+    setShowExitConfirm(false);
+  }, []);
 
   // Show loading while restoring session
   if (isRestoring) {
@@ -637,9 +677,13 @@ export function ClarityLivePage() {
             onToggleMode={handleToggleMode}
             // V9: Clear decline notification after toast shown
             onClearDeclineNotification={handleClearDeclineNotification}
+            // V10: Clear skip notification after toast shown
+            onClearSkipNotification={handleClearSkipNotification}
             // V10: Local rating state
             isLocallyRating={isLocallyRating}
             onCancelLocalRating={() => setIsLocallyRating(false)}
+            // V10: Exit meeting button
+            onExitMeeting={handleExitMeeting}
           />
         ) : (
           <ReviewModeView
@@ -650,6 +694,26 @@ export function ClarityLivePage() {
             onToggleMode={handleToggleMode}
           />
         )}
+
+        {/* Exit confirmation dialog */}
+        <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Leave meeting?</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to leave this meeting? Your session progress will be lost.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-row gap-2 sm:justify-end">
+              <Button variant="outline" onClick={() => setShowExitConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmExitMeeting}>
+                Leave
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

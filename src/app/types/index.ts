@@ -546,6 +546,10 @@ export interface LiveSessionState {
   // V9: Decline notification - who declined the explain-back request
   // When responder declines, checker sees a toast and UI updates
   explainBackDeclinedBy?: string; // Name of person who declined
+
+  // V10: Skip notification - who clicked "Move on" or "Good enough"
+  // When one user skips, partner sees a toast notification
+  skippedBy?: string; // Name of person who skipped
 }
 
 /** Default initial state for new live sessions */

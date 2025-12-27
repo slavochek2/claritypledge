@@ -1,6 +1,6 @@
 /**
  * @file live-mode-view.tsx
- * @description P23.1 V6: Sealed-bid rating flow for Clarity Live sessions.
+ * @description P23.1: Sealed-bid rating flow for Clarity Live sessions.
  *
  * V6 Changes (sealed-bid pattern):
  * - Both users rate simultaneously, ratings hidden until both submit
@@ -12,9 +12,17 @@
  *
  * V9 Changes:
  * - Toast notification when responder declines explain-back request
+ *
+ * V10 Changes:
+ * - Exit meeting button (X) in header to leave session
+ * - Skip notification dialog when partner clicks "Move on" or "Good enough"
+ *   (requires user to click OK to acknowledge before returning to idle)
+ * - RatingCard component for reusable rating UI
+ * - JourneyToUnderstanding component for rating history display
+ * - Drawer-based rating interface for ExplainBackScreen checker view
  */
-import { useEffect, useRef } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, Mic } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +32,14 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { type ClaritySession, type LiveSessionState, type GapType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
 import { capitalizeName, RatingButtons } from './shared';
@@ -43,6 +59,8 @@ interface LiveModeViewProps {
   onBackToIdle: () => void;
   /** Clear the decline notification after showing toast - required for proper state cleanup */
   onClearDeclineNotification: () => void;
+  /** Clear the skip notification after showing toast - required for proper state cleanup */
+  onClearSkipNotification: () => void;
   /** Local rating state - true when user tapped "I spoke" but hasn't submitted yet */
   isLocallyRating: boolean;
   onCancelLocalRating: () => void;
@@ -64,6 +82,7 @@ export function LiveModeView({
   onStartCheck,
   onBackToIdle,
   onClearDeclineNotification,
+  onClearSkipNotification,
   isLocallyRating,
   onCancelLocalRating,
   onExitMeeting,
@@ -71,6 +90,11 @@ export function LiveModeView({
 
   // V9: Track previous decline state to detect new declines
   const prevDeclinedByRef = useRef<string | undefined>(undefined);
+  // V10: Track previous skip state to detect new skips
+  const prevSkippedByRef = useRef<string | undefined>(undefined);
+  // V10: State for skip notification dialog
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [skipDialogName, setSkipDialogName] = useState<string>('');
 
   // V9: Show toast when responder declines explain-back request
   // This effect runs when explainBackDeclinedBy changes
@@ -97,6 +121,33 @@ export function LiveModeView({
 
     prevDeclinedByRef.current = declinedBy;
   }, [liveState.explainBackDeclinedBy, liveState.checkerName, currentUserName, onClearDeclineNotification]);
+
+  // V10: Show dialog when partner clicks "Move on" or "Good enough"
+  // Dialog requires user acknowledgment before returning to idle
+  useEffect(() => {
+    const skippedBy = liveState.skippedBy;
+
+    // Only show dialog to the OTHER user (not the one who skipped)
+    // and only when there's a new skip (not on initial render or re-renders)
+    if (
+      skippedBy &&
+      skippedBy !== currentUserName &&
+      prevSkippedByRef.current !== skippedBy
+    ) {
+      const displayName = capitalizeName(skippedBy);
+      setSkipDialogName(displayName);
+      setSkipDialogOpen(true);
+    }
+
+    prevSkippedByRef.current = skippedBy;
+  }, [liveState.skippedBy, currentUserName]);
+
+  // V10: Handle dialog OK button - clear notification and close dialog
+  const handleSkipDialogOk = () => {
+    setSkipDialogOpen(false);
+    setSkipDialogName('');
+    onClearSkipNotification();
+  };
 
   // P23.2: Determine role using new checker/responder model
   // The checker is the person who tapped "Check if partner gets me"
@@ -127,6 +178,25 @@ export function LiveModeView({
   // Render based on phase
   const { ratingPhase } = liveState;
 
+  // V10: Skip notification dialog - shown when partner clicks "Move on" or "Good enough"
+  const skipNotificationDialog = (
+    <Dialog open={skipDialogOpen} onOpenChange={() => { /* Prevent closing by clicking outside */ }}>
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>{skipDialogName} chose to move forward</DialogTitle>
+          <DialogDescription>
+            Returning to the home screen.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button onClick={handleSkipDialogOk} className="w-full sm:w-auto">
+            OK
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   // V10: Local rating - user tapped "I spoke" but hasn't submitted yet
   // This check comes FIRST - local state takes priority over shared state
   // This is purely local, doesn't affect partner's screen
@@ -135,15 +205,19 @@ export function LiveModeView({
     const partnerAlreadySubmitted = liveState.checkerSubmitted && liveState.checkerName !== currentUserName;
 
     return (
-      <RatingScreenWithOptionalDrawer
-        partnerName={partnerName}
-        liveState={liveState}
-        onRatingSubmit={onRatingSubmit}
-        onBack={onCancelLocalRating}
-        onToggleMode={onToggleMode}
-        showDrawer={partnerAlreadySubmitted}
-        onSkip={onSkip}
-      />
+      <>
+        <RatingScreenWithOptionalDrawer
+          partnerName={partnerName}
+          liveState={liveState}
+          onRatingSubmit={onRatingSubmit}
+          onBack={onCancelLocalRating}
+          onToggleMode={onToggleMode}
+          showDrawer={partnerAlreadySubmitted}
+          onSkip={onSkip}
+          onExit={onExitMeeting}
+        />
+        {skipNotificationDialog}
+      </>
     );
   }
 
@@ -151,27 +225,35 @@ export function LiveModeView({
   // IMPORTANT: Responder stays on idle until checker submits their rating
   if (ratingPhase === 'idle') {
     return (
-      <IdleScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        onStartCheck={onStartCheck}
-        onSkip={onSkip}
-        onToggleMode={onToggleMode}
-      />
+      <>
+        <IdleScreen
+          partnerName={partnerName}
+          liveState={liveState}
+          onStartCheck={onStartCheck}
+          onSkip={onSkip}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+        />
+        {skipNotificationDialog}
+      </>
     );
   }
 
   // Phase: Rating - checker is re-rating (after change rating)
   if (ratingPhase === 'rating' && isChecker && !myRatingSubmitted) {
     return (
-      <RatingScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        isChecker={isChecker}
-        onRatingSubmit={onRatingSubmit}
-        onBack={onBackToIdle}
-        onToggleMode={onToggleMode}
-      />
+      <>
+        <RatingScreen
+          partnerName={partnerName}
+          liveState={liveState}
+          isChecker={isChecker}
+          onRatingSubmit={onRatingSubmit}
+          onBack={onBackToIdle}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+        />
+        {skipNotificationDialog}
+      </>
     );
   }
 
@@ -183,27 +265,35 @@ export function LiveModeView({
     // Responder: hasn't submitted yet, checker has → show IdleScreen with drawer
     if (!iHaveSubmitted && partnerRatingSubmitted) {
       return (
-        <ResponderWaitingWithDrawer
-          partnerName={partnerName}
-          liveState={liveState}
-          onStartCheck={onStartCheck}
-          onRatingSubmit={onRatingSubmit}
-          onSkip={onSkip}
-          onToggleMode={onToggleMode}
-        />
+        <>
+          <ResponderWaitingWithDrawer
+            partnerName={partnerName}
+            liveState={liveState}
+            onStartCheck={onStartCheck}
+            onRatingSubmit={onRatingSubmit}
+            onSkip={onSkip}
+            onToggleMode={onToggleMode}
+            onExit={onExitMeeting}
+          />
+          {skipNotificationDialog}
+        </>
       );
     }
 
     // Checker or responder who submitted: show waiting screen
     return (
-      <WaitingScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        isChecker={isChecker}
-        myRating={isChecker ? checkerRating : responderRating}
-        onBackToIdle={onBackToIdle}
-        onToggleMode={onToggleMode}
-      />
+      <>
+        <WaitingScreen
+          partnerName={partnerName}
+          liveState={liveState}
+          isChecker={isChecker}
+          myRating={isChecker ? checkerRating : responderRating}
+          onBackToIdle={onBackToIdle}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+        />
+        {skipNotificationDialog}
+      </>
     );
   }
 
@@ -215,31 +305,39 @@ export function LiveModeView({
 
     if (isPerfectNow) {
       return (
-        <PerfectUnderstandingScreen
+        <>
+          <PerfectUnderstandingScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            isChecker={isChecker}
+            checkerRating={checkerRating!}
+            responderRating={responderRating!}
+            afterExplainBack
+            explainBackRating={latestRating}
+            onSkip={onSkip}
+            onToggleMode={onToggleMode}
+            onExit={onExitMeeting}
+          />
+          {skipNotificationDialog}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <ResultsScreen
           partnerName={partnerName}
           liveState={liveState}
           isChecker={isChecker}
           checkerRating={checkerRating!}
           responderRating={responderRating!}
-          afterExplainBack
-          explainBackRating={latestRating}
+          onExplainBackStart={onExplainBackStart}
           onSkip={onSkip}
           onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
         />
-      );
-    }
-
-    return (
-      <ResultsScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        isChecker={isChecker}
-        checkerRating={checkerRating!}
-        responderRating={responderRating!}
-        onExplainBackStart={onExplainBackStart}
-        onSkip={onSkip}
-        onToggleMode={onToggleMode}
-      />
+        {skipNotificationDialog}
+      </>
     );
   }
 
@@ -248,15 +346,19 @@ export function LiveModeView({
     // SCREEN 3b-ii: Both believe 10/10 - pure celebration
     if (isPerfect) {
       return (
-        <PerfectUnderstandingScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          checkerRating={checkerRating!}
-          responderRating={responderRating!}
-          onSkip={onSkip}
-          onToggleMode={onToggleMode}
-        />
+        <>
+          <PerfectUnderstandingScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            isChecker={isChecker}
+            checkerRating={checkerRating!}
+            responderRating={responderRating!}
+            onSkip={onSkip}
+            onToggleMode={onToggleMode}
+            onExit={onExitMeeting}
+          />
+          {skipNotificationDialog}
+        </>
       );
     }
 
@@ -264,78 +366,98 @@ export function LiveModeView({
     // Show "understood perfectly" + underconfidence warning, auto-return
     if (checkerRating === 10 && responderRating !== undefined && responderRating < 10) {
       return (
-        <PerfectUnderstandingScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          checkerRating={checkerRating}
-          responderRating={responderRating}
-          responderUnderconfident
-          underconfidenceGap={10 - responderRating}
-          onSkip={onSkip}
-          onToggleMode={onToggleMode}
-        />
+        <>
+          <PerfectUnderstandingScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            isChecker={isChecker}
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            responderUnderconfident
+            underconfidenceGap={10 - responderRating}
+            onSkip={onSkip}
+            onToggleMode={onToggleMode}
+            onExit={onExitMeeting}
+          />
+          {skipNotificationDialog}
+        </>
       );
     }
 
     // Gap detected - show gap screen
     if (gapPoints > 0) {
       return (
-        <GapRevealedScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          checkerRating={checkerRating!}
-          responderRating={responderRating!}
-          gapType={gapType}
-          gapPoints={gapPoints}
-          onExplainBackStart={onExplainBackStart}
-          onSkip={onSkip}
-          onToggleMode={onToggleMode}
-        />
+        <>
+          <GapRevealedScreen
+            partnerName={partnerName}
+            liveState={liveState}
+            isChecker={isChecker}
+            checkerRating={checkerRating!}
+            responderRating={responderRating!}
+            gapType={gapType}
+            gapPoints={gapPoints}
+            onExplainBackStart={onExplainBackStart}
+            onSkip={onSkip}
+            onToggleMode={onToggleMode}
+            onExit={onExitMeeting}
+          />
+          {skipNotificationDialog}
+        </>
       );
     }
 
     // No gap but not 10/10 - show results
     return (
-      <ResultsScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        isChecker={isChecker}
-        checkerRating={checkerRating!}
-        responderRating={responderRating!}
-        onExplainBackStart={onExplainBackStart}
-        onSkip={onSkip}
-        onToggleMode={onToggleMode}
-      />
+      <>
+        <ResultsScreen
+          partnerName={partnerName}
+          liveState={liveState}
+          isChecker={isChecker}
+          checkerRating={checkerRating!}
+          responderRating={responderRating!}
+          onExplainBackStart={onExplainBackStart}
+          onSkip={onSkip}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+        />
+        {skipNotificationDialog}
+      </>
     );
   }
 
   // Phase: Explain-back in progress
   if (ratingPhase === 'explain-back' || liveState.explainBackInProgress) {
     return (
-      <ExplainBackScreen
-        partnerName={partnerName}
-        liveState={liveState}
-        isChecker={isChecker}
-        checkerRating={checkerRating}
-        responderRating={responderRating}
-        onExplainBackRate={onExplainBackRate}
-        onSkip={onSkip}
-        onToggleMode={onToggleMode}
-      />
+      <>
+        <ExplainBackScreen
+          partnerName={partnerName}
+          liveState={liveState}
+          isChecker={isChecker}
+          checkerRating={checkerRating}
+          responderRating={responderRating}
+          onExplainBackRate={onExplainBackRate}
+          onSkip={onSkip}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+        />
+        {skipNotificationDialog}
+      </>
     );
   }
 
   // Fallback to idle screen
   return (
-    <IdleScreen
-      partnerName={partnerName}
-      liveState={liveState}
-      onStartCheck={onStartCheck}
-      onSkip={onSkip}
-      onToggleMode={onToggleMode}
-    />
+    <>
+      <IdleScreen
+        partnerName={partnerName}
+        liveState={liveState}
+        onStartCheck={onStartCheck}
+        onSkip={onSkip}
+        onToggleMode={onToggleMode}
+        onExit={onExitMeeting}
+      />
+      {skipNotificationDialog}
+    </>
   );
 }
 
@@ -383,19 +505,16 @@ function IdleScreen({
             onClick={onStartCheck}
             disabled={showRatingDrawer}
           >
-            I spoke
+            Did <span className="underline font-bold">you</span> get it?
           </Button>
 
           <Button
             variant="outline"
             size="lg"
-            className="w-full h-auto py-4 opacity-50 cursor-not-allowed"
+            className="w-full"
             disabled
           >
-            <div className="text-center">
-              <div className="font-semibold">I listened</div>
-              <div className="text-xs opacity-80 mt-1">Coming soon</div>
-            </div>
+            Did <span className="underline font-bold">I</span> get it?
           </Button>
         </div>
       </div>
@@ -414,24 +533,12 @@ function IdleScreen({
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 space-y-4">
-            {/* Question - large and prominent */}
-            <h2 className="text-lg font-semibold text-center">
-              How well do you feel you understand {checkerName}?
-            </h2>
+            <RatingCard
+              question={`How well do you feel you understand ${checkerName}?`}
+              onSelect={onRatingSubmit || (() => {})}
+            />
 
-            {/* Rating scale with anchors above */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground px-1">
-                <span>Not at all</span>
-                <span>Perfectly</span>
-              </div>
-              <div className="flex justify-center">
-                <RatingButtons selectedValue={null} onSelect={onRatingSubmit || (() => {})} />
-              </div>
-            </div>
-
-            {/* Decline - clearly a button, not a label */}
-            <div className="flex justify-center pt-4">
+            <div className="flex justify-center">
               <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
                 Decline
               </Button>
@@ -454,6 +561,7 @@ interface ResponderWaitingWithDrawerProps {
   onRatingSubmit: (rating: number) => void;
   onSkip: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function ResponderWaitingWithDrawer({
@@ -463,6 +571,7 @@ function ResponderWaitingWithDrawer({
   onRatingSubmit,
   onSkip,
   onToggleMode,
+  onExit,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -473,6 +582,7 @@ function ResponderWaitingWithDrawer({
       showRatingDrawer={true}
       onRatingSubmit={onRatingSubmit}
       onSkip={onSkip}
+      onExit={onExit}
     />
   );
 }
@@ -488,6 +598,7 @@ interface RatingScreenProps {
   onRatingSubmit: (rating: number) => void;
   onBack: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function RatingScreen({
@@ -497,6 +608,7 @@ function RatingScreen({
   onRatingSubmit,
   onBack,
   onToggleMode,
+  onExit,
 }: RatingScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
@@ -510,27 +622,14 @@ function RatingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-start pt-12 sm:justify-center sm:pt-0 p-6 space-y-6">
-        {/* Card containing question + rating scale */}
-        <div className="bg-muted rounded-lg p-4 space-y-4 w-full max-w-sm">
-          {/* Question */}
-          <h2 className="text-lg font-semibold text-center">
-            {prompt}
-          </h2>
-
-          {/* Rating scale with anchors above */}
-          <div className="pt-2 border-t space-y-2">
-            <div className="flex justify-between text-xs text-muted-foreground px-1">
-              <span>Not at all</span>
-              <span>Perfectly</span>
-            </div>
-            <div className="flex justify-center">
-              <RatingButtons selectedValue={null} onSelect={onRatingSubmit} />
-            </div>
-          </div>
-        </div>
+        <RatingCard
+          question={prompt}
+          onSelect={onRatingSubmit}
+          className="w-full max-w-sm"
+        />
 
         <Button
           variant="ghost"
@@ -561,6 +660,7 @@ interface RatingScreenWithOptionalDrawerProps {
   onToggleMode: () => void;
   showDrawer: boolean;
   onSkip: () => void;
+  onExit: () => void;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -571,6 +671,7 @@ function RatingScreenWithOptionalDrawer({
   onToggleMode,
   showDrawer,
   onSkip,
+  onExit,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : displayPartnerName;
@@ -584,27 +685,14 @@ function RatingScreenWithOptionalDrawer({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-start pt-12 sm:justify-center sm:pt-0 p-6 space-y-6">
-        {/* Card containing question + rating scale */}
-        <div className="bg-muted rounded-lg p-4 space-y-4 w-full max-w-sm">
-          {/* Question */}
-          <h2 className="text-lg font-semibold text-center">
-            {prompt}
-          </h2>
-
-          {/* Rating scale with anchors above */}
-          <div className="pt-2 border-t space-y-2">
-            <div className="flex justify-between text-xs text-muted-foreground px-1">
-              <span>Not at all</span>
-              <span>Perfectly</span>
-            </div>
-            <div className="flex justify-center">
-              <RatingButtons selectedValue={null} onSelect={onRatingSubmit} />
-            </div>
-          </div>
-        </div>
+        <RatingCard
+          question={prompt}
+          onSelect={onRatingSubmit}
+          className="w-full max-w-sm"
+        />
 
         <Button
           variant="ghost"
@@ -631,24 +719,13 @@ function RatingScreenWithOptionalDrawer({
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 space-y-4">
-            {/* Question - large and prominent */}
-            <h2 className="text-lg font-semibold text-center">
-              How well do you feel you understand {checkerName}?
-            </h2>
+            <RatingCard
+              question={`How well do you feel you understand ${checkerName}?`}
+              onSelect={onRatingSubmit}
+            />
 
-            {/* Rating scale with anchors above */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground px-1">
-                <span>Not at all</span>
-                <span>Perfectly</span>
-              </div>
-              <div className="flex justify-center">
-                <RatingButtons selectedValue={null} onSelect={onRatingSubmit} />
-              </div>
-            </div>
-
-            {/* Decline - clearly a button, not a label */}
-            <div className="flex justify-center pt-4">
+            {/* Decline button */}
+            <div className="flex justify-center">
               <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
                 Decline
               </Button>
@@ -671,6 +748,7 @@ interface WaitingScreenProps {
   myRating?: number;
   onBackToIdle: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function WaitingScreen({
@@ -680,15 +758,16 @@ function WaitingScreen({
   myRating,
   onBackToIdle,
   onToggleMode,
+  onExit,
 }: WaitingScreenProps) {
 
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
 
-  // Waiting message based on role - short
+  // Waiting message based on role
   const waitingMessage = isChecker
-    ? `Waiting for ${displayPartnerName}...`
-    : `Waiting for ${checkerName}...`;
+    ? `Waiting for ${displayPartnerName} to rate their understanding...`
+    : `Waiting for ${checkerName} to rate their understanding...`;
 
   // Label for "Your rating" card - consistent "feel" language
   const myRatingLabel = isChecker
@@ -697,7 +776,7 @@ function WaitingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         {/* Card containing rating + waiting status */}
@@ -742,6 +821,7 @@ interface GapRevealedScreenProps {
   onExplainBackStart: () => void;
   onSkip: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function GapRevealedScreen({
@@ -755,6 +835,7 @@ function GapRevealedScreen({
   onExplainBackStart,
   onSkip,
   onToggleMode,
+  onExit,
 }: GapRevealedScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
@@ -773,7 +854,7 @@ function GapRevealedScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-4">
@@ -861,6 +942,7 @@ interface PerfectUnderstandingScreenProps {
   underconfidenceGap?: number;
   onSkip: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function PerfectUnderstandingScreen({
@@ -875,6 +957,7 @@ function PerfectUnderstandingScreen({
   underconfidenceGap,
   onSkip,
   onToggleMode,
+  onExit,
 }: PerfectUnderstandingScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
@@ -894,7 +977,7 @@ function PerfectUnderstandingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
         <div className="text-center space-y-4">
@@ -950,7 +1033,7 @@ function PerfectUnderstandingScreen({
 }
 
 // ============================================================================
-// EXPLAIN-BACK SCREEN - Responder explains, checker rates
+// EXPLAIN-BACK SCREEN - Responder explains, checker rates via drawer
 // ============================================================================
 
 interface ExplainBackScreenProps {
@@ -962,6 +1045,7 @@ interface ExplainBackScreenProps {
   onExplainBackRate: (rating: number) => void;
   onSkip: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function ExplainBackScreen({
@@ -973,87 +1057,151 @@ function ExplainBackScreen({
   onExplainBackRate,
   onSkip,
   onToggleMode,
+  onExit,
 }: ExplainBackScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
+
+  // Track whether checker has clicked "Rate their summary" to show rating interface
+  const [showRatingInterface, setShowRatingInterface] = useState(false);
 
   const roundLabel = liveState.explainBackRound > 0
     ? ` (round ${liveState.explainBackRound + 1})`
     : '';
 
+  // Checker (Speaker/Gosha) view:
+  // - First: drawer notification that partner is explaining back
+  // - After clicking "Ready to rate": drawer closes, rating interface appears on main screen
+  if (isChecker) {
+    // After acknowledging the notification, show full rating screen (no drawer)
+    if (showRatingInterface) {
+      return (
+        <div className="flex flex-col h-full">
+          <LiveHeader partnerName={partnerName} onExit={onExit} />
+
+          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+            {/* Journey so far - context above the CTA */}
+            <div className="w-full max-w-sm">
+              <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
+              <JourneyToUnderstanding
+                checkerRating={checkerRating ?? 0}
+                responderRating={responderRating ?? 0}
+                explainBackRatings={liveState.explainBackRatings}
+                isChecker={true}
+                displayPartnerName={displayPartnerName}
+                checkerName={checkerName}
+              />
+            </div>
+
+            {/* CTA: Question inside the card */}
+            <RatingCard
+              question={`How well did ${displayPartnerName} capture your message?`}
+              onSelect={onExplainBackRate}
+              className="w-full max-w-sm"
+            />
+
+            <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+              Skip
+            </Button>
+          </div>
+
+          <LiveFooter onToggleMode={onToggleMode} />
+        </div>
+      );
+    }
+
+    // Initial state: show gap screen with drawer notification
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExit} />
+
+        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          <div className="w-full max-w-sm">
+            <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
+            <JourneyToUnderstanding
+              checkerRating={checkerRating ?? 0}
+              responderRating={responderRating ?? 0}
+              explainBackRatings={liveState.explainBackRatings}
+              isChecker={true}
+              displayPartnerName={displayPartnerName}
+              checkerName={checkerName}
+            />
+          </div>
+        </div>
+
+        <LiveFooter onToggleMode={onToggleMode} />
+
+        {/* Drawer notification for checker - slides up from bottom */}
+        <Drawer open={true} onOpenChange={(open) => { if (!open) onSkip(); }}>
+          <DrawerContent>
+            <DrawerHeader className="text-center pb-4">
+              <DrawerTitle className="text-lg font-medium">
+                {displayPartnerName} is sharing what they heard{roundLabel}
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Listen and then rate their summary
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4 pb-8">
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={() => setShowRatingInterface(true)}
+              >
+                Ready to rate their summary
+              </Button>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    );
+  }
+
+  // Responder (Active Listener/Slava) view: explaining back, waiting for re-rate
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-        {isChecker ? (
-          <>
-            <div className="text-center space-y-4">
-              <p className="text-lg font-medium">
-                Waiting for {displayPartnerName} to explain back...{roundLabel}
-              </p>
+      <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        {/* Journey so far - context above the CTA */}
+        <div className="w-full max-w-sm">
+          <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
+          <JourneyToUnderstanding
+            checkerRating={checkerRating ?? 0}
+            responderRating={responderRating ?? 0}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={false}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+          />
+        </div>
 
-              <div className="bg-muted rounded-lg p-4 space-y-3">
-                <RatingDisplay
-                  label={<><b className="text-foreground">You feel</b> {displayPartnerName} understands you:</>}
-                  rating={checkerRating ?? 0}
-                />
-                <RatingDisplay
-                  label={<><b className="text-foreground">{displayPartnerName} feels</b> they understand you:</>}
-                  rating={responderRating ?? 0}
-                />
-              </div>
+        {/* CTA: Pulsing microphone + instruction */}
+        <div className="flex flex-col items-center space-y-4">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+              <Mic className="w-8 h-8 text-blue-600" />
             </div>
+            {/* Pulse ring animation - disabled for users who prefer reduced motion */}
+            <div className="absolute inset-0 w-16 h-16 rounded-full bg-blue-400 animate-ping motion-reduce:animate-none opacity-20" />
+          </div>
 
-            {/* Rating card - consistent with RatingScreen */}
-            <div className="bg-muted rounded-lg p-4 space-y-4 w-full max-w-sm">
-              <h2 className="text-lg font-semibold text-center">
-                How much does <b>{displayPartnerName}</b> actually understand you?
-              </h2>
-              <div className="pt-2 border-t space-y-2">
-                <div className="flex justify-between text-xs text-muted-foreground px-1">
-                  <span>Not at all</span>
-                  <span>Perfectly</span>
-                </div>
-                <div className="flex justify-center">
-                  <RatingButtons selectedValue={null} onSelect={onExplainBackRate} />
-                </div>
-              </div>
-            </div>
+          <h2 className="text-lg font-semibold text-center max-w-xs">
+            Please explain back to {checkerName} what you think they meant
+          </h2>
+        </div>
 
-            <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-              Skip
-            </Button>
-          </>
-        ) : (
-          <>
-            <div className="text-center space-y-4">
-              <p className="text-lg font-medium">Please explain back...{roundLabel}</p>
+        {/* Waiting indicator */}
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+          <p className="text-sm text-muted-foreground">
+            Waiting for {checkerName} to re-evaluate...
+          </p>
+        </div>
 
-              <div className="bg-muted rounded-lg p-4 space-y-3">
-                <RatingDisplay
-                  label={<><b className="text-foreground">{checkerName} feels</b> you understand them:</>}
-                  rating={checkerRating ?? 0}
-                />
-                <RatingDisplay
-                  label={<><b className="text-foreground">You feel</b> you understand {checkerName}:</>}
-                  rating={responderRating ?? 0}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              <p className="text-sm text-muted-foreground">
-                Waiting for {checkerName} to re-rate...
-              </p>
-            </div>
-
-            <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-              Skip
-            </Button>
-          </>
-        )}
+        <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+          Skip
+        </Button>
       </div>
 
       <LiveFooter onToggleMode={onToggleMode} />
@@ -1074,6 +1222,7 @@ interface ResultsScreenProps {
   onExplainBackStart: () => void;
   onSkip: () => void;
   onToggleMode: () => void;
+  onExit: () => void;
 }
 
 function ResultsScreen({
@@ -1085,6 +1234,7 @@ function ResultsScreen({
   onExplainBackStart,
   onSkip,
   onToggleMode,
+  onExit,
 }: ResultsScreenProps) {
 
   const displayPartnerName = capitalizeName(partnerName);
@@ -1097,53 +1247,19 @@ function ResultsScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-        <div className="text-center space-y-4">
-          <h2 className="text-lg font-semibold">Journey to Understanding</h2>
-
-          <div className="bg-muted rounded-lg p-4">
-            {/* Timeline layout: round labels left, ratings right */}
-            <div className="space-y-3">
-              {/* Initial round */}
-              <div className="flex gap-4">
-                <div className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">Initial</div>
-                <div className="flex-1 space-y-1">
-                  <RatingDisplay
-                    label={isChecker
-                      ? <><b className="text-foreground">{checkerName} feels</b> understood:</>
-                      : <><b className="text-foreground">{checkerName} feels</b> understood:</>
-                    }
-                    rating={checkerRating}
-                  />
-                  <RatingDisplay
-                    label={isChecker
-                      ? <><b className="text-foreground">{displayPartnerName} feels</b> they understand:</>
-                      : <><b className="text-foreground">You feel</b> you understand:</>
-                    }
-                    rating={responderRating}
-                  />
-                </div>
-              </div>
-
-              {/* Explain-back rounds */}
-              {liveState.explainBackRatings.map((rating, index) => (
-                <div key={index} className="flex gap-4 pt-2 border-t">
-                  <div className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">Round {index + 1}</div>
-                  <div className="flex-1">
-                    <RatingDisplay
-                      label={isChecker
-                        ? <><b className="text-foreground">{checkerName} feels</b> understood:</>
-                        : <><b className="text-foreground">{checkerName} feels</b> understood:</>
-                      }
-                      rating={rating}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+      <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <div className="w-full max-w-sm">
+          <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
+          <JourneyToUnderstanding
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+          />
         </div>
 
         <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -1184,6 +1300,118 @@ function ResultsScreen({
       </div>
 
       <LiveFooter onToggleMode={onToggleMode} />
+    </div>
+  );
+}
+
+// ============================================================================
+// RATING CARD - Reusable question + rating scale component
+// ============================================================================
+
+interface RatingCardProps {
+  question?: string;
+  onSelect: (rating: number) => void;
+  className?: string;
+}
+
+function RatingCard({ question, onSelect, className = '' }: RatingCardProps) {
+  return (
+    <div className={`bg-muted rounded-lg p-4 space-y-4 ${className}`}>
+      {question && (
+        <h2 className="text-lg font-semibold text-center">
+          {question}
+        </h2>
+      )}
+
+      <div className={`flex flex-col items-center space-y-1 ${question ? 'pt-2 border-t' : ''}`}>
+        <div className="flex justify-between text-xs text-muted-foreground w-full max-w-[352px]">
+          <span>Not at all</span>
+          <span>Perfectly</span>
+        </div>
+        <RatingButtons selectedValue={null} onSelect={onSelect} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// JOURNEY TO UNDERSTANDING - Shows rating history across rounds
+// Extracted to DRY up duplicated code across ExplainBackScreen and ResultsScreen
+// ============================================================================
+
+/**
+ * Min-height of 180px reserves space for approximately 7 rounds of explain-back
+ * to prevent layout shift as rounds are added. Each round takes ~24px (text + spacing).
+ * 180px = initial round (~48px) + 5-6 explain-back rounds (~24px each) + padding.
+ */
+const JOURNEY_MIN_HEIGHT = 'min-h-[180px]';
+
+interface JourneyToUnderstandingProps {
+  /** Initial checker rating (Round 0) */
+  checkerRating: number;
+  /** Initial responder rating (Round 0) */
+  responderRating: number;
+  /** Array of checker ratings after each explain-back round */
+  explainBackRatings: number[];
+  /** Whether viewing as checker (affects label text) */
+  isChecker: boolean;
+  /** Display name of partner */
+  displayPartnerName: string;
+  /** Display name of checker */
+  checkerName: string;
+  /** Additional CSS classes */
+  className?: string;
+}
+
+function JourneyToUnderstanding({
+  checkerRating,
+  responderRating,
+  explainBackRatings,
+  isChecker,
+  displayPartnerName,
+  checkerName,
+  className = '',
+}: JourneyToUnderstandingProps) {
+  return (
+    <div className={`bg-muted rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
+      <div className="space-y-3">
+        {/* Initial round (Round 0) */}
+        <div className="flex gap-4">
+          <div className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">Round 0</div>
+          <div className="flex-1 space-y-1">
+            <RatingDisplay
+              label={isChecker
+                ? <><b className="text-foreground">You feel</b> understood:</>
+                : <><b className="text-foreground">{checkerName} feels</b> understood:</>
+              }
+              rating={checkerRating}
+            />
+            <RatingDisplay
+              label={isChecker
+                ? <><b className="text-foreground">{displayPartnerName} feels</b> they understand:</>
+                : <><b className="text-foreground">You feel</b> you understand:</>
+              }
+              rating={responderRating}
+            />
+          </div>
+        </div>
+
+        {/* Previous explain-back rounds */}
+        {explainBackRatings.map((rating, index) => (
+          <div key={index} className="flex gap-4 pt-2 border-t">
+            <div className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">Round {index + 1}</div>
+            <div className="flex-1">
+              <RatingDisplay
+                label={isChecker
+                  ? <><b className="text-foreground">You felt</b> understood:</>
+                  : <><b className="text-foreground">{checkerName} feels</b> understood:</>
+                }
+                rating={rating}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1243,7 +1471,7 @@ function LiveFooter({ onToggleMode }: LiveFooterProps) {
           variant="outline"
           size="sm"
           onClick={onToggleMode}
-          className="h-8 px-4 text-sm font-medium border-gray-300 hover:bg-gray-100"
+          className="h-8 px-4 text-sm font-medium"
         >
           History
         </Button>
