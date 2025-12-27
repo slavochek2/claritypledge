@@ -39,14 +39,14 @@ interface RatingButtonsProps {
 
 export function RatingButtons({ selectedValue, onSelect, disabled }: RatingButtonsProps) {
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1 w-full max-w-sm">
       {RATING_OPTIONS.map((option) => (
         <button
           key={option.value}
           onClick={() => onSelect(option.value)}
           disabled={disabled}
           className={`
-            min-w-[28px] py-2.5 px-1 rounded-md text-xs font-medium transition-all
+            flex-1 min-w-0 py-2.5 rounded-md text-xs font-medium transition-all
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
             ${
               selectedValue === option.value

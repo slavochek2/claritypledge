@@ -46,6 +46,8 @@ interface LiveModeViewProps {
   /** Local rating state - true when user tapped "I spoke" but hasn't submitted yet */
   isLocallyRating: boolean;
   onCancelLocalRating: () => void;
+  /** Exit the meeting entirely and return to the join/lobby screen */
+  onExitMeeting: () => void;
 }
 
 export function LiveModeView({
@@ -64,6 +66,7 @@ export function LiveModeView({
   onClearDeclineNotification,
   isLocallyRating,
   onCancelLocalRating,
+  onExitMeeting,
 }: LiveModeViewProps) {
 
   // V9: Track previous decline state to detect new declines
@@ -347,6 +350,7 @@ interface IdleScreenProps {
   onToggleMode: () => void;
   /** Required - used when drawer is closed or user declines */
   onSkip: () => void;
+  onExit: () => void;
   // Props for responder notification drawer
   showRatingDrawer?: boolean;
   onRatingSubmit?: (rating: number) => void;
@@ -358,6 +362,7 @@ function IdleScreen({
   onStartCheck,
   onToggleMode,
   onSkip,
+  onExit,
   showRatingDrawer = false,
   onRatingSubmit,
 }: IdleScreenProps) {
@@ -366,7 +371,7 @@ function IdleScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-8">
         <h2 className="text-lg font-semibold text-center">Achieve clarity with {displayPartnerName}</h2>
@@ -414,11 +419,15 @@ function IdleScreen({
               How well do you feel you understand {checkerName}?
             </h2>
 
-            {/* Rating scale with inline anchors */}
-            <div className="flex items-center gap-1.5 justify-center">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Not at all</span>
-              <RatingButtons selectedValue={null} onSelect={onRatingSubmit || (() => {})} />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Perfectly</span>
+            {/* Rating scale with anchors above */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground px-1">
+                <span>Not at all</span>
+                <span>Perfectly</span>
+              </div>
+              <div className="flex justify-center">
+                <RatingButtons selectedValue={null} onSelect={onRatingSubmit || (() => {})} />
+              </div>
             </div>
 
             {/* Decline - clearly a button, not a label */}
@@ -503,7 +512,7 @@ function RatingScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-start pt-12 sm:justify-center sm:pt-0 p-6 space-y-6">
         {/* Card containing question + rating scale */}
         <div className="bg-muted rounded-lg p-4 space-y-4 w-full max-w-sm">
           {/* Question */}
@@ -577,7 +586,7 @@ function RatingScreenWithOptionalDrawer({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-start pt-12 sm:justify-center sm:pt-0 p-6 space-y-6">
         {/* Card containing question + rating scale */}
         <div className="bg-muted rounded-lg p-4 space-y-4 w-full max-w-sm">
           {/* Question */}
@@ -627,11 +636,15 @@ function RatingScreenWithOptionalDrawer({
               How well do you feel you understand {checkerName}?
             </h2>
 
-            {/* Rating scale with inline anchors */}
-            <div className="flex items-center gap-1.5 justify-center">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Not at all</span>
-              <RatingButtons selectedValue={null} onSelect={onRatingSubmit} />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Perfectly</span>
+            {/* Rating scale with anchors above */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground px-1">
+                <span>Not at all</span>
+                <span>Perfectly</span>
+              </div>
+              <div className="flex justify-center">
+                <RatingButtons selectedValue={null} onSelect={onRatingSubmit} />
+              </div>
             </div>
 
             {/* Decline - clearly a button, not a label */}
@@ -1211,10 +1224,11 @@ function RatingDisplay({ label, rating, maxRating = 10, showCurrent = false }: R
 
 interface LiveHeaderProps {
   partnerName: string;
+  onExit: () => void;
 }
 
-function LiveHeader({ partnerName }: LiveHeaderProps) {
-  return <LiveSessionBanner partnerName={partnerName} />;
+function LiveHeader({ partnerName, onExit }: LiveHeaderProps) {
+  return <LiveSessionBanner partnerName={partnerName} onExit={onExit} />;
 }
 
 interface LiveFooterProps {
