@@ -193,6 +193,7 @@ export function ClarityLivePage() {
 
     // Fallback: Poll for updates as a safety net
     // This handles cases where realtime subscription might not fire
+    // Also catches liveState drift when signals are lost between phones
     const pollInterval = setInterval(async () => {
       // Use ref to get current session code (avoids stale closure)
       const currentCode = sessionCodeRef.current;
@@ -200,13 +201,43 @@ export function ClarityLivePage() {
 
       try {
         const freshSession = await getClaritySession(currentCode);
-        if (freshSession && freshSession.joinerName && !hasJoinerRef.current) {
+        if (!freshSession) return;
+
+        // Check 1: Detect joiner (existing logic)
+        if (freshSession.joinerName && !hasJoinerRef.current) {
           console.log('[Live] Poll detected joiner, updating session');
           setSession(freshSession);
           if (freshSession.liveState) {
             setLiveState({ ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState);
+            confirmedLiveStateRef.current = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
           }
           setView((currentView) => currentView === 'waiting' ? 'live' : currentView);
+          return;
+        }
+
+        // Check 2: Detect liveState drift (fixes lost signal bug)
+        // Compare server state with our last confirmed state
+        if (freshSession.liveState && hasJoinerRef.current) {
+          const serverState = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
+          const localState = confirmedLiveStateRef.current;
+
+          // Check key fields that indicate the other person took action
+          const serverHasUpdate =
+            serverState.checkerSubmitted !== localState.checkerSubmitted ||
+            serverState.responderSubmitted !== localState.responderSubmitted ||
+            serverState.ratingPhase !== localState.ratingPhase ||
+            serverState.explainBackInProgress !== localState.explainBackInProgress ||
+            serverState.explainBackRatings?.length !== localState.explainBackRatings?.length;
+
+          if (serverHasUpdate) {
+            console.log('[Live] Poll detected state drift, syncing from server');
+            console.log('[Live] Server state:', serverState);
+            console.log('[Live] Local state:', localState);
+            const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
+            setLiveState(mergedState);
+            confirmedLiveStateRef.current = mergedState;
+            setSession(freshSession);
+          }
         }
       } catch (err) {
         console.error('[Live] Poll error:', err);
