@@ -10,11 +10,9 @@
  * Key Components:
  * - IdleScreen: Start screen with "Did you get it?" / "Did I get it?" buttons
  * - RatingScreen: Rating input (0-10 scale)
- * - WaitingScreen: Shows own rating while waiting for partner
- * - GapRevealedScreen: Shows gap with explain-back option
- * - ExplainBackScreen: Responder explains, checker re-rates
- * - ResultsScreen: Shows rating progression history
- * - PerfectUnderstandingScreen: Celebration when 10/10 achieved
+ * - RatingCard: Reusable rating question + scale component
+ * - JourneyToUnderstanding: Shows rating history across rounds
+ * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
@@ -48,6 +46,8 @@ interface LiveModeViewProps {
   onExplainBackRate: (rating: number) => void;
   onToggleMode: () => void;
   onStartCheck: () => void;
+  /** V12: Listener taps "Did I get it?" to prove understanding */
+  onStartProve: () => void;
   onBackToIdle: () => void;
   /** Clear the skip notification after showing toast */
   onClearSkipNotification: () => void;
@@ -58,6 +58,8 @@ interface LiveModeViewProps {
   onExitMeeting: () => void;
   /** V11: Listener taps "Done Explaining" to unlock speaker's feeling interface */
   onExplainBackDone: () => void;
+  /** Called when user clicks "Continue" on celebration screen - resets shared state for new rounds */
+  onCelebrationComplete: () => void;
 }
 
 export function LiveModeView({
@@ -70,12 +72,14 @@ export function LiveModeView({
   onExplainBackRate,
   onToggleMode,
   onStartCheck,
+  onStartProve,
   onBackToIdle,
   onClearSkipNotification,
   isLocallyRating,
   onCancelLocalRating,
   onExitMeeting,
   onExplainBackDone,
+  onCelebrationComplete,
 }: LiveModeViewProps) {
 
   // Track previous skip state to detect new skips
@@ -83,6 +87,20 @@ export function LiveModeView({
   // State for skip notification dialog
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [skipDialogName, setSkipDialogName] = useState<string>('');
+
+  // Local state to track if user dismissed the celebration screen
+  // This allows each user to continue independently without affecting the other
+  const [celebrationDismissed, setCelebrationDismissed] = useState(false);
+
+  // Reset celebration dismissed state when a new round starts
+  const prevCheckerName = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    // When checkerName changes (new round started), reset the dismissal state
+    if (liveState.checkerName !== prevCheckerName.current) {
+      setCelebrationDismissed(false);
+      prevCheckerName.current = liveState.checkerName;
+    }
+  }, [liveState.checkerName]);
 
   // Show dialog when partner clicks "Good enough"
   // Dialog requires user acknowledgment before returning to idle
@@ -111,6 +129,13 @@ export function LiveModeView({
     onClearSkipNotification();
   };
 
+  // Handle celebration continue - dismiss locally AND reset shared state
+  // This allows each user to continue independently AND enables starting new rounds
+  const handleCelebrationContinue = () => {
+    setCelebrationDismissed(true);
+    onCelebrationComplete(); // Reset shared state so new rounds can start
+  };
+
   // P23.2: Determine role using new checker/responder model
   // The checker is the person who tapped "Check if partner gets me"
   const isChecker = liveState.checkerName === currentUserName;
@@ -128,14 +153,6 @@ export function LiveModeView({
   const checkerRating = liveState.checkerRating;
   const responderRating = liveState.responderRating;
 
-  // Calculate gap and type
-  // Gap = responder's self-assessment - checker's belief about responder
-  const gap = bothSubmitted && checkerRating !== undefined && responderRating !== undefined
-    ? responderRating - checkerRating
-    : 0;
-  const gapType: GapType = gap > 0 ? 'overconfidence' : gap < 0 ? 'underconfidence' : 'none';
-  const gapPoints = Math.abs(gap);
-  const isPerfect = bothSubmitted && checkerRating === 10 && responderRating === 10;
 
   // Render based on phase
   const { ratingPhase } = liveState;
@@ -158,6 +175,27 @@ export function LiveModeView({
       </DialogContent>
     </Dialog>
   );
+
+  // Celebration dismissed - user clicked "Continue" on celebration screen
+  // Show idle screen regardless of shared state (each user dismisses independently)
+  // Hide history since this round is complete
+  if (celebrationDismissed) {
+    return (
+      <>
+        <IdleScreen
+          partnerName={partnerName}
+          liveState={liveState}
+          onStartCheck={onStartCheck}
+          onStartProve={onStartProve}
+          onSkip={onSkip}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+          hideHistory={true}
+        />
+        {skipNotificationDialog}
+      </>
+    );
+  }
 
   // V10: Local rating - user tapped "I spoke" but hasn't submitted yet
   // This check comes FIRST - local state takes priority over shared state
@@ -192,6 +230,7 @@ export function LiveModeView({
           partnerName={partnerName}
           liveState={liveState}
           onStartCheck={onStartCheck}
+          onStartProve={onStartProve}
           onSkip={onSkip}
           onToggleMode={onToggleMode}
           onExit={onExitMeeting}
@@ -220,11 +259,10 @@ export function LiveModeView({
   }
 
   // Phase: Waiting (one user submitted, waiting for partner)
-  // Checker submitted → show checker "waiting", show responder IdleScreen with drawer
+  // Responder: hasn't submitted yet, checker has → show IdleScreen with drawer
   if (ratingPhase === 'waiting' || (myRatingSubmitted !== partnerRatingSubmitted)) {
     const iHaveSubmitted = (isChecker ? checkerRating : responderRating) !== undefined;
 
-    // Responder: hasn't submitted yet, checker has → show IdleScreen with drawer
     if (!iHaveSubmitted && partnerRatingSubmitted) {
       return (
         <>
@@ -232,6 +270,7 @@ export function LiveModeView({
             partnerName={partnerName}
             liveState={liveState}
             onStartCheck={onStartCheck}
+            onStartProve={onStartProve}
             onRatingSubmit={onRatingSubmit}
             onSkip={onSkip}
             onToggleMode={onToggleMode}
@@ -242,166 +281,49 @@ export function LiveModeView({
       );
     }
 
-    // Checker or responder who submitted: show waiting screen
+    // User who submitted: show unified UnderstandingScreen in 'waiting' phase
     return (
       <>
-        <WaitingScreen
-          partnerName={partnerName}
+        <UnderstandingScreen
           liveState={liveState}
-          isChecker={isChecker}
-          myRating={isChecker ? checkerRating : responderRating}
-          onBackToIdle={onBackToIdle}
-          onToggleMode={onToggleMode}
-          onExit={onExitMeeting}
-        />
-        {skipNotificationDialog}
-      </>
-    );
-  }
-
-  // Phase: Results (after explain-back) - MUST come before 'revealed' check
-  // because bothSubmitted is still true after explain-back
-  if (ratingPhase === 'results') {
-    const latestRating = liveState.explainBackRatings[liveState.explainBackRatings.length - 1];
-    const isPerfectNow = latestRating === 10;
-
-    if (isPerfectNow) {
-      return (
-        <>
-          <PerfectUnderstandingScreen
-            partnerName={partnerName}
-            liveState={liveState}
-            isChecker={isChecker}
-            checkerRating={checkerRating!}
-            responderRating={responderRating!}
-            afterExplainBack
-            explainBackRating={latestRating}
-            onSkip={onSkip}
-            onToggleMode={onToggleMode}
-            onExit={onExitMeeting}
-          />
-          {skipNotificationDialog}
-        </>
-      );
-    }
-
-    return (
-      <>
-        <ResultsScreen
           partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          checkerRating={checkerRating!}
-          responderRating={responderRating!}
-          onExplainBackStart={onExplainBackStart}
-          onSkip={onSkip}
-          onToggleMode={onToggleMode}
-          onExit={onExitMeeting}
-        />
-        {skipNotificationDialog}
-      </>
-    );
-  }
-
-  // Phase: Revealed - check if perfect understanding
-  if (ratingPhase === 'revealed' || (bothSubmitted && ratingPhase !== 'explain-back')) {
-    // SCREEN 3b-ii: Both believe 10/10 - pure celebration
-    if (isPerfect) {
-      return (
-        <>
-          <PerfectUnderstandingScreen
-            partnerName={partnerName}
-            liveState={liveState}
-            isChecker={isChecker}
-            checkerRating={checkerRating!}
-            responderRating={responderRating!}
-            onSkip={onSkip}
-            onToggleMode={onToggleMode}
-            onExit={onExitMeeting}
-          />
-          {skipNotificationDialog}
-        </>
-      );
-    }
-
-    // SCREEN 3b-i: Checker believes 10/10 but responder was underconfident
-    // Show "understood perfectly" + underconfidence warning, auto-return
-    if (checkerRating === 10 && responderRating !== undefined && responderRating < 10) {
-      return (
-        <>
-          <PerfectUnderstandingScreen
-            partnerName={partnerName}
-            liveState={liveState}
-            isChecker={isChecker}
-            checkerRating={checkerRating}
-            responderRating={responderRating}
-            responderUnderconfident
-            underconfidenceGap={10 - responderRating}
-            onSkip={onSkip}
-            onToggleMode={onToggleMode}
-            onExit={onExitMeeting}
-          />
-          {skipNotificationDialog}
-        </>
-      );
-    }
-
-    // Gap detected - show gap screen
-    if (gapPoints > 0) {
-      return (
-        <>
-          <GapRevealedScreen
-            partnerName={partnerName}
-            liveState={liveState}
-            isChecker={isChecker}
-            checkerRating={checkerRating!}
-            responderRating={responderRating!}
-            gapType={gapType}
-            gapPoints={gapPoints}
-            onExplainBackStart={onExplainBackStart}
-            onSkip={onSkip}
-            onToggleMode={onToggleMode}
-            onExit={onExitMeeting}
-          />
-          {skipNotificationDialog}
-        </>
-      );
-    }
-
-    // No gap but not 10/10 - show results
-    return (
-      <>
-        <ResultsScreen
-          partnerName={partnerName}
-          liveState={liveState}
-          isChecker={isChecker}
-          checkerRating={checkerRating!}
-          responderRating={responderRating!}
-          onExplainBackStart={onExplainBackStart}
-          onSkip={onSkip}
-          onToggleMode={onToggleMode}
-          onExit={onExitMeeting}
-        />
-        {skipNotificationDialog}
-      </>
-    );
-  }
-
-  // Phase: Explain-back in progress
-  if (ratingPhase === 'explain-back') {
-    return (
-      <>
-        <ExplainBackScreen
-          partnerName={partnerName}
-          liveState={liveState}
           isChecker={isChecker}
           checkerRating={checkerRating}
           responderRating={responderRating}
+          onExplainBackStart={onExplainBackStart}
           onExplainBackRate={onExplainBackRate}
+          onExplainBackDone={onExplainBackDone}
           onSkip={onSkip}
+          onBackToIdle={onBackToIdle}
           onToggleMode={onToggleMode}
           onExit={onExitMeeting}
+          celebrationDismissed={celebrationDismissed}
+          onCelebrationContinue={handleCelebrationContinue}
+        />
+        {skipNotificationDialog}
+      </>
+    );
+  }
+
+  // Phase: Results, Revealed, Explain-back - all handled by UnderstandingScreen
+  if (ratingPhase === 'results' || ratingPhase === 'revealed' || ratingPhase === 'explain-back' || bothSubmitted) {
+    return (
+      <>
+        <UnderstandingScreen
+          liveState={liveState}
+          partnerName={partnerName}
+          isChecker={isChecker}
+          checkerRating={checkerRating}
+          responderRating={responderRating}
+          onExplainBackStart={onExplainBackStart}
+          onExplainBackRate={onExplainBackRate}
           onExplainBackDone={onExplainBackDone}
+          onSkip={onSkip}
+          onBackToIdle={onBackToIdle}
+          onToggleMode={onToggleMode}
+          onExit={onExitMeeting}
+          celebrationDismissed={celebrationDismissed}
+          onCelebrationContinue={handleCelebrationContinue}
         />
         {skipNotificationDialog}
       </>
@@ -415,6 +337,7 @@ export function LiveModeView({
         partnerName={partnerName}
         liveState={liveState}
         onStartCheck={onStartCheck}
+        onStartProve={onStartProve}
         onSkip={onSkip}
         onToggleMode={onToggleMode}
         onExit={onExitMeeting}
@@ -432,6 +355,8 @@ interface IdleScreenProps {
   partnerName: string;
   liveState: LiveSessionState;
   onStartCheck: () => void;
+  /** V12: Listener taps "Did I get it?" to prove understanding */
+  onStartProve: () => void;
   onToggleMode: () => void;
   /** Required - used when drawer is closed or user declines */
   onSkip: () => void;
@@ -439,26 +364,63 @@ interface IdleScreenProps {
   // Props for responder notification drawer
   showRatingDrawer?: boolean;
   onRatingSubmit?: (rating: number) => void;
+  /** Hide journey history card - used when returning from celebration (round is complete) */
+  hideHistory?: boolean;
 }
 
 function IdleScreen({
   partnerName,
   liveState,
   onStartCheck,
+  onStartProve,
   onToggleMode,
   onSkip,
   onExit,
   showRatingDrawer = false,
   onRatingSubmit,
+  hideHistory = false,
 }: IdleScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
+  const proverName = liveState.proverName ? capitalizeName(liveState.proverName) : '';
+
+  // V12: Detect "Did I get it?" flow for drawer messaging
+  const isProverInitiated = liveState.proverName !== undefined;
+
+  // Check if we have any rating data to show (from a previous round)
+  // But hide it if explicitly requested (e.g., returning from celebration)
+  const hasRatingData = !hideHistory && (
+    liveState.checkerRating !== undefined ||
+    liveState.responderRating !== undefined ||
+    liveState.explainBackRatings.length > 0
+  );
+
+  // Use top-aligned layout when drawer is open (to match post-rating screens)
+  // Use centered layout when no drawer (idle state with no prior data)
+  const layoutClass = showRatingDrawer || hasRatingData
+    ? "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6"
+    : "flex-1 flex flex-col items-center justify-center p-6 space-y-8";
 
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-8">
+      <div className={layoutClass}>
+        {/* Show journey card if there's rating history or drawer is open */}
+        {(hasRatingData || showRatingDrawer) && (
+          <JourneyToUnderstanding
+            checkerRating={liveState.checkerRating}
+            responderRating={liveState.responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={false} // On idle screen, show neutral perspective (listener view)
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={showRatingDrawer}
+          />
+        )}
+
         <h2 className="text-lg font-semibold text-center">Achieve clarity with {displayPartnerName}</h2>
 
         <div className="flex flex-col gap-4 w-full max-w-xs">
@@ -475,7 +437,8 @@ function IdleScreen({
             variant="outline"
             size="lg"
             className="w-full"
-            disabled
+            onClick={onStartProve}
+            disabled={showRatingDrawer}
           >
             Did <span className="underline font-bold">I</span> get it?
           </Button>
@@ -485,25 +448,30 @@ function IdleScreen({
       <LiveFooter onToggleMode={onToggleMode} />
 
       {/* Responder notification drawer - slides up from bottom */}
-      <Drawer open={showRatingDrawer} onOpenChange={(open) => { if (!open) onSkip(); }}>
+      {/* Only render drawer if onRatingSubmit is provided (required when showRatingDrawer is true) */}
+      <Drawer open={showRatingDrawer && !!onRatingSubmit} onOpenChange={(open) => { if (!open) onSkip(); }}>
         <DrawerContent>
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Rate your understanding</DrawerTitle>
-            <DrawerDescription>
-              Rate how well you understood {checkerName}
+          <DrawerHeader className={isProverInitiated ? "text-center pb-2" : "sr-only"}>
+            <DrawerTitle>
+              {isProverInitiated
+                ? `${proverName} wants to prove they understand you`
+                : "Rate your understanding"}
+            </DrawerTitle>
+            <DrawerDescription className="sr-only">
+              {isProverInitiated
+                ? `Rate how well you feel understood by ${proverName}`
+                : `Rate how well you understood ${checkerName}`}
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
-              question={`How confident are you that you understand ${checkerName}?`}
-              onSelect={onRatingSubmit || (() => {})}
+              question={isProverInitiated
+                ? `How well do you feel understood by ${proverName}?`
+                : `How confident are you that you understand ${checkerName}?`}
+              onSelect={onRatingSubmit!}
+              onSkip={onSkip}
+              skipLabel="Decline"
             />
-
-            <div className="flex justify-center">
-              <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                Decline
-              </Button>
-            </div>
           </div>
         </DrawerContent>
       </Drawer>
@@ -519,6 +487,7 @@ interface ResponderWaitingWithDrawerProps {
   partnerName: string;
   liveState: LiveSessionState;
   onStartCheck: () => void;
+  onStartProve: () => void;
   onRatingSubmit: (rating: number) => void;
   onSkip: () => void;
   onToggleMode: () => void;
@@ -529,6 +498,7 @@ function ResponderWaitingWithDrawer({
   partnerName,
   liveState,
   onStartCheck,
+  onStartProve,
   onRatingSubmit,
   onSkip,
   onToggleMode,
@@ -539,6 +509,7 @@ function ResponderWaitingWithDrawer({
       partnerName={partnerName}
       liveState={liveState}
       onStartCheck={onStartCheck}
+      onStartProve={onStartProve}
       onToggleMode={onToggleMode}
       showRatingDrawer={true}
       onRatingSubmit={onRatingSubmit}
@@ -574,18 +545,51 @@ function RatingScreen({
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
 
-  // Different prompts for checker vs responder
-  // Checker: "How well do you feel [Partner] understands you?"
-  // Responder: "How confident are you that you understand [Checker]?"
-  const prompt = isChecker
-    ? `How well do you feel ${displayPartnerName} understands you?`
-    : `How confident are you that you understand ${checkerName}?`;
+  // V12: Detect "Did I get it?" flow
+  const isProverInitiated = liveState.proverName !== undefined;
+
+  // Different prompts based on flow type and role
+  let prompt: string;
+  if (isProverInitiated) {
+    // "Did I get it?" flow - listener initiated
+    // Prover (listener): "How confident are you that you understand [Speaker]?"
+    // Checker (speaker): "How well do you feel understood by [Prover]?"
+    prompt = isChecker
+      ? `How well do you feel understood by ${displayPartnerName}?`
+      : `How confident are you that you understand ${checkerName}?`;
+  } else {
+    // "Did you get it?" flow - speaker initiated (existing)
+    // Checker (speaker): "How well do you feel [Partner] understands you?"
+    // Responder (listener): "How confident are you that you understand [Checker]?"
+    prompt = isChecker
+      ? `How well do you feel ${displayPartnerName} understands you?`
+      : `How confident are you that you understand ${checkerName}?`;
+  }
+
+  // Only show journey card if there's prior history (not on first rating submission)
+  // First rating = no prior completed round, no explain-back ratings
+  const hasHistory = liveState.explainBackRatings.length > 0;
 
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-start pt-12 sm:justify-center sm:pt-0 p-6 space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-end p-6 space-y-6">
+        {/* Only show journey card if there's history from previous rounds */}
+        {hasHistory && (
+          <JourneyToUnderstanding
+            checkerRating={liveState.checkerRating}
+            responderRating={liveState.responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={true}
+          />
+        )}
+
         <RatingCard
           question={prompt}
           onSelect={onRatingSubmit}
@@ -644,11 +648,33 @@ function RatingScreenWithOptionalDrawer({
     ? `How confident are you that you understand ${checkerName}?`
     : `How well do you feel ${displayPartnerName} understands you?`;
 
+  // When user is locally rating, determine their role for journey card
+  // If showDrawer is true, partner already submitted as checker, so this user is responder
+  const isChecker = !showDrawer;
+
+  // Only show journey card if there's prior history (not on first rating submission)
+  const hasHistory = liveState.explainBackRatings.length > 0;
+
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-start pt-12 sm:justify-center sm:pt-0 p-6 space-y-6">
+      <div className="flex-1 flex flex-col items-center justify-end p-6 space-y-6">
+        {/* Only show journey card if there's history from previous rounds */}
+        {hasHistory && (
+          <JourneyToUnderstanding
+            checkerRating={liveState.checkerRating}
+            responderRating={liveState.responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={true}
+          />
+        )}
+
         <RatingCard
           question={prompt}
           onSelect={onRatingSubmit}
@@ -681,14 +707,9 @@ function RatingScreenWithOptionalDrawer({
             <RatingCard
               question={`How confident are you that you understand ${checkerName}?`}
               onSelect={onRatingSubmit}
+              onSkip={onSkip}
+              skipLabel="Decline"
             />
-
-            {/* Decline button */}
-            <div className="flex justify-center">
-              <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                Decline
-              </Button>
-            </div>
           </div>
         </DrawerContent>
       </Drawer>
@@ -696,652 +717,66 @@ function RatingScreenWithOptionalDrawer({
   );
 }
 
-// ============================================================================
-// WAITING SCREEN - User who submitted sees their rating, waiting for partner
-// ============================================================================
-
-interface WaitingScreenProps {
-  partnerName: string;
-  liveState: LiveSessionState;
-  isChecker: boolean;
-  myRating?: number;
-  onBackToIdle: () => void;
-  onToggleMode: () => void;
-  onExit: () => void;
-}
-
-function WaitingScreen({
-  partnerName,
-  liveState,
-  isChecker,
-  myRating,
-  onBackToIdle,
-  onToggleMode,
-  onExit,
-}: WaitingScreenProps) {
-
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
-
-  // Waiting message based on role
-  const waitingMessage = isChecker
-    ? `Waiting for ${displayPartnerName} to rate their understanding...`
-    : `Waiting for ${checkerName} to rate their understanding...`;
-
-  // Label for "Your feeling" card - consistent "feel" language
-  const myRatingLabel = isChecker
-    ? <><b className="text-foreground">You feel</b> {displayPartnerName} understands you:</>
-    : <><b className="text-foreground">You feel</b> you understand {checkerName}:</>;
-
-  return (
-    <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-        {/* Card containing rating + waiting status */}
-        <div className="bg-muted rounded-lg p-4 space-y-4 w-full max-w-xs">
-          <RatingDisplay
-            label={myRatingLabel}
-            rating={myRating ?? 0}
-          />
-
-          <div className="flex items-center gap-2 pt-2 border-t">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <p className="text-sm text-muted-foreground">{waitingMessage}</p>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-4 text-sm">
-          <button onClick={onBackToIdle} className="text-muted-foreground hover:text-foreground flex items-center">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </button>
-        </div>
-      </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
-    </div>
-  );
-}
-
-// ============================================================================
-// GAP REVEALED SCREEN - Shows gap with risk label
-// ============================================================================
-
-interface GapRevealedScreenProps {
-  partnerName: string;
-  liveState: LiveSessionState;
-  isChecker: boolean;
-  checkerRating: number;
-  responderRating: number;
-  gapType: GapType;
-  gapPoints: number;
-  onExplainBackStart: () => void;
-  onSkip: () => void;
-  onToggleMode: () => void;
-  onExit: () => void;
-}
-
-function GapRevealedScreen({
-  partnerName,
-  liveState,
-  isChecker,
-  checkerRating,
-  responderRating,
-  gapType,
-  gapPoints,
-  onExplainBackStart,
-  onSkip,
-  onToggleMode,
-  onExit,
-}: GapRevealedScreenProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
-  const pointLabel = gapPoints === 1 ? 'point' : 'points';
-
-  // Human-friendly insight messages with point count
-  // Overconfident = "might have missed something"
-  // Underconfident = "might understand more than they think"
-  const insightMessage = gapType === 'overconfidence'
-    ? (isChecker
-        ? `${displayPartnerName} might have missed something (${gapPoints} ${pointLabel} gap)`
-        : `You might have missed something (${gapPoints} ${pointLabel} gap)`)
-    : (isChecker
-        ? `${displayPartnerName} might understand more than they think (${gapPoints} ${pointLabel} gap)`
-        : `You might understand more than you think (${gapPoints} ${pointLabel} gap)`);
-
-  return (
-    <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-        <div className="text-center space-y-4">
-          {/* Framing title - empowers the user */}
-          <h2 className="text-lg font-semibold">You identified a gap in understanding</h2>
-
-          {/* Rating data card */}
-          <div className="bg-muted rounded-lg p-4 space-y-3">
-            <RatingDisplay
-              label={isChecker
-                ? <><b className="text-foreground">You feel</b> {displayPartnerName} understands you:</>
-                : <><b className="text-foreground">{checkerName} feels</b> you understand them:</>
-              }
-              rating={checkerRating}
-            />
-            <RatingDisplay
-              label={isChecker
-                ? <><b className="text-foreground">{displayPartnerName} feels</b> they understand you:</>
-                : <><b className="text-foreground">You feel</b> you understand {checkerName}:</>
-              }
-              rating={responderRating}
-            />
-          </div>
-
-          {/* Insight/conclusion - comes AFTER the data */}
-          <p className="text-blue-600 font-medium">{insightMessage}</p>
-        </div>
-
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          {isChecker ? (
-            // Checker (speaker) sees waiting state - no button needed
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                <p className="text-sm text-muted-foreground">
-                  Waiting for {displayPartnerName} to decide...
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onSkip}
-                className="text-muted-foreground"
-              >
-                Good enough
-              </Button>
-            </div>
-          ) : (
-            // Listener (responder) sees action buttons immediately
-            <>
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full"
-                onClick={onExplainBackStart}
-              >
-                Explain back what I heard
-              </Button>
-              <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                Good enough
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
-    </div>
-  );
-}
-
-// ============================================================================
-// PERFECT UNDERSTANDING SCREEN - Celebration with auto-return
-// ============================================================================
-
-interface PerfectUnderstandingScreenProps {
-  partnerName: string;
-  liveState: LiveSessionState;
-  isChecker: boolean;
-  checkerRating: number;
-  responderRating: number;
-  afterExplainBack?: boolean;
-  explainBackRating?: number;
-  // SCREEN 3b-i: Checker rated 10 but responder was underconfident
-  responderUnderconfident?: boolean;
-  underconfidenceGap?: number;
-  onSkip: () => void;
-  onToggleMode: () => void;
-  onExit: () => void;
-}
-
-function PerfectUnderstandingScreen({
-  partnerName,
-  liveState,
-  isChecker,
-  checkerRating,
-  responderRating,
-  afterExplainBack,
-  explainBackRating,
-  responderUnderconfident,
-  underconfidenceGap,
-  onSkip,
-  onToggleMode,
-  onExit,
-}: PerfectUnderstandingScreenProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
-
-  // Checker sees: "[Partner] understood you perfectly!"
-  // Responder sees: "You understood [Checker] perfectly!"
-  const headline = isChecker
-    ? `${displayPartnerName} understood you perfectly!`
-    : `You understood ${checkerName} perfectly!`;
-
-  // SCREEN 3b-i: Additional underconfidence message
-  const underconfidenceMessage = responderUnderconfident && underconfidenceGap
-    ? (isChecker
-        ? `${displayPartnerName} was underconfident: ${underconfidenceGap} points`
-        : `You were underconfident: ${underconfidenceGap} points`)
-    : null;
-
-  return (
-    <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-      <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-        <div className="text-center space-y-4">
-          <div className="text-4xl">🎉</div>
-          <h2 className="text-xl font-semibold text-green-600">{headline}</h2>
-
-          {/* SCREEN 3b-i: Show underconfidence warning if applicable */}
-          {underconfidenceMessage && (
-            <p className="text-sm text-blue-600 font-medium">{underconfidenceMessage}</p>
-          )}
-
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
-            <RatingDisplay
-              label={isChecker
-                ? <><b className="text-foreground">You feel</b> {displayPartnerName} understands you:</>
-                : <><b className="text-foreground">{checkerName} feels</b> you understand them:</>
-              }
-              rating={checkerRating}
-            />
-            <RatingDisplay
-              label={isChecker
-                ? <><b className="text-foreground">{displayPartnerName} feels</b> they understand you:</>
-                : <><b className="text-foreground">You feel</b> you understand {checkerName}:</>
-              }
-              rating={responderRating}
-            />
-            {afterExplainBack && explainBackRating !== undefined && (
-              <div className="pt-2 border-t border-green-200">
-                <RatingDisplay
-                  label={isChecker ? <>Your final rating:</> : <>{checkerName}'s final rating:</>}
-                  rating={explainBackRating}
-                  showCurrent
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onSkip}
-          className="text-muted-foreground"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-      </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
-    </div>
-  );
-}
-
-// ============================================================================
-// EXPLAIN-BACK SCREEN - Responder explains, checker rates via drawer
-// ============================================================================
-
-interface ExplainBackScreenProps {
-  partnerName: string;
-  liveState: LiveSessionState;
-  isChecker: boolean;
-  checkerRating?: number;
-  responderRating?: number;
-  onExplainBackRate: (rating: number) => void;
-  onSkip: () => void;
-  onToggleMode: () => void;
-  onExit: () => void;
-  /** V11: Listener taps "Done Explaining" to unlock speaker's feeling interface */
-  onExplainBackDone: () => void;
-}
-
-function ExplainBackScreen({
-  partnerName,
-  liveState,
-  isChecker,
-  checkerRating,
-  responderRating,
-  onExplainBackRate,
-  onSkip,
-  onToggleMode,
-  onExit,
-  onExplainBackDone,
-}: ExplainBackScreenProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
-
-  // Track whether checker has clicked "Rate their summary" to show rating interface
-  const [showRatingInterface, setShowRatingInterface] = useState(false);
-
-  const roundLabel = liveState.explainBackRound > 0
-    ? ` (round ${liveState.explainBackRound + 1})`
-    : '';
-
-  // V11: Check if listener has tapped "Done Explaining"
-  const listenerDone = liveState.explainBackDone === true;
-
-  // Checker (Speaker/Gosha) view:
-  // V11: Gated rating - rating UI only unlocks after listener taps "Done Explaining"
-  // - Before Done: Show ear icon, "Listening to [Partner]'s explanation...", status bar
-  // - After Done: Show rating interface via drawer, then full screen after acknowledgment
-  if (isChecker) {
-    // After acknowledging the notification, show full rating screen (no drawer)
-    if (showRatingInterface) {
-      return (
-        <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-            <JourneyToUnderstanding
-              checkerRating={checkerRating ?? 0}
-              responderRating={responderRating ?? 0}
-              explainBackRatings={liveState.explainBackRatings}
-              isChecker={true}
-              displayPartnerName={displayPartnerName}
-              checkerName={checkerName}
-              className="w-full max-w-sm"
-            />
-
-            {/* CTA: Question inside the card */}
-            <RatingCard
-              question={`How well did ${displayPartnerName} capture your message?`}
-              onSelect={onExplainBackRate}
-              className="w-full max-w-sm"
-            />
-
-            <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-              Skip
-            </Button>
-          </div>
-
-          <LiveFooter onToggleMode={onToggleMode} />
-        </div>
-      );
-    }
-
-    // V11: Listener hasn't tapped "Done Explaining" yet - show listening state
-    if (!listenerDone) {
-      return (
-        <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-            <JourneyToUnderstanding
-              checkerRating={checkerRating ?? 0}
-              responderRating={responderRating ?? 0}
-              explainBackRatings={liveState.explainBackRatings}
-              isChecker={true}
-              displayPartnerName={displayPartnerName}
-              checkerName={checkerName}
-              className="w-full max-w-sm"
-            />
-
-            {/* V11: Ear icon + listening state (matches wireframe) */}
-            <div className="flex flex-col items-center space-y-4">
-              <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                <span className="text-4xl">👂</span>
-              </div>
-
-              <h2 className="text-lg font-semibold text-center max-w-xs">
-                Listen to {displayPartnerName} explain back what they understood
-              </h2>
-            </div>
-
-            {/* V11: Status bar - waiting for partner to finish explaining */}
-            <div className="bg-muted rounded-lg px-4 py-3 flex items-center gap-2 max-w-xs">
-              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-              <p className="text-sm text-muted-foreground">
-                Waiting for {displayPartnerName} to finish explaining
-              </p>
-            </div>
-
-            <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-              Skip
-            </Button>
-          </div>
-
-          <LiveFooter onToggleMode={onToggleMode} />
-        </div>
-      );
-    }
-
-    // Listener tapped Done: show drawer notification to transition to rating
-    return (
-      <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-          <JourneyToUnderstanding
-            checkerRating={checkerRating ?? 0}
-            responderRating={responderRating ?? 0}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={true}
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-            className="w-full max-w-sm"
-          />
-        </div>
-
-        <LiveFooter onToggleMode={onToggleMode} />
-
-        {/* Drawer notification for checker - slides up from bottom */}
-        <Drawer open={true} onOpenChange={(open) => { if (!open) onSkip(); }}>
-          <DrawerContent>
-            <DrawerHeader className="text-center pb-4">
-              <DrawerTitle className="text-lg font-medium">
-                {displayPartnerName} finished explaining{roundLabel}
-              </DrawerTitle>
-              <DrawerDescription className="sr-only">
-                Rate their summary
-              </DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4 pb-8">
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full"
-                onClick={() => setShowRatingInterface(true)}
-              >
-                Rate their summary
-              </Button>
-            </div>
-          </DrawerContent>
-        </Drawer>
-      </div>
-    );
-  }
-
-  // Responder (Active Listener/Slava) view: explaining back
-  // V11: Show "Done Explaining" button until tapped, then show waiting state
-  const hasTappedDone = liveState.explainBackDone === true;
-
-  return (
-    <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-      <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-        <JourneyToUnderstanding
-          checkerRating={checkerRating ?? 0}
-          responderRating={responderRating ?? 0}
-          explainBackRatings={liveState.explainBackRatings}
-          isChecker={false}
-          displayPartnerName={displayPartnerName}
-          checkerName={checkerName}
-          className="w-full max-w-sm"
-        />
-
-        {/* CTA: Microphone icon + instruction */}
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-            <span className="text-4xl">🎤</span>
-          </div>
-
-          <h2 className="text-lg font-semibold text-center max-w-xs">
-            Please explain back to {checkerName} what you think they meant
-          </h2>
-        </div>
-
-        {/* V11: Action buttons - "Done Explaining" or waiting state */}
-        {hasTappedDone ? (
-          // After tapping Done: show waiting indicator
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <p className="text-sm text-muted-foreground">
-              Waiting for {checkerName} to rate...
-            </p>
-          </div>
-        ) : (
-          // Before tapping Done: show "Done Explaining" CTA
-          <Button
-            size="lg"
-            className="bg-blue-500 hover:bg-blue-600 w-full max-w-xs"
-            onClick={onExplainBackDone}
-          >
-            I'm done explaining
-          </Button>
-        )}
-
-        <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-          Skip
-        </Button>
-      </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
-    </div>
-  );
-}
-
-// ============================================================================
-// RESULTS SCREEN - Shows progression history
-// ============================================================================
-
-interface ResultsScreenProps {
-  partnerName: string;
-  liveState: LiveSessionState;
-  isChecker: boolean;
-  checkerRating: number;
-  responderRating: number;
-  onExplainBackStart: () => void;
-  onSkip: () => void;
-  onToggleMode: () => void;
-  onExit: () => void;
-}
-
-function ResultsScreen({
-  partnerName,
-  liveState,
-  isChecker,
-  checkerRating,
-  responderRating,
-  onExplainBackStart,
-  onSkip,
-  onToggleMode,
-  onExit,
-}: ResultsScreenProps) {
-
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
-
-  // Button label for listener (responder) - "again" if there have been previous rounds
-  const buttonLabel = liveState.explainBackRatings.length > 0
-    ? 'Explain back what I heard again'
-    : 'Explain back what I heard';
-
-  return (
-    <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
-
-      <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-        <JourneyToUnderstanding
-          checkerRating={checkerRating}
-          responderRating={responderRating}
-          explainBackRatings={liveState.explainBackRatings}
-          isChecker={isChecker}
-          displayPartnerName={displayPartnerName}
-          checkerName={checkerName}
-          className="w-full max-w-sm"
-        />
-
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          {isChecker ? (
-            // Checker (speaker) sees waiting state - no button needed
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                <p className="text-sm text-muted-foreground">
-                  Waiting for {displayPartnerName} to decide...
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onSkip}
-                className="text-muted-foreground"
-              >
-                Good enough
-              </Button>
-            </div>
-          ) : (
-            // Listener (responder) sees action buttons immediately
-            <>
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full"
-                onClick={onExplainBackStart}
-              >
-                {buttonLabel}
-              </Button>
-              <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                Good enough
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
-    </div>
-  );
-}
+// OLD SCREENS DELETED - Now using unified UnderstandingScreen component
+// WaitingScreen, GapRevealedScreen, PerfectUnderstandingScreen,
+// ExplainBackScreen, ResultsScreen have been consolidated into UnderstandingScreen
 
 // ============================================================================
 // RATING CARD - Reusable question + rating scale component
+// Uses select + submit pattern: tap to select, then tap Submit to confirm
 // ============================================================================
 
 interface RatingCardProps {
   question?: string;
   onSelect: (rating: number) => void;
   className?: string;
+  /** Optional skip handler - when provided, shows Skip button inside the card */
+  onSkip?: () => void;
+  /** Label for the skip button (default: "Skip") */
+  skipLabel?: string;
 }
 
-function RatingCard({ question, onSelect, className = '' }: RatingCardProps) {
+function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Skip' }: RatingCardProps) {
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+
+  const handleSubmit = () => {
+    if (selectedRating !== null) {
+      onSelect(selectedRating);
+    }
+  };
+
   return (
-    <div className={`bg-muted rounded-lg p-4 space-y-4 ${className}`}>
+    <div className={`bg-white rounded-lg p-5 space-y-4 shadow-sm border-l-4 border-l-blue-500 ${className}`}>
       {question && (
         <h2 className="text-lg font-semibold text-center">
           {question}
         </h2>
       )}
 
-      <div className={`flex flex-col items-center space-y-1 ${question ? 'pt-2 border-t' : ''}`}>
+      <div className={`flex flex-col items-center space-y-3 ${question ? 'pt-3 border-t' : ''}`}>
         <div className="flex justify-between text-xs text-muted-foreground w-full max-w-[352px]">
           <span>Not at all</span>
           <span>Perfectly</span>
         </div>
-        <RatingButtons selectedValue={null} onSelect={onSelect} />
+        <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} />
+        <Button
+          size="sm"
+          className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"
+          disabled={selectedRating === null}
+          onClick={handleSubmit}
+        >
+          Submit
+        </Button>
+        {onSkip && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSkip}
+            className="text-muted-foreground"
+          >
+            {skipLabel}
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -1349,7 +784,7 @@ function RatingCard({ question, onSelect, className = '' }: RatingCardProps) {
 
 // ============================================================================
 // JOURNEY TO UNDERSTANDING - Shows rating history across rounds
-// Extracted to DRY up duplicated code across ExplainBackScreen and ResultsScreen
+// Unified component for ALL screens that display rating data
 // ============================================================================
 
 /**
@@ -1360,10 +795,10 @@ function RatingCard({ question, onSelect, className = '' }: RatingCardProps) {
 const JOURNEY_MIN_HEIGHT = 'min-h-[180px]';
 
 interface JourneyToUnderstandingProps {
-  /** Initial checker rating (Round 0) */
-  checkerRating: number;
-  /** Initial responder rating (Round 0) */
-  responderRating: number;
+  /** Initial checker rating (Round 0) - undefined if not yet submitted */
+  checkerRating?: number;
+  /** Initial responder rating (Round 0) - undefined if not yet submitted */
+  responderRating?: number;
   /** Array of checker ratings after each explain-back round */
   explainBackRatings: number[];
   /** Whether viewing as checker (affects label text) */
@@ -1372,8 +807,20 @@ interface JourneyToUnderstandingProps {
   displayPartnerName: string;
   /** Display name of checker */
   checkerName: string;
+  /** V12: Display name of prover (for "Did I get it?" flow) */
+  proverName?: string;
   /** Additional CSS classes */
   className?: string;
+  /** Whether to use compact mode (no round numbers, no min-height) */
+  compact?: boolean;
+  /** Background variant */
+  variant?: 'default' | 'success';
+  /**
+   * Hide individual ratings until both have submitted (sealed-bid mode).
+   * When true, shows "Pending..." for any rating that's revealed before both submit.
+   * This prevents bias by not letting one user see the other's rating before rating themselves.
+   */
+  hideUntilBothSubmitted?: boolean;
 }
 
 function JourneyToUnderstanding({
@@ -1383,49 +830,181 @@ function JourneyToUnderstanding({
   isChecker,
   displayPartnerName,
   checkerName,
+  proverName,
   className = '',
+  compact = false,
+  variant = 'default',
+  hideUntilBothSubmitted = false,
 }: JourneyToUnderstandingProps) {
-  // Header text depends on perspective - symmetric structure
-  // Speaker: "{Listener}'s journey to understand you"
-  // Listener: "Your journey to understand {Speaker}"
-  const headerText = isChecker
-    ? `${displayPartnerName}'s journey to understand you`
-    : `Your journey to understand ${checkerName}`;
+  // V12: Detect "Did I get it?" flow
+  const isProverInitiated = proverName !== undefined;
 
+  // Header text depends on perspective and flow type
+  let headerText: string;
+  if (isProverInitiated) {
+    // "Did I get it?" flow - listener (prover) initiated
+    // Checker (speaker): "{Prover}'s journey to understand you"
+    // Prover (listener): "Your journey to understand {Checker}"
+    headerText = isChecker
+      ? `${proverName}'s journey to understand you`
+      : `Your journey to understand ${checkerName}`;
+  } else {
+    // "Did you get it?" flow - speaker (checker) initiated
+    // Speaker: "{Listener}'s journey to understand you"
+    // Listener: "Your journey to understand {Speaker}"
+    headerText = isChecker
+      ? `${displayPartnerName}'s journey to understand you`
+      : `Your journey to understand ${checkerName}`;
+  }
+
+  // Determine which ratings are available
+  const hasCheckerRating = checkerRating !== undefined;
+  const hasResponderRating = responderRating !== undefined;
+
+  // Sealed-bid mode: only show ratings when BOTH have submitted
+  // This prevents one user from seeing the other's rating before rating themselves
+  const bothSubmitted = hasCheckerRating && hasResponderRating;
+  const shouldRevealRatings = !hideUntilBothSubmitted || bothSubmitted;
+
+  // Background color based on variant
+  // History cards are muted with subtle border to differentiate from active RatingCard
+  const bgClass = variant === 'success'
+    ? 'bg-green-50 border border-green-200'
+    : 'bg-gray-50 border border-gray-200';
+
+  // In compact mode, skip round numbers and min-height
+  if (compact) {
+    return (
+      <div className={`${bgClass} rounded-lg p-4 text-left ${className}`}>
+        <div className="space-y-2">
+          {/* Show ratings - in sealed-bid mode, only reveal when both submitted */}
+          {isChecker ? (
+            <>
+              {/* Speaker view: show listener's confidence (if available), then your feeling */}
+              {hasResponderRating && shouldRevealRatings ? (
+                <RatingDisplay
+                  label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                  rating={responderRating}
+                />
+              ) : (
+                <RatingDisplayPending
+                  label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                />
+              )}
+              {hasCheckerRating && shouldRevealRatings ? (
+                <RatingDisplay
+                  label={<><b className="text-foreground">Your feeling</b></>}
+                  rating={checkerRating}
+                />
+              ) : (
+                <RatingDisplayPending
+                  label={<><b className="text-foreground">Your feeling</b></>}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              {/* Listener view: show your confidence (if available), then speaker's feeling */}
+              {hasResponderRating && shouldRevealRatings ? (
+                <RatingDisplay
+                  label={<span className="text-muted-foreground">Your confidence</span>}
+                  rating={responderRating}
+                />
+              ) : (
+                <RatingDisplayPending
+                  label={<span className="text-muted-foreground">Your confidence</span>}
+                />
+              )}
+              {hasCheckerRating && shouldRevealRatings ? (
+                <RatingDisplay
+                  label={<><b className="text-foreground">{checkerName}'s feeling</b></>}
+                  rating={checkerRating}
+                />
+              ) : (
+                <RatingDisplayPending
+                  label={<><b className="text-foreground">{checkerName}'s feeling</b></>}
+                />
+              )}
+            </>
+          )}
+
+          {/* Explain-back ratings */}
+          {explainBackRatings.map((rating, index) => (
+            <div key={index} className="pt-2 border-t">
+              <RatingDisplay
+                label={isChecker
+                  ? <><b className="text-foreground">Your feeling</b> (round {index + 1})</>
+                  : <><b className="text-foreground">{checkerName}'s feeling</b> (round {index + 1})</>
+                }
+                rating={rating}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Full mode with round numbers and header
   return (
-    <div className={`bg-muted rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
+    <div className={`${bgClass} rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
       {/* Section header - personal and directional */}
       <p className="text-xs text-muted-foreground mb-3">{headerText}</p>
 
       <div className="space-y-2">
         {/* Initial round (0) - show one-time rating first for each role */}
         {/* Speaker rates "feeling" (subjective), Listener rates "confidence" (self-assessment) */}
+        {/* In sealed-bid mode, only reveal ratings when BOTH have submitted */}
         <div className="flex gap-3">
           <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">0</div>
           <div className="flex-1 space-y-1">
             {isChecker ? (
               <>
                 {/* Speaker view: show listener's confidence first (one-time, muted), then your feeling */}
-                <RatingDisplay
-                  label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
-                  rating={responderRating}
-                />
-                <RatingDisplay
-                  label={<><b className="text-foreground">Your feeling</b></>}
-                  rating={checkerRating}
-                />
+                {hasResponderRating && shouldRevealRatings ? (
+                  <RatingDisplay
+                    label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                    rating={responderRating}
+                  />
+                ) : (
+                  <RatingDisplayPending
+                    label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                  />
+                )}
+                {hasCheckerRating && shouldRevealRatings ? (
+                  <RatingDisplay
+                    label={<><b className="text-foreground">Your feeling</b></>}
+                    rating={checkerRating}
+                  />
+                ) : (
+                  <RatingDisplayPending
+                    label={<><b className="text-foreground">Your feeling</b></>}
+                  />
+                )}
               </>
             ) : (
               <>
                 {/* Listener view: show your confidence first (one-time, muted), then speaker's feeling */}
-                <RatingDisplay
-                  label={<span className="text-muted-foreground">Your confidence</span>}
-                  rating={responderRating}
-                />
-                <RatingDisplay
-                  label={<><b className="text-foreground">{checkerName}'s feeling</b></>}
-                  rating={checkerRating}
-                />
+                {hasResponderRating && shouldRevealRatings ? (
+                  <RatingDisplay
+                    label={<span className="text-muted-foreground">Your confidence</span>}
+                    rating={responderRating}
+                  />
+                ) : (
+                  <RatingDisplayPending
+                    label={<span className="text-muted-foreground">Your confidence</span>}
+                  />
+                )}
+                {hasCheckerRating && shouldRevealRatings ? (
+                  <RatingDisplay
+                    label={<><b className="text-foreground">{checkerName}'s feeling</b></>}
+                    rating={checkerRating}
+                  />
+                ) : (
+                  <RatingDisplayPending
+                    label={<><b className="text-foreground">{checkerName}'s feeling</b></>}
+                  />
+                )}
               </>
             )}
           </div>
@@ -1447,6 +1026,471 @@ function JourneyToUnderstanding({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// RATING DISPLAY PENDING - Shows "Pending..." instead of rating
+// ============================================================================
+
+interface RatingDisplayPendingProps {
+  label: React.ReactNode;
+}
+
+function RatingDisplayPending({ label }: RatingDisplayPendingProps) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-2">
+        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+        <span className="text-sm text-muted-foreground italic">Pending...</span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// UNDERSTANDING SCREEN - Unified component for all rating-related screens
+// Replaces: WaitingScreen, GapRevealedScreen, PerfectUnderstandingScreen,
+//           ResultsScreen, ExplainBackScreen
+// ============================================================================
+
+type UnderstandingPhase =
+  | 'waiting'        // User submitted, waiting for partner
+  | 'gap-revealed'   // Both submitted, gap detected
+  | 'perfect'        // Both submitted, checker rated 10
+  | 'results'        // After explain-back, showing history
+  | 'explain-back';  // Explain-back in progress
+
+interface UnderstandingScreenProps {
+  liveState: LiveSessionState;
+  partnerName: string;
+  isChecker: boolean;
+  checkerRating?: number;
+  responderRating?: number;
+  // Callbacks
+  onExplainBackStart: () => void;
+  onExplainBackRate: (rating: number) => void;
+  onExplainBackDone: () => void;
+  onSkip: () => void;
+  onBackToIdle: () => void;
+  onToggleMode: () => void;
+  onExit: () => void;
+  // Celebration dismissal - allows each user to continue independently
+  celebrationDismissed: boolean;
+  onCelebrationContinue: () => void;
+}
+
+function UnderstandingScreen({
+  liveState,
+  partnerName,
+  isChecker,
+  checkerRating,
+  responderRating,
+  onExplainBackStart,
+  onExplainBackRate,
+  onExplainBackDone,
+  onSkip,
+  onBackToIdle,
+  onToggleMode,
+  onExit,
+  celebrationDismissed,
+  onCelebrationContinue,
+}: UnderstandingScreenProps) {
+  const displayPartnerName = capitalizeName(partnerName);
+  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
+
+  // Determine phase based on state
+  const bothSubmitted = liveState.checkerSubmitted && liveState.responderSubmitted;
+  const isPerfect = bothSubmitted && checkerRating === 10 && responderRating === 10;
+  const isPerfectWithUnderconfidence = bothSubmitted && checkerRating === 10 && responderRating !== undefined && responderRating < 10;
+  const gap = bothSubmitted && checkerRating !== undefined && responderRating !== undefined
+    ? responderRating - checkerRating
+    : 0;
+  const gapType: GapType = gap > 0 ? 'overconfidence' : gap < 0 ? 'underconfidence' : 'none';
+  const gapPoints = Math.abs(gap);
+
+  // Check if latest rating (from explain-back or initial) is 10
+  const latestCheckerRating = liveState.explainBackRatings.length > 0
+    ? liveState.explainBackRatings[liveState.explainBackRatings.length - 1]
+    : checkerRating;
+  const reachedPerfect = latestCheckerRating === 10;
+
+  // Determine which phase we're in
+  let phase: UnderstandingPhase;
+  if (liveState.ratingPhase === 'explain-back') {
+    phase = 'explain-back';
+  } else if (reachedPerfect && !celebrationDismissed) {
+    // Perfect understanding achieved - show celebration (takes priority over 'results')
+    // But if user already dismissed, skip to results (which will show idle)
+    phase = 'perfect';
+  } else if (liveState.ratingPhase === 'results') {
+    phase = 'results';
+  } else if (!bothSubmitted) {
+    phase = 'waiting';
+  } else if (isPerfect || isPerfectWithUnderconfidence) {
+    phase = 'perfect';
+  } else if (gapPoints > 0) {
+    phase = 'gap-revealed';
+  } else {
+    phase = 'results'; // No gap, show results
+  }
+
+  // V11: Check if listener has tapped "Done Explaining"
+  const listenerDone = liveState.explainBackDone === true;
+
+  // Button label for listener (responder) - "again" if there have been previous rounds
+  const explainBackButtonLabel = liveState.explainBackRatings.length > 0
+    ? 'Explain back what I heard again'
+    : 'Explain back what I heard';
+
+  // ============================================================================
+  // PHASE: EXPLAIN-BACK
+  // ============================================================================
+  if (phase === 'explain-back') {
+    // Checker (Speaker) view - simplified to 2 branches
+    if (isChecker) {
+      // Branch 1: Listener hasn't tapped "Done Explaining" yet - show listening state
+      if (!listenerDone) {
+        return (
+          <div className="flex flex-col h-full">
+            <LiveHeader partnerName={partnerName} onExit={onExit} />
+            <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+              <JourneyToUnderstanding
+                checkerRating={checkerRating}
+                responderRating={responderRating}
+                explainBackRatings={liveState.explainBackRatings}
+                isChecker={true}
+                displayPartnerName={displayPartnerName}
+                checkerName={checkerName}
+                proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+                className="w-full max-w-sm"
+              />
+              <div className="flex flex-col items-center space-y-4">
+                <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+                  <span className="text-4xl">👂</span>
+                </div>
+                <h2 className="text-lg font-semibold text-center max-w-xs">
+                  Listen to {displayPartnerName} explain back what they understood
+                </h2>
+              </div>
+              <div className="bg-muted rounded-lg px-4 py-3 max-w-xs space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  <p className="text-sm text-muted-foreground">
+                    Waiting for {displayPartnerName} to finish explaining
+                  </p>
+                </div>
+                <div className="flex justify-center">
+                  <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <LiveFooter onToggleMode={onToggleMode} />
+          </div>
+        );
+      }
+
+      // Branch 2: Listener tapped Done - show rating card directly (no drawer)
+      return (
+        <div className="flex flex-col h-full">
+          <LiveHeader partnerName={partnerName} onExit={onExit} />
+          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+            <JourneyToUnderstanding
+              checkerRating={checkerRating}
+              responderRating={responderRating}
+              explainBackRatings={liveState.explainBackRatings}
+              isChecker={true}
+              displayPartnerName={displayPartnerName}
+              checkerName={checkerName}
+              proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+              className="w-full max-w-sm"
+            />
+            <RatingCard
+              question={`How well did ${displayPartnerName} capture your message?`}
+              onSelect={onExplainBackRate}
+              onSkip={onSkip}
+              className="w-full max-w-sm"
+            />
+          </div>
+          <LiveFooter onToggleMode={onToggleMode} />
+        </div>
+      );
+    }
+
+    // Responder (Listener) view: explaining back
+    const hasTappedDone = liveState.explainBackDone === true;
+
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          <JourneyToUnderstanding
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={false}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+          />
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+              <span className="text-4xl">🎤</span>
+            </div>
+            <h2 className="text-lg font-semibold text-center max-w-xs">
+              Please explain back to {checkerName} what you think they meant
+            </h2>
+          </div>
+          {hasTappedDone ? (
+            <div className="bg-muted rounded-lg px-4 py-3 max-w-xs space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                <p className="text-sm text-muted-foreground">
+                  Waiting for {checkerName} to rate...
+                </p>
+              </div>
+              <div className="flex justify-center">
+                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+                  Skip
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 w-full max-w-xs">
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onExplainBackDone}
+              >
+                I'm done explaining
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto">
+                Skip
+              </Button>
+            </div>
+          )}
+        </div>
+        <LiveFooter onToggleMode={onToggleMode} />
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // PHASE: WAITING (one user submitted, waiting for partner)
+  // ============================================================================
+  if (phase === 'waiting') {
+    const waitingMessage = isChecker
+      ? `Waiting for ${displayPartnerName} to rate their understanding...`
+      : `Waiting for ${checkerName} to rate their understanding...`;
+
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          {/* Hide ratings until both submit to prevent bias */}
+          <JourneyToUnderstanding
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={true}
+          />
+
+          {/* Waiting indicator below the card */}
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <p className="text-sm text-muted-foreground">{waitingMessage}</p>
+          </div>
+
+          <button onClick={onBackToIdle} className="text-muted-foreground hover:text-foreground flex items-center text-sm">
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
+          </button>
+        </div>
+        <LiveFooter onToggleMode={onToggleMode} />
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // PHASE: PERFECT (checker rated 10, celebration)
+  // ============================================================================
+  if (phase === 'perfect') {
+    // Determine if this is via explain-back rounds or initial rating
+    const viaExplainBack = liveState.explainBackRatings.length > 0;
+    const roundCount = liveState.explainBackRatings.length;
+
+    const headline = isChecker
+      ? `${displayPartnerName} understood you perfectly!`
+      : `You understood ${checkerName} perfectly!`;
+
+    // Show rounds info if achieved via explain-back
+    const roundsMessage = viaExplainBack
+      ? `Achieved in ${roundCount} explain-back ${roundCount === 1 ? 'round' : 'rounds'}`
+      : null;
+
+    const underconfidenceMessage = isPerfectWithUnderconfidence && responderRating !== undefined
+      ? (isChecker
+          ? `${displayPartnerName} was underconfident: ${10 - responderRating} points`
+          : `You were underconfident: ${10 - responderRating} points`)
+      : null;
+
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
+          <div className="text-center space-y-4">
+            <div className="text-4xl">🎉</div>
+            <h2 className="text-xl font-semibold text-green-600">{headline}</h2>
+            {roundsMessage && (
+              <p className="text-sm text-muted-foreground">{roundsMessage}</p>
+            )}
+            {underconfidenceMessage && (
+              <p className="text-sm text-blue-600 font-medium">{underconfidenceMessage}</p>
+            )}
+            <JourneyToUnderstanding
+              checkerRating={checkerRating}
+              responderRating={responderRating}
+              explainBackRatings={liveState.explainBackRatings}
+              isChecker={isChecker}
+              displayPartnerName={displayPartnerName}
+              checkerName={checkerName}
+              proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+              variant="success"
+              className="w-full max-w-sm"
+            />
+          </div>
+          <Button
+            size="lg"
+            className="bg-blue-500 hover:bg-blue-600 w-full max-w-xs"
+            onClick={onCelebrationContinue}
+          >
+            Continue
+          </Button>
+        </div>
+        <LiveFooter onToggleMode={onToggleMode} />
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // PHASE: GAP-REVEALED (gap detected, offer explain-back)
+  // ============================================================================
+  if (phase === 'gap-revealed') {
+    const pointLabel = gapPoints === 1 ? 'point' : 'points';
+    const insightMessage = gapType === 'overconfidence'
+      ? (isChecker
+          ? `${displayPartnerName} might have missed something (${gapPoints} ${pointLabel} gap)`
+          : `You might have missed something (${gapPoints} ${pointLabel} gap)`)
+      : (isChecker
+          ? `${displayPartnerName} might understand more than they think (${gapPoints} ${pointLabel} gap)`
+          : `You might understand more than you think (${gapPoints} ${pointLabel} gap)`);
+
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          <JourneyToUnderstanding
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+          />
+          <p className="text-blue-600 font-medium">{insightMessage}</p>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            {isChecker ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  <p className="text-sm text-muted-foreground">
+                    Waiting for {displayPartnerName} to decide...
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+                  Good enough
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={onExplainBackStart}
+                >
+                  {explainBackButtonLabel}
+                </Button>
+                <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+                  Good enough
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+        <LiveFooter onToggleMode={onToggleMode} />
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // PHASE: RESULTS (after explain-back or no gap)
+  // ============================================================================
+  return (
+    <div className="flex flex-col h-full">
+      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <JourneyToUnderstanding
+          checkerRating={checkerRating}
+          responderRating={responderRating}
+          explainBackRatings={liveState.explainBackRatings}
+          isChecker={isChecker}
+          displayPartnerName={displayPartnerName}
+          checkerName={checkerName}
+          proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+          className="w-full max-w-sm"
+        />
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          {isChecker ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                <p className="text-sm text-muted-foreground">
+                  Waiting for {displayPartnerName} to decide...
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+                Good enough
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onExplainBackStart}
+              >
+                {explainBackButtonLabel}
+              </Button>
+              <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+                Good enough
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+      <LiveFooter onToggleMode={onToggleMode} />
     </div>
   );
 }

@@ -501,6 +501,11 @@ export interface LiveSessionState {
   // The checker is the person being understood
   checkerName?: string;
 
+  // V12: "Did I get it?" — listener-initiated check
+  // When set, indicates listener initiated (proverName = listener who wants to prove understanding)
+  // When undefined, indicates speaker initiated via "Did you get it?"
+  proverName?: string;
+
   // Ratings - both describe how well the responder understands the checker
   // checkerRating: Checker's belief about how well partner understands them
   // responderRating: Responder's self-assessment of how well they understand checker
