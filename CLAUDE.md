@@ -12,6 +12,8 @@ The Clarity Pledge is a web application where professionals publicly commit to c
 
 **Tech Stack:** React 19 + TypeScript + Vite + Supabase (PostgreSQL + Auth) + Tailwind CSS + Radix UI
 
+**Observability:** Mixpanel (analytics) + Sentry (error tracking) - both production-only
+
 ## Development Commands
 
 ```bash
@@ -223,6 +225,44 @@ interface Witness {
 - Magic link auth requires correct redirect URLs in Supabase dashboard
 - Profile creation must only happen in auth callback (not hooks)
 - E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing.md](docs/technical/e2e-testing.md))
+
+## Observability (Mixpanel + Sentry)
+
+Both tools are production-only (disabled in dev to avoid polluting data).
+
+### Mixpanel Analytics
+
+Use for tracking user behavior and product metrics. Wrapper at [src/lib/mixpanel.ts](src/lib/mixpanel.ts).
+
+```tsx
+import { analytics } from '@/lib/mixpanel';
+
+// Track events
+analytics.track('feature_used', { feature: 'live_meeting', action: 'started' });
+
+// Identify users (after auth)
+analytics.identify(userId);
+
+// Set user properties
+analytics.setUserProperties({ plan: 'free', signupDate: '2024-01-15' });
+```
+
+### Sentry Error Tracking
+
+Initialized in [src/main.tsx](src/main.tsx). Errors are auto-captured. For manual tracking:
+
+```tsx
+import * as Sentry from '@sentry/react';
+
+// Capture exceptions
+Sentry.captureException(error);
+
+// Capture messages (for non-error events worth tracking)
+Sentry.captureMessage('Unexpected state detected', 'warning');
+
+// Add context to errors
+Sentry.setContext('session', { code: sessionCode, phase: ratingPhase });
+```
 
 ## Technical Debt / Intentional Decisions
 

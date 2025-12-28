@@ -25,6 +25,7 @@ import {
   MAX_NAME_LENGTH,
   type ClaritySession,
 } from '@/app/data/api';
+import { analytics } from '@/lib/mixpanel';
 import {
   type LiveSessionState,
   DEFAULT_LIVE_STATE,
@@ -82,6 +83,8 @@ export function ClarityLivePage() {
   const sessionCodeRef = useRef<string | null>(null);
   // Ref to track the last confirmed live state (for race condition prevention)
   const confirmedLiveStateRef = useRef<LiveSessionState>(DEFAULT_LIVE_STATE);
+  // Ref to track if an update is in flight (prevents poll from overwriting pending changes)
+  const updateInFlightRef = useRef(false);
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
@@ -174,8 +177,11 @@ export function ClarityLivePage() {
       setSession(updatedSession);
 
       // Sync live state from session (merge with defaults for missing fields)
+      // Also update the confirmed ref to prevent drift detection from reverting
       if (updatedSession.liveState) {
-        setLiveState({ ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState);
+        const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
+        setLiveState(mergedState);
+        confirmedLiveStateRef.current = mergedState;
       }
 
       // When joiner joins, move to live view
@@ -217,22 +223,34 @@ export function ClarityLivePage() {
 
         // Check 2: Detect liveState drift (fixes lost signal bug)
         // Compare server state with our last confirmed state
-        if (freshSession.liveState && hasJoinerRef.current) {
+        // Skip if an update is in flight to avoid race conditions
+        if (freshSession.liveState && hasJoinerRef.current && !updateInFlightRef.current) {
           const serverState = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
           const localState = confirmedLiveStateRef.current;
 
           // Check key fields that indicate the other person took action
           const serverHasUpdate =
+            serverState.ratingPhase !== localState.ratingPhase ||
             serverState.checkerSubmitted !== localState.checkerSubmitted ||
             serverState.responderSubmitted !== localState.responderSubmitted ||
-            serverState.ratingPhase !== localState.ratingPhase ||
-            serverState.explainBackInProgress !== localState.explainBackInProgress ||
-            serverState.explainBackRatings?.length !== localState.explainBackRatings?.length;
+            serverState.explainBackDone !== localState.explainBackDone ||
+            serverState.checksCount !== localState.checksCount;
 
           if (serverHasUpdate) {
             console.log('[Live] Poll detected state drift, syncing from server');
-            console.log('[Live] Server state:', serverState);
-            console.log('[Live] Local state:', localState);
+
+            // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
+            try {
+              analytics.track('live_state_drift_detected', {
+                sessionCode: currentCode,
+                ratingPhase: serverState.ratingPhase,
+                checkerSubmittedDrift: serverState.checkerSubmitted !== localState.checkerSubmitted,
+                responderSubmittedDrift: serverState.responderSubmitted !== localState.responderSubmitted,
+              });
+            } catch {
+              // Analytics failure shouldn't break the app
+            }
+
             const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
             setLiveState(mergedState);
             confirmedLiveStateRef.current = mergedState;
@@ -263,6 +281,7 @@ export function ClarityLivePage() {
       const newState = { ...stateBeforeUpdate, ...updates };
 
       setLiveState(newState); // Optimistic update
+      updateInFlightRef.current = true; // Prevent poll from overwriting
 
       try {
         await updateClaritySessionLiveState(session.id, newState);
@@ -279,6 +298,8 @@ export function ClarityLivePage() {
         }
         // Revert to the state before this update (using ref avoids stale closure)
         setLiveState(stateBeforeUpdate);
+      } finally {
+        updateInFlightRef.current = false;
       }
     },
     [session]
@@ -374,7 +395,6 @@ export function ClarityLivePage() {
     // Set skippedBy so partner sees toast notification
     updateLiveState({
       ratingPhase: 'idle',
-      // V10: Track who skipped for partner notification
       skippedBy: name,
       // Clear checker/responder
       checkerName: undefined,
@@ -383,23 +403,28 @@ export function ClarityLivePage() {
       checkerSubmitted: false,
       responderSubmitted: false,
       // Clear explain-back state
-      explainBackInProgress: false,
-      explainBackRequested: false,
-      explainBackRequestedBy: undefined,
       explainBackRound: 0,
       explainBackRatings: [],
+      explainBackDone: false,
     });
   }, [name, updateLiveState]);
 
-  // V8: Handle "Explain back" (listener starts explaining - no request/accept handshake needed)
+  // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
-    console.log('[Live] Explain-back started (responder accepted)');
+    console.log('[Live] Explain-back started');
 
     updateLiveState({
       ratingPhase: 'explain-back',
-      explainBackInProgress: true,
-      // Clear the request flag since responder accepted
-      explainBackRequested: false,
+      explainBackDone: false,
+    });
+  }, [updateLiveState]);
+
+  // V11: Handle listener tapping "Done Explaining" - unlocks speaker's rating UI
+  const handleExplainBackDone = useCallback(() => {
+    console.log('[Live] Listener tapped Done Explaining');
+
+    updateLiveState({
+      explainBackDone: true,
     });
   }, [updateLiveState]);
 
@@ -415,7 +440,7 @@ export function ClarityLivePage() {
         ratingPhase: 'results',
         explainBackRound: currentState.explainBackRound + 1,
         explainBackRatings: newExplainBackRatings,
-        explainBackInProgress: false,
+        explainBackDone: false, // Reset for next round
         checksCount: currentState.checksCount + 1,
         checksTotal: currentState.checksTotal + rating,
         ...(rating >= 9 ? { ideasUnderstood: currentState.ideasUnderstood + 1 } : {}),
@@ -429,14 +454,7 @@ export function ClarityLivePage() {
     setMode((prev) => (prev === 'live' ? 'review' : 'live'));
   }, []);
 
-  // V9: Clear the decline notification after toast is shown
-  const handleClearDeclineNotification = useCallback(() => {
-    updateLiveState({
-      explainBackDeclinedBy: undefined,
-    });
-  }, [updateLiveState]);
-
-  // V10: Clear the skip notification after toast is shown
+  // Clear the skip notification after toast is shown
   const handleClearSkipNotification = useCallback(() => {
     updateLiveState({
       skippedBy: undefined,
@@ -698,15 +716,14 @@ export function ClarityLivePage() {
             onExplainBackStart={handleExplainBackStart}
             onExplainBackRate={handleExplainBackRate}
             onToggleMode={handleToggleMode}
-            // V9: Clear decline notification after toast shown
-            onClearDeclineNotification={handleClearDeclineNotification}
-            // V10: Clear skip notification after toast shown
             onClearSkipNotification={handleClearSkipNotification}
             // V10: Local rating state
             isLocallyRating={isLocallyRating}
             onCancelLocalRating={() => setIsLocallyRating(false)}
             // V10: Exit meeting button
             onExitMeeting={handleExitMeeting}
+            // V11: Listener taps "Done Explaining" to unlock speaker's rating
+            onExplainBackDone={handleExplainBackDone}
           />
         ) : (
           <ReviewModeView

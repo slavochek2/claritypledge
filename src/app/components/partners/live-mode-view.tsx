@@ -17,8 +17,7 @@
  * - PerfectUnderstandingScreen: Celebration when 10/10 achieved
  */
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, Mic } from 'lucide-react';
-import { toast } from 'sonner';
+import { ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -50,15 +49,15 @@ interface LiveModeViewProps {
   onToggleMode: () => void;
   onStartCheck: () => void;
   onBackToIdle: () => void;
-  /** Clear the decline notification after showing toast - required for proper state cleanup */
-  onClearDeclineNotification: () => void;
-  /** Clear the skip notification after showing toast - required for proper state cleanup */
+  /** Clear the skip notification after showing toast */
   onClearSkipNotification: () => void;
   /** Local rating state - true when user tapped "I spoke" but hasn't submitted yet */
   isLocallyRating: boolean;
   onCancelLocalRating: () => void;
   /** Exit the meeting entirely and return to the join/lobby screen */
   onExitMeeting: () => void;
+  /** V11: Listener taps "Done Explaining" to unlock speaker's feeling interface */
+  onExplainBackDone: () => void;
 }
 
 export function LiveModeView({
@@ -72,48 +71,20 @@ export function LiveModeView({
   onToggleMode,
   onStartCheck,
   onBackToIdle,
-  onClearDeclineNotification,
   onClearSkipNotification,
   isLocallyRating,
   onCancelLocalRating,
   onExitMeeting,
+  onExplainBackDone,
 }: LiveModeViewProps) {
 
-  // V9: Track previous decline state to detect new declines
-  const prevDeclinedByRef = useRef<string | undefined>(undefined);
-  // V10: Track previous skip state to detect new skips
+  // Track previous skip state to detect new skips
   const prevSkippedByRef = useRef<string | undefined>(undefined);
-  // V10: State for skip notification dialog
+  // State for skip notification dialog
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [skipDialogName, setSkipDialogName] = useState<string>('');
 
-  // V9: Show toast when responder declines explain-back request
-  // This effect runs when explainBackDeclinedBy changes
-  useEffect(() => {
-    const declinedBy = liveState.explainBackDeclinedBy;
-    const isChecker = liveState.checkerName === currentUserName;
-
-    // Only show toast to the checker (the one who requested explain-back)
-    // and only when there's a new decline (not on initial render or re-renders)
-    if (
-      declinedBy &&
-      isChecker &&
-      declinedBy !== currentUserName &&
-      prevDeclinedByRef.current !== declinedBy
-    ) {
-      const displayName = capitalizeName(declinedBy);
-      toast(`${displayName} decided to skip explaining back`, {
-        duration: 3000,
-      });
-
-      // Clear the notification state after showing toast
-      onClearDeclineNotification();
-    }
-
-    prevDeclinedByRef.current = declinedBy;
-  }, [liveState.explainBackDeclinedBy, liveState.checkerName, currentUserName, onClearDeclineNotification]);
-
-  // V10: Show dialog when partner clicks "Good enough" or "Good enough"
+  // Show dialog when partner clicks "Good enough"
   // Dialog requires user acknowledgment before returning to idle
   useEffect(() => {
     const skippedBy = liveState.skippedBy;
@@ -169,7 +140,7 @@ export function LiveModeView({
   // Render based on phase
   const { ratingPhase } = liveState;
 
-  // V10: Skip notification dialog - shown when partner clicks "Good enough" or "Good enough"
+  // Skip notification dialog - shown when partner clicks "Good enough"
   const skipNotificationDialog = (
     <Dialog open={skipDialogOpen} onOpenChange={(open) => { if (!open) handleSkipDialogOk(); }}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
@@ -333,7 +304,7 @@ export function LiveModeView({
   }
 
   // Phase: Revealed - check if perfect understanding
-  if (ratingPhase === 'revealed' || (bothSubmitted && !liveState.explainBackInProgress)) {
+  if (ratingPhase === 'revealed' || (bothSubmitted && ratingPhase !== 'explain-back')) {
     // SCREEN 3b-ii: Both believe 10/10 - pure celebration
     if (isPerfect) {
       return (
@@ -417,7 +388,7 @@ export function LiveModeView({
   }
 
   // Phase: Explain-back in progress
-  if (ratingPhase === 'explain-back' || liveState.explainBackInProgress) {
+  if (ratingPhase === 'explain-back') {
     return (
       <>
         <ExplainBackScreen
@@ -430,6 +401,7 @@ export function LiveModeView({
           onSkip={onSkip}
           onToggleMode={onToggleMode}
           onExit={onExitMeeting}
+          onExplainBackDone={onExplainBackDone}
         />
         {skipNotificationDialog}
       </>
@@ -523,7 +495,7 @@ function IdleScreen({
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
-              question={`How well do you feel you understand ${checkerName}?`}
+              question={`How confident are you that you understand ${checkerName}?`}
               onSelect={onRatingSubmit || (() => {})}
             />
 
@@ -604,10 +576,10 @@ function RatingScreen({
 
   // Different prompts for checker vs responder
   // Checker: "How well do you feel [Partner] understands you?"
-  // Responder: "How well do you feel you understand [Checker]?"
+  // Responder: "How confident are you that you understand [Checker]?"
   const prompt = isChecker
     ? `How well do you feel ${displayPartnerName} understands you?`
-    : `How well do you feel you understand ${checkerName}?`;
+    : `How confident are you that you understand ${checkerName}?`;
 
   return (
     <div className="flex flex-col h-full">
@@ -669,7 +641,7 @@ function RatingScreenWithOptionalDrawer({
   // "How well does [partner] understand me?"
   // But if partner already submitted, they're the checker, so this user is responder
   const prompt = showDrawer
-    ? `How well do you feel you understand ${checkerName}?`
+    ? `How confident are you that you understand ${checkerName}?`
     : `How well do you feel ${displayPartnerName} understands you?`;
 
   return (
@@ -707,7 +679,7 @@ function RatingScreenWithOptionalDrawer({
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
-              question={`How well do you feel you understand ${checkerName}?`}
+              question={`How confident are you that you understand ${checkerName}?`}
               onSelect={onRatingSubmit}
             />
 
@@ -756,7 +728,7 @@ function WaitingScreen({
     ? `Waiting for ${displayPartnerName} to rate their understanding...`
     : `Waiting for ${checkerName} to rate their understanding...`;
 
-  // Label for "Your rating" card - consistent "feel" language
+  // Label for "Your feeling" card - consistent "feel" language
   const myRatingLabel = isChecker
     ? <><b className="text-foreground">You feel</b> {displayPartnerName} understands you:</>
     : <><b className="text-foreground">You feel</b> you understand {checkerName}:</>;
@@ -1033,6 +1005,8 @@ interface ExplainBackScreenProps {
   onSkip: () => void;
   onToggleMode: () => void;
   onExit: () => void;
+  /** V11: Listener taps "Done Explaining" to unlock speaker's feeling interface */
+  onExplainBackDone: () => void;
 }
 
 function ExplainBackScreen({
@@ -1045,6 +1019,7 @@ function ExplainBackScreen({
   onSkip,
   onToggleMode,
   onExit,
+  onExplainBackDone,
 }: ExplainBackScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
   const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
@@ -1056,9 +1031,13 @@ function ExplainBackScreen({
     ? ` (round ${liveState.explainBackRound + 1})`
     : '';
 
+  // V11: Check if listener has tapped "Done Explaining"
+  const listenerDone = liveState.explainBackDone === true;
+
   // Checker (Speaker/Gosha) view:
-  // - First: drawer notification that partner is explaining back
-  // - After clicking "Ready to rate": drawer closes, rating interface appears on main screen
+  // V11: Gated rating - rating UI only unlocks after listener taps "Done Explaining"
+  // - Before Done: Show ear icon, "Listening to [Partner]'s explanation...", status bar
+  // - After Done: Show rating interface via drawer, then full screen after acknowledgment
   if (isChecker) {
     // After acknowledging the notification, show full rating screen (no drawer)
     if (showRatingInterface) {
@@ -1067,18 +1046,15 @@ function ExplainBackScreen({
           <LiveHeader partnerName={partnerName} onExit={onExit} />
 
           <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-            {/* Journey so far - context above the CTA */}
-            <div className="w-full max-w-sm">
-              <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
-              <JourneyToUnderstanding
-                checkerRating={checkerRating ?? 0}
-                responderRating={responderRating ?? 0}
-                explainBackRatings={liveState.explainBackRatings}
-                isChecker={true}
-                displayPartnerName={displayPartnerName}
-                checkerName={checkerName}
-              />
-            </div>
+            <JourneyToUnderstanding
+              checkerRating={checkerRating ?? 0}
+              responderRating={responderRating ?? 0}
+              explainBackRatings={liveState.explainBackRatings}
+              isChecker={true}
+              displayPartnerName={displayPartnerName}
+              checkerName={checkerName}
+              className="w-full max-w-sm"
+            />
 
             {/* CTA: Question inside the card */}
             <RatingCard
@@ -1097,14 +1073,13 @@ function ExplainBackScreen({
       );
     }
 
-    // Initial state: show gap screen with drawer notification
-    return (
-      <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+    // V11: Listener hasn't tapped "Done Explaining" yet - show listening state
+    if (!listenerDone) {
+      return (
+        <div className="flex flex-col h-full">
+          <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-          <div className="w-full max-w-sm">
-            <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
+          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
             <JourneyToUnderstanding
               checkerRating={checkerRating ?? 0}
               responderRating={responderRating ?? 0}
@@ -1112,8 +1087,53 @@ function ExplainBackScreen({
               isChecker={true}
               displayPartnerName={displayPartnerName}
               checkerName={checkerName}
+              className="w-full max-w-sm"
             />
+
+            {/* V11: Ear icon + listening state (matches wireframe) */}
+            <div className="flex flex-col items-center space-y-4">
+              <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+                <span className="text-4xl">👂</span>
+              </div>
+
+              <h2 className="text-lg font-semibold text-center max-w-xs">
+                Listen to {displayPartnerName} explain back what they understood
+              </h2>
+            </div>
+
+            {/* V11: Status bar - waiting for partner to finish explaining */}
+            <div className="bg-muted rounded-lg px-4 py-3 flex items-center gap-2 max-w-xs">
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              <p className="text-sm text-muted-foreground">
+                Waiting for {displayPartnerName} to finish explaining
+              </p>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
+              Skip
+            </Button>
           </div>
+
+          <LiveFooter onToggleMode={onToggleMode} />
+        </div>
+      );
+    }
+
+    // Listener tapped Done: show drawer notification to transition to rating
+    return (
+      <div className="flex flex-col h-full">
+        <LiveHeader partnerName={partnerName} onExit={onExit} />
+
+        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          <JourneyToUnderstanding
+            checkerRating={checkerRating ?? 0}
+            responderRating={responderRating ?? 0}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={true}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            className="w-full max-w-sm"
+          />
         </div>
 
         <LiveFooter onToggleMode={onToggleMode} />
@@ -1123,10 +1143,10 @@ function ExplainBackScreen({
           <DrawerContent>
             <DrawerHeader className="text-center pb-4">
               <DrawerTitle className="text-lg font-medium">
-                {displayPartnerName} is sharing what they heard{roundLabel}
+                {displayPartnerName} finished explaining{roundLabel}
               </DrawerTitle>
               <DrawerDescription className="sr-only">
-                Listen and then rate their summary
+                Rate their summary
               </DrawerDescription>
             </DrawerHeader>
             <div className="px-4 pb-8">
@@ -1135,7 +1155,7 @@ function ExplainBackScreen({
                 className="bg-blue-500 hover:bg-blue-600 w-full"
                 onClick={() => setShowRatingInterface(true)}
               >
-                Ready to rate their summary
+                Rate their summary
               </Button>
             </div>
           </DrawerContent>
@@ -1144,33 +1164,29 @@ function ExplainBackScreen({
     );
   }
 
-  // Responder (Active Listener/Slava) view: explaining back, waiting for re-rate
+  // Responder (Active Listener/Slava) view: explaining back
+  // V11: Show "Done Explaining" button until tapped, then show waiting state
+  const hasTappedDone = liveState.explainBackDone === true;
+
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-        {/* Journey so far - context above the CTA */}
-        <div className="w-full max-w-sm">
-          <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
-          <JourneyToUnderstanding
-            checkerRating={checkerRating ?? 0}
-            responderRating={responderRating ?? 0}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={false}
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-          />
-        </div>
+        <JourneyToUnderstanding
+          checkerRating={checkerRating ?? 0}
+          responderRating={responderRating ?? 0}
+          explainBackRatings={liveState.explainBackRatings}
+          isChecker={false}
+          displayPartnerName={displayPartnerName}
+          checkerName={checkerName}
+          className="w-full max-w-sm"
+        />
 
-        {/* CTA: Pulsing microphone + instruction */}
+        {/* CTA: Microphone icon + instruction */}
         <div className="flex flex-col items-center space-y-4">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-              <Mic className="w-8 h-8 text-blue-600" />
-            </div>
-            {/* Pulse ring animation - disabled for users who prefer reduced motion */}
-            <div className="absolute inset-0 w-16 h-16 rounded-full bg-blue-400 animate-ping motion-reduce:animate-none opacity-20" />
+          <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+            <span className="text-4xl">🎤</span>
           </div>
 
           <h2 className="text-lg font-semibold text-center max-w-xs">
@@ -1178,13 +1194,25 @@ function ExplainBackScreen({
           </h2>
         </div>
 
-        {/* Waiting indicator */}
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-          <p className="text-sm text-muted-foreground">
-            Waiting for {checkerName} to re-evaluate...
-          </p>
-        </div>
+        {/* V11: Action buttons - "Done Explaining" or waiting state */}
+        {hasTappedDone ? (
+          // After tapping Done: show waiting indicator
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <p className="text-sm text-muted-foreground">
+              Waiting for {checkerName} to rate...
+            </p>
+          </div>
+        ) : (
+          // Before tapping Done: show "Done Explaining" CTA
+          <Button
+            size="lg"
+            className="bg-blue-500 hover:bg-blue-600 w-full max-w-xs"
+            onClick={onExplainBackDone}
+          >
+            I'm done explaining
+          </Button>
+        )}
 
         <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
           Skip
@@ -1237,17 +1265,15 @@ function ResultsScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
       <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
-        <div className="w-full max-w-sm">
-          <p className="text-xs text-muted-foreground mb-2">Journey so far</p>
-          <JourneyToUnderstanding
-            checkerRating={checkerRating}
-            responderRating={responderRating}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={isChecker}
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-          />
-        </div>
+        <JourneyToUnderstanding
+          checkerRating={checkerRating}
+          responderRating={responderRating}
+          explainBackRatings={liveState.explainBackRatings}
+          isChecker={isChecker}
+          displayPartnerName={displayPartnerName}
+          checkerName={checkerName}
+          className="w-full max-w-sm"
+        />
 
         <div className="flex flex-col gap-3 w-full max-w-xs">
           {isChecker ? (
@@ -1359,39 +1385,61 @@ function JourneyToUnderstanding({
   checkerName,
   className = '',
 }: JourneyToUnderstandingProps) {
+  // Header text depends on perspective - symmetric structure
+  // Speaker: "{Listener}'s journey to understand you"
+  // Listener: "Your journey to understand {Speaker}"
+  const headerText = isChecker
+    ? `${displayPartnerName}'s journey to understand you`
+    : `Your journey to understand ${checkerName}`;
+
   return (
     <div className={`bg-muted rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
-      <div className="space-y-3">
-        {/* Initial round (Round 0) */}
-        <div className="flex gap-4">
-          <div className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">Round 0</div>
+      {/* Section header - personal and directional */}
+      <p className="text-xs text-muted-foreground mb-3">{headerText}</p>
+
+      <div className="space-y-2">
+        {/* Initial round (0) - show one-time rating first for each role */}
+        {/* Speaker rates "feeling" (subjective), Listener rates "confidence" (self-assessment) */}
+        <div className="flex gap-3">
+          <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">0</div>
           <div className="flex-1 space-y-1">
-            <RatingDisplay
-              label={isChecker
-                ? <><b className="text-foreground">You feel</b> understood:</>
-                : <><b className="text-foreground">{checkerName} feels</b> understood:</>
-              }
-              rating={checkerRating}
-            />
-            <RatingDisplay
-              label={isChecker
-                ? <><b className="text-foreground">{displayPartnerName} feels</b> they understand:</>
-                : <><b className="text-foreground">You feel</b> you understand:</>
-              }
-              rating={responderRating}
-            />
+            {isChecker ? (
+              <>
+                {/* Speaker view: show listener's confidence first (one-time, muted), then your feeling */}
+                <RatingDisplay
+                  label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
+                  rating={responderRating}
+                />
+                <RatingDisplay
+                  label={<><b className="text-foreground">Your feeling</b></>}
+                  rating={checkerRating}
+                />
+              </>
+            ) : (
+              <>
+                {/* Listener view: show your confidence first (one-time, muted), then speaker's feeling */}
+                <RatingDisplay
+                  label={<span className="text-muted-foreground">Your confidence</span>}
+                  rating={responderRating}
+                />
+                <RatingDisplay
+                  label={<><b className="text-foreground">{checkerName}'s feeling</b></>}
+                  rating={checkerRating}
+                />
+              </>
+            )}
           </div>
         </div>
 
-        {/* Previous explain-back rounds */}
+        {/* Previous explain-back rounds - only speaker's feeling after each explain-back */}
         {explainBackRatings.map((rating, index) => (
-          <div key={index} className="flex gap-4 pt-2 border-t">
-            <div className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">Round {index + 1}</div>
+          <div key={index} className="flex gap-3 pt-2 border-t">
+            <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">{index + 1}</div>
             <div className="flex-1">
               <RatingDisplay
                 label={isChecker
-                  ? <><b className="text-foreground">You felt</b> understood:</>
-                  : <><b className="text-foreground">{checkerName} felt</b> understood:</>
+                  ? <><b className="text-foreground">Your feeling</b></>
+                  : <><b className="text-foreground">{checkerName}'s feeling</b></>
                 }
                 rating={rating}
               />

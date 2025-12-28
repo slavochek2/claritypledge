@@ -515,21 +515,13 @@ export interface LiveSessionState {
   explainBackRound: number;
   explainBackRatings: number[]; // History of checker ratings after each explain-back
 
-  // Explain-back request state
-  explainBackRequested: boolean;
-  explainBackInProgress: boolean;
-
-  // V8: Drawer notification pattern - who requested the explain-back
-  // When checker requests, responder sees a drawer notification instead of instant screen change
-  explainBackRequestedBy?: string; // Name of person who requested explain-back
-
-  // V9: Decline notification - who declined the explain-back request
-  // When responder declines, checker sees a toast and UI updates
-  explainBackDeclinedBy?: string; // Name of person who declined
-
-  // V10: Skip notification - who clicked "Move on" or "Good enough"
+  // Skip notification - who clicked "Skip" or "Good enough"
   // When one user skips, partner sees a toast notification
-  skippedBy?: string; // Name of person who skipped
+  skippedBy?: string;
+
+  // Gated rating - listener must tap "Done Explaining" before speaker can rate
+  // When listener taps "Done Explaining", this becomes true and speaker's rating UI unlocks
+  explainBackDone?: boolean;
 }
 
 /** Default initial state for new live sessions */
@@ -543,14 +535,13 @@ export const DEFAULT_LIVE_STATE: LiveSessionState = {
   ideasDiscussed: 0,
   ideasUnderstood: 0,
   talkTime: {},
-  // V7 (P23.2) Check/Prove model defaults - starts in idle state
+  // Check/Prove model defaults - starts in idle state
   ratingPhase: 'idle',
   checkerSubmitted: false,
   responderSubmitted: false,
   explainBackRound: 0,
   explainBackRatings: [],
-  explainBackRequested: false,
-  explainBackInProgress: false,
+  explainBackDone: false,
 };
 
 /** Live turn record (saved to clarity_live_turns table) */
