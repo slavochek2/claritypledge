@@ -249,16 +249,20 @@ export function ClarityLivePage() {
 
         // Check key fields that indicate the other person took action
         const phaseDrift = serverState.ratingPhase !== localState.ratingPhase;
+        const checkerNameDrift = serverState.checkerName !== localState.checkerName;
         const checkerDrift = serverState.checkerSubmitted !== localState.checkerSubmitted;
+        const checkerRatingDrift = serverState.checkerRating !== localState.checkerRating;
         const responderDrift = serverState.responderSubmitted !== localState.responderSubmitted;
+        const responderRatingDrift = serverState.responderRating !== localState.responderRating;
         const explainBackDoneDrift = serverState.explainBackDone !== localState.explainBackDone;
         const checksCountDrift = serverState.checksCount !== localState.checksCount;
 
-        const serverHasUpdate = phaseDrift || checkerDrift || responderDrift || explainBackDoneDrift || checksCountDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift;
 
         if (serverHasUpdate) {
           console.log('[Live Poll] State drift detected!', {
             phaseDrift: phaseDrift ? `${localState.ratingPhase} → ${serverState.ratingPhase}` : 'no',
+            checkerNameDrift: checkerNameDrift ? `${localState.checkerName} → ${serverState.checkerName}` : 'no',
             checkerDrift: checkerDrift ? `${localState.checkerSubmitted} → ${serverState.checkerSubmitted}` : 'no',
             responderDrift: responderDrift ? `${localState.responderSubmitted} → ${serverState.responderSubmitted}` : 'no',
             explainBackDoneDrift: explainBackDoneDrift ? `${localState.explainBackDone} → ${serverState.explainBackDone}` : 'no',
@@ -271,6 +275,7 @@ export function ClarityLivePage() {
               sessionCode: currentCode,
               ratingPhase: serverState.ratingPhase,
               phaseDrift,
+              checkerNameDrift,
               checkerDrift,
               responderDrift,
               explainBackDoneDrift,
