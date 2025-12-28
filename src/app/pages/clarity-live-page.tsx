@@ -46,8 +46,10 @@ const STORAGE_KEYS = {
   IS_CREATOR: 'clarity_live_is_creator',
 } as const;
 
-/** Polling interval for fallback session updates (ms) */
-const POLL_INTERVAL_MS = 2000;
+/** Polling interval for fallback session updates (ms)
+ * Set to 1000ms for more responsive sync when realtime subscription fails
+ * (common on mobile networks with unreliable WebSocket connections) */
+const POLL_INTERVAL_MS = 1000;
 
 /** Use sessionStorage for tab-isolated storage (each tab has its own session data) */
 const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
@@ -203,15 +205,21 @@ export function ClarityLivePage() {
     const pollInterval = setInterval(async () => {
       // Use ref to get current session code (avoids stale closure)
       const currentCode = sessionCodeRef.current;
-      if (!currentCode) return;
+      if (!currentCode) {
+        console.log('[Live Poll] No session code, skipping');
+        return;
+      }
 
       try {
         const freshSession = await getClaritySession(currentCode);
-        if (!freshSession) return;
+        if (!freshSession) {
+          console.log('[Live Poll] No session found for code:', currentCode);
+          return;
+        }
 
         // Check 1: Detect joiner (existing logic)
         if (freshSession.joinerName && !hasJoinerRef.current) {
-          console.log('[Live] Poll detected joiner, updating session');
+          console.log('[Live Poll] Detected joiner, updating session');
           setSession(freshSession);
           if (freshSession.liveState) {
             setLiveState({ ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState);
@@ -224,41 +232,60 @@ export function ClarityLivePage() {
         // Check 2: Detect liveState drift (fixes lost signal bug)
         // Compare server state with our last confirmed state
         // Skip if an update is in flight to avoid race conditions
-        if (freshSession.liveState && hasJoinerRef.current && !updateInFlightRef.current) {
-          const serverState = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
-          const localState = confirmedLiveStateRef.current;
+        const hasLiveState = !!freshSession.liveState;
+        const hasJoiner = hasJoinerRef.current;
+        const updateInFlight = updateInFlightRef.current;
 
-          // Check key fields that indicate the other person took action
-          const serverHasUpdate =
-            serverState.ratingPhase !== localState.ratingPhase ||
-            serverState.checkerSubmitted !== localState.checkerSubmitted ||
-            serverState.responderSubmitted !== localState.responderSubmitted ||
-            serverState.explainBackDone !== localState.explainBackDone ||
-            serverState.checksCount !== localState.checksCount;
+        if (!hasLiveState || !hasJoiner || updateInFlight) {
+          // Log why we're skipping drift detection (useful for debugging)
+          if (!hasLiveState) console.log('[Live Poll] No live_state in session');
+          if (!hasJoiner) console.log('[Live Poll] No joiner detected yet');
+          if (updateInFlight) console.log('[Live Poll] Update in flight, skipping drift check');
+          return;
+        }
 
-          if (serverHasUpdate) {
-            console.log('[Live] Poll detected state drift, syncing from server');
+        const serverState = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
+        const localState = confirmedLiveStateRef.current;
 
-            // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
-            try {
-              analytics.track('live_state_drift_detected', {
-                sessionCode: currentCode,
-                ratingPhase: serverState.ratingPhase,
-                checkerSubmittedDrift: serverState.checkerSubmitted !== localState.checkerSubmitted,
-                responderSubmittedDrift: serverState.responderSubmitted !== localState.responderSubmitted,
-              });
-            } catch {
-              // Analytics failure shouldn't break the app
-            }
+        // Check key fields that indicate the other person took action
+        const phaseDrift = serverState.ratingPhase !== localState.ratingPhase;
+        const checkerDrift = serverState.checkerSubmitted !== localState.checkerSubmitted;
+        const responderDrift = serverState.responderSubmitted !== localState.responderSubmitted;
+        const explainBackDoneDrift = serverState.explainBackDone !== localState.explainBackDone;
+        const checksCountDrift = serverState.checksCount !== localState.checksCount;
 
-            const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
-            setLiveState(mergedState);
-            confirmedLiveStateRef.current = mergedState;
-            setSession(freshSession);
+        const serverHasUpdate = phaseDrift || checkerDrift || responderDrift || explainBackDoneDrift || checksCountDrift;
+
+        if (serverHasUpdate) {
+          console.log('[Live Poll] State drift detected!', {
+            phaseDrift: phaseDrift ? `${localState.ratingPhase} → ${serverState.ratingPhase}` : 'no',
+            checkerDrift: checkerDrift ? `${localState.checkerSubmitted} → ${serverState.checkerSubmitted}` : 'no',
+            responderDrift: responderDrift ? `${localState.responderSubmitted} → ${serverState.responderSubmitted}` : 'no',
+            explainBackDoneDrift: explainBackDoneDrift ? `${localState.explainBackDone} → ${serverState.explainBackDone}` : 'no',
+            checksCountDrift: checksCountDrift ? `${localState.checksCount} → ${serverState.checksCount}` : 'no',
+          });
+
+          // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
+          try {
+            analytics.track('live_state_drift_detected', {
+              sessionCode: currentCode,
+              ratingPhase: serverState.ratingPhase,
+              phaseDrift,
+              checkerDrift,
+              responderDrift,
+              explainBackDoneDrift,
+            });
+          } catch {
+            // Analytics failure shouldn't break the app
           }
+
+          const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
+          setLiveState(mergedState);
+          confirmedLiveStateRef.current = mergedState;
+          setSession(freshSession);
         }
       } catch (err) {
-        console.error('[Live] Poll error:', err);
+        console.error('[Live Poll] Error:', err);
       }
     }, POLL_INTERVAL_MS);
 
@@ -274,11 +301,20 @@ export function ClarityLivePage() {
   // Uses ref for revert to avoid stale closure issues with rapid updates
   const updateLiveState = useCallback(
     async (updates: Partial<LiveSessionState>) => {
-      if (!session) return;
+      if (!session) {
+        console.log('[Live Update] No session, skipping update');
+        return;
+      }
 
       // Capture the confirmed state BEFORE we make changes (for potential revert)
       const stateBeforeUpdate = confirmedLiveStateRef.current;
       const newState = { ...stateBeforeUpdate, ...updates };
+
+      console.log('[Live Update] Updating state:', {
+        updates,
+        ratingPhase: newState.ratingPhase,
+        explainBackDone: newState.explainBackDone,
+      });
 
       setLiveState(newState); // Optimistic update
       updateInFlightRef.current = true; // Prevent poll from overwriting
@@ -287,8 +323,9 @@ export function ClarityLivePage() {
         await updateClaritySessionLiveState(session.id, newState);
         // Update confirmed state on success
         confirmedLiveStateRef.current = newState;
+        console.log('[Live Update] Success - state synced to server');
       } catch (err) {
-        console.error('[Live] Failed to update state:', err);
+        console.error('[Live Update] Failed to update state:', err);
         // Check if it's a migration error
         if (err instanceof Error && err.message.includes('migration')) {
           setError('Unable to save changes. Please refresh the page and try again.');
