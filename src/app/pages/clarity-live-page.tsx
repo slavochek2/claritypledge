@@ -314,7 +314,7 @@ export function ClarityLivePage() {
   // checkerName is only set when someone actually submits their rating
   // This allows both users to tap "I spoke" independently
   const [isLocallyRating, setIsLocallyRating] = useState(false);
-  // V12: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
+  // P23.3: Track which flow type we're in locally ('check' = "Did you get it?", 'prove' = "Did I get it?")
   const [localFlowType, setLocalFlowType] = useState<'check' | 'prove'>('check');
 
   const handleStartCheck = useCallback(() => {
@@ -335,7 +335,7 @@ export function ClarityLivePage() {
     setIsLocallyRating(true);
   }, [name, partnerName]);
 
-  // V12: Handle "Did I get it?" button tap - listener-initiated understanding check
+  // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
   // The speaker (checker) rates how understood they feel
   // Like handleStartCheck, this only sets LOCAL state - shared state is set on submit
@@ -377,7 +377,7 @@ export function ClarityLivePage() {
 
       // If no checker yet, this is the first submission
       if (!currentState.checkerName) {
-        // V12: Handle "Did I get it?" flow differently
+        // P23.3: Handle "Did I get it?" flow differently
         // In "prove" flow, the person who submits first is the RESPONDER (prover/listener)
         // Their partner becomes the CHECKER (speaker)
         if (localFlowType === 'prove') {
@@ -439,7 +439,7 @@ export function ClarityLivePage() {
       responderRating: undefined,
       checkerSubmitted: false,
       responderSubmitted: false,
-      // V12: Clear prover (for "Did I get it?" flow)
+      // P23.3: Clear prover (for "Did I get it?" flow)
       proverName: undefined,
       // Clear explain-back state
       explainBackRound: 0,
@@ -449,29 +449,52 @@ export function ClarityLivePage() {
   }, [name, updateLiveState]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
-  // Like handleSkip, resets shared state to allow new rounds
-  // Unlike handleSkip, does NOT set skippedBy (no notification for partner)
+  // Both users must acknowledge before state resets (prevents forceful exit for partner)
   const handleCelebrationComplete = useCallback(() => {
-    console.log('[Live] Celebration complete - returning to idle silently');
+    const currentState = confirmedLiveStateRef.current;
+    const acknowledged = currentState.celebrationAcknowledgedBy || [];
 
-    // Reset to idle state for a fresh start (no skippedBy notification)
-    updateLiveState({
-      ratingPhase: 'idle',
-      // Don't set skippedBy - this is a natural completion, not a skip
-      // Clear checker/responder
-      checkerName: undefined,
-      checkerRating: undefined,
-      responderRating: undefined,
-      checkerSubmitted: false,
-      responderSubmitted: false,
-      // V12: Clear prover (for "Did I get it?" flow)
-      proverName: undefined,
-      // Clear explain-back state
-      explainBackRound: 0,
-      explainBackRatings: [],
-      explainBackDone: false,
-    });
-  }, [updateLiveState]);
+    // If user already acknowledged, ignore duplicate clicks
+    if (acknowledged.includes(name)) {
+      console.log('[Live] User already acknowledged celebration, ignoring');
+      return;
+    }
+
+    const newAcknowledged = [...acknowledged, name];
+    console.log('[Live] Celebration acknowledged by:', name, 'Total:', newAcknowledged);
+
+    // Check if both users have acknowledged
+    const bothAcknowledged = partnerName && newAcknowledged.includes(partnerName);
+
+    if (bothAcknowledged) {
+      console.log('[Live] Both users acknowledged - resetting to idle');
+      // Both done - reset to idle state for a fresh start
+      updateLiveState({
+        ratingPhase: 'idle',
+        // Don't set skippedBy - this is a natural completion, not a skip
+        // Clear checker/responder
+        checkerName: undefined,
+        checkerRating: undefined,
+        responderRating: undefined,
+        checkerSubmitted: false,
+        responderSubmitted: false,
+        // P23.3: Clear prover (for "Did I get it?" flow)
+        proverName: undefined,
+        // Clear explain-back state
+        explainBackRound: 0,
+        explainBackRatings: [],
+        explainBackDone: false,
+        // Clear acknowledgment for next celebration
+        celebrationAcknowledgedBy: [],
+      });
+    } else {
+      console.log('[Live] Waiting for partner to acknowledge celebration');
+      // Just add this user to acknowledged list
+      updateLiveState({
+        celebrationAcknowledgedBy: newAcknowledged,
+      });
+    }
+  }, [name, partnerName, updateLiveState]);
 
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
@@ -771,9 +794,9 @@ export function ClarityLivePage() {
             liveState={liveState}
             currentUserName={name}
             partnerName={partnerName}
-            // V7 handlers (P23.2 Check/Prove model)
+            // P23.2/P23.3: Check/Prove model handlers
             onStartCheck={handleStartCheck}
-            // V12: "Did I get it?" - listener-initiated understanding check
+            // P23.3: "Did I get it?" - listener-initiated understanding check
             onStartProve={handleStartProve}
             onRatingSubmit={handleRatingSubmit}
             onSkip={handleSkip}

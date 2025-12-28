@@ -1,17 +1,76 @@
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
+import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
 
+// Hook to detect mobile (client-side only)
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(false)
+
+  React.useEffect(() => {
+    const check = () => {
+      // Check for touch capability and screen width
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+      const isNarrow = window.innerWidth < 768
+      setIsMobile(hasTouch && isNarrow)
+    }
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  return isMobile
+}
+
+// Context to share open state and mobile detection
+const DrawerContext = React.createContext<{
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  isMobile: boolean
+}>({
+  open: false,
+  onOpenChange: () => {},
+  isMobile: false,
+})
+
 const Drawer = ({
-  shouldScaleBackground = true,
+  shouldScaleBackground = false,
+  open,
+  onOpenChange,
+  children,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root
-    shouldScaleBackground={shouldScaleBackground}
-    {...props}
-  />
-)
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) => {
+  const isMobile = useIsMobile()
+  const [internalOpen, setInternalOpen] = React.useState(open ?? false)
+
+  const isControlled = open !== undefined
+  const isOpen = isControlled ? open : internalOpen
+  const setIsOpen = isControlled ? onOpenChange : setInternalOpen
+
+  // Mobile: use simple portal-based drawer
+  if (isMobile) {
+    return (
+      <DrawerContext.Provider value={{ open: isOpen ?? false, onOpenChange: setIsOpen ?? (() => {}), isMobile: true }}>
+        {children}
+      </DrawerContext.Provider>
+    )
+  }
+
+  // Desktop: use Vaul
+  return (
+    <DrawerContext.Provider value={{ open: isOpen ?? false, onOpenChange: setIsOpen ?? (() => {}), isMobile: false }}>
+      <DrawerPrimitive.Root
+        shouldScaleBackground={shouldScaleBackground}
+        open={open}
+        onOpenChange={onOpenChange}
+        {...props}
+      >
+        {children}
+      </DrawerPrimitive.Root>
+    </DrawerContext.Provider>
+  )
+}
 Drawer.displayName = "Drawer"
 
 const DrawerTrigger = DrawerPrimitive.Trigger
@@ -33,24 +92,58 @@ const DrawerOverlay = React.forwardRef<
 DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
 const DrawerContent = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay />
-    <DrawerPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
-        className
-      )}
-      {...props}
-    >
-      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-))
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, children, ...props }, ref) => {
+  const { open, onOpenChange, isMobile } = React.useContext(DrawerContext)
+
+  // Mobile: render a simple fixed-position div with portal
+  if (isMobile) {
+    if (!open) return null
+
+    return createPortal(
+      <>
+        {/* Overlay */}
+        <div
+          className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"
+          onClick={() => onOpenChange(false)}
+        />
+        {/* Drawer content */}
+        <div
+          ref={ref}
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col rounded-t-[10px] border bg-background",
+            "animate-in slide-in-from-bottom duration-300",
+            className
+          )}
+          {...props}
+        >
+          <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+          {children}
+        </div>
+      </>,
+      document.body
+    )
+  }
+
+  // Desktop: use Vaul's DrawerContent
+  return (
+    <DrawerPortal>
+      <DrawerOverlay />
+      <DrawerPrimitive.Content
+        ref={ref as React.Ref<HTMLDivElement>}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background",
+          className
+        )}
+        {...props}
+      >
+        <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+        {children}
+      </DrawerPrimitive.Content>
+    </DrawerPortal>
+  )
+})
 DrawerContent.displayName = "DrawerContent"
 
 const DrawerHeader = ({
@@ -76,31 +169,62 @@ const DrawerFooter = ({
 DrawerFooter.displayName = "DrawerFooter"
 
 const DrawerTitle = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Title
-    ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  />
-))
-DrawerTitle.displayName = DrawerPrimitive.Title.displayName
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => {
+  const { isMobile } = React.useContext(DrawerContext)
+
+  if (isMobile) {
+    return (
+      <h2
+        ref={ref}
+        className={cn(
+          "text-lg font-semibold leading-none tracking-tight",
+          className
+        )}
+        {...props}
+      />
+    )
+  }
+
+  return (
+    <DrawerPrimitive.Title
+      ref={ref}
+      className={cn(
+        "text-lg font-semibold leading-none tracking-tight",
+        className
+      )}
+      {...props}
+    />
+  )
+})
+DrawerTitle.displayName = "DrawerTitle"
 
 const DrawerDescription = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
-DrawerDescription.displayName = DrawerPrimitive.Description.displayName
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => {
+  const { isMobile } = React.useContext(DrawerContext)
+
+  if (isMobile) {
+    return (
+      <p
+        ref={ref}
+        className={cn("text-sm text-muted-foreground", className)}
+        {...props}
+      />
+    )
+  }
+
+  return (
+    <DrawerPrimitive.Description
+      ref={ref}
+      className={cn("text-sm text-muted-foreground", className)}
+      {...props}
+    />
+  )
+})
+DrawerDescription.displayName = "DrawerDescription"
 
 export {
   Drawer,

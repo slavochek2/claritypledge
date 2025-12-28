@@ -501,7 +501,7 @@ export interface LiveSessionState {
   // The checker is the person being understood
   checkerName?: string;
 
-  // V12: "Did I get it?" — listener-initiated check
+  // "Did I get it?" — listener-initiated check (P23.3)
   // When set, indicates listener initiated (proverName = listener who wants to prove understanding)
   // When undefined, indicates speaker initiated via "Did you get it?"
   proverName?: string;
@@ -527,6 +527,10 @@ export interface LiveSessionState {
   // Gated rating - listener must tap "Done Explaining" before speaker can rate
   // When listener taps "Done Explaining", this becomes true and speaker's rating UI unlocks
   explainBackDone?: boolean;
+
+  // Celebration acknowledgment - tracks who clicked "Continue" on celebration screen
+  // Both users must acknowledge before state resets to allow independent dismissal
+  celebrationAcknowledgedBy?: string[];
 }
 
 /** Default initial state for new live sessions */

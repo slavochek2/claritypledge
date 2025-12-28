@@ -45,13 +45,9 @@ describe('LiveModeView', () => {
         />
       );
 
-      // Get all buttons and check both exist
-      const buttons = screen.getAllByRole('button');
-      const didYouGetIt = buttons.find(b => b.textContent?.includes('you'));
-      const didIGetIt = buttons.find(b => b.textContent?.includes('I'));
-
-      expect(didYouGetIt).toBeInTheDocument();
-      expect(didIGetIt).toBeInTheDocument();
+      // Use data-testid for robust button selection
+      expect(screen.getByTestId('start-check')).toBeInTheDocument();
+      expect(screen.getByTestId('start-prove')).toBeInTheDocument();
     });
 
     it('calls onStartCheck when "Did you get it?" is clicked', () => {
@@ -62,9 +58,7 @@ describe('LiveModeView', () => {
         />
       );
 
-      const buttons = screen.getAllByRole('button');
-      const didYouGetIt = buttons.find(b => b.textContent?.includes('you') && b.textContent?.includes('get it'));
-      fireEvent.click(didYouGetIt!);
+      fireEvent.click(screen.getByTestId('start-check'));
       expect(mockHandlers.onStartCheck).toHaveBeenCalledTimes(1);
     });
 
@@ -76,13 +70,7 @@ describe('LiveModeView', () => {
         />
       );
 
-      const buttons = screen.getAllByRole('button');
-      // Find button that has "I" underlined (contains "I" and "get it")
-      const didIGetIt = buttons.find(b => {
-        const text = b.textContent || '';
-        return text.includes('Did') && text.includes('I') && text.includes('get it') && !text.includes('you');
-      });
-      fireEvent.click(didIGetIt!);
+      fireEvent.click(screen.getByTestId('start-prove'));
       expect(mockHandlers.onStartProve).toHaveBeenCalledTimes(1);
     });
 
@@ -125,6 +113,62 @@ describe('LiveModeView', () => {
 
     it('defaults proverName to undefined in DEFAULT_LIVE_STATE', () => {
       expect(DEFAULT_LIVE_STATE.proverName).toBeUndefined();
+    });
+
+    it('shows drawer notification with correct message when prover initiates', () => {
+      // Simulate: Alice (prover/listener) tapped "Did I get it?" and submitted
+      // Bob (checker/speaker) sees the drawer notification
+      const proverSubmittedState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'waiting',
+        checkerName: 'bob',
+        proverName: 'alice',
+        responderRating: 7,
+        responderSubmitted: true,
+        checkerSubmitted: false,
+      };
+
+      // Render as Bob (the checker/speaker who sees the drawer)
+      render(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="bob"
+          partnerName="alice"
+          liveState={proverSubmittedState}
+        />
+      );
+
+      // Bob should see drawer with "Alice wants to prove they understand you"
+      expect(screen.getByText(/Alice wants to prove/i)).toBeInTheDocument();
+      // And the rating question should ask how understood Bob feels
+      expect(screen.getByText(/How well do you feel understood by Alice/i)).toBeInTheDocument();
+    });
+
+    it('shows correct rating question for prover (listener) when they initiate', () => {
+      // Simulate: Alice tapped "Did I get it?" and is now rating her confidence
+      // This is shown via the local isLocallyRating state, but we can test the RatingScreen
+      const proverRatingState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'rating',
+        checkerName: 'bob',
+        proverName: 'alice',
+        checkerSubmitted: false,
+        responderSubmitted: false,
+      };
+
+      // Render as Alice (the prover/responder who is rating)
+      render(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          partnerName="bob"
+          liveState={proverRatingState}
+          isLocallyRating={true}
+        />
+      );
+
+      // Alice should see "How confident are you that you understand Bob?"
+      expect(screen.getByText(/How confident are you that you understand Bob/i)).toBeInTheDocument();
     });
   });
 
@@ -211,7 +255,7 @@ describe('LiveModeView', () => {
   });
 
   describe('Skip functionality', () => {
-    it('calls onSkip when skip/good enough is clicked', () => {
+    it('calls onSkip after confirmation when skip/good enough is clicked', () => {
       const gapState: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         ratingPhase: 'revealed',
@@ -229,8 +273,17 @@ describe('LiveModeView', () => {
         />
       );
 
+      // Click "Good enough" button - this opens a confirmation dialog
       const skipButton = screen.getByRole('button', { name: /Good enough/i });
       fireEvent.click(skipButton);
+
+      // onSkip should not be called yet (waiting for confirmation)
+      expect(mockHandlers.onSkip).not.toHaveBeenCalled();
+
+      // Find and click the confirm button in the dialog
+      // The dialog shows "Move forward?" with a "Move forward" confirm button
+      const confirmButton = screen.getByRole('button', { name: /Move forward$/i });
+      fireEvent.click(confirmButton);
 
       expect(mockHandlers.onSkip).toHaveBeenCalledTimes(1);
     });
