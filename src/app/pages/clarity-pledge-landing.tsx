@@ -108,6 +108,7 @@ export function ClarityPledgeLanding() {
               showQrCode={true}
               profileUrl="https://claritypledge.com/p/slava"
               photoUrl="/founder-photo.jpg"
+              pledgeVersion={3}
             />
           </div>
         </section>

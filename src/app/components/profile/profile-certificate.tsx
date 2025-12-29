@@ -44,7 +44,7 @@ export function ProfileCertificate({
   profileUrl,
   acceptanceCount = 0,
   exportMode = false,
-  pledgeVersion = 2,
+  pledgeVersion = 3,
 }: ProfileCertificateProps) {
   // Get the pledge content for this version
   const pledgeContent = PLEDGE_VERSIONS[pledgeVersion];
