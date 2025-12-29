@@ -4,7 +4,10 @@
  * the app acts as a quiet referee enforcing the understanding protocol.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Share2, Check, ChevronLeft, Keyboard } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +34,6 @@ import {
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
 import { LiveModeView } from '@/app/components/partners/live-mode-view';
-import { ReviewModeView } from '@/app/components/partners/review-mode-view';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -55,19 +57,25 @@ const POLL_INTERVAL_MS = 1000;
 const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
 
 export function ClarityLivePage() {
+  // Get room code from URL if present (for direct join via shared link)
+  const { code: urlCode } = useParams<{ code?: string }>();
+  const isJoinViaLink = !!urlCode;
+
   // Session state
   const [view, setView] = useState<ViewState>('start');
   const [name, setName] = useState('');
-  const [roomCode, setRoomCode] = useState('');
+  const [roomCode, setRoomCode] = useState(urlCode?.toUpperCase() || '');
   const [session, setSession] = useState<ClaritySession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [isRestoring, setIsRestoring] = useState(true); // For session restoration
+  const [copied, setCopied] = useState(false); // For copy feedback in waiting room
+  const [hostName, setHostName] = useState<string | null>(null); // For join via link - show host's name
+  const [showCodeInput, setShowCodeInput] = useState(false); // For manual code entry mode
 
   // Live session state (synced via session.live_state)
   const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
-  const [mode, setMode] = useState<'live' | 'review'>('live');
 
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -146,6 +154,24 @@ export function ClarityLivePage() {
 
     restoreSession();
   }, []);
+
+  // Fetch host name when joining via link (for personalized "Join X's Meeting" title)
+  useEffect(() => {
+    if (!isJoinViaLink || !urlCode) return;
+
+    const fetchHostName = async () => {
+      try {
+        const sessionInfo = await getClaritySession(urlCode.toUpperCase());
+        if (sessionInfo?.creatorName) {
+          setHostName(sessionInfo.creatorName);
+        }
+      } catch (err) {
+        console.error('[Live] Failed to fetch host name:', err);
+      }
+    };
+
+    fetchHostName();
+  }, [isJoinViaLink, urlCode]);
 
   // Helper to save session to sessionStorage
   const saveSessionToStorage = (code: string, userName: string, creator: boolean) => {
@@ -578,11 +604,6 @@ export function ClarityLivePage() {
     [updateLiveState]
   );
 
-  // Toggle mode
-  const handleToggleMode = useCallback(() => {
-    setMode((prev) => (prev === 'live' ? 'review' : 'live'));
-  }, []);
-
   // Clear the skip notification after toast is shown
   const handleClearSkipNotification = useCallback(() => {
     updateLiveState({
@@ -688,7 +709,6 @@ export function ClarityLivePage() {
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
     setIsLocallyRating(false);
-    setMode('live');
     setView('start');
     setRoomCode('');
     setShowExitConfirm(false);
@@ -707,7 +727,60 @@ export function ClarityLivePage() {
 
   // START VIEW
   if (view === 'start') {
-    const isJoinMode = roomCode.trim().length > 0;
+    // Join via link: simplified UI with just name input + join button
+    if (isJoinViaLink) {
+      return (
+        <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-serif font-bold mb-2">
+              {hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting'}
+            </h1>
+            {!hostName && (
+              <div className="inline-flex items-center px-3 py-1.5 bg-muted rounded-full">
+                <span className="text-sm text-muted-foreground">
+                  Room: <span className="font-mono font-medium">{roomCode}</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">Your Name</Label>
+              <Input
+                id="name"
+                placeholder="Enter your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <Button
+              onClick={handleJoin}
+              disabled={isLoading || !name.trim()}
+              className="w-full"
+              size="lg"
+            >
+              {isLoading ? 'Joining...' : 'Join Meeting'}
+            </Button>
+
+            <Link
+              to="/live"
+              className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    // Cold start: full UI with Start + Join options
+    const isJoinMode = showCodeInput || roomCode.trim().length > 0;
 
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
@@ -740,53 +813,73 @@ export function ClarityLivePage() {
                 className="w-full"
                 size="lg"
               >
-                {isLoading ? 'Creating...' : 'Start Live Session'}
+                {isLoading ? 'Creating...' : 'Start New Meeting'}
               </Button>
             )}
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+            {!isJoinMode && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or join a meeting
+                  </span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  {isJoinMode ? 'Join session' : 'Or join existing'}
-                </span>
-              </div>
-            </div>
+            )}
 
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="code">Room Code</Label>
-                <Input
-                  id="code"
-                  placeholder="Enter 6-letter code"
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  maxLength={6}
-                  className="text-center font-mono text-lg"
-                />
+            {isJoinMode ? (
+              // Join mode: show code input and join button
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="code">Meeting Code</Label>
+                  <Input
+                    id="code"
+                    placeholder="Enter 6-letter code"
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                    maxLength={6}
+                    className="text-center font-mono text-lg"
+                  />
+                </div>
+                <Button
+                  onClick={handleJoin}
+                  disabled={isLoading || !name.trim() || !roomCode.trim()}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isLoading ? 'Joining...' : 'Join Meeting'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setRoomCode('');
+                    setShowCodeInput(false);
+                  }}
+                  variant="ghost"
+                  className="w-full text-muted-foreground"
+                  size="sm"
+                >
+                  Or start a new meeting instead
+                </Button>
               </div>
-              <Button
-                onClick={handleJoin}
-                disabled={isLoading || !name.trim() || !roomCode.trim()}
-                variant={isJoinMode ? 'default' : 'outline'}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? 'Joining...' : 'Join Session'}
-              </Button>
-            </div>
-
-            {isJoinMode && (
-              <Button
-                onClick={() => setRoomCode('')}
-                variant="ghost"
-                className="w-full text-muted-foreground"
-                size="sm"
-              >
-                Or create a new session instead
-              </Button>
+            ) : (
+              // Have an invite: show join option
+              <div className="space-y-3">
+                <Button
+                  onClick={() => setShowCodeInput(true)}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  <Keyboard className="h-5 w-5 mr-2" />
+                  Enter Meeting Code
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  Tip: You can also scan the QR code with your phone's camera app
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -795,32 +888,100 @@ export function ClarityLivePage() {
   }
 
   // WAITING VIEW
+  // Generate shareable link
+  const shareLink = session ? `${window.location.origin}/live/${session.code}` : '';
+
+  // Handle share: native share on mobile only, copy on desktop
+  const handleShare = async () => {
+    if (!session) return;
+
+    // Detect mobile using userAgent - more reliable than touch/screen size
+    // This avoids the awkward macOS share sheet on desktop Safari/Chrome
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+
+    // Use native share only on mobile
+    if (isMobile && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Join my Clarity Meeting',
+          text: `Join my Clarity Meeting`,
+          url: shareLink,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall through to copy
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+
+    // Desktop (or mobile fallback): copy to clipboard
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   if (view === 'waiting' && session) {
+    // Display-friendly link (without https://)
+    const displayLink = shareLink.replace('https://', '').replace('http://', '');
+
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
         <div className="text-center space-y-6">
-          <h1 className="text-2xl font-serif font-bold">Waiting for Partner</h1>
-
-          <div className="p-6 bg-muted rounded-lg">
-            <p className="text-sm text-muted-foreground mb-2">Share this code:</p>
-            <p className="text-4xl font-mono font-bold tracking-widest">{session.code}</p>
-          </div>
+          <h1 className="text-2xl font-serif font-bold">New Clarity Meeting</h1>
 
           <p className="text-muted-foreground">
-            Have your partner enter this code on their phone.
+            Share this link with your partner:
           </p>
 
-          <div className="animate-pulse text-sm text-muted-foreground">
-            Waiting...
+          {/* Link row with copy/share */}
+          <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+            <span className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2">
+              {displayLink}
+            </span>
+            <Button
+              onClick={handleShare}
+              size="sm"
+              className="flex-shrink-0"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 mr-1" />
+              ) : (
+                <Share2 className="h-4 w-4 mr-1" />
+              )}
+              {copied ? 'Copied!' : 'Share'}
+            </Button>
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            Or show them this QR code:
+          </p>
+
+          {/* QR Code */}
+          <div className="p-4 bg-white rounded-lg border inline-block">
+            <QRCodeSVG
+              value={shareLink}
+              size={160}
+              level="M"
+            />
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Waiting for partner to join...
+          </p>
 
           <Button
             variant="ghost"
+            size="sm"
             onClick={handleCancelWaiting}
             className="text-muted-foreground"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Cancel
+            Back
           </Button>
         </div>
       </div>
@@ -831,42 +992,31 @@ export function ClarityLivePage() {
   if ((view === 'live') && session && partnerName) {
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] max-w-lg mx-auto">
-        {mode === 'live' ? (
-          <LiveModeView
-            liveState={liveState}
-            currentUserName={name}
-            partnerName={partnerName}
-            // P23.2/P23.3: Check/Prove model handlers
-            onStartCheck={handleStartCheck}
-            // P23.3: "Did I get it?" - listener-initiated understanding check
-            onStartProve={handleStartProve}
-            onRatingSubmit={handleRatingSubmit}
-            onSkip={handleSkip}
-            onBackToIdle={handleSkip}
-            // V8: Explain-back (simplified - listener sees buttons immediately)
-            onExplainBackStart={handleExplainBackStart}
-            onExplainBackRate={handleExplainBackRate}
-            onToggleMode={handleToggleMode}
-            onClearSkipNotification={handleClearSkipNotification}
-            // V10: Local rating state
-            isLocallyRating={isLocallyRating}
-            onCancelLocalRating={() => setIsLocallyRating(false)}
-            // V10: Exit meeting button
-            onExitMeeting={handleExitMeeting}
-            // V11: Listener taps "Done Explaining" to unlock speaker's rating
-            onExplainBackDone={handleExplainBackDone}
-            // Celebration complete - reset shared state for new rounds
-            onCelebrationComplete={handleCelebrationComplete}
-          />
-        ) : (
-          <ReviewModeView
-            session={session}
-            liveState={liveState}
-            currentUserName={name}
-            partnerName={partnerName}
-            onToggleMode={handleToggleMode}
-          />
-        )}
+        <LiveModeView
+          liveState={liveState}
+          currentUserName={name}
+          partnerName={partnerName}
+          // P23.2/P23.3: Check/Prove model handlers
+          onStartCheck={handleStartCheck}
+          // P23.3: "Did I get it?" - listener-initiated understanding check
+          onStartProve={handleStartProve}
+          onRatingSubmit={handleRatingSubmit}
+          onSkip={handleSkip}
+          onBackToIdle={handleSkip}
+          // V8: Explain-back (simplified - listener sees buttons immediately)
+          onExplainBackStart={handleExplainBackStart}
+          onExplainBackRate={handleExplainBackRate}
+          onClearSkipNotification={handleClearSkipNotification}
+          // V10: Local rating state
+          isLocallyRating={isLocallyRating}
+          onCancelLocalRating={() => setIsLocallyRating(false)}
+          // V10: Exit meeting button
+          onExitMeeting={handleExitMeeting}
+          // V11: Listener taps "Done Explaining" to unlock speaker's rating
+          onExplainBackDone={handleExplainBackDone}
+          // Celebration complete - reset shared state for new rounds
+          onCelebrationComplete={handleCelebrationComplete}
+        />
 
         {/* Exit confirmation dialog */}
         <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>

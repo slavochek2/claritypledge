@@ -229,6 +229,16 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+
+        {/* Join via link - room code in URL */}
+        <Route
+          path="/live/:code"
+          element={
+            <ClarityLandingLayout>
+              <ClarityLivePage />
+            </ClarityLandingLayout>
+          }
+        />
       </Routes>
       </AuthProvider>
     </Router>

@@ -44,7 +44,6 @@ interface LiveModeViewProps {
   onSkip: () => void;
   onExplainBackStart: () => void;
   onExplainBackRate: (rating: number) => void;
-  onToggleMode: () => void;
   onStartCheck: () => void;
   /** P23.3: Listener taps "Did I get it?" to prove understanding */
   onStartProve: () => void;
@@ -70,7 +69,6 @@ export function LiveModeView({
   onSkip,
   onExplainBackStart,
   onExplainBackRate,
-  onToggleMode,
   onStartCheck,
   onStartProve,
   onBackToIdle,
@@ -231,7 +229,6 @@ export function LiveModeView({
           onStartCheck={onStartCheck}
           onStartProve={onStartProve}
           onSkip={() => handleRequestSkip('good-enough')}
-          onToggleMode={onToggleMode}
           onExit={onExitMeeting}
           hideHistory={true}
           waitingForPartnerToContinue={true}
@@ -256,7 +253,6 @@ export function LiveModeView({
           liveState={liveState}
           onRatingSubmit={onRatingSubmit}
           onBack={onCancelLocalRating}
-          onToggleMode={onToggleMode}
           showDrawer={partnerAlreadySubmitted}
           onSkip={() => handleRequestSkip('decline')}
           onExit={onExitMeeting}
@@ -278,7 +274,6 @@ export function LiveModeView({
           onStartCheck={onStartCheck}
           onStartProve={onStartProve}
           onSkip={() => handleRequestSkip('good-enough')}
-          onToggleMode={onToggleMode}
           onExit={onExitMeeting}
         />
         {skipNotificationDialog}
@@ -297,7 +292,6 @@ export function LiveModeView({
           isChecker={isChecker}
           onRatingSubmit={onRatingSubmit}
           onBack={onBackToIdle}
-          onToggleMode={onToggleMode}
           onExit={onExitMeeting}
         />
         {skipNotificationDialog}
@@ -321,7 +315,6 @@ export function LiveModeView({
             onStartProve={onStartProve}
             onRatingSubmit={onRatingSubmit}
             onSkip={() => handleRequestSkip('decline')}
-            onToggleMode={onToggleMode}
             onExit={onExitMeeting}
           />
           {skipNotificationDialog}
@@ -345,7 +338,6 @@ export function LiveModeView({
           onExplainBackDone={onExplainBackDone}
           onSkip={() => handleRequestSkip('skip')}
           onBackToIdle={onBackToIdle}
-          onToggleMode={onToggleMode}
           onExit={onExitMeeting}
           onCelebrationContinue={handleCelebrationContinue}
         />
@@ -371,7 +363,6 @@ export function LiveModeView({
           onExplainBackDone={onExplainBackDone}
           onSkip={() => handleRequestSkip('good-enough')}
           onBackToIdle={onBackToIdle}
-          onToggleMode={onToggleMode}
           onExit={onExitMeeting}
           onCelebrationContinue={handleCelebrationContinue}
         />
@@ -390,7 +381,6 @@ export function LiveModeView({
         onStartCheck={onStartCheck}
         onStartProve={onStartProve}
         onSkip={() => handleRequestSkip('good-enough')}
-        onToggleMode={onToggleMode}
         onExit={onExitMeeting}
       />
       {skipNotificationDialog}
@@ -409,7 +399,6 @@ interface IdleScreenProps {
   onStartCheck: () => void;
   /** P23.3: Listener taps "Did I get it?" to prove understanding */
   onStartProve: () => void;
-  onToggleMode: () => void;
   /** Required - used when drawer is closed or user declines */
   onSkip: () => void;
   onExit: () => void;
@@ -427,7 +416,6 @@ function IdleScreen({
   liveState,
   onStartCheck,
   onStartProve,
-  onToggleMode,
   onSkip,
   onExit,
   showRatingDrawer = false,
@@ -512,8 +500,6 @@ function IdleScreen({
         )}
       </div>
 
-      <LiveFooter onToggleMode={onToggleMode} />
-
       {/* Responder notification drawer - slides up from bottom */}
       {/* Only render when showRatingDrawer is true AND onRatingSubmit is provided */}
       {showRatingDrawer && onRatingSubmit && (
@@ -559,7 +545,6 @@ interface ResponderWaitingWithDrawerProps {
   onStartProve: () => void;
   onRatingSubmit: (rating: number) => void;
   onSkip: () => void;
-  onToggleMode: () => void;
   onExit: () => void;
 }
 
@@ -570,7 +555,6 @@ function ResponderWaitingWithDrawer({
   onStartProve,
   onRatingSubmit,
   onSkip,
-  onToggleMode,
   onExit,
 }: ResponderWaitingWithDrawerProps) {
   return (
@@ -579,7 +563,6 @@ function ResponderWaitingWithDrawer({
       liveState={liveState}
       onStartCheck={onStartCheck}
       onStartProve={onStartProve}
-      onToggleMode={onToggleMode}
       showRatingDrawer={true}
       onRatingSubmit={onRatingSubmit}
       onSkip={onSkip}
@@ -598,7 +581,6 @@ interface RatingScreenProps {
   isChecker: boolean;
   onRatingSubmit: (rating: number) => void;
   onBack: () => void;
-  onToggleMode: () => void;
   onExit: () => void;
 }
 
@@ -608,7 +590,6 @@ function RatingScreen({
   isChecker,
   onRatingSubmit,
   onBack,
-  onToggleMode,
   onExit,
 }: RatingScreenProps) {
   const displayPartnerName = capitalizeName(partnerName);
@@ -675,8 +656,6 @@ function RatingScreen({
           Back
         </Button>
       </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
     </div>
   );
 }
@@ -691,7 +670,6 @@ interface RatingScreenWithOptionalDrawerProps {
   liveState: LiveSessionState;
   onRatingSubmit: (rating: number) => void;
   onBack: () => void;
-  onToggleMode: () => void;
   showDrawer: boolean;
   onSkip: () => void;
   onExit: () => void;
@@ -702,7 +680,6 @@ function RatingScreenWithOptionalDrawer({
   liveState,
   onRatingSubmit,
   onBack,
-  onToggleMode,
   showDrawer,
   onSkip,
   onExit,
@@ -775,8 +752,6 @@ function RatingScreenWithOptionalDrawer({
           Back
         </Button>
       </div>
-
-      <LiveFooter onToggleMode={onToggleMode} />
 
       {/* V10: Drawer notification when partner already submitted */}
       <Drawer open={showDrawer} onOpenChange={(open) => { if (!open) onSkip(); }}>
@@ -1189,7 +1164,6 @@ interface UnderstandingScreenProps {
   onExplainBackDone: () => void;
   onSkip: () => void;
   onBackToIdle: () => void;
-  onToggleMode: () => void;
   onExit: () => void;
   onCelebrationContinue: () => void;
 }
@@ -1206,7 +1180,6 @@ function UnderstandingScreen({
   onExplainBackDone,
   onSkip,
   onBackToIdle,
-  onToggleMode,
   onExit,
   onCelebrationContinue,
 }: UnderstandingScreenProps) {
@@ -1305,7 +1278,6 @@ function UnderstandingScreen({
                 </div>
               </div>
             </div>
-            <LiveFooter onToggleMode={onToggleMode} />
           </div>
         );
       }
@@ -1332,7 +1304,6 @@ function UnderstandingScreen({
               className="w-full max-w-sm"
             />
           </div>
-          <LiveFooter onToggleMode={onToggleMode} />
         </div>
       );
     }
@@ -1378,7 +1349,6 @@ function UnderstandingScreen({
               </div>
             </div>
           </div>
-          <LiveFooter onToggleMode={onToggleMode} />
         </div>
       );
     }
@@ -1419,7 +1389,6 @@ function UnderstandingScreen({
             </Button>
           </div>
         </div>
-        <LiveFooter onToggleMode={onToggleMode} />
       </div>
     );
   }
@@ -1460,7 +1429,6 @@ function UnderstandingScreen({
             Back
           </button>
         </div>
-        <LiveFooter onToggleMode={onToggleMode} />
       </div>
     );
   }
@@ -1521,7 +1489,6 @@ function UnderstandingScreen({
             Continue
           </Button>
         </div>
-        <LiveFooter onToggleMode={onToggleMode} />
       </div>
     );
   }
@@ -1583,7 +1550,6 @@ function UnderstandingScreen({
             )}
           </div>
         </div>
-        <LiveFooter onToggleMode={onToggleMode} />
       </div>
     );
   }
@@ -1634,7 +1600,6 @@ function UnderstandingScreen({
           )}
         </div>
       </div>
-      <LiveFooter onToggleMode={onToggleMode} />
     </div>
   );
 }
@@ -1682,23 +1647,3 @@ function LiveHeader({ partnerName, onExit }: LiveHeaderProps) {
   return <LiveSessionBanner partnerName={partnerName} onExit={onExit} />;
 }
 
-interface LiveFooterProps {
-  onToggleMode: () => void;
-}
-
-function LiveFooter({ onToggleMode }: LiveFooterProps) {
-  return (
-    <div className="p-4 border-t">
-      <div className="flex items-center justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onToggleMode}
-          className="h-8 px-4 text-sm font-medium"
-        >
-          History
-        </Button>
-      </div>
-    </div>
-  );
-}
