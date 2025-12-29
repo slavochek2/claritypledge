@@ -23,7 +23,7 @@ export interface Profile {
   witnesses: Witness[];
   reciprocations: number;
   avatarColor?: string;
-  pledgeVersion?: number; // 1 = Clarity Pledge (v1), 2 = Clarity Pledge (v2)
+  pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
 }
 
 /**

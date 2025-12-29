@@ -28,7 +28,7 @@ interface ProfileCertificateProps {
   acceptanceCount?: number;
   /** Export mode: shows acceptance count and watermark at bottom */
   exportMode?: boolean;
-  /** Pledge version: 1 = Clarity Pledge (v1), 2 = Clarity Pledge (v2) */
+  /** Pledge version: 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding") */
   pledgeVersion?: PledgeVersion;
 }
 
