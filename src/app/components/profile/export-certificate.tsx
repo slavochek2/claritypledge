@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { PLEDGE_TEXT, YourRightText, MyPromiseText } from "@/app/content/pledge-text";
+import { PLEDGE_TEXT, YourRightText, MyPromiseText, ExceptionText } from "@/app/content/pledge-text";
 
 interface ExportCertificateProps {
   name: string;
@@ -147,6 +147,31 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
             }}
           >
             <MyPromiseText />
+          </p>
+        </div>
+
+        {/* The Exception Section */}
+        <div style={{ marginBottom: "25px" }}>
+          <h4
+            style={{
+              fontSize: "28px",
+              fontWeight: "bold",
+              color: "#0044CC",
+              letterSpacing: "0.05em",
+              margin: "0 0 15px 0",
+            }}
+          >
+            {PLEDGE_TEXT.exception.heading}
+          </h4>
+          <p
+            style={{
+              fontSize: "20px",
+              lineHeight: "1.6",
+              color: "#1A1A1A",
+              margin: 0,
+            }}
+          >
+            <ExceptionText />
           </p>
         </div>
 

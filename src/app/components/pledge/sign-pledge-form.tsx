@@ -9,6 +9,7 @@ import {
   PLEDGE_TEXT,
   YourRightTextTailwind,
   MyPromiseTextTailwind,
+  ExceptionTextTailwind,
 } from "@/app/content/pledge-text";
 
 interface SignPledgeFormProps {
@@ -147,6 +148,16 @@ export function SignPledgeForm({
             </h3>
             <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
               <MyPromiseTextTailwind />
+            </p>
+          </div>
+
+          {/* The Exception Section - Matching Certificate Design */}
+          <div className="space-y-2 md:space-y-4">
+            <h3 className="text-lg md:text-2xl font-bold text-[#0044CC] tracking-wide">
+              {PLEDGE_TEXT.exception.heading}
+            </h3>
+            <p className="text-base md:text-lg leading-relaxed text-[#1A1A1A]">
+              <ExceptionTextTailwind />
             </p>
           </div>
         </div>

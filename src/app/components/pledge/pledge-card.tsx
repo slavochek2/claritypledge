@@ -5,6 +5,7 @@ import {
   PLEDGE_TEXT,
   YourRightTextTailwind,
   MyPromiseTextTailwind,
+  ExceptionTextTailwind,
 } from "@/app/content/pledge-text";
 import { ClarityLogoMark } from "@/components/ui/clarity-logo";
 
@@ -86,6 +87,16 @@ export function PledgeCard({
                 </h4>
                 <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
                   <MyPromiseTextTailwind />
+                </p>
+              </div>
+
+              {/* The Exception Section */}
+              <div className="mb-10">
+                <h4 className="text-2xl lg:text-3xl font-bold text-[#0044CC] dark:text-blue-400 mb-5 tracking-wide">
+                  {PLEDGE_TEXT.exception.heading}
+                </h4>
+                <p className="text-xl lg:text-2xl leading-relaxed text-[#1A1A1A] dark:text-foreground">
+                  <ExceptionTextTailwind />
                 </p>
               </div>
 
