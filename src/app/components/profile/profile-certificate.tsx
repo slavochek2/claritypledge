@@ -48,7 +48,8 @@ export function ProfileCertificate({
 }: ProfileCertificateProps) {
   // Get the pledge content for this version
   const pledgeContent = PLEDGE_VERSIONS[pledgeVersion];
-  const isV2 = pledgeVersion === 2;
+  // v2 and v3 share the same structure (header, exception sections)
+  const hasExtendedFormat = pledgeVersion === 2 || pledgeVersion === 3;
 
   return (
     <div
@@ -72,7 +73,7 @@ export function ProfileCertificate({
             {pledgeContent.subtitle}
           </p>
           {/* V2: Show header tagline */}
-          {isV2 && 'header' in pledgeContent && (
+          {hasExtendedFormat && 'header' in pledgeContent && (
             <p className="text-sm text-[#1A1A1A]/80 dark:text-muted-foreground italic mt-2">
               {pledgeContent.header}
             </p>
@@ -113,8 +114,8 @@ export function ProfileCertificate({
           </p>
         </div>
 
-        {/* V2: The Exception Section */}
-        {isV2 && 'exception' in pledgeContent && (
+        {/* V2+: The Exception Section */}
+        {hasExtendedFormat && 'exception' in pledgeContent && (
           <div className="space-y-4">
             <h4 className="text-xl md:text-2xl font-bold text-[#0044CC] dark:text-blue-400 tracking-wide">
               {pledgeContent.exception.heading}
