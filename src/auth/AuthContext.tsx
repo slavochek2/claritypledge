@@ -14,6 +14,7 @@ import { createContext, useContext, useState, useEffect, useRef, ReactNode } fro
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { getProfile, signOut as apiSignOut } from '@/app/data/api';
+import { analytics } from '@/lib/mixpanel';
 import type { Profile } from '@/app/types';
 
 interface AuthState {
@@ -114,6 +115,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (profile !== null) {
           setUser(profile);
           previousUserRef.current = profile;
+
+          // Identify user in analytics on session restore (returning users)
+          // This ensures Mixpanel knows who the user is even without going through magic link
+          analytics.identify(userId);
         } else if (previousUserRef.current === null) {
           // Profile not found and we have no cached user - this is a new/deleted user
           setUser(null);
@@ -149,6 +154,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signOut = async () => {
     await apiSignOut();
+    // Reset analytics to clear user identity (prevents events attributed to wrong user)
+    analytics.reset();
     // Only clear state after successful sign-out to prevent ghost sessions
     setUser(null);
     setSession(null);

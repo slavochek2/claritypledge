@@ -247,6 +247,8 @@ analytics.identify(userId);
 analytics.setUserProperties({ plan: 'free', signupDate: '2024-01-15' });
 ```
 
+**When adding new features:** Add Mixpanel events for key user actions. See [docs/technical/analytics.md](docs/technical/analytics.md) for the full event catalog and naming conventions.
+
 ### Sentry Error Tracking
 
 Initialized in [src/main.tsx](src/main.tsx). Errors are auto-captured. For manual tracking:

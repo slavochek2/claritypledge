@@ -398,10 +398,16 @@ export function ClarityLivePage() {
 
     console.log('[Live] Did you get it? tapped by:', name);
 
+    // Track check initiation
+    analytics.track('live_check_started', {
+      session_code: session?.code,
+      flow_type: 'check',
+    });
+
     // Just show rating screen locally - don't touch shared state
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName]);
+  }, [name, partnerName, session?.code]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -419,11 +425,17 @@ export function ClarityLivePage() {
 
     console.log('[Live] Did I get it? tapped by:', name);
 
+    // Track prove initiation
+    analytics.track('live_prove_started', {
+      session_code: session?.code,
+      flow_type: 'prove',
+    });
+
     // Just show rating screen locally - don't touch shared state until submit
     // This mirrors handleStartCheck behavior for consistent sealed-bid pattern
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName]);
+  }, [name, partnerName, session?.code]);
 
   // V7: Handle rating submission
   // "Did you get it?" flow: First person to submit becomes the checker
@@ -438,6 +450,21 @@ export function ClarityLivePage() {
 
       // Use ref to get current confirmed state (avoids stale closure)
       const currentState = confirmedLiveStateRef.current;
+
+      // Determine role for tracking
+      const isFirstSubmitter = !currentState.checkerName;
+      const role = isFirstSubmitter
+        ? (localFlowType === 'prove' ? 'responder' : 'checker')
+        : (currentState.checkerName === name ? 'checker' : 'responder');
+
+      // Track rating submission
+      analytics.track('live_rating_submitted', {
+        session_code: session?.code,
+        rating,
+        role,
+        flow_type: localFlowType,
+        round: currentState.explainBackRatings.length,
+      });
 
       const updates: Partial<LiveSessionState> = {
         ratingPhase: 'waiting',
@@ -483,18 +510,53 @@ export function ClarityLivePage() {
         if (bothSubmitted) {
           updates.ratingPhase = 'revealed';
           updates.checksCount = currentState.checksCount + 1;
+
+          // Track understanding revealed with gap data
+          const checkerRatingValue = isChecker ? rating : currentState.checkerRating;
+          const responderRatingValue = isChecker ? currentState.responderRating : rating;
+          const gap = (responderRatingValue ?? 0) - (checkerRatingValue ?? 0);
+
+          const isPerfect = checkerRatingValue === 10 && responderRatingValue === 10;
+
+          analytics.track('live_understanding_revealed', {
+            session_code: session?.code,
+            checker_rating: checkerRatingValue,
+            responder_rating: responderRatingValue,
+            gap,
+            gap_type: gap > 0 ? 'overconfidence' : gap < 0 ? 'underconfidence' : 'none',
+            is_perfect: isPerfect,
+            round: currentState.explainBackRatings.length,
+          });
+
+          // Track perfect understanding on first round
+          if (isPerfect) {
+            analytics.track('live_perfect_understanding', {
+              session_code: session?.code,
+              rounds_to_achieve: 0,
+              initial_checker_rating: checkerRatingValue,
+              initial_responder_rating: responderRatingValue,
+            });
+          }
         }
       }
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState]
+    [name, partnerName, localFlowType, updateLiveState, session?.code]
   );
 
   // V7: Handle skip (resets to idle state for next check)
   // V10: Now tracks who skipped so partner can be notified
   const handleSkip = useCallback(() => {
     console.log('[Live] Skip - returning to idle, skipped by:', name);
+
+    // Track round skip
+    const currentState = confirmedLiveStateRef.current;
+    analytics.track('live_round_skipped', {
+      session_code: session?.code,
+      phase: currentState.ratingPhase,
+      round: currentState.explainBackRatings.length,
+    });
 
     // Reset to idle state for a fresh start
     // Set skippedBy so partner sees toast notification
@@ -514,7 +576,7 @@ export function ClarityLivePage() {
       explainBackRatings: [],
       explainBackDone: false,
     });
-  }, [name, updateLiveState]);
+  }, [name, updateLiveState, session?.code]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
   // Both users must acknowledge before state resets (prevents forceful exit for partner)
@@ -568,11 +630,19 @@ export function ClarityLivePage() {
   const handleExplainBackStart = useCallback(() => {
     console.log('[Live] Explain-back started');
 
+    const currentState = confirmedLiveStateRef.current;
+    analytics.track('live_explain_back_started', {
+      session_code: session?.code,
+      round: currentState.explainBackRatings.length + 1,
+      checker_rating: currentState.checkerRating,
+      responder_rating: currentState.responderRating,
+    });
+
     updateLiveState({
       ratingPhase: 'explain-back',
       explainBackDone: false,
     });
-  }, [updateLiveState]);
+  }, [updateLiveState, session?.code]);
 
   // V11: Handle listener tapping "Done Explaining" - unlocks speaker's rating UI
   const handleExplainBackDone = useCallback(() => {
@@ -590,10 +660,31 @@ export function ClarityLivePage() {
 
       const currentState = confirmedLiveStateRef.current;
       const newExplainBackRatings = [...currentState.explainBackRatings, rating];
+      const round = currentState.explainBackRound + 1;
+      const isPerfect = rating === 10;
+
+      // Track explain-back rating
+      analytics.track('live_explain_back_rated', {
+        session_code: session?.code,
+        rating,
+        round,
+        is_perfect: isPerfect,
+        previous_checker_rating: currentState.checkerRating,
+      });
+
+      // Track perfect understanding if achieved
+      if (isPerfect) {
+        analytics.track('live_perfect_understanding', {
+          session_code: session?.code,
+          rounds_to_achieve: round,
+          initial_checker_rating: currentState.checkerRating,
+          initial_responder_rating: currentState.responderRating,
+        });
+      }
 
       updateLiveState({
         ratingPhase: 'results',
-        explainBackRound: currentState.explainBackRound + 1,
+        explainBackRound: round,
         explainBackRatings: newExplainBackRatings,
         explainBackDone: false, // Reset for next round
         checksCount: currentState.checksCount + 1,
@@ -601,7 +692,7 @@ export function ClarityLivePage() {
         ...(rating >= 9 ? { ideasUnderstood: currentState.ideasUnderstood + 1 } : {}),
       });
     },
-    [updateLiveState]
+    [updateLiveState, session?.code]
   );
 
   // Clear the skip notification after toast is shown
@@ -642,6 +733,11 @@ export function ClarityLivePage() {
       setView('waiting');
       // HIGH #6: Save to localStorage for rejoin
       saveSessionToStorage(newSession.code, trimmedName, true);
+
+      // Track session creation
+      analytics.track('live_session_created', {
+        session_code: newSession.code,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     } finally {
@@ -681,6 +777,12 @@ export function ClarityLivePage() {
       setView('live');
       // HIGH #6: Save to localStorage for rejoin
       saveSessionToStorage(joinedSession.code, trimmedName, false);
+
+      // Track session join
+      analytics.track('live_session_joined', {
+        session_code: joinedSession.code,
+        join_method: isJoinViaLink ? 'link' : 'code',
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join session');
     } finally {
@@ -705,6 +807,16 @@ export function ClarityLivePage() {
   // Actually exit meeting after confirmation
   const confirmExitMeeting = useCallback(() => {
     console.log('[Live] Exiting meeting, returning to start');
+
+    // Track session exit
+    if (session) {
+      analytics.track('live_session_exited', {
+        session_code: session.code,
+        checks_completed: liveState.checksCount,
+        is_creator: isCreator,
+      });
+    }
+
     clearStoredSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
@@ -712,7 +824,7 @@ export function ClarityLivePage() {
     setView('start');
     setRoomCode('');
     setShowExitConfirm(false);
-  }, []);
+  }, [session, liveState.checksCount, isCreator]);
 
   // Show loading while restoring session
   if (isRestoring) {
