@@ -426,6 +426,13 @@ export type RatingPhase = 'idle' | 'rating' | 'waiting' | 'revealed' | 'explain-
 export type GapType = 'overconfidence' | 'underconfidence' | 'none';
 
 /**
+ * P23.3 Flow type for understanding check initiation
+ * - 'check': Speaker initiated "Did you get it?" (standard flow)
+ * - 'prove': Listener initiated "Did I get it?" (prover flow)
+ */
+export type FlowType = 'check' | 'prove';
+
+/**
  * V6 Live session state synced via clarity_sessions.live_state
  *
  * Key V6 model (sealed-bid):
@@ -434,6 +441,18 @@ export type GapType = 'overconfidence' | 'underconfidence' | 'none';
  * - Listener rates: "How well I understand speaker"
  * - Gap surfaced only after both submit with explain-back options
  */
+
+/**
+ * Clarification phase enum - replaces three boolean flags to prevent invalid states
+ * - 'speaker-deciding': Speaker sees "Clarify now" / "Good enough", listener waits
+ * - 'speaker-clarifying': Speaker is verbally clarifying, listener listens
+ * - 'listener-responding': Speaker done clarifying, listener's turn to act
+ */
+export type ClarificationPhase =
+  | 'speaker-deciding'
+  | 'speaker-clarifying'
+  | 'listener-responding';
+
 export interface LiveSessionState {
   // Current idea being discussed (legacy, may be removed)
   currentIdeaId?: string;
@@ -528,9 +547,29 @@ export interface LiveSessionState {
   // When listener taps "Done Explaining", this becomes true and speaker's rating UI unlocks
   explainBackDone?: boolean;
 
+  // Speaker clarification flow - after explain-back rating < 10, speaker can clarify before listener tries again
+  // Single enum replaces three booleans to prevent invalid state combinations
+  // State machine: undefined → 'speaker-deciding' → 'speaker-clarifying' → 'listener-responding'
+  clarificationPhase?: ClarificationPhase;
+
   // Celebration acknowledgment - tracks who clicked "Continue" on celebration screen
   // Both users must acknowledge before state resets to allow independent dismissal
   celebrationAcknowledgedBy?: string[];
+
+  // Perspective request - listener wants to share their own perspective instead of explaining back
+  // When set, speaker sees dialog to accept the role swap
+  perspectiveRequestedBy?: string;
+
+  // Role switch negotiation - when listener clicks "Respond as speaker"
+  // Step 1: Speaker sees "Accept" / "Ask to explain back first"
+  // Step 2: If speaker chose "Ask to explain back first", listener sees "Continue as listener" / "I really need to speak"
+  // Step 3: If listener chose "I really need to speak", speaker sees "Let them speak"
+  roleSwitchNegotiation?: {
+    // Who initiated the role switch request (the listener who wants to become speaker)
+    requestedBy: string;
+    // Current negotiation state
+    state: 'pending' | 'speaker-asked-to-explain' | 'listener-insists';
+  };
 }
 
 /** Default initial state for new live sessions */

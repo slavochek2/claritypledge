@@ -22,6 +22,15 @@ const mockHandlers = {
   onExitMeeting: vi.fn(),
   onExplainBackDone: vi.fn(),
   onCelebrationComplete: vi.fn(),
+  onSharePerspective: vi.fn(),
+  // Role switch negotiation handlers
+  onAskToExplainFirst: vi.fn(),
+  onContinueAsListener: vi.fn(),
+  onInsistToSpeak: vi.fn(),
+  onLetThemSpeak: vi.fn(),
+  // Speaker clarification handlers
+  onClarifyStart: vi.fn(),
+  onClarifyDone: vi.fn(),
 };
 
 const defaultProps = {
@@ -138,8 +147,8 @@ describe('LiveModeView', () => {
         />
       );
 
-      // Bob should see drawer with "Alice wants to prove they understand you"
-      expect(screen.getByText(/Alice wants to prove/i)).toBeInTheDocument();
+      // Bob should see drawer with "Alice wants to check if they got you"
+      expect(screen.getByText(/Alice wants to check/i)).toBeInTheDocument();
       // And the rating question should ask how understood Bob feels
       expect(screen.getByText(/How well do you feel understood by Alice/i)).toBeInTheDocument();
     });
@@ -169,6 +178,84 @@ describe('LiveModeView', () => {
 
       // Alice should see "How confident are you that you understand Bob?"
       expect(screen.getByText(/How confident are you that you understand Bob/i)).toBeInTheDocument();
+    });
+
+    it('uses localFlowType to detect prove flow BEFORE shared state updates', () => {
+      // Critical test: localFlowType='prove' should trigger prover-initiated messaging
+      // even when liveState.proverName is NOT yet set (before submit)
+      const preSubmitState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'rating',
+        checkerName: 'bob',
+        // proverName is NOT set yet - this is the key difference
+        checkerSubmitted: false,
+        responderSubmitted: false,
+      };
+
+      // Render as Alice with localFlowType='prove' (she just tapped "Did I get it?")
+      render(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          partnerName="bob"
+          liveState={preSubmitState}
+          isLocallyRating={true}
+          localFlowType="prove"
+        />
+      );
+
+      // Alice should see the prover question even before proverName is set in shared state
+      expect(screen.getByText(/How confident are you that you understand Bob/i)).toBeInTheDocument();
+    });
+
+    it('uses localFlowType="check" for standard "Did you get it?" flow', () => {
+      const checkFlowState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'rating',
+        checkerName: 'alice',
+        checkerSubmitted: false,
+        responderSubmitted: false,
+      };
+
+      // Render as Alice with localFlowType='check' (she tapped "Did you get it?")
+      render(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          partnerName="bob"
+          liveState={checkFlowState}
+          isLocallyRating={true}
+          localFlowType="check"
+        />
+      );
+
+      // Alice (checker) should see the speaker question
+      expect(screen.getByText(/How well do you feel Bob understands you/i)).toBeInTheDocument();
+    });
+
+    it('handles undefined localFlowType with isLocallyRating=true (defaults to check flow)', () => {
+      const defaultFlowState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'rating',
+        checkerName: 'alice',
+        checkerSubmitted: false,
+        responderSubmitted: false,
+      };
+
+      // Render without localFlowType prop
+      render(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          partnerName="bob"
+          liveState={defaultFlowState}
+          isLocallyRating={true}
+          // localFlowType is undefined
+        />
+      );
+
+      // Should default to check flow behavior (speaker question)
+      expect(screen.getByText(/How well do you feel Bob understands you/i)).toBeInTheDocument();
     });
   });
 

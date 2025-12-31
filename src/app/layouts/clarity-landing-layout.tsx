@@ -13,15 +13,17 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
 
   // Don't show navigation on pages that have their own navigation
   const isLandingPage = location.pathname === "/";
+  const isAlternativeLandingPage = location.pathname === "/alternative";
   const isFullArticlePage = location.pathname === "/article" || location.pathname === "/manifesto";
+  const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isFullArticlePage;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <OfflineBanner />
-      {!isLandingPage && !isFullArticlePage && (
+      {!hasOwnNavigation && (
         <SimpleNavigation />
       )}
-      <main className={!isLandingPage && !isFullArticlePage ? "pt-16 lg:pt-20" : ""}>{children}</main>
+      <main className={!hasOwnNavigation ? "pt-16 lg:pt-20" : ""}>{children}</main>
       <Toaster position="top-center" />
     </div>
   );

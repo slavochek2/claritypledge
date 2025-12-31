@@ -1,3 +1,9 @@
+/**
+ * @file alternative-navigation.tsx
+ * @description Alternative navigation with "Start a Meeting" as primary CTA.
+ * Nav links change from "Manifesto" to "The Pledge" to position pledge as
+ * the aspirational destination rather than entry point.
+ */
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/auth";
@@ -8,14 +14,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon, AwardIcon } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
-import { NAV_LINKS } from "./nav-links";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
-export function SimpleNavigation() {
+// Alternative nav links
+const ALT_NAV_LINKS = [
+  { to: "/article", label: "Manifesto" },
+  { to: "/clarity-champions", label: "Champions" },
+  { to: "/about", label: "About" },
+] as const;
+
+export function AlternativeNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -23,19 +35,15 @@ export function SimpleNavigation() {
 
   const { session, user: currentUser, isLoading, sessionChecked, signOut } = useAuth();
 
-  // Auth state phases:
-  // 1. sessionChecked=false → show nothing (checking session)
-  // 2. sessionChecked=true, session=null → show public CTAs (not logged in)
-  // 3. sessionChecked=true, session exists, isLoading=true → show nothing (profile loading)
-  // 4. sessionChecked=true, session exists, isLoading=false, currentUser exists → show user menu
-
   // Show user menu only when BOTH session AND profile are loaded
-  // This prevents the "?" avatar flash when session loads before profile
   const showUserMenu = sessionChecked && !isLoading && !!session && !!currentUser;
 
   // Show public CTAs only when session check done AND no session found
-  // This prevents the "Log In" flash when page loads
   const showPublicCTAs = sessionChecked && !session;
+
+  // Check if user has taken the pledge (verified their email via magic link)
+  // Users who logged in but haven't completed verification don't have isVerified=true
+  const hasTakenPledge = currentUser?.isVerified ?? false;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,9 +57,8 @@ export function SimpleNavigation() {
     try {
       await signOut();
       setIsMobileMenuOpen(false);
-      navigate("/");
+      navigate("/alternative");
     } catch {
-      // Sign out failed - don't navigate, user is still logged in
       setIsMobileMenuOpen(false);
     }
   };
@@ -70,10 +77,10 @@ export function SimpleNavigation() {
         <div className="relative flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link
-            to="/"
+            to="/alternative"
             className="hover:opacity-80 transition-opacity"
             onClick={(e) => {
-              if (location.pathname === "/") {
+              if (location.pathname === "/alternative") {
                 e.preventDefault();
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }
@@ -82,10 +89,9 @@ export function SimpleNavigation() {
             <ClarityLogo size="sm" />
           </Link>
 
-          {/* Desktop Navigation - Public Links (visible to all users) */}
-          {/* Centered on xl+; collapses to burger at lg to avoid crowding */}
-          <div className="hidden lg:flex items-center justify-center gap-6 xl:gap-8 flex-1 xl:flex-none xl:absolute xl:left-1/2 xl:-translate-x-1/2">
-            {NAV_LINKS.map((link) => (
+          {/* Desktop Navigation - Public Links */}
+          <div className="hidden md:flex items-center justify-center gap-6 lg:gap-8 flex-1 lg:flex-none lg:absolute lg:left-1/2 lg:-translate-x-1/2">
+            {ALT_NAV_LINKS.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
@@ -97,9 +103,25 @@ export function SimpleNavigation() {
           </div>
 
           {/* CTA Buttons / User Menu */}
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-4">
+            {showPublicCTAs && (
+              <Link
+                to="/login"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
+              >
+                Log In
+              </Link>
+            )}
+
+            {/* Primary CTA - Start a Meeting (always visible) */}
+            <Link
+              to="/live"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+            >
+              Start a Meeting
+            </Link>
+
             {showUserMenu && (
-              // User Menu - show when session AND profile are loaded
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -124,6 +146,14 @@ export function SimpleNavigation() {
                       View My Pledge
                     </Link>
                   </DropdownMenuItem>
+                  {!hasTakenPledge && (
+                    <DropdownMenuItem asChild>
+                      <Link to="/sign-pledge" className="cursor-pointer">
+                        <AwardIcon className="w-4 h-4 mr-2" />
+                        Take the Pledge
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem asChild>
                     <Link to="/settings" className="cursor-pointer">
                       <SettingsIcon className="w-4 h-4 mr-2" />
@@ -141,29 +171,12 @@ export function SimpleNavigation() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {showPublicCTAs && (
-              // Public Actions - show only when auth state known AND not logged in
-              <>
-                <Link
-                  to="/login"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
-                >
-                  Log In
-                </Link>
-                <Link
-                  to="/sign-pledge"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-                >
-                  Take the Pledge
-                </Link>
-              </>
-            )}
           </div>
 
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2"
+            className="md:hidden p-2"
             aria-expanded={isMobileMenuOpen}
             aria-controls={MOBILE_MENU_ID}
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
@@ -180,11 +193,22 @@ export function SimpleNavigation() {
         {isMobileMenuOpen && (
           <div
             id={MOBILE_MENU_ID}
-            className="lg:hidden py-4 border-t border-border bg-background"
+            className="md:hidden py-4 border-t border-border bg-background"
           >
             <div className="flex flex-col gap-4">
-              {/* Navigation Links - always visible */}
-              {NAV_LINKS.map((link) => (
+              {/* Primary CTA at top of mobile menu */}
+              <Link
+                to="/live"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                onClick={closeMobileMenu}
+              >
+                Start a Meeting
+              </Link>
+
+              <div className="border-t border-border my-2"></div>
+
+              {/* Navigation Links */}
+              {ALT_NAV_LINKS.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
@@ -207,6 +231,16 @@ export function SimpleNavigation() {
                     <EyeIcon className="w-4 h-4 inline mr-2" />
                     View My Pledge
                   </Link>
+                  {!hasTakenPledge && (
+                    <Link
+                      to="/sign-pledge"
+                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                      onClick={closeMobileMenu}
+                    >
+                      <AwardIcon className="w-4 h-4 inline mr-2" />
+                      Take the Pledge
+                    </Link>
+                  )}
                   <Link
                     to="/settings"
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -226,24 +260,15 @@ export function SimpleNavigation() {
                 </>
               )}
 
-              {/* Public CTAs - only when auth state known and not logged in */}
+              {/* Public CTAs */}
               {showPublicCTAs && (
-                <>
-                  <Link
-                    to="/login"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    Log In
-                  </Link>
-                  <Link
-                    to="/sign-pledge"
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
-                    onClick={closeMobileMenu}
-                  >
-                    Take the Pledge
-                  </Link>
-                </>
+                <Link
+                  to="/login"
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Log In
+                </Link>
               )}
             </div>
           </div>

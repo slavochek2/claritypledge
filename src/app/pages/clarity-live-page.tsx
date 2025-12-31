@@ -108,9 +108,19 @@ export function ClarityLivePage() {
 
 
   // HIGH #6: Restore session from sessionStorage on mount
+  // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        // If user clicked a join link (/live/ABCD12), don't restore old session
+        // They intend to join the new session from the URL
+        if (isJoinViaLink) {
+          console.log('[Live] Join via link detected, skipping session restoration');
+          clearStoredSession(); // Clear old session to avoid confusion
+          setIsRestoring(false);
+          return;
+        }
+
         const savedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
         const savedName = storage?.getItem(STORAGE_KEYS.USER_NAME);
         const savedIsCreator = storage?.getItem(STORAGE_KEYS.IS_CREATOR);
@@ -153,7 +163,7 @@ export function ClarityLivePage() {
     };
 
     restoreSession();
-  }, []);
+  }, [isJoinViaLink]);
 
   // Fetch host name when joining via link (for personalized "Join X's Meeting" title)
   useEffect(() => {
@@ -282,8 +292,9 @@ export function ClarityLivePage() {
         const responderRatingDrift = serverState.responderRating !== localState.responderRating;
         const explainBackDoneDrift = serverState.explainBackDone !== localState.explainBackDone;
         const checksCountDrift = serverState.checksCount !== localState.checksCount;
+        const clarificationPhaseDrift = serverState.clarificationPhase !== localState.clarificationPhase;
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift;
 
         if (serverHasUpdate) {
           console.log('[Live Poll] State drift detected!', {
@@ -575,6 +586,10 @@ export function ClarityLivePage() {
       explainBackRound: 0,
       explainBackRatings: [],
       explainBackDone: false,
+      // Clear any pending role switch negotiation
+      roleSwitchNegotiation: undefined,
+      // Clear speaker clarification state
+      clarificationPhase: undefined,
     });
   }, [name, updateLiveState, session?.code]);
 
@@ -616,6 +631,10 @@ export function ClarityLivePage() {
         explainBackDone: false,
         // Clear acknowledgment for next celebration
         celebrationAcknowledgedBy: [],
+        // Clear any pending role switch negotiation
+        roleSwitchNegotiation: undefined,
+        // Clear speaker clarification state
+        clarificationPhase: undefined,
       });
     } else {
       console.log('[Live] Waiting for partner to acknowledge celebration');
@@ -641,6 +660,10 @@ export function ClarityLivePage() {
     updateLiveState({
       ratingPhase: 'explain-back',
       explainBackDone: false,
+      // Clear any pending role switch negotiation (in case listener clicked "Respond as speaker" then changed mind)
+      roleSwitchNegotiation: undefined,
+      // Clear clarification state (listener is now acting)
+      clarificationPhase: undefined,
     });
   }, [updateLiveState, session?.code]);
 
@@ -652,6 +675,130 @@ export function ClarityLivePage() {
       explainBackDone: true,
     });
   }, [updateLiveState]);
+
+  // Handle listener wanting to share their perspective instead of explaining back
+  // This now starts the negotiation flow instead of immediate role swap
+  const handleSharePerspective = useCallback(() => {
+    console.log('[Live] Listener wants to share perspective - starting negotiation');
+
+    analytics.track('live_share_perspective_requested', {
+      session_code: session?.code,
+    });
+
+    // Start negotiation flow - speaker will see Accept / Ask to explain back first
+    updateLiveState({
+      roleSwitchNegotiation: {
+        requestedBy: name,
+        state: 'pending',
+      },
+    });
+  }, [name, updateLiveState, session?.code]);
+
+  // Handle speaker asking listener to explain back first (negotiation step 1 → 2)
+  const handleAskToExplainFirst = useCallback(() => {
+    console.log('[Live] Speaker asks listener to explain back first');
+
+    analytics.track('live_role_switch_ask_explain', {
+      session_code: session?.code,
+    });
+
+    const currentState = confirmedLiveStateRef.current;
+    updateLiveState({
+      roleSwitchNegotiation: {
+        requestedBy: currentState.roleSwitchNegotiation?.requestedBy || '',
+        state: 'speaker-asked-to-explain',
+      },
+    });
+  }, [updateLiveState, session?.code]);
+
+  // Handle listener continuing as listener (accepting speaker's request to explain back)
+  const handleContinueAsListener = useCallback(() => {
+    console.log('[Live] Listener continues as listener');
+
+    analytics.track('live_role_switch_continue_listening', {
+      session_code: session?.code,
+    });
+
+    // Clear negotiation and start explain-back
+    updateLiveState({
+      roleSwitchNegotiation: undefined,
+      ratingPhase: 'explain-back',
+      explainBackDone: false,
+    });
+  }, [updateLiveState, session?.code]);
+
+  // Handle listener insisting they need to speak (negotiation step 2 → 3)
+  const handleInsistToSpeak = useCallback(() => {
+    console.log('[Live] Listener insists they need to speak');
+
+    analytics.track('live_role_switch_insist', {
+      session_code: session?.code,
+    });
+
+    const currentState = confirmedLiveStateRef.current;
+    updateLiveState({
+      roleSwitchNegotiation: {
+        requestedBy: currentState.roleSwitchNegotiation?.requestedBy || '',
+        state: 'listener-insists',
+      },
+    });
+  }, [updateLiveState, session?.code]);
+
+  // Handle speaker letting listener speak (final step - accept the role switch)
+  const handleLetThemSpeak = useCallback(() => {
+    console.log('[Live] Speaker lets listener speak');
+
+    analytics.track('live_role_switch_accepted_after_insist', {
+      session_code: session?.code,
+    });
+
+    // Reset to idle state - the listener can now initiate "Did you get me?"
+    updateLiveState({
+      ratingPhase: 'idle',
+      checkerRating: undefined,
+      responderRating: undefined,
+      checkerName: undefined,
+      proverName: undefined,
+      checkerSubmitted: false,
+      responderSubmitted: false,
+      explainBackRound: 0,
+      explainBackRatings: [],
+      explainBackDone: false,
+      perspectiveRequestedBy: undefined,
+      roleSwitchNegotiation: undefined,
+      // Clear speaker clarification state
+      clarificationPhase: undefined,
+    });
+  }, [updateLiveState, session?.code]);
+
+  // Handle speaker starting clarification (after rating < 10)
+  const handleClarifyStart = useCallback(() => {
+    console.log('[Live] Speaker starting clarification');
+
+    analytics.track('live_clarify_started', {
+      session_code: session?.code,
+      round: confirmedLiveStateRef.current.explainBackRatings.length,
+    });
+
+    updateLiveState({
+      clarificationPhase: 'speaker-clarifying',
+    });
+  }, [updateLiveState, session?.code]);
+
+  // Handle speaker finishing clarification
+  // After clarifying, listener gets to act (explain back again), speaker waits
+  const handleClarifyDone = useCallback(() => {
+    console.log('[Live] Speaker finished clarifying');
+
+    analytics.track('live_clarify_done', {
+      session_code: session?.code,
+      round: confirmedLiveStateRef.current.explainBackRatings.length,
+    });
+
+    updateLiveState({
+      clarificationPhase: 'listener-responding',
+    });
+  }, [updateLiveState, session?.code]);
 
   // V6: Handle speaker rating after explain-back
   const handleExplainBackRate = useCallback(
@@ -690,6 +837,9 @@ export function ClarityLivePage() {
         checksCount: currentState.checksCount + 1,
         checksTotal: currentState.checksTotal + rating,
         ...(rating >= 9 ? { ideasUnderstood: currentState.ideasUnderstood + 1 } : {}),
+        // If rating < 10, speaker enters "deciding to clarify" state
+        // Listener will see waiting state until speaker decides (Clarify now / Good enough)
+        clarificationPhase: rating < 10 ? 'speaker-deciding' : undefined,
       });
     },
     [updateLiveState, session?.code]
@@ -1128,6 +1278,17 @@ export function ClarityLivePage() {
           onExplainBackDone={handleExplainBackDone}
           // Celebration complete - reset shared state for new rounds
           onCelebrationComplete={handleCelebrationComplete}
+          // P23.3: Local flow type for correct rating question before submit
+          localFlowType={localFlowType}
+          // Listener wants to share perspective instead of explaining back
+          onSharePerspective={handleSharePerspective}
+          // Negotiation handlers for role switch
+          onAskToExplainFirst={handleAskToExplainFirst}
+          onContinueAsListener={handleContinueAsListener}
+          onInsistToSpeak={handleInsistToSpeak}
+          onLetThemSpeak={handleLetThemSpeak}
+          onClarifyStart={handleClarifyStart}
+          onClarifyDone={handleClarifyDone}
         />
 
         {/* Exit confirmation dialog */}
@@ -1149,6 +1310,7 @@ export function ClarityLivePage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
       </div>
     );
   }

@@ -1,7 +1,6 @@
 # Theory of Change: From Fractured Realities to Common Knowledge
 
 **Status:** Living document — synthesizes vision across all foundation documents
-**Last Updated:** December 2024
 
 ---
 
@@ -30,7 +29,7 @@ We are building **epistemic infrastructure** — the foundational capacity for h
 
 ### Root Cause: Epistemic Fragility
 
-The symptoms are everywhere: $1.2 trillion in organizational miscommunication costs, political polarization, failed collective action on climate, AI governance chaos. But these are symptoms.
+The symptoms are everywhere: $1.2 trillion in organizational miscommunication costs,¹ an 80/50 perception gap between leaders and employees,² 44% of employees withholding concerns out of career fear,³ political polarization, failed collective action on climate, AI governance chaos. But these are symptoms.
 
 The root cause is **Epistemic Fragility** — humanity's structural inability to verify shared understanding at scale.
 
@@ -275,29 +274,46 @@ From the [manifesto](../app/content/full-article.md#the-democratic-dividend-clea
 
 | # | Assumption | How to Test | Status |
 |---|------------|-------------|--------|
-| 1 | /live reduces Understanding Gap | Run 10 pairs, measure gap before/after | **NOT YET TESTED** |
-| 2 | People will actually use /live | Observe adoption in real meetings | **NOT YET TESTED** |
-| 3 | Status flip happens | Does room reward "I was wrong"? | **NOT YET TESTED** |
-| 4 | Certifications create reputation | Do people trust "verified listeners"? | Cannot test until 1-3 validated |
-| 5 | Cascade propagates | Do verified pairs create more pairs? | Cannot test until 1-4 validated |
+| 1 | /live reduces Understanding Gap | The product validates itself — gaps close visibly in real-time | **VALIDATED** |
+| 2 | Visibility changes group behavior | Run 30-person workshop with topology map | **CURRENT FOCUS** |
+| 3 | Status flip happens | Does room reward "I was wrong"? | Testable with topology |
+| 4 | Certifications create reputation | Do people trust "verified listeners"? | Cannot test until 2-3 validated |
+| 5 | Cascade propagates | Do verified pairs create more pairs? | Cannot test until 2-4 validated |
 
-### The Validation Sequence
+### Current Priorities
 
-**Phase 1: Prove /live Works (5-10 pairs)**
-- Recruit pairs (pledge signers, colleagues, strangers)
-- Give standardized topic
-- Measure Understanding Gap with and without /live
-- Success = >50% gap reduction consistently
+**Priority 1: Reduce Friction in /live**
+- The core mechanism works (gaps close visibly)
+- Focus on removing drop-off points
+- Increase stickiness and retention
 
-**Phase 2: Prove Group Scale (30-person workshop)**
-- Run workshop with /live + minimal topology display
-- Measure: Did gap reduce? Did status flip?
-- Observe: Does room applaud person who said "I was wrong"?
+**Priority 2: Build Minimal Topology Map**
+- Tests riskiest current hypothesis (H2)
+- Simple visualization: who verified whom
+- Deploy in 30-person workshop
 
-**Phase 3: Prove Cascade Starts (Multiple events)**
-- Track: Do verified pairs recruit others?
-- Measure: Network growth rate
-- Observe: Does reputation matter in new conversations?
+**Priority 3: Add Audio Recording**
+- Passive data collection for future training
+- Not for immediate use — capturing "golden dataset"
+
+**Priority 4: Group Features**
+- Private feed for group ideas
+- Idea cards with positions (agree/disagree)
+- Verification challenges between members
+
+### The Strategic Sequence
+
+```
+/live works (validated) → Reduce friction → Build topology →
+Test group dynamics (H2) → Prove status flip → Scale cascade
+```
+
+### Deferred to Phase 2/3
+
+- Custom AI model training (existing models handle coaching)
+- AI practice partner
+- Public feed / broader network topology
+- Async verification at scale
 
 ### The Three "Death Blow" Risks
 
@@ -369,17 +385,19 @@ LAYER 4: TOPOLOGY MAP
 
 When a new feature idea emerges, ask:
 
-**"Does this help prove /live works?"**
+**"Does this help test H2 (visibility changes group behavior)?"**
 
-| Feature | Helps Prove /live? | Priority |
-|---------|-------------------|----------|
-| Recording/transcription | Yes — captures evidence | HIGH |
-| AI rating assistance | Maybe — could accelerate testing | MEDIUM |
-| Ideas in /chat | No — Layer 2 feature | LOW (later) |
-| Topology map | No — Layer 4 feature | LOW (much later) |
-| /feed | No — Layer 3 feature | LOW (later) |
+| Feature | Helps Test H2? | Priority |
+|---------|----------------|----------|
+| Friction reduction in /live | Prerequisite — people must use it | **HIGH** |
+| Topology map (minimal) | Yes — core H2 test | **HIGH** |
+| Recording/transcription | Enables future training data | **HIGH** |
+| Group features (idea cards, positions) | Yes — group context for H2 | **MEDIUM** |
+| AI rating assistance | Nice-to-have, existing models work | LOW |
+| Custom AI model training | Phase 2/3 — needs data first | DEFERRED |
+| /feed (public network) | Requires H2 validation first | DEFERRED |
 
-**Rule:** If it doesn't help validate Layer 0, defer it.
+**Rule:** /live works. Now validate that visibility changes behavior.
 
 ---
 
@@ -392,6 +410,15 @@ When a new feature idea emerges, ask:
 
 ---
 
+## References
+
+1. Grammarly & The Harris Poll. (2022). *The State of Business Communication*. [Link](https://www.businesswire.com/news/home/20220125005525/en/Grammarly-and-Harris-Poll-Research-Estimates-U.S.-Businesses-Lose-1.2-Trillion-Annually-to-Poor-Communication) | [Archive](https://web.archive.org/web/20240101000000*/businesswire.com/news/home/20220125005525)
+2. Axios HQ. (2025). *State of Internal Communications Report*. [Link](https://www.axioshq.com/insights/internal-communications-statistics) | [Archive](https://web.archive.org/web/20240101000000*/axioshq.com/insights/internal-communications-statistics)
+3. Makridis, C. (2023). Columbia Business School & Stanford University. [Link](https://www.businessoverpolitics.com/research/44-of-employees-withhold-sharing-company-concerns-out-of-fear-their-views-could-jeopardize-their-career) | [Archive](https://web.archive.org/web/20240101000000*/businessoverpolitics.com/research/)
+
+---
+
 ## Changelog
 
-- **December 2024:** Initial synthesis from Innovation Strategist session
+- Updated validation strategy — H1 (/live works) marked as validated, H2 (visibility changes behavior) is now current focus. Priorities reordered.
+- Initial synthesis from Innovation Strategist session

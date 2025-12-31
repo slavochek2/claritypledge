@@ -266,6 +266,14 @@ Sentry.captureMessage('Unexpected state detected', 'warning');
 Sentry.setContext('session', { code: sessionCode, phase: ratingPhase });
 ```
 
+## Available Cloud Credits
+
+| Provider | Credit | Source | Expires |
+|----------|--------|--------|---------|
+| **Google Cloud** | $25 | GFS 2024 Ecosystem Partner | TBD (check account) |
+
+Consider using these for features requiring cloud infrastructure (compute, storage, background jobs).
+
 ## Technical Debt / Intentional Decisions
 
 - **Web3Forms API key in source**: The contact form on `/about` uses Web3Forms with a hardcoded access key. This is intentional - Web3Forms access keys are designed to be public (like Stripe publishable keys). Moving to env var is nice-to-have.
