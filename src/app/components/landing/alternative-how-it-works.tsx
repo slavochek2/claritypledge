@@ -15,7 +15,7 @@ export function AlternativeHowItWorks() {
       step: "2",
       title: "Rate understanding",
       description:
-        'Both of you answer: "Did I get you?" and "Did you get me?" Rate your confidence on a simple scale.',
+        'Both of you answer: "Did I understand you?" and "Did you understand me?" Rate your confidence on a simple scale.',
     },
     {
       icon: CheckCircleIcon,

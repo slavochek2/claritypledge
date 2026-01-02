@@ -514,7 +514,7 @@ function IdleScreen({
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-check"
           >
-            Did <span className="font-bold">you</span> get me?
+            Did <span className="font-bold">you</span> understand me?
           </Button>
 
           <Button
@@ -525,7 +525,7 @@ function IdleScreen({
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-prove"
           >
-            Did <span className="font-bold">I</span> get you?
+            Did <span className="font-bold">I</span> understand you?
           </Button>
         </div>
 
@@ -1715,7 +1715,7 @@ function UnderstandingScreen({
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onExplainBackStart}
                 >
-                  Did I get you?
+                  Did I understand you?
                 </Button>
                 <Button variant="outline" size="lg" className="w-full" onClick={onSharePerspective}>
                   I want to speak freely
@@ -2104,7 +2104,7 @@ function UnderstandingScreen({
                     className="bg-blue-500 hover:bg-blue-600 w-full"
                     onClick={onExplainBackStart}
                   >
-                    Did I get you?
+                    Did I understand you?
                   </Button>
                   <Button variant="outline" size="lg" className="w-full" onClick={onSharePerspective}>
                     I want to speak freely

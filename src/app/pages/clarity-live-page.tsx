@@ -91,6 +91,8 @@ export function ClarityLivePage() {
   const hasJoinerRef = useRef(false);
   // Ref to store session code for polling (avoids stale closure)
   const sessionCodeRef = useRef<string | null>(null);
+  // Ref to track the current session ID (guards against stale subscription callbacks)
+  const currentSessionIdRef = useRef<string | null>(null);
   // Ref to track the last confirmed live state (for race condition prevention)
   const confirmedLiveStateRef = useRef<LiveSessionState>(DEFAULT_LIVE_STATE);
   // Ref to track if an update is in flight (prevents poll from overwriting pending changes)
@@ -99,7 +101,8 @@ export function ClarityLivePage() {
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
     sessionCodeRef.current = session?.code ?? null;
-  }, [session?.joinerName, session?.code]);
+    currentSessionIdRef.current = session?.id ?? null;
+  }, [session?.joinerName, session?.code, session?.id]);
 
   // Keep confirmedLiveStateRef in sync with server-confirmed state
   useEffect(() => {
@@ -211,6 +214,13 @@ export function ClarityLivePage() {
     console.log('[Live] Setting up subscription for session:', sessionId);
 
     const unsubscribe = subscribeToClaritySession(sessionId, (updatedSession) => {
+      // Guard: Ignore updates from stale sessions (prevents race condition when exiting)
+      // This can happen if a realtime update arrives after user clicked "Leave" but before cleanup
+      if (currentSessionIdRef.current !== updatedSession.id) {
+        console.log('[Live] Ignoring stale session update:', updatedSession.id, 'current:', currentSessionIdRef.current);
+        return;
+      }
+
       console.log('[Live] Session updated, joinerName:', updatedSession.joinerName);
       setSession(updatedSession);
 
@@ -250,6 +260,12 @@ export function ClarityLivePage() {
         const freshSession = await getClaritySession(currentCode);
         if (!freshSession) {
           console.log('[Live Poll] No session found for code:', currentCode);
+          return;
+        }
+
+        // Guard: Ignore if session ID doesn't match current (user may have exited/rejoined)
+        if (currentSessionIdRef.current !== freshSession.id) {
+          console.log('[Live Poll] Ignoring stale session:', freshSession.id, 'current:', currentSessionIdRef.current);
           return;
         }
 
