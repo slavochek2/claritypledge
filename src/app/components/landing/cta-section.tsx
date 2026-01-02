@@ -16,13 +16,24 @@ export function CTASection() {
           the comfort of assumption, or the rigor of verified understanding?
         </p>
 
-        {/* CTA Button */}
-        <Link
-          to="/sign-pledge"
-          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
-        >
-          Take the Clarity Pledge
-        </Link>
+        {/* CTA - Primary + Secondary */}
+        <div className="flex flex-col items-center gap-3">
+          <Link
+            to="/sign-pledge"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
+          >
+            Take the Clarity Pledge
+          </Link>
+          <p className="text-muted-foreground">
+            or{" "}
+            <Link
+              to="/live"
+              className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
+            >
+              Try a Clarity Meeting
+            </Link>
+          </p>
+        </div>
       </div>
     </section>
   );

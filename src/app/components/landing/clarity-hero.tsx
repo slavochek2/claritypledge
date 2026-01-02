@@ -77,6 +77,7 @@ export function ClarityHero({ onSignPledge }: ClarityHeroProps) {
             Read the Manifesto
           </Button>
         </div>
+
       </div>
     </section>
   );

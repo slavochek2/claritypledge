@@ -82,82 +82,79 @@ export function SimpleNavigation() {
             <ClarityLogo size="sm" />
           </Link>
 
-          {/* Desktop Navigation - Public Links (visible to all users) */}
-          {/* Centered on xl+; collapses to burger at lg to avoid crowding */}
-          <div className="hidden lg:flex items-center justify-center gap-6 xl:gap-8 flex-1 xl:flex-none xl:absolute xl:left-1/2 xl:-translate-x-1/2">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="text-base font-medium hover:text-primary transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* CTA Buttons / User Menu */}
-          <div className="hidden lg:flex items-center gap-4">
-            {showUserMenu && (
-              // User Menu - show when session AND profile are loaded
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="flex items-center justify-center hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
-                    aria-label="User menu"
-                  >
-                    <GravatarAvatar
-                      email={currentUser.email}
-                      name={currentUser.name}
-                      size="sm"
-                      avatarColor={currentUser.avatarColor}
-                    />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" sideOffset={8} className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to={`/p/${currentUser.slug}`}
+          {/* Desktop: CTAs + Menu */}
+          <div className="hidden lg:flex items-center gap-3">
+            {/* Secondary CTA */}
+            <Link
+              to="/live"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent font-medium"
+            >
+              Try Meeting
+            </Link>
+            {/* Primary CTA */}
+            <Link
+              to="/sign-pledge"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+            >
+              Take the Pledge
+            </Link>
+            {/* Hamburger Menu */}
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
+                  aria-label="Menu"
+                >
+                  <MenuIcon className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" sideOffset={8} className="w-48">
+                {/* Nav Links */}
+                {NAV_LINKS.map((link) => (
+                  <DropdownMenuItem key={link.to} asChild>
+                    <Link to={link.to} className="cursor-pointer">
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                {/* Auth Actions */}
+                {showUserMenu && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to={`/p/${currentUser.slug}`}
+                        className="cursor-pointer"
+                      >
+                        <EyeIcon className="w-4 h-4 mr-2" />
+                        View My Pledge
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/settings" className="cursor-pointer">
+                        <SettingsIcon className="w-4 h-4 mr-2" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
                       className="cursor-pointer"
                     >
-                      <EyeIcon className="w-4 h-4 mr-2" />
-                      View My Pledge
-                    </Link>
-                  </DropdownMenuItem>
+                      <LogOutIcon className="w-4 h-4 mr-2" />
+                      Log Out
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {showPublicCTAs && (
                   <DropdownMenuItem asChild>
-                    <Link to="/settings" className="cursor-pointer">
-                      <SettingsIcon className="w-4 h-4 mr-2" />
-                      Settings
+                    <Link to="/login" className="cursor-pointer">
+                      Log In
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="cursor-pointer"
-                  >
-                    <LogOutIcon className="w-4 h-4 mr-2" />
-                    Log Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {showPublicCTAs && (
-              // Public Actions - show only when auth state known AND not logged in
-              <>
-                <Link
-                  to="/login"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-base font-medium hover:text-primary transition-colors h-9 px-4 py-2"
-                >
-                  Log In
-                </Link>
-                <Link
-                  to="/sign-pledge"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-                >
-                  Take the Pledge
-                </Link>
-              </>
-            )}
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Mobile Menu Button */}
@@ -182,8 +179,26 @@ export function SimpleNavigation() {
             id={MOBILE_MENU_ID}
             className="lg:hidden py-4 border-t border-border bg-background"
           >
-            <div className="flex flex-col gap-4">
-              {/* Navigation Links - always visible */}
+            <div className="flex flex-col gap-3">
+              {/* CTAs first - Primary then Secondary */}
+              <Link
+                to="/sign-pledge"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                onClick={closeMobileMenu}
+              >
+                Take the Pledge
+              </Link>
+              <Link
+                to="/live"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
+                onClick={closeMobileMenu}
+              >
+                Try Meeting
+              </Link>
+
+              <div className="border-t border-border my-2"></div>
+
+              {/* Navigation Links */}
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.to}
@@ -195,10 +210,11 @@ export function SimpleNavigation() {
                 </Link>
               ))}
 
-              {/* Logged in user links */}
+              <div className="border-t border-border my-2"></div>
+
+              {/* Auth Actions */}
               {showUserMenu && (
                 <>
-                  <div className="border-t border-border my-2"></div>
                   <Link
                     to={`/p/${currentUser.slug}`}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -215,7 +231,6 @@ export function SimpleNavigation() {
                     <SettingsIcon className="w-4 h-4 inline mr-2" />
                     Settings
                   </Link>
-                  <div className="border-t border-border my-2"></div>
                   <button
                     onClick={handleSignOut}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -225,25 +240,14 @@ export function SimpleNavigation() {
                   </button>
                 </>
               )}
-
-              {/* Public CTAs - only when auth state known and not logged in */}
               {showPublicCTAs && (
-                <>
-                  <Link
-                    to="/login"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    Log In
-                  </Link>
-                  <Link
-                    to="/sign-pledge"
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
-                    onClick={closeMobileMenu}
-                  >
-                    Take the Pledge
-                  </Link>
-                </>
+                <Link
+                  to="/login"
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Log In
+                </Link>
               )}
             </div>
           </div>

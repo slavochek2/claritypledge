@@ -57,14 +57,23 @@ export function ClarityTaxSection() {
             </p>
           </div>
 
-          {/* CTA - Single Primary Action */}
-          <div className="flex items-center justify-center pt-4">
+          {/* CTA - Primary + Secondary */}
+          <div className="flex flex-col items-center justify-center pt-4 gap-3">
             <Link
               to="/sign-pledge"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
             >
               Take the Clarity Pledge
             </Link>
+            <p className="text-muted-foreground">
+              or{" "}
+              <Link
+                to="/live"
+                className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
+              >
+                Try a Clarity Meeting
+              </Link>
+            </p>
           </div>
 
           {/* Social Proof - Compact Avatar Stack */}
