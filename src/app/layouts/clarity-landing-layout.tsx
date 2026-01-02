@@ -15,7 +15,9 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
   const isFullArticlePage = location.pathname === "/article" || location.pathname === "/manifesto";
-  const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isFullArticlePage;
+  // Live meeting pages have their own header (LiveSessionBanner)
+  const isLiveMeetingPage = location.pathname === "/live" || location.pathname.startsWith("/live/");
+  const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isFullArticlePage || isLiveMeetingPage;
 
   return (
     <div className="min-h-screen bg-background text-foreground">

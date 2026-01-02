@@ -4,13 +4,13 @@
  * the app acts as a quiet referee enforcing the understanding protocol.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { Share2, Check, ChevronLeft, Keyboard } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ import {
   type ClaritySession,
 } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
+import { useAuth } from '@/auth';
 import {
   type LiveSessionState,
   DEFAULT_LIVE_STATE,
@@ -60,6 +61,9 @@ export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
   const isJoinViaLink = !!urlCode;
+
+  // Get logged-in user's name (if authenticated)
+  const { user } = useAuth();
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
@@ -103,6 +107,13 @@ export function ClarityLivePage() {
     sessionCodeRef.current = session?.code ?? null;
     currentSessionIdRef.current = session?.id ?? null;
   }, [session?.joinerName, session?.code, session?.id]);
+
+  // Pre-fill name from logged-in user (if authenticated and name is empty)
+  useEffect(() => {
+    if (user?.name && !name) {
+      setName(user.name);
+    }
+  }, [user?.name, name]);
 
   // Keep confirmedLiveStateRef in sync with server-confirmed state
   useEffect(() => {
@@ -1007,21 +1018,63 @@ export function ClarityLivePage() {
   if (view === 'start') {
     // Join via link: simplified UI with just name input + join button
     if (isJoinViaLink) {
+      const joinTitle = hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting';
       return (
-        <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-serif font-bold mb-2">
-              {hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting'}
-            </h1>
-            {!hostName && (
-              <div className="inline-flex items-center px-3 py-1.5 bg-muted rounded-full">
-                <span className="text-sm text-muted-foreground">
-                  Room: <span className="font-mono font-medium">{roomCode}</span>
-                </span>
-              </div>
-            )}
-          </div>
+        <div className="flex flex-col h-screen">
+          <LiveSessionBanner title={joinTitle} isLiveMeeting={false} />
+          <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md">
+            <div className="text-center mb-8">
+              {!hostName && (
+                <div className="inline-flex items-center px-3 py-1.5 bg-muted rounded-full">
+                  <span className="text-sm text-muted-foreground">
+                    Room: <span className="font-mono font-medium">{roomCode}</span>
+                  </span>
+                </div>
+              )}
+            </div>
 
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Your Name</Label>
+                <Input
+                  id="name"
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              {error && <p className="text-sm text-red-600">{error}</p>}
+
+              <Button
+                onClick={handleJoin}
+                disabled={isLoading || !name.trim()}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? 'Joining...' : 'Join Meeting'}
+              </Button>
+
+              <Link
+                to="/live"
+                className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+              >
+                Back
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Cold start: full UI with Start + Join options
+    const isJoinMode = showCodeInput || roomCode.trim().length > 0;
+
+    return (
+      <div className="flex flex-col h-screen">
+        <LiveSessionBanner title="Live Clarity Meeting" isLiveMeeting={false} />
+        <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md">
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Your Name</Label>
@@ -1036,129 +1089,80 @@ export function ClarityLivePage() {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <Button
-              onClick={handleJoin}
-              disabled={isLoading || !name.trim()}
-              className="w-full"
-              size="lg"
-            >
-              {isLoading ? 'Joining...' : 'Join Meeting'}
-            </Button>
-
-            <Link
-              to="/live"
-              className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
-            </Link>
-          </div>
-        </div>
-      );
-    }
-
-    // Cold start: full UI with Start + Join options
-    const isJoinMode = showCodeInput || roomCode.trim().length > 0;
-
-    return (
-      <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif font-bold mb-2">Live Clarity Meeting</h1>
-          <p className="text-muted-foreground">
-            Practice understanding in real-time conversation.
-          </p>
-        </div>
-
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="name">Your Name</Label>
-            <Input
-              id="name"
-              placeholder="Enter your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="space-y-4 pt-4">
-            {!isJoinMode && (
-              <Button
-                onClick={handleCreate}
-                disabled={isLoading || !name.trim()}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? 'Creating...' : 'Start New Meeting'}
-              </Button>
-            )}
-
-            {!isJoinMode && (
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or join a meeting
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {isJoinMode ? (
-              // Join mode: show code input and join button
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="code">Meeting Code</Label>
-                  <Input
-                    id="code"
-                    placeholder="Enter 6-letter code"
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    maxLength={6}
-                    className="text-center font-mono text-lg"
-                  />
-                </div>
+            <div className="space-y-4 pt-4">
+              {!isJoinMode && (
                 <Button
-                  onClick={handleJoin}
-                  disabled={isLoading || !name.trim() || !roomCode.trim()}
+                  onClick={handleCreate}
+                  disabled={isLoading || !name.trim()}
                   className="w-full"
                   size="lg"
                 >
-                  {isLoading ? 'Joining...' : 'Join Meeting'}
+                  {isLoading ? 'Creating...' : 'Start New Meeting'}
                 </Button>
-                <Button
-                  onClick={() => {
-                    setRoomCode('');
-                    setShowCodeInput(false);
-                  }}
-                  variant="ghost"
-                  className="w-full text-muted-foreground"
-                  size="sm"
-                >
-                  Or start a new meeting instead
-                </Button>
-              </div>
-            ) : (
-              // Have an invite: show join option
-              <div className="space-y-3">
-                <Button
-                  onClick={() => setShowCodeInput(true)}
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  <Keyboard className="h-5 w-5 mr-2" />
-                  Enter Meeting Code
-                </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  Tip: You can also scan the QR code with your phone's camera app
-                </p>
-              </div>
-            )}
+              )}
+
+              {!isJoinMode && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or join a meeting
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {isJoinMode ? (
+                // Join mode: show code input and join button
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Meeting Code</Label>
+                    <Input
+                      id="code"
+                      placeholder="Enter 6-letter code"
+                      value={roomCode}
+                      onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                      maxLength={6}
+                      className="text-center font-mono text-lg"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleJoin}
+                    disabled={isLoading || !name.trim() || !roomCode.trim()}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isLoading ? 'Joining...' : 'Join Meeting'}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setRoomCode('');
+                      setShowCodeInput(false);
+                    }}
+                    variant="ghost"
+                    className="w-full text-muted-foreground"
+                    size="sm"
+                  >
+                    New clarity meeting
+                  </Button>
+                </div>
+              ) : (
+                // Have an invite: show join option
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => setShowCodeInput(true)}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Keyboard className="h-5 w-5 mr-2" />
+                    Enter Meeting Code
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1208,59 +1212,60 @@ export function ClarityLivePage() {
     const displayLink = shareLink.replace('https://', '').replace('http://', '');
 
     return (
-      <div className="container mx-auto px-4 py-8 md:py-12 max-w-md">
-        <div className="text-center space-y-6">
-          <h1 className="text-2xl font-serif font-bold">New Clarity Meeting</h1>
+      <div className="flex flex-col h-screen">
+        <LiveSessionBanner title="Waiting for Partner" isLiveMeeting={false} />
+        <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md">
+          <div className="text-center space-y-6">
+            <p className="text-muted-foreground">
+              Share this link with your partner:
+            </p>
 
-          <p className="text-muted-foreground">
-            Share this link with your partner:
-          </p>
+            {/* Link row with copy/share */}
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
+              <span className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2">
+                {displayLink}
+              </span>
+              <Button
+                onClick={handleShare}
+                size="sm"
+                className="flex-shrink-0"
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 mr-1" />
+                ) : (
+                  <Share2 className="h-4 w-4 mr-1" />
+                )}
+                {copied ? 'Copied!' : 'Share'}
+              </Button>
+            </div>
 
-          {/* Link row with copy/share */}
-          <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-            <span className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2">
-              {displayLink}
-            </span>
+            <p className="text-xs text-muted-foreground">
+              Or show them this QR code:
+            </p>
+
+            {/* QR Code */}
+            <div className="p-4 bg-white rounded-lg border inline-block">
+              <QRCodeSVG
+                value={shareLink}
+                size={160}
+                level="M"
+              />
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Waiting for partner to join...
+            </p>
+
             <Button
-              onClick={handleShare}
+              variant="ghost"
               size="sm"
-              className="flex-shrink-0"
+              onClick={handleCancelWaiting}
+              className="text-muted-foreground w-full"
             >
-              {copied ? (
-                <Check className="h-4 w-4 mr-1" />
-              ) : (
-                <Share2 className="h-4 w-4 mr-1" />
-              )}
-              {copied ? 'Copied!' : 'Share'}
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back
             </Button>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            Or show them this QR code:
-          </p>
-
-          {/* QR Code */}
-          <div className="p-4 bg-white rounded-lg border inline-block">
-            <QRCodeSVG
-              value={shareLink}
-              size={160}
-              level="M"
-            />
-          </div>
-
-          <p className="text-sm text-muted-foreground">
-            Waiting for partner to join...
-          </p>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCancelWaiting}
-            className="text-muted-foreground"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
         </div>
       </div>
     );
@@ -1269,7 +1274,7 @@ export function ClarityLivePage() {
   // LIVE/REVIEW VIEW
   if ((view === 'live') && session && partnerName) {
     return (
-      <div className="flex flex-col h-[calc(100vh-4rem)] max-w-lg mx-auto">
+      <div className="flex flex-col h-screen">
         <LiveModeView
           liveState={liveState}
           currentUserName={name}

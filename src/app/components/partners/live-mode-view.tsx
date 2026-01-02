@@ -37,6 +37,15 @@ import { LiveSessionBanner } from './live-session-banner';
 import { capitalizeName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
 
+// ============================================================================
+// LAYOUT CONSTANTS
+// ============================================================================
+
+/** Standard content container layout - centered, max-width, top-aligned */
+const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
+/** Content layout variant - vertically centered (for idle state without history) */
+const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center p-6 space-y-8 max-w-lg mx-auto w-full";
+
 interface LiveModeViewProps {
   liveState: LiveSessionState;
   currentUserName: string;
@@ -134,7 +143,7 @@ export function LiveModeView({
   const partnerHasAcknowledged = acknowledged.includes(partnerName);
   const waitingForPartner = iHaveAcknowledged && !partnerHasAcknowledged;
 
-  // Show dialog when partner clicks "Good enough"
+  // Show dialog when partner clicks "Speak freely"
   // Dialog requires user acknowledgment before returning to idle
   useEffect(() => {
     const skippedBy = liveState.skippedBy;
@@ -188,7 +197,7 @@ export function LiveModeView({
   // Render based on phase
   const { ratingPhase } = liveState;
 
-  // Skip notification dialog - shown when partner clicks "Good enough"
+  // Skip notification dialog - shown when partner clicks "Speak freely"
   const skipNotificationDialog = (
     <Dialog open={skipDialogOpen} onOpenChange={(open) => { if (!open) handleSkipDialogOk(); }}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
@@ -208,13 +217,20 @@ export function LiveModeView({
   );
 
   // Confirmation dialog for skip/good-enough/decline actions
+  // In "Did I get it?" flow, proverName is the requester (listener who initiated)
+  // In "Did you get it?" flow, checkerName is the requester (speaker who initiated)
+  const requesterName = liveState.proverName
+    ? capitalizeName(liveState.proverName)
+    : liveState.checkerName
+      ? capitalizeName(liveState.checkerName)
+      : capitalizeName(partnerName);
   const confirmSkipTitle = confirmSkipType === 'decline'
-    ? 'Decline to rate?'
+    ? `Decline ${requesterName}'s request?`
     : confirmSkipType === 'good-enough'
       ? 'Move forward?'
       : 'Skip this round?';
   const confirmSkipDescription = confirmSkipType === 'decline'
-    ? 'This will end the current round without your rating.'
+    ? 'This will end the current round.'
     : confirmSkipType === 'good-enough'
       ? 'This will end the current round and return to the home screen.'
       : 'This will end the current round and return to the home screen.';
@@ -481,8 +497,8 @@ function IdleScreen({
   // Use top-aligned layout when drawer is open (to match post-rating screens)
   // Use centered layout when no drawer (idle state with no prior data)
   const layoutClass = showRatingDrawer || hasRatingData
-    ? "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6"
-    : "flex-1 flex flex-col items-center justify-center p-6 space-y-8";
+    ? CONTENT_LAYOUT
+    : CONTENT_LAYOUT_CENTERED;
 
   return (
     <div className="flex flex-col h-full">
@@ -504,9 +520,7 @@ function IdleScreen({
           />
         )}
 
-        <h2 className="text-lg font-semibold text-center">Achieve clarity with {displayPartnerName}</h2>
-
-        <div className="flex flex-col gap-4 w-full max-w-xs">
+        <ActionArea title="Make each other feel understood">
           <Button
             size="lg"
             className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -527,17 +541,12 @@ function IdleScreen({
           >
             Did <span className="font-bold">I</span> understand you?
           </Button>
-        </div>
 
-        {/* Waiting for partner to continue indicator */}
-        {waitingForPartnerToContinue && (
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <p className="text-sm text-muted-foreground">
-              Waiting for {displayPartnerName} to continue...
-            </p>
-          </div>
-        )}
+          {/* Waiting for partner to continue indicator */}
+          {waitingForPartnerToContinue && (
+            <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+          )}
+        </ActionArea>
       </div>
 
       {/* Responder notification drawer - slides up from bottom */}
@@ -548,8 +557,8 @@ function IdleScreen({
             <DrawerHeader className="text-center pb-2">
               <DrawerDescription className="text-sm text-muted-foreground">
                 {isProverInitiated
-                  ? <>{proverName} wants to check if <span className="font-semibold text-foreground">they</span> got you</>
-                  : <>{checkerName} wants to check if <span className="font-semibold text-foreground">you</span> got them</>}
+                  ? <>{proverName} wants to know how well <span className="font-semibold text-foreground">they</span> understood you</>
+                  : <>{checkerName} wants to know how well <span className="font-semibold text-foreground">you understood them</span></>}
               </DrawerDescription>
               <DrawerTitle className="sr-only">
                 {isProverInitiated
@@ -664,7 +673,7 @@ function RatingScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-end p-6 space-y-6">
+      <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
         {hasHistory && (
           <JourneyToUnderstanding
@@ -679,23 +688,26 @@ function RatingScreen({
             hideUntilBothSubmitted={true}
           />
         )}
-
-        <RatingCard
-          question={prompt}
-          onSelect={onRatingSubmit}
-          className="w-full max-w-sm"
-        />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="text-muted-foreground"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
       </div>
+
+      {/* Rating drawer - always open by design for focused rating UX.
+          dismissible={false} prevents accidental swipe/overlay close.
+          User must tap explicit "Back" button to cancel. */}
+      <Drawer open={true} dismissible={false}>
+        <DrawerContent>
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Rate your understanding</DrawerTitle>
+            <DrawerDescription>{prompt}</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-8 pt-4 space-y-4">
+            <RatingCard
+              question={prompt}
+              onSelect={onRatingSubmit}
+              onBack={onBack}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
@@ -760,11 +772,16 @@ function RatingScreenWithOptionalDrawer({
   // Only show journey card if there's prior history (not on first rating submission)
   const hasHistory = liveState.explainBackRatings.length > 0;
 
+  // When partner already submitted (showDrawer), show their request in drawer header
+  const drawerDescription = showDrawer
+    ? <>{checkerName} wants to know how well <span className="font-semibold text-foreground">you understood them</span></>
+    : null;
+
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className="flex-1 flex flex-col items-center justify-end p-6 space-y-6">
+      <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
         {hasHistory && (
           <JourneyToUnderstanding
@@ -779,39 +796,28 @@ function RatingScreenWithOptionalDrawer({
             hideUntilBothSubmitted={true}
           />
         )}
-
-        <RatingCard
-          question={prompt}
-          onSelect={onRatingSubmit}
-          className="w-full max-w-sm"
-        />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="text-muted-foreground"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
       </div>
 
-      {/* V10: Drawer notification when partner already submitted */}
-      <Drawer open={showDrawer} onOpenChange={(open) => { if (!open) onSkip(); }}>
+      {/* Rating drawer - always open by design for focused rating UX.
+          dismissible={false} prevents accidental swipe/overlay close.
+          User must tap explicit "Back" or "Decline" button to cancel. */}
+      <Drawer open={true} dismissible={false}>
         <DrawerContent>
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Rate your understanding</DrawerTitle>
-            <DrawerDescription>
-              Rate how well you understood {checkerName}
-            </DrawerDescription>
+          <DrawerHeader className={drawerDescription ? "text-center pb-2" : "sr-only"}>
+            {drawerDescription && (
+              <DrawerDescription className="text-sm text-muted-foreground">
+                {drawerDescription}
+              </DrawerDescription>
+            )}
+            <DrawerTitle className="sr-only">Rate your understanding</DrawerTitle>
           </DrawerHeader>
           <div className="px-4 pb-8 pt-4 space-y-4">
             <RatingCard
-              question={`How confident are you that you understand ${checkerName}?`}
+              question={prompt}
               onSelect={onRatingSubmit}
-              onSkip={onSkip}
+              onSkip={showDrawer ? onSkip : undefined}
               skipLabel="Decline"
+              onBack={!showDrawer ? onBack : undefined}
             />
           </div>
         </DrawerContent>
@@ -837,9 +843,11 @@ interface RatingCardProps {
   onSkip?: () => void;
   /** Label for the skip button (default: "Skip") */
   skipLabel?: string;
+  /** Optional back handler - when provided, shows Back button inside the card */
+  onBack?: () => void;
 }
 
-function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Skip' }: RatingCardProps) {
+function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Skip', onBack }: RatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   const handleSubmit = () => {
@@ -857,7 +865,7 @@ function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'S
       )}
 
       <div className={`flex flex-col items-center space-y-3 ${question ? 'pt-3 border-t' : ''}`}>
-        <div className="flex justify-between text-xs text-muted-foreground w-full max-w-[352px]">
+        <div className="flex justify-between text-xs text-muted-foreground w-full max-w-sm">
           <span>Not at all</span>
           <span>Perfectly</span>
         </div>
@@ -878,6 +886,17 @@ function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'S
             className="text-muted-foreground"
           >
             {skipLabel}
+          </Button>
+        )}
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="text-muted-foreground"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
           </Button>
         )}
       </div>
@@ -950,17 +969,17 @@ function JourneyToUnderstanding({
   // - "responder" = the person proving understanding (always the listener in both flows)
   // - "prover" = only set when listener initiated via "Did I get it?" (tracks who started)
   // In both flows, the journey is about the LISTENER understanding the SPEAKER.
-  let headerText: string;
+  let headerText: React.ReactNode;
   if (isProverInitiated) {
     // "Did I get it?" flow - listener (prover) initiated
     headerText = isChecker
-      ? `${proverName}'s journey to understand you`
-      : `Your journey to understand ${checkerName}`;
+      ? <>{proverName}'s journey to <span className="font-semibold text-foreground">make you feel understood</span></>
+      : <>Your journey to <span className="font-semibold text-foreground">make {checkerName} feel understood</span></>;
   } else {
     // "Did you get it?" flow - speaker (checker) initiated
     headerText = isChecker
-      ? `${displayPartnerName}'s journey to understand you`
-      : `Your journey to understand ${checkerName}`;
+      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">make you feel understood</span></>
+      : <>Your journey to <span className="font-semibold text-foreground">make {checkerName} feel understood</span></>;
   }
 
   // Determine which ratings are available
@@ -998,7 +1017,7 @@ function JourneyToUnderstanding({
   // History cards are muted with subtle border to differentiate from active RatingCard
   const bgClass = variant === 'success'
     ? 'bg-green-50 border border-green-200'
-    : 'bg-gray-50 border border-gray-200';
+    : 'bg-muted/50 border border-border';
 
   // In compact mode, skip round numbers and min-height
   if (compact) {
@@ -1081,7 +1100,7 @@ function JourneyToUnderstanding({
   return (
     <div className={`${bgClass} rounded-lg p-4 ${JOURNEY_MIN_HEIGHT} text-left ${className}`}>
       {/* Section header - personal and directional */}
-      <p className="text-xs text-muted-foreground mb-3">{headerText}</p>
+      <p className="text-sm font-medium text-muted-foreground text-center mb-4 pb-2 border-b border-border">{headerText}</p>
 
       <div className="space-y-2">
         {/* Initial round (0) - show one-time rating first for each role */}
@@ -1162,6 +1181,97 @@ function JourneyToUnderstanding({
       </div>
     </div>
   );
+}
+
+// ============================================================================
+// ACTION AREA - Wrapper for action content below history card
+// Provides consistent spacing, optional icon, and title styling
+// ============================================================================
+
+interface ActionAreaProps {
+  /** Optional emoji icon (e.g., "🎤", "👂") */
+  icon?: string;
+  /** Optional title text */
+  title?: React.ReactNode;
+  /** Optional subtitle/description */
+  subtitle?: React.ReactNode;
+  /** Children (buttons, waiting indicators, etc.) */
+  children: React.ReactNode;
+  /** Additional CSS classes */
+  className?: string;
+}
+
+/**
+ * ActionArea - Wrapper component for action content below the history card.
+ * Provides consistent spacing, optional icon with circular background, and title styling.
+ * Use for presenting action choices (buttons) or waiting states with visual context.
+ */
+function ActionArea({ icon, title, subtitle, children, className = '' }: ActionAreaProps) {
+  return (
+    <section className={`flex flex-col items-center gap-4 w-full max-w-sm pt-8 ${className}`} role="region" data-testid="action-area">
+      {/* Icon + Title block */}
+      {(icon || title) && (
+        <div className="flex flex-col items-center gap-3">
+          {icon && (
+            <div className="w-20 h-20 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+              <span className="text-3xl" aria-hidden="true">{icon}</span>
+            </div>
+          )}
+          {title && (
+            <p className="text-lg font-semibold text-center max-w-xs">
+              {title}
+            </p>
+          )}
+          {subtitle && (
+            <p className="text-sm text-muted-foreground text-center">
+              {subtitle}
+            </p>
+          )}
+        </div>
+      )}
+      {/* Action buttons/content */}
+      <div className="flex flex-col gap-3 w-full max-w-xs" role="group">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// WAITING INDICATOR - Reusable component for "Waiting for X..." messages
+// ============================================================================
+
+interface WaitingIndicatorProps {
+  message: string;
+  onSkip?: () => void;
+  skipLabel?: string;
+  showBackground?: boolean;
+}
+
+function WaitingIndicator({ message, onSkip, skipLabel = "Skip", showBackground = true }: WaitingIndicatorProps) {
+  const content = (
+    <>
+      <div className="flex items-center gap-2">
+        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+        <p className="text-sm text-muted-foreground">{message}</p>
+      </div>
+      {onSkip && (
+        <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
+          {skipLabel}
+        </Button>
+      )}
+    </>
+  );
+
+  if (showBackground) {
+    return (
+      <div className="bg-muted rounded-lg px-4 py-3 max-w-xs space-y-3 flex flex-col items-center" data-testid="waiting-indicator">
+        {content}
+      </div>
+    );
+  }
+
+  return <div className="flex flex-col items-center gap-2" data-testid="waiting-indicator">{content}</div>;
 }
 
 // ============================================================================
@@ -1351,7 +1461,7 @@ function UnderstandingScreen({
         return (
           <div className="flex flex-col h-full">
             <LiveHeader partnerName={partnerName} onExit={onExit} />
-            <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+            <div className={CONTENT_LAYOUT}>
               <JourneyToUnderstanding
                 checkerRating={checkerRating}
                 responderRating={responderRating}
@@ -1362,37 +1472,26 @@ function UnderstandingScreen({
                 proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
                 className="w-full max-w-sm"
               />
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                  <span className="text-4xl">👂</span>
-                </div>
-                <h2 className="text-lg font-semibold text-center max-w-xs">
-                  Listen how {displayPartnerName} understood you
-                </h2>
-              </div>
-              <div className="bg-muted rounded-lg px-4 py-3 max-w-xs space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Waiting for {displayPartnerName} to finish..
-                  </p>
-                </div>
-                <div className="flex justify-center">
-                  <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                    Skip
-                  </Button>
-                </div>
-              </div>
+              <ActionArea
+                icon="👂"
+                title={`Hear what's missing for a perfect 10`}
+              >
+                <WaitingIndicator
+                  message={`Waiting for ${displayPartnerName} to finish clarifying...`}
+                  onSkip={onSkip}
+                />
+              </ActionArea>
             </div>
           </div>
         );
       }
 
-      // Branch 2: Listener tapped Done - show rating card directly (no drawer)
+      // Branch 2: Listener tapped Done - show rating in drawer
+      const explainBackPrompt = `How well did ${displayPartnerName} capture the intention behind your idea?`;
       return (
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} />
-          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          <div className={CONTENT_LAYOUT}>
             <JourneyToUnderstanding
               checkerRating={checkerRating}
               responderRating={responderRating}
@@ -1403,13 +1502,28 @@ function UnderstandingScreen({
               proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
               className="w-full max-w-sm"
             />
-            <RatingCard
-              question={`How well did ${displayPartnerName} capture the intention behind your idea?`}
-              onSelect={onExplainBackRate}
-              onSkip={onSkip}
-              className="w-full max-w-sm"
-            />
           </div>
+
+          {/* Rating drawer - always open by design for focused rating UX.
+              dismissible={false} prevents accidental swipe/overlay close.
+              User must tap explicit skip button to end the round. */}
+          <Drawer open={true} dismissible={false}>
+            <DrawerContent>
+              <DrawerHeader className="text-center pb-2">
+                <DrawerDescription className="text-sm text-muted-foreground">
+                  {displayPartnerName} finished listening actively to you
+                </DrawerDescription>
+                <DrawerTitle className="sr-only">{explainBackPrompt}</DrawerTitle>
+              </DrawerHeader>
+              <div className="px-4 pb-8 pt-4 space-y-4">
+                <RatingCard
+                  question={explainBackPrompt}
+                  onSelect={onExplainBackRate}
+                  onSkip={onSkip}
+                />
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
       );
     }
@@ -1422,7 +1536,7 @@ function UnderstandingScreen({
       return (
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} />
-          <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+          <div className={CONTENT_LAYOUT}>
             <JourneyToUnderstanding
               checkerRating={checkerRating}
               responderRating={responderRating}
@@ -1433,27 +1547,12 @@ function UnderstandingScreen({
               proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
               className="w-full max-w-sm"
             />
-            <div className="flex flex-col items-center space-y-4">
-              <div className="w-24 h-24 rounded-full bg-muted border-2 border-muted-foreground/20 flex items-center justify-center">
-                <span className="text-4xl">⏳</span>
-              </div>
-              <h2 className="text-lg font-semibold text-center max-w-xs">
-                Waiting for {checkerName} to rate your explanation
-              </h2>
-            </div>
-            <div className="bg-muted rounded-lg px-4 py-3 max-w-xs space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                <p className="text-sm text-muted-foreground">
-                  {checkerName} is reviewing...
-                </p>
-              </div>
-              <div className="flex justify-center">
-                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Skip
-                </Button>
-              </div>
-            </div>
+            <ActionArea>
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to evaluate how well you captured their idea...`}
+                onSkip={onSkip}
+              />
+            </ActionArea>
           </div>
         </div>
       );
@@ -1463,7 +1562,7 @@ function UnderstandingScreen({
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} />
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -1474,16 +1573,10 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-              <span className="text-4xl">🎤</span>
-            </div>
-            <h2 className="text-lg font-semibold text-center max-w-xs">
-              Explain back what you heard<br />
-              OR ask a clarifying question
-            </h2>
-          </div>
-          <div className="flex flex-col gap-3 w-full max-w-xs">
+          <ActionArea
+            icon="🎤"
+            title={<>Explain back what you heard<br />OR ask a clarifying question</>}
+          >
             <Button
               size="lg"
               className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1492,9 +1585,9 @@ function UnderstandingScreen({
               I'm done with active listening
             </Button>
             <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto">
-              Skip
+              Speak freely
             </Button>
-          </div>
+          </ActionArea>
         </div>
       </div>
     );
@@ -1505,13 +1598,13 @@ function UnderstandingScreen({
   // ============================================================================
   if (phase === 'waiting') {
     const waitingMessage = isChecker
-      ? `Waiting for ${displayPartnerName} to rate their understanding...`
-      : `Waiting for ${checkerName} to rate their understanding...`;
+      ? `Waiting for ${displayPartnerName} to share their confidence...`
+      : `Waiting for ${checkerName} to share their confidence...`;
 
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} />
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <div className={CONTENT_LAYOUT}>
           {/* Hide ratings until both submit to prevent bias */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -1526,15 +1619,13 @@ function UnderstandingScreen({
           />
 
           {/* Waiting indicator below the card */}
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <p className="text-sm text-muted-foreground">{waitingMessage}</p>
-          </div>
-
-          <button onClick={onBackToIdle} className="text-muted-foreground hover:text-foreground flex items-center text-sm">
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back
-          </button>
+          <ActionArea>
+            <WaitingIndicator
+              message={waitingMessage}
+              onSkip={onBackToIdle}
+              skipLabel="Cancel"
+            />
+          </ActionArea>
         </div>
       </div>
     );
@@ -1566,8 +1657,9 @@ function UnderstandingScreen({
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} />
-        <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-          <div className="text-center space-y-4">
+        <div className={CONTENT_LAYOUT}>
+          {/* Celebration header */}
+          <div className="text-center space-y-2">
             <div className="text-4xl">🎉</div>
             <h2 className="text-xl font-semibold text-green-600">{headline}</h2>
             {roundsMessage && (
@@ -1576,44 +1668,36 @@ function UnderstandingScreen({
             {underconfidenceMessage && (
               <p className="text-sm text-blue-600 font-medium">{underconfidenceMessage}</p>
             )}
-            <JourneyToUnderstanding
-              checkerRating={checkerRating}
-              responderRating={responderRating}
-              explainBackRatings={liveState.explainBackRatings}
-              isChecker={isChecker}
-              displayPartnerName={displayPartnerName}
-              checkerName={checkerName}
-              proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
-              variant="success"
-              className="w-full max-w-sm"
-            />
           </div>
-          <div className="flex flex-col items-center gap-2 w-full max-w-xs">
-            {/* Only the listener (responder) who achieved understanding gets the "Explain why" prompt */}
+          <JourneyToUnderstanding
+            checkerRating={checkerRating}
+            responderRating={responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            variant="success"
+            className="w-full max-w-sm"
+          />
+          <ActionArea
+            icon={!isChecker && isExplainingWhy ? "🎤" : undefined}
+            title={!isChecker && isExplainingWhy ? `Share with ${checkerName} why this felt clear` : undefined}
+            subtitle={!isChecker && !isExplainingWhy ? `Help ${checkerName} learn what clicked for you?` : undefined}
+          >
             {!isChecker ? (
               isExplainingWhy ? (
                 // Speaking mode: listener is verbally explaining why it's a 10
-                <div className="flex flex-col items-center space-y-4 w-full">
-                  <div className="w-20 h-20 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                    <span className="text-3xl">🎤</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Share with {checkerName} why this felt clear
-                  </p>
-                  <Button
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 w-full"
-                    onClick={onCelebrationContinue}
-                  >
-                    I'm done
-                  </Button>
-                </div>
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={onCelebrationContinue}
+                >
+                  I'm done
+                </Button>
               ) : (
                 // Initial state: offer to explain or skip
                 <>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Help {checkerName} learn what clicked for you?
-                  </p>
                   <Button
                     size="lg"
                     className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1621,12 +1705,9 @@ function UnderstandingScreen({
                   >
                     Share what worked
                   </Button>
-                  <button
-                    onClick={onCelebrationContinue}
-                    className="text-sm text-muted-foreground hover:underline"
-                  >
+                  <Button variant="ghost" size="sm" onClick={onCelebrationContinue} className="text-muted-foreground">
                     Continue
-                  </button>
+                  </Button>
                 </>
               )
             ) : (
@@ -1638,7 +1719,7 @@ function UnderstandingScreen({
                 Continue
               </Button>
             )}
-          </div>
+          </ActionArea>
         </div>
       </div>
     );
@@ -1663,7 +1744,7 @@ function UnderstandingScreen({
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} />
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -1680,33 +1761,23 @@ function UnderstandingScreen({
             </div>
             <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
           </div>
-          <div className="flex flex-col gap-3 w-full max-w-xs">
+          <ActionArea
+            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood` : undefined}
+          >
             {isChecker ? (
               // Speaker view in gap-revealed: wait for listener to decide
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Waiting for {displayPartnerName} to decide...
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+              <WaitingIndicator
+                message={`${displayPartnerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             ) : listenerWaitingForNegotiation ? (
               // Listener waiting: they clicked "I want to speak freely", waiting for speaker's decision
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Waiting for {checkerName} to decide...
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+              <WaitingIndicator
+                message={`${checkerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             ) : (
               // Listener view in gap-revealed: offer to explain back or speak freely
               <>
@@ -1715,14 +1786,14 @@ function UnderstandingScreen({
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onExplainBackStart}
                 >
-                  Did I understand you?
+                  Listen actively
                 </Button>
-                <Button variant="outline" size="lg" className="w-full" onClick={onSharePerspective}>
-                  I want to speak freely
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
+                  Speak freely
                 </Button>
               </>
             )}
-          </div>
+          </ActionArea>
         </div>
 
         {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
@@ -1794,7 +1865,7 @@ function UnderstandingScreen({
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} />
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -1811,45 +1882,32 @@ function UnderstandingScreen({
             </div>
             <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
           </div>
-          <div className="flex flex-col gap-3 w-full max-w-xs">
+          <ActionArea
+            title={isChecker ? `Help ${displayPartnerName} reach a perfect 10` : undefined}
+          >
             {isChecker ? (
               // Speaker view: offer to clarify or continue
               <>
-                <p className="text-sm text-center text-muted-foreground">
-                  Clarify what's missing for {displayPartnerName} to get 10
-                </p>
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onClarifyStart}
                 >
-                  Clarify now
+                  Share what's missing
                 </Button>
-                <Button variant="outline" size="lg" className="w-full" onClick={onBackToIdle}>
-                  Good enough
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onBackToIdle}>
+                  Speak freely
                 </Button>
               </>
             ) : (
               // Listener view: wait for speaker to decide
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-20 h-20 rounded-full bg-muted border-2 border-muted-foreground/20 flex items-center justify-center">
-                  <span className="text-3xl">⏳</span>
-                </div>
-                <h2 className="text-sm font-medium text-center">
-                  Waiting for {checkerName} to decide...
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    {checkerName} may clarify what was missed
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+              <WaitingIndicator
+                message={`Waiting for ${checkerName}...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             )}
-          </div>
+          </ActionArea>
         </div>
       </div>
     );
@@ -1864,7 +1922,7 @@ function UnderstandingScreen({
     return (
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} />
-        <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+        <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -1877,53 +1935,33 @@ function UnderstandingScreen({
           />
           {isChecker ? (
             // Speaker view: "Clarifying..." with microphone icon
-            <>
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                  <span className="text-4xl">🎤</span>
-                </div>
-                <h2 className="text-lg font-semibold text-center max-w-xs">
-                  Clarifying to {displayPartnerName}...
-                </h2>
-              </div>
-              <div className="flex flex-col gap-3 w-full max-w-xs">
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onClarifyDone}
-                >
-                  I'm done clarifying
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto">
-                  Good enough
-                </Button>
-              </div>
-            </>
+            <ActionArea
+              icon="🎤"
+              title="Clarify what's missing for a perfect 10"
+            >
+              <Button
+                size="lg"
+                className="bg-blue-500 hover:bg-blue-600 w-full"
+                onClick={onClarifyDone}
+              >
+                I'm done clarifying
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto">
+                Speak freely
+              </Button>
+            </ActionArea>
           ) : (
             // Listener view: waiting for speaker to finish clarifying
-            <>
-              <div className="flex flex-col items-center space-y-4">
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                  <span className="text-4xl">👂</span>
-                </div>
-                <h2 className="text-lg font-semibold text-center max-w-xs">
-                  {checkerName} is clarifying...
-                </h2>
-              </div>
-              <div className="bg-muted rounded-lg px-4 py-3 max-w-xs space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Listen to what you missed
-                  </p>
-                </div>
-                <div className="flex justify-center">
-                  <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                    Good enough
-                  </Button>
-                </div>
-              </div>
-            </>
+            <ActionArea
+              icon="👂"
+              title="Hear what's missing for a perfect 10"
+            >
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to finish clarifying...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
+            </ActionArea>
           )}
         </div>
       </div>
@@ -1938,7 +1976,7 @@ function UnderstandingScreen({
   return (
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
-      <div className="flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6">
+      <div className={CONTENT_LAYOUT}>
         <JourneyToUnderstanding
           checkerRating={checkerRating}
           responderRating={responderRating}
@@ -1949,171 +1987,82 @@ function UnderstandingScreen({
           proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
           className="w-full max-w-sm"
         />
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+        <ActionArea
+          title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
+            ? `Help ${displayPartnerName} reach a perfect 10`
+            : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
+              ? `Help ${checkerName} feel more understood`
+              : undefined}
+        >
           {isChecker ? (
-            // Speaker view - four states based on clarificationPhase:
-            // 1. 'speaker-clarifying': show "Clarifying..." with done button
-            // 2. 'listener-responding': speaker waits, listener's turn to explain back
-            // 3. 'speaker-deciding' (hasExplainBackHappened): show "Clarify now" / "Good enough" choice
-            // 4. undefined: show waiting for listener
-            clarificationPhase === 'speaker-clarifying' ? (
-              // State 1: Speaker is actively clarifying
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                  <span className="text-4xl">🎤</span>
-                </div>
-                <h2 className="text-lg font-semibold text-center">
-                  Clarifying...
-                </h2>
-                <p className="text-sm text-muted-foreground text-center">
-                  Add what was missed for {displayPartnerName}
-                </p>
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onClarifyDone}
-                >
-                  I'm done clarifying
-                </Button>
-              </div>
-            ) : clarificationPhase === 'listener-responding' ? (
-              // State 2: Speaker done clarifying, waiting for listener to respond
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-muted border-2 border-muted-foreground/20 flex items-center justify-center">
-                  <span className="text-3xl">⏳</span>
-                </div>
-                <h2 className="text-sm font-medium text-center">
-                  Waiting for {displayPartnerName} to respond...
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    {displayPartnerName} can now explain back
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+            // Speaker view - states based on clarificationPhase:
+            // 1. 'listener-responding': speaker waits, listener's turn to explain back
+            // 2. 'speaker-deciding' (hasExplainBackHappened): show "Share what's missing" / "Speak freely" choice
+            // 3. undefined: show waiting for listener
+            clarificationPhase === 'listener-responding' ? (
+              <WaitingIndicator
+                message={`${displayPartnerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             ) : clarificationPhase === 'speaker-deciding' && hasExplainBackHappened ? (
-              // State 3: Speaker deciding whether to clarify (after explain-back rating < 10)
               <>
-                <p className="text-sm font-medium text-center">
-                  Clarify what's missing for {displayPartnerName} to get 10
-                </p>
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onClarifyStart}
                 >
-                  Clarify now
+                  Share what's missing
                 </Button>
-                <Button variant="outline" size="lg" className="w-full" onClick={onSkip}>
-                  Good enough
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSkip}>
+                  Speak freely
                 </Button>
               </>
             ) : (
-              // State 4: No clarification phase - show waiting
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Waiting for {displayPartnerName} to decide...
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+              <WaitingIndicator
+                message={`${displayPartnerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             )
           ) : (
-            // Listener view - three states based on clarificationPhase:
-            // 1. 'speaker-clarifying': show "[Speaker] is clarifying..."
-            // 2. 'speaker-deciding': show waiting for speaker to decide
-            // 3. undefined or 'listener-responding': show action buttons
-            clarificationPhase === 'speaker-clarifying' ? (
-              // State 1: Speaker is clarifying - listener listens
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-24 h-24 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
-                  <span className="text-4xl">👂</span>
-                </div>
-                <h2 className="text-lg font-semibold text-center">
-                  {checkerName} is clarifying...
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Listen to what was missed
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Skip
-                </Button>
-              </div>
-            ) : clarificationPhase === 'speaker-deciding' ? (
-              // State 2: Speaker is deciding - listener waits
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-muted border-2 border-muted-foreground/20 flex items-center justify-center">
-                  <span className="text-3xl">⏳</span>
-                </div>
-                <h2 className="text-sm font-medium text-center">
-                  Waiting for {checkerName} to decide...
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    {checkerName} may clarify what was missed
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+            // Listener view - states based on clarificationPhase:
+            // 1. 'speaker-deciding': show waiting for speaker to decide
+            // 2. undefined or 'listener-responding': show action buttons
+            clarificationPhase === 'speaker-deciding' ? (
+              <WaitingIndicator
+                message={`${checkerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             ) : listenerWaitingForNegotiation ? (
-              // Listener waiting: they clicked "I want to speak freely", waiting for speaker's decision
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  <p className="text-sm text-muted-foreground">
-                    Waiting for {checkerName} to decide...
-                  </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                  Good enough
-                </Button>
-              </div>
+              <WaitingIndicator
+                message={`${checkerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
+            ) : negotiation?.requestedBy === currentUserName ? (
+              <WaitingIndicator
+                message={`${checkerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
             ) : (
-              // State 3: Default (undefined or 'listener-responding') - show action buttons
-              // If listener already requested to speak freely, show waiting state instead
-              negotiation?.requestedBy === currentUserName ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    <p className="text-sm text-muted-foreground">
-                      Waiting for {checkerName} to decide...
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={onSkip} className="text-muted-foreground">
-                    Good enough
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 w-full"
-                    onClick={onExplainBackStart}
-                  >
-                    Did I understand you?
-                  </Button>
-                  <Button variant="outline" size="lg" className="w-full" onClick={onSharePerspective}>
-                    I want to speak freely
-                  </Button>
-                </>
-              )
+              <>
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={onExplainBackStart}
+                >
+                  Listen actively
+                </Button>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
+                  Speak freely
+                </Button>
+              </>
             )
           )}
-        </div>
+        </ActionArea>
       </div>
 
       {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}

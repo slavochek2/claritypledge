@@ -28,19 +28,22 @@ const DrawerContext = React.createContext<{
   open: boolean
   onOpenChange: (open: boolean) => void
   isMobile: boolean
+  dismissible: boolean
 }>({
   open: false,
   onOpenChange: () => {},
   isMobile: false,
+  dismissible: true,
 })
 
 const Drawer = ({
   shouldScaleBackground = false,
   open,
   onOpenChange,
+  dismissible = true,
   children,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => {
+}: React.ComponentProps<typeof DrawerPrimitive.Root> & { dismissible?: boolean }) => {
   const isMobile = useIsMobile()
   const [internalOpen, setInternalOpen] = React.useState(open ?? false)
 
@@ -51,7 +54,7 @@ const Drawer = ({
   // Mobile: use simple portal-based drawer
   if (isMobile) {
     return (
-      <DrawerContext.Provider value={{ open: isOpen ?? false, onOpenChange: setIsOpen ?? (() => {}), isMobile: true }}>
+      <DrawerContext.Provider value={{ open: isOpen ?? false, onOpenChange: setIsOpen ?? (() => {}), isMobile: true, dismissible }}>
         {children}
       </DrawerContext.Provider>
     )
@@ -59,11 +62,12 @@ const Drawer = ({
 
   // Desktop: use Vaul
   return (
-    <DrawerContext.Provider value={{ open: isOpen ?? false, onOpenChange: setIsOpen ?? (() => {}), isMobile: false }}>
+    <DrawerContext.Provider value={{ open: isOpen ?? false, onOpenChange: setIsOpen ?? (() => {}), isMobile: false, dismissible }}>
       <DrawerPrimitive.Root
         shouldScaleBackground={shouldScaleBackground}
         open={open}
         onOpenChange={onOpenChange}
+        dismissible={dismissible}
         {...props}
       >
         {children}
@@ -95,7 +99,7 @@ const DrawerContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => {
-  const { open, onOpenChange, isMobile } = React.useContext(DrawerContext)
+  const { open, onOpenChange, isMobile, dismissible } = React.useContext(DrawerContext)
 
   // Mobile: render a simple fixed-position div with portal
   if (isMobile) {
@@ -103,10 +107,10 @@ const DrawerContent = React.forwardRef<
 
     return createPortal(
       <>
-        {/* Overlay */}
+        {/* Overlay - only dismissible if dismissible prop is true */}
         <div
           className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"
-          onClick={() => onOpenChange(false)}
+          onClick={dismissible ? () => onOpenChange(false) : undefined}
         />
         {/* Drawer content */}
         <div
@@ -118,7 +122,8 @@ const DrawerContent = React.forwardRef<
           )}
           {...props}
         >
-          <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+          {/* Only show drag handle if dismissible */}
+          {dismissible && <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />}
           {children}
         </div>
       </>,
@@ -138,7 +143,8 @@ const DrawerContent = React.forwardRef<
         )}
         {...props}
       >
-        <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+        {/* Only show drag handle if dismissible */}
+        {dismissible && <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />}
         {children}
       </DrawerPrimitive.Content>
     </DrawerPortal>
