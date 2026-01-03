@@ -273,6 +273,26 @@ export async function deleteTestUserByEmail(email: string) {
 }
 
 /**
+ * Deletes a clarity session by code
+ * Call this in afterEach to clean up test sessions
+ */
+export async function deleteClaritySession(code: string) {
+  console.log(`[TEST HELPER] Deleting clarity session: ${code}`);
+
+  const { error } = await supabaseAdmin
+    .from('clarity_sessions')
+    .delete()
+    .eq('code', code);
+
+  if (error) {
+    console.warn('[TEST HELPER] Error deleting session:', error);
+    // Don't throw - session might already be deleted
+  } else {
+    console.log(`[TEST HELPER] Session deleted: ${code}`);
+  }
+}
+
+/**
  * Cleans up all test users (emails starting with "test-")
  * Use with caution!
  */

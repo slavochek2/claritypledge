@@ -102,6 +102,13 @@ export function ClarityLivePage() {
   const hasJoinerRef = useRef(false);
   // Ref to store the last known joiner name (for partner left screen)
   const lastJoinerNameRef = useRef<string | null>(null);
+
+  // Helper: Mark joiner as detected (updates refs immediately to avoid race conditions)
+  // Called from both subscription and polling to ensure departure detection works
+  const markJoinerDetected = useCallback((joinerName: string) => {
+    hasJoinerRef.current = true;
+    lastJoinerNameRef.current = joinerName;
+  }, []);
   // Ref to store session code for polling (avoids stale closure)
   const sessionCodeRef = useRef<string | null>(null);
   // Ref to track the current session ID (guards against stale subscription callbacks)
@@ -128,7 +135,6 @@ export function ClarityLivePage() {
 
   // Keep departure refs in sync with state
   useEffect(() => {
-    console.log('[Live Effect] Syncing departure refs:', { partnerLeft, sessionEnded });
     partnerLeftRef.current = partnerLeft;
     sessionEndedRef.current = sessionEnded;
   }, [partnerLeft, sessionEnded]);
@@ -163,7 +169,6 @@ export function ClarityLivePage() {
         // If user clicked a join link (/live/ABCD12), don't restore old session
         // They intend to join the new session from the URL
         if (isJoinViaLink) {
-          console.log('[Live] Join via link detected, skipping session restoration');
           clearStoredSession(); // Clear old session to avoid confusion
           setIsRestoring(false);
           return;
@@ -174,7 +179,6 @@ export function ClarityLivePage() {
         const savedIsCreator = storage?.getItem(STORAGE_KEYS.IS_CREATOR);
 
         if (savedCode && savedName) {
-          console.log('[Live] Restoring session:', savedCode);
           const restoredSession = await getClaritySession(savedCode);
 
           if (restoredSession) {
@@ -198,7 +202,6 @@ export function ClarityLivePage() {
             }
           } else {
             // Session expired or invalid
-            console.log('[Live] Stored session not found, clearing');
             clearStoredSession();
           }
         }
@@ -251,37 +254,26 @@ export function ClarityLivePage() {
   // The subscription callback uses functional updates to avoid stale closures.
   useEffect(() => {
     if (!session) {
-      console.log('[Live] No session yet, skipping subscription');
       return;
     }
 
     const sessionId = session.id;
-    console.log('[Live] Setting up subscription for session:', sessionId);
 
     const unsubscribe = subscribeToClaritySession(sessionId, (updatedSession) => {
       // Guard: Ignore updates from stale sessions (prevents race condition when exiting)
       // This can happen if a realtime update arrives after user clicked "Leave" but before cleanup
       if (currentSessionIdRef.current !== updatedSession.id) {
-        console.log('[Live] Ignoring stale session update:', updatedSession.id, 'current:', currentSessionIdRef.current);
         return;
       }
 
       // Guard: Skip if I am leaving or session already ended (prevents processing updates after departure)
       if (iAmLeavingRef.current || sessionEndedRef.current || partnerLeftRef.current) {
-        console.log('[Live] Ignoring session update - departed state:', {
-          iAmLeaving: iAmLeavingRef.current,
-          sessionEnded: sessionEndedRef.current,
-          partnerLeft: partnerLeftRef.current,
-        });
         return;
       }
-
-      console.log('[Live] Session updated, joinerName:', updatedSession.joinerName);
 
       // Check for session end (creator left) - handle via subscription for immediate response
       const sessionEndedInLiveState = (updatedSession.liveState as Record<string, unknown>)?.sessionEnded;
       if (sessionEndedInLiveState) {
-        console.log('[Live Subscription] Session has ended (creator left)');
         // Update ref immediately to prevent any subsequent updates from processing
         sessionEndedRef.current = true;
         setDepartedPartnerName(updatedSession.creatorName);
@@ -295,7 +287,6 @@ export function ClarityLivePage() {
 
       // Check for joiner departure (I'm creator, joiner left)
       if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current) {
-        console.log('[Live Subscription] Partner (joiner) has left the meeting');
         // Update ref immediately to prevent any subsequent updates from processing
         partnerLeftRef.current = true;
         setDepartedPartnerName(lastJoinerNameRef.current);
@@ -321,15 +312,10 @@ export function ClarityLivePage() {
       // When joiner joins, move to live view
       // Use functional update to avoid stale closure
       if (updatedSession.joinerName) {
-        console.log('[Live] Joiner detected, transitioning from waiting to live');
-        setView((currentView) => {
-          console.log('[Live] Current view:', currentView, '-> transitioning to live if waiting');
-          return currentView === 'waiting' ? 'live' : currentView;
-        });
+        markJoinerDetected(updatedSession.joinerName);
+        setView((currentView) => currentView === 'waiting' ? 'live' : currentView);
       }
     });
-
-    console.log('[Live] Subscription set up successfully');
 
     // Fallback: Poll for updates as a safety net
     // This handles cases where realtime subscription might not fire
@@ -337,33 +323,29 @@ export function ClarityLivePage() {
     const pollInterval = setInterval(async () => {
       // Skip polling if partner has already left or I am leaving (avoid further state changes)
       if (partnerLeftRef.current || sessionEndedRef.current || iAmLeavingRef.current) {
-        console.log('[Live Poll] Skipping - partner left, session ended, or I am leaving');
         return;
       }
 
       // Use ref to get current session code (avoids stale closure)
       const currentCode = sessionCodeRef.current;
       if (!currentCode) {
-        console.log('[Live Poll] No session code, skipping');
         return;
       }
 
       try {
         const freshSession = await getClaritySession(currentCode);
         if (!freshSession) {
-          console.log('[Live Poll] No session found for code:', currentCode);
           return;
         }
 
         // Guard: Ignore if session ID doesn't match current (user may have exited/rejoined)
         if (currentSessionIdRef.current !== freshSession.id) {
-          console.log('[Live Poll] Ignoring stale session:', freshSession.id, 'current:', currentSessionIdRef.current);
           return;
         }
 
         // Check 1: Detect joiner (existing logic)
         if (freshSession.joinerName && !hasJoinerRef.current) {
-          console.log('[Live Poll] Detected joiner, updating session');
+          markJoinerDetected(freshSession.joinerName);
           setSession(freshSession);
           if (freshSession.liveState) {
             setLiveState({ ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState);
@@ -377,19 +359,12 @@ export function ClarityLivePage() {
         // Case A: Session ended (creator left) - joiner sees this
         // Check live_state.sessionEnded since ended_at column doesn't exist
         const sessionEndedInLiveState = (freshSession.liveState as Record<string, unknown>)?.sessionEnded;
-        console.log('[Live Poll] Checking sessionEnded:', {
-          liveState: freshSession.liveState,
-          sessionEndedInLiveState,
-          hasJoiner: hasJoinerRef.current
-        });
         if (sessionEndedInLiveState) {
-          console.log('[Live Poll] Session has ended (creator left) - setting sessionEnded=true');
           // Update ref immediately to prevent any subsequent updates from processing
           sessionEndedRef.current = true;
           // Store the partner's name before we clear session
           setDepartedPartnerName(freshSession.creatorName);
           setSessionEnded(true);
-          console.log('[Live Poll] Called setSessionEnded(true) and setDepartedPartnerName:', freshSession.creatorName);
           analytics.track('live_session_partner_left', {
             session_code: freshSession.code,
             left_by: 'creator',
@@ -399,7 +374,6 @@ export function ClarityLivePage() {
 
         // Case B: Joiner left (creator sees this) - joiner_name went from set to null
         if (!freshSession.joinerName && hasJoinerRef.current) {
-          console.log('[Live Poll] Partner (joiner) has left the meeting');
           // Update ref immediately to prevent any subsequent updates from processing
           partnerLeftRef.current = true;
           // Use the ref which stored the joiner name before it was cleared
@@ -421,10 +395,6 @@ export function ClarityLivePage() {
         const updateInFlight = updateInFlightRef.current;
 
         if (!hasLiveState || !hasJoiner || updateInFlight) {
-          // Log why we're skipping drift detection (useful for debugging)
-          if (!hasLiveState) console.log('[Live Poll] No live_state in session');
-          if (!hasJoiner) console.log('[Live Poll] No joiner detected yet');
-          if (updateInFlight) console.log('[Live Poll] Update in flight, skipping drift check');
           return;
         }
 
@@ -445,15 +415,6 @@ export function ClarityLivePage() {
         const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift;
 
         if (serverHasUpdate) {
-          console.log('[Live Poll] State drift detected!', {
-            phaseDrift: phaseDrift ? `${localState.ratingPhase} → ${serverState.ratingPhase}` : 'no',
-            checkerNameDrift: checkerNameDrift ? `${localState.checkerName} → ${serverState.checkerName}` : 'no',
-            checkerDrift: checkerDrift ? `${localState.checkerSubmitted} → ${serverState.checkerSubmitted}` : 'no',
-            responderDrift: responderDrift ? `${localState.responderSubmitted} → ${serverState.responderSubmitted}` : 'no',
-            explainBackDoneDrift: explainBackDoneDrift ? `${localState.explainBackDone} → ${serverState.explainBackDone}` : 'no',
-            checksCountDrift: checksCountDrift ? `${localState.checksCount} → ${serverState.checksCount}` : 'no',
-          });
-
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
           try {
             analytics.track('live_state_drift_detected', {
@@ -481,7 +442,6 @@ export function ClarityLivePage() {
     }, POLL_INTERVAL_MS);
 
     return () => {
-      console.log('[Live] Cleaning up subscription and poll');
       unsubscribe();
       clearInterval(pollInterval);
     };
@@ -493,19 +453,12 @@ export function ClarityLivePage() {
   const updateLiveState = useCallback(
     async (updates: Partial<LiveSessionState>) => {
       if (!session) {
-        console.log('[Live Update] No session, skipping update');
         return;
       }
 
       // Capture the confirmed state BEFORE we make changes (for potential revert)
       const stateBeforeUpdate = confirmedLiveStateRef.current;
       const newState = { ...stateBeforeUpdate, ...updates };
-
-      console.log('[Live Update] Updating state:', {
-        updates,
-        ratingPhase: newState.ratingPhase,
-        explainBackDone: newState.explainBackDone,
-      });
 
       setLiveState(newState); // Optimistic update
       updateInFlightRef.current = true; // Prevent poll from overwriting
@@ -514,7 +467,6 @@ export function ClarityLivePage() {
         await updateClaritySessionLiveState(session.id, newState);
         // Update confirmed state on success
         confirmedLiveStateRef.current = newState;
-        console.log('[Live Update] Success - state synced to server');
       } catch (err) {
         console.error('[Live Update] Failed to update state:', err);
         // Check if it's a migration error
@@ -552,11 +504,8 @@ export function ClarityLivePage() {
     // This prevents race condition where both users tap "I spoke" and submit simultaneously
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
-      console.log('[Live] Check already in progress, ignoring tap');
       return;
     }
-
-    console.log('[Live] Did you get it? tapped by:', name);
 
     // Track check initiation
     analytics.track('live_check_started', {
@@ -579,11 +528,8 @@ export function ClarityLivePage() {
     // Guard: if a check is already in progress, don't start a new one
     const currentState = confirmedLiveStateRef.current;
     if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
-      console.log('[Live] Check already in progress, ignoring prove tap');
       return;
     }
-
-    console.log('[Live] Did I get it? tapped by:', name);
 
     // Track prove initiation
     analytics.track('live_prove_started', {
@@ -603,7 +549,6 @@ export function ClarityLivePage() {
   const handleRatingSubmit = useCallback(
     (rating: number) => {
       if (!name || !partnerName) return;
-      console.log('[Live] Rating submitted:', rating, 'by:', name, 'flowType:', localFlowType);
 
       // Clear local rating state
       setIsLocallyRating(false);
@@ -636,14 +581,12 @@ export function ClarityLivePage() {
         // In "prove" flow, the person who submits first is the RESPONDER (prover/listener)
         // Their partner becomes the CHECKER (speaker)
         if (localFlowType === 'prove') {
-          console.log('[Live] Prove flow - first to submit becomes responder:', name);
           updates.proverName = name;           // Track who initiated "Did I get it?"
           updates.checkerName = partnerName;   // Partner (speaker) is the checker
           updates.responderRating = rating;    // Prover's confidence rating
           updates.responderSubmitted = true;
         } else {
           // "Did you get it?" flow - first person becomes checker (speaker)
-          console.log('[Live] Check flow - first to submit becomes checker:', name);
           updates.checkerName = name;
           updates.checkerRating = rating;
           updates.checkerSubmitted = true;
@@ -708,7 +651,6 @@ export function ClarityLivePage() {
   // V7: Handle skip (resets to idle state for next check)
   // V10: Now tracks who skipped so partner can be notified
   const handleSkip = useCallback(() => {
-    console.log('[Live] Skip - returning to idle, skipped by:', name);
 
     // Track round skip
     const currentState = confirmedLiveStateRef.current;
@@ -750,18 +692,15 @@ export function ClarityLivePage() {
 
     // If user already acknowledged, ignore duplicate clicks
     if (acknowledged.includes(name)) {
-      console.log('[Live] User already acknowledged celebration, ignoring');
       return;
     }
 
     const newAcknowledged = [...acknowledged, name];
-    console.log('[Live] Celebration acknowledged by:', name, 'Total:', newAcknowledged);
 
     // Check if both users have acknowledged
     const bothAcknowledged = partnerName && newAcknowledged.includes(partnerName);
 
     if (bothAcknowledged) {
-      console.log('[Live] Both users acknowledged - resetting to idle');
       // Both done - reset to idle state for a fresh start
       updateLiveState({
         ratingPhase: 'idle',
@@ -786,8 +725,7 @@ export function ClarityLivePage() {
         clarificationPhase: undefined,
       });
     } else {
-      console.log('[Live] Waiting for partner to acknowledge celebration');
-      // Just add this user to acknowledged list
+      // Just add this user to acknowledged list - waiting for partner
       updateLiveState({
         celebrationAcknowledgedBy: newAcknowledged,
       });
@@ -796,8 +734,6 @@ export function ClarityLivePage() {
 
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
-    console.log('[Live] Explain-back started');
-
     const currentState = confirmedLiveStateRef.current;
     analytics.track('live_explain_back_started', {
       session_code: session?.code,
@@ -818,8 +754,6 @@ export function ClarityLivePage() {
 
   // V11: Handle listener tapping "Done Explaining" - unlocks speaker's rating UI
   const handleExplainBackDone = useCallback(() => {
-    console.log('[Live] Listener tapped Done Explaining');
-
     updateLiveState({
       explainBackDone: true,
     });
@@ -828,8 +762,6 @@ export function ClarityLivePage() {
   // Handle listener wanting to share their perspective instead of explaining back
   // This now starts the negotiation flow instead of immediate role swap
   const handleSharePerspective = useCallback(() => {
-    console.log('[Live] Listener wants to share perspective - starting negotiation');
-
     analytics.track('live_share_perspective_requested', {
       session_code: session?.code,
     });
@@ -845,8 +777,6 @@ export function ClarityLivePage() {
 
   // Handle speaker asking listener to explain back first (negotiation step 1 → 2)
   const handleAskToExplainFirst = useCallback(() => {
-    console.log('[Live] Speaker asks listener to explain back first');
-
     analytics.track('live_role_switch_ask_explain', {
       session_code: session?.code,
     });
@@ -862,8 +792,6 @@ export function ClarityLivePage() {
 
   // Handle listener continuing as listener (accepting speaker's request to explain back)
   const handleContinueAsListener = useCallback(() => {
-    console.log('[Live] Listener continues as listener');
-
     analytics.track('live_role_switch_continue_listening', {
       session_code: session?.code,
     });
@@ -878,8 +806,6 @@ export function ClarityLivePage() {
 
   // Handle listener insisting they need to speak (negotiation step 2 → 3)
   const handleInsistToSpeak = useCallback(() => {
-    console.log('[Live] Listener insists they need to speak');
-
     analytics.track('live_role_switch_insist', {
       session_code: session?.code,
     });
@@ -895,8 +821,6 @@ export function ClarityLivePage() {
 
   // Handle speaker letting listener speak (final step - accept the role switch)
   const handleLetThemSpeak = useCallback(() => {
-    console.log('[Live] Speaker lets listener speak');
-
     analytics.track('live_role_switch_accepted_after_insist', {
       session_code: session?.code,
     });
@@ -922,8 +846,6 @@ export function ClarityLivePage() {
 
   // Handle speaker starting clarification (after rating < 10)
   const handleClarifyStart = useCallback(() => {
-    console.log('[Live] Speaker starting clarification');
-
     analytics.track('live_clarify_started', {
       session_code: session?.code,
       round: confirmedLiveStateRef.current.explainBackRatings.length,
@@ -937,8 +859,6 @@ export function ClarityLivePage() {
   // Handle speaker finishing clarification
   // After clarifying, listener gets to act (explain back again), speaker waits
   const handleClarifyDone = useCallback(() => {
-    console.log('[Live] Speaker finished clarifying');
-
     analytics.track('live_clarify_done', {
       session_code: session?.code,
       round: confirmedLiveStateRef.current.explainBackRatings.length,
@@ -952,8 +872,6 @@ export function ClarityLivePage() {
   // V6: Handle speaker rating after explain-back
   const handleExplainBackRate = useCallback(
     (rating: number) => {
-      console.log('[Live] Explain-back rated:', rating);
-
       const currentState = confirmedLiveStateRef.current;
       const newExplainBackRatings = [...currentState.explainBackRatings, rating];
       const round = currentState.explainBackRound + 1;
@@ -1126,7 +1044,6 @@ export function ClarityLivePage() {
 
   // Cancel waiting and go back to start
   const handleCancelWaiting = () => {
-    console.log('[Live] Canceling waiting, returning to start');
     clearStoredSession();
     setSession(null);
     setView('start');
@@ -1140,8 +1057,6 @@ export function ClarityLivePage() {
 
   // Actually exit meeting after confirmation
   const confirmExitMeeting = useCallback(async () => {
-    console.log('[Live] Exiting meeting, returning to start');
-
     // Mark that I am leaving (prevents polling from detecting my own departure)
     iAmLeavingRef.current = true;
 
@@ -1154,18 +1069,13 @@ export function ClarityLivePage() {
       });
 
       // Notify partner by updating the database
-      console.log('[Live] About to update DB, isCreator:', isCreator, 'session.id:', session.id);
       try {
         if (isCreator) {
           // Creator leaving = session ends for everyone
-          console.log('[Live] Calling endClaritySession...');
           await endClaritySession(session.id);
-          console.log('[Live] Session ended (creator left) - DB updated');
         } else {
           // Joiner leaving = clear their name so creator knows
-          console.log('[Live] Calling clearSessionJoiner...');
           await clearSessionJoiner(session.id);
-          console.log('[Live] Joiner cleared from session - DB updated');
         }
       } catch (err) {
         console.error('[Live] Error updating session on exit:', err);
@@ -1180,7 +1090,9 @@ export function ClarityLivePage() {
     setView('start');
     setRoomCode('');
     setShowExitConfirm(false);
-  }, [session, liveState.checksCount, isCreator]);
+    // Navigate to clean URL (replace to avoid back button returning to meeting)
+    navigate('/live', { replace: true });
+  }, [session, liveState.checksCount, isCreator, navigate]);
 
   // Handle starting a new session after partner left
   const handleStartNewAfterPartnerLeft = useCallback(() => {
@@ -1197,20 +1109,12 @@ export function ClarityLivePage() {
     iAmLeavingRef.current = false;
     partnerLeftRef.current = false;
     sessionEndedRef.current = false;
-  }, []);
-
-  // Debug: Log render state
-  console.log('[Live Render] State check:', {
-    sessionEnded,
-    partnerLeft,
-    view,
-    hasSession: !!session,
-    departedPartnerName,
-  });
+    // Navigate to clean URL (replace to avoid back button returning to meeting)
+    navigate('/live', { replace: true });
+  }, [navigate]);
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
-    console.log('[Live Render] Showing PartnerLeftScreen');
     return (
       <div className="flex flex-col h-screen">
         <LiveSessionBanner title="Meeting Ended" isLiveMeeting={false} />
@@ -1476,7 +1380,10 @@ export function ClarityLivePage() {
 
             {/* Link row with copy/share */}
             <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-              <span className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2">
+              <span
+                data-testid="share-link"
+                className="text-sm font-mono text-muted-foreground truncate flex-1 text-left pl-2"
+              >
                 {displayLink}
               </span>
               <Button
