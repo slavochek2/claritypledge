@@ -912,7 +912,7 @@ function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'S
       <div className={`flex flex-col items-center space-y-3 ${question ? 'pt-3 border-t' : ''}`}>
         <div className="flex justify-between text-xs text-muted-foreground w-full max-w-sm">
           <span>Not at all</span>
-          <span>Perfectly</span>
+          <span>Complete cognitive understanding</span>
         </div>
         <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} />
         <Button
@@ -1262,7 +1262,7 @@ function ActionArea({ icon, title, subtitle, children, className = '' }: ActionA
             </div>
           )}
           {title && (
-            <p className="text-lg font-semibold text-center max-w-xs">
+            <p className="text-lg font-semibold text-center max-w-xs whitespace-pre-line">
               {title}
             </p>
           )}
@@ -2107,7 +2107,7 @@ function UnderstandingScreen({
             // Speaker view: "Clarifying..." with microphone icon
             <ActionArea
               icon="🎤"
-              title="Clarify what's missing for a perfect 10"
+              title={`Clarify what's missing OR\ntest: 'If X happened, ...'`}
             >
               <Button
                 size="lg"
