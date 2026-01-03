@@ -1870,7 +1870,7 @@ function UnderstandingScreen({
             <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
           </div>
           <ActionArea
-            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood` : undefined}
+            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood. Withhold premature judgment.` : undefined}
           >
             {isChecker ? (
               // Speaker view in gap-revealed: wait for listener to decide
@@ -1894,7 +1894,7 @@ function UnderstandingScreen({
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onExplainBackStart}
                 >
-                  Listen actively
+                  Explain back what I heard
                 </Button>
                 <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
                   Speak freely
@@ -1992,7 +1992,7 @@ function UnderstandingScreen({
             <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
           </div>
           <ActionArea
-            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood` : undefined}
+            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood. Withhold premature judgment.` : undefined}
           >
             {isChecker ? (
               // Speaker view: wait for listener to decide (same as gap-revealed)
@@ -2016,7 +2016,7 @@ function UnderstandingScreen({
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onExplainBackStart}
                 >
-                  Listen actively
+                  Explain back what I heard
                 </Button>
                 <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
                   Speak freely
@@ -2161,7 +2161,7 @@ function UnderstandingScreen({
           title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
             ? `Help ${displayPartnerName} reach a perfect 10`
             : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
-              ? `Help ${checkerName} feel more understood`
+              ? `Help ${checkerName} feel more understood. Withhold premature judgment.`
               : undefined}
         >
           {isChecker ? (
@@ -2224,7 +2224,7 @@ function UnderstandingScreen({
                   className="bg-blue-500 hover:bg-blue-600 w-full"
                   onClick={onExplainBackStart}
                 >
-                  Listen actively
+                  Explain back what I heard
                 </Button>
                 <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
                   Speak freely
