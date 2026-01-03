@@ -1192,8 +1192,11 @@ export function ClarityLivePage() {
     setLiveState(DEFAULT_LIVE_STATE);
     setView('start');
     setRoomCode('');
-    // Reset the leaving ref so future sessions can detect departures
+    // Reset all departure refs so future sessions can detect departures
+    // Critical: Without this, polling would skip departure detection for new sessions
     iAmLeavingRef.current = false;
+    partnerLeftRef.current = false;
+    sessionEndedRef.current = false;
   }, []);
 
   // Debug: Log render state
