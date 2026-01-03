@@ -303,7 +303,9 @@ export function ClarityLivePage() {
 
       // Sync live state from session (merge with defaults for missing fields)
       // Also update the confirmed ref to prevent drift detection from reverting
-      if (updatedSession.liveState) {
+      // IMPORTANT: Skip if an update is in flight to prevent realtime from reverting optimistic updates
+      // This fixes the "flashing button" bug where realtime delivers old state before DB save completes
+      if (updatedSession.liveState && !updateInFlightRef.current) {
         const mergedState = { ...DEFAULT_LIVE_STATE, ...updatedSession.liveState } as LiveSessionState;
         setLiveState(mergedState);
         confirmedLiveStateRef.current = mergedState;
