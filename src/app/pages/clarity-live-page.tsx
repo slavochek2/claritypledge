@@ -4,8 +4,8 @@
  * the app acts as a quiet referee enforcing the understanding protocol.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Share2, Check, ChevronLeft, Keyboard } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Share2, Check, Keyboard, Mic } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,8 @@ import {
   getClaritySession,
   subscribeToClaritySession,
   updateClaritySessionLiveState,
+  clearSessionJoiner,
+  endClaritySession,
   MAX_NAME_LENGTH,
   type ClaritySession,
 } from '@/app/data/api';
@@ -34,7 +36,7 @@ import {
   type LiveSessionState,
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
-import { LiveModeView } from '@/app/components/partners/live-mode-view';
+import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -60,6 +62,7 @@ const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
 export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
+  const navigate = useNavigate();
   const isJoinViaLink = !!urlCode;
 
   // Get logged-in user's name (if authenticated)
@@ -76,13 +79,17 @@ export function ClarityLivePage() {
   const [isRestoring, setIsRestoring] = useState(true); // For session restoration
   const [copied, setCopied] = useState(false); // For copy feedback in waiting room
   const [hostName, setHostName] = useState<string | null>(null); // For join via link - show host's name
-  const [showCodeInput, setShowCodeInput] = useState(false); // For manual code entry mode
 
   // Live session state (synced via session.live_state)
   const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
 
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // Partner departure state
+  const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
+  const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
+  const [departedPartnerName, setDepartedPartnerName] = useState<string | null>(null);
 
   // Derived values
   const partnerName = session
@@ -93,6 +100,8 @@ export function ClarityLivePage() {
 
   // Ref to track if joiner has been detected (for polling comparison)
   const hasJoinerRef = useRef(false);
+  // Ref to store the last known joiner name (for partner left screen)
+  const lastJoinerNameRef = useRef<string | null>(null);
   // Ref to store session code for polling (avoids stale closure)
   const sessionCodeRef = useRef<string | null>(null);
   // Ref to track the current session ID (guards against stale subscription callbacks)
@@ -101,12 +110,28 @@ export function ClarityLivePage() {
   const confirmedLiveStateRef = useRef<LiveSessionState>(DEFAULT_LIVE_STATE);
   // Ref to track if an update is in flight (prevents poll from overwriting pending changes)
   const updateInFlightRef = useRef(false);
+  // Refs to track partner departure (for polling to check without stale closure)
+  const partnerLeftRef = useRef(false);
+  const sessionEndedRef = useRef(false);
+  // Ref to track if I am leaving (prevents detecting my own departure as partner leaving)
+  const iAmLeavingRef = useRef(false);
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
+    // Store the joiner name while it exists (for partner left screen)
+    if (session?.joinerName) {
+      lastJoinerNameRef.current = session.joinerName;
+    }
     sessionCodeRef.current = session?.code ?? null;
     currentSessionIdRef.current = session?.id ?? null;
   }, [session?.joinerName, session?.code, session?.id]);
+
+  // Keep departure refs in sync with state
+  useEffect(() => {
+    console.log('[Live Effect] Syncing departure refs:', { partnerLeft, sessionEnded });
+    partnerLeftRef.current = partnerLeft;
+    sessionEndedRef.current = sessionEnded;
+  }, [partnerLeft, sessionEnded]);
 
   // Pre-fill name from logged-in user (if authenticated and name is empty)
   useEffect(() => {
@@ -120,6 +145,15 @@ export function ClarityLivePage() {
     confirmedLiveStateRef.current = liveState;
   }, [liveState]);
 
+  // P25: Track page view on mount (only for start view, not join-via-link)
+  useEffect(() => {
+    if (!isJoinViaLink && view === 'start') {
+      analytics.track('live_meeting_page_view', {
+        is_logged_in: !!user,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only track once on mount
+  }, []);
 
   // HIGH #6: Restore session from sessionStorage on mount
   // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
@@ -232,7 +266,48 @@ export function ClarityLivePage() {
         return;
       }
 
+      // Guard: Skip if I am leaving or session already ended (prevents processing updates after departure)
+      if (iAmLeavingRef.current || sessionEndedRef.current || partnerLeftRef.current) {
+        console.log('[Live] Ignoring session update - departed state:', {
+          iAmLeaving: iAmLeavingRef.current,
+          sessionEnded: sessionEndedRef.current,
+          partnerLeft: partnerLeftRef.current,
+        });
+        return;
+      }
+
       console.log('[Live] Session updated, joinerName:', updatedSession.joinerName);
+
+      // Check for session end (creator left) - handle via subscription for immediate response
+      const sessionEndedInLiveState = (updatedSession.liveState as Record<string, unknown>)?.sessionEnded;
+      if (sessionEndedInLiveState) {
+        console.log('[Live Subscription] Session has ended (creator left)');
+        // Update ref immediately to prevent any subsequent updates from processing
+        sessionEndedRef.current = true;
+        setDepartedPartnerName(updatedSession.creatorName);
+        setSessionEnded(true);
+        analytics.track('live_session_partner_left', {
+          session_code: updatedSession.code,
+          left_by: 'creator',
+        });
+        return; // Don't process further updates after session ends
+      }
+
+      // Check for joiner departure (I'm creator, joiner left)
+      if (!updatedSession.joinerName && hasJoinerRef.current && !partnerLeftRef.current) {
+        console.log('[Live Subscription] Partner (joiner) has left the meeting');
+        // Update ref immediately to prevent any subsequent updates from processing
+        partnerLeftRef.current = true;
+        setDepartedPartnerName(lastJoinerNameRef.current);
+        setPartnerLeft(true);
+        hasJoinerRef.current = false;
+        analytics.track('live_session_partner_left', {
+          session_code: updatedSession.code,
+          left_by: 'joiner',
+        });
+        return; // Don't process further updates after partner leaves
+      }
+
       setSession(updatedSession);
 
       // Sync live state from session (merge with defaults for missing fields)
@@ -260,6 +335,12 @@ export function ClarityLivePage() {
     // This handles cases where realtime subscription might not fire
     // Also catches liveState drift when signals are lost between phones
     const pollInterval = setInterval(async () => {
+      // Skip polling if partner has already left or I am leaving (avoid further state changes)
+      if (partnerLeftRef.current || sessionEndedRef.current || iAmLeavingRef.current) {
+        console.log('[Live Poll] Skipping - partner left, session ended, or I am leaving');
+        return;
+      }
+
       // Use ref to get current session code (avoids stale closure)
       const currentCode = sessionCodeRef.current;
       if (!currentCode) {
@@ -289,6 +370,46 @@ export function ClarityLivePage() {
             confirmedLiveStateRef.current = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
           }
           setView((currentView) => currentView === 'waiting' ? 'live' : currentView);
+          return;
+        }
+
+        // Check 1.5: Detect partner departure
+        // Case A: Session ended (creator left) - joiner sees this
+        // Check live_state.sessionEnded since ended_at column doesn't exist
+        const sessionEndedInLiveState = (freshSession.liveState as Record<string, unknown>)?.sessionEnded;
+        console.log('[Live Poll] Checking sessionEnded:', {
+          liveState: freshSession.liveState,
+          sessionEndedInLiveState,
+          hasJoiner: hasJoinerRef.current
+        });
+        if (sessionEndedInLiveState) {
+          console.log('[Live Poll] Session has ended (creator left) - setting sessionEnded=true');
+          // Update ref immediately to prevent any subsequent updates from processing
+          sessionEndedRef.current = true;
+          // Store the partner's name before we clear session
+          setDepartedPartnerName(freshSession.creatorName);
+          setSessionEnded(true);
+          console.log('[Live Poll] Called setSessionEnded(true) and setDepartedPartnerName:', freshSession.creatorName);
+          analytics.track('live_session_partner_left', {
+            session_code: freshSession.code,
+            left_by: 'creator',
+          });
+          return;
+        }
+
+        // Case B: Joiner left (creator sees this) - joiner_name went from set to null
+        if (!freshSession.joinerName && hasJoinerRef.current) {
+          console.log('[Live Poll] Partner (joiner) has left the meeting');
+          // Update ref immediately to prevent any subsequent updates from processing
+          partnerLeftRef.current = true;
+          // Use the ref which stored the joiner name before it was cleared
+          setDepartedPartnerName(lastJoinerNameRef.current);
+          setPartnerLeft(true);
+          hasJoinerRef.current = false;
+          analytics.track('live_session_partner_left', {
+            session_code: freshSession.code,
+            left_by: 'joiner',
+          });
           return;
         }
 
@@ -344,8 +465,9 @@ export function ClarityLivePage() {
               responderDrift,
               explainBackDoneDrift,
             });
-          } catch {
-            // Analytics failure shouldn't break the app
+          } catch (err) {
+            // Analytics failure shouldn't break the app, but log for visibility
+            console.warn('[Live Poll] Analytics error:', err);
           }
 
           const mergedState = { ...DEFAULT_LIVE_STATE, ...serverState };
@@ -899,6 +1021,9 @@ export function ClarityLivePage() {
       return;
     }
 
+    // P25: Track start meeting click
+    analytics.track('live_meeting_start_clicked');
+
     setIsLoading(true);
     setError(null);
 
@@ -922,6 +1047,32 @@ export function ClarityLivePage() {
     }
   };
 
+  // Helper: Extract room code from URL or return input as-is if it's a code
+  // Supports: https://claritypledge.com/live/ABC123, http://..., www..., localhost:5173/live/ABC123
+  const extractCodeFromInput = (input: string): string | null => {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    // If it looks like a URL (contains / or .), try to extract code
+    if (trimmed.includes('/') || trimmed.includes('.')) {
+      // Match /live/CODE pattern at end of URL
+      const match = trimmed.match(/\/live\/([A-Za-z0-9]{6})(?:[/?#]|$)/);
+      if (match) {
+        return match[1].toUpperCase();
+      }
+      // Invalid URL format for our purposes
+      return null;
+    }
+
+    // Not a URL - treat as direct code input
+    const code = trimmed.toUpperCase();
+    if (code.length === 6 && /^[A-Z0-9]+$/.test(code)) {
+      return code;
+    }
+
+    return null;
+  };
+
   // Join session handler
   const handleJoin = async () => {
     const nameError = validateName(name);
@@ -929,15 +1080,21 @@ export function ClarityLivePage() {
       setError(nameError);
       return;
     }
-    const normalizedCode = roomCode.trim().toUpperCase();
-    if (!normalizedCode) {
-      setError('Please enter the room code');
+
+    // Extract code from URL or direct input
+    const extractedCode = extractCodeFromInput(roomCode);
+    if (!extractedCode) {
+      setError('Enter a 6-character code or a meeting link');
       return;
     }
-    if (normalizedCode.length !== 6 || !/^[A-Z0-9]+$/.test(normalizedCode)) {
-      setError('Room code must be 6 characters (letters and numbers only)');
-      return;
-    }
+    const normalizedCode = extractedCode;
+
+    // P25: Track join meeting click
+    const inputWasLink = roomCode.includes('/') || roomCode.includes('.');
+    analytics.track('live_meeting_join_clicked', {
+      code_length: normalizedCode.length,
+      input_type: inputWasLink ? 'link' : 'code',
+    });
 
     setIsLoading(true);
     setError(null);
@@ -982,8 +1139,11 @@ export function ClarityLivePage() {
   }, []);
 
   // Actually exit meeting after confirmation
-  const confirmExitMeeting = useCallback(() => {
+  const confirmExitMeeting = useCallback(async () => {
     console.log('[Live] Exiting meeting, returning to start');
+
+    // Mark that I am leaving (prevents polling from detecting my own departure)
+    iAmLeavingRef.current = true;
 
     // Track session exit
     if (session) {
@@ -992,6 +1152,25 @@ export function ClarityLivePage() {
         checks_completed: liveState.checksCount,
         is_creator: isCreator,
       });
+
+      // Notify partner by updating the database
+      console.log('[Live] About to update DB, isCreator:', isCreator, 'session.id:', session.id);
+      try {
+        if (isCreator) {
+          // Creator leaving = session ends for everyone
+          console.log('[Live] Calling endClaritySession...');
+          await endClaritySession(session.id);
+          console.log('[Live] Session ended (creator left) - DB updated');
+        } else {
+          // Joiner leaving = clear their name so creator knows
+          console.log('[Live] Calling clearSessionJoiner...');
+          await clearSessionJoiner(session.id);
+          console.log('[Live] Joiner cleared from session - DB updated');
+        }
+      } catch (err) {
+        console.error('[Live] Error updating session on exit:', err);
+        // Continue with local cleanup even if DB update fails
+      }
     }
 
     clearStoredSession();
@@ -1002,6 +1181,46 @@ export function ClarityLivePage() {
     setRoomCode('');
     setShowExitConfirm(false);
   }, [session, liveState.checksCount, isCreator]);
+
+  // Handle starting a new session after partner left
+  const handleStartNewAfterPartnerLeft = useCallback(() => {
+    setPartnerLeft(false);
+    setSessionEnded(false);
+    setDepartedPartnerName(null);
+    clearStoredSession();
+    setSession(null);
+    setLiveState(DEFAULT_LIVE_STATE);
+    setView('start');
+    setRoomCode('');
+    // Reset the leaving ref so future sessions can detect departures
+    iAmLeavingRef.current = false;
+  }, []);
+
+  // Debug: Log render state
+  console.log('[Live Render] State check:', {
+    sessionEnded,
+    partnerLeft,
+    view,
+    hasSession: !!session,
+    departedPartnerName,
+  });
+
+  // Show partner left screen if partner departed
+  if (sessionEnded || partnerLeft) {
+    console.log('[Live Render] Showing PartnerLeftScreen');
+    return (
+      <div className="flex flex-col h-screen">
+        <LiveSessionBanner title="Meeting Ended" isLiveMeeting={false} />
+        <div className="flex-1 flex items-center justify-center">
+          <PartnerLeftScreen
+            partnerName={departedPartnerName}
+            sessionEnded={sessionEnded}
+            onStartNew={handleStartNewAfterPartnerLeft}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Show loading while restoring session
   if (isRestoring) {
@@ -1068,101 +1287,133 @@ export function ClarityLivePage() {
       );
     }
 
-    // Cold start: full UI with Start + Join options
-    const isJoinMode = showCodeInput || roomCode.trim().length > 0;
+    // P25: Differentiate logged-in vs guest experience
+    const isLoggedIn = !!user;
+    const firstName = user?.name?.split(' ')[0] || 'there';
+
+    // Handle login click for guests
+    const handleLoginClick = () => {
+      analytics.track('live_meeting_login_clicked');
+      navigate('/sign-pledge');
+    };
 
     return (
       <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="Live Clarity Meeting" isLiveMeeting={false} />
-        <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md">
+        <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
+        <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md md:max-w-2xl">
           <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Your Name</Label>
-              <Input
-                id="name"
-                placeholder="Enter your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoFocus
-              />
+            {/* P25: Header - personalized greeting for logged-in, value prop for guests */}
+            <div className="text-center space-y-1">
+              <h1 className="text-2xl font-semibold">
+                {isLoggedIn ? `Welcome back, ${firstName}!` : 'Practice Clarity Together'}
+              </h1>
+              <p className="text-muted-foreground">
+                {isLoggedIn ? 'Start or join a clarity meeting' : 'Check understanding in real-time'}
+              </p>
             </div>
+
+            {/* Guest: name input - compact to match button row */}
+            {!isLoggedIn && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Your Name</Label>
+                <Input
+                  id="name"
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                  className="max-w-[280px] rounded-full h-11"
+                />
+              </div>
+            )}
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <div className="space-y-4 pt-4">
-              {!isJoinMode && (
-                <Button
-                  onClick={handleCreate}
-                  disabled={isLoading || !name.trim()}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? 'Creating...' : 'Start New Meeting'}
-                </Button>
-              )}
+            {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-center items-start gap-3">
+              {/* New meeting button - compact (not full width) */}
+              <Button
+                onClick={handleCreate}
+                disabled={isLoading || (!isLoggedIn && !name.trim())}
+                className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
+              >
+                <Mic className="h-[18px] w-[18px]" />
+                <span className="text-sm">{isLoading ? 'Creating...' : 'New meeting'}</span>
+              </Button>
 
-              {!isJoinMode && (
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or join a meeting
-                    </span>
-                  </div>
-                </div>
-              )}
+              {/* Code input + Join - with real-time validation */}
+              {(() => {
+                // Real-time validation for code/link input
+                const hasInput = roomCode.trim().length > 0;
+                const extractedCode = hasInput ? extractCodeFromInput(roomCode) : null;
+                const isValidInput = !!extractedCode;
+                const hasName = isLoggedIn || name.trim().length > 0;
+                const canJoin = hasName && isValidInput;
 
-              {isJoinMode ? (
-                // Join mode: show code input and join button
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Meeting Code</Label>
-                    <Input
-                      id="code"
-                      placeholder="Enter 6-letter code"
-                      value={roomCode}
-                      onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                      maxLength={6}
-                      className="text-center font-mono text-lg"
-                    />
+                // Determine error message for inline display
+                let inputError: string | null = null;
+                if (hasInput && !isValidInput) {
+                  if (roomCode.includes('/') || roomCode.includes('.')) {
+                    inputError = 'Invalid meeting link';
+                  } else {
+                    inputError = 'Code must be 6 characters';
+                  }
+                } else if (hasInput && isValidInput && !hasName) {
+                  inputError = 'Enter your name first';
+                }
+
+                return (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`flex items-center rounded-full h-11 px-4 gap-2 bg-background transition-colors border-2 ${
+                        hasInput && !isValidInput
+                          ? 'border-red-400'
+                          : 'border-input focus-within:border-blue-500'
+                      }`}>
+                        <Keyboard className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+                          hasInput && !isValidInput
+                            ? 'text-red-400'
+                            : 'text-muted-foreground'
+                        }`} />
+                        <input
+                          placeholder="Enter a code or link"
+                          value={roomCode}
+                          onChange={(e) => setRoomCode(e.target.value)}
+                          maxLength={500}
+                          className="bg-transparent outline-none text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
+                        />
+                      </div>
+                      <button
+                        onClick={handleJoin}
+                        disabled={isLoading || !canJoin}
+                        className={`font-medium text-sm transition-colors px-2 py-2 flex-shrink-0 ${
+                          canJoin
+                            ? 'text-blue-600 hover:text-blue-700'
+                            : 'text-muted-foreground cursor-default'
+                        }`}
+                      >
+                        Join
+                      </button>
+                    </div>
+                    {inputError && (
+                      <p className="text-xs text-red-500 pl-1">{inputError}</p>
+                    )}
                   </div>
-                  <Button
-                    onClick={handleJoin}
-                    disabled={isLoading || !name.trim() || !roomCode.trim()}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {isLoading ? 'Joining...' : 'Join Meeting'}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setRoomCode('');
-                      setShowCodeInput(false);
-                    }}
-                    variant="ghost"
-                    className="w-full text-muted-foreground"
-                    size="sm"
-                  >
-                    New clarity meeting
-                  </Button>
-                </div>
-              ) : (
-                // Have an invite: show join option
-                <div className="space-y-3">
-                  <Button
-                    onClick={() => setShowCodeInput(true)}
-                    variant="outline"
-                    className="w-full"
-                    size="lg"
-                  >
-                    <Keyboard className="h-5 w-5 mr-2" />
-                    Enter Meeting Code
-                  </Button>
-                </div>
-              )}
+                );
+              })()}
             </div>
+
+            {/* P25: Login link for guests */}
+            {!isLoggedIn && (
+              <div className="text-center pt-2">
+                <button
+                  onClick={handleLoginClick}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Already have an account? <span className="underline">Log in</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1262,7 +1513,6 @@ export function ClarityLivePage() {
               onClick={handleCancelWaiting}
               className="text-muted-foreground w-full"
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>
           </div>
