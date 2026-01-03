@@ -29,6 +29,15 @@ export function capitalizeName(name: string): string {
 }
 
 /**
+ * Extracts the first name from a full name and capitalizes it.
+ * Used in live meetings for more compact display.
+ */
+export function getFirstName(name: string): string {
+  const firstName = name.trim().split(' ')[0] || name;
+  return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+}
+
+/**
  * Rating buttons component - shared between rating-card and live-mode-view.
  */
 interface RatingButtonsProps {

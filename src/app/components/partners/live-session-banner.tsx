@@ -9,7 +9,7 @@
  */
 import { Link } from 'react-router-dom';
 import { Menu, Volume2, VolumeX, LogOut, Home, EyeIcon } from 'lucide-react';
-import { capitalizeName } from './shared';
+import { getFirstName } from './shared';
 import { useSoundEnabled } from '@/hooks/use-sound';
 import { useAuth } from '@/auth';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -31,7 +31,7 @@ interface LiveSessionBannerProps {
 }
 
 export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = true }: LiveSessionBannerProps) {
-  const displayPartnerName = partnerName ? capitalizeName(partnerName) : '';
+  const displayPartnerName = partnerName ? getFirstName(partnerName) : '';
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
   const { session, user: currentUser, sessionChecked, isLoading } = useAuth();
 

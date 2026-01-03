@@ -35,70 +35,77 @@ Differentiate the experience based on auth state. Keep it simple — no conversi
 
 ### Google Meet Pattern (Our Inspiration)
 
-Google Meet puts both actions **on one horizontal line**:
+Google Meet **mobile** layout (our primary target):
 
 ```
-[🎯 New meeting]  [⌨️ Enter a code or link________] [Join]
-      ↑                       ↑                       ↑
-   Primary              Input field              Activates when
-   (blue)              (always visible)          code entered
+┌─────────────────────────────────┐
+│                                 │
+│   [🎯 New meeting        ]      │  ← Blue pill, full width
+│                                 │
+│   [⌨️ Enter a code____] [Join]  │  ← Input + Join inline
+│                                 │
+└─────────────────────────────────┘
 ```
 
-This is cleaner because:
-- No "OR" divider needed
-- Both options visible at once
-- Input field does double duty (shows intent + captures code)
-- Join button only activates when there's input
+Key observations:
+1. **New meeting** is standalone blue pill button (full width)
+2. **Code input + Join** are on one row (input expands, Join is text/outline button)
+3. Join is **disabled** until code entered
+4. No "OR" divider - just visual separation via spacing
 
 ---
 
 ### Logged-In User Experience
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  [C]              Live Meeting                     [VL]  │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│              Welcome back, Vyacheslav!                   │
-│                                                          │
-│   [🎯 Start Meeting]  [⌨️ Enter code________] [Join]     │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────┐
+│  [C]     Live Meeting     [VL]  │
+├─────────────────────────────────┤
+│                                 │
+│     Welcome back, Slava!        │
+│                                 │
+│   [🎯 Start Meeting      ]      │  ← Blue pill, full width
+│                                 │
+│   [Enter code______] [Join]     │  ← Input + Join inline
+│                                 │
+└─────────────────────────────────┘
 ```
 
 **Key changes:**
 - Personal greeting with user's first name
-- **Single row** for both actions (Google Meet style)
 - No name input field — we already know who they are
 - Blue primary CTA per design system
+- Mobile-first stacked layout (Start button full width, code row below)
 
 ---
 
 ### Guest User Experience
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  [C]              Live Meeting                      [≡]  │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│              Practice Clarity Together                   │
-│                                                          │
-│              Your Name                                   │
-│              [____________________]                      │
-│                                                          │
-│   [🎯 Start Meeting]  [⌨️ Enter code________] [Join]     │
-│                                                          │
-│           Already have an account? Log in                │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────┐
+│  [C]     Live Meeting      [≡]  │
+├─────────────────────────────────┤
+│                                 │
+│   Practice Clarity Together     │
+│                                 │
+│   Your Name                     │
+│   [____________________]        │
+│                                 │
+│   [🎯 Start Meeting      ]      │  ← Blue pill, full width
+│                                 │
+│   [Enter code______] [Join]     │  ← Input + Join inline
+│                                 │
+│  Already have an account? Log in│
+│                                 │
+└─────────────────────────────────┘
 ```
 
 **Key changes:**
 - Value proposition headline: "Practice Clarity Together"
 - Simple name field (no verbose explanation)
-- **Single row** for both actions (Google Meet style)
 - "Already have an account? Log in" link for existing users
 - Blue primary CTA per design system
+- Mobile-first stacked layout (Start button full width, code row below)
 
 ---
 
@@ -117,10 +124,10 @@ This is cleaner because:
 3. **Add sign-in link for guests**
    - "Already have an account? Log in" below the actions
 
-4. **Implement Google Meet inline layout**
-   - `[Start Meeting]` button (blue primary)
-   - `[Enter code____]` input field
-   - `[Join]` button (activates when code entered)
+4. **Implement Google Meet mobile layout**
+   - `[Start Meeting]` button (blue primary, full width)
+   - `[Enter code____]` input + `[Join]` button on same row
+   - Join button disabled until code entered
 
 5. **Fix button styling**
    - Primary: `bg-blue-500 hover:bg-blue-600 text-white`
@@ -137,7 +144,7 @@ This is cleaner because:
 - [ ] Logged-in users see personalized greeting (no name input field)
 - [ ] Guest users see value proposition headline
 - [ ] Guest users see simple "Your Name" field
-- [ ] Both actions on single row (Google Meet style)
+- [ ] Start Meeting button full width, code input + Join on same row below
 - [ ] Primary button uses blue-500 color
 - [ ] "Already have an account? Log in" link visible for guests
 - [ ] Join button disabled until code is entered

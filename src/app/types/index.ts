@@ -103,6 +103,7 @@ export interface ClaritySession {
   partnershipStatus: PartnershipStatus;
   createdAt: string;
   expiresAt: string | null; // NULL means no expiry (chat lives forever)
+  endedAt?: string | null; // Set when creator ends the session
   // P23: Live Clarity Meetings
   mode?: 'async' | 'live' | 'review';
   liveState?: Record<string, unknown>;
@@ -128,6 +129,7 @@ export interface DbClaritySession {
   partnership_status: PartnershipStatus;
   created_at: string;
   expires_at: string;
+  ended_at?: string | null;
   // P23: Live Clarity Meetings
   mode?: 'async' | 'live' | 'review';
   live_state?: Record<string, unknown>;

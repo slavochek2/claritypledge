@@ -15,7 +15,7 @@
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { type LiveSessionState, type GapType, type FlowType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
-import { capitalizeName, RatingButtons } from './shared';
+import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
 
 // ============================================================================
@@ -45,6 +45,51 @@ import { playCelebrationSound } from '@/hooks/use-sound';
 const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
 /** Content layout variant - vertically centered (for idle state without history) */
 const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center p-6 space-y-8 max-w-lg mx-auto w-full";
+
+// ============================================================================
+// PARTNER LEFT SCREEN
+// ============================================================================
+
+interface PartnerLeftScreenProps {
+  partnerName: string | null;
+  sessionEnded: boolean; // true = creator ended session, false = joiner left
+  onStartNew: () => void;
+}
+
+/**
+ * Screen shown when the partner has left the meeting.
+ * Displays different messaging based on whether the creator ended the session
+ * or the joiner left.
+ */
+export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew }: PartnerLeftScreenProps) {
+  // Different messaging based on what happened
+  const title = sessionEnded
+    ? 'Session ended'
+    : partnerName
+      ? `${partnerName} has left`
+      : 'Your partner has left';
+
+  const subtitle = sessionEnded
+    ? `${partnerName || 'The host'} ended the clarity check session.`
+    : 'The clarity check session has ended.';
+
+  return (
+    <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
+      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+        <DoorOpen className="w-8 h-8 text-muted-foreground" />
+      </div>
+      <h2 className="text-xl font-semibold mb-2">{title}</h2>
+      <p className="text-muted-foreground mb-6">{subtitle}</p>
+      <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
+        Start New Session
+      </Button>
+    </div>
+  );
+}
+
+// ============================================================================
+// LIVE MODE VIEW
+// ============================================================================
 
 interface LiveModeViewProps {
   liveState: LiveSessionState;
@@ -155,7 +200,7 @@ export function LiveModeView({
       skippedBy !== currentUserName &&
       prevSkippedByRef.current !== skippedBy
     ) {
-      const displayName = capitalizeName(skippedBy);
+      const displayName = getFirstName(skippedBy);
       setSkipDialogName(displayName);
       setSkipDialogOpen(true);
     }
@@ -220,10 +265,10 @@ export function LiveModeView({
   // In "Did I get it?" flow, proverName is the requester (listener who initiated)
   // In "Did you get it?" flow, checkerName is the requester (speaker who initiated)
   const requesterName = liveState.proverName
-    ? capitalizeName(liveState.proverName)
+    ? getFirstName(liveState.proverName)
     : liveState.checkerName
-      ? capitalizeName(liveState.checkerName)
-      : capitalizeName(partnerName);
+      ? getFirstName(liveState.checkerName)
+      : getFirstName(partnerName);
   const confirmSkipTitle = confirmSkipType === 'decline'
     ? `Decline ${requesterName}'s request?`
     : confirmSkipType === 'good-enough'
@@ -479,9 +524,9 @@ function IdleScreen({
   hideHistory = false,
   waitingForPartnerToContinue = false,
 }: IdleScreenProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
-  const proverName = liveState.proverName ? capitalizeName(liveState.proverName) : '';
+  const displayPartnerName = getFirstName(partnerName);
+  const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
+  const proverName = liveState.proverName ? getFirstName(liveState.proverName) : '';
 
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
@@ -514,7 +559,7 @@ function IdleScreen({
             isChecker={false} // On idle screen, show neutral perspective (listener view)
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
             hideUntilBothSubmitted={showRatingDrawer}
           />
@@ -641,8 +686,8 @@ function RatingScreen({
   onBack,
   onExit,
 }: RatingScreenProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
+  const displayPartnerName = getFirstName(partnerName);
+  const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
 
   // P23.3: Detect "Did I get it?" flow
   const isProverInitiated = liveState.proverName !== undefined;
@@ -683,7 +728,7 @@ function RatingScreen({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
             hideUntilBothSubmitted={true}
           />
@@ -739,8 +784,8 @@ function RatingScreenWithOptionalDrawer({
   onExit,
   localFlowType,
 }: RatingScreenWithOptionalDrawerProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : displayPartnerName;
+  const displayPartnerName = getFirstName(partnerName);
+  const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
 
   // P23.3: Detect if this is a "Did I get it?" (prover-initiated) flow
   // Check localFlowType first (before submit) OR liveState.proverName (after submit)
@@ -791,7 +836,7 @@ function RatingScreenWithOptionalDrawer({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
             hideUntilBothSubmitted={true}
           />
@@ -895,7 +940,6 @@ function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'S
             onClick={onBack}
             className="text-muted-foreground"
           >
-            <ChevronLeft className="h-4 w-4 mr-1" />
             Back
           </Button>
         )}
@@ -1357,8 +1401,8 @@ function UnderstandingScreen({
   onClarifyStart,
   onClarifyDone,
 }: UnderstandingScreenProps) {
-  const displayPartnerName = capitalizeName(partnerName);
-  const checkerName = liveState.checkerName ? capitalizeName(liveState.checkerName) : '';
+  const displayPartnerName = getFirstName(partnerName);
+  const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
 
   // Local state: listener is explaining why it's a 10 (speaking mode)
   const [isExplainingWhy, setIsExplainingWhy] = useState(false);
@@ -1430,7 +1474,7 @@ function UnderstandingScreen({
   // Negotiation state for role switch
   const negotiation = liveState.roleSwitchNegotiation;
   const negotiationRequester = negotiation?.requestedBy
-    ? capitalizeName(negotiation.requestedBy)
+    ? getFirstName(negotiation.requestedBy)
     : '';
 
   // Determine if we should show a negotiation dialog
@@ -1469,7 +1513,7 @@ function UnderstandingScreen({
                 isChecker={true}
                 displayPartnerName={displayPartnerName}
                 checkerName={checkerName}
-                proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
                 className="w-full max-w-sm"
               />
               <ActionArea
@@ -1482,6 +1526,40 @@ function UnderstandingScreen({
                 />
               </ActionArea>
             </div>
+
+            {/* Negotiation Dialog 1: Speaker sees when listener wants to skip active listening */}
+            <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
+              <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+                <DialogHeader>
+                  <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
+                </DialogHeader>
+                <DialogFooter className="flex-col gap-2 sm:flex-col">
+                  <Button onClick={onLetThemSpeak} className="w-full">
+                    Accept
+                  </Button>
+                  <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
+                    Suggest explaining back first
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Negotiation Dialog 3: Speaker sees when listener insists */}
+            <Dialog open={showInsistDialog} onOpenChange={() => {}}>
+              <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+                <DialogHeader>
+                  <DialogTitle>{negotiationRequester} says they really need to speak</DialogTitle>
+                  <DialogDescription>
+                    This might be important to them.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button onClick={onLetThemSpeak} className="w-full">
+                    Let them speak
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         );
       }
@@ -1499,7 +1577,7 @@ function UnderstandingScreen({
               isChecker={true}
               displayPartnerName={displayPartnerName}
               checkerName={checkerName}
-              proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+              proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
               className="w-full max-w-sm"
             />
           </div>
@@ -1544,7 +1622,7 @@ function UnderstandingScreen({
               isChecker={false}
               displayPartnerName={displayPartnerName}
               checkerName={checkerName}
-              proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+              proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
               className="w-full max-w-sm"
             />
             <ActionArea>
@@ -1570,25 +1648,55 @@ function UnderstandingScreen({
             isChecker={false}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
           <ActionArea
             icon="🎤"
-            title={<>Explain back what you heard<br />OR ask a clarifying question</>}
+            title={listenerWaitingForNegotiation ? undefined : <>Explain back what you heard<br />OR ask a clarifying question</>}
           >
-            <Button
-              size="lg"
-              className="bg-blue-500 hover:bg-blue-600 w-full"
-              onClick={onExplainBackDone}
-            >
-              I'm done with active listening
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onSkip} className="text-muted-foreground mx-auto">
-              Speak freely
-            </Button>
+            {listenerWaitingForNegotiation ? (
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={onExplainBackDone}
+                >
+                  I'm done with active listening
+                </Button>
+                <Button variant="ghost" size="sm" onClick={onSharePerspective} className="text-muted-foreground mx-auto">
+                  Speak freely
+                </Button>
+              </>
+            )}
           </ActionArea>
         </div>
+
+        {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
+        <Dialog open={showAskedToExplainDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>{checkerName} would like to feel understood</DialogTitle>
+              <DialogDescription>
+                Can you explain back what you heard before switching?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button onClick={onContinueAsListener} className="w-full">
+                Continue as listener
+              </Button>
+              <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
+                I really need to speak
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -1613,7 +1721,7 @@ function UnderstandingScreen({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
             hideUntilBothSubmitted={true}
           />
@@ -1676,18 +1784,18 @@ function UnderstandingScreen({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             variant="success"
             className="w-full max-w-sm"
           />
           <ActionArea
-            icon={!isChecker && isExplainingWhy ? "🎤" : undefined}
-            title={!isChecker && isExplainingWhy ? `Share with ${checkerName} why this felt clear` : undefined}
-            subtitle={!isChecker && !isExplainingWhy ? `Help ${checkerName} learn what clicked for you?` : undefined}
+            icon={isChecker && isExplainingWhy ? "🎤" : undefined}
+            title={isChecker && isExplainingWhy ? `Share with ${displayPartnerName} what clicked for you` : undefined}
+            subtitle={isChecker && !isExplainingWhy ? `Help ${displayPartnerName} learn what clicked for you?` : undefined}
           >
-            {!isChecker ? (
+            {isChecker ? (
               isExplainingWhy ? (
-                // Speaking mode: listener is verbally explaining why it's a 10
+                // Speaking mode: speaker is verbally explaining what clicked
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -1752,7 +1860,7 @@ function UnderstandingScreen({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
           <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
@@ -1774,9 +1882,9 @@ function UnderstandingScreen({
             ) : listenerWaitingForNegotiation ? (
               // Listener waiting: they clicked "I want to speak freely", waiting for speaker's decision
               <WaitingIndicator
-                message={`${checkerName} is deciding whether to listen actively...`}
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
                 onSkip={onSkip}
-                skipLabel="Speak freely"
+                skipLabel="Skip without waiting"
               />
             ) : (
               // Listener view in gap-revealed: offer to explain back or speak freely
@@ -1855,6 +1963,7 @@ function UnderstandingScreen({
 
   // ============================================================================
   // PHASE: CALIBRATED (gap = 0 on round 0 only)
+  // Same UX as gap-revealed: listener gets "Listen actively" button, speaker waits
   // ============================================================================
   if (phase === 'calibrated') {
     // Insight message matching the gap-revealed pattern but for calibrated state
@@ -1873,7 +1982,7 @@ function UnderstandingScreen({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
           <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm">
@@ -1883,32 +1992,93 @@ function UnderstandingScreen({
             <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
           </div>
           <ActionArea
-            title={isChecker ? `Help ${displayPartnerName} reach a perfect 10` : undefined}
+            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood` : undefined}
           >
             {isChecker ? (
-              // Speaker view: offer to clarify or continue
+              // Speaker view: wait for listener to decide (same as gap-revealed)
+              <WaitingIndicator
+                message={`${displayPartnerName} is deciding whether to listen actively...`}
+                onSkip={onSkip}
+                skipLabel="Speak freely"
+              />
+            ) : listenerWaitingForNegotiation ? (
+              // Listener waiting: they clicked "Speak freely", waiting for speaker's decision
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+            ) : (
+              // Listener view: offer to explain back or speak freely (same as gap-revealed)
               <>
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onClarifyStart}
+                  onClick={onExplainBackStart}
                 >
-                  Share what's missing
+                  Listen actively
                 </Button>
-                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onBackToIdle}>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onSharePerspective}>
                   Speak freely
                 </Button>
               </>
-            ) : (
-              // Listener view: wait for speaker to decide
-              <WaitingIndicator
-                message={`Waiting for ${checkerName}...`}
-                onSkip={onSkip}
-                skipLabel="Speak freely"
-              />
             )}
           </ActionArea>
         </div>
+
+        {/* Negotiation Dialog 1: Speaker sees when listener wants to share perspective */}
+        <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button onClick={onLetThemSpeak} className="w-full">
+                Accept
+              </Button>
+              <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
+                Suggest explaining back first
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
+        <Dialog open={showAskedToExplainDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>{checkerName} would like to feel understood</DialogTitle>
+              <DialogDescription>
+                Can you explain back what you heard before switching?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button onClick={onContinueAsListener} className="w-full">
+                Continue as listener
+              </Button>
+              <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
+                I really need to speak
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Negotiation Dialog 3: Speaker sees when listener insists */}
+        <Dialog open={showInsistDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>{negotiationRequester} says they really need to speak</DialogTitle>
+              <DialogDescription>
+                This might be important to them.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={onLetThemSpeak} className="w-full">
+                Let them speak
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -1930,7 +2100,7 @@ function UnderstandingScreen({
             isChecker={isChecker}
             displayPartnerName={displayPartnerName}
             checkerName={checkerName}
-            proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
           {isChecker ? (
@@ -1984,7 +2154,7 @@ function UnderstandingScreen({
           isChecker={isChecker}
           displayPartnerName={displayPartnerName}
           checkerName={checkerName}
-          proverName={liveState.proverName ? capitalizeName(liveState.proverName) : undefined}
+          proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
           className="w-full max-w-sm"
         />
         <ActionArea
@@ -2031,21 +2201,21 @@ function UnderstandingScreen({
             // 2. undefined or 'listener-responding': show action buttons
             clarificationPhase === 'speaker-deciding' ? (
               <WaitingIndicator
-                message={`${checkerName} is deciding whether to listen actively...`}
+                message={`${checkerName} is deciding whether to clarify...`}
                 onSkip={onSkip}
                 skipLabel="Speak freely"
               />
             ) : listenerWaitingForNegotiation ? (
               <WaitingIndicator
-                message={`${checkerName} is deciding whether to listen actively...`}
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
                 onSkip={onSkip}
-                skipLabel="Speak freely"
+                skipLabel="Skip without waiting"
               />
             ) : negotiation?.requestedBy === currentUserName ? (
               <WaitingIndicator
-                message={`${checkerName} is deciding whether to listen actively...`}
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
                 onSkip={onSkip}
-                skipLabel="Speak freely"
+                skipLabel="Skip without waiting"
               />
             ) : (
               <>

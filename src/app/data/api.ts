@@ -682,6 +682,7 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     partnershipStatus: dbSession.partnership_status,
     createdAt: dbSession.created_at,
     expiresAt: dbSession.expires_at,
+    endedAt: dbSession.ended_at,
     // P23: Live Clarity Meetings
     mode: dbSession.mode,
     liveState: dbSession.live_state,
@@ -872,6 +873,60 @@ export async function updateClarityDemoStatus(
 
   if (error) {
     console.error('Error updating demo status:', error.message);
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Clears the joiner from a session (when joiner leaves).
+ * This signals to the creator that their partner has left.
+ * @param sessionId - The session UUID
+ */
+export async function clearSessionJoiner(sessionId: string): Promise<void> {
+  console.log('[Live] Clearing joiner from session:', sessionId);
+
+  const { error } = await supabase
+    .from('clarity_sessions')
+    .update({ joiner_name: null })
+    .eq('id', sessionId);
+
+  if (error) {
+    console.error('Error clearing session joiner:', error.message);
+    throw new Error(error.message);
+  }
+}
+
+/**
+ * Ends a clarity session (when creator leaves).
+ * This signals to the joiner that the session has ended.
+ * Uses live_state.sessionEnded since ended_at column doesn't exist.
+ * @param sessionId - The session UUID
+ */
+export async function endClaritySession(sessionId: string): Promise<void> {
+  console.log('[Live] Ending session:', sessionId);
+
+  // First get current live_state to merge with
+  const { data: current } = await supabase
+    .from('clarity_sessions')
+    .select('live_state')
+    .eq('id', sessionId)
+    .single();
+
+  const currentLiveState = current?.live_state || {};
+
+  const { error } = await supabase
+    .from('clarity_sessions')
+    .update({
+      live_state: {
+        ...currentLiveState,
+        sessionEnded: true,
+        sessionEndedAt: new Date().toISOString(),
+      },
+    })
+    .eq('id', sessionId);
+
+  if (error) {
+    console.error('Error ending session:', error.message);
     throw new Error(error.message);
   }
 }
