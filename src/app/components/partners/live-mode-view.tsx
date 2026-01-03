@@ -565,7 +565,7 @@ function IdleScreen({
           />
         )}
 
-        <ActionArea title="Make each other feel understood">
+        <ActionArea title="Verify cognitive understanding">
           <Button
             size="lg"
             className="bg-blue-500 hover:bg-blue-600 w-full"

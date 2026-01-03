@@ -66,7 +66,7 @@ export function ClarityLivePage() {
   const isJoinViaLink = !!urlCode;
 
   // Get logged-in user's name (if authenticated)
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
@@ -1206,6 +1206,20 @@ export function ClarityLivePage() {
       navigate('/sign-pledge');
     };
 
+    // Show loading while checking auth state to prevent flicker
+    if (isAuthLoading) {
+      return (
+        <div className="flex flex-col h-screen">
+          <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
+          <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md md:max-w-2xl">
+            <div className="text-center">
+              <div className="animate-pulse text-muted-foreground">Loading...</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col h-screen">
         <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
@@ -1221,25 +1235,28 @@ export function ClarityLivePage() {
               </p>
             </div>
 
-            {/* Guest: name input - compact to match button row */}
-            {!isLoggedIn && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Your Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                  className="max-w-[280px] rounded-full h-11"
-                />
-              </div>
-            )}
-
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-center items-start gap-3">
+            {/* Form controls - centered container, left-aligned contents */}
+            <div className="flex justify-center">
+              <div className="flex flex-col gap-4">
+                {/* Guest: name input - above buttons, left-aligned with them */}
+                {!isLoggedIn && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="name" className="text-sm font-medium">Your Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="Enter your name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      autoFocus
+                      className="w-[280px] rounded-full h-11 text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
+                <div className="flex flex-col md:flex-row md:items-center items-start gap-3">
               {/* New meeting button - compact (not full width) */}
               <Button
                 onClick={handleCreate}
@@ -1310,6 +1327,8 @@ export function ClarityLivePage() {
                   </div>
                 );
               })()}
+                </div>
+              </div>
             </div>
 
             {/* P25: Login link for guests */}
