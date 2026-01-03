@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon } from "lucide-react";
-import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { NAV_LINKS } from "./nav-links";
 

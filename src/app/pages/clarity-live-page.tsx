@@ -1048,6 +1048,12 @@ export function ClarityLivePage() {
     setSession(null);
     setView('start');
     setRoomCode('');
+    // Reset refs to ensure clean state for next session
+    iAmLeavingRef.current = false;
+    partnerLeftRef.current = false;
+    sessionEndedRef.current = false;
+    hasJoinerRef.current = false;
+    lastJoinerNameRef.current = null;
   };
 
   // Show exit confirmation dialog
@@ -1090,6 +1096,13 @@ export function ClarityLivePage() {
     setView('start');
     setRoomCode('');
     setShowExitConfirm(false);
+    // Reset all departure refs so future sessions can work properly
+    // Critical: Without this, polling would be permanently disabled for new sessions
+    iAmLeavingRef.current = false;
+    partnerLeftRef.current = false;
+    sessionEndedRef.current = false;
+    hasJoinerRef.current = false;
+    lastJoinerNameRef.current = null;
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
   }, [session, liveState.checksCount, isCreator, navigate]);
@@ -1104,11 +1117,13 @@ export function ClarityLivePage() {
     setLiveState(DEFAULT_LIVE_STATE);
     setView('start');
     setRoomCode('');
-    // Reset all departure refs so future sessions can detect departures
-    // Critical: Without this, polling would skip departure detection for new sessions
+    // Reset all departure refs so future sessions can work properly
+    // Critical: Without this, polling would be disabled or incorrectly detect departures
     iAmLeavingRef.current = false;
     partnerLeftRef.current = false;
     sessionEndedRef.current = false;
+    hasJoinerRef.current = false;
+    lastJoinerNameRef.current = null;
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
   }, [navigate]);
