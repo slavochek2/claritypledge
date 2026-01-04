@@ -21,6 +21,7 @@ import { IdeaDetailPage } from "@/app/pages/idea-detail-page";
 import { ClarityLivePage } from "@/app/pages/clarity-live-page";
 import { AlternativeLandingPage } from "@/app/pages/alternative-landing-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
+import { PremiumPrototype } from "@/app/prototypes/premium";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
 // so it cannot use any router hooks like useLocation, useNavigate, etc.
@@ -250,6 +251,9 @@ export default function ClarityPledgeApp() {
             </ClarityLandingLayout>
           }
         />
+
+        {/* Premium Prototype - P32 Overnight */}
+        <Route path="/prototype/premium/*" element={<PremiumPrototype />} />
       </Routes>
       </AuthProvider>
     </Router>
