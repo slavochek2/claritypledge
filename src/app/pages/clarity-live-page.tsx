@@ -1238,7 +1238,7 @@ export function ClarityLivePage() {
     // Handle login click for guests
     const handleLoginClick = () => {
       analytics.track('live_meeting_login_clicked');
-      navigate('/sign-pledge');
+      navigate('/login');
     };
 
     // Show loading while checking auth state to prevent flicker
