@@ -34,7 +34,33 @@ npm test -- --watch      # Watch mode
 npm run test:e2e         # Run all E2E tests
 npm run test:e2e:ui      # Run with Playwright UI
 npm run test:e2e:headed  # Run in headed browser
+
+# Visual Inspection (Playwright MCP)
+# Use Playwright MCP tools to take screenshots and verify UI
+# Requires dev server running: npm run dev
 ```
+
+## MCP Servers Available
+
+**Playwright MCP** - For visual UI inspection during development:
+- Navigate to pages and take screenshots
+- Check mobile (375px) and desktop views
+- Verify console for errors
+- Use for `/dev-loop` visual checks when UI is involved
+
+## Git Worktree Setup (Parallel Development)
+
+This project uses git worktrees for parallel AI agent development. **If you're working in a worktree, check which one:**
+
+```bash
+git worktree list
+```
+
+**Worktree ports:**
+- Main repo: `localhost:5001`
+- Tree 1-7: `localhost:5100` through `localhost:5700`
+
+Each worktree has a unique port configured in `vite.config.ts` (committed to its branch). See [docs/technical/worktree-setup.md](docs/technical/worktree-setup.md) for full details on resetting, merging, and managing worktrees.
 
 ## Configuration
 
