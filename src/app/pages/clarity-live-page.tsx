@@ -27,6 +27,7 @@ import {
   updateClaritySessionLiveState,
   clearSessionJoiner,
   endClaritySession,
+  uploadSessionRecording,
   MAX_NAME_LENGTH,
   type ClaritySession,
 } from '@/app/data/api';
@@ -37,6 +38,8 @@ import {
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
+import { useAudioRecorder } from '@/hooks/use-audio-recorder';
+import { SessionEventsCollector } from '@/lib/session-events-collector';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -98,6 +101,10 @@ export function ClarityLivePage() {
       : session.creatorName
     : undefined;
 
+  // P28.1: Audio recording and events collection for ML training
+  const { isRecording, startRecording, stopRecording, error: recordingError } = useAudioRecorder();
+  const eventsCollectorRef = useRef(new SessionEventsCollector());
+
   // Ref to track if joiner has been detected (for polling comparison)
   const hasJoinerRef = useRef(false);
   // Ref to store the last known joiner name (for partner left screen)
@@ -145,6 +152,19 @@ export function ClarityLivePage() {
       setName(user.name);
     }
   }, [user?.name, name]);
+
+  // P28.1: Start audio recording when session goes live
+  // Also start the events collector to capture behavioral data
+  useEffect(() => {
+    if (view === 'live' && session && !isRecording) {
+      console.log('[P28.1] Session is live, starting recording and events collection');
+      eventsCollectorRef.current.start();
+      startRecording().catch((err) => {
+        console.error('[P28.1] Failed to start recording:', err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only trigger when view becomes 'live'
+  }, [view, session?.id]);
 
   // Keep confirmedLiveStateRef in sync with server-confirmed state
   useEffect(() => {
@@ -756,10 +776,16 @@ export function ClarityLivePage() {
 
   // V11: Handle listener tapping "Done Explaining" - unlocks speaker's rating UI
   const handleExplainBackDone = useCallback(() => {
+    // P28.1: Track when listener finishes explaining (critical for audio segmentation)
+    analytics.track('live_explain_back_done', {
+      session_code: session?.code,
+      round: confirmedLiveStateRef.current.explainBackRound,
+    });
+
     updateLiveState({
       explainBackDone: true,
     });
-  }, [updateLiveState]);
+  }, [updateLiveState, session?.code]);
 
   // Handle listener wanting to share their perspective instead of explaining back
   // This now starts the negotiation flow instead of immediate role swap
@@ -1078,6 +1104,38 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
   };
 
+  // P28.1: Stop recording and upload session data
+  const stopAndUploadRecording = useCallback(async () => {
+    if (!session || !eventsCollectorRef.current.isStarted()) {
+      console.log('[P28.1] No recording to stop');
+      return;
+    }
+
+    try {
+      const audioBlob = await stopRecording();
+      if (audioBlob && audioBlob.size > 0) {
+        const events = eventsCollectorRef.current.getEvents();
+        const metadata = {
+          sessionStartedAt: eventsCollectorRef.current.getStartTime(),
+          sessionEndedAt: Date.now(),
+          durationMs: eventsCollectorRef.current.getDurationMs(),
+          participants: [
+            { name: session.creatorName, role: 'creator' as const },
+            ...(session.joinerName ? [{ name: session.joinerName, role: 'joiner' as const }] : []),
+          ],
+        };
+
+        console.log('[P28.1] Uploading recording:', session.code, name, 'events:', events.length);
+        await uploadSessionRecording(session.code, name, audioBlob, events, metadata);
+      }
+    } catch (err) {
+      console.error('[P28.1] Failed to stop/upload recording:', err);
+      // Don't throw - recording failure shouldn't block session exit
+    } finally {
+      eventsCollectorRef.current.reset();
+    }
+  }, [session, name, stopRecording]);
+
   // Show exit confirmation dialog
   const handleExitMeeting = useCallback(() => {
     setShowExitConfirm(true);
@@ -1087,6 +1145,9 @@ export function ClarityLivePage() {
   const confirmExitMeeting = useCallback(async () => {
     // Mark that I am leaving (prevents polling from detecting my own departure)
     iAmLeavingRef.current = true;
+
+    // P28.1: Stop recording and upload before exiting
+    await stopAndUploadRecording();
 
     // Track session exit
     if (session) {
@@ -1127,10 +1188,13 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
-  }, [session, liveState.checksCount, isCreator, navigate]);
+  }, [session, liveState.checksCount, isCreator, navigate, stopAndUploadRecording]);
 
   // Handle starting a new session after partner left
-  const handleStartNewAfterPartnerLeft = useCallback(() => {
+  const handleStartNewAfterPartnerLeft = useCallback(async () => {
+    // P28.1: Stop recording and upload before starting new session
+    await stopAndUploadRecording();
+
     setPartnerLeft(false);
     setSessionEnded(false);
     setDepartedPartnerName(null);
@@ -1148,7 +1212,7 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
-  }, [navigate]);
+  }, [navigate, stopAndUploadRecording]);
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
