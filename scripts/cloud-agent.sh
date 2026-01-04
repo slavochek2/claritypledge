@@ -345,28 +345,64 @@ if [ "$USE_GEMINI" = true ]; then
         '
     " 2>/dev/null
 else
-    # Use Claude Code
+    # Use Claude Code with periodic commits and Telegram notifications
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
         cd $PROJECT_DIR
 
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
 
-        # Start new session with task
+        # Create a commit helper script
+        cat > /tmp/periodic-commit.sh << 'COMMIT_SCRIPT'
+#!/bin/bash
+cd \$PROJECT_DIR
+while true; do
+    sleep 300  # Every 5 minutes
+    if [ -n \"\$(git status --porcelain)\" ]; then
+        git add -A
+        git commit -m \"cloud-agent: checkpoint [auto]\" --allow-empty 2>/dev/null
+        git push -u origin \$(git branch --show-current) 2>/dev/null
+    fi
+done
+COMMIT_SCRIPT
+        chmod +x /tmp/periodic-commit.sh
+
+        # Notify via Telegram that task started
+        ~/telegram-bot.sh start '$TASK' '$FEATURE_BRANCH'
+
+        # Start new session with task + periodic commits
         tmux new-session -d -s agent bash -c '
-            claude -p \"$TASK\" 2>&1 | tee /tmp/agent-output.log
+            # Start periodic commit in background
+            PROJECT_DIR=$PROJECT_DIR /tmp/periodic-commit.sh &
+            COMMIT_PID=\$!
+
+            # Run the main task
+            claude -p \"$TASK
+
+IMPORTANT: You are running autonomously without a human present.
+- Do NOT use AskUserQuestion - make reasonable decisions based on the spec
+- If something is ambiguous, pick the simpler option
+- For infrastructure setup (Supabase buckets, tables), document what needs manual creation
+- Commit after each major step completion
+- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later\" 2>&1 | tee /tmp/agent-output.log
+
+            # Stop periodic commits
+            kill \$COMMIT_PID 2>/dev/null
+
             echo \"\"
             echo \"=== TASK COMPLETE ===\"
-            echo \"Committing work...\"
+            echo \"Committing final work...\"
             git add -A
             git commit -m \"cloud-agent: $TASK\" --allow-empty
             git push -u origin $FEATURE_BRANCH
+
+            # Notify via Telegram
+            ~/telegram-bot.sh complete \"$TASK\" \"$FEATURE_BRANCH\"
+
             echo \"\"
             echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
             echo \"\"
             echo \"Run /c pull to get the changes\"
-            echo \"Press Enter to close...\"
-            read
         '
     " 2>/dev/null
 fi
