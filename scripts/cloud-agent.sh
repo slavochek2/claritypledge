@@ -59,13 +59,13 @@ show_help() {
     echo "USAGE:  /c [command]"
     echo ""
     echo "RUN TASKS:"
-    echo "  \"task\"           Run with Claude Opus 4.5 (default)"
-    echo "  gemini \"task\"    Run with Gemini 2.5 Pro"
+    echo "  \"task\"           Run with Gemini 3 Pro (default)"
+    echo "  claude \"task\"    Run with Claude Opus 4.5"
     echo ""
     echo "MONITOR:"
     echo "  status           Check progress"
     echo "  logs             See full output"  
-    echo "  pull             Get finished work back"
+    echo "  pull [N]         Get work into worktree-N (default: 7)"
     echo "  stop             Cancel current task"
     echo ""
     echo "VM CONTROL:"
@@ -154,11 +154,17 @@ case "$TASK" in
         echo ""
         gcloud compute ssh $VM_NAME --zone=$ZONE --command="
             cd $PROJECT_DIR 2>/dev/null || { echo 'Project not found on VM'; exit 1; }
-            
+
+            # Show current task if saved
+            if [ -f /tmp/current-task.txt ]; then
+                echo \"Task: \$(cat /tmp/current-task.txt)\"
+                echo ''
+            fi
+
             echo \"Branch: \$(git branch --show-current)\"
             echo \"Last commit: \$(git log -1 --oneline)\"
             echo ''
-            
+
             if tmux has-session -t agent 2>/dev/null; then
                 echo '🟢 Agent is RUNNING'
                 echo ''
@@ -187,8 +193,34 @@ case "$TASK" in
         exit 0
         ;;
         
-    "pull")
-        echo -e "${BLUE}⬇️  Pulling work from cloud...${NC}"
+    pull*)
+        # Parse: "pull" or "pull 3" or "pull worktree-3"
+        TARGET_WORKTREE="${TASK#pull}"
+        TARGET_WORKTREE="${TARGET_WORKTREE# }"  # Remove leading space
+
+        # Default to worktree-7 if not specified
+        if [ -z "$TARGET_WORKTREE" ]; then
+            TARGET_WORKTREE="7"
+        fi
+
+        # Allow both "3" and "worktree-3" formats
+        TARGET_WORKTREE="${TARGET_WORKTREE#worktree-}"
+
+        # Find the worktree path
+        REPO_ROOT=$(git rev-parse --show-toplevel)
+        PARENT_DIR=$(dirname "$REPO_ROOT")
+        WORKTREE_PATH="$PARENT_DIR/worktree-$TARGET_WORKTREE"
+
+        # Verify worktree exists
+        if [ ! -d "$WORKTREE_PATH" ]; then
+            echo -e "${RED}Error: Worktree not found: $WORKTREE_PATH${NC}"
+            echo ""
+            echo "Available worktrees:"
+            git worktree list
+            exit 1
+        fi
+
+        echo -e "${BLUE}⬇️  Pulling work from cloud into worktree-$TARGET_WORKTREE...${NC}"
 
         # Get the branch the cloud is on
         CLOUD_BRANCH=$(gcloud compute ssh $VM_NAME --zone=$ZONE --command="cd $PROJECT_DIR && git branch --show-current" 2>/dev/null)
@@ -205,31 +237,45 @@ case "$TASK" in
         # Fetch all branches
         git fetch --all
 
-        # Check if it's a feature branch
-        if [[ "$CLOUD_BRANCH" == cloud-agent/* ]]; then
+        # Go to worktree and merge
+        echo ""
+        echo "Merging into worktree-$TARGET_WORKTREE..."
+        cd "$WORKTREE_PATH"
+
+        # Fetch in worktree too
+        git fetch --all
+
+        # Get current worktree branch
+        WORKTREE_BRANCH=$(git branch --show-current)
+        echo "Worktree is on branch: $WORKTREE_BRANCH"
+
+        # Merge the cloud branch
+        echo ""
+        echo "Merging $CLOUD_BRANCH into $WORKTREE_BRANCH..."
+        if ! git merge "origin/$CLOUD_BRANCH" -m "Merge cloud-agent work: $CLOUD_BRANCH"; then
             echo ""
-            echo -e "${YELLOW}Feature branch detected: $CLOUD_BRANCH${NC}"
-            echo ""
-            echo "Options:"
-            echo "  1. Create PR: gh pr create --head $CLOUD_BRANCH"
-            echo "  2. Merge locally: git checkout $CLOUD_BRANCH && git checkout $CURRENT_BRANCH && git merge $CLOUD_BRANCH"
-            echo ""
-            echo "Checking out feature branch locally..."
-            git checkout "$CLOUD_BRANCH" 2>/dev/null || git checkout -b "$CLOUD_BRANCH" "origin/$CLOUD_BRANCH"
-            echo ""
-            echo -e "${GREEN}✅ You're now on: $CLOUD_BRANCH${NC}"
-            echo ""
-            echo "Review the changes, then either:"
-            echo "  - Create PR: gh pr create"
-            echo "  - Merge to main: git checkout main && git merge $CLOUD_BRANCH && git push"
-        else
-            # Regular branch, just pull
-            echo -e "${BLUE}Pulling to local...${NC}"
-            git pull
-            echo ""
-            echo -e "${GREEN}✅ Cloud work pulled!${NC}"
+            echo -e "${RED}⚠️  Merge conflict! Resolve manually:${NC}"
+            echo "  cd $WORKTREE_PATH"
+            echo "  git status              # See conflicts"
+            echo "  # Fix conflicts, then:"
+            echo "  git add -A && git commit"
+            exit 1
         fi
 
+        echo ""
+        echo -e "${GREEN}✅ Cloud work merged into worktree-$TARGET_WORKTREE${NC}"
+        echo ""
+        echo "Worktree path: $WORKTREE_PATH"
+        echo "Worktree branch: $WORKTREE_BRANCH"
+        echo "Cloud branch: $CLOUD_BRANCH"
+        echo ""
+        echo -e "${YELLOW}Next steps:${NC}"
+        echo "  cd $WORKTREE_PATH"
+        echo "  npm run dev          # Test on port 5${TARGET_WORKTREE}00"
+        echo "  npm test             # Run tests"
+        echo ""
+        echo "If good, merge to main:"
+        echo "  git checkout main && git merge $WORKTREE_BRANCH && git push"
         echo ""
         echo "Recent commits:"
         git log --oneline -5
@@ -292,23 +338,23 @@ case "$TASK" in
         ;;
 esac
 
-# Check if using Gemini
-USE_GEMINI=false
-if [[ "$TASK" == gemini* ]]; then
-    USE_GEMINI=true
-    TASK="${TASK#gemini }"  # Remove "gemini " prefix
+# Default is Gemini, use Claude only when specified
+USE_CLAUDE=false
+if [[ "$TASK" == claude* ]]; then
+    USE_CLAUDE=true
+    TASK="${TASK#claude }"  # Remove "claude " prefix
 fi
 
 # Default: Start a task with a prompt
-if [ "$USE_GEMINI" = true ]; then
-    echo -e "${BLUE}☁️  Cloud Agent (Gemini 2.5 Pro)${NC}"
-else
+if [ "$USE_CLAUDE" = true ]; then
     echo -e "${BLUE}☁️  Cloud Agent (Claude Opus 4.5)${NC}"
+else
+    echo -e "${BLUE}☁️  Cloud Agent (Gemini 2.5 Pro)${NC}"
 fi
 echo ""
 
 # Check auth first (only for Claude)
-if [ "$USE_GEMINI" = false ]; then
+if [ "$USE_CLAUDE" = true ]; then
     check_auth
 fi
 
@@ -333,14 +379,14 @@ gcloud compute ssh $VM_NAME --zone=$ZONE --command="
 
 # Step 3: Start the task
 echo "3. Starting task: \"$TASK\""
-if [ "$USE_GEMINI" = true ]; then
-    echo "   Using: Gemini 2.0 Flash via Aider"
-else
+if [ "$USE_CLAUDE" = true ]; then
     echo "   Using: Claude Opus 4.5"
+else
+    echo "   Using: Gemini 3 Pro via Aider"
 fi
 echo ""
 
-if [ "$USE_GEMINI" = true ]; then
+if [ "$USE_CLAUDE" = false ]; then
     # Use Aider with Gemini
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
         cd $PROJECT_DIR
@@ -351,7 +397,7 @@ if [ "$USE_GEMINI" = true ]; then
         # Start new session with Aider + Gemini
         tmux new-session -d -s agent bash -c '
             source ~/aider-env/bin/activate
-            aider --model gemini/gemini-2.0-flash-exp --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
+            aider --model gemini/gemini-3-pro-preview --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
             echo \"\"
             echo \"=== TASK COMPLETE ===\"
             echo \"Committing work...\"
@@ -389,8 +435,11 @@ done
 COMMIT_SCRIPT
         chmod +x /tmp/periodic-commit.sh
 
+        # Save task name for status display
+        echo \"$TASK\" > /tmp/current-task.txt
+
         # Notify via Telegram that task started
-        ~/telegram-bot.sh start '$TASK' '$FEATURE_BRANCH'
+        ~/telegram-bot.sh start \"$TASK\" \"$FEATURE_BRANCH\"
 
         # Start new session with task + periodic commits
         tmux new-session -d -s agent bash -c '
@@ -435,10 +484,10 @@ echo ""
 echo "Feature branch: $FEATURE_BRANCH"
 echo "Base branch: $CURRENT_BRANCH"
 echo "Task: $TASK"
-if [ "$USE_GEMINI" = true ]; then
-    echo "Model: Gemini 2.5 Pro"
-else
+if [ "$USE_CLAUDE" = true ]; then
     echo "Model: Claude Opus 4.5"
+else
+    echo "Model: Gemini 3 Pro"
 fi
 echo ""
 echo -e "${YELLOW}What's next:${NC}"
