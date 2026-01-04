@@ -1602,6 +1602,40 @@ function UnderstandingScreen({
               </div>
             </DrawerContent>
           </Drawer>
+
+          {/* Negotiation Dialog 1: Speaker sees when listener wants to skip active listening */}
+          <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
+            <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+              <DialogHeader>
+                <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
+              </DialogHeader>
+              <DialogFooter className="flex-col gap-2 sm:flex-col">
+                <Button onClick={onLetThemSpeak} className="w-full">
+                  Accept
+                </Button>
+                <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
+                  Suggest explaining back first
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Negotiation Dialog 3: Speaker sees when listener insists */}
+          <Dialog open={showInsistDialog} onOpenChange={() => {}}>
+            <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+              <DialogHeader>
+                <DialogTitle>{negotiationRequester} says they really need to speak</DialogTitle>
+                <DialogDescription>
+                  This might be important to them.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button onClick={onLetThemSpeak} className="w-full">
+                  Let them speak
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       );
     }
