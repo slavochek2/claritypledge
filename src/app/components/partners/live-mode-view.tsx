@@ -38,6 +38,22 @@ import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
 
 // ============================================================================
+// P28.1: RECORDING INDICATOR
+// ============================================================================
+
+/** Shows a small recording indicator banner below the header */
+function RecordingIndicator({ isRecording }: { isRecording?: boolean }) {
+  if (!isRecording) return null;
+
+  return (
+    <div className="flex items-center justify-center gap-2 py-1.5 bg-red-50 border-b border-red-200">
+      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+      <span className="text-xs text-red-700">Recording session</span>
+    </div>
+  );
+}
+
+// ============================================================================
 // LAYOUT CONSTANTS
 // ============================================================================
 
@@ -130,6 +146,8 @@ interface LiveModeViewProps {
   onClarifyStart: () => void;
   /** Speaker finished clarifying */
   onClarifyDone: () => void;
+  /** P28.1: Whether audio recording is active (shows recording indicator) */
+  isRecording?: boolean;
 }
 
 export function LiveModeView({
@@ -157,6 +175,7 @@ export function LiveModeView({
   onLetThemSpeak,
   onClarifyStart,
   onClarifyDone,
+  isRecording,
 }: LiveModeViewProps) {
 
   // Track previous skip state to detect new skips
@@ -510,6 +529,8 @@ interface IdleScreenProps {
   hideHistory?: boolean;
   /** Show waiting state - user clicked Continue but partner hasn't yet */
   waitingForPartnerToContinue?: boolean;
+  /** P28.1: Whether audio recording is active */
+  isRecording?: boolean;
 }
 
 function IdleScreen({
@@ -523,6 +544,7 @@ function IdleScreen({
   onRatingSubmit,
   hideHistory = false,
   waitingForPartnerToContinue = false,
+  isRecording,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -547,7 +569,7 @@ function IdleScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
 
       <div className={layoutClass}>
         {/* Show journey card if there's rating history or drawer is open */}
@@ -2363,9 +2385,16 @@ function RatingDisplay({ label, rating, maxRating = 10, showCurrent = false }: R
 interface LiveHeaderProps {
   partnerName: string;
   onExit: () => void;
+  /** P28.1: Whether audio recording is active */
+  isRecording?: boolean;
 }
 
-function LiveHeader({ partnerName, onExit }: LiveHeaderProps) {
-  return <LiveSessionBanner partnerName={partnerName} onExit={onExit} />;
+function LiveHeader({ partnerName, onExit, isRecording }: LiveHeaderProps) {
+  return (
+    <>
+      <LiveSessionBanner partnerName={partnerName} onExit={onExit} />
+      <RecordingIndicator isRecording={isRecording} />
+    </>
+  );
 }
 
