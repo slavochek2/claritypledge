@@ -48,6 +48,27 @@ npm run test:e2e:headed  # Run in headed browser
 - Verify console for errors
 - Use for `/dev-loop` visual checks when UI is involved
 
+## Cloud Agent (Run Tasks While AFK)
+
+Run AI coding tasks on a Google Cloud VM. Works even when laptop is closed.
+
+```bash
+/c claude Add feature X    # Claude + /loop + BMAD + visual checks (recommended)
+/c Fix typo                 # Gemini (simpler, no /loop or BMAD)
+/c status                   # Check progress
+/c pull                     # Get completed work
+```
+
+| Feature | Claude (`/c claude`) | Gemini (`/c`) |
+|---------|---------------------|---------------|
+| `/loop` workflow | ✅ | ❌ |
+| BMAD agents | ✅ | ❌ |
+| Playwright MCP | ✅ | ❌ |
+
+**First-time setup:** Run `/c setup-mcp` to install Playwright on the VM.
+
+See [docs/technical/cloud-agent.md](docs/technical/cloud-agent.md) for full documentation.
+
 ## Git Worktree Setup (Parallel Development)
 
 This project uses git worktrees for parallel AI agent development. **If you're working in a worktree, check which one:**

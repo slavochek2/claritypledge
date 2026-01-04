@@ -5,26 +5,35 @@ Run a task in the cloud. Works even when you close your laptop.
 ## Usage
 
 ```
-/c Add dark mode to settings          # Uses Claude (default)
-/c gemini Add dark mode to settings   # Uses Gemini 2.5 Pro
-/c status                             # Check progress
-/c pull                               # Get finished work back
+/c claude Add feature X      # Claude + /loop + BMAD + visual checks (recommended)
+/c Add feature X             # Gemini (simpler, no /loop or BMAD)
+/c status                    # Check progress
+/c pull                      # Get finished work back
 ```
+
+## Claude vs Gemini
+
+| Feature | Claude (`/c claude`) | Gemini (`/c`) |
+|---------|---------------------|---------------|
+| `/loop` workflow | ✅ | ❌ |
+| BMAD agents | ✅ | ❌ |
+| Playwright MCP | ✅ | ❌ |
+| Best for | Complex features, UI | Quick fixes |
 
 ## Commands
 
 | Command | What it does |
 |---------|--------------|
-| `/c [task]` | Run task with Claude Opus 4.5 |
-| `/c gemini [task]` | Run task with Gemini 2.0 Flash |
+| `/c [task]` | Run task with Gemini (default, no /loop) |
+| `/c claude [task]` | Run with Claude + /loop + BMAD + visual checks |
 | `/c status` | Check if running |
 | `/c pull` | Get work back |
 | `/c logs` | See full output |
 | `/c stop` | Cancel task |
 | `/c setup` | One-time login (run first!) |
+| `/c setup-mcp` | Install Playwright MCP for visual checks |
 | `/c pause` | Stop VM (save $) |
 | `/c resume` | Start VM |
-| `/c overnight` | Run lint, tests, refactoring overnight |
 
 ## How it works
 
@@ -35,7 +44,7 @@ Run a task in the cloud. Works even when you close your laptop.
 
 ## Arguments
 
-$ARGUMENTS - Task description, or: gemini [task], status, pull, stop, logs, setup, pause, resume
+$ARGUMENTS - Task description, or: claude [task], status, pull, stop, logs, setup, setup-mcp, pause, resume
 
 ## Implementation
 

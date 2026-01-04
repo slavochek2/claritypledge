@@ -5,12 +5,25 @@ Run AI coding tasks in the cloud. Works even when you close your laptop.
 ## Quick Reference
 
 ```bash
-/c Add dark mode to settings    # Run task with Gemini 3 Pro (default)
-/c claude Fix the bug           # Run with Claude Opus 4.5
+/c claude Add dark mode         # Claude + /loop workflow + visual checks (recommended)
+/c Add dark mode                # Gemini (simpler, no /loop or BMAD)
 /c status                       # Check progress
 /c pull                         # Get work back
 /c pause                        # Stop VM (saves money)
 ```
+
+## Claude vs Gemini
+
+| Feature | Claude (`/c claude`) | Gemini (`/c`) |
+|---------|---------------------|---------------|
+| `/loop` workflow | ✅ Yes | ❌ No |
+| BMAD agents | ✅ Yes | ❌ No |
+| Visual checks (Playwright MCP) | ✅ Yes | ❌ No |
+| Unit + E2E tests | ✅ Automated | ❌ Manual only |
+| Best for | Complex features, UI work | Quick refactors, simple fixes |
+| Cost | Higher (Claude API) | Lower (Gemini API) |
+
+**Recommendation:** Use `claude` for anything involving UI or complex logic.
 
 ## Telegram Commands
 
@@ -95,6 +108,7 @@ You'll also get notifications when tasks start/complete.
 | Command | Description |
 |---------|-------------|
 | `/c setup` | One-time SSH login |
+| `/c setup-mcp` | Install Playwright MCP for visual checks |
 | `/c pause` | Stop VM (saves ~$3/day) |
 | `/c resume` | Start VM |
 
@@ -187,6 +201,39 @@ gcloud compute instances describe clarity-agent --zone=us-central1-a --format="v
 - GitHub token has `repo` scope only
 - Telegram bot only responds to your chat ID
 - Claude runs with full permissions (trusted environment)
+
+## /loop Workflow and BMAD
+
+When using Claude (`/c claude`), the agent automatically uses the `/loop` workflow which includes:
+
+1. **Task Analysis** - Determines task type, complexity, and required steps
+2. **Implementation** - Reads existing code, follows patterns
+3. **Unit Tests** - Runs `npm test`, fixes failures
+4. **Visual Check** - Uses Playwright MCP to verify UI (if applicable)
+5. **E2E Tests** - Runs `npx playwright test` (if applicable)
+6. **UX Review** - Checks against design system (for significant UI features)
+
+### Available BMAD Commands (Claude only)
+
+```
+/bmad:bmm:agents:dev            # Developer agent persona
+/bmad:bmm:agents:architect      # Architect agent persona
+/bmad:bmm:workflows:dev-story   # Execute a story file
+/bmad:bmm:workflows:code-review # Code review workflow
+```
+
+### First-Time Setup
+
+Before using visual checks, install Playwright MCP:
+
+```bash
+/c setup-mcp
+```
+
+This installs:
+- Playwright + Chromium browser
+- MCP server for Claude Code
+- System dependencies for headless browser
 
 ## Future Improvements
 

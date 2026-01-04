@@ -59,8 +59,8 @@ show_help() {
     echo "USAGE:  /c [command]"
     echo ""
     echo "RUN TASKS:"
-    echo "  \"task\"           Run with Gemini 3 Pro (default)"
-    echo "  claude \"task\"    Run with Claude Opus 4.5"
+    echo "  \"task\"           Run with Gemini 3 Pro (default, no /loop or BMAD)"
+    echo "  claude \"task\"    Run with Claude Opus 4.5 (uses /loop workflow + BMAD)"
     echo ""
     echo "MONITOR:"
     echo "  status           Check progress"
@@ -70,6 +70,7 @@ show_help() {
     echo ""
     echo "VM CONTROL:"
     echo "  setup            One-time login (run first!)"
+    echo "  setup-mcp        Install Playwright MCP for visual checks"
     echo "  pause            Stop VM (save \$)"
     echo "  resume           Start VM"
     echo ""
@@ -77,9 +78,16 @@ show_help() {
     echo "  overnight        Run overnight improvements (lint, tests, refactor)"
     echo ""
     echo "EXAMPLES:"
-    echo "  /c Add dark mode to settings"
-    echo "  /c gemini Refactor the auth module"
+    echo "  /c claude Add dark mode to settings  # Uses /loop + visual checks"
+    echo "  /c Refactor the auth module          # Quick Gemini task"
     echo "  /c status"
+    echo ""
+    echo -e "${YELLOW}NOTE:${NC} Claude tasks use /loop workflow with:"
+    echo "  - Automated testing (unit + E2E)"
+    echo "  - Visual checks via Playwright MCP"
+    echo "  - BMAD agents and workflows"
+    echo ""
+    echo "Gemini tasks are simpler (Aider) - no /loop, no BMAD, no MCP."
     echo ""
 }
 
@@ -113,6 +121,12 @@ case "$TASK" in
         echo "Click the URL to authenticate, then type: exit"
         echo ""
         gcloud compute ssh $VM_NAME --zone=$ZONE
+        exit 0
+        ;;
+    
+    "setup-mcp"|"install-mcp"|"mcp-setup")
+        echo -e "${BLUE}☁️  Installing Playwright MCP on cloud VM...${NC}"
+        ./scripts/setup-cloud-mcp.sh
         exit 0
         ;;
     
@@ -447,15 +461,28 @@ COMMIT_SCRIPT
             PROJECT_DIR=$PROJECT_DIR /tmp/periodic-commit.sh &
             COMMIT_PID=\$!
 
-            # Run the main task (skip permissions for autonomous mode)
-            claude --dangerously-skip-permissions -p \"$TASK
+            # Start dev server in background for /loop visual checks
+            npm run dev &
+            DEV_SERVER_PID=\$!
+            sleep 5  # Wait for dev server to start
 
-IMPORTANT: You are running autonomously without a human present.
+            # Run the main task using /loop workflow (skip permissions for autonomous mode)
+            claude --dangerously-skip-permissions -p \"Execute this task using the /loop workflow:
+
+$TASK
+
+AUTONOMOUS MODE INSTRUCTIONS:
+- Follow /loop workflow steps (analyze → implement → test → visual check if UI)
 - Do NOT use AskUserQuestion - make reasonable decisions based on the spec
 - If something is ambiguous, pick the simpler option
 - For infrastructure setup (Supabase buckets, tables), document what needs manual creation
+- Use Playwright MCP for visual checks (dev server is running on localhost:5173)
 - Commit after each major step completion
-- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later\" 2>&1 | tee /tmp/agent-output.log
+- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later
+- BMAD workflows available: /bmad:bmm:workflows:dev-story, /bmad:bmm:agents:dev, etc.\" 2>&1 | tee /tmp/agent-output.log
+
+            # Stop dev server
+            kill \$DEV_SERVER_PID 2>/dev/null || true
 
             # Stop periodic commits
             kill \$COMMIT_PID 2>/dev/null
