@@ -21,6 +21,7 @@ We are building **epistemic infrastructure** — the foundational capacity for h
 4. [The Cascade](#4-the-cascade)
 5. [The End State](#5-the-end-state)
 6. [Validation Strategy](#6-validation-strategy)
+   - [6.1 The Facilitation Ladder](#61-the-facilitation-ladder)
 7. [Reference Architecture](#7-reference-architecture)
 
 ---
@@ -282,30 +283,40 @@ From the [manifesto](../app/content/full-article.md#the-democratic-dividend-clea
 
 ### Current Priorities
 
-**Priority 1: Reduce Friction in /live**
-- The core mechanism works (gaps close visibly)
-- Focus on removing drop-off points
-- Increase stickiness and retention
+**Priority 1: Add Ideas to /live (Level 1 Foundation)**
+- Leader can seed ideas for the session
+- Both parties mark positions: agree / disagree / don't know
+- Verification now has **stakes** — answers "why must I do this?"
+- Certification recorded per idea
 
-**Priority 2: Build Minimal Topology Map**
-- Tests riskiest current hypothesis (H2)
-- Simple visualization: who verified whom
-- Deploy in 30-person workshop
+**Priority 2: Mutual Idea Seeding**
+- Person can add ideas back (not just leader)
+- Enables true bidirectional understanding
+- Leader learns what the other person needs understood
 
 **Priority 3: Add Audio Recording**
 - Passive data collection for future training
 - Not for immediate use — capturing "golden dataset"
+- See [P28.1](../../features/p28_1_audio_data_capture.md)
 
-**Priority 4: Group Features**
-- Private feed for group ideas
-- Idea cards with positions (agree/disagree)
-- Verification challenges between members
+**Priority 4: 1-to-Many Broadcast Check (Level 2)**
+- Leader broadcasts idea to group
+- Everyone rates understanding in real-time
+- Identify champions before pairing off
+
+**Priority 5: Topology Visualization (Level 4)**
+- Build AFTER running group events with manual (whiteboard) topology
+- Only invest in UI after validating H2 manually
 
 ### The Strategic Sequence
 
 ```
-/live works (validated) → Reduce friction → Build topology →
-Test group dynamics (H2) → Prove status flip → Scale cascade
+Ideas + positions in /live (Level 1) →
+Mutual idea seeding →
+Run group event (manual topology on whiteboard) →
+If H2 shows promise → Build 1-to-Many (Level 2) →
+Champion chain reaction (Level 3) →
+Topology UI (Level 4)
 ```
 
 ### Deferred to Phase 2/3
@@ -324,6 +335,82 @@ From [Tournament Theory](./v2.%20tournament%20_%20theory.md):
 2. **The "Status Reward" Assumption:** Will the network actually give more respect to the person who says "I was wrong" than the person who "won"?
 
 3. **The "Cognitive Load" Assumption:** Can a normal person do this in 15 minutes, or does it take 3 hours?
+
+### 6.1 The Facilitation Ladder
+
+The validation strategy requires building in a specific sequence. Each level builds on the previous, and we don't advance until the current level is validated.
+
+**The Core Insight:** Users in /live ask "why must I do this?" — the ritual feels pointless without **stakes**. The answer: verification matters when there's an **idea** where agreement/disagreement has consequences.
+
+```
+LEVEL 1: Leader ↔ One Person (Multiple Ideas)
+─────────────────────────────────────────────────
+Leader pre-seeds ideas OR creates on the fly
+Person can ALSO seed ideas (mutual — critical!)
+Both mark positions: agree / disagree / don't know
+Verify understanding on each idea via /live
+Certification recorded per idea
+
+Why this first: Establishes the atomic unit with stakes.
+The idea gives the "why." Mutuality enables real sync.
+
+         ↓ validated, then
+
+LEVEL 2: Leader → Many (Broadcast Check)
+─────────────────────────────────────────────────
+Leader broadcasts idea to group
+Everyone rates their understanding (0-10)
+Leader sees distribution in real-time
+Low scorers ask clarifying questions
+Re-rate after discussion
+Champions emerge (high confidence + high accuracy)
+
+Why this second: Enables leader to gauge room quickly.
+Identifies who "gets it" before pairing off.
+
+         ↓ champions identified, then
+
+LEVEL 3: Champion Chain Reaction
+─────────────────────────────────────────────────
+Leader verifies champions (Level 1 flow)
+Verified champions fan out to verify others
+Pairs form based on topology gaps
+Chain reaction fills in the map
+
+Why this third: This is the √N accelerator in practice.
+Leader doesn't verify everyone — verified champions do.
+Leader spot-checks champion verification quality.
+
+         ↓ pairs complete, then
+
+LEVEL 4: Topology Visibility
+─────────────────────────────────────────────────
+Group sees: who verified whom on which ideas
+Cross-disagreement highlighted as valuable signal
+Common knowledge achieved
+H2 tested: Does visibility change behavior?
+```
+
+**The Build Sequence:**
+
+| Phase | What to Build | What to Validate |
+|-------|---------------|------------------|
+| **Now** | Ideas in /live + positions (agree/disagree/?) | Does "stakes" fix the "why?" problem? |
+| **Next** | Mutual idea seeding (person adds ideas back) | Can pairs achieve mutual understanding? |
+| **Then** | 1-to-Many broadcast check | Can leader identify champions quickly? |
+| **After** | Champion chain + topology UI | Does visible topology change group behavior? (H2) |
+
+**Key Principle:** Each level can be tested with manual facilitation before building the UI. Run group events with paper/whiteboard before investing in topology visualization.
+
+**The Mutuality Requirement:**
+
+For true understanding sync, the flow must be **bidirectional**:
+
+1. Leader shares ideas → Person verifies understanding
+2. Person shares ideas back → Leader verifies understanding
+3. Only when BOTH directions verified → True mutual understanding
+
+Without mutuality, the leader can never fully close the gap to possible agreement — they don't know if the other person's ideas are understood.
 
 ---
 
@@ -420,5 +507,6 @@ When a new feature idea emerges, ask:
 
 ## Changelog
 
+- **2025-01-04:** Added Section 6.1 "The Facilitation Ladder" — tactical sequence for building from 1-on-1 to group sync. Reordered priorities to reflect: Ideas first (gives stakes), then mutual seeding, then group features. Manual topology validation before building UI.
 - Updated validation strategy — H1 (/live works) marked as validated, H2 (visibility changes behavior) is now current focus. Priorities reordered.
 - Initial synthesis from Innovation Strategist session

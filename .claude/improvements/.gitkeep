@@ -1,0 +1,28 @@
+# Process Improvements
+
+This folder contains improvement suggestions generated during `/loop` tasks.
+
+## How it works
+
+After completing a task, Claude reflects on the process and may save
+improvement ideas here if they're valuable enough to keep.
+
+## File format
+
+Each file is named: `YYYY-MM-DD-short-name.md`
+
+## Review process
+
+Periodically review these files and:
+- Implement high-priority improvements
+- Archive or delete low-value ones
+- Consolidate related improvements
+
+## Types of improvements
+
+- **command** - New slash commands
+- **skill** - Background knowledge Claude should have
+- **process** - Workflow/loop improvements
+- **tool** - MCP servers or external tools
+- **docs** - Documentation additions
+- **framework** - Bigger architectural changes

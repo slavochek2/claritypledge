@@ -151,8 +151,18 @@ eventsCollector.current.start();
 
 // On session end:
 const audioBlob = await stopRecording();
-const events = eventsCollector.current.getEvents();
-await uploadSessionRecording(sessionCode, name, audioBlob, events);
+const collector = eventsCollector.current;
+const events = collector.getEvents();
+const metadata: SessionMetadata = {
+  sessionStartedAt: collector.getStartTime(),
+  sessionEndedAt: Date.now(),
+  durationMs: collector.getDurationMs(),
+  participants: [
+    { name: creatorName, role: 'creator' },
+    { name: joinerName, role: 'joiner' },
+  ],
+};
+await uploadSessionRecording(sessionCode, name, audioBlob, events, metadata);
 ```
 
 ### 3. Events Collector
@@ -181,6 +191,10 @@ class SessionEventsCollector {
     return [...this.events];
   }
 
+  getStartTime(): number {
+    return this.startTime;
+  }
+
   getDurationMs(): number {
     return Date.now() - this.startTime;
   }
@@ -192,13 +206,20 @@ class SessionEventsCollector {
 ```typescript
 // src/app/data/api.ts
 
+interface SessionMetadata {
+  sessionStartedAt: number;   // Unix ms from collector.getStartTime()
+  sessionEndedAt: number;     // Unix ms (Date.now() at upload)
+  durationMs: number;         // From collector.getDurationMs()
+  participants: { name: string; role: 'creator' | 'joiner' }[];
+}
+
 async function uploadSessionRecording(
   sessionCode: string,
   userName: string,
   audioBlob: Blob,
   events: MLEvent[],
+  metadata: SessionMetadata,
 ): Promise<void> {
-  const timestamp = Date.now();
   const basePath = `ml-training-sessions/${sessionCode}`;
 
   // Upload audio
@@ -214,13 +235,18 @@ async function uploadSessionRecording(
 
   if (existsError) {
     // Events don't exist yet, upload them
+    const eventsPayload: MLTrainingEvents = {
+      sessionCode,
+      capturedAt: new Date().toISOString(),
+      sessionStartedAt: metadata.sessionStartedAt,
+      sessionEndedAt: metadata.sessionEndedAt,
+      durationMs: metadata.durationMs,
+      participants: metadata.participants,
+      events,
+    };
     await supabase.storage
       .from('ml-training')
-      .upload(eventsPath, JSON.stringify({
-        sessionCode,
-        capturedAt: new Date().toISOString(),
-        events,
-      }));
+      .upload(eventsPath, JSON.stringify(eventsPayload));
   }
 
   // Create DB record for tracking
@@ -228,9 +254,7 @@ async function uploadSessionRecording(
     session_code: sessionCode,
     user_name: userName,
     audio_path: `${basePath}/${userName}.webm`,
-    duration_ms: events.length > 0
-      ? events[events.length - 1].timestamp
-      : 0,
+    duration_ms: metadata.durationMs,
   });
 }
 ```
