@@ -88,6 +88,14 @@ fi
 # Get current branch
 CURRENT_BRANCH=$(git branch --show-current)
 
+# Generate feature branch name from task
+generate_branch_name() {
+    local task="$1"
+    # Extract first few words, lowercase, replace spaces with hyphens
+    local slug=$(echo "$task" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g' | awk '{print $1"-"$2"-"$3}' | sed 's/-$//')
+    echo "cloud-agent/${slug}-$(date +%s | tail -c 5)"
+}
+
 case "$TASK" in
     "help"|"-h"|"--help")
         show_help
@@ -159,21 +167,48 @@ case "$TASK" in
         
     "pull")
         echo -e "${BLUE}⬇️  Pulling work from cloud...${NC}"
-        
-        # First, commit any work on the cloud
+
+        # Get the branch the cloud is on
+        CLOUD_BRANCH=$(gcloud compute ssh $VM_NAME --zone=$ZONE --command="cd $PROJECT_DIR && git branch --show-current" 2>/dev/null)
+        echo "Cloud is on branch: $CLOUD_BRANCH"
+
+        # First, commit and push any work on the cloud
         gcloud compute ssh $VM_NAME --zone=$ZONE --command="
             cd $PROJECT_DIR
             git add -A
             git commit -m 'cloud-agent: work completed' --allow-empty
-            git push
+            git push -u origin \$(git branch --show-current)
         " 2>/dev/null
-        
-        # Then pull locally
-        echo -e "${BLUE}Pulling to local...${NC}"
-        git pull
-        
+
+        # Fetch all branches
+        git fetch --all
+
+        # Check if it's a feature branch
+        if [[ "$CLOUD_BRANCH" == cloud-agent/* ]]; then
+            echo ""
+            echo -e "${YELLOW}Feature branch detected: $CLOUD_BRANCH${NC}"
+            echo ""
+            echo "Options:"
+            echo "  1. Create PR: gh pr create --head $CLOUD_BRANCH"
+            echo "  2. Merge locally: git checkout $CLOUD_BRANCH && git checkout $CURRENT_BRANCH && git merge $CLOUD_BRANCH"
+            echo ""
+            echo "Checking out feature branch locally..."
+            git checkout "$CLOUD_BRANCH" 2>/dev/null || git checkout -b "$CLOUD_BRANCH" "origin/$CLOUD_BRANCH"
+            echo ""
+            echo -e "${GREEN}✅ You're now on: $CLOUD_BRANCH${NC}"
+            echo ""
+            echo "Review the changes, then either:"
+            echo "  - Create PR: gh pr create"
+            echo "  - Merge to main: git checkout main && git merge $CLOUD_BRANCH && git push"
+        else
+            # Regular branch, just pull
+            echo -e "${BLUE}Pulling to local...${NC}"
+            git pull
+            echo ""
+            echo -e "${GREEN}✅ Cloud work pulled!${NC}"
+        fi
+
         echo ""
-        echo -e "${GREEN}✅ Cloud work pulled!${NC}"
         echo "Recent commits:"
         git log --oneline -5
         exit 0
@@ -255,19 +290,23 @@ if [ "$USE_GEMINI" = false ]; then
     check_auth
 fi
 
-# Step 1: Push local changes
+# Generate feature branch for this task
+FEATURE_BRANCH=$(generate_branch_name "$TASK")
+
+# Step 1: Push local changes to current branch
 echo "1. Pushing your code to GitHub..."
 git add -A 2>/dev/null || true
 git commit -m "cloud-agent: starting task" --allow-empty 2>/dev/null || true
 git push 2>/dev/null || true
 
-# Step 2: Pull on cloud + switch branch
-echo "2. Syncing cloud to branch: $CURRENT_BRANCH..."
+# Step 2: Pull on cloud, create feature branch from current branch
+echo "2. Creating feature branch: $FEATURE_BRANCH (from $CURRENT_BRANCH)..."
 gcloud compute ssh $VM_NAME --zone=$ZONE --command="
     cd $PROJECT_DIR
     git fetch --all -q
     git checkout $CURRENT_BRANCH 2>/dev/null || git checkout -b $CURRENT_BRANCH origin/$CURRENT_BRANCH
     git pull -q
+    git checkout -b $FEATURE_BRANCH
 " 2>/dev/null
 
 # Step 3: Start the task
@@ -283,10 +322,10 @@ if [ "$USE_GEMINI" = true ]; then
     # Use Aider with Gemini
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
         cd $PROJECT_DIR
-        
+
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
-        
+
         # Start new session with Aider + Gemini
         tmux new-session -d -s agent bash -c '
             source ~/aider-env/bin/activate
@@ -296,8 +335,9 @@ if [ "$USE_GEMINI" = true ]; then
             echo \"Committing work...\"
             git add -A
             git commit -m \"cloud-agent (gemini): $TASK\" --allow-empty
-            git push
-            echo \"✅ Work pushed to GitHub!\"
+            git push -u origin $FEATURE_BRANCH
+            echo \"\"
+            echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
             echo \"\"
             echo \"Run /c pull to get the changes\"
             echo \"Press Enter to close...\"
@@ -308,10 +348,10 @@ else
     # Use Claude Code
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
         cd $PROJECT_DIR
-        
+
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
-        
+
         # Start new session with task
         tmux new-session -d -s agent bash -c '
             claude -p \"$TASK\" 2>&1 | tee /tmp/agent-output.log
@@ -320,8 +360,9 @@ else
             echo \"Committing work...\"
             git add -A
             git commit -m \"cloud-agent: $TASK\" --allow-empty
-            git push
-            echo \"✅ Work pushed to GitHub!\"
+            git push -u origin $FEATURE_BRANCH
+            echo \"\"
+            echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
             echo \"\"
             echo \"Run /c pull to get the changes\"
             echo \"Press Enter to close...\"
@@ -333,7 +374,8 @@ fi
 echo ""
 echo -e "${GREEN}✅ Task is running in the cloud!${NC}"
 echo ""
-echo "Branch: $CURRENT_BRANCH"
+echo "Feature branch: $FEATURE_BRANCH"
+echo "Base branch: $CURRENT_BRANCH"
 echo "Task: $TASK"
 if [ "$USE_GEMINI" = true ]; then
     echo "Model: Gemini 2.5 Pro"
@@ -343,6 +385,6 @@ fi
 echo ""
 echo -e "${YELLOW}What's next:${NC}"
 echo "  /c status   # Check progress"
-echo "  /c pull     # Get work when done"
+echo "  /c pull     # Get work when done (creates PR or merges)"
 echo ""
 echo "You can close your laptop now! ☕"
