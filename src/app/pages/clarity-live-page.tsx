@@ -950,6 +950,16 @@ export function ClarityLivePage() {
     try {
       const trimmedName = name.trim();
       const newSession = await createClaritySession(trimmedName);
+
+      // Reset all refs to ensure clean state for new session
+      // Critical: Without this, stale refs from previous sessions could cause
+      // subscription/polling to skip updates (guards check these refs)
+      iAmLeavingRef.current = false;
+      partnerLeftRef.current = false;
+      sessionEndedRef.current = false;
+      hasJoinerRef.current = false;
+      lastJoinerNameRef.current = null;
+
       setSession(newSession);
       setIsCreator(true);
       setView('waiting');
@@ -1026,6 +1036,16 @@ export function ClarityLivePage() {
         setError('Session not found or already full');
         return;
       }
+
+      // Reset all refs to ensure clean state for new session
+      // Critical: Without this, stale refs from previous sessions could cause
+      // subscription/polling to skip updates (guards check these refs)
+      iAmLeavingRef.current = false;
+      partnerLeftRef.current = false;
+      sessionEndedRef.current = false;
+      hasJoinerRef.current = false;
+      lastJoinerNameRef.current = null;
+
       setSession(joinedSession);
       setIsCreator(false);
       setView('live');
