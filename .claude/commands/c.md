@@ -16,7 +16,7 @@ Run a task in the cloud. Works even when you close your laptop.
 | Command | What it does |
 |---------|--------------|
 | `/c [task]` | Run task with Claude Opus 4.5 |
-| `/c gemini [task]` | Run task with Gemini 2.5 Pro |
+| `/c gemini [task]` | Run task with Gemini 2.0 Flash |
 | `/c status` | Check if running |
 | `/c pull` | Get work back |
 | `/c logs` | See full output |
@@ -24,6 +24,7 @@ Run a task in the cloud. Works even when you close your laptop.
 | `/c setup` | One-time login (run first!) |
 | `/c pause` | Stop VM (save $) |
 | `/c resume` | Start VM |
+| `/c overnight` | Run lint, tests, refactoring overnight |
 
 ## How it works
 

@@ -73,6 +73,9 @@ show_help() {
     echo "  pause            Stop VM (save \$)"
     echo "  resume           Start VM"
     echo ""
+    echo "MAINTENANCE:"
+    echo "  overnight        Run overnight improvements (lint, tests, refactor)"
+    echo ""
     echo "EXAMPLES:"
     echo "  /c Add dark mode to settings"
     echo "  /c gemini Refactor the auth module"
@@ -124,6 +127,25 @@ case "$TASK" in
         echo -e "${BLUE}▶️  Starting cloud VM...${NC}"
         gcloud compute instances start $VM_NAME --zone=$ZONE
         echo -e "${GREEN}✅ VM started! Wait 30 seconds, then use /c${NC}"
+        exit 0
+        ;;
+    
+    "overnight"|"maintenance"|"improve")
+        echo -e "${BLUE}🌙 Starting overnight maintenance...${NC}"
+        echo ""
+        echo "This will:"
+        echo "  1. Run lint and auto-fix"
+        echo "  2. Find untested files"
+        echo "  3. Identify refactoring opportunities"
+        echo "  4. Write tests for untested code"
+        echo ""
+        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+            tmux kill-session -t agent 2>/dev/null || true
+            tmux new-session -d -s agent '~/overnight-maintenance.sh; echo Done! Press Enter...; read'
+        " 2>/dev/null
+        echo -e "${GREEN}✅ Overnight maintenance running!${NC}"
+        echo "Check progress: /c status"
+        echo "Check results: /c logs"
         exit 0
         ;;
         
@@ -312,7 +334,7 @@ gcloud compute ssh $VM_NAME --zone=$ZONE --command="
 # Step 3: Start the task
 echo "3. Starting task: \"$TASK\""
 if [ "$USE_GEMINI" = true ]; then
-    echo "   Using: Gemini 2.5 Pro via Aider"
+    echo "   Using: Gemini 2.0 Flash via Aider"
 else
     echo "   Using: Claude Opus 4.5"
 fi
@@ -329,7 +351,7 @@ if [ "$USE_GEMINI" = true ]; then
         # Start new session with Aider + Gemini
         tmux new-session -d -s agent bash -c '
             source ~/aider-env/bin/activate
-            aider --model gemini/gemini-2.5-pro-preview-06-05 --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
+            aider --model gemini/gemini-2.0-flash-exp --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
             echo \"\"
             echo \"=== TASK COMPLETE ===\"
             echo \"Committing work...\"
@@ -376,8 +398,8 @@ COMMIT_SCRIPT
             PROJECT_DIR=$PROJECT_DIR /tmp/periodic-commit.sh &
             COMMIT_PID=\$!
 
-            # Run the main task
-            claude -p \"$TASK
+            # Run the main task (skip permissions for autonomous mode)
+            claude --dangerously-skip-permissions -p \"$TASK
 
 IMPORTANT: You are running autonomously without a human present.
 - Do NOT use AskUserQuestion - make reasonable decisions based on the spec
