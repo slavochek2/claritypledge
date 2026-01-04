@@ -1,4 +1,4 @@
-# Polymet Clarity Pledge App
+# Clarity Pledge App
 
 A web application for the Clarity Pledge movement - helping professionals commit to clear communication and reducing the hidden costs of miscommunication.
 
