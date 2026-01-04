@@ -337,6 +337,7 @@ export function LiveModeView({
           onExit={onExitMeeting}
           hideHistory={true}
           waitingForPartnerToContinue={true}
+          isRecording={isRecording}
         />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -362,6 +363,7 @@ export function LiveModeView({
           onSkip={() => handleRequestSkip('decline')}
           onExit={onExitMeeting}
           localFlowType={localFlowType}
+          isRecording={isRecording}
         />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -381,6 +383,7 @@ export function LiveModeView({
           onStartProve={onStartProve}
           onSkip={() => handleRequestSkip('good-enough')}
           onExit={onExitMeeting}
+          isRecording={isRecording}
         />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -399,6 +402,7 @@ export function LiveModeView({
           onRatingSubmit={onRatingSubmit}
           onBack={onBackToIdle}
           onExit={onExitMeeting}
+          isRecording={isRecording}
         />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -422,6 +426,7 @@ export function LiveModeView({
             onRatingSubmit={onRatingSubmit}
             onSkip={() => handleRequestSkip('decline')}
             onExit={onExitMeeting}
+            isRecording={isRecording}
           />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -453,6 +458,7 @@ export function LiveModeView({
           onLetThemSpeak={onLetThemSpeak}
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
+          isRecording={isRecording}
         />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -485,6 +491,7 @@ export function LiveModeView({
           onLetThemSpeak={onLetThemSpeak}
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
+          isRecording={isRecording}
         />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -502,6 +509,7 @@ export function LiveModeView({
         onStartProve={onStartProve}
         onSkip={() => handleRequestSkip('good-enough')}
         onExit={onExitMeeting}
+        isRecording={isRecording}
       />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -662,6 +670,8 @@ interface ResponderWaitingWithDrawerProps {
   onRatingSubmit: (rating: number) => void;
   onSkip: () => void;
   onExit: () => void;
+  /** P28.1: Whether audio recording is active */
+  isRecording?: boolean;
 }
 
 function ResponderWaitingWithDrawer({
@@ -672,6 +682,7 @@ function ResponderWaitingWithDrawer({
   onRatingSubmit,
   onSkip,
   onExit,
+  isRecording,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -683,6 +694,7 @@ function ResponderWaitingWithDrawer({
       onRatingSubmit={onRatingSubmit}
       onSkip={onSkip}
       onExit={onExit}
+      isRecording={isRecording}
     />
   );
 }
@@ -698,6 +710,8 @@ interface RatingScreenProps {
   onRatingSubmit: (rating: number) => void;
   onBack: () => void;
   onExit: () => void;
+  /** P28.1: Whether audio recording is active */
+  isRecording?: boolean;
 }
 
 function RatingScreen({
@@ -707,6 +721,7 @@ function RatingScreen({
   onRatingSubmit,
   onBack,
   onExit,
+  isRecording,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -738,7 +753,7 @@ function RatingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
 
       <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
@@ -794,6 +809,8 @@ interface RatingScreenWithOptionalDrawerProps {
   onExit: () => void;
   /** Local flow type - needed to detect "Did I get you?" before shared state is updated */
   localFlowType?: FlowType;
+  /** P28.1: Whether audio recording is active */
+  isRecording?: boolean;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -805,6 +822,7 @@ function RatingScreenWithOptionalDrawer({
   onSkip,
   onExit,
   localFlowType,
+  isRecording,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -846,7 +864,7 @@ function RatingScreenWithOptionalDrawer({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
 
       <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
@@ -1399,6 +1417,8 @@ interface UnderstandingScreenProps {
   /** Speaker clarification handlers */
   onClarifyStart: () => void;
   onClarifyDone: () => void;
+  /** P28.1: Whether audio recording is active */
+  isRecording?: boolean;
 }
 
 function UnderstandingScreen({
@@ -1422,6 +1442,7 @@ function UnderstandingScreen({
   onLetThemSpeak,
   onClarifyStart,
   onClarifyDone,
+  isRecording,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1526,7 +1547,7 @@ function UnderstandingScreen({
       if (!listenerDone) {
         return (
           <div className="flex flex-col h-full">
-            <LiveHeader partnerName={partnerName} onExit={onExit} />
+            <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
             <div className={CONTENT_LAYOUT}>
               <JourneyToUnderstanding
                 checkerRating={checkerRating}
@@ -1590,7 +1611,7 @@ function UnderstandingScreen({
       const explainBackPrompt = `How well did ${displayPartnerName} capture the intention behind your idea?`;
       return (
         <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} />
+          <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
           <div className={CONTENT_LAYOUT}>
             <JourneyToUnderstanding
               checkerRating={checkerRating}
@@ -1669,7 +1690,7 @@ function UnderstandingScreen({
     if (hasTappedDone) {
       return (
         <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} />
+          <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
           <div className={CONTENT_LAYOUT}>
             <JourneyToUnderstanding
               checkerRating={checkerRating}
@@ -1695,7 +1716,7 @@ function UnderstandingScreen({
     // BEFORE tapping "Done Explaining" - show microphone/speaking state
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -1767,7 +1788,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
         <div className={CONTENT_LAYOUT}>
           {/* Hide ratings until both submit to prevent bias */}
           <JourneyToUnderstanding
@@ -1820,7 +1841,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
         <div className={CONTENT_LAYOUT}>
           {/* Celebration header */}
           <div className="text-center space-y-2">
@@ -1907,7 +1928,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2029,7 +2050,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2147,7 +2168,7 @@ function UnderstandingScreen({
   if (clarificationPhase === 'speaker-clarifying') {
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2201,7 +2222,7 @@ function UnderstandingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isRecording={isRecording} />
       <div className={CONTENT_LAYOUT}>
         <JourneyToUnderstanding
           checkerRating={checkerRating}

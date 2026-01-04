@@ -102,7 +102,7 @@ export function ClarityLivePage() {
     : undefined;
 
   // P28.1: Audio recording and events collection for ML training
-  const { isRecording, startRecording, stopRecording, error: recordingError } = useAudioRecorder();
+  const { isRecording, startRecording, stopRecording } = useAudioRecorder();
   const eventsCollectorRef = useRef(new SessionEventsCollector());
 
   // P28.1: Helper to track events for both Mixpanel and ML training
