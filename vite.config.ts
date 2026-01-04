@@ -10,6 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    port: 5001, // 5000 is blocked by macOS AirPlay
+    strictPort: true, // Fail if port is already in use
+  },
   build: {
     sourcemap: true, // Required for Sentry source maps
   },

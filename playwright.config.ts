@@ -9,12 +9,41 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '.env.test.local') });
 
 /**
+ * Determine the port based on the worktree.
+ * Port pattern: 5{N}00 where N is the worktree number (1-7)
+ * Main repo (polymet-clarity-pledge-app) uses port 5000
+ * Worktrees (claritypledge-N) use port 5N00
+ */
+function getWorktreePort(): number {
+  // Check if we're in a worktree by looking at the directory name
+  const dirName = path.basename(__dirname);
+
+  // Match "claritypledge-N" pattern
+  const worktreeMatch = dirName.match(/^claritypledge-(\d+)$/);
+  if (worktreeMatch) {
+    const worktreeNum = parseInt(worktreeMatch[1], 10);
+    return 5000 + (worktreeNum * 100); // 5100, 5200, etc.
+  }
+
+  // Main repo uses port 5001 (5000 is blocked by macOS AirPlay)
+  if (dirName === 'polymet-clarity-pledge-app') {
+    return 5001;
+  }
+
+  // Fallback to 5173 (Vite default) for unknown directories
+  return 5173;
+}
+
+const PORT = getWorktreePort();
+
+/**
  * Playwright E2E Test Configuration
  *
  * This config is optimized for testing the auth flow:
  * - Sequential test execution (workers: 1) to avoid DB conflicts
  * - Screenshots on failure for debugging
  * - Automatic dev server startup
+ * - Dynamic port based on worktree (5000 for main, 5N00 for worktree-N)
  */
 
 export default defineConfig({
@@ -42,8 +71,8 @@ export default defineConfig({
 
   // Shared settings for all tests
   use: {
-    // Base URL
-    baseURL: 'http://localhost:5173',
+    // Base URL - dynamic based on worktree
+    baseURL: `http://localhost:${PORT}`,
 
     // Collect trace on first retry
     trace: 'on-first-retry',
@@ -65,8 +94,8 @@ export default defineConfig({
 
   // Web server configuration
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: `npm run dev -- --port ${PORT}`,
+    url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2 minutes to start
     env: {
