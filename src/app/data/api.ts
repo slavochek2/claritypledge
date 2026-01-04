@@ -2420,3 +2420,130 @@ export function subscribeToLiveTurns(
     supabase.removeChannel(channel);
   };
 }
+
+// ============================================================================
+// ML TRAINING DATA CAPTURE API (P28.1)
+// ============================================================================
+
+import type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
+
+// Re-export types for convenience
+export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
+
+/** Metadata for a session recording */
+export interface SessionMetadata {
+  sessionStartedAt: number; // Unix ms from collector.getStartTime()
+  sessionEndedAt: number; // Unix ms (Date.now() at upload)
+  durationMs: number; // From collector.getDurationMs()
+  participants: { name: string; role: 'creator' | 'joiner' }[];
+}
+
+/**
+ * Uploads session recording data for ML training.
+ *
+ * Creates a bundle at:
+ * ```
+ * /storage/ml-training/{session_code}/
+ * ├── {user_name}.webm         # Audio file
+ * ├── events.json              # Snapshot of session events (first uploader only)
+ * └── metadata.json            # Session summary (first uploader only)
+ * ```
+ *
+ * @param sessionCode - The 6-character session code
+ * @param userName - Name of the user (used for audio filename)
+ * @param audioBlob - The recorded audio blob
+ * @param events - Array of captured ML events
+ * @param metadata - Session metadata
+ */
+export async function uploadSessionRecording(
+  sessionCode: string,
+  userName: string,
+  audioBlob: Blob,
+  events: MLEvent[],
+  metadata: SessionMetadata,
+): Promise<void> {
+  const basePath = `ml-training-sessions/${sessionCode}`;
+
+  // Sanitize username for filename (replace spaces and special chars)
+  const sanitizedName = userName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  console.log('[ML Upload] Starting upload for session:', sessionCode, 'user:', sanitizedName);
+
+  try {
+    // Upload audio file
+    const audioPath = `${basePath}/${sanitizedName}.webm`;
+    const { error: audioError } = await supabase.storage
+      .from('ml-training')
+      .upload(audioPath, audioBlob, {
+        contentType: audioBlob.type || 'audio/webm',
+        upsert: true, // Allow re-upload if user rejoins
+      });
+
+    if (audioError) {
+      console.error('[ML Upload] Audio upload failed:', audioError.message);
+      throw new Error(`Audio upload failed: ${audioError.message}`);
+    }
+
+    console.log('[ML Upload] Audio uploaded successfully:', audioPath);
+
+    // Upload events.json (only if first uploader - avoid duplicates)
+    const eventsPath = `${basePath}/events.json`;
+    const { data: existingEvents } = await supabase.storage
+      .from('ml-training')
+      .download(eventsPath);
+
+    if (!existingEvents) {
+      // Events don't exist yet, upload them
+      const eventsPayload: MLTrainingEvents = {
+        sessionCode,
+        capturedAt: new Date().toISOString(),
+        sessionStartedAt: metadata.sessionStartedAt,
+        sessionEndedAt: metadata.sessionEndedAt,
+        durationMs: metadata.durationMs,
+        participants: metadata.participants,
+        events,
+      };
+
+      const eventsBlob = new Blob([JSON.stringify(eventsPayload, null, 2)], {
+        type: 'application/json',
+      });
+
+      const { error: eventsError } = await supabase.storage
+        .from('ml-training')
+        .upload(eventsPath, eventsBlob, {
+          contentType: 'application/json',
+        });
+
+      if (eventsError) {
+        console.warn('[ML Upload] Events upload failed (non-fatal):', eventsError.message);
+      } else {
+        console.log('[ML Upload] Events uploaded successfully:', eventsPath);
+      }
+    } else {
+      console.log('[ML Upload] Events already exist, skipping');
+    }
+
+    // Create DB record for tracking
+    const { error: dbError } = await supabase.from('ml_training_sessions').insert({
+      session_code: sessionCode,
+      user_name: userName,
+      audio_path: audioPath,
+      duration_ms: metadata.durationMs,
+    });
+
+    if (dbError) {
+      console.warn('[ML Upload] DB record failed (non-fatal):', dbError.message);
+    } else {
+      console.log('[ML Upload] DB record created for:', sessionCode, userName);
+    }
+
+    console.log('[ML Upload] Upload complete for session:', sessionCode);
+  } catch (err) {
+    console.error('[ML Upload] Upload failed:', err);
+    // Don't throw - recording failure shouldn't break the session
+  }
+}

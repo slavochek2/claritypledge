@@ -27,6 +27,7 @@ import {
   updateClaritySessionLiveState,
   clearSessionJoiner,
   endClaritySession,
+  uploadSessionRecording,
   MAX_NAME_LENGTH,
   type ClaritySession,
 } from '@/app/data/api';
@@ -37,6 +38,8 @@ import {
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
+import { useAudioRecorder } from '@/hooks/use-audio-recorder';
+import { SessionEventsCollector } from '@/lib/session-events-collector';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -98,6 +101,20 @@ export function ClarityLivePage() {
       : session.creatorName
     : undefined;
 
+  // P28.1: Audio recording and events collection for ML training
+  const { isRecording, startRecording, stopRecording } = useAudioRecorder();
+  const eventsCollectorRef = useRef(new SessionEventsCollector());
+
+  // P28.1: Helper to track events for both Mixpanel and ML training
+  // Only captures live_* events that are useful for ML training
+  const trackLiveEvent = useCallback((eventName: string, properties: Record<string, unknown>) => {
+    analytics.track(eventName, properties);
+    // Only collect ML-relevant events during active recording
+    if (eventsCollectorRef.current.isStarted()) {
+      eventsCollectorRef.current.addEvent(eventName, properties);
+    }
+  }, []);
+
   // Ref to track if joiner has been detected (for polling comparison)
   const hasJoinerRef = useRef(false);
   // Ref to store the last known joiner name (for partner left screen)
@@ -145,6 +162,19 @@ export function ClarityLivePage() {
       setName(user.name);
     }
   }, [user?.name, name]);
+
+  // P28.1: Start audio recording when session goes live
+  // Also start the events collector to capture behavioral data
+  useEffect(() => {
+    if (view === 'live' && session && !isRecording) {
+      console.log('[P28.1] Session is live, starting recording and events collection');
+      eventsCollectorRef.current.start();
+      startRecording().catch((err) => {
+        console.error('[P28.1] Failed to start recording:', err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only trigger when view becomes 'live'
+  }, [view, session?.id]);
 
   // Keep confirmedLiveStateRef in sync with server-confirmed state
   useEffect(() => {
@@ -564,8 +594,8 @@ export function ClarityLivePage() {
         ? (localFlowType === 'prove' ? 'responder' : 'checker')
         : (currentState.checkerName === name ? 'checker' : 'responder');
 
-      // Track rating submission
-      analytics.track('live_rating_submitted', {
+      // Track rating submission (P28.1: also collect for ML training)
+      trackLiveEvent('live_rating_submitted', {
         session_code: session?.code,
         rating,
         role,
@@ -623,7 +653,8 @@ export function ClarityLivePage() {
 
           const isPerfect = checkerRatingValue === 10 && responderRatingValue === 10;
 
-          analytics.track('live_understanding_revealed', {
+          // P28.1: Critical event for ML - ground truth for prediction
+          trackLiveEvent('live_understanding_revealed', {
             session_code: session?.code,
             checker_rating: checkerRatingValue,
             responder_rating: responderRatingValue,
@@ -635,7 +666,7 @@ export function ClarityLivePage() {
 
           // Track perfect understanding on first round
           if (isPerfect) {
-            analytics.track('live_perfect_understanding', {
+            trackLiveEvent('live_perfect_understanding', {
               session_code: session?.code,
               rounds_to_achieve: 0,
               initial_checker_rating: checkerRatingValue,
@@ -647,16 +678,16 @@ export function ClarityLivePage() {
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code]
+    [name, partnerName, localFlowType, updateLiveState, session?.code, trackLiveEvent]
   );
 
   // V7: Handle skip (resets to idle state for next check)
   // V10: Now tracks who skipped so partner can be notified
   const handleSkip = useCallback(() => {
 
-    // Track round skip
+    // Track round skip (P28.1: tolerance threshold signal)
     const currentState = confirmedLiveStateRef.current;
-    analytics.track('live_round_skipped', {
+    trackLiveEvent('live_round_skipped', {
       session_code: session?.code,
       phase: currentState.ratingPhase,
       round: currentState.explainBackRatings.length,
@@ -684,7 +715,7 @@ export function ClarityLivePage() {
       // Clear speaker clarification state
       clarificationPhase: undefined,
     });
-  }, [name, updateLiveState, session?.code]);
+  }, [name, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
   // Both users must acknowledge before state resets (prevents forceful exit for partner)
@@ -737,7 +768,8 @@ export function ClarityLivePage() {
   // Handle "Let me explain back" - listener starts explaining
   const handleExplainBackStart = useCallback(() => {
     const currentState = confirmedLiveStateRef.current;
-    analytics.track('live_explain_back_started', {
+    // P28.1: Correction loop entry marker
+    trackLiveEvent('live_explain_back_started', {
       session_code: session?.code,
       round: currentState.explainBackRatings.length + 1,
       checker_rating: currentState.checkerRating,
@@ -752,19 +784,26 @@ export function ClarityLivePage() {
       // Clear clarification state (listener is now acting)
       clarificationPhase: undefined,
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // V11: Handle listener tapping "Done Explaining" - unlocks speaker's rating UI
   const handleExplainBackDone = useCallback(() => {
+    // P28.1: Track when listener finishes explaining (critical for audio segmentation)
+    trackLiveEvent('live_explain_back_done', {
+      session_code: session?.code,
+      round: confirmedLiveStateRef.current.explainBackRound,
+    });
+
     updateLiveState({
       explainBackDone: true,
     });
-  }, [updateLiveState]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle listener wanting to share their perspective instead of explaining back
   // This now starts the negotiation flow instead of immediate role swap
   const handleSharePerspective = useCallback(() => {
-    analytics.track('live_share_perspective_requested', {
+    // P28.1: Cognitive friction signal
+    trackLiveEvent('live_share_perspective_requested', {
       session_code: session?.code,
     });
 
@@ -775,11 +814,11 @@ export function ClarityLivePage() {
         state: 'pending',
       },
     });
-  }, [name, updateLiveState, session?.code]);
+  }, [name, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle speaker asking listener to explain back first (negotiation step 1 → 2)
   const handleAskToExplainFirst = useCallback(() => {
-    analytics.track('live_role_switch_ask_explain', {
+    trackLiveEvent('live_role_switch_ask_explain', {
       session_code: session?.code,
     });
 
@@ -790,11 +829,11 @@ export function ClarityLivePage() {
         state: 'speaker-asked-to-explain',
       },
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle listener continuing as listener (accepting speaker's request to explain back)
   const handleContinueAsListener = useCallback(() => {
-    analytics.track('live_role_switch_continue_listening', {
+    trackLiveEvent('live_role_switch_continue_listening', {
       session_code: session?.code,
     });
 
@@ -804,11 +843,11 @@ export function ClarityLivePage() {
       ratingPhase: 'explain-back',
       explainBackDone: false,
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle listener insisting they need to speak (negotiation step 2 → 3)
   const handleInsistToSpeak = useCallback(() => {
-    analytics.track('live_role_switch_insist', {
+    trackLiveEvent('live_role_switch_insist', {
       session_code: session?.code,
     });
 
@@ -819,11 +858,11 @@ export function ClarityLivePage() {
         state: 'listener-insists',
       },
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle speaker letting listener speak (final step - accept the role switch)
   const handleLetThemSpeak = useCallback(() => {
-    analytics.track('live_role_switch_accepted_after_insist', {
+    trackLiveEvent('live_role_switch_accepted_after_insist', {
       session_code: session?.code,
     });
 
@@ -844,11 +883,11 @@ export function ClarityLivePage() {
       // Clear speaker clarification state
       clarificationPhase: undefined,
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle speaker starting clarification (after rating < 10)
   const handleClarifyStart = useCallback(() => {
-    analytics.track('live_clarify_started', {
+    trackLiveEvent('live_clarify_started', {
       session_code: session?.code,
       round: confirmedLiveStateRef.current.explainBackRatings.length,
     });
@@ -856,12 +895,12 @@ export function ClarityLivePage() {
     updateLiveState({
       clarificationPhase: 'speaker-clarifying',
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle speaker finishing clarification
   // After clarifying, listener gets to act (explain back again), speaker waits
   const handleClarifyDone = useCallback(() => {
-    analytics.track('live_clarify_done', {
+    trackLiveEvent('live_clarify_done', {
       session_code: session?.code,
       round: confirmedLiveStateRef.current.explainBackRatings.length,
     });
@@ -869,7 +908,7 @@ export function ClarityLivePage() {
     updateLiveState({
       clarificationPhase: 'listener-responding',
     });
-  }, [updateLiveState, session?.code]);
+  }, [updateLiveState, session?.code, trackLiveEvent]);
 
   // V6: Handle speaker rating after explain-back
   const handleExplainBackRate = useCallback(
@@ -879,8 +918,8 @@ export function ClarityLivePage() {
       const round = currentState.explainBackRound + 1;
       const isPerfect = rating === 10;
 
-      // Track explain-back rating
-      analytics.track('live_explain_back_rated', {
+      // Track explain-back rating (P28.1: re-rating data)
+      trackLiveEvent('live_explain_back_rated', {
         session_code: session?.code,
         rating,
         round,
@@ -890,7 +929,7 @@ export function ClarityLivePage() {
 
       // Track perfect understanding if achieved
       if (isPerfect) {
-        analytics.track('live_perfect_understanding', {
+        trackLiveEvent('live_perfect_understanding', {
           session_code: session?.code,
           rounds_to_achieve: round,
           initial_checker_rating: currentState.checkerRating,
@@ -911,7 +950,7 @@ export function ClarityLivePage() {
         clarificationPhase: rating < 10 ? 'speaker-deciding' : undefined,
       });
     },
-    [updateLiveState, session?.code]
+    [updateLiveState, session?.code, trackLiveEvent]
   );
 
   // Clear the skip notification after toast is shown
@@ -1078,6 +1117,38 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
   };
 
+  // P28.1: Stop recording and upload session data
+  const stopAndUploadRecording = useCallback(async () => {
+    if (!session || !eventsCollectorRef.current.isStarted()) {
+      console.log('[P28.1] No recording to stop');
+      return;
+    }
+
+    try {
+      const audioBlob = await stopRecording();
+      if (audioBlob && audioBlob.size > 0) {
+        const events = eventsCollectorRef.current.getEvents();
+        const metadata = {
+          sessionStartedAt: eventsCollectorRef.current.getStartTime(),
+          sessionEndedAt: Date.now(),
+          durationMs: eventsCollectorRef.current.getDurationMs(),
+          participants: [
+            { name: session.creatorName, role: 'creator' as const },
+            ...(session.joinerName ? [{ name: session.joinerName, role: 'joiner' as const }] : []),
+          ],
+        };
+
+        console.log('[P28.1] Uploading recording:', session.code, name, 'events:', events.length);
+        await uploadSessionRecording(session.code, name, audioBlob, events, metadata);
+      }
+    } catch (err) {
+      console.error('[P28.1] Failed to stop/upload recording:', err);
+      // Don't throw - recording failure shouldn't block session exit
+    } finally {
+      eventsCollectorRef.current.reset();
+    }
+  }, [session, name, stopRecording]);
+
   // Show exit confirmation dialog
   const handleExitMeeting = useCallback(() => {
     setShowExitConfirm(true);
@@ -1087,6 +1158,9 @@ export function ClarityLivePage() {
   const confirmExitMeeting = useCallback(async () => {
     // Mark that I am leaving (prevents polling from detecting my own departure)
     iAmLeavingRef.current = true;
+
+    // P28.1: Stop recording and upload before exiting
+    await stopAndUploadRecording();
 
     // Track session exit
     if (session) {
@@ -1127,10 +1201,13 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
-  }, [session, liveState.checksCount, isCreator, navigate]);
+  }, [session, liveState.checksCount, isCreator, navigate, stopAndUploadRecording]);
 
   // Handle starting a new session after partner left
-  const handleStartNewAfterPartnerLeft = useCallback(() => {
+  const handleStartNewAfterPartnerLeft = useCallback(async () => {
+    // P28.1: Stop recording and upload before starting new session
+    await stopAndUploadRecording();
+
     setPartnerLeft(false);
     setSessionEnded(false);
     setDepartedPartnerName(null);
@@ -1148,7 +1225,7 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
-  }, [navigate]);
+  }, [navigate, stopAndUploadRecording]);
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
@@ -1526,6 +1603,8 @@ export function ClarityLivePage() {
           onLetThemSpeak={handleLetThemSpeak}
           onClarifyStart={handleClarifyStart}
           onClarifyDone={handleClarifyDone}
+          // P28.1: Show recording indicator when recording is active
+          isRecording={isRecording}
         />
 
         {/* Exit confirmation dialog */}
