@@ -103,8 +103,17 @@ CURRENT_BRANCH=$(git branch --show-current)
 generate_branch_name() {
     local task="$1"
     # Extract first few words, lowercase, replace spaces with hyphens
+    # Also sanitize to prevent command injection
     local slug=$(echo "$task" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g' | awk '{print $1"-"$2"-"$3}' | sed 's/-$//')
     echo "cloud-agent/${slug}-$(date +%s | tail -c 5)"
+}
+
+# Sanitize task string for safe use in shell commands
+# Removes characters that could enable command injection
+sanitize_task() {
+    local task="$1"
+    # Remove: backticks, $(), semicolons, pipes, redirects, quotes, newlines
+    echo "$task" | tr -d '`$();|<>&"'"'" | tr '\n' ' '
 }
 
 case "$TASK" in
@@ -359,6 +368,9 @@ if [[ "$TASK" == claude* ]]; then
     TASK="${TASK#claude }"  # Remove "claude " prefix
 fi
 
+# Sanitize task for safe use in shell commands
+SAFE_TASK=$(sanitize_task "$TASK")
+
 # Default: Start a task with a prompt
 if [ "$USE_CLAUDE" = true ]; then
     echo -e "${BLUE}☁️  Cloud Agent (Claude Opus 4.5)${NC}"
@@ -377,9 +389,13 @@ FEATURE_BRANCH=$(generate_branch_name "$TASK")
 
 # Step 1: Push local changes to current branch
 echo "1. Pushing your code to GitHub..."
-git add -A 2>/dev/null || true
-git commit -m "cloud-agent: starting task" --allow-empty 2>/dev/null || true
-git push 2>/dev/null || true
+git add -A 2>/dev/null
+if ! git commit -m "cloud-agent: starting task" --allow-empty 2>/dev/null; then
+    echo -e "${YELLOW}   (No local changes to commit)${NC}"
+fi
+if ! git push 2>/dev/null; then
+    echo -e "${YELLOW}   Warning: Could not push to remote${NC}"
+fi
 
 # Step 2: Pull on cloud, create feature branch from current branch
 echo "2. Creating feature branch: $FEATURE_BRANCH (from $CURRENT_BRANCH)..."
@@ -411,12 +427,12 @@ if [ "$USE_CLAUDE" = false ]; then
         # Start new session with Aider + Gemini
         tmux new-session -d -s agent bash -c '
             source ~/aider-env/bin/activate
-            aider --model gemini/gemini-3-pro-preview --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
+            aider --model gemini/gemini-3-pro-preview --message \"$SAFE_TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
             echo \"\"
             echo \"=== TASK COMPLETE ===\"
             echo \"Committing work...\"
             git add -A
-            git commit -m \"cloud-agent (gemini): $TASK\" --allow-empty
+            git commit -m \"cloud-agent (gemini): task completed\" --allow-empty
             git push -u origin $FEATURE_BRANCH
             echo \"\"
             echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
@@ -449,11 +465,11 @@ done
 COMMIT_SCRIPT
         chmod +x /tmp/periodic-commit.sh
 
-        # Save task name for status display
-        echo \"$TASK\" > /tmp/current-task.txt
+        # Save task name for status display (use original for readability)
+        echo \"$SAFE_TASK\" > /tmp/current-task.txt
 
         # Notify via Telegram that task started
-        ~/telegram-bot.sh start \"$TASK\" \"$FEATURE_BRANCH\"
+        ~/telegram-bot.sh start \"$SAFE_TASK\" \"$FEATURE_BRANCH\"
 
         # Start new session with task + periodic commits
         tmux new-session -d -s agent bash -c '
@@ -469,7 +485,7 @@ COMMIT_SCRIPT
             # Run the main task using /loop workflow (skip permissions for autonomous mode)
             claude --dangerously-skip-permissions -p \"Execute this task using the /loop workflow:
 
-$TASK
+$SAFE_TASK
 
 AUTONOMOUS MODE INSTRUCTIONS:
 - Follow /loop workflow steps (analyze → implement → test → visual check if UI)
@@ -491,11 +507,11 @@ AUTONOMOUS MODE INSTRUCTIONS:
             echo \"=== TASK COMPLETE ===\"
             echo \"Committing final work...\"
             git add -A
-            git commit -m \"cloud-agent: $TASK\" --allow-empty
+            git commit -m \"cloud-agent: task completed\" --allow-empty
             git push -u origin $FEATURE_BRANCH
 
             # Notify via Telegram
-            ~/telegram-bot.sh complete \"$TASK\" \"$FEATURE_BRANCH\"
+            ~/telegram-bot.sh complete \"$SAFE_TASK\" \"$FEATURE_BRANCH\"
 
             echo \"\"
             echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
@@ -510,7 +526,7 @@ echo -e "${GREEN}✅ Task is running in the cloud!${NC}"
 echo ""
 echo "Feature branch: $FEATURE_BRANCH"
 echo "Base branch: $CURRENT_BRANCH"
-echo "Task: $TASK"
+echo "Task: $SAFE_TASK"
 if [ "$USE_CLAUDE" = true ]; then
     echo "Model: Claude Opus 4.5"
 else

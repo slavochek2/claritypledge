@@ -25,19 +25,54 @@ Run AI coding tasks in the cloud. Works even when you close your laptop.
 
 **Recommendation:** Use `claude` for anything involving UI or complex logic.
 
-## Telegram Commands
+## Telegram Integration
 
-Send these to `@clarity_cloud_agent_bot`:
+Send commands to `@clarity_cloud_agent_bot`:
 
 | Command | Action |
 |---------|--------|
-| `/status` | Check if running |
-| `/logs` | Get recent output |
-| `/stop` | Stop task |
+| `/status` or `s` | Task progress + checkpoint info |
+| `/logs` or `l` | Recent output (cleaned) |
+| `/stop` | Stop current task |
 | `/commit` | Manual checkpoint |
 | `/help` | Show commands |
+| `[any text]` | Send instruction to agent |
 
-You'll also get notifications when tasks start/complete.
+### Proactive Notifications
+
+The handler automatically sends:
+- **Task Started** when agent begins
+- **Checkpoint N** when agent commits with `checkpoint-N:` pattern
+- **Task Complete** when agent finishes
+
+### Sending Feedback
+
+Send any text (not a command) to give the agent instructions:
+
+```
+fix the button alignment
+```
+
+Response shows context:
+```
+📝 Noted for *cloud-agent/add-dark-mode-12345*:
+_fix the button alignment_
+
+📋 Task: Add dark mode to settings
+(Agent will see on next checkpoint)
+```
+
+Feedback is written to `/tmp/user-feedback.txt` with branch context. The agent can read this file during its next loop iteration.
+
+### How Tracking Works
+
+The handler tracks ONE task via:
+- **tmux session:** `agent`
+- **Project dir:** `~/claritypledge`
+- **Task file:** `/tmp/current-task.txt`
+- **State file:** `/tmp/cloud-agent-state.json` (checkpoint tracking)
+
+Since only one task runs at a time, this simple model works.
 
 ## Architecture
 
@@ -67,6 +102,17 @@ You'll also get notifications when tasks start/complete.
 ```
 
 ## How It Works
+
+### Single Task at a Time
+
+**Important:** The cloud agent runs ONE task at a time. Starting a new task kills any running task.
+
+```bash
+/c claude Fix the login bug     # Starts task A
+/c claude Add dark mode         # KILLS task A, starts task B
+```
+
+This is intentional (KISS). If you need to queue tasks, finish one before starting the next.
 
 ### Starting a Task
 
@@ -141,7 +187,21 @@ You'll also get notifications when tasks start/complete.
 |------------|----------|---------|
 | GitHub PAT | In git remote URL | Push to GitHub |
 | Claude API | `~/.claude/` | Run Claude Code |
-| Telegram Token | In scripts | Notifications |
+| `TELEGRAM_BOT_TOKEN` | Environment variable | Telegram bot API |
+| `TELEGRAM_CHAT_ID` | Environment variable | Your Telegram chat ID |
+
+### Setting Up Telegram (One-Time)
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) and get the token
+2. Get your chat ID by messaging [@userinfobot](https://t.me/userinfobot)
+3. SSH into the VM and add to `~/.bashrc`:
+
+```bash
+export TELEGRAM_BOT_TOKEN="your-bot-token-here"
+export TELEGRAM_CHAT_ID="your-chat-id-here"
+```
+
+4. Reload: `source ~/.bashrc`
 
 ## Troubleshooting
 
