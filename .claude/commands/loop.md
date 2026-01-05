@@ -67,6 +67,28 @@ npm test
 - Fix failures before proceeding
 - If tests fail 3+ times on same issue → stop and ask user
 
+### 2.5 Test Verification Gate (REQUIRED)
+
+Before proceeding past unit tests, you MUST:
+
+1. **Run the full test suite:**
+   ```bash
+   npm test 2>&1 | tail -30
+   ```
+
+2. **Copy the EXACT output** into your response, showing:
+   - Total tests: X passed, Y failed
+   - Any error messages
+
+3. **HALT CONDITIONS:**
+   - If ANY tests fail → Fix before proceeding
+   - If test command errors → Report and investigate
+   - If you cannot run tests → Ask user for help
+
+**Do NOT proceed to visual check or mark task complete if tests fail.**
+
+This gate exists because agents have historically self-reported "tests pass" without actually running them. Pasting the output creates accountability.
+
 ### 3. Visual Check (when UI is involved)
 
 **Requires dev server running.** If not running, start it:
@@ -175,6 +197,51 @@ Which approach?
 
 ---
 
+## Checkpoint-Based Tasks (migrations, multi-step features)
+
+When working on tasks with defined checkpoints (like migrations or phased implementations):
+
+### Before Marking ANY Checkpoint Complete:
+
+1. **Run full test suite:**
+   ```bash
+   npm test
+   ```
+   - Must show 0 failures
+   - Paste output as evidence
+
+2. **Run build:**
+   ```bash
+   npm run build
+   ```
+   - Must complete without errors
+
+3. **Verify checkpoint-specific tests:**
+   - If the spec says "Verification Test: create `__tests__/checkpoint-N.test.ts`" → that file MUST exist
+   - The checkpoint test MUST pass
+   - Never mark checkpoint complete without its verification test
+
+### Create Checkpoint Tests If Spec Requires
+
+Read the checkpoint definition carefully. If it includes a test file:
+- Create the test file FIRST (TDD approach)
+- Implement until the test passes
+- Only then mark checkpoint complete
+
+### Document Blockers Immediately
+
+If stuck on a checkpoint for 3+ attempts:
+
+1. Create `docs/migration-blockers.md` (or append to it)
+2. Include:
+   - Which checkpoint is blocked
+   - What's preventing progress
+   - What you've tried
+   - What help is needed
+3. Do NOT mark checkpoint complete and move on
+
+---
+
 ## Stop and Ask User If:
 
 - Tests fail 3+ times on the same issue
@@ -192,8 +259,14 @@ After completing:
 Task: [description]
 Complexity: [level] | Files changed: [N]
 
+Test Evidence:
+```
+[PASTE ACTUAL npm test OUTPUT HERE - last 20 lines minimum]
+[This proves tests were actually run, not just claimed]
+```
+
 Results:
-- Unit tests: PASS / FAIL / SKIPPED
+- Unit tests: X passed, Y failed (from actual output above)
 - Visual check: OK / ISSUES / SKIPPED
 - E2E tests: PASS / FAIL / SKIPPED
 - UX review: OK / ISSUES / SKIPPED
@@ -201,6 +274,8 @@ Results:
 Status: DONE / NEED INPUT
 [If NEED INPUT: explain what's needed]
 ```
+
+**Important:** The "Test Evidence" section is NOT optional. If you cannot paste test output, explain why (e.g., "tests don't exist for this project", "npm test command not configured").
 
 ---
 

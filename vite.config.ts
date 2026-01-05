@@ -8,10 +8,22 @@ import { fileURLToPath } from 'url'
 // ES Module equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Auto-detect port based on worktree
+// Main repo: 5001, Worktrees 1-7: 5100-5700
+function getPort(): number {
+  const cwd = process.cwd()
+  const worktreeMatch = cwd.match(/claritypledge-(\d+)$/)
+  if (worktreeMatch) {
+    const worktreeNum = parseInt(worktreeMatch[1], 10)
+    return 5000 + (worktreeNum * 100) // 5100, 5200, ..., 5700
+  }
+  return 5001 // Main repo (5000 is blocked by macOS AirPlay)
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   server: {
-    port: 5001, // 5000 is blocked by macOS AirPlay
+    port: getPort(),
     strictPort: true, // Fail if port is already in use
   },
   build: {
