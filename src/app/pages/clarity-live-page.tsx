@@ -28,6 +28,7 @@ import {
   clearSessionJoiner,
   endClaritySession,
   uploadSessionRecording,
+  uploadAudioChunk,
   MAX_NAME_LENGTH,
   type ClaritySession,
 } from '@/app/data/api';
@@ -102,7 +103,28 @@ export function ClarityLivePage() {
     : undefined;
 
   // P28.1: Audio recording and events collection for ML training
-  const { isRecording, startRecording, stopRecording } = useAudioRecorder();
+  // Uses chunked mode (30s uploads) for reliability - data is saved even if user closes browser
+  const sessionCodeForChunks = useRef<string | null>(null);
+  const userNameForChunks = useRef<string | null>(null);
+
+  const handleChunkReady = useCallback(async (
+    chunkBlob: Blob,
+    chunkNumber: number,
+    isLastChunk: boolean
+  ) => {
+    const code = sessionCodeForChunks.current;
+    const userName = userNameForChunks.current;
+    if (!code || !userName) {
+      console.warn('[P28.1] Cannot upload chunk - missing session code or user name');
+      return;
+    }
+    await uploadAudioChunk(code, userName, chunkBlob, chunkNumber, isLastChunk);
+  }, []);
+
+  const { isRecording, startRecording, stopRecording, chunkNumber } = useAudioRecorder({
+    onChunkReady: handleChunkReady,
+    chunkIntervalMs: 30000, // 30 seconds
+  });
   const eventsCollectorRef = useRef(new SessionEventsCollector());
 
   // P28.1: Helper to track events for both Mixpanel and ML training
@@ -168,6 +190,9 @@ export function ClarityLivePage() {
   useEffect(() => {
     if (view === 'live' && session && !isRecording) {
       console.log('[P28.1] Session is live, starting recording and events collection');
+      // Set refs for chunk upload callback (avoids stale closures)
+      sessionCodeForChunks.current = session.code;
+      userNameForChunks.current = name;
       eventsCollectorRef.current.start();
       startRecording().catch((err) => {
         console.error('[P28.1] Failed to start recording:', err);
@@ -1117,7 +1142,9 @@ export function ClarityLivePage() {
     lastJoinerNameRef.current = null;
   };
 
-  // P28.1: Stop recording and upload session data
+  // P28.1: Stop recording and upload final chunk + events
+  // In chunked mode, audio is already uploaded in 30s intervals
+  // This function just stops recording (triggers final chunk) and uploads events.json
   const stopAndUploadRecording = useCallback(async () => {
     if (!session || !eventsCollectorRef.current.isStarted()) {
       console.log('[P28.1] No recording to stop');
@@ -1125,27 +1152,34 @@ export function ClarityLivePage() {
     }
 
     try {
-      const audioBlob = await stopRecording();
-      if (audioBlob && audioBlob.size > 0) {
-        const events = eventsCollectorRef.current.getEvents();
-        const metadata = {
-          sessionStartedAt: eventsCollectorRef.current.getStartTime(),
-          sessionEndedAt: Date.now(),
-          durationMs: eventsCollectorRef.current.getDurationMs(),
-          participants: [
-            { name: session.creatorName, role: 'creator' as const },
-            ...(session.joinerName ? [{ name: session.joinerName, role: 'joiner' as const }] : []),
-          ],
-        };
+      // Stop recording - this triggers final chunk upload via the hook's cleanup
+      await stopRecording();
 
-        console.log('[P28.1] Uploading recording:', session.code, name, 'events:', events.length);
-        await uploadSessionRecording(session.code, name, audioBlob, events, metadata);
-      }
+      // Upload events.json separately (audio chunks are already uploaded)
+      const events = eventsCollectorRef.current.getEvents();
+      const metadata = {
+        sessionStartedAt: eventsCollectorRef.current.getStartTime(),
+        sessionEndedAt: Date.now(),
+        durationMs: eventsCollectorRef.current.getDurationMs(),
+        participants: [
+          { name: session.creatorName, role: 'creator' as const },
+          ...(session.joinerName ? [{ name: session.joinerName, role: 'joiner' as const }] : []),
+        ],
+      };
+
+      console.log('[P28.1] Uploading events.json for session:', session.code, 'events:', events.length);
+
+      // Use uploadSessionRecording with an empty blob to just upload events
+      // The function handles this gracefully and uploads events.json
+      const emptyBlob = new Blob([], { type: 'audio/webm' });
+      await uploadSessionRecording(session.code, name, emptyBlob, events, metadata);
     } catch (err) {
       console.error('[P28.1] Failed to stop/upload recording:', err);
       // Don't throw - recording failure shouldn't block session exit
     } finally {
       eventsCollectorRef.current.reset();
+      sessionCodeForChunks.current = null;
+      userNameForChunks.current = null;
     }
   }, [session, name, stopRecording]);
 

@@ -2430,6 +2430,9 @@ import type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 // Re-export types for convenience
 export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 
+/** Cloud Function URL for getting signed upload URLs */
+const GCS_SIGNED_URL_FUNCTION = 'https://us-central1-gen-lang-client-0869694595.cloudfunctions.net/gcs-signed-url';
+
 /** Metadata for a session recording */
 export interface SessionMetadata {
   sessionStartedAt: number; // Unix ms from collector.getStartTime()
@@ -2439,14 +2442,116 @@ export interface SessionMetadata {
 }
 
 /**
- * Uploads session recording data for ML training.
+ * Gets a signed URL for uploading to GCS.
+ */
+async function getSignedUploadUrl(
+  sessionCode: string,
+  fileName: string,
+  contentType: string
+): Promise<{ uploadUrl: string; filePath: string }> {
+  const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionCode, fileName, contentType }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(`Failed to get signed URL: ${error.error}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Uploads a file to GCS using a signed URL.
+ */
+async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): Promise<void> {
+  const response = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType },
+    body: blob,
+  });
+
+  if (!response.ok) {
+    throw new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
+  }
+}
+
+/**
+ * Uploads a single audio chunk to GCS.
+ * Used by chunked recording mode for reliable capture.
+ *
+ * Creates files at:
+ * ```
+ * gs://claritypledge-ml-training/sessions/{session_code}/
+ * └── {user_name}_chunk_{NNN}.webm   # Audio chunk (000, 001, 002, etc.)
+ * ```
+ *
+ * @param sessionCode - The 6-character session code
+ * @param userName - Name of the user
+ * @param chunkBlob - The audio chunk blob
+ * @param chunkNumber - Zero-based chunk index
+ * @param isLastChunk - Whether this is the final chunk
+ */
+export async function uploadAudioChunk(
+  sessionCode: string,
+  userName: string,
+  chunkBlob: Blob,
+  chunkNumber: number,
+  isLastChunk: boolean,
+): Promise<void> {
+  // Sanitize username for filename
+  const sanitizedName = userName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  // Zero-pad chunk number (e.g., 001, 002, ...)
+  const paddedChunkNum = String(chunkNumber).padStart(3, '0');
+  const chunkFileName = `${sanitizedName}_chunk_${paddedChunkNum}.webm`;
+  const contentType = chunkBlob.type || 'audio/webm';
+
+  console.log(`[ML Upload] Uploading chunk ${chunkNumber} for ${sanitizedName}, size: ${chunkBlob.size}, isLast: ${isLastChunk}`);
+
+  try {
+    const { uploadUrl, filePath } = await getSignedUploadUrl(
+      sessionCode,
+      chunkFileName,
+      contentType
+    );
+
+    await uploadToGCS(uploadUrl, chunkBlob, contentType);
+    console.log(`[ML Upload] Chunk ${chunkNumber} uploaded: ${filePath}`);
+
+    // If this is the last chunk, record in DB for tracking
+    if (isLastChunk) {
+      const { error: dbError } = await supabase.from('ml_training_sessions').insert({
+        session_code: sessionCode,
+        user_name: userName,
+        audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${sanitizedName}_chunk_*.webm`,
+        duration_ms: null, // Unknown in chunked mode
+      });
+
+      if (dbError) {
+        console.warn('[ML Upload] DB record failed (non-fatal):', dbError.message);
+      }
+    }
+  } catch (err) {
+    console.error(`[ML Upload] Chunk ${chunkNumber} upload failed:`, err);
+    // Don't throw - recording failure shouldn't break the session
+  }
+}
+
+/**
+ * Uploads session recording data for ML training to Google Cloud Storage.
  *
  * Creates a bundle at:
  * ```
- * /storage/ml-training/{session_code}/
+ * gs://claritypledge-ml-training/sessions/{session_code}/
  * ├── {user_name}.webm         # Audio file
- * ├── events.json              # Snapshot of session events (first uploader only)
- * └── metadata.json            # Session summary (first uploader only)
+ * └── events.json              # Snapshot of session events (first uploader only)
  * ```
  *
  * @param sessionCode - The 6-character session code
@@ -2462,8 +2567,6 @@ export async function uploadSessionRecording(
   events: MLEvent[],
   metadata: SessionMetadata,
 ): Promise<void> {
-  const basePath = `ml-training-sessions/${sessionCode}`;
-
   // Sanitize username for filename (replace spaces and special chars)
   const sanitizedName = userName
     .toLowerCase()
@@ -2471,74 +2574,71 @@ export async function uploadSessionRecording(
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
-  console.log('[ML Upload] Starting upload for session:', sessionCode, 'user:', sanitizedName);
+  console.log('[ML Upload] Starting GCS upload for session:', sessionCode, 'user:', sanitizedName);
 
   try {
-    // Upload audio file
-    const audioPath = `${basePath}/${sanitizedName}.webm`;
-    const { error: audioError } = await supabase.storage
-      .from('ml-training')
-      .upload(audioPath, audioBlob, {
-        contentType: audioBlob.type || 'audio/webm',
-        upsert: true, // Allow re-upload if user rejoins
-      });
+    let audioPath = '';
 
-    if (audioError) {
-      console.error('[ML Upload] Audio upload failed:', audioError.message);
-      throw new Error(`Audio upload failed: ${audioError.message}`);
-    }
+    // 1. Upload audio file to GCS (skip if empty blob - used when only uploading events in chunked mode)
+    if (audioBlob.size > 0) {
+      const audioFileName = `${sanitizedName}.webm`;
+      const audioContentType = audioBlob.type || 'audio/webm';
 
-    console.log('[ML Upload] Audio uploaded successfully:', audioPath);
-
-    // Upload events.json (only if first uploader - avoid duplicates)
-    const eventsPath = `${basePath}/events.json`;
-    const { data: existingEvents } = await supabase.storage
-      .from('ml-training')
-      .download(eventsPath);
-
-    if (!existingEvents) {
-      // Events don't exist yet, upload them
-      const eventsPayload: MLTrainingEvents = {
+      console.log('[ML Upload] Getting signed URL for audio...');
+      const { uploadUrl: audioUrl, filePath } = await getSignedUploadUrl(
         sessionCode,
-        capturedAt: new Date().toISOString(),
-        sessionStartedAt: metadata.sessionStartedAt,
-        sessionEndedAt: metadata.sessionEndedAt,
-        durationMs: metadata.durationMs,
-        participants: metadata.participants,
-        events,
-      };
+        audioFileName,
+        audioContentType
+      );
+      audioPath = filePath;
 
-      const eventsBlob = new Blob([JSON.stringify(eventsPayload, null, 2)], {
-        type: 'application/json',
-      });
-
-      const { error: eventsError } = await supabase.storage
-        .from('ml-training')
-        .upload(eventsPath, eventsBlob, {
-          contentType: 'application/json',
-        });
-
-      if (eventsError) {
-        console.warn('[ML Upload] Events upload failed (non-fatal):', eventsError.message);
-      } else {
-        console.log('[ML Upload] Events uploaded successfully:', eventsPath);
-      }
+      console.log('[ML Upload] Uploading audio to GCS...');
+      await uploadToGCS(audioUrl, audioBlob, audioContentType);
+      console.log('[ML Upload] Audio uploaded successfully:', audioPath);
     } else {
-      console.log('[ML Upload] Events already exist, skipping');
+      console.log('[ML Upload] Skipping audio upload (empty blob - using chunked mode)');
     }
 
-    // Create DB record for tracking
-    const { error: dbError } = await supabase.from('ml_training_sessions').insert({
-      session_code: sessionCode,
-      user_name: userName,
-      audio_path: audioPath,
-      duration_ms: metadata.durationMs,
+    // 2. Upload events.json to GCS (always upload - GCS handles dedup via overwrite)
+    const eventsPayload: MLTrainingEvents = {
+      sessionCode,
+      capturedAt: new Date().toISOString(),
+      sessionStartedAt: metadata.sessionStartedAt,
+      sessionEndedAt: metadata.sessionEndedAt,
+      durationMs: metadata.durationMs,
+      participants: metadata.participants,
+      events,
+    };
+
+    const eventsBlob = new Blob([JSON.stringify(eventsPayload, null, 2)], {
+      type: 'application/json',
     });
 
-    if (dbError) {
-      console.warn('[ML Upload] DB record failed (non-fatal):', dbError.message);
-    } else {
-      console.log('[ML Upload] DB record created for:', sessionCode, userName);
+    console.log('[ML Upload] Getting signed URL for events...');
+    const { uploadUrl: eventsUrl, filePath: eventsPath } = await getSignedUploadUrl(
+      sessionCode,
+      'events.json',
+      'application/json'
+    );
+
+    console.log('[ML Upload] Uploading events to GCS...');
+    await uploadToGCS(eventsUrl, eventsBlob, 'application/json');
+    console.log('[ML Upload] Events uploaded successfully:', eventsPath);
+
+    // 3. Create DB record for tracking (only if we uploaded audio, skip for events-only upload)
+    if (audioPath) {
+      const { error: dbError } = await supabase.from('ml_training_sessions').insert({
+        session_code: sessionCode,
+        user_name: userName,
+        audio_path: `gs://claritypledge-ml-training/${audioPath}`,
+        duration_ms: metadata.durationMs,
+      });
+
+      if (dbError) {
+        console.warn('[ML Upload] DB record failed (non-fatal):', dbError.message);
+      } else {
+        console.log('[ML Upload] DB record created for:', sessionCode, userName);
+      }
     }
 
     console.log('[ML Upload] Upload complete for session:', sessionCode);

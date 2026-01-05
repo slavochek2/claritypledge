@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // https://vite.dev/config/
 export default defineConfig({
   server: {
-    port: 5001, // 5000 is blocked by macOS AirPlay
+    port: 5200, // Worktree 2 port
     strictPort: true, // Fail if port is already in use
   },
   build: {
