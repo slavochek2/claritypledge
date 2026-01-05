@@ -117,6 +117,17 @@ export class SessionEventsCollector {
   }
 
   /**
+   * Get metadata for the current collection session.
+   * Used by uploadEventsSnapshot for chunked event uploads.
+   */
+  getMetadata(): { sessionStartedAt: number; participants: { name: string; role: 'creator' | 'joiner' }[] } {
+    return {
+      sessionStartedAt: this.startTime,
+      participants: [], // Will be filled by caller with session info
+    };
+  }
+
+  /**
    * Reset the collector for a new session.
    */
   reset(): void {

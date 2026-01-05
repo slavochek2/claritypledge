@@ -3,6 +3,7 @@
 ## Status Summary
 
 **P28.1 Phase 1 (Infrastructure): COMPLETE ✅**
+**P28.2.1 Chunked Events Upload: COMPLETE ✅**
 
 This document captures what was built, what's remaining, and how to continue.
 
@@ -42,68 +43,19 @@ Browser (30s interval)
 
 ## What Needs to Be Done
 
-### Immediate: Chunk Events (P28.2.1)
+### ✅ COMPLETED: Chunk Events (P28.2.1)
 
 **Problem:** Events.json only uploads when user clicks "Exit". If they close the browser, we lose all behavioral data.
 
 **Solution:** Upload events every 30 seconds alongside audio chunks.
 
-**Implementation:**
+**Implementation (DONE):**
+- Added `uploadEventsSnapshot()` function in [api.ts](../src/app/data/api.ts:2566)
+- Modified `handleChunkReady()` in [clarity-live-page.tsx](../src/app/pages/clarity-live-page.tsx:113) to upload events with each chunk
+- Added `sessionForChunks` ref to track session participants for metadata
+- Added `getMetadata()` method to SessionEventsCollector
 
-```typescript
-// In clarity-live-page.tsx, modify handleChunkReady:
-
-const handleChunkReady = useCallback(async (
-  chunkBlob: Blob,
-  chunkNum: number,
-  isLastChunk: boolean
-) => {
-  const sessionCode = sessionCodeForChunks.current;
-  const userName = userNameForChunks.current;
-
-  if (!sessionCode || !userName) return;
-
-  // 1. Upload audio chunk (existing)
-  await uploadAudioChunk(sessionCode, userName, chunkBlob, chunkNum, isLastChunk);
-
-  // 2. NEW: Upload events snapshot with each chunk
-  await uploadEventsSnapshot(sessionCode, chunkNum, eventsCollectorRef.current);
-}, []);
-```
-
-**New function in api.ts:**
-
-```typescript
-export async function uploadEventsSnapshot(
-  sessionCode: string,
-  chunkNumber: number,
-  collector: SessionEventsCollector,
-): Promise<void> {
-  const events = collector.getEvents();
-  const metadata = collector.getMetadata();
-
-  // Upload as events_{chunkNumber}.json (e.g., events_000.json, events_001.json)
-  // Latest one contains all events accumulated so far
-  const fileName = `events_${String(chunkNumber).padStart(3, '0')}.json`;
-
-  const payload: MLTrainingEvents = {
-    sessionCode,
-    capturedAt: new Date().toISOString(),
-    sessionStartedAt: metadata.sessionStartedAt,
-    sessionEndedAt: Date.now(), // Current time (not final)
-    durationMs: Date.now() - metadata.sessionStartedAt,
-    participants: metadata.participants,
-    events,
-  };
-
-  const { uploadUrl } = await getSignedUploadUrl(sessionCode, fileName, 'application/json');
-  await uploadToGCS(uploadUrl, new Blob([JSON.stringify(payload)], { type: 'application/json' }), 'application/json');
-
-  console.log(`[ML Upload] Events snapshot ${chunkNumber} uploaded: ${events.length} events`);
-}
-```
-
-**File structure after change:**
+**File structure after implementation:**
 ```
 gs://claritypledge-ml-training/sessions/{session_code}/
 ├── slava_chunk_000.webm

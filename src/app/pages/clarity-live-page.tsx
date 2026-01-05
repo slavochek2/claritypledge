@@ -29,6 +29,7 @@ import {
   endClaritySession,
   uploadSessionRecording,
   uploadAudioChunk,
+  uploadEventsSnapshot,
   MAX_NAME_LENGTH,
   type ClaritySession,
 } from '@/app/data/api';
@@ -106,6 +107,8 @@ export function ClarityLivePage() {
   // Uses chunked mode (30s uploads) for reliability - data is saved even if user closes browser
   const sessionCodeForChunks = useRef<string | null>(null);
   const userNameForChunks = useRef<string | null>(null);
+  const sessionForChunks = useRef<ClaritySession | null>(null);
+  const eventsCollectorRef = useRef(new SessionEventsCollector());
 
   const handleChunkReady = useCallback(async (
     chunkBlob: Blob,
@@ -114,18 +117,30 @@ export function ClarityLivePage() {
   ) => {
     const code = sessionCodeForChunks.current;
     const userName = userNameForChunks.current;
+    const currentSession = sessionForChunks.current;
     if (!code || !userName) {
       console.warn('[P28.1] Cannot upload chunk - missing session code or user name');
       return;
     }
+
+    // Upload audio chunk
     await uploadAudioChunk(code, userName, chunkBlob, chunkNumber, isLastChunk);
+
+    // P28.2: Upload events snapshot with each chunk
+    // This ensures events are saved even if user closes browser
+    if (currentSession && eventsCollectorRef.current.isStarted()) {
+      const participants: { name: string; role: 'creator' | 'joiner' }[] = [
+        { name: currentSession.creatorName, role: 'creator' },
+        ...(currentSession.joinerName ? [{ name: currentSession.joinerName, role: 'joiner' as const }] : []),
+      ];
+      await uploadEventsSnapshot(code, chunkNumber, eventsCollectorRef.current, participants);
+    }
   }, []);
 
   const { isRecording, startRecording, stopRecording, chunkNumber } = useAudioRecorder({
     onChunkReady: handleChunkReady,
     chunkIntervalMs: 30000, // 30 seconds
   });
-  const eventsCollectorRef = useRef(new SessionEventsCollector());
 
   // P28.1: Helper to track events for both Mixpanel and ML training
   // Only captures live_* events that are useful for ML training
@@ -193,13 +208,22 @@ export function ClarityLivePage() {
       // Set refs for chunk upload callback (avoids stale closures)
       sessionCodeForChunks.current = session.code;
       userNameForChunks.current = name;
+      sessionForChunks.current = session; // P28.2: Store session for events snapshot
       eventsCollectorRef.current.start();
       startRecording().catch((err) => {
         console.error('[P28.1] Failed to start recording:', err);
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only trigger when view becomes 'live'
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- name is immutable once view='live' (no UI to change it); we only want to trigger on session start
   }, [view, session?.id]);
+
+  // P28.2: Keep sessionForChunks in sync with session updates
+  // This is important when joiner joins after recording has started
+  useEffect(() => {
+    if (view === 'live' && session && sessionForChunks.current) {
+      sessionForChunks.current = session;
+    }
+  }, [view, session]);
 
   // Keep confirmedLiveStateRef in sync with server-confirmed state
   useEffect(() => {
@@ -1180,6 +1204,7 @@ export function ClarityLivePage() {
       eventsCollectorRef.current.reset();
       sessionCodeForChunks.current = null;
       userNameForChunks.current = null;
+      sessionForChunks.current = null;
     }
   }, [session, name, stopRecording]);
 

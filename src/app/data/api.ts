@@ -2545,6 +2545,61 @@ export async function uploadAudioChunk(
 }
 
 /**
+ * Uploads an events snapshot alongside audio chunks.
+ * Called every 30 seconds to ensure events are saved even if user closes browser.
+ *
+ * Creates files at:
+ * ```
+ * gs://claritypledge-ml-training/sessions/{session_code}/
+ * ├── events_000.json   # Events at 0-30s
+ * ├── events_001.json   # Events at 0-60s (cumulative)
+ * └── events_002.json   # Events at 0-90s (cumulative)
+ * ```
+ *
+ * The highest-numbered events_XXX.json contains all events up to that point.
+ *
+ * @param sessionCode - The 6-character session code
+ * @param chunkNumber - Zero-based chunk index (matches audio chunk number)
+ * @param collector - The SessionEventsCollector instance
+ * @param participants - Session participants for metadata
+ */
+export async function uploadEventsSnapshot(
+  sessionCode: string,
+  chunkNumber: number,
+  collector: import('@/lib/session-events-collector').SessionEventsCollector,
+  participants: { name: string; role: 'creator' | 'joiner' }[],
+): Promise<void> {
+  const events = collector.getEvents();
+  const sessionStartedAt = collector.getStartTime();
+
+  // Zero-pad chunk number to match audio chunks (e.g., 000, 001, 002)
+  const paddedChunkNum = String(chunkNumber).padStart(3, '0');
+  const fileName = `events_${paddedChunkNum}.json`;
+
+  const payload: MLTrainingEvents = {
+    sessionCode,
+    capturedAt: new Date().toISOString(),
+    sessionStartedAt,
+    sessionEndedAt: Date.now(), // Current time (not final)
+    durationMs: Date.now() - sessionStartedAt,
+    participants,
+    events,
+  };
+
+  console.log(`[ML Upload] Uploading events snapshot ${chunkNumber}: ${events.length} events`);
+
+  try {
+    const { uploadUrl } = await getSignedUploadUrl(sessionCode, fileName, 'application/json');
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    await uploadToGCS(uploadUrl, blob, 'application/json');
+    console.log(`[ML Upload] Events snapshot ${chunkNumber} uploaded: ${events.length} events`);
+  } catch (err) {
+    console.error(`[ML Upload] Events snapshot ${chunkNumber} upload failed:`, err);
+    // Don't throw - recording failure shouldn't break the session
+  }
+}
+
+/**
  * Uploads session recording data for ML training to Google Cloud Storage.
  *
  * Creates a bundle at:
