@@ -227,13 +227,21 @@ export function ClarityLivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- name is immutable once view='live' (no UI to change it); we only want to trigger on session start
   }, [view, session?.id]);
 
-  // P28.2: Keep sessionForChunks in sync with session updates
+  // P28.2: Keep sessionForChunks and userForChunks in sync with updates
   // This is important when joiner joins after recording has started
+  // or when user auth state changes during a session
   useEffect(() => {
     if (view === 'live' && session && sessionForChunks.current) {
       sessionForChunks.current = session;
     }
   }, [view, session]);
+
+  useEffect(() => {
+    if (view === 'live' && isRecording && user) {
+      userForChunks.current = { id: user.id, email: user.email };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- We only want to sync when user id/email changes, not on every user object reference change
+  }, [view, isRecording, user?.id, user?.email]);
 
   // Keep confirmedLiveStateRef in sync with server-confirmed state
   useEffect(() => {
@@ -1209,6 +1217,7 @@ export function ClarityLivePage() {
 
       // Upload events.json separately (audio chunks are already uploaded)
       const events = eventsCollectorRef.current.getEvents();
+      const currentUser = userForChunks.current;
       const metadata = {
         sessionStartedAt: eventsCollectorRef.current.getStartTime(),
         sessionEndedAt: Date.now(),
@@ -1217,6 +1226,10 @@ export function ClarityLivePage() {
           { name: session.creatorName, role: 'creator' as const },
           ...(session.joinerName ? [{ name: session.joinerName, role: 'joiner' as const }] : []),
         ],
+        // P28.2: Include uploader info for Mixpanel correlation
+        uploader: currentUser
+          ? { supabaseUserId: currentUser.id, email: currentUser.email, name }
+          : { name },
       };
 
       console.log('[P28.1] Uploading events.json for session:', session.code, 'events:', events.length);

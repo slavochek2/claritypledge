@@ -62,9 +62,12 @@ for USER in $USERS; do
 done
 echo ""
 
-# Check events.json
-echo "📋 Checking events.json..."
+# Check events files (events.json or chunked {user}_events_XXX.json)
+echo "📋 Checking events files..."
 EVENTS_PATH="$BUCKET/sessions/$SESSION_CODE/events.json"
+FOUND_EVENTS=false
+
+# First check for final events.json
 if gsutil ls "$EVENTS_PATH" &>/dev/null; then
   EVENTS=$(gsutil cat "$EVENTS_PATH" 2>/dev/null)
   EVENT_COUNT=$(echo "$EVENTS" | jq '.events | length' 2>/dev/null || echo "error")
@@ -75,12 +78,32 @@ if gsutil ls "$EVENTS_PATH" &>/dev/null; then
     DURATION_MIN=$(echo "scale=1; $DURATION / 60000" | bc 2>/dev/null || echo "?")
     echo "   ✅ events.json: $EVENT_COUNT events, ${DURATION_MIN}min duration"
     echo "   📝 Participants: $PARTICIPANTS"
+    FOUND_EVENTS=true
   else
     echo "   ⚠️  events.json exists but failed to parse"
-    ALL_VALID=false
   fi
-else
-  echo "   ❌ events.json missing"
+fi
+
+# Also check for chunked events files (P28.2 format: {user}_events_XXX.json)
+CHUNKED_EVENTS=$(gsutil ls "$BUCKET/sessions/$SESSION_CODE/"*_events_*.json 2>/dev/null || echo "")
+if [ -n "$CHUNKED_EVENTS" ]; then
+  # Find the highest numbered events file for each user
+  for USER in $(echo "$CHUNKED_EVENTS" | sed 's/.*\/\([^_]*\)_events_.*/\1/' | sort -u); do
+    LATEST=$(echo "$CHUNKED_EVENTS" | grep "${USER}_events_" | sort -V | tail -1)
+    if [ -n "$LATEST" ]; then
+      EVENTS=$(gsutil cat "$LATEST" 2>/dev/null)
+      EVENT_COUNT=$(echo "$EVENTS" | jq '.events | length' 2>/dev/null || echo "error")
+      if [ "$EVENT_COUNT" != "error" ]; then
+        FILE_NAME=$(basename "$LATEST")
+        echo "   ✅ $FILE_NAME: $EVENT_COUNT events (chunked)"
+        FOUND_EVENTS=true
+      fi
+    fi
+  done
+fi
+
+if [ "$FOUND_EVENTS" = false ]; then
+  echo "   ❌ No events files found (neither events.json nor chunked events)"
   ALL_VALID=false
 fi
 echo ""

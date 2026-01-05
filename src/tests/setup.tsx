@@ -1,6 +1,14 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+// Mock react-helmet-async to prevent "Cannot read properties of undefined (reading 'add')" errors
+// This happens because Helmet requires HelmetProvider context which isn't present in isolated tests
+vi.mock('react-helmet-async', () => ({
+  Helmet: ({ children }: { children?: React.ReactNode }) => children,
+  HelmetProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+
 // Mock IntersectionObserver
 class IntersectionObserverMock {
   readonly root: Element | null = null;

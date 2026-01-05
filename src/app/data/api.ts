@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import * as Sentry from '@sentry/react';
 import type { AuthError } from '@supabase/supabase-js';
 import type {
   Profile,
@@ -2439,6 +2440,8 @@ export interface SessionMetadata {
   sessionEndedAt: number; // Unix ms (Date.now() at upload)
   durationMs: number; // From collector.getDurationMs()
   participants: { name: string; role: 'creator' | 'joiner' }[];
+  /** Uploader's auth info for Mixpanel correlation (P28.2) */
+  uploader?: { supabaseUserId?: string; email?: string; name: string };
 }
 
 /**
@@ -2540,6 +2543,11 @@ export async function uploadAudioChunk(
     }
   } catch (err) {
     console.error(`[ML Upload] Chunk ${chunkNumber} upload failed:`, err);
+    // Capture to Sentry for monitoring ML data loss
+    Sentry.captureException(err, {
+      tags: { feature: 'ml_training', operation: 'chunk_upload' },
+      extra: { sessionCode, chunkNumber, isLastChunk, blobSize: chunkBlob.size },
+    });
     // Don't throw - recording failure shouldn't break the session
   }
 }
@@ -2609,6 +2617,11 @@ export async function uploadEventsSnapshot(
     console.log(`[ML Upload] Events snapshot ${chunkNumber} uploaded: ${events.length} events`);
   } catch (err) {
     console.error(`[ML Upload] Events snapshot ${chunkNumber} upload failed:`, err);
+    // Capture to Sentry for monitoring ML data loss
+    Sentry.captureException(err, {
+      tags: { feature: 'ml_training', operation: 'events_snapshot_upload' },
+      extra: { sessionCode, chunkNumber, eventCount: events.length },
+    });
     // Don't throw - recording failure shouldn't break the session
   }
 }
@@ -2677,6 +2690,7 @@ export async function uploadSessionRecording(
       durationMs: metadata.durationMs,
       participants: metadata.participants,
       events,
+      uploader: metadata.uploader, // P28.2: For Mixpanel correlation
     };
 
     const eventsBlob = new Blob([JSON.stringify(eventsPayload, null, 2)], {
@@ -2713,6 +2727,11 @@ export async function uploadSessionRecording(
     console.log('[ML Upload] Upload complete for session:', sessionCode);
   } catch (err) {
     console.error('[ML Upload] Upload failed:', err);
+    // Capture to Sentry for monitoring ML data loss
+    Sentry.captureException(err, {
+      tags: { feature: 'ml_training', operation: 'session_recording_upload' },
+      extra: { sessionCode, eventCount: events.length, durationMs: metadata.durationMs },
+    });
     // Don't throw - recording failure shouldn't break the session
   }
 }

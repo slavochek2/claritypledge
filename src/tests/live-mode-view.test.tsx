@@ -4,8 +4,26 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { LiveModeView } from '@/app/components/partners/live-mode-view';
 import { DEFAULT_LIVE_STATE, type LiveSessionState } from '@/app/types';
+
+// Mock auth for LiveSessionBanner which uses useAuth
+vi.mock('@/auth', () => ({
+  useAuth: () => ({
+    user: null,
+    session: null,
+    isLoading: false,
+    sessionChecked: true,
+    signOut: vi.fn(),
+    refreshProfile: vi.fn(),
+  }),
+}));
+
+// Helper to render with router context
+const renderWithRouter = (ui: React.ReactElement) => {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+};
 
 // Mock handlers
 const mockHandlers = {
@@ -47,7 +65,7 @@ describe('LiveModeView', () => {
 
   describe('IdleScreen', () => {
     it('renders both "Did you get it?" and "Did I get it?" buttons', () => {
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={DEFAULT_LIVE_STATE}
@@ -60,7 +78,7 @@ describe('LiveModeView', () => {
     });
 
     it('calls onStartCheck when "Did you get it?" is clicked', () => {
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={DEFAULT_LIVE_STATE}
@@ -72,7 +90,7 @@ describe('LiveModeView', () => {
     });
 
     it('calls onStartProve when "Did I get it?" is clicked', () => {
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={DEFAULT_LIVE_STATE}
@@ -84,7 +102,7 @@ describe('LiveModeView', () => {
     });
 
     it('displays partner name in header', () => {
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={DEFAULT_LIVE_STATE}
@@ -109,7 +127,7 @@ describe('LiveModeView', () => {
         responderSubmitted: true,
       };
 
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={proverInitiatedState}
@@ -117,7 +135,8 @@ describe('LiveModeView', () => {
       );
 
       // Should show the journey with prover context
-      expect(screen.getByText(/journey to understand/i)).toBeInTheDocument();
+      // The text is now "journey to make you feel understood"
+      expect(screen.getByText(/journey to/i)).toBeInTheDocument();
     });
 
     it('defaults proverName to undefined in DEFAULT_LIVE_STATE', () => {
@@ -138,7 +157,7 @@ describe('LiveModeView', () => {
       };
 
       // Render as Bob (the checker/speaker who sees the drawer)
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           currentUserName="bob"
@@ -147,8 +166,8 @@ describe('LiveModeView', () => {
         />
       );
 
-      // Bob should see drawer with "Alice wants to check if they got you"
-      expect(screen.getByText(/Alice wants to check/i)).toBeInTheDocument();
+      // Bob should see drawer with "Alice wants to know how well they understood you"
+      expect(screen.getByText(/Alice wants to know/i)).toBeInTheDocument();
       // And the rating question should ask how understood Bob feels
       expect(screen.getByText(/How well do you feel understood by Alice/i)).toBeInTheDocument();
     });
@@ -166,7 +185,7 @@ describe('LiveModeView', () => {
       };
 
       // Render as Alice (the prover/responder who is rating)
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           currentUserName="alice"
@@ -193,7 +212,7 @@ describe('LiveModeView', () => {
       };
 
       // Render as Alice with localFlowType='prove' (she just tapped "Did I get it?")
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           currentUserName="alice"
@@ -218,7 +237,7 @@ describe('LiveModeView', () => {
       };
 
       // Render as Alice with localFlowType='check' (she tapped "Did you get it?")
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           currentUserName="alice"
@@ -243,7 +262,7 @@ describe('LiveModeView', () => {
       };
 
       // Render without localFlowType prop
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           currentUserName="alice"
@@ -261,7 +280,7 @@ describe('LiveModeView', () => {
 
   describe('Rating submission', () => {
     it('shows rating screen when isLocallyRating is true', () => {
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={DEFAULT_LIVE_STATE}
@@ -278,7 +297,7 @@ describe('LiveModeView', () => {
     });
 
     it('calls onRatingSubmit when a rating is submitted', () => {
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={DEFAULT_LIVE_STATE}
@@ -306,7 +325,7 @@ describe('LiveModeView', () => {
         responderSubmitted: false,
       };
 
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={waitingState}
@@ -329,7 +348,7 @@ describe('LiveModeView', () => {
         responderSubmitted: true,
       };
 
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
           liveState={perfectState}
@@ -342,7 +361,8 @@ describe('LiveModeView', () => {
   });
 
   describe('Skip functionality', () => {
-    it('calls onSkip after confirmation when skip/good enough is clicked', () => {
+    it('calls onSharePerspective when "Speak freely" is clicked in gap-revealed state', () => {
+      // In gap-revealed phase, the listener (responder) sees "Speak freely" button
       const gapState: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         ratingPhase: 'revealed',
@@ -353,26 +373,21 @@ describe('LiveModeView', () => {
         responderSubmitted: true,
       };
 
-      render(
+      renderWithRouter(
         <LiveModeView
           {...defaultProps}
+          currentUserName="bob"  // Bob is the listener/responder
+          partnerName="alice"
           liveState={gapState}
         />
       );
 
-      // Click "Good enough" button - this opens a confirmation dialog
-      const skipButton = screen.getByRole('button', { name: /Good enough/i });
-      fireEvent.click(skipButton);
+      // In gap-revealed phase, listener sees "Speak freely" button
+      const speakFreelyButton = screen.getByRole('button', { name: /Speak freely/i });
+      fireEvent.click(speakFreelyButton);
 
-      // onSkip should not be called yet (waiting for confirmation)
-      expect(mockHandlers.onSkip).not.toHaveBeenCalled();
-
-      // Find and click the confirm button in the dialog
-      // The dialog shows "Move forward?" with a "Move forward" confirm button
-      const confirmButton = screen.getByRole('button', { name: /Move forward$/i });
-      fireEvent.click(confirmButton);
-
-      expect(mockHandlers.onSkip).toHaveBeenCalledTimes(1);
+      // This triggers onSharePerspective (to start negotiation)
+      expect(mockHandlers.onSharePerspective).toHaveBeenCalledTimes(1);
     });
   });
 });
