@@ -248,14 +248,6 @@ export function ClarityLivePage() {
     confirmedLiveStateRef.current = liveState;
   }, [liveState]);
 
-  // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
-  useEffect(() => {
-    if ((partnerLeft || sessionEnded) && isRecording) {
-      console.log('[P28.2] Partner left, auto-stopping recording');
-      stopAndUploadRecording();
-    }
-  }, [partnerLeft, sessionEnded, isRecording, stopAndUploadRecording]);
-
   // P25: Track page view on mount (only for start view, not join-via-link)
   useEffect(() => {
     if (!isJoinViaLink && view === 'start') {
@@ -1329,6 +1321,14 @@ export function ClarityLivePage() {
     // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
   }, [navigate, stopAndUploadRecording]);
+
+  // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
+  useEffect(() => {
+    if ((partnerLeft || sessionEnded) && isRecording) {
+      console.log('[P28.2] Partner left, auto-stopping recording');
+      stopAndUploadRecording();
+    }
+  }, [partnerLeft, sessionEnded, isRecording, stopAndUploadRecording]);
 
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
