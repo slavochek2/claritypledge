@@ -2551,30 +2551,43 @@ export async function uploadAudioChunk(
  * Creates files at:
  * ```
  * gs://claritypledge-ml-training/sessions/{session_code}/
- * ├── events_000.json   # Events at 0-30s
- * ├── events_001.json   # Events at 0-60s (cumulative)
- * └── events_002.json   # Events at 0-90s (cumulative)
+ * ├── slava_events_000.json   # Slava's events at 0-30s
+ * ├── slava_events_001.json   # Slava's events at 0-60s (cumulative)
+ * ├── gosha_events_000.json   # Gosha's events at 0-30s
+ * └── gosha_events_001.json   # Gosha's events at 0-60s (cumulative)
  * ```
  *
- * The highest-numbered events_XXX.json contains all events up to that point.
+ * The highest-numbered {user}_events_XXX.json contains all events up to that point.
+ * Each user uploads their own events file to avoid overwrites.
  *
  * @param sessionCode - The 6-character session code
+ * @param userName - The name of the user uploading (for file prefix)
  * @param chunkNumber - Zero-based chunk index (matches audio chunk number)
  * @param collector - The SessionEventsCollector instance
  * @param participants - Session participants for metadata
+ * @param uploader - Optional uploader info for Mixpanel correlation
  */
 export async function uploadEventsSnapshot(
   sessionCode: string,
+  userName: string,
   chunkNumber: number,
   collector: import('@/lib/session-events-collector').SessionEventsCollector,
   participants: { name: string; role: 'creator' | 'joiner' }[],
+  uploader?: { supabaseUserId?: string; email?: string; name: string },
 ): Promise<void> {
   const events = collector.getEvents();
   const sessionStartedAt = collector.getStartTime();
 
+  // Sanitize username for filename (same pattern as audio chunks)
+  const sanitizedName = userName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
   // Zero-pad chunk number to match audio chunks (e.g., 000, 001, 002)
   const paddedChunkNum = String(chunkNumber).padStart(3, '0');
-  const fileName = `events_${paddedChunkNum}.json`;
+  const fileName = `${sanitizedName}_events_${paddedChunkNum}.json`;
 
   const payload: MLTrainingEvents = {
     sessionCode,
@@ -2584,9 +2597,10 @@ export async function uploadEventsSnapshot(
     durationMs: Date.now() - sessionStartedAt,
     participants,
     events,
+    uploader, // For Mixpanel correlation (userId, email, name)
   };
 
-  console.log(`[ML Upload] Uploading events snapshot ${chunkNumber}: ${events.length} events`);
+  console.log(`[ML Upload] Uploading events snapshot ${chunkNumber} for ${sanitizedName}: ${events.length} events`);
 
   try {
     const { uploadUrl } = await getSignedUploadUrl(sessionCode, fileName, 'application/json');

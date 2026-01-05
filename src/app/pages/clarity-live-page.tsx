@@ -108,6 +108,7 @@ export function ClarityLivePage() {
   const sessionCodeForChunks = useRef<string | null>(null);
   const userNameForChunks = useRef<string | null>(null);
   const sessionForChunks = useRef<ClaritySession | null>(null);
+  const userForChunks = useRef<{ id: string; email?: string } | null>(null); // For Mixpanel correlation
   const eventsCollectorRef = useRef(new SessionEventsCollector());
 
   const handleChunkReady = useCallback(async (
@@ -118,6 +119,7 @@ export function ClarityLivePage() {
     const code = sessionCodeForChunks.current;
     const userName = userNameForChunks.current;
     const currentSession = sessionForChunks.current;
+    const currentUser = userForChunks.current;
     if (!code || !userName) {
       console.warn('[P28.1] Cannot upload chunk - missing session code or user name');
       return;
@@ -128,12 +130,17 @@ export function ClarityLivePage() {
 
     // P28.2: Upload events snapshot with each chunk
     // This ensures events are saved even if user closes browser
+    // Each user uploads their own events file (prefixed with username) to avoid overwrites
     if (currentSession && eventsCollectorRef.current.isStarted()) {
       const participants: { name: string; role: 'creator' | 'joiner' }[] = [
         { name: currentSession.creatorName, role: 'creator' },
         ...(currentSession.joinerName ? [{ name: currentSession.joinerName, role: 'joiner' as const }] : []),
       ];
-      await uploadEventsSnapshot(code, chunkNumber, eventsCollectorRef.current, participants);
+      // Include uploader info for Mixpanel correlation (if logged in)
+      const uploader = currentUser
+        ? { supabaseUserId: currentUser.id, email: currentUser.email, name: userName }
+        : { name: userName };
+      await uploadEventsSnapshot(code, userName, chunkNumber, eventsCollectorRef.current, participants, uploader);
     }
   }, []);
 
@@ -142,15 +149,9 @@ export function ClarityLivePage() {
     chunkIntervalMs: 30000, // 30 seconds
   });
 
-  // P28.1: Helper to track events for both Mixpanel and ML training
-  // Only captures live_* events that are useful for ML training
-  const trackLiveEvent = useCallback((eventName: string, properties: Record<string, unknown>) => {
-    analytics.track(eventName, properties);
-    // Only collect ML-relevant events during active recording
-    if (eventsCollectorRef.current.isStarted()) {
-      eventsCollectorRef.current.addEvent(eventName, properties);
-    }
-  }, []);
+  // P28.2: trackLiveEvent is now just analytics.track - ML collection happens automatically
+  // via registerMLCollector() when recording starts. Keeping alias for grep-ability.
+  const trackLiveEvent = analytics.track;
 
   // Ref to track if joiner has been detected (for polling comparison)
   const hasJoinerRef = useRef(false);
@@ -202,14 +203,23 @@ export function ClarityLivePage() {
 
   // P28.1: Start audio recording when session goes live
   // Also start the events collector to capture behavioral data
+  // P28.2: Only record in production to avoid polluting training data with dev sessions
   useEffect(() => {
     if (view === 'live' && session && !isRecording) {
+      // Skip recording in dev - only capture production sessions
+      if (!import.meta.env.PROD) {
+        console.log('[P28.1] Skipping recording in dev mode');
+        return;
+      }
       console.log('[P28.1] Session is live, starting recording and events collection');
       // Set refs for chunk upload callback (avoids stale closures)
       sessionCodeForChunks.current = session.code;
       userNameForChunks.current = name;
       sessionForChunks.current = session; // P28.2: Store session for events snapshot
+      userForChunks.current = user ? { id: user.id, email: user.email } : null; // For Mixpanel correlation
       eventsCollectorRef.current.start();
+      // P28.2: Register collector so ALL analytics.track() calls are captured for ML
+      analytics.registerMLCollector(eventsCollectorRef.current);
       startRecording().catch((err) => {
         console.error('[P28.1] Failed to start recording:', err);
       });
@@ -229,6 +239,14 @@ export function ClarityLivePage() {
   useEffect(() => {
     confirmedLiveStateRef.current = liveState;
   }, [liveState]);
+
+  // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
+  useEffect(() => {
+    if ((partnerLeft || sessionEnded) && isRecording) {
+      console.log('[P28.2] Partner left, auto-stopping recording');
+      stopAndUploadRecording();
+    }
+  }, [partnerLeft, sessionEnded, isRecording, stopAndUploadRecording]);
 
   // P25: Track page view on mount (only for start view, not join-via-link)
   useEffect(() => {
@@ -1201,10 +1219,13 @@ export function ClarityLivePage() {
       console.error('[P28.1] Failed to stop/upload recording:', err);
       // Don't throw - recording failure shouldn't block session exit
     } finally {
+      // P28.2: Unregister ML collector so events outside session aren't captured
+      analytics.unregisterMLCollector();
       eventsCollectorRef.current.reset();
       sessionCodeForChunks.current = null;
       userNameForChunks.current = null;
       sessionForChunks.current = null;
+      userForChunks.current = null;
     }
   }, [session, name, stopRecording]);
 

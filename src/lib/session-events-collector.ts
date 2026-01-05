@@ -10,7 +10,7 @@
 export interface MLEvent {
   /** Event name from Mixpanel (e.g., 'live_rating_submitted') */
   type: string;
-  /** Milliseconds since session start */
+  /** Milliseconds since sessionStartedAt (relative, for audio alignment - e.g., 45000 = 45s into recording) */
   timestamp: number;
   /** Event properties */
   properties: Record<string, unknown>;
@@ -19,15 +19,25 @@ export interface MLEvent {
 /** Full session bundle for ML training */
 export interface MLTrainingEvents {
   sessionCode: string;
-  capturedAt: string; // ISO timestamp
-  sessionStartedAt: number; // Unix ms
-  sessionEndedAt: number; // Unix ms
+  /** ISO timestamp when this snapshot was uploaded */
+  capturedAt: string;
+  /** Unix ms when eventsCollector.start() was called (recording began) */
+  sessionStartedAt: number;
+  /** Unix ms at snapshot time. For chunked uploads, this is snapshot time, not final session end. */
+  sessionEndedAt: number;
+  /** sessionEndedAt - sessionStartedAt */
   durationMs: number;
   participants: {
     name: string;
     role: 'creator' | 'joiner';
   }[];
   events: MLEvent[];
+  /** Uploader's auth info (if logged in) - for analytics correlation */
+  uploader?: {
+    supabaseUserId?: string;  // Supabase auth.users.id - same value passed to Mixpanel identify()
+    email?: string;           // User email for manual lookup
+    name: string;             // Display name used in session
+  };
 }
 
 /**

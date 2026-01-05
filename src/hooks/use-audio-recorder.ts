@@ -18,11 +18,16 @@ export type ChunkUploadCallback = (
   isLastChunk: boolean
 ) => Promise<void>;
 
+/** Maximum recording duration: 90 minutes (180 chunks at 30s each) */
+const MAX_RECORDING_DURATION_MS = 90 * 60 * 1000;
+
 interface UseAudioRecorderOptions {
   /** If provided, enables chunked upload mode with 30s intervals */
   onChunkReady?: ChunkUploadCallback;
   /** Chunk interval in milliseconds (default: 30000 = 30 seconds) */
   chunkIntervalMs?: number;
+  /** Maximum recording duration in ms (default: 90 minutes) */
+  maxDurationMs?: number;
 }
 
 interface UseAudioRecorderReturn {
@@ -68,7 +73,7 @@ interface UseAudioRecorderReturn {
  * ```
  */
 export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudioRecorderReturn {
-  const { onChunkReady, chunkIntervalMs = 30000 } = options;
+  const { onChunkReady, chunkIntervalMs = 30000, maxDurationMs = MAX_RECORDING_DURATION_MS } = options;
 
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +83,10 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const chunkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const maxDurationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const mimeTypeRef = useRef<string>('audio/webm');
   const currentChunkRef = useRef<number>(0);
+  const stopRecordingRef = useRef<(() => Promise<Blob | null>) | null>(null);
 
   // Function to flush current chunks and upload
   const flushAndUploadChunk = useCallback(async (isLastChunk: boolean) => {
@@ -160,6 +167,17 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         }, chunkIntervalMs);
       }
 
+      // Set up max duration auto-stop (default 90 minutes)
+      if (maxDurationMs > 0) {
+        console.log(`[AudioRecorder] Max duration: ${maxDurationMs / 60000} minutes`);
+        maxDurationTimeoutRef.current = setTimeout(() => {
+          console.log('[AudioRecorder] Max duration reached, auto-stopping');
+          if (stopRecordingRef.current) {
+            stopRecordingRef.current();
+          }
+        }, maxDurationMs);
+      }
+
       console.log('[AudioRecorder] Recording started with mime type:', mimeType);
     } catch (err) {
       console.error('[AudioRecorder] Failed to start recording:', err);
@@ -186,6 +204,12 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     if (chunkIntervalRef.current) {
       clearInterval(chunkIntervalRef.current);
       chunkIntervalRef.current = null;
+    }
+
+    // Clear max duration timeout
+    if (maxDurationTimeoutRef.current) {
+      clearTimeout(maxDurationTimeoutRef.current);
+      maxDurationTimeoutRef.current = null;
     }
 
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {
@@ -240,11 +264,19 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
     });
   }, [onChunkReady, flushAndUploadChunk]);
 
+  // Keep stopRecording ref updated for max duration timeout
+  useEffect(() => {
+    stopRecordingRef.current = stopRecording;
+  }, [stopRecording]);
+
   // Cleanup on unmount (handles tab close / navigation)
   useEffect(() => {
     return () => {
       if (chunkIntervalRef.current) {
         clearInterval(chunkIntervalRef.current);
+      }
+      if (maxDurationTimeoutRef.current) {
+        clearTimeout(maxDurationTimeoutRef.current);
       }
       // Attempt final upload on unmount if in chunked mode
       if (onChunkReady && audioChunksRef.current.length > 0) {
