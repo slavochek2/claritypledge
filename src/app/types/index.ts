@@ -549,6 +549,11 @@ export interface LiveSessionState {
   // When listener taps "Done Explaining", this becomes true and speaker's rating UI unlocks
   explainBackDone?: boolean;
 
+  // B32_2 fix: Track that speaker has seen explainBackDone at least once in this round
+  // This allows the speaker's rating drawer to persist even when explainBackDone is reset
+  // (e.g., when listener clicks "Continue as listener" after negotiation)
+  speakerSawExplainBackDone?: boolean;
+
   // Speaker clarification flow - after explain-back rating < 10, speaker can clarify before listener tries again
   // Single enum replaces three booleans to prevent invalid state combinations
   // State machine: undefined → 'speaker-deciding' → 'speaker-clarifying' → 'listener-responding'

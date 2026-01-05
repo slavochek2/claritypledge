@@ -892,7 +892,7 @@ interface RatingCardProps {
   onBack?: () => void;
 }
 
-function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Skip', onBack }: RatingCardProps) {
+function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'Speak freely', onBack }: RatingCardProps) {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
   const handleSubmit = () => {
@@ -1292,7 +1292,7 @@ interface WaitingIndicatorProps {
   showBackground?: boolean;
 }
 
-function WaitingIndicator({ message, onSkip, skipLabel = "Skip", showBackground = true }: WaitingIndicatorProps) {
+function WaitingIndicator({ message, onSkip, skipLabel = "Speak freely", showBackground = true }: WaitingIndicatorProps) {
   const content = (
     <>
       <div className="flex items-center gap-2">
@@ -1469,7 +1469,8 @@ function UnderstandingScreen({
   }
 
   // V11: Check if listener has tapped "Done Explaining"
-  const listenerDone = liveState.explainBackDone === true;
+  // B32_2: Also check speakerSawExplainBackDone to keep drawer visible after "Continue as listener"
+  const listenerDone = liveState.explainBackDone === true || liveState.speakerSawExplainBackDone === true;
 
   // Negotiation state for role switch
   const negotiation = liveState.roleSwitchNegotiation;
@@ -1660,12 +1661,42 @@ function UnderstandingScreen({
               className="w-full max-w-sm"
             />
             <ActionArea>
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to evaluate how well you captured their idea...`}
-                onSkip={onSkip}
-              />
+              {listenerWaitingForNegotiation ? (
+                // Listener clicked "Speak freely" and is waiting for speaker's decision
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                  onSkip={onSkip}
+                  skipLabel="Skip without waiting"
+                />
+              ) : (
+                // Default: waiting for speaker to rate
+                <WaitingIndicator
+                  message={`Waiting for ${checkerName} to evaluate how well you captured their idea...`}
+                  onSkip={onSharePerspective}
+                />
+              )}
             </ActionArea>
           </div>
+
+          {/* Negotiation Dialog 2: Listener sees when speaker asked them to explain back */}
+          <Dialog open={showAskedToExplainDialog} onOpenChange={() => {}}>
+            <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+              <DialogHeader>
+                <DialogTitle>{checkerName} would like to feel understood</DialogTitle>
+                <DialogDescription>
+                  Can you explain back what you heard before switching?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="flex-col gap-2 sm:flex-col">
+                <Button onClick={onContinueAsListener} className="w-full">
+                  Continue as listener
+                </Button>
+                <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
+                  I really need to speak
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       );
     }
@@ -2162,7 +2193,7 @@ function UnderstandingScreen({
             >
               <WaitingIndicator
                 message={`Waiting for ${checkerName} to finish clarifying...`}
-                onSkip={onSkip}
+                onSkip={onSharePerspective}
                 skipLabel="Speak freely"
               />
             </ActionArea>
@@ -2236,7 +2267,7 @@ function UnderstandingScreen({
             clarificationPhase === 'speaker-deciding' ? (
               <WaitingIndicator
                 message={`${checkerName} is deciding whether to clarify...`}
-                onSkip={onSkip}
+                onSkip={onSharePerspective}
                 skipLabel="Speak freely"
               />
             ) : listenerWaitingForNegotiation ? (

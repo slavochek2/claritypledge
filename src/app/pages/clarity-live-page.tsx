@@ -679,6 +679,7 @@ export function ClarityLivePage() {
       explainBackRound: 0,
       explainBackRatings: [],
       explainBackDone: false,
+      speakerSawExplainBackDone: false, // B32_2: Reset for new round
       // Clear any pending role switch negotiation
       roleSwitchNegotiation: undefined,
       // Clear speaker clarification state
@@ -719,6 +720,7 @@ export function ClarityLivePage() {
         explainBackRound: 0,
         explainBackRatings: [],
         explainBackDone: false,
+        speakerSawExplainBackDone: false, // B32_2: Reset for new round
         // Clear acknowledgment for next celebration
         celebrationAcknowledgedBy: [],
         // Clear any pending role switch negotiation
@@ -747,6 +749,7 @@ export function ClarityLivePage() {
     updateLiveState({
       ratingPhase: 'explain-back',
       explainBackDone: false,
+      speakerSawExplainBackDone: false, // B32_2: Reset when entering explain-back phase
       // Clear any pending role switch negotiation (in case listener clicked "Respond as speaker" then changed mind)
       roleSwitchNegotiation: undefined,
       // Clear clarification state (listener is now acting)
@@ -758,6 +761,9 @@ export function ClarityLivePage() {
   const handleExplainBackDone = useCallback(() => {
     updateLiveState({
       explainBackDone: true,
+      // B32_2: Also set speakerSawExplainBackDone so speaker's drawer persists
+      // even if explainBackDone gets reset (e.g., after "Continue as listener")
+      speakerSawExplainBackDone: true,
     });
   }, [updateLiveState]);
 
@@ -839,6 +845,7 @@ export function ClarityLivePage() {
       explainBackRound: 0,
       explainBackRatings: [],
       explainBackDone: false,
+      speakerSawExplainBackDone: false, // B32_2: Reset for new round
       perspectiveRequestedBy: undefined,
       roleSwitchNegotiation: undefined,
       // Clear speaker clarification state
@@ -903,6 +910,7 @@ export function ClarityLivePage() {
         explainBackRound: round,
         explainBackRatings: newExplainBackRatings,
         explainBackDone: false, // Reset for next round
+        speakerSawExplainBackDone: false, // B32_2: Reset for next round
         checksCount: currentState.checksCount + 1,
         checksTotal: currentState.checksTotal + rating,
         ...(rating >= 9 ? { ideasUnderstood: currentState.ideasUnderstood + 1 } : {}),
