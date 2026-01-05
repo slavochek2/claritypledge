@@ -804,11 +804,13 @@ export function ClarityLivePage() {
       session_code: session?.code,
     });
 
-    // Clear negotiation and start explain-back
+    // B32_3 Fix: Just clear the negotiation dialog, preserve listener's state
+    // The listener already finished explaining (explainBackDone=true) before clicking "Speak freely".
+    // They should return to "Waiting for speaker to evaluate", not restart explain-back mode.
+    // Previously this incorrectly reset explainBackDone=false and ratingPhase='explain-back'.
     updateLiveState({
       roleSwitchNegotiation: undefined,
-      ratingPhase: 'explain-back',
-      explainBackDone: false,
+      // DON'T reset ratingPhase or explainBackDone - listener already finished explaining
     });
   }, [updateLiveState, session?.code]);
 

@@ -2185,6 +2185,18 @@ function UnderstandingScreen({
                 Speak freely
               </Button>
             </ActionArea>
+          ) : listenerWaitingForNegotiation ? (
+            // B32_4: Listener clicked "Speak freely" during clarify phase, waiting for speaker's decision
+            <ActionArea
+              icon="👂"
+              title="Hear what's missing for a perfect 10"
+            >
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+            </ActionArea>
           ) : (
             // Listener view: waiting for speaker to finish clarifying
             <ActionArea
@@ -2199,6 +2211,60 @@ function UnderstandingScreen({
             </ActionArea>
           )}
         </div>
+
+        {/* B32_4: Negotiation Dialog 1 - Speaker sees when listener wants to skip during clarify phase */}
+        <Dialog open={showPendingNegotiationDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button onClick={onLetThemSpeak} className="w-full">
+                Accept
+              </Button>
+              <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
+                Suggest explaining back first
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* B32_4: Negotiation Dialog 2 - Listener sees when speaker asked them to explain back */}
+        <Dialog open={showAskedToExplainDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>{checkerName} would like to feel understood</DialogTitle>
+              <DialogDescription>
+                Can you explain back what you heard before switching?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button onClick={onContinueAsListener} className="w-full">
+                Continue as listener
+              </Button>
+              <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
+                I really need to speak
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* B32_4: Negotiation Dialog 3 - Speaker sees when listener insists */}
+        <Dialog open={showInsistDialog} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()} hideCloseButton>
+            <DialogHeader>
+              <DialogTitle>{negotiationRequester} really needs to speak</DialogTitle>
+              <DialogDescription>
+                They feel they need to share something important.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <Button onClick={onLetThemSpeak} className="w-full">
+                Let them speak
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -2262,25 +2328,20 @@ function UnderstandingScreen({
             )
           ) : (
             // Listener view - states based on clarificationPhase:
-            // 1. 'speaker-deciding': show waiting for speaker to decide
-            // 2. undefined or 'listener-responding': show action buttons
-            clarificationPhase === 'speaker-deciding' ? (
+            // 1. listenerWaitingForNegotiation: listener clicked "Speak freely", waiting for speaker's response
+            // 2. 'speaker-deciding': show waiting for speaker to decide
+            // 3. undefined or 'listener-responding': show action buttons
+            listenerWaitingForNegotiation ? (
+              <WaitingIndicator
+                message={`Waiting for ${checkerName} to allow skipping active listening...`}
+                onSkip={onSkip}
+                skipLabel="Skip without waiting"
+              />
+            ) : clarificationPhase === 'speaker-deciding' ? (
               <WaitingIndicator
                 message={`${checkerName} is deciding whether to clarify...`}
                 onSkip={onSharePerspective}
                 skipLabel="Speak freely"
-              />
-            ) : listenerWaitingForNegotiation ? (
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
-              />
-            ) : negotiation?.requestedBy === currentUserName ? (
-              <WaitingIndicator
-                message={`Waiting for ${checkerName} to allow skipping active listening...`}
-                onSkip={onSkip}
-                skipLabel="Skip without waiting"
               />
             ) : (
               <>
