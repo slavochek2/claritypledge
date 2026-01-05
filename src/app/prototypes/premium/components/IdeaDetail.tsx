@@ -12,6 +12,7 @@ import {
   type Position
 } from '../data/mock-data';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 
 export function IdeaDetail() {
   const { id } = useParams<{ id: string }>();
@@ -234,8 +235,8 @@ export function IdeaDetail() {
           )}
 
           <button
-            onClick={() => navigate('/prototype/premium/live', { state: { ideaId: idea.id } })}
-            className="w-full mt-4 py-3 bg-[#007AFF] text-white rounded-full font-semibold text-[15px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
+            onClick={() => navigate(routes.live, { state: { ideaId: idea.id } })}
+            className="w-full mt-4 py-3 min-h-[44px] bg-[#007AFF] text-white rounded-full font-semibold text-[15px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
           >
             Verify Understanding
           </button>
@@ -285,14 +286,28 @@ export function IdeaDetail() {
                 type="text"
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && commentText.trim()) {
+                    // TODO: Submit comment to backend
+                    setCommentText('');
+                  }
+                }}
                 placeholder="Add a comment..."
+                aria-label="Add a comment"
                 className="flex-1 bg-transparent text-[14px] text-gray-900 placeholder:text-gray-400 outline-none"
               />
               <button
+                onClick={() => {
+                  if (commentText.trim()) {
+                    // TODO: Submit comment to backend
+                    setCommentText('');
+                  }
+                }}
                 disabled={!commentText.trim()}
-                className={`transition-colors ${commentText.trim() ? 'text-[#007AFF]' : 'text-gray-300'}`}
+                aria-label="Submit comment"
+                className={`min-w-[44px] min-h-[44px] -mr-2 flex items-center justify-center transition-colors ${commentText.trim() ? 'text-[#007AFF]' : 'text-gray-300'}`}
               >
-                <Send size={18} />
+                <Send size={18} aria-hidden="true" />
               </button>
             </div>
           </div>

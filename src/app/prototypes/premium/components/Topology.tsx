@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Info, ArrowRightLeft, ZoomIn, ZoomOut } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   type Certification
 } from '../data/mock-data';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 
 interface Node {
   id: string;
@@ -25,6 +26,13 @@ interface Edge {
   cert: Certification;
 }
 
+// Canvas dimensions - calculate center dynamically
+const CANVAS_WIDTH = 375;
+const CANVAS_HEIGHT = 400;
+const CENTER_X = CANVAS_WIDTH / 2;
+const CENTER_Y = CANVAS_HEIGHT / 2;
+const RADIUS = 120;
+
 export function Topology() {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,30 +40,33 @@ export function Topology() {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
 
-  // Create nodes from all users including current
-  const allUsers = [currentUser, ...mockUsers];
-  const nodes: Node[] = allUsers.map((user, index) => {
-    const angle = (index / allUsers.length) * 2 * Math.PI;
-    const radius = 120;
-    return {
-      id: user.id,
-      name: user.name,
-      avatar: user.avatar,
-      x: 187 + radius * Math.cos(angle),
-      y: 200 + radius * Math.sin(angle),
-    };
-  });
+  // Memoize users array to prevent unnecessary recalculations
+  const allUsers = useMemo(() => [currentUser, ...mockUsers], []);
 
-  // Create edges from certifications
-  const edges: Edge[] = mockCertifications.map(cert => ({
-    source: cert.listenerId,
-    target: cert.speakerId,
-    isCrossDisagreement: cert.speakerPosition !== cert.listenerPosition,
-    cert,
-  }));
+  // Memoize nodes to prevent recreating on every render
+  const nodes: Node[] = useMemo(() =>
+    allUsers.map((user, index) => {
+      const angle = (index / allUsers.length) * 2 * Math.PI;
+      return {
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        x: CENTER_X + RADIUS * Math.cos(angle),
+        y: CENTER_Y + RADIUS * Math.sin(angle),
+      };
+    }), [allUsers]);
 
-  // Get cross-disagreement stats
-  const crossDisagreementCount = edges.filter(e => e.isCrossDisagreement).length;
+  // Memoize edges from certifications
+  const edges: Edge[] = useMemo(() =>
+    mockCertifications.map(cert => ({
+      source: cert.listenerId,
+      target: cert.speakerId,
+      isCrossDisagreement: cert.speakerPosition !== cert.listenerPosition,
+      cert,
+    })), []);
+
+  // Memoize cross-disagreement stats
+  const crossDisagreementCount = useMemo(() => edges.filter(e => e.isCrossDisagreement).length, [edges]);
   const totalVerifications = edges.length;
 
   useEffect(() => {
@@ -65,76 +76,82 @@ export function Topology() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    try {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Apply zoom
-    ctx.save();
-    ctx.scale(zoom, zoom);
+      // Apply zoom
+      ctx.save();
+      ctx.scale(zoom, zoom);
 
-    // Draw edges
-    edges.forEach(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      const targetNode = nodes.find(n => n.id === edge.target);
-      if (!sourceNode || !targetNode) return;
+      // Draw edges
+      edges.forEach(edge => {
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        const targetNode = nodes.find(n => n.id === edge.target);
+        if (!sourceNode || !targetNode) return;
 
-      ctx.beginPath();
-      ctx.moveTo(sourceNode.x, sourceNode.y);
-      ctx.lineTo(targetNode.x, targetNode.y);
-      ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#E5E5EA';
-      ctx.lineWidth = edge.isCrossDisagreement ? 3 : 2;
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(sourceNode.x, sourceNode.y);
+        ctx.lineTo(targetNode.x, targetNode.y);
+        ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#E5E5EA';
+        ctx.lineWidth = edge.isCrossDisagreement ? 3 : 2;
+        ctx.stroke();
 
-      // Draw arrow
-      const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
-      const arrowLength = 10;
-      const midX = (sourceNode.x + targetNode.x) / 2;
-      const midY = (sourceNode.y + targetNode.y) / 2;
+        // Draw arrow
+        const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
+        const arrowLength = 10;
+        const midX = (sourceNode.x + targetNode.x) / 2;
+        const midY = (sourceNode.y + targetNode.y) / 2;
 
-      ctx.beginPath();
-      ctx.moveTo(midX, midY);
-      ctx.lineTo(
-        midX - arrowLength * Math.cos(angle - Math.PI / 6),
-        midY - arrowLength * Math.sin(angle - Math.PI / 6)
-      );
-      ctx.moveTo(midX, midY);
-      ctx.lineTo(
-        midX - arrowLength * Math.cos(angle + Math.PI / 6),
-        midY - arrowLength * Math.sin(angle + Math.PI / 6)
-      );
-      ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#8E8E93';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    });
+        ctx.beginPath();
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(
+          midX - arrowLength * Math.cos(angle - Math.PI / 6),
+          midY - arrowLength * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(
+          midX - arrowLength * Math.cos(angle + Math.PI / 6),
+          midY - arrowLength * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#8E8E93';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
 
-    // Draw nodes
-    nodes.forEach(node => {
-      const isSelected = selectedNode === node.id;
-      const isCurrentUser = node.id === currentUser.id;
+      // Draw nodes
+      nodes.forEach(node => {
+        const isSelected = selectedNode === node.id;
+        const isCurrentUser = node.id === currentUser.id;
 
-      // Node circle
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, isSelected ? 28 : 24, 0, 2 * Math.PI);
-      ctx.fillStyle = isCurrentUser ? '#007AFF' : '#F2F2F7';
-      ctx.fill();
-      ctx.strokeStyle = isSelected ? '#007AFF' : '#E5E5EA';
-      ctx.lineWidth = isSelected ? 3 : 2;
-      ctx.stroke();
+        // Node circle
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, isSelected ? 28 : 24, 0, 2 * Math.PI);
+        ctx.fillStyle = isCurrentUser ? '#007AFF' : '#F2F2F7';
+        ctx.fill();
+        ctx.strokeStyle = isSelected ? '#007AFF' : '#E5E5EA';
+        ctx.lineWidth = isSelected ? 3 : 2;
+        ctx.stroke();
 
-      // Avatar emoji
-      ctx.font = isSelected ? '20px sans-serif' : '18px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = isCurrentUser ? '#FFFFFF' : '#000000';
-      ctx.fillText(node.avatar, node.x, node.y);
+        // Avatar emoji
+        ctx.font = isSelected ? '20px sans-serif' : '18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isCurrentUser ? '#FFFFFF' : '#000000';
+        ctx.fillText(node.avatar, node.x, node.y);
 
-      // Name label (below node)
-      ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillStyle = '#8E8E93';
-      ctx.fillText(node.name.split(' ')[0], node.x, node.y + 38);
-    });
+        // Name label (below node)
+        ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillStyle = '#8E8E93';
+        ctx.fillText(node.name.split(' ')[0], node.x, node.y + 38);
+      });
 
-    ctx.restore();
+      ctx.restore();
+    } catch (error) {
+      // Canvas drawing failed - restore context and log error
+      ctx.restore();
+      console.error('Topology canvas rendering error:', error);
+    }
   }, [nodes, edges, zoom, selectedNode]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -311,8 +328,8 @@ export function Topology() {
             )}
 
             <button
-              onClick={() => navigate(`/prototype/premium/profile/${selectedUser.id}`)}
-              className="w-full mt-4 py-3 bg-gray-100 text-gray-900 rounded-xl font-medium text-[15px] transition-all hover:bg-gray-200 active:scale-[0.98]"
+              onClick={() => navigate(routes.profileById(selectedUser.id))}
+              className="w-full mt-4 py-3 min-h-[44px] bg-gray-100 text-gray-900 rounded-xl font-medium text-[15px] transition-all hover:bg-gray-200 active:scale-[0.98]"
             >
               View Profile
             </button>

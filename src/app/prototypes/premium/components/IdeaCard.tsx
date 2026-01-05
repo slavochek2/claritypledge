@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import type { Idea, Position } from '../data/mock-data';
 import { getUserById, getPositionCounts, formatTimeAgo } from '../data/mock-data';
+import { routes } from '../config';
 
 interface IdeaCardProps {
   idea: Idea;
@@ -15,6 +16,11 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
   const [selectedPosition, setSelectedPosition] = useState<Position>(currentUserPosition || null);
   const [isPressed, setIsPressed] = useState(false);
 
+  // Sync local state when parent prop changes (fixes state sync anti-pattern)
+  useEffect(() => {
+    setSelectedPosition(currentUserPosition || null);
+  }, [currentUserPosition]);
+
   const author = getUserById(idea.createdBy);
   const counts = getPositionCounts(idea);
 
@@ -26,12 +32,12 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
   };
 
   const handleCardClick = () => {
-    navigate(`/prototype/premium/idea/${idea.id}`);
+    navigate(routes.idea(idea.id));
   };
 
   const positionButtonClass = (position: Position) => {
     const isSelected = selectedPosition === position;
-    const base = 'flex-1 py-2 px-3 rounded-full text-sm font-medium transition-all duration-200 active:scale-95';
+    const base = 'flex-1 py-2.5 px-3 min-h-[44px] rounded-full text-sm font-medium transition-all duration-200 active:scale-95';
 
     if (!isSelected) {
       return `${base} bg-gray-100 text-gray-600 hover:bg-gray-200`;
@@ -80,22 +86,28 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
       </div>
 
       {/* Position Buttons */}
-      <div className="flex gap-2 mb-4" onClick={(e) => e.stopPropagation()}>
+      <div className="flex gap-2 mb-4" role="group" aria-label="Your position on this idea" onClick={(e) => e.stopPropagation()}>
         <button
           onClick={(e) => handlePositionClick(e, 'agree')}
           className={positionButtonClass('agree')}
+          aria-pressed={selectedPosition === 'agree'}
+          aria-label="Mark as agree"
         >
           Agree
         </button>
         <button
           onClick={(e) => handlePositionClick(e, 'disagree')}
           className={positionButtonClass('disagree')}
+          aria-pressed={selectedPosition === 'disagree'}
+          aria-label="Mark as disagree"
         >
           Disagree
         </button>
         <button
           onClick={(e) => handlePositionClick(e, 'dont_know')}
           className={positionButtonClass('dont_know')}
+          aria-pressed={selectedPosition === 'dont_know'}
+          aria-label="Mark as unsure"
         >
           Unsure
         </button>

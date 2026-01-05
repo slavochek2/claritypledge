@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { mockIdeas, currentUser, type Position } from '../data/mock-data';
 import { IdeaCard } from './IdeaCard';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 
 export function Feed() {
   const navigate = useNavigate();
@@ -25,7 +26,8 @@ export function Feed() {
             Ideas
           </h1>
           <button
-            onClick={() => navigate('/prototype/premium/profile')}
+            onClick={() => navigate(routes.profile)}
+            aria-label="View your profile"
             className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm transition-transform active:scale-95"
           >
             {currentUser.avatar}
@@ -50,6 +52,7 @@ export function Feed() {
       {/* FAB - Create New Idea */}
       <button
         onClick={() => {/* TODO: Open create idea modal */}}
+        aria-label="Create new idea"
         className="
           fixed right-5 bottom-24 z-20
           w-14 h-14 rounded-full
@@ -60,7 +63,7 @@ export function Feed() {
           hover:bg-[#0066DD]
         "
       >
-        <Plus size={28} strokeWidth={2} />
+        <Plus size={28} strokeWidth={2} aria-hidden="true" />
       </button>
 
       {/* Bottom Navigation */}

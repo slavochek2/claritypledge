@@ -10,6 +10,7 @@ import {
   type User
 } from '../data/mock-data';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 
 type TabType = 'all' | 'positions' | 'verifications';
 
@@ -203,8 +204,8 @@ export function Profile() {
                   return (
                     <button
                       key={`pos-${index}`}
-                      onClick={() => navigate(`/prototype/premium/idea/${activity.idea.id}`)}
-                      className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
+                      onClick={() => navigate(routes.idea(activity.idea.id))}
+                      className="w-full p-4 min-h-[44px] text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs ${positionColor}`}>

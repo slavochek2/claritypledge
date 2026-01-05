@@ -11,6 +11,7 @@ import {
   type Message
 } from '../data/mock-data';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 
 export function Chat() {
   const navigate = useNavigate();
@@ -61,10 +62,11 @@ export function Chat() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/prototype/premium/live')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#007AFF] text-white rounded-full text-[13px] font-medium transition-all hover:bg-[#0066DD] active:scale-95"
+            onClick={() => navigate(routes.live)}
+            aria-label="Start a live verification session"
+            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] bg-[#007AFF] text-white rounded-full text-[13px] font-medium transition-all hover:bg-[#0066DD] active:scale-95"
           >
-            <Radio size={14} />
+            <Radio size={14} aria-hidden="true" />
             Go Live
           </button>
         </div>
@@ -100,8 +102,8 @@ export function Chat() {
                   {/* Linked Idea */}
                   {linkedIdea && (
                     <button
-                      onClick={() => navigate(`/prototype/premium/idea/${linkedIdea.id}`)}
-                      className="mt-2 w-full p-3 bg-white rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-left hover:bg-gray-50 transition-colors"
+                      onClick={() => navigate(routes.idea(linkedIdea.id))}
+                      className="mt-2 w-full p-3 min-h-[44px] bg-white rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-start gap-2">
                         <Lightbulb size={14} className="text-[#007AFF] mt-0.5 shrink-0" />

@@ -1,13 +1,14 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, MessageCircle, Radio, User, Share2 } from 'lucide-react';
+import { navTabs, ROUTE_BASE } from '../config';
 
-const tabs = [
-  { id: 'feed', label: 'Ideas', icon: Home, path: '/prototype/premium/feed' },
-  { id: 'chat', label: 'Chat', icon: MessageCircle, path: '/prototype/premium/chat' },
-  { id: 'live', label: 'Live', icon: Radio, path: '/prototype/premium/live' },
-  { id: 'profile', label: 'Profile', icon: User, path: '/prototype/premium/profile' },
-  { id: 'topology', label: 'Network', icon: Share2, path: '/prototype/premium/topology' },
-];
+const iconMap = {
+  feed: Home,
+  chat: MessageCircle,
+  live: Radio,
+  profile: User,
+  topology: Share2,
+} as const;
 
 export function BottomNav() {
   const location = useLocation();
@@ -16,19 +17,26 @@ export function BottomNav() {
   const currentPath = location.pathname;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
+    <nav
+      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]"
+      role="tablist"
+      aria-label="Main navigation"
+    >
       <div className="flex items-center justify-around h-[56px] max-w-[500px] mx-auto">
-        {tabs.map((tab) => {
+        {navTabs.map((tab) => {
           const isActive = currentPath === tab.path ||
-            (tab.id === 'feed' && currentPath.startsWith('/prototype/premium/idea'));
-          const Icon = tab.icon;
+            (tab.id === 'feed' && currentPath.startsWith(`${ROUTE_BASE}/idea`));
+          const Icon = iconMap[tab.id as keyof typeof iconMap];
 
           return (
             <button
               key={tab.id}
               onClick={() => navigate(tab.path)}
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`Navigate to ${tab.label}`}
               className={`
-                flex flex-col items-center justify-center gap-1 flex-1 h-full
+                flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[44px]
                 transition-colors duration-200
                 ${isActive ? 'text-[#007AFF]' : 'text-gray-400'}
               `}
@@ -37,6 +45,7 @@ export function BottomNav() {
                 size={24}
                 strokeWidth={isActive ? 2 : 1.5}
                 className={isActive ? 'fill-current' : ''}
+                aria-hidden="true"
               />
               <span className="text-[10px] font-medium tracking-tight">
                 {tab.label}

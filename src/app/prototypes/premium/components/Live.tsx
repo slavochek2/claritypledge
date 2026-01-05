@@ -5,6 +5,7 @@ import {
   mockUsers,
   getIdeaById
 } from '../data/mock-data';
+import { routes } from '../config';
 
 type LivePhase = 'setup' | 'speaking' | 'playback' | 'rating' | 'result';
 
@@ -216,7 +217,7 @@ export function Live() {
       {/* Understanding Gap */}
       <div className="text-center mb-8">
         <p className="text-[13px] text-gray-500 mb-1">Understanding Gap</p>
-        <p className={`text-[28px] font-bold ${Math.abs(listenerConfidence - speakerRating) <= 2 ? 'text-green-600' : 'text-amber-600'}`}>
+        <p className={`text-[28px] font-bold ${Math.abs(listenerConfidence - speakerRating) <= 2 ? 'text-green-600' : 'text-red-500'}`}>
           {Math.abs(listenerConfidence - speakerRating)}
         </p>
       </div>
@@ -256,7 +257,7 @@ export function Live() {
           </div>
           <div className="w-px h-12 bg-gray-200" />
           <div className="text-center">
-            <p className={`text-[28px] font-semibold ${Math.abs(listenerConfidence - speakerRating) <= 2 ? 'text-green-600' : 'text-amber-600'}`}>
+            <p className={`text-[28px] font-semibold ${Math.abs(listenerConfidence - speakerRating) <= 2 ? 'text-green-600' : 'text-red-500'}`}>
               {Math.abs(listenerConfidence - speakerRating)}
             </p>
             <p className="text-[12px] text-gray-400">Gap</p>
@@ -273,8 +274,8 @@ export function Live() {
           Verify Another Idea
         </button>
         <button
-          onClick={() => navigate('/prototype/premium/feed')}
-          className="w-full py-4 bg-white text-gray-900 rounded-2xl font-semibold text-[17px] border border-gray-200 transition-all hover:bg-gray-50 active:scale-[0.98]"
+          onClick={() => navigate(routes.feed)}
+          className="w-full py-4 min-h-[44px] bg-white text-gray-900 rounded-2xl font-semibold text-[17px] border border-gray-200 transition-all hover:bg-gray-50 active:scale-[0.98]"
         >
           Back to Ideas
         </button>
