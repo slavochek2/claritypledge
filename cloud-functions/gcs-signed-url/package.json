@@ -1,0 +1,10 @@
+{
+  "name": "gcs-signed-url",
+  "version": "1.0.0",
+  "description": "Cloud Function to generate signed upload URLs for ML training data",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/storage": "^7.0.0",
+    "@google-cloud/functions-framework": "^3.0.0"
+  }
+}
