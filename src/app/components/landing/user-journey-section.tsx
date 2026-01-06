@@ -44,20 +44,20 @@ export function UserJourneySection() {
           {steps.map((step, index) => (
             <div
               key={index}
-              className="flex flex-col items-center text-center p-8 rounded-lg bg-background transition-all duration-200 hover:shadow-lg hover:-translate-y-1"
+              className="flex flex-col items-center text-center p-8 rounded-lg bg-background border border-transparent transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-blue-200"
             >
               {/* Step Number Badge */}
-              <div className="w-12 h-12 rounded-full bg-muted text-foreground flex items-center justify-center text-xl font-bold mb-4">
+              <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center text-xl font-bold mb-4">
                 {step.step}
               </div>
 
               {/* Icon */}
               <div className="w-16 h-16 lg:w-20 lg:h-20 flex items-center justify-center mb-6">
-                <step.icon className="w-full h-full text-foreground stroke-[1.5]" />
+                <step.icon className="w-full h-full text-blue-500 stroke-[1.5]" />
               </div>
 
               {/* Title */}
-              <h3 className="text-2xl lg:text-3xl font-bold mb-4">
+              <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
                 {step.title}
               </h3>
 
