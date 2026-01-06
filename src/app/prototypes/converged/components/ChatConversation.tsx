@@ -112,7 +112,7 @@ export function ChatConversation() {
       {pinnedIdea && (
         <div className="bg-white/90 mx-3 mt-3 rounded-xl p-3 shadow-sm">
           <div className="flex items-start gap-2">
-            <Lightbulb size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <Lightbulb size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-gray-800 line-clamp-2">
                 {pinnedIdea.text}

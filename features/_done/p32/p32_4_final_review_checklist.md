@@ -162,7 +162,7 @@ Use Playwright MCP to take screenshots:
 npm run dev
 
 # In another terminal, use Playwright MCP tools:
-# 1. Navigate to /prototype/premium (Feed)
+# 1. Navigate to /prototype/converged (Feed)
 # 2. Take screenshot (mobile 375px)
 # 3. Take screenshot (desktop 768px+)
 # 4. Compare to landing page colors

@@ -10,7 +10,7 @@
 
 Connect prototype verification buttons to **prototype LiveSession component** (NOT production /live).
 
-All entry points (chat messages, idea detail, chat header "Go Live") should navigate to `/prototype/premium/live` with proper context.
+All entry points (chat messages, idea detail, chat header "Go Live") should navigate to `/prototype/converged/live` with proper context.
 
 ---
 
@@ -22,13 +22,13 @@ All entry points (chat messages, idea detail, chat header "Go Live") should navi
 ```tsx
 // In Chat.tsx
 const handleVerifyMessage = (message: Message, isOwn: boolean) => {
-  navigate('/prototype/premium/live', {
+  navigate('/prototype/converged/live', {
     state: {
       partnerId: otherUser.id,
       messageId: message.id,
       messageText: message.text,
       convertToIdea: true,
-      returnTo: `/prototype/premium/chat/${otherUser.id}`,
+      returnTo: `/prototype/converged/chat/${otherUser.id}`,
     }
   });
 };
@@ -40,12 +40,12 @@ const handleVerifyMessage = (message: Message, isOwn: boolean) => {
 ```tsx
 // In IdeaDetail.tsx
 const handleVerifyIdea = (partnerId: string) => {
-  navigate('/prototype/premium/live', {
+  navigate('/prototype/converged/live', {
     state: {
       partnerId,
       ideaId: idea.id,
       ideaText: idea.text,
-      returnTo: `/prototype/premium/idea/${idea.id}`,
+      returnTo: `/prototype/converged/idea/${idea.id}`,
     }
   });
 };
@@ -57,10 +57,10 @@ const handleVerifyIdea = (partnerId: string) => {
 ```tsx
 // In Chat.tsx (existing "Go Live" button)
 const handleGoLive = () => {
-  navigate('/prototype/premium/live', {
+  navigate('/prototype/converged/live', {
     state: {
       partnerId: otherUser.id,
-      returnTo: `/prototype/premium/chat/${otherUser.id}`,
+      returnTo: `/prototype/converged/chat/${otherUser.id}`,
     }
   });
 };
@@ -76,7 +76,7 @@ const handleGoLive = () => {
 **2. Chat.tsx** - Add message verification handlers (from P32.4_07)
 **3. IdeaDetail.tsx** - Update "Verify Understanding" buttons (from P32.4_08)
 
-All navigations should go to `/prototype/premium/live` (NOT production `/live`).
+All navigations should go to `/prototype/converged/live` (NOT production `/live`).
 
 The prototype LiveSession component (P32.4_08b) already accepts all state parameters - no additional changes needed there.
 
@@ -88,7 +88,7 @@ The prototype LiveSession component (P32.4_08b) already accepts all state parame
 ```
 User in Chat → Long-press message → "Did you understand me?"
     ↓
-Navigate to /prototype/premium/live with message context
+Navigate to /prototype/converged/live with message context
     ↓
 LiveSession shows message + partner info
     ↓
@@ -101,7 +101,7 @@ Return to Chat
 ```
 User in Idea Detail → Tap "Verify Understanding" on Alice
     ↓
-Navigate to /prototype/premium/live with idea context
+Navigate to /prototype/converged/live with idea context
     ↓
 LiveSession shows idea + partner info
     ↓
@@ -114,7 +114,7 @@ Return to Idea Detail
 ```
 User in Chat → Tap "Go Live" button
     ↓
-Navigate to /prototype/premium/live with partner only
+Navigate to /prototype/converged/live with partner only
     ↓
 LiveSession shows partner info
     ↓
@@ -148,7 +148,7 @@ const handleDone = () => {
 const handleDone = () => {
   // If user somehow deep-linked to LiveSession (no history)
   if (window.history.length <= 1) {
-    navigate('/prototype/premium'); // Fallback to feed
+    navigate('/prototype/converged'); // Fallback to feed
   } else {
     navigate(-1); // Standard back navigation
   }
@@ -160,7 +160,7 @@ All entry points can now REMOVE `returnTo` (simpler state):
 
 ```tsx
 // From Chat (SIMPLIFIED)
-navigate('/prototype/premium/live', {
+navigate('/prototype/converged/live', {
   state: {
     partnerId: otherUser.id,
     messageText: message.text,
@@ -169,7 +169,7 @@ navigate('/prototype/premium/live', {
 });
 
 // From Idea (SIMPLIFIED)
-navigate('/prototype/premium/live', {
+navigate('/prototype/converged/live', {
   state: {
     partnerId,
     ideaId: idea.id,
@@ -188,7 +188,7 @@ navigate('/prototype/premium/live', {
 | Partner not found | LiveSession shows "Unknown partner" |
 | No state passed | LiveSession shows generic session |
 | User presses Done | navigate(-1) to previous page |
-| No browser history | Fallback to /prototype/premium (feed) |
+| No browser history | Fallback to /prototype/converged (feed) |
 | User navigates back button | Browser handles naturally |
 | Deep link to LiveSession | Fallback to feed when done |
 
@@ -197,9 +197,9 @@ navigate('/prototype/premium/live', {
 ## Tests That Must Pass
 
 ### P1 (Critical)
-- [ ] Chat message button → /prototype/premium/live with message context
-- [ ] Idea detail button → /prototype/premium/live with idea context
-- [ ] Chat "Go Live" → /prototype/premium/live without idea
+- [ ] Chat message button → /prototype/converged/live with message context
+- [ ] Idea detail button → /prototype/converged/live with idea context
+- [ ] Chat "Go Live" → /prototype/converged/live without idea
 - [ ] LiveSession receives correct state parameters
 - [ ] LiveSession returns to prototype after done
 - [ ] returnTo path works correctly
@@ -209,7 +209,7 @@ navigate('/prototype/premium/live', {
 
 ## Done When
 
-- [ ] All prototype entry points navigate to /prototype/premium/live
+- [ ] All prototype entry points navigate to /prototype/converged/live
 - [ ] LiveSession receives state correctly
 - [ ] LiveSession returns to prototype correctly
 - [ ] All P1 tests pass

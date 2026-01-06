@@ -211,7 +211,7 @@ export function EmptyState({ filter, isOwnProfile }: EmptyStateProps) {
       {/* CTA (optional) */}
       {cta && (
         <button
-          onClick={() => navigate('/prototype/premium')}
+          onClick={() => navigate('/prototype/converged')}
           className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
         >
           {cta}

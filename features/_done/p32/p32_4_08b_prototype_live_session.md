@@ -62,7 +62,7 @@ export function LiveSession() {
   const [hasInteracted, setHasInteracted] = useState(false);
 
   const partner = state?.partnerId ? getUserById(state.partnerId) : null;
-  const returnPath = state?.returnTo || '/prototype/premium';
+  const returnPath = state?.returnTo || '/prototype/converged';
 
   // Cancel/Back handler with confirmation if user interacted
   const handleCancel = () => {
@@ -239,24 +239,24 @@ export function PremiumPrototype() {
 
 **From Chat message:**
 ```tsx
-navigate('/prototype/premium/live', {
+navigate('/prototype/converged/live', {
   state: {
     partnerId: 'alice',
     messageText: 'Remote work is better',
     convertToIdea: true,
-    returnTo: '/prototype/premium/chat/alice',
+    returnTo: '/prototype/converged/chat/alice',
   }
 });
 ```
 
 **From Idea detail:**
 ```tsx
-navigate('/prototype/premium/live', {
+navigate('/prototype/converged/live', {
   state: {
     partnerId: 'alice',
     ideaId: 'idea-1',
     ideaText: 'Remote work is more productive...',
-    returnTo: '/prototype/premium/idea/idea-1',
+    returnTo: '/prototype/converged/idea/idea-1',
   }
 });
 ```
@@ -297,7 +297,7 @@ navigate('/prototype/premium/live', {
 | Scenario | Expected Behavior |
 |----------|------------------|
 | No state passed | Show generic "Live Session" with no context |
-| No returnTo path | Return to `/prototype/premium` (feed) |
+| No returnTo path | Return to `/prototype/converged` (feed) |
 | Partner not found | Show "Unknown partner" |
 | Both ideaText and messageText | Prefer ideaText |
 
@@ -306,7 +306,7 @@ navigate('/prototype/premium/live', {
 ## Tests That Must Pass
 
 ### P1 (Critical)
-- [ ] Can navigate to /prototype/premium/live
+- [ ] Can navigate to /prototype/converged/live
 - [ ] Accepts navigation state
 - [ ] Shows partner name and avatar
 - [ ] Shows idea context if passed

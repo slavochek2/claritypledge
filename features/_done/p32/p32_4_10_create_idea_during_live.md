@@ -48,7 +48,7 @@ export function LiveSession() {
 
   const state = location.state as LiveSessionState | null;
   const partner = state?.partnerId ? getUserById(state.partnerId) : null;
-  const returnPath = state?.returnTo || '/prototype/premium';
+  const returnPath = state?.returnTo || '/prototype/converged';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

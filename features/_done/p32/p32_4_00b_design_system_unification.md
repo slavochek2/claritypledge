@@ -147,7 +147,7 @@ Replace: bg-green-500
 
 After replacements:
 1. Start dev server: `npm run dev`
-2. Navigate to `/prototype/premium`
+2. Navigate to `/prototype/converged`
 3. Check Feed, Chat, Profile, Idea Detail
 4. Verify colors match landing page
 

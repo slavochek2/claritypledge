@@ -271,12 +271,12 @@ export function LiveSession() {
     return (
       <div className="flex-1 px-4 py-6 flex flex-col items-center justify-center">
         <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 ${
-          isSuccess ? 'bg-emerald-100' : 'bg-amber-100'
+          isSuccess ? 'bg-emerald-100' : 'bg-blue-100'
         }`}>
           {isSuccess ? (
             <CheckCircle size={40} className="text-emerald-600" />
           ) : (
-            <Star size={40} className="text-amber-600" />
+            <Star size={40} className="text-blue-600" />
           )}
         </div>
 

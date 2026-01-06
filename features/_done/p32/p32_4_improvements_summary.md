@@ -179,17 +179,17 @@ const handleTouchStart = () => {
 
 **Before:**
 ```tsx
-navigate('/prototype/premium/live', {
+navigate('/prototype/converged/live', {
   state: {
     partnerId: 'alice',
-    returnTo: '/prototype/premium/chat/alice', // Can get stale
+    returnTo: '/prototype/converged/chat/alice', // Can get stale
   }
 });
 ```
 
 **After:**
 ```tsx
-navigate('/prototype/premium/live', {
+navigate('/prototype/converged/live', {
   state: {
     partnerId: 'alice',
     // No returnTo needed!
