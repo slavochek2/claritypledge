@@ -5,6 +5,7 @@ const routes = [
   { path: '/chat', label: 'Chat', description: 'Chat interface' },
   { path: '/demo', label: 'Demo', description: 'Original demo page' },
   { path: '/prototype/premium/feed', label: 'Prototype', description: 'Premium prototype (Apple-style)' },
+  { path: '/prototype/converged/profile', label: 'Converged Profile', description: 'P32.3 converged prototype - Profile view' },
 ];
 
 export function TreePage() {
