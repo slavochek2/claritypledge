@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Mic, MicOff, Play, Square, Star, CheckCircle, Plus } from 'lucide-react';
 import { getUserById, users } from '../data/mock-data';
 import { routes } from '../config';
@@ -9,10 +9,30 @@ import { CreateIdeaModal } from './CreateIdeaModal';
 type Phase = 'select-partner' | 'select-role' | 'speaking' | 'playback' | 'rating' | 'result';
 type Role = 'speaker' | 'listener';
 
+interface LocationState {
+  partnerId?: string;
+  ideaId?: string;
+  ideaText?: string;
+  messageId?: string;
+  messageText?: string;
+  convertToIdea?: boolean;
+  myPosition?: string | null;
+  theirPosition?: string;
+}
+
 export function LiveSession() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const preselectedUserId = searchParams.get('with');
+
+  // Extract context from both query params and navigation state
+  const state = location.state as LocationState | undefined;
+  const preselectedUserId = searchParams.get('with') || state?.partnerId;
+
+  // Context available from navigation:
+  // - ideaId, ideaText: from EngagerList (verifying an idea)
+  // - messageId, messageText, convertToIdea: from ChatConversation (verifying a message)
+  // - myPosition, theirPosition: from EngagerList (positions on the idea)
 
   const [phase, setPhase] = useState<Phase>(preselectedUserId ? 'select-role' : 'select-partner');
   const [selectedPartner, setSelectedPartner] = useState<string | null>(preselectedUserId);
