@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
+import { LegalFooter } from "@/app/components/layout/legal-footer";
 import { OfflineBanner } from "@/app/components/offline-banner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -20,12 +21,13 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isFullArticlePage || isLiveMeetingPage;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <OfflineBanner />
       {!hasOwnNavigation && (
         <SimpleNavigation />
       )}
-      <main className={!hasOwnNavigation ? "pt-16 lg:pt-20" : ""}>{children}</main>
+      <main className={!hasOwnNavigation ? "pt-16 lg:pt-20 flex-1" : "flex-1"}>{children}</main>
+      <LegalFooter />
       <Toaster position="top-center" />
     </div>
   );

@@ -27,10 +27,51 @@ export function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Overview</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Clarity Pledge ("we," "us," or "our") is committed to protecting your privacy.
+              The Clarity Pledge is operated by TechSalesBox OÜ (registry code 14832496),
+              an Estonian company ("we," "us," or "our"). We are committed to protecting your privacy.
               This policy explains what information we collect, how we use it, and your rights
               regarding your data.
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Data Controller</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              TechSalesBox OÜ acts as the data controller for all personal data collected through
+              The Clarity Pledge platform.
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li><strong className="text-foreground">Legal Entity:</strong> TechSalesBox OÜ</li>
+              <li><strong className="text-foreground">Registry Code:</strong> 14832496</li>
+              <li><strong className="text-foreground">Address:</strong> Harju maakond, Kuusalu vald, Pudisoo küla, Männimäe/1, 74626</li>
+              <li><strong className="text-foreground">Data Protection Contact:</strong>{" "}
+                <span className="text-blue-600 dark:text-blue-400">
+                  privacy AT claritypledge DOT com
+                </span>
+              </li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              As a small-scale operation, we are not required to appoint a formal Data Protection
+              Officer (DPO) under GDPR Article 37. However, you can contact us at the email above
+              for any data protection inquiries, GDPR requests, or privacy concerns.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Legal Basis for Processing</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              We process your personal data under the following legal grounds as required by GDPR Article 6:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li><strong className="text-foreground">Contractual necessity (Art. 6(1)(b))</strong> — To provide the pledge service, authentication,
+                public profile features, and Live Meeting functionality you requested.</li>
+              <li><strong className="text-foreground">Consent (Art. 6(1)(a) and Art. 9(2)(a))</strong> — For voice recording and ML training.
+                You will be asked for explicit consent via a separate dialog before any recording starts.
+                This consent is separate from accepting these Terms of Service.</li>
+              <li><strong className="text-foreground">Legitimate interest (Art. 6(1)(f))</strong> — For error tracking (Sentry), analytics (Mixpanel),
+                session replay (LogRocket), and service improvement, where our business interests do not
+                override your fundamental rights and freedoms. You can object to this processing at any time.</li>
+            </ul>
           </section>
 
           <section>
@@ -83,11 +124,16 @@ export function PrivacyPolicyPage() {
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-4">
               This data helps us improve our AI models to better facilitate clear communication
-              and understanding verification. We do not sell this data. Personal identifiers are
-              removed before ML training.
+              and understanding verification. We do not sell this data.
             </p>
             <p className="text-muted-foreground leading-relaxed mt-4">
-              You can request deletion of your data at any time by contacting{" "}
+              <strong className="text-foreground">Anonymization process:</strong> Before using data for ML training, we remove all personal
+              identifiers including names, email addresses, user IDs, and IP addresses. This makes
+              it impossible to trace the data back to you. Once anonymized, this data is no longer
+              considered "personal data" under GDPR and cannot be deleted via data deletion requests.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              You can request deletion of your identifiable data at any time by contacting{" "}
               <span className="text-blue-600 dark:text-blue-400">
                 privacy AT claritypledge DOT com
               </span>
@@ -142,6 +188,33 @@ export function PrivacyPolicyPage() {
           </section>
 
           <section>
+            <h2 className="text-2xl font-bold mb-4">International Data Transfers</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Some of our service providers may transfer your data outside the European Economic Area (EEA).
+              When this occurs, we ensure appropriate safeguards are in place as required by GDPR Articles 44-46:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li><strong className="text-foreground">Standard Contractual Clauses (SCCs)</strong> — Approved by the European Commission for transfers
+                to countries without adequacy decisions</li>
+              <li><strong className="text-foreground">Adequacy decisions</strong> — We rely on EU Commission adequacy decisions where applicable</li>
+              <li><strong className="text-foreground">Data Processing Agreements</strong> — All processors have signed DPAs covering GDPR obligations</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              <strong className="text-foreground">Primary data storage:</strong> TechSalesBox OÜ is based in Estonia (EU), and we store all primary
+              data (profiles, pledges, witnesses) within the EU via Supabase EU regions.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              <strong className="text-foreground">Services involving non-EU transfers:</strong>
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-6">
+              <li>Google Cloud Storage (audio recordings) — Uses SCCs, data stored in EU regions where possible</li>
+              <li>Mixpanel (analytics) — Uses SCCs for data transfer</li>
+              <li>Sentry (error tracking) — Uses SCCs for data transfer</li>
+              <li>LogRocket (session replay) — Uses SCCs for data transfer</li>
+            </ul>
+          </section>
+
+          <section>
             <h2 className="text-2xl font-bold mb-4">Cookies & Local Storage</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
               We use:
@@ -159,16 +232,59 @@ export function PrivacyPolicyPage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              You have the right to:
+              Under the General Data Protection Regulation (GDPR), you have the following rights:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-              <li><strong className="text-foreground">Access</strong> — View all data we hold about you</li>
-              <li><strong className="text-foreground">Update</strong> — Modify your profile information at any time</li>
-              <li><strong className="text-foreground">Delete</strong> — Request complete removal of your account and data</li>
-              <li><strong className="text-foreground">Export</strong> — Request a copy of your data</li>
+              <li><strong className="text-foreground">Access (Art. 15)</strong> — Request a copy of all personal data we hold about you</li>
+              <li><strong className="text-foreground">Rectification (Art. 16)</strong> — Update or correct your profile information at any time</li>
+              <li><strong className="text-foreground">Erasure (Art. 17)</strong> — Request complete removal of your account and identifiable data
+                ("right to be forgotten")</li>
+              <li><strong className="text-foreground">Data Portability (Art. 20)</strong> — Export your data in a machine-readable format (JSON)</li>
+              <li><strong className="text-foreground">Object (Art. 21)</strong> — Stop processing your data for specific purposes (e.g., analytics,
+                marketing) without deleting your entire account</li>
+              <li><strong className="text-foreground">Restrict Processing (Art. 18)</strong> — Temporarily limit how we process your data while
+                we verify accuracy or address your concerns</li>
+              <li><strong className="text-foreground">Withdraw Consent (Art. 7(3))</strong> — If processing is based on consent, you can withdraw
+                it at any time (e.g., opt out of ML training while keeping your account)</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              <strong className="text-foreground">Important:</strong> Some rights have limitations. For example:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-6">
+              <li>Anonymized data already incorporated into ML models cannot be removed (it's no longer
+                identifiable)</li>
+              <li>We may retain certain data for legal compliance (e.g., financial records, audit logs)</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-4">
               To exercise any of these rights, contact us at{" "}
+              <span className="text-blue-600 dark:text-blue-400">
+                privacy AT claritypledge DOT com
+              </span>
+              . We will respond within 30 days as required by GDPR.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Data Retention</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              We retain your data only as long as necessary for the purposes outlined in this policy,
+              in accordance with GDPR Article 5(1)(e) (storage limitation):
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li><strong className="text-foreground">Profile data</strong> — Retained while your account is active. Deleted within 30 days of
+                account closure request.</li>
+              <li><strong className="text-foreground">Audio recordings (Live Meetings)</strong> — Retained for 90 days for service improvement,
+                then automatically deleted. Exception: Anonymized excerpts used for ML training may
+                persist indefinitely, but cannot be traced back to you.</li>
+              <li><strong className="text-foreground">Session logs & metadata</strong> — Retained for 12 months for troubleshooting, auditing,
+                and service improvement.</li>
+              <li><strong className="text-foreground">Error logs (Sentry)</strong> — Retained for 90 days, then automatically deleted.</li>
+              <li><strong className="text-foreground">Analytics data (Mixpanel)</strong> — Aggregated and anonymized data retained for up to 5 years
+                for trend analysis.</li>
+              <li><strong className="text-foreground">Session replays (LogRocket)</strong> — Retained for 30 days, then automatically deleted.</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              You can request early deletion of your data at any time by contacting{" "}
               <span className="text-blue-600 dark:text-blue-400">
                 privacy AT claritypledge DOT com
               </span>
@@ -176,12 +292,53 @@ export function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold mb-4">Data Retention</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              We retain your data for as long as your account is active. If you request
-              deletion, we will remove your identifiable data within 30 days, except where we are
-              legally required to retain it. Note that anonymized data already incorporated
-              into our ML models may persist, though it cannot be traced back to you.
+            <h2 className="text-2xl font-bold mb-4">Filing a Complaint</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              If you believe we have not handled your personal data correctly or violated your GDPR rights,
+              you have the right to lodge a complaint with a supervisory authority under GDPR Article 77.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              <strong className="text-foreground">For EU residents:</strong>
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-6">
+              <li><strong className="text-foreground">Estonian Data Protection Inspectorate (Andmekaitse Inspektsioon)</strong> —{" "}
+                <a
+                  href="https://www.aki.ee/en"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  www.aki.ee/en
+                </a>
+              </li>
+              <li>Or your local supervisory authority in your country of residence</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              You can also contact us directly at{" "}
+              <span className="text-blue-600 dark:text-blue-400">
+                privacy AT claritypledge DOT com
+              </span>
+              {" "}to resolve any concerns before filing a complaint.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Automated Decision-Making</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              We do not use automated decision-making or profiling that produces legal effects or
+              significantly affects you (GDPR Article 22).
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Our AI/ML features are used to:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li>Verify understanding during Live Meetings (with human review)</li>
+              <li>Improve transcription and paraphrasing quality</li>
+              <li>Analyze usage patterns for service improvement</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              No automated decisions are made about your account status, access, or rights without
+              human oversight.
             </p>
           </section>
 

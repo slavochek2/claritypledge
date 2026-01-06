@@ -31,6 +31,11 @@ export function TermsOfServicePage() {
               Please read them carefully. If you don't agree with these terms, please don't
               use our service.
             </p>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              The Clarity Pledge is operated by TechSalesBox OÜ (registry code 14832496),
+              an Estonian limited liability company. These terms constitute a legal agreement
+              between you and TechSalesBox OÜ.
+            </p>
           </section>
 
           <section>
@@ -48,19 +53,30 @@ export function TermsOfServicePage() {
             <h2 className="text-2xl font-bold mb-4">Live Meetings (Clarity Sessions)</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
               Live Meetings are real-time understanding exercises between two participants.
-              By starting or joining a Live Meeting, you agree that:
+            </p>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              <strong className="text-foreground">Important:</strong> Before any recording starts, you will be asked for explicit consent via
+              a separate consent dialog. By clicking "Start Recording," you explicitly consent to:
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-              <li>Your voice will be <strong className="text-foreground">recorded</strong> during understanding exercises</li>
-              <li>Session content (ideas, paraphrases, ratings) will be <strong className="text-foreground">stored</strong></li>
-              <li>Recordings may be used to <strong className="text-foreground">improve our AI/ML services</strong></li>
-              <li>Other participants can see your <strong className="text-foreground">display name</strong> and hear your voice</li>
-              <li>Sessions are <strong className="text-foreground">not end-to-end encrypted</strong></li>
+              <li>Your voice being <strong className="text-foreground">recorded</strong> during understanding exercises</li>
+              <li>Session content (ideas, paraphrases, ratings) being <strong className="text-foreground">stored</strong></li>
+              <li>Recordings being used to <strong className="text-foreground">improve our AI/ML services</strong> (anonymized)</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-4">
-              You are responsible for obtaining consent from anyone whose voice may be captured
-              in your environment.
+              <strong className="text-foreground">This consent is separate from accepting these Terms of Service.</strong> Simply using the
+              platform does NOT constitute consent to recording. You must actively consent before
+              each session.
             </p>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              By participating in Live Meetings, you also agree that:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li>Other participants can see your <strong className="text-foreground">display name</strong> and hear your voice</li>
+              <li>Sessions are <strong className="text-foreground">not end-to-end encrypted</strong></li>
+              <li>You are responsible for obtaining consent from anyone whose voice may be captured
+                in your environment</li>
+            </ul>
           </section>
 
           <section>
@@ -92,6 +108,19 @@ export function TermsOfServicePage() {
               <li><strong className="text-foreground">Respect the community</strong> — Don't use the platform to spam, harass, or mislead others</li>
               <li><strong className="text-foreground">Honor the spirit of the pledge</strong> — While we can't enforce understanding, we expect good faith effort</li>
             </ul>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Age Requirement</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              You must be at least 16 years old to use The Clarity Pledge. If you are under 16,
+              you may only use this service with verifiable parental or guardian consent as required
+              by GDPR Article 8.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              By using this service, you confirm that you meet this age requirement or have obtained
+              appropriate parental consent.
+            </p>
           </section>
 
           <section>
@@ -167,6 +196,18 @@ export function TermsOfServicePage() {
               incidental, or consequential damages arising from your use of the platform.
               This includes, but is not limited to, loss of reputation, business opportunities,
               or data.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Governing Law</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              These terms are governed by the laws of Estonia. Any disputes arising from your use
+              of The Clarity Pledge shall be resolved under Estonian jurisdiction.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              For EU consumers, this does not affect your statutory rights under the consumer
+              protection laws of your country of residence.
             </p>
           </section>
 
