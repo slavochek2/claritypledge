@@ -32,7 +32,6 @@ lerna-debug.log*
 # Feature planning work-in-progress files
 features/_personal/
 features/learning-plan.md
-features/p*.md
 
 # Design inspiration and mockup screenshots
 docs/inspiration/
