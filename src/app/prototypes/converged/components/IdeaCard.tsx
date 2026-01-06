@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { MessageCircle, ThumbsUp, ThumbsDown, HelpCircle, Sparkles, Users } from 'lucide-react';
 import type { Idea, Position } from '../data/mock-data';
-import { getPositionCounts, getVerificationCount, getCrossDisagreementCount, formatTimeAgo } from '../data/mock-data';
+import { getIdeaStats, formatTimeAgo, getIdeaAttribution } from '../data/mock-data';
 import { routes } from '../config';
 import { PositionButtons } from './shared/PositionButtons';
+import { ReactionsModal } from './ReactionsModal';
 
 interface IdeaCardProps {
   idea: Idea;
@@ -16,14 +17,14 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
   const navigate = useNavigate();
   const [selectedPosition, setSelectedPosition] = useState<Position>(currentUserPosition || null);
   const [isPressed, setIsPressed] = useState(false);
+  const [showReactions, setShowReactions] = useState<Position>(null);
 
   useEffect(() => {
     setSelectedPosition(currentUserPosition || null);
   }, [currentUserPosition]);
 
-  const counts = getPositionCounts(idea);
-  const verifiedCount = getVerificationCount(idea);
-  const crossDisagreementCount = getCrossDisagreementCount(idea);
+  const stats = getIdeaStats(idea);
+  const attribution = getIdeaAttribution(idea);
 
   const handlePositionClick = (position: Position) => {
     setSelectedPosition(position);
@@ -49,43 +50,83 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
         ${isPressed ? 'scale-[0.98]' : 'scale-100'}
       `}
     >
+      {/* Attribution line */}
+      {attribution && (
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+          <Users className="w-4 h-4" />
+          <span>{attribution}</span>
+        </div>
+      )}
+
       {/* Idea Text */}
       <p className="text-[16px] leading-relaxed text-gray-900 font-normal mb-4">
         {idea.text}
       </p>
 
-      {/* Position Buttons - counts inside buttons per wildcard/feed.png */}
-      <div onClick={(e) => e.stopPropagation()} className="mb-3">
+      {/* Stats row (clickable) - ABOVE buttons per P32.4_04 */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex items-center gap-6 mb-4"
+      >
+        <button
+          onClick={() => setShowReactions('agree')}
+          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+        >
+          <ThumbsUp className="w-4 h-4" />
+          <span className="font-medium">{stats.agree}</span>
+        </button>
+
+        <button
+          onClick={() => setShowReactions('disagree')}
+          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+        >
+          <ThumbsDown className="w-4 h-4" />
+          <span className="font-medium">{stats.disagree}</span>
+        </button>
+
+        <button
+          onClick={() => setShowReactions('unsure')}
+          className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span className="font-medium">{stats.unsure}</span>
+        </button>
+      </div>
+
+      {/* Position Buttons (no counts) - BELOW stats per P32.4_04 */}
+      <div onClick={(e) => e.stopPropagation()} className="mb-4">
         <PositionButtons
           selectedPosition={selectedPosition}
           onPositionChange={handlePositionClick}
-          counts={counts}
-          showCounts={true}
+          showCounts={false}
         />
       </div>
 
-      {/* Stats Row */}
-      <div className="flex items-center gap-4 text-[12px] text-gray-400 pt-2 border-t border-gray-100">
-        <div className="flex items-center gap-1.5">
-          <CheckCircle2 size={14} />
-          <span>{verifiedCount} verified</span>
+      {/* Meta row */}
+      <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center gap-3">
+          {stats.crossVerified > 0 && (
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              {stats.crossVerified} cross-verified
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <MessageCircle className="w-3.5 h-3.5" />
+            {stats.comments}
+          </span>
         </div>
-        {crossDisagreementCount > 0 && (
-          <div className="flex items-center gap-1.5 text-purple-500">
-            <ArrowRightLeft size={14} />
-            <span>{crossDisagreementCount} across disagreement</span>
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <MessageCircle size={14} />
-          <span>{idea.comments.length}</span>
-        </div>
+        <span>{formatTimeAgo(idea.createdAt)}</span>
       </div>
 
-      {/* Timestamp */}
-      <div className="text-[11px] text-gray-400 mt-2">
-        {formatTimeAgo(idea.createdAt)}
-      </div>
+      {/* Reactions Modal */}
+      {showReactions && (
+        <ReactionsModal
+          idea={idea}
+          filter={showReactions}
+          onClose={() => setShowReactions(null)}
+        />
+      )}
     </article>
   );
 }

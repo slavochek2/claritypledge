@@ -3,7 +3,7 @@ import { ideas, getUserEngagement, type Position } from '../data/mock-data';
 import { StoriesRow } from './StoriesRow';
 import { FeedHeader } from './FeedHeader';
 import { IdeaCard } from './IdeaCard';
-import { CreateIdea } from './CreateIdea';
+import { CreateIdeaModal } from './CreateIdeaModal';
 import { BottomNav } from './BottomNav';
 
 export function Feed() {
@@ -75,9 +75,15 @@ export function Feed() {
       <BottomNav />
 
       {/* Create Idea Modal */}
-      {showCreateModal && (
-        <CreateIdea onClose={() => setShowCreateModal(false)} />
-      )}
+      <CreateIdeaModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onIdeaCreated={(ideaId) => {
+          console.log('New idea created:', ideaId);
+          // Scroll to top to see new idea
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     </div>
   );
 }
