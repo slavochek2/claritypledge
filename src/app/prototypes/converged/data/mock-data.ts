@@ -12,6 +12,7 @@ export interface User {
   verifiedListenerScore: number;
   ideasEngaged: number;
   hasUnviewedActivity: boolean;
+  unviewedActivityCount?: number; // NEW: Specific count for badge display
 }
 
 export interface Engagement {
@@ -73,6 +74,7 @@ export const currentUser: User = {
   verifiedListenerScore: 8.5,
   ideasEngaged: 24,
   hasUnviewedActivity: false,
+  unviewedActivityCount: 0,
 };
 
 // Users
@@ -86,6 +88,7 @@ export const users: User[] = [
     verifiedListenerScore: 9.2,
     ideasEngaged: 47,
     hasUnviewedActivity: true,
+    unviewedActivityCount: 3,
   },
   {
     id: 'bob',
@@ -95,6 +98,7 @@ export const users: User[] = [
     verifiedListenerScore: 8.8,
     ideasEngaged: 32,
     hasUnviewedActivity: true,
+    unviewedActivityCount: 2,
   },
   {
     id: 'carol',
@@ -104,6 +108,7 @@ export const users: User[] = [
     verifiedListenerScore: 9.5,
     ideasEngaged: 56,
     hasUnviewedActivity: false,
+    unviewedActivityCount: 0,
   },
   {
     id: 'dan',
@@ -113,6 +118,7 @@ export const users: User[] = [
     verifiedListenerScore: 7.9,
     ideasEngaged: 19,
     hasUnviewedActivity: true,
+    unviewedActivityCount: 1,
   },
   {
     id: 'eve',
@@ -122,6 +128,7 @@ export const users: User[] = [
     verifiedListenerScore: 8.1,
     ideasEngaged: 28,
     hasUnviewedActivity: false,
+    unviewedActivityCount: 0,
   },
 ];
 
@@ -272,6 +279,36 @@ export function getCrossDisagreementCount(idea: Idea): number {
   return idea.engagements.filter(e => e.isCrossDisagreement).length;
 }
 
+export interface IdeaStats {
+  agree: number;
+  disagree: number;
+  unsure: number;
+  verified: number;
+  crossVerified: number;
+  comments: number;
+}
+
+export function getIdeaStats(idea: Idea): IdeaStats {
+  const stats = {
+    agree: 0,
+    disagree: 0,
+    unsure: 0,
+    verified: 0,
+    crossVerified: 0,
+    comments: idea.comments.length,
+  };
+
+  idea.engagements.forEach(e => {
+    if (e.position === 'agree') stats.agree++;
+    if (e.position === 'disagree') stats.disagree++;
+    if (e.position === 'unsure') stats.unsure++;
+    if (e.isVerified) stats.verified++;
+    if (e.isCrossDisagreement) stats.crossVerified++;
+  });
+
+  return stats;
+}
+
 export function getUserEngagement(idea: Idea, userId: string): Engagement | undefined {
   return idea.engagements.find(e => e.userId === userId);
 }
@@ -304,4 +341,70 @@ export function formatTimeAgo(timestamp: string): string {
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays < 7) return `${diffDays}d`;
   return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export function getUnviewedActivityCount(userId: string): number {
+  const user = users.find(u => u.id === userId);
+  return user?.unviewedActivityCount || 0;
+}
+
+export function clearUnviewedActivity(userId: string): void {
+  const user = users.find(u => u.id === userId);
+  if (user) {
+    user.hasUnviewedActivity = false;
+    user.unviewedActivityCount = 0;
+  }
+}
+
+function getPositionVerb(position: Position): string {
+  switch (position) {
+    case 'agree': return 'agreed';
+    case 'disagree': return 'disagreed';
+    case 'unsure': return 'marked unsure';
+    default: return 'engaged';
+  }
+}
+
+export function getIdeaAttribution(idea: Idea): string | null {
+  // Get engagements from My Network (excluding current user)
+  const networkEngagements = idea.engagements.filter(
+    e => e.userId !== 'current' && users.some(u => u.id === e.userId)
+  );
+
+  if (networkEngagements.length === 0) {
+    return null; // No attribution needed (you created this idea)
+  }
+
+  const count = networkEngagements.length;
+
+  if (count === 1) {
+    const user = users.find(u => u.id === networkEngagements[0].userId);
+    const position = networkEngagements[0].position;
+    return `${user?.name} ${getPositionVerb(position)}`;
+  }
+
+  return `${count} from My Network engaged`;
+}
+
+export function createIdea(text: string, position: Position): Idea {
+  const timestamp = Date.now();
+  const newIdea: Idea = {
+    id: `idea-${timestamp}`,
+    text: text.trim(),
+    createdAt: new Date().toISOString(),
+    engagements: [
+      {
+        id: `e-${timestamp}`,
+        ideaId: `idea-${timestamp}`,
+        userId: 'current',
+        position,
+        timestamp: new Date().toISOString(),
+        isVerified: false,
+      },
+    ],
+    comments: [],
+  };
+
+  ideas.unshift(newIdea); // Add to beginning
+  return newIdea;
 }
