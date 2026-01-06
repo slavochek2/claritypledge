@@ -21,6 +21,7 @@ import { IdeaDetailPage } from "@/app/pages/idea-detail-page";
 import { ClarityLivePage } from "@/app/pages/clarity-live-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PremiumPrototype } from "@/app/prototypes/premium";
+import { ConvergedPrototype } from "@/app/prototypes/converged";
 import { TreePage } from "@/app/pages/TreePage";
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
@@ -249,6 +250,9 @@ export default function ClarityPledgeApp() {
 
         {/* Premium Prototype - P32 Overnight */}
         <Route path="/prototype/premium/*" element={<PremiumPrototype />} />
+
+        {/* Converged Prototype - P32.3 */}
+        <Route path="/prototype/converged/*" element={<ConvergedPrototype />} />
 
         {/* Developer navigation tree */}
         <Route path="/tree" element={<TreePage />} />
