@@ -60,7 +60,7 @@ function RecordingIndicator({ isRecording }: { isRecording?: boolean }) {
 /** Standard content container layout - centered, max-width, top-aligned */
 const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
 /** Content layout variant - vertically centered (for idle state without history) */
-const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center p-6 space-y-8 max-w-lg mx-auto w-full";
+const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 space-y-8 max-w-lg mx-auto w-full";
 
 // ============================================================================
 // PARTNER LEFT SCREEN
@@ -595,7 +595,10 @@ function IdleScreen({
           />
         )}
 
-        <ActionArea title="Verify cognitive understanding">
+        <ActionArea
+          title="Verify cognitive understanding"
+          className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
+        >
           <Button
             size="lg"
             className="bg-blue-500 hover:bg-blue-600 w-full"

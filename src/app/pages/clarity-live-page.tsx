@@ -1366,7 +1366,7 @@ export function ClarityLivePage() {
       return (
         <div className="flex flex-col h-screen">
           <LiveSessionBanner title={joinTitle} isLiveMeeting={false} />
-          <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md">
+          <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
             <div className="text-center mb-8">
               {!hostName && (
                 <div className="inline-flex items-center px-3 py-1.5 bg-muted rounded-full">
@@ -1429,7 +1429,7 @@ export function ClarityLivePage() {
       return (
         <div className="flex flex-col h-screen">
           <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
-          <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md md:max-w-2xl">
+          <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
             <div className="text-center">
               <div className="animate-pulse text-muted-foreground">Loading...</div>
             </div>
@@ -1441,7 +1441,7 @@ export function ClarityLivePage() {
     return (
       <div className="flex flex-col h-screen">
         <LiveSessionBanner title="" isLiveMeeting={false} />
-        <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md md:max-w-2xl">
+        <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
           <div className="space-y-6">
             {/* Page title - always shows "Clarity Meeting" */}
             <div className="text-center space-y-1">
@@ -1617,7 +1617,7 @@ export function ClarityLivePage() {
     return (
       <div className="flex flex-col h-screen">
         <LiveSessionBanner title="Waiting for Partner" isLiveMeeting={false} />
-        <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md">
+        <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
           <div className="text-center space-y-6">
             <p className="text-muted-foreground">
               Share this link with your partner:
