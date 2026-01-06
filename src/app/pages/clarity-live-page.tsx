@@ -1427,22 +1427,17 @@ export function ClarityLivePage() {
     // Show loading while checking auth state to prevent flicker
     if (isAuthLoading) {
       return (
-        <div className="flex flex-col h-screen">
-          <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
-          <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
-            <div className="text-center">
-              <div className="animate-pulse text-muted-foreground">Loading...</div>
-            </div>
+        <div className="container mx-auto px-4 max-w-md md:max-w-2xl min-h-screen flex flex-col justify-center">
+          <div className="text-center">
+            <div className="animate-pulse text-muted-foreground">Loading...</div>
           </div>
         </div>
       );
     }
 
     return (
-      <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="" isLiveMeeting={false} />
-        <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
-          <div className="space-y-6">
+      <div className="container mx-auto px-4 max-w-md md:max-w-2xl min-h-screen flex flex-col justify-center">
+        <div className="space-y-6">
             {/* Page title - always shows "Clarity Meeting" */}
             <div className="text-center space-y-1">
               <h1 className="text-2xl font-semibold">
@@ -1567,7 +1562,6 @@ export function ClarityLivePage() {
               <ConsentNotice />
             </div>
           </div>
-        </div>
       </div>
     );
   }
