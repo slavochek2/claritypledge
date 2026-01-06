@@ -48,3 +48,6 @@ playwright-report/
 
 .vercel
 .cloud-agent.local.md
+
+# Temporary commit message drafts
+.commit-message.txt

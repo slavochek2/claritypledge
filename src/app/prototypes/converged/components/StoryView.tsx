@@ -21,9 +21,9 @@ export function StoryView() {
     }
   }, [user]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     navigate(routes.feed);
-  };
+  }, [navigate]);
 
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
@@ -63,7 +63,7 @@ export function StoryView() {
     if (e.key === 'ArrowLeft') handlePrev();
     if (e.key === 'ArrowRight') handleNext();
     if (e.key === 'Escape') handleClose();
-  }, [handlePrev, handleNext]);
+  }, [handlePrev, handleNext, handleClose]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

@@ -93,7 +93,7 @@ export function Topology() {
         ctx.beginPath();
         ctx.moveTo(sourceNode.x, sourceNode.y);
         ctx.lineTo(targetNode.x, targetNode.y);
-        ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#E5E5EA';
+        ctx.strokeStyle = edge.isCrossDisagreement ? '#3B82F6' : '#E5E5EA';
         ctx.lineWidth = edge.isCrossDisagreement ? 3 : 2;
         ctx.stroke();
 

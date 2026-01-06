@@ -18,7 +18,7 @@ export function Feed() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7]">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
         <div className="flex items-center justify-between px-5 h-14 max-w-[500px] mx-auto">
@@ -56,11 +56,11 @@ export function Feed() {
         className="
           fixed right-5 bottom-24 z-20
           w-14 h-14 rounded-full
-          bg-[#007AFF] text-white
+          bg-blue-500 text-white
           shadow-lg shadow-blue-500/30
           flex items-center justify-center
           transition-transform active:scale-95
-          hover:bg-[#0066DD]
+          hover:bg-blue-600
         "
       >
         <Plus size={28} strokeWidth={2} aria-hidden="true" />
