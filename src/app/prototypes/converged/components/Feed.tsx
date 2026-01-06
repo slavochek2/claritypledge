@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { ideas, getUserEngagement, type Position } from '../data/mock-data';
 import { StoriesRow } from './StoriesRow';
 import { FeedHeader } from './FeedHeader';
@@ -51,7 +52,6 @@ export function Feed() {
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header with search and filters */}
       <FeedHeader
-        onCreateIdea={() => setShowCreateModal(true)}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
       />
@@ -60,7 +60,7 @@ export function Feed() {
       <StoriesRow />
 
       {/* Ideas Feed */}
-      <div className="px-4 py-4 space-y-3">
+      <div className="px-4 py-4 space-y-3 pb-24">
         {filteredIdeas.map((idea) => (
           <IdeaCard
             key={idea.id}
@@ -70,6 +70,16 @@ export function Feed() {
           />
         ))}
       </div>
+
+      {/* FAB - Floating Action Button */}
+      <button
+        onClick={() => setShowCreateModal(true)}
+        className="fixed bottom-20 right-4 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 transition-all hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300 z-30"
+        aria-label="Create new idea"
+        role="button"
+      >
+        <Plus className="w-6 h-6" aria-hidden="true" />
+      </button>
 
       {/* Bottom Navigation */}
       <BottomNav />

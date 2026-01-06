@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Search, Bell, User, Plus } from 'lucide-react';
+import { Search, Bell, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../config';
 
 interface FeedHeaderProps {
-  onCreateIdea: () => void;
   activeFilter: string;
   onFilterChange: (filter: string) => void;
 }
@@ -16,7 +15,7 @@ const filters = [
   { id: 'my-network', label: 'My Network' },
 ];
 
-export function FeedHeader({ onCreateIdea, activeFilter, onFilterChange }: FeedHeaderProps) {
+export function FeedHeader({ activeFilter, onFilterChange }: FeedHeaderProps) {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -54,7 +53,7 @@ export function FeedHeader({ onCreateIdea, activeFilter, onFilterChange }: FeedH
       </div>
 
       {/* Filter pills */}
-      <div className="flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-2 px-4 pb-3 overflow-x-auto scrollbar-hide">
         {filters.map((filter) => (
           <button
             key={filter.id}
@@ -71,19 +70,6 @@ export function FeedHeader({ onCreateIdea, activeFilter, onFilterChange }: FeedH
             {filter.label}
           </button>
         ))}
-      </div>
-
-      {/* Share idea input */}
-      <div className="px-4 pb-3">
-        <button
-          onClick={onCreateIdea}
-          className="w-full h-12 px-4 bg-gray-50 hover:bg-gray-100 rounded-xl text-left text-gray-400 text-sm flex items-center gap-3 transition-colors border border-gray-200"
-        >
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-            <Plus size={16} className="text-blue-500" />
-          </div>
-          <span>Share an idea for discussion...</span>
-        </button>
       </div>
     </header>
   );

@@ -1,16 +1,18 @@
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Mic, CheckCircle2 } from 'lucide-react';
-import type { Engagement, User } from '../../data/mock-data';
-import { getUserById } from '../../data/mock-data';
+import { CheckCircle2 } from 'lucide-react';
+import type { Engagement } from '../../data/mock-data';
+import { getUserById, getUserEngagement } from '../../data/mock-data';
 import { routes } from '../../config';
 
 interface EngagerListProps {
   engagements: Engagement[];
   filter: 'all' | 'agree' | 'disagree' | 'unsure';
   onFilterChange: (filter: 'all' | 'agree' | 'disagree' | 'unsure') => void;
+  ideaId: string;
+  ideaText: string;
 }
 
-export function EngagerList({ engagements, filter, onFilterChange }: EngagerListProps) {
+export function EngagerList({ engagements, filter, onFilterChange, ideaId, ideaText }: EngagerListProps) {
   const navigate = useNavigate();
 
   const filteredEngagements = engagements.filter((e) => {
@@ -18,12 +20,18 @@ export function EngagerList({ engagements, filter, onFilterChange }: EngagerList
     return e.position === filter;
   });
 
-  const handleVerifyInChat = (userId: string) => {
-    navigate(routes.chat(userId));
-  };
+  const handleVerify = (partnerId: string, partnerPosition: string) => {
+    const currentUserEngagement = getUserEngagement({ id: ideaId, engagements } as any, 'current');
 
-  const handleGoLive = (userId: string) => {
-    navigate(routes.live + `?with=${userId}`);
+    navigate(routes.live, {
+      state: {
+        partnerId,
+        ideaId,
+        ideaText,
+        myPosition: currentUserEngagement?.position || null,
+        theirPosition: partnerPosition,
+      }
+    });
   };
 
   return (
@@ -96,23 +104,13 @@ export function EngagerList({ engagements, filter, onFilterChange }: EngagerList
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={() => handleVerifyInChat(user.id)}
-                  className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <MessageCircle size={14} />
-                  Verify in Chat
-                </button>
-                <button
-                  onClick={() => handleGoLive(user.id)}
-                  className="flex-1 py-2 px-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Mic size={14} />
-                  Go Live
-                </button>
-              </div>
+              {/* Verify button */}
+              <button
+                onClick={() => handleVerify(user.id, engagement.position || '')}
+                className="w-full py-2.5 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors mt-3"
+              >
+                Verify Understanding
+              </button>
             </div>
           );
         })}

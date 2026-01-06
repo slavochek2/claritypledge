@@ -148,6 +148,8 @@ export function IdeaDetail() {
             engagements={idea.engagements}
             filter={engagerFilter}
             onFilterChange={setEngagerFilter}
+            ideaId={idea.id}
+            ideaText={idea.text}
           />
         </div>
 

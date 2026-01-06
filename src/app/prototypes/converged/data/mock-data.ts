@@ -47,6 +47,7 @@ export interface Message {
   text: string;
   timestamp: string;
   isRead: boolean;
+  ideaId?: string; // Optional reference to an idea
 }
 
 export interface Chat {
@@ -201,6 +202,22 @@ export const ideas: Idea[] = [
   },
 ];
 
+// Add current user engagements to existing ideas for testing profile
+ideas.forEach(idea => {
+  if (!idea.engagements.some(e => e.userId === 'current')) {
+    // Add current user's position to test profile
+    const randomPosition: Position = (['agree', 'disagree', 'unsure'] as const)[Math.floor(Math.random() * 3)];
+    idea.engagements.push({
+      id: `e-current-${idea.id}`,
+      ideaId: idea.id,
+      userId: 'current',
+      position: randomPosition,
+      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(), // Random time in last week
+      isVerified: Math.random() > 0.7,
+    });
+  }
+});
+
 // Chats
 export const chats: Chat[] = [
   {
@@ -303,7 +320,7 @@ export function getIdeaStats(idea: Idea): IdeaStats {
     if (e.position === 'disagree') stats.disagree++;
     if (e.position === 'unsure') stats.unsure++;
     if (e.isVerified) stats.verified++;
-    if (e.isCrossDisagreement) stats.crossVerified++;
+    if (e.isCrossDisagreement && e.isVerified) stats.crossVerified++;
   });
 
   return stats;
@@ -407,4 +424,45 @@ export function createIdea(text: string, position: Position): Idea {
 
   ideas.unshift(newIdea); // Add to beginning
   return newIdea;
+}
+
+// Profile helpers for P32.4_05
+export interface EngagedIdea {
+  idea: Idea;
+  position: Position;
+  isVerified: boolean;
+  timestamp: string;
+}
+
+export type ActivityFilter = 'all' | 'agreed' | 'disagreed' | 'verified';
+
+export function getEngagedIdeas(userId: string, filter: ActivityFilter): EngagedIdea[] {
+  const allEngagements: EngagedIdea[] = [];
+
+  ideas.forEach(idea => {
+    const engagement = idea.engagements.find(e => e.userId === userId);
+    if (engagement) {
+      allEngagements.push({
+        idea,
+        position: engagement.position,
+        isVerified: engagement.isVerified,
+        timestamp: engagement.timestamp,
+      });
+    }
+  });
+
+  // Apply filter
+  let filtered = allEngagements;
+  if (filter === 'agreed') filtered = allEngagements.filter(e => e.position === 'agree');
+  if (filter === 'disagreed') filtered = allEngagements.filter(e => e.position === 'disagree');
+  if (filter === 'verified') filtered = allEngagements.filter(e => e.isVerified);
+
+  // Sort by timestamp (most recent first)
+  return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+export function getCurrentUserPosition(ideaId: string): Position | null {
+  const idea = ideas.find(i => i.id === ideaId);
+  const engagement = idea?.engagements.find(e => e.userId === 'current');
+  return engagement?.position || null;
 }
