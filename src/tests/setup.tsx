@@ -42,3 +42,6 @@ Object.defineProperty(window, 'matchMedia', {
 
 // Mock window.scrollTo
 window.scrollTo = vi.fn();
+
+// Mock HTMLElement.prototype.scrollTo for carousel tests
+HTMLElement.prototype.scrollTo = vi.fn();
