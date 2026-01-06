@@ -27,7 +27,7 @@ export interface Profile {
 }
 
 /**
- * Lightweight profile type for list views (champions page, featured profiles)
+ * Lightweight profile type for list views (pledgers page, featured profiles)
  * Does not include sensitive data like email for privacy
  */
 export interface ProfileSummary {

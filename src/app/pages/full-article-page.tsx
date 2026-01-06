@@ -415,14 +415,25 @@ export function FullArticlePage() {
               <div className="mt-16 p-8 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-2 border-blue-200 dark:border-blue-800 rounded-2xl text-center">
                 <h2 className="text-3xl font-bold mb-4">Ready to Join the Movement?</h2>
                 <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Take the Clarity Pledge and become part of a community committed to verified alignment.
+                  Experience verified understanding firsthand, or commit to the pledge.
                 </p>
-                <Link
-                  to="/sign-pledge"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto"
-                >
-                  Take the Clarity Pledge
-                </Link>
+                <div className="flex flex-col items-center gap-3">
+                  <Link
+                    to="/live"
+                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto"
+                  >
+                    Try a Clarity Meeting
+                  </Link>
+                  <p className="text-muted-foreground">
+                    or{" "}
+                    <Link
+                      to="/sign-pledge"
+                      className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
+                    >
+                      Take the Pledge
+                    </Link>
+                  </p>
+                </div>
               </div>
             )}
           </main>

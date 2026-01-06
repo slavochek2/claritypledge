@@ -4,7 +4,6 @@ const routes = [
   { path: '/feed', label: 'Feed', description: 'Browse and vote on ideas' },
   { path: '/chat', label: 'Chat', description: 'Chat interface' },
   { path: '/demo', label: 'Demo', description: 'Original demo page' },
-  { path: '/alternative', label: 'Alternative', description: 'Alternative landing page' },
   { path: '/prototype/premium/feed', label: 'Prototype', description: 'Premium prototype (Apple-style)' },
 ];
 

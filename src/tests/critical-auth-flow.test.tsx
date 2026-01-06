@@ -386,4 +386,3 @@ describe('CRITICAL AUTH FLOW', () => {
     });
   });
 });
-

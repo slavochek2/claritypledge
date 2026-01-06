@@ -113,6 +113,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ├── src/                      # Application source code
 │   ├── app/                  # Main application
 │   │   ├── components/       # Feature components (organized by domain)
+│   │   │   ├── landing/      # Landing page sections
+│   │   │   ├── layout/       # Navigation, footer
+│   │   │   ├── legal/        # Legal content components
+│   │   │   ├── partners/     # Partner-related components
+│   │   │   ├── profile/      # Profile views and certificates
+│   │   │   └── social/       # Social features (pledger cards, signature wall)
 │   │   ├── content/          # App content (articles, copy)
 │   │   ├── data/             # API layer (api.ts)
 │   │   ├── layouts/          # Layout components
@@ -206,7 +212,8 @@ Two main tables with RLS policies:
 - `/sign-pledge` - Pledge signup form
 - `/auth/callback` - **Critical auth handler** (do not modify without understanding Reader-Writer pattern)
 - `/p/:id` - Public profile pages (`:id` is slug, not UUID)
-- `/understanding-champions` - Directory of verified signatories (old `/clarity-champions` redirects here)
+- `/pledgers` - Directory of verified signatories
+  - Redirects: `/clarity-champions` → `/pledgers`, `/understanding-champions` → `/pledgers`
 - `/about` - About page with founder story and contact form
 - `/settings` - User settings (authenticated)
 

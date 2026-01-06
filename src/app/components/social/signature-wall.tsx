@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { getFeaturedProfiles } from "@/app/data/api";
 import type { ProfileSummary } from "@/app/types";
-import { ChampionCard } from "./champion-card";
+import { PledgerCard } from "./pledger-card";
 
 export function SignatureWall() {
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
@@ -52,7 +52,7 @@ export function SignatureWall() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
-            Meet the Clarity Champions
+            Meet the Pledgers
           </h2>
         </div>
 
@@ -106,7 +106,7 @@ export function SignatureWall() {
               }}
             >
               {profiles.map((profile) => (
-                <ChampionCard
+                <PledgerCard
                   key={profile.id}
                   id={profile.id}
                   slug={profile.slug}
@@ -157,7 +157,7 @@ export function SignatureWall() {
             {/* Desktop: Grid layout */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
               {profiles.map((profile) => (
-                <ChampionCard
+                <PledgerCard
                   key={profile.id}
                   id={profile.id}
                   slug={profile.slug}
@@ -183,7 +183,7 @@ export function SignatureWall() {
             size="lg"
             className="text-lg font-semibold"
           >
-            <Link to="/clarity-champions">View All Clarity Champions</Link>
+            <Link to="/pledgers">View All Pledgers</Link>
           </Button>
         </div>
       </div>

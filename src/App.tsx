@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { ClarityChampionsPage } from "@/app/pages/clarity-champions-page";
+import { ClarityPledgersPage } from "@/app/pages/clarity-pledgers-page";
 import { ProfilePage } from "@/app/pages/profile-page";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
 import { AboutPage } from "@/app/pages/about-page";
@@ -19,7 +19,6 @@ import { ClarityChatPage } from "@/app/pages/clarity-chat-page";
 import { IdeaFeedPage } from "@/app/pages/idea-feed-page";
 import { IdeaDetailPage } from "@/app/pages/idea-detail-page";
 import { ClarityLivePage } from "@/app/pages/clarity-live-page";
-import { AlternativeLandingPage } from "@/app/pages/alternative-landing-page";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
 import { PremiumPrototype } from "@/app/prototypes/premium";
 import { TreePage } from "@/app/pages/TreePage";
@@ -101,18 +100,22 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
-          path="/clarity-champions"
+          path="/pledgers"
           element={
             <ClarityLandingLayout>
-              <ClarityChampionsPage />
+              <ClarityPledgersPage />
             </ClarityLandingLayout>
           }
         />
 
-        {/* Redirect old route for backwards compatibility */}
+        {/* Redirect old routes for backwards compatibility */}
+        <Route
+          path="/clarity-champions"
+          element={<Navigate to="/pledgers" replace />}
+        />
         <Route
           path="/understanding-champions"
-          element={<Navigate to="/clarity-champions" replace />}
+          element={<Navigate to="/pledgers" replace />}
         />
 
         <Route
@@ -243,15 +246,6 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* Alternative landing page (tool-first approach) */}
-        <Route
-          path="/alternative"
-          element={
-            <ClarityLandingLayout>
-              <AlternativeLandingPage />
-            </ClarityLandingLayout>
-          }
-        />
 
         {/* Premium Prototype - P32 Overnight */}
         <Route path="/prototype/premium/*" element={<PremiumPrototype />} />

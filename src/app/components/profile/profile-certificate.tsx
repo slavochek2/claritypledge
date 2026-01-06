@@ -132,7 +132,7 @@ export function ProfileCertificate({
           <div className="flex flex-col items-center gap-6 md:hidden">
             {/* Seal - Logo mark as official stamp */}
             <div className="w-20 h-20 rounded-full border-4 border-[#1A1A1A] dark:border-foreground flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg">
-              <ClarityLogoMark size={48} className="text-[#1A1A1A] dark:text-foreground" />
+              <ClarityLogoMark size={72} className="text-[#1A1A1A] dark:text-foreground" />
             </div>
 
             {/* Name and info - centered */}
@@ -241,7 +241,7 @@ export function ProfileCertificate({
 
             {/* Center: Seal - Logo mark as official stamp */}
             <div className="w-20 h-20 rounded-full border-4 border-[#1A1A1A] dark:border-foreground flex items-center justify-center bg-[#FDFBF7] dark:bg-card shadow-lg flex-shrink-0">
-              <ClarityLogoMark size={48} className="text-[#1A1A1A] dark:text-foreground" />
+              <ClarityLogoMark size={72} className="text-[#1A1A1A] dark:text-foreground" />
             </div>
 
             {/* Right: QR Code (export mode) or Date */}

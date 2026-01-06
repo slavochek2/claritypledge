@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
+import { ConsentNotice } from '@/app/components/legal/consent-notice';
 import {
   Dialog,
   DialogContent,
@@ -144,7 +145,7 @@ export function ClarityLivePage() {
     }
   }, []);
 
-  const { isRecording, startRecording, stopRecording, chunkNumber } = useAudioRecorder({
+  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
     onChunkReady: handleChunkReady,
     chunkIntervalMs: 30000, // 30 seconds
   });
@@ -1399,6 +1400,9 @@ export function ClarityLivePage() {
                 {isLoading ? 'Joining...' : 'Join Meeting'}
               </Button>
 
+              {/* Terms & Privacy consent notice (same pattern as sign-pledge-form) */}
+              <ConsentNotice />
+
               <Link
                 to="/live"
                 className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
@@ -1413,7 +1417,6 @@ export function ClarityLivePage() {
 
     // P25: Differentiate logged-in vs guest experience
     const isLoggedIn = !!user;
-    const firstName = user?.name?.split(' ')[0] || 'there';
 
     // Handle login click for guests
     const handleLoginClick = () => {
@@ -1437,16 +1440,16 @@ export function ClarityLivePage() {
 
     return (
       <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
+        <LiveSessionBanner title="" isLiveMeeting={false} />
         <div className="flex-1 container mx-auto px-4 py-8 md:py-12 max-w-md md:max-w-2xl">
           <div className="space-y-6">
-            {/* P25: Header - personalized greeting for logged-in, value prop for guests */}
+            {/* Page title - always shows "Clarity Meeting" */}
             <div className="text-center space-y-1">
               <h1 className="text-2xl font-semibold">
-                {isLoggedIn ? `Welcome back, ${firstName}!` : 'Practice Clarity Together'}
+                Clarity Meeting
               </h1>
               <p className="text-muted-foreground">
-                {isLoggedIn ? 'Start or join a clarity meeting' : 'Check understanding in real-time'}
+                Verify understanding in real-time
               </p>
             </div>
 
@@ -1543,6 +1546,7 @@ export function ClarityLivePage() {
                 );
               })()}
                 </div>
+
               </div>
             </div>
 
@@ -1557,6 +1561,11 @@ export function ClarityLivePage() {
                 </button>
               </div>
             )}
+
+            {/* P34.2: Terms & Privacy consent notice - moved below login */}
+            <div className="pt-4">
+              <ConsentNotice />
+            </div>
           </div>
         </div>
       </div>

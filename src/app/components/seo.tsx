@@ -131,7 +131,7 @@ export function SEO({
         "@type": "SearchAction",
         target: {
           "@type": "EntryPoint",
-          urlTemplate: `${BASE_URL}/clarity-champions?search={search_term_string}`,
+          urlTemplate: `${BASE_URL}/pledgers?search={search_term_string}`,
         },
         "query-input": "required name=search_term_string",
       },

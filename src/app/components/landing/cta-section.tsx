@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { DualCTA } from "./dual-cta";
 
 export function CTASection() {
   return (
@@ -6,7 +6,7 @@ export function CTASection() {
       <div className="container mx-auto max-w-5xl text-center">
         {/* Headline */}
         <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-8">
-          We all crave being understood<br className="hidden sm:block" />
+          We all crave being understood.<br className="hidden sm:block" />
           <span className="text-blue-500"> Let's commit to listen.</span>
         </h2>
 
@@ -17,23 +17,7 @@ export function CTASection() {
         </p>
 
         {/* CTA - Primary + Secondary */}
-        <div className="flex flex-col items-center gap-3">
-          <Link
-            to="/sign-pledge"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-xl px-12 py-8 h-auto"
-          >
-            Take the Clarity Pledge
-          </Link>
-          <p className="text-muted-foreground">
-            or{" "}
-            <Link
-              to="/live"
-              className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
-            >
-              Try a Clarity Meeting
-            </Link>
-          </p>
-        </div>
+        <DualCTA />
       </div>
     </section>
   );

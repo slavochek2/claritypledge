@@ -140,15 +140,29 @@ Certificate download failed.
 
 ## Social Features
 
-### `champions_page_viewed`
-User views the Understanding Champions page.
+### `pledgers_page_viewed`
+User views the Clarity Pledgers page (formerly Understanding Champions).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pledger_count` | number | Total number of pledgers loaded |
+
+### `pledger_card_clicked`
+User clicked on a pledger's card to view their profile.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `pledger_slug` | string | Slug of clicked pledger |
+
+### `champions_page_viewed` (DEPRECATED)
+**Deprecated:** Replaced by `pledgers_page_viewed`. Route now redirects `/clarity-champions` → `/pledgers`.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `verified_count` | number | Number of verified champions displayed |
 
-### `champion_card_clicked`
-User clicked on a champion's card.
+### `champion_card_clicked` (DEPRECATED)
+**Deprecated:** Replaced by `pledger_card_clicked`.
 
 | Property | Type | Description |
 |----------|------|-------------|

@@ -22,12 +22,12 @@ export function SignPledgePage() {
   const [socialProofLoaded, setSocialProofLoaded] = useState(false);
   const hasTrackedPageView = useRef(false);
 
-  // Track page view once social proof is loaded (to include champion_count)
+  // Track page view once social proof is loaded (to include pledger_count)
   useEffect(() => {
     if (socialProofLoaded && !hasTrackedPageView.current) {
       hasTrackedPageView.current = true;
       analytics.track('sign_pledge_page_viewed', {
-        champion_count: totalCount,
+        pledger_count: totalCount,
       });
     }
   }, [socialProofLoaded, totalCount]);
@@ -104,7 +104,7 @@ export function SignPledgePage() {
         ) : totalCount > 0 && champions.length > 0 ? (
           <div className="flex flex-col items-center gap-3 mb-4 animate-in fade-in duration-300">
             {/* Mobile: Show limited avatars */}
-            <div className="flex items-center -space-x-2 sm:hidden" role="group" aria-label="Recent understanding champions">
+            <div className="flex items-center -space-x-2 sm:hidden" role="group" aria-label="Recent pledgers">
               {champions.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
@@ -121,14 +121,14 @@ export function SignPledgePage() {
               {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
                 <div
                   className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
-                  aria-label={`${totalCount - AVATAR_ROW_LIMIT_MOBILE} more champions`}
+                  aria-label={`${totalCount - AVATAR_ROW_LIMIT_MOBILE} more pledgers`}
                 >
                   +{totalCount - AVATAR_ROW_LIMIT_MOBILE}
                 </div>
               )}
             </div>
             {/* Desktop: Show more avatars */}
-            <div className="hidden sm:flex items-center -space-x-2" role="group" aria-label="Recent understanding champions">
+            <div className="hidden sm:flex items-center -space-x-2" role="group" aria-label="Recent pledgers">
               {champions.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
@@ -145,14 +145,14 @@ export function SignPledgePage() {
               {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
                 <div
                   className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600"
-                  aria-label={`${totalCount - AVATAR_ROW_LIMIT_DESKTOP} more champions`}
+                  aria-label={`${totalCount - AVATAR_ROW_LIMIT_DESKTOP} more pledgers`}
                 >
                   +{totalCount - AVATAR_ROW_LIMIT_DESKTOP}
                 </div>
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Join {totalCount} understanding champion{totalCount !== 1 ? 's' : ''} who've taken the pledge
+              Join {totalCount} pledger{totalCount !== 1 ? 's' : ''} who've taken the pledge
             </p>
           </div>
         ) : null}

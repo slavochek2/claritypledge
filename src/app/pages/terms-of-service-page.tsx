@@ -5,6 +5,7 @@
  */
 import { Link } from "react-router-dom";
 import { ScrollTextIcon } from "lucide-react";
+import { COPY } from "@/app/content/copy";
 
 export function TermsOfServicePage() {
   return (
@@ -17,7 +18,7 @@ export function TermsOfServicePage() {
           </div>
           <h1 className="text-4xl font-bold">Terms of Service</h1>
           <p className="text-muted-foreground">
-            Last updated: December 2025
+            Last updated: {COPY.LEGAL_LAST_UPDATED}
           </p>
         </div>
 
@@ -26,7 +27,7 @@ export function TermsOfServicePage() {
           <section>
             <h2 className="text-2xl font-bold mb-4">Welcome to The Clarity Pledge</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By signing The Clarity Pledge or using our website, you agree to these terms.
+              By signing The Clarity Pledge, joining a Live Meeting, or using our website, you agree to these terms.
               Please read them carefully. If you don't agree with these terms, please don't
               use our service.
             </p>
@@ -38,7 +39,45 @@ export function TermsOfServicePage() {
               The Clarity Pledge is a public commitment platform where professionals pledge
               to communicate clearly, honestly, and without unnecessary jargon. When you sign,
               you receive a public profile page and a shareable certificate that demonstrates
-              your commitment.
+              your commitment. You can also participate in Live Meetings to practice clear
+              communication in real-time.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Live Meetings (Clarity Sessions)</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              Live Meetings are real-time understanding exercises between two participants.
+              By starting or joining a Live Meeting, you agree that:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li>Your voice will be <strong className="text-foreground">recorded</strong> during understanding exercises</li>
+              <li>Session content (ideas, paraphrases, ratings) will be <strong className="text-foreground">stored</strong></li>
+              <li>Recordings may be used to <strong className="text-foreground">improve our AI/ML services</strong></li>
+              <li>Other participants can see your <strong className="text-foreground">display name</strong> and hear your voice</li>
+              <li>Sessions are <strong className="text-foreground">not end-to-end encrypted</strong></li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              You are responsible for obtaining consent from anyone whose voice may be captured
+              in your environment.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-bold mb-4">AI & Machine Learning</h2>
+            <p className="text-muted-foreground leading-relaxed mb-4">
+              By using The Clarity Pledge platform, you grant us a non-exclusive, worldwide,
+              royalty-free license to use your anonymized interactions (including audio recordings,
+              session content, and usage patterns) to:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li>Train and improve our AI/ML models</li>
+              <li>Develop new features for understanding verification</li>
+              <li>Conduct research on communication clarity</li>
+            </ul>
+            <p className="text-muted-foreground leading-relaxed mt-4">
+              This license survives account deletion for data already incorporated into models,
+              though we will delete your identifiable data upon request.
             </p>
           </section>
 
@@ -62,7 +101,7 @@ export function TermsOfServicePage() {
             </p>
             <ul className="list-disc list-inside space-y-2 text-muted-foreground mt-4">
               <li>Your name, role, and reason for signing will be <strong className="text-foreground">publicly visible</strong></li>
-              <li>Your profile may appear in our <strong className="text-foreground">Champions directory</strong></li>
+              <li>Your profile may appear in our <strong className="text-foreground">Pledgers directory</strong></li>
               <li>Others can <strong className="text-foreground">endorse</strong> your commitment as witnesses</li>
               <li>Your profile URL can be <strong className="text-foreground">shared</strong> on social media and professional networks</li>
             </ul>
@@ -105,7 +144,9 @@ export function TermsOfServicePage() {
             <p className="text-muted-foreground leading-relaxed">
               The Clarity Pledge name, logo, and website design are our property. Your profile
               content (name, role, reason) remains yours. By posting content, you grant us a
-              license to display it publicly as part of the platform.
+              license to display it publicly as part of the platform. Audio recordings and
+              session content you create are licensed to us for service improvement as described
+              in the AI & Machine Learning section above.
             </p>
           </section>
 

@@ -13,6 +13,7 @@ import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { ClarityTaxSection } from "@/app/components/landing/clarity-tax-section";
+import { UserJourneySection } from "@/app/components/landing/user-journey-section";
 import { HowItWorks } from "@/app/components/landing/how-it-works";
 import { BenefitsSection } from "@/app/components/landing/benefits-section";
 import { TargetAudience } from "@/app/components/landing/target-audience";
@@ -88,8 +89,13 @@ export function ClarityPledgeLanding() {
         <ClarityTaxSection />
       </div>
 
-      {/* 2. Founder's Certificate */}
+      {/* 2. User Journey (3-step progression) */}
       <div data-section-index="1" className={getSectionClassName(1)}>
+        <UserJourneySection />
+      </div>
+
+      {/* 3. Founder's Certificate */}
+      <div data-section-index="2" className={getSectionClassName(2)}>
         <section className="py-16 md:py-24 bg-background">
           <div className="container mx-auto max-w-4xl px-4">
             <div className="text-center mb-12">
@@ -114,33 +120,33 @@ export function ClarityPledgeLanding() {
         </section>
       </div>
 
-      {/* How It Works */}
-      <div data-section-index="2" className={getSectionClassName(2)}>
+      {/* 4. How It Works */}
+      <div data-section-index="3" className={getSectionClassName(3)}>
         <HowItWorks />
       </div>
 
-      {/* Benefits */}
-      <div data-section-index="3" className={getSectionClassName(3)}>
+      {/* 5. Benefits */}
+      <div data-section-index="4" className={getSectionClassName(4)}>
         <BenefitsSection />
       </div>
 
-      {/* Target Audience */}
-      <div data-section-index="4" className={getSectionClassName(4)}>
+      {/* 6. Target Audience */}
+      <div data-section-index="5" className={getSectionClassName(5)}>
         <TargetAudience />
       </div>
 
-      {/* Signature Wall */}
-      <div data-section-index="5" className={getSectionClassName(5)}>
+      {/* 7. Signature Wall */}
+      <div data-section-index="6" className={getSectionClassName(6)}>
         <SignatureWall />
       </div>
 
-      {/* Final CTA */}
-      <div data-section-index="6" className={getSectionClassName(6)}>
+      {/* 8. Final CTA */}
+      <div data-section-index="7" className={getSectionClassName(7)}>
         <CTASection />
       </div>
 
-      {/* FAQ */}
-      <div data-section-index="7" className={getSectionClassName(7)}>
+      {/* 9. FAQ */}
+      <div data-section-index="8" className={getSectionClassName(8)}>
         <FAQSection />
       </div>
 

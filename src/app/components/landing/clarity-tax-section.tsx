@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, AVATAR_ROW_LIMIT_DESKTOP } from "@/app/data/api";
 import type { ProfileSummary } from "@/app/types";
 import { getInitials } from "@/lib/utils";
+import { DualCTA } from "./dual-cta";
+import { CheckCircle } from "lucide-react";
 
 export function ClarityTaxSection() {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -53,33 +55,17 @@ export function ClarityTaxSection() {
 
             {/* Sub-headline - Consequence */}
             <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              A public promise to stop sacrificing truth for the sake of comfort.
+              Stop sacrificing truth for the sake of comfort.
             </p>
           </div>
 
           {/* CTA - Primary + Secondary */}
-          <div className="flex flex-col items-center justify-center pt-4 gap-3">
-            <Link
-              to="/sign-pledge"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-base sm:text-lg px-8 py-4 sm:px-10 sm:py-6 h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all"
-            >
-              Take the Clarity Pledge
-            </Link>
-            <p className="text-muted-foreground">
-              or{" "}
-              <Link
-                to="/live"
-                className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
-              >
-                Try a Clarity Meeting
-              </Link>
-            </p>
-          </div>
+          <DualCTA size="hero" className="pt-4" />
 
           {/* Social Proof - Compact Avatar Stack */}
           {totalCount > 0 && profiles.length > 0 && (
             <Link
-              to="/clarity-champions"
+              to="/pledgers"
               className="flex flex-col items-center gap-2 group pt-2"
             >
               {/* Mobile: Show limited avatars */}
@@ -123,47 +109,17 @@ export function ClarityTaxSection() {
           {/* Trust Signal */}
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
             <span className="inline-flex items-center gap-1">
-              <svg
-                className="w-4 h-4 text-blue-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <CheckCircle className="w-4 h-4 text-blue-500" />
               Join the movement
             </span>
             <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
-              <svg
-                className="w-4 h-4 text-blue-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <CheckCircle className="w-4 h-4 text-blue-500" />
               Free
             </span>
             <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
-              <svg
-                className="w-4 h-4 text-blue-500"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <CheckCircle className="w-4 h-4 text-blue-500" />
               Less than 30 seconds
             </span>
           </p>

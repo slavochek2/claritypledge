@@ -85,17 +85,17 @@ export function SimpleNavigation() {
           <div className="hidden lg:flex items-center gap-3">
             {/* Secondary CTA */}
             <Link
-              to="/live"
+              to="/sign-pledge"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent font-medium"
             >
-              Try Meeting
+              Take the Pledge
             </Link>
             {/* Primary CTA */}
             <Link
-              to="/sign-pledge"
+              to="/live"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
             >
-              Take the Pledge
+              Try a Clarity Meeting
             </Link>
             {/* Hamburger Menu */}
             <DropdownMenu modal={false}>
@@ -118,6 +118,13 @@ export function SimpleNavigation() {
                 ))}
                 <DropdownMenuSeparator />
                 {/* Auth Actions */}
+                {showPublicCTAs && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/login" className="cursor-pointer">
+                      Log In
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 {showUserMenu && (
                   <>
                     <DropdownMenuItem asChild>
@@ -145,13 +152,6 @@ export function SimpleNavigation() {
                     </DropdownMenuItem>
                   </>
                 )}
-                {showPublicCTAs && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/login" className="cursor-pointer">
-                      Log In
-                    </Link>
-                  </DropdownMenuItem>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -176,26 +176,37 @@ export function SimpleNavigation() {
         {isMobileMenuOpen && (
           <div
             id={MOBILE_MENU_ID}
-            className="lg:hidden py-4 border-t border-border bg-background"
+            className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
               {/* CTAs first - Primary then Secondary */}
               <Link
-                to="/sign-pledge"
+                to="/live"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                onClick={closeMobileMenu}
+              >
+                Try a Clarity Meeting
+              </Link>
+              <Link
+                to="/sign-pledge"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
                 onClick={closeMobileMenu}
               >
                 Take the Pledge
               </Link>
-              <Link
-                to="/live"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
-                onClick={closeMobileMenu}
-              >
-                Try Meeting
-              </Link>
 
               <div className="border-t border-border my-2"></div>
+
+              {/* Auth Actions - Log In higher for visibility */}
+              {showPublicCTAs && (
+                <Link
+                  to="/login"
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Log In
+                </Link>
+              )}
 
               {/* Navigation Links */}
               {NAV_LINKS.map((link) => (
@@ -209,11 +220,10 @@ export function SimpleNavigation() {
                 </Link>
               ))}
 
-              <div className="border-t border-border my-2"></div>
-
-              {/* Auth Actions */}
+              {/* Auth Actions - User menu at bottom */}
               {showUserMenu && (
                 <>
+                  <div className="border-t border-border my-2"></div>
                   <Link
                     to={`/p/${currentUser.slug}`}
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -238,15 +248,6 @@ export function SimpleNavigation() {
                     Log Out
                   </button>
                 </>
-              )}
-              {showPublicCTAs && (
-                <Link
-                  to="/login"
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  Log In
-                </Link>
               )}
             </div>
           </div>

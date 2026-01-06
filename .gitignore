@@ -29,9 +29,21 @@ lerna-debug.log*
 # Personal/local files
 .local/
 
+# Feature planning work-in-progress files
+features/_personal/
+features/learning-plan.md
+features/p*.md
+
+# Design inspiration and mockup screenshots
+docs/inspiration/
+
 # Playwright test artifacts
 test-results/
 playwright-report/
+
+# Playwright MCP server state (auto-generated)
+.playwright-mcp/
+**/.playwright-mcp/
 
 
 .vercel

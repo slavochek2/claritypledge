@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { GithubIcon } from "lucide-react";
 import { NAV_LINKS } from "./nav-links";
 
 export function ClarityFooter() {
@@ -42,10 +43,19 @@ export function ClarityFooter() {
           </div>
         </div>
 
-        {/* Copyright */}
-        <div className="text-center pt-8 border-t border-border">
+        {/* Copyright + GitHub */}
+        <div className="flex flex-col items-center gap-4 pt-8 border-t border-border">
+          <a
+            href="https://github.com/slavochek2/claritypledge"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <GithubIcon className="w-4 h-4" />
+            Open Source (AGPL-3.0)
+          </a>
           <p className="text-sm text-muted-foreground">
-            © 2025 The Understanding Project.
+            © {new Date().getFullYear()} The Clarity Pledge
           </p>
         </div>
       </div>

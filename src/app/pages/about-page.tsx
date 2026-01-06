@@ -149,13 +149,12 @@ export function AboutPage() {
                 </div>
               </div>
               <div>
-                <h2 className="text-xl font-bold mb-3">Built in the Open</h2>
+                <h2 className="text-xl font-bold mb-3">Build With Us</h2>
                 <p className="text-muted-foreground mb-4">
-                  This project is open source under the AGPL-3.0 license. Transparency is part of the pledge.
+                  This project is open source (AGPL-3.0). Transparency is part of the pledge.
                 </p>
                 <p className="text-muted-foreground mb-4">
-                  <span className="font-medium text-foreground">Want to contribute?</span>{" "}
-                  Check out the code, open issues, or submit PRs—we'd love your help making clear communication the norm.
+                  We're looking for collaborators: developers, designers, researchers, or anyone passionate about clear communication. Share ideas, report issues, contribute code, or just tell us what you think.
                 </p>
                 <a
                   href="https://github.com/slavochek2/claritypledge"

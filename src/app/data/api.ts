@@ -235,7 +235,7 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
 
 /**
  * Gets the count of verified profiles.
- * Used for social proof display (e.g., "Join 47 champions who've taken the pledge").
+ * Used for social proof display (e.g., "Join 47 pledgers who've taken the pledge").
  * @returns The count of verified profiles.
  */
 export async function getVerifiedProfileCount(): Promise<number> {
@@ -259,7 +259,7 @@ export async function getVerifiedProfileCount(): Promise<number> {
 
 /**
  * Fetches all profiles that have been marked as verified.
- * This is used to populate the "Understanding Champions" page, showcasing all users who have completed the pledge process.
+ * This is used to populate the "Pledgers" page, showcasing all users who have completed the pledge process.
  * The function also fetches and attaches all witnesses for each profile.
  * Profiles with reasons are shown first, then those without.
  * @returns A promise that resolves to an array of verified profile objects.
@@ -427,7 +427,7 @@ export async function signOut() {
 
 /**
  * Maps a partial database profile (without email/witnesses) to ProfileSummary.
- * Used for list views like featured profiles and champions page.
+ * Used for list views like featured profiles and pledgers page.
  */
 function mapProfileSummaryFromDb(
   dbProfile: DbProfileSummary,

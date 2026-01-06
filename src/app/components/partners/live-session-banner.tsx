@@ -13,6 +13,7 @@ import { getFirstName } from './shared';
 import { useSoundEnabled } from '@/hooks/use-sound';
 import { useAuth } from '@/auth';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { ClarityLogo } from '@/components/ui/clarity-logo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,10 +45,8 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
   return (
     <div className="h-16 border-b bg-background flex items-center justify-between px-4">
       {/* Left: Logo */}
-      <Link to="/" className="flex items-center gap-2 shrink-0">
-        <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
-          <span className="text-background font-bold text-lg">C</span>
-        </div>
+      <Link to="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+        <ClarityLogo size="sm" />
       </Link>
 
       {/* Center: Meeting title */}
