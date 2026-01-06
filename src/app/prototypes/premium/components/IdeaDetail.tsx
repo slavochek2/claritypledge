@@ -235,7 +235,13 @@ export function IdeaDetail() {
           )}
 
           <button
-            onClick={() => navigate(routes.live, { state: { ideaId: idea.id } })}
+            onClick={() => navigate(routes.live, {
+              state: {
+                partnerId: author?.id,
+                ideaId: idea.id,
+                ideaText: idea.text,
+              }
+            })}
             className="w-full mt-4 py-3 min-h-[44px] bg-[#007AFF] text-white rounded-full font-semibold text-[15px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
           >
             Verify Understanding

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { type Position, createIdea } from '../data/mock-data';
 
@@ -36,6 +36,19 @@ export function CreateIdeaModal({
     }
   }, [isOpen, prefillText, defaultPosition]);
 
+  const charCount = text.length;
+  const isOverLimit = charCount > MAX_CHARS;
+  const isEmpty = text.trim().length === 0;
+  const isValid = !isEmpty && !isOverLimit;
+
+  const handleCloseAttempt = useCallback(() => {
+    if (text.trim().length > 10) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  }, [text, onClose]);
+
   // Handle Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -45,20 +58,7 @@ export function CreateIdeaModal({
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen, text]);
-
-  const charCount = text.length;
-  const isOverLimit = charCount > MAX_CHARS;
-  const isEmpty = text.trim().length === 0;
-  const isValid = !isEmpty && !isOverLimit;
-
-  const handleCloseAttempt = () => {
-    if (text.trim().length > 10) {
-      setShowDiscardConfirm(true);
-    } else {
-      onClose();
-    }
-  };
+  }, [isOpen, handleCloseAttempt]);
 
   const handleConfirmDiscard = () => {
     setShowDiscardConfirm(false);

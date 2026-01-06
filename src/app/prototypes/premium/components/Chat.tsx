@@ -47,6 +47,27 @@ export function Chat() {
     }
   };
 
+  // Navigate to Live session for message verification
+  const handleVerifyMessage = (message: Message, isOwn: boolean) => {
+    navigate(routes.live, {
+      state: {
+        partnerId: otherUser.id,
+        messageId: message.id,
+        messageText: message.text,
+        convertToIdea: true,
+      }
+    });
+  };
+
+  // Navigate to Live session from "Go Live" button
+  const handleGoLive = () => {
+    navigate(routes.live, {
+      state: {
+        partnerId: otherUser.id,
+      }
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
       {/* Header */}
@@ -62,7 +83,7 @@ export function Chat() {
             </div>
           </div>
           <button
-            onClick={() => navigate(routes.live)}
+            onClick={handleGoLive}
             aria-label="Start a live verification session"
             className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] bg-[#007AFF] text-white rounded-full text-[13px] font-medium transition-all hover:bg-[#0066DD] active:scale-95"
           >

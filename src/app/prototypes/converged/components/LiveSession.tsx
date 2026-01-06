@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Mic, MicOff, Play, Square, Star, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Play, Square, Star, CheckCircle, Plus } from 'lucide-react';
 import { getUserById, users } from '../data/mock-data';
 import { routes } from '../config';
 import { BottomNav } from './BottomNav';
+import { CreateIdeaModal } from './CreateIdeaModal';
 
 type Phase = 'select-partner' | 'select-role' | 'speaking' | 'playback' | 'rating' | 'result';
 type Role = 'speaker' | 'listener';
@@ -20,6 +21,7 @@ export function LiveSession() {
   const [speakingTime, setSpeakingTime] = useState(0);
   const [confidenceRating, setConfidenceRating] = useState(7);
   const [accuracyRating, setAccuracyRating] = useState(7);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const partner = getUserById(selectedPartner || '');
   const availablePartners = users.filter(u => u.id !== 'current');
@@ -349,6 +351,25 @@ export function LiveSession() {
       {phase === 'playback' && renderPlayback()}
       {phase === 'rating' && renderRating()}
       {phase === 'result' && renderResult()}
+
+      {/* FAB: + New Idea */}
+      <button
+        onClick={() => setShowCreateModal(true)}
+        className="fixed bottom-24 right-4 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 transition-colors z-10"
+        aria-label="Create new idea"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Create Idea Modal */}
+      <CreateIdeaModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onIdeaCreated={(ideaId) => {
+          console.log('Idea created during session:', ideaId);
+          setShowCreateModal(false);
+        }}
+      />
 
       <BottomNav />
     </div>

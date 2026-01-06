@@ -40,6 +40,15 @@ export function Live() {
     setPhase('result');
   };
 
+  const handleDone = () => {
+    // If user somehow deep-linked to LiveSession (no history)
+    if (window.history.length <= 1) {
+      navigate(routes.feed); // Fallback to feed
+    } else {
+      navigate(-1); // Standard back navigation
+    }
+  };
+
   const renderSetup = () => (
     <div className="flex flex-col items-center justify-center flex-1 px-6">
       {/* Idea Card */}
@@ -274,10 +283,10 @@ export function Live() {
           Verify Another Idea
         </button>
         <button
-          onClick={() => navigate(routes.feed)}
+          onClick={handleDone}
           className="w-full py-4 min-h-[44px] bg-white text-gray-900 rounded-2xl font-semibold text-[17px] border border-gray-200 transition-all hover:bg-gray-50 active:scale-[0.98]"
         >
-          Back to Ideas
+          Done
         </button>
       </div>
     </div>
