@@ -116,7 +116,7 @@ test.describe('Live Page Auth State', () => {
     await page.goto('/live');
 
     // Wait for content to load
-    await expect(page.getByText('Practice Clarity Together')).toBeVisible();
+    await expect(page.getByText('Clarity Meeting')).toBeVisible();
 
     // Name input should be visible for guests
     const nameInput = page.locator('input[placeholder="Enter your name"]');
@@ -138,7 +138,7 @@ test.describe('Live Page Auth State', () => {
     await page.goto('/live');
 
     // Wait for content to load
-    await expect(page.getByText('Practice Clarity Together')).toBeVisible();
+    await expect(page.getByText('Clarity Meeting')).toBeVisible();
 
     // Get elements
     const nameInput = page.locator('input[placeholder="Enter your name"]');
