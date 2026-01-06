@@ -4,7 +4,9 @@ const routes = [
   { path: '/feed', label: 'Feed', description: 'Browse and vote on ideas' },
   { path: '/chat', label: 'Chat', description: 'Chat interface' },
   { path: '/demo', label: 'Demo', description: 'Original demo page' },
-  { path: '/prototype/premium/feed', label: 'Prototype', description: 'Premium prototype (Apple-style)' },
+  { path: '/alternative', label: 'Alternative', description: 'Alternative landing page' },
+  { path: '/prototype/premium/feed', label: 'Premium Prototype', description: 'Premium prototype (Apple-style)' },
+  { path: '/prototype/converged/feed', label: 'Converged Prototype', description: 'Converged prototype (P32.3)' },
   { path: '/prototype/converged/profile', label: 'Converged Profile', description: 'P32.3 converged prototype - Profile view' },
 ];
 

@@ -1,22 +1,21 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Settings, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
-import { getUserById, getUserEngagements, currentUser, positionChanges, getIdeaById, formatTimeAgo } from '../data/mock-data';
+import { getUserById, currentUser, positionChanges, getIdeaById, formatTimeAgo, getEngagedIdeas, getCurrentUserPosition, type ActivityFilter } from '../data/mock-data';
 import { routes } from '../config';
 import { BottomNav } from './BottomNav';
-
-type ActivityFilter = 'all' | 'agreed' | 'disagreed' | 'verified';
+import { EmptyState } from './EmptyState';
+import { ProfileIdeaCard } from './ProfileIdeaCard';
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
+  const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
   const [showPositionChanges, setShowPositionChanges] = useState(false);
 
   // If no id param, show current user's profile
   const isOwnProfile = !id || id === 'current';
   const user = isOwnProfile ? currentUser : getUserById(id);
-  const engagements = getUserEngagements(user?.id || '');
 
   if (!user) {
     return (
@@ -34,21 +33,7 @@ export function Profile() {
     );
   }
 
-  // Filter engagements
-  const filteredEngagements = engagements.filter(({ engagement }) => {
-    if (activityFilter === 'all') return true;
-    if (activityFilter === 'agreed') return engagement.position === 'agree';
-    if (activityFilter === 'disagreed') return engagement.position === 'disagree';
-    if (activityFilter === 'verified') return engagement.isVerified;
-    return true;
-  });
-
-  const formatPosition = (pos: string | null | undefined) => {
-    if (pos === 'agree') return 'Agreed with';
-    if (pos === 'disagree') return 'Disagreed with';
-    if (pos === 'unsure') return 'Unsure about';
-    return '';
-  };
+  const engagedIdeas = getEngagedIdeas(user.id, activeFilter);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -113,29 +98,29 @@ export function Profile() {
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-gray-900">
-              {engagements.filter(e => e.engagement.isVerified).length}
+              {getEngagedIdeas(user.id, 'verified').length}
             </p>
             <p className="text-xs text-gray-500">Verified</p>
           </div>
         </div>
       </div>
 
-      {/* Activity section */}
-      <div className="px-4 py-4">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          Activity
-        </h3>
+      {/* Activity Section */}
+      <div className="px-4 py-6">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+          {isOwnProfile ? 'Your Intellectual Journey' : `${user.name.split(' ')[0]}'s Journey`}
+        </h2>
 
         {/* Filter tabs */}
         <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
           {(['all', 'agreed', 'disagreed', 'verified'] as const).map((filter) => (
             <button
               key={filter}
-              onClick={() => setActivityFilter(filter)}
+              onClick={() => setActiveFilter(filter)}
               className={`
                 px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap
                 transition-colors min-h-[32px]
-                ${activityFilter === filter
+                ${activeFilter === filter
                   ? 'bg-gray-900 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }
@@ -146,47 +131,24 @@ export function Profile() {
           ))}
         </div>
 
-        {/* Activity list */}
-        <div className="space-y-2">
-          {filteredEngagements.map(({ idea, engagement }) => (
-            <button
-              key={engagement.id}
-              onClick={() => navigate(routes.idea(idea.id))}
-              className="w-full p-4 bg-white rounded-xl text-left hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`
-                    px-2 py-0.5 rounded text-xs font-medium
-                    ${engagement.position === 'agree'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : engagement.position === 'disagree'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-gray-100 text-gray-700'
-                    }
-                  `}
-                >
-                  {formatPosition(engagement.position)}
-                </span>
-                {engagement.isVerified && (
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
-                    Verified
-                  </span>
-                )}
-              </div>
-              <p className="text-gray-900 mt-2 line-clamp-2">{idea.text}</p>
-              <p className="text-xs text-gray-400 mt-2">
-                {formatTimeAgo(engagement.timestamp)}
-              </p>
-            </button>
-          ))}
-
-          {filteredEngagements.length === 0 && (
-            <p className="text-center text-gray-400 py-8">
-              No activity matching this filter
-            </p>
-          )}
-        </div>
+        {/* Engaged Idea Cards */}
+        {engagedIdeas.length === 0 ? (
+          <EmptyState filter={activeFilter} isOwnProfile={isOwnProfile} />
+        ) : (
+          <div className="space-y-4">
+            {engagedIdeas.map(item => (
+              <ProfileIdeaCard
+                key={item.idea.id}
+                idea={item.idea}
+                userPosition={item.position}
+                otherUserPosition={isOwnProfile ? null : getCurrentUserPosition(item.idea.id)}
+                isVerified={item.isVerified}
+                isOwnProfile={isOwnProfile}
+                userName={user.name}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Position Change Log (expandable) */}

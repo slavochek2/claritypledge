@@ -1,8 +1,140 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Mic, Send, Lightbulb } from 'lucide-react';
+import { ArrowLeft, Mic, Send, Lightbulb, Plus } from 'lucide-react';
 import { getChatWithUser, getUserById, getIdeaById, formatTimeAgo, type Message } from '../data/mock-data';
 import { routes } from '../config';
+import { MessageContextMenu } from './MessageContextMenu';
+import { InsertIdeaMenu } from './InsertIdeaMenu';
+import { MyIdeasPicker } from './MyIdeasPicker';
+import { CreateIdeaModal } from './CreateIdeaModal';
+
+// ChatMessage component with verification buttons
+interface ChatMessageProps {
+  message: Message;
+  isOwn: boolean;
+  otherUserId: string;
+}
+
+function ChatMessage({ message, isOwn, otherUserId }: ChatMessageProps) {
+  const navigate = useNavigate();
+  const [showVerifyButton, setShowVerifyButton] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [showFirstTimeTooltip, setShowFirstTimeTooltip] = useState(false);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Check if this is user's first time (localStorage)
+  useEffect(() => {
+    const hasSeenHint = localStorage.getItem('hasSeenMessageVerifyHint');
+    if (!hasSeenHint) {
+      setShowFirstTimeTooltip(true);
+      setTimeout(() => {
+        setShowFirstTimeTooltip(false);
+        localStorage.setItem('hasSeenMessageVerifyHint', 'true');
+      }, 3000);
+    }
+  }, []);
+
+  const handleVerify = () => {
+    // Navigate to /live with message context
+    navigate(routes.live + `?with=${otherUserId}`, {
+      state: {
+        partnerId: otherUserId,
+        messageId: message.id,
+        messageText: message.text,
+        convertToIdea: true,
+      }
+    });
+  };
+
+  // Long-press handlers (300ms)
+  const handleTouchStart = () => {
+    longPressTimer.current = setTimeout(() => {
+      // Haptic feedback (if supported)
+      if (navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+      setShowContextMenu(true);
+    }, 300); // iOS standard timing
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+  };
+
+  return (
+    <div
+      className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+      onMouseEnter={() => setShowVerifyButton(true)}
+      onMouseLeave={() => setShowVerifyButton(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setShowContextMenu(true);
+      }}
+    >
+      <div className="flex flex-col gap-1 max-w-[80%]">
+        {/* Message bubble */}
+        <div
+          className={`
+            rounded-lg px-3 py-2 shadow-sm
+            ${isOwn
+              ? 'bg-[#dcf8c6] rounded-br-none'
+              : 'bg-white rounded-bl-none'
+            }
+          `}
+        >
+          <p className="text-[15px] text-gray-800 leading-relaxed">
+            {message.text}
+          </p>
+          <div className="flex items-center justify-end gap-1 mt-1">
+            <span className="text-[10px] text-gray-500">
+              {formatTimeAgo(message.timestamp)}
+            </span>
+            {isOwn && (
+              <span className="text-blue-500 text-xs">
+                {message.isRead ? '✓✓' : '✓'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Verification button (desktop hover) */}
+        {showVerifyButton && (
+          <div className="relative">
+            <button
+              onClick={handleVerify}
+              className="text-xs text-blue-600 hover:underline self-start px-2"
+            >
+              {isOwn ? 'Did you understand me?' : 'Did I understand you?'}
+            </button>
+
+            {/* First-time tooltip */}
+            {showFirstTimeTooltip && (
+              <div className="absolute -top-8 left-0 bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg whitespace-nowrap animate-fade-in">
+                💡 Hover messages to verify understanding
+                <div className="absolute -bottom-1 left-4 w-2 h-2 bg-blue-600 rotate-45" />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Context menu (mobile long-press) */}
+      {showContextMenu && (
+        <MessageContextMenu
+          message={message}
+          isOwn={isOwn}
+          onVerify={handleVerify}
+          onClose={() => setShowContextMenu(false)}
+        />
+      )}
+    </div>
+  );
+}
 
 export function ChatConversation() {
   const { userId } = useParams<{ userId: string }>();
@@ -10,6 +142,11 @@ export function ChatConversation() {
   const [newMessage, setNewMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Modal states for inserting ideas
+  const [showInsertMenu, setShowInsertMenu] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showMyIdeasPicker, setShowMyIdeasPicker] = useState(false);
 
   const chat = getChatWithUser(userId || '');
   const otherUser = getUserById(userId || '');
@@ -76,6 +213,23 @@ export function ChatConversation() {
     return 'No position';
   };
 
+  // Insert idea reference into chat
+  const insertIdeaIntoChat = (ideaId: string) => {
+    const idea = getIdeaById(ideaId);
+    if (!idea) return;
+
+    const newMsg: Message = {
+      id: `m-${Date.now()}`,
+      senderId: 'current',
+      text: `💡 ${idea.text}`,
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      ideaId: ideaId,
+    };
+
+    setMessages(prev => [...prev, newMsg]);
+  };
+
   return (
     <div className="min-h-screen bg-[#e5ddd5] flex flex-col">
       {/* Header */}
@@ -135,34 +289,12 @@ export function ChatConversation() {
         {messages.map((message) => {
           const isOwn = message.senderId === 'current';
           return (
-            <div
+            <ChatMessage
               key={message.id}
-              className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`
-                  max-w-[80%] rounded-lg px-3 py-2 shadow-sm
-                  ${isOwn
-                    ? 'bg-[#dcf8c6] rounded-br-none'
-                    : 'bg-white rounded-bl-none'
-                  }
-                `}
-              >
-                <p className="text-[15px] text-gray-800 leading-relaxed">
-                  {message.text}
-                </p>
-                <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className="text-[10px] text-gray-500">
-                    {formatTimeAgo(message.timestamp)}
-                  </span>
-                  {isOwn && (
-                    <span className="text-blue-500 text-xs">
-                      {message.isRead ? '✓✓' : '✓'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+              message={message}
+              isOwn={isOwn}
+              otherUserId={userId || ''}
+            />
           );
         })}
         <div ref={messagesEndRef} />
@@ -170,6 +302,15 @@ export function ChatConversation() {
 
       {/* Message input */}
       <div className="bg-[#f0f0f0] px-3 py-2 flex items-center gap-2">
+        {/* + Button */}
+        <button
+          onClick={() => setShowInsertMenu(true)}
+          className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
+          aria-label="Insert idea"
+        >
+          <Plus size={20} />
+        </button>
+
         <input
           type="text"
           value={newMessage}
@@ -190,6 +331,44 @@ export function ChatConversation() {
 
       {/* Safe area */}
       <div className="h-safe-area-inset-bottom bg-[#f0f0f0]" />
+
+      {/* Insert menu */}
+      {showInsertMenu && (
+        <InsertIdeaMenu
+          onSelectNew={() => {
+            setShowInsertMenu(false);
+            setShowCreateModal(true);
+          }}
+          onSelectFromMyIdeas={() => {
+            setShowInsertMenu(false);
+            setShowMyIdeasPicker(true);
+          }}
+          onClose={() => setShowInsertMenu(false)}
+        />
+      )}
+
+      {/* Create Idea Modal */}
+      {showCreateModal && (
+        <CreateIdeaModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onIdeaCreated={(ideaId) => {
+            insertIdeaIntoChat(ideaId);
+            setShowCreateModal(false);
+          }}
+        />
+      )}
+
+      {/* My Ideas Picker */}
+      {showMyIdeasPicker && (
+        <MyIdeasPicker
+          onSelect={(ideaId) => {
+            insertIdeaIntoChat(ideaId);
+            setShowMyIdeasPicker(false);
+          }}
+          onClose={() => setShowMyIdeasPicker(false)}
+        />
+      )}
     </div>
   );
 }

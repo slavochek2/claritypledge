@@ -55,7 +55,6 @@ export function IdeaDetail() {
 
   const handleAddComment = () => {
     if (newComment.trim()) {
-      console.log('Adding comment:', newComment);
       setNewComment('');
     }
   };
@@ -148,6 +147,8 @@ export function IdeaDetail() {
             engagements={idea.engagements}
             filter={engagerFilter}
             onFilterChange={setEngagerFilter}
+            ideaId={idea.id}
+            ideaText={idea.text}
           />
         </div>
 
