@@ -145,6 +145,7 @@ export function Profile() {
                 isVerified={item.isVerified}
                 isOwnProfile={isOwnProfile}
                 userName={user.name}
+                profileOwnerId={user.id}
               />
             ))}
           </div>

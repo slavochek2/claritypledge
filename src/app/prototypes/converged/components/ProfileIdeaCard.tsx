@@ -1,7 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { ThumbsUp, ThumbsDown, HelpCircle, Sparkles, CheckCircle } from 'lucide-react';
 import type { Idea, Position } from '../data/mock-data';
 import { getIdeaStats, formatTimeAgo } from '../data/mock-data';
 import { PositionBadge } from './PositionBadge';
+import { routes } from '../config';
 
 interface ProfileIdeaCardProps {
   idea: Idea;
@@ -10,6 +12,7 @@ interface ProfileIdeaCardProps {
   isVerified: boolean;
   isOwnProfile: boolean;
   userName?: string; // Name of the profile owner
+  profileOwnerId?: string; // ID of the profile owner (for verification navigation)
 }
 
 export function ProfileIdeaCard({
@@ -19,9 +22,25 @@ export function ProfileIdeaCard({
   isVerified,
   isOwnProfile,
   userName,
+  profileOwnerId,
 }: ProfileIdeaCardProps) {
+  const navigate = useNavigate();
   const stats = getIdeaStats(idea);
   const userLabel = isOwnProfile ? 'You' : (userName || 'User').split(' ')[0];
+
+  const handleVerify = () => {
+    if (!profileOwnerId) return;
+
+    navigate(routes.live, {
+      state: {
+        partnerId: profileOwnerId,
+        ideaId: idea.id,
+        ideaText: idea.text,
+        myPosition: otherUserPosition, // Current user's position
+        theirPosition: userPosition,   // Profile owner's position
+      }
+    });
+  };
 
   return (
     <div className="bg-white rounded-lg p-5 shadow-sm border border-gray-200">
@@ -76,7 +95,10 @@ export function ProfileIdeaCard({
 
       {/* Action button (only on other's profile if you disagree) */}
       {!isOwnProfile && userPosition !== otherUserPosition && otherUserPosition && (
-        <button className="mt-4 w-full py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50">
+        <button
+          onClick={handleVerify}
+          className="mt-4 w-full py-2 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50"
+        >
           Verify Understanding
         </button>
       )}
