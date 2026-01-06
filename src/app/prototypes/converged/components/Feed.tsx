@@ -88,8 +88,7 @@ export function Feed() {
       <CreateIdeaModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onIdeaCreated={(ideaId) => {
-          console.log('New idea created:', ideaId);
+        onIdeaCreated={() => {
           // Scroll to top to see new idea
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}

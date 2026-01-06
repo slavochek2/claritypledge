@@ -365,8 +365,7 @@ export function LiveSession() {
       <CreateIdeaModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        onIdeaCreated={(ideaId) => {
-          console.log('Idea created during session:', ideaId);
+        onIdeaCreated={() => {
           setShowCreateModal(false);
         }}
       />

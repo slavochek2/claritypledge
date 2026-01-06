@@ -55,7 +55,6 @@ export function IdeaDetail() {
 
   const handleAddComment = () => {
     if (newComment.trim()) {
-      console.log('Adding comment:', newComment);
       setNewComment('');
     }
   };

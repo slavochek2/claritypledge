@@ -13,7 +13,6 @@ export function CreateIdea({ onClose }: CreateIdeaProps) {
   const handleSubmit = () => {
     if (text.trim().length === 0) return;
     // In a real app, this would create the idea and add user's "agree" position
-    console.log('Creating idea:', text);
     onClose();
   };
 
