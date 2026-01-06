@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import type { Engagement } from '../../data/mock-data';
-import { getUserById, getUserEngagement } from '../../data/mock-data';
+import { getUserById } from '../../data/mock-data';
 import { routes } from '../../config';
 
 interface EngagerListProps {
@@ -21,7 +21,8 @@ export function EngagerList({ engagements, filter, onFilterChange, ideaId, ideaT
   });
 
   const handleVerify = (partnerId: string, partnerPosition: string) => {
-    const currentUserEngagement = getUserEngagement({ id: ideaId, engagements } as any, 'current');
+    // Find current user's engagement directly from the engagements array
+    const currentUserEngagement = engagements.find(e => e.userId === 'current');
 
     navigate(routes.live, {
       state: {
