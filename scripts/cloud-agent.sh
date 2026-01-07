@@ -467,16 +467,17 @@ COMMIT_SCRIPT
         # Notify via Telegram that task started
         ~/telegram-bot.sh start \"$TASK\" \"$FEATURE_BRANCH\"
 
-        # Start new session with task + periodic commits
-        tmux new-session -d -s agent bash -c \"
-            cd ~/$CLOUD_PROJECT_DIR
+        # Create the agent script with all variables embedded
+        cat > /tmp/run-agent.sh << AGENTSCRIPT
+#!/bin/bash
+cd ~/$CLOUD_PROJECT_DIR
 
-            # Start periodic commit in background
-            /tmp/periodic-commit.sh &
-            COMMIT_PID=\\\$!
+# Start periodic commit in background
+/tmp/periodic-commit.sh &
+COMMIT_PID=\\\$!
 
-            # Run the main task (skip permissions for autonomous mode)
-            claude --dangerously-skip-permissions -p '$TASK
+# Run the main task (skip permissions for autonomous mode)
+claude --dangerously-skip-permissions -p '$TASK
 
 IMPORTANT: You are running autonomously without a human present.
 - Do NOT use AskUserQuestion - make reasonable decisions based on the spec
@@ -485,24 +486,28 @@ IMPORTANT: You are running autonomously without a human present.
 - Commit after each major step completion
 - If truly blocked, write your question to /tmp/agent-question.txt and the human will check later' 2>&1 | tee /tmp/agent-output.log
 
-            # Stop periodic commits
-            kill \\\$COMMIT_PID 2>/dev/null
+# Stop periodic commits
+kill \\\$COMMIT_PID 2>/dev/null
 
-            echo ''
-            echo '=== TASK COMPLETE ==='
-            echo 'Committing final work...'
-            git add -A
-            git commit -m 'cloud-agent: $TASK' --allow-empty
-            git push -u origin $FEATURE_BRANCH
+echo ''
+echo '=== TASK COMPLETE ==='
+echo 'Committing final work...'
+git add -A
+git commit -m 'cloud-agent: task complete' --allow-empty
+git push -u origin $FEATURE_BRANCH
 
-            # Notify via Telegram
-            ~/telegram-bot.sh complete '$TASK' '$FEATURE_BRANCH'
+# Notify via Telegram
+~/telegram-bot.sh complete '$TASK' '$FEATURE_BRANCH'
 
-            echo ''
-            echo '✅ Work pushed to branch: $FEATURE_BRANCH'
-            echo ''
-            echo 'Run /c pull to get the changes'
-        \"
+echo ''
+echo 'Work pushed to branch: $FEATURE_BRANCH'
+echo ''
+echo 'Run /c pull to get the changes'
+AGENTSCRIPT
+        chmod +x /tmp/run-agent.sh
+
+        # Start new session running the script
+        tmux new-session -d -s agent /tmp/run-agent.sh
     " 2>/dev/null
 fi
 
