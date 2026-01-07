@@ -673,13 +673,18 @@ def handle_command(text):
 
             # Commit and push
             output = run_cmd("git add -A && git commit -m 'manual checkpoint' 2>&1", cwd=project_dir)
-            if "nothing to commit" in output.lower():
+            output_lower = output.lower()
+            if "nothing to commit" in output_lower:
                 results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
+            elif "error" in output_lower or "fatal" in output_lower or "failed" in output_lower:
+                # Commit failed - report the error, don't try to push
+                error_preview = output[:80].replace('\n', ' ')
+                results.append(f"WT{wt} (`{escape_markdown(branch)}`): ❌ commit failed: {escape_markdown(error_preview)}")
             else:
-                # Get short commit hash
+                # Commit succeeded - get the NEW commit hash and push
                 commit_hash = run_cmd("git rev-parse --short HEAD", cwd=project_dir)
                 push_result = run_cmd("git push 2>&1", cwd=project_dir)
-                if "error" in push_result.lower() or "rejected" in push_result.lower():
+                if "error" in push_result.lower() or "rejected" in push_result.lower() or "fatal" in push_result.lower():
                     results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` ⚠️ push failed")
                 else:
                     results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` pushed")
