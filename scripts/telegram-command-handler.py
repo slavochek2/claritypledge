@@ -246,9 +246,9 @@ def format_worktrees_from_supabase():
 
             # Compact format: emoji wt# branch (purpose)
             if branch and purpose:
-                msg += f"{status_emoji} `{wt_num}` {branch} _{purpose}_\n"
+                msg += f"{status_emoji} `{wt_num}` {escape_markdown(branch)} _{escape_markdown(purpose)}_\n"
             elif branch:
-                msg += f"{status_emoji} `{wt_num}` {branch}\n"
+                msg += f"{status_emoji} `{wt_num}` {escape_markdown(branch)}\n"
             else:
                 msg += f"{status_emoji} `{wt_num}` —\n"
 
@@ -276,9 +276,9 @@ def format_worktrees_from_supabase():
             last_task = wt.get('last_task', '')[:25] if wt.get('last_task') else ''
 
             if branch and last_task:
-                msg += f"{status_emoji} `{wt_label}` {branch}\n   _{last_task}_\n"
+                msg += f"{status_emoji} `{wt_label}` {escape_markdown(branch)}\n   _{escape_markdown(last_task)}_\n"
             elif branch:
-                msg += f"{status_emoji} `{wt_label}` {branch}\n"
+                msg += f"{status_emoji} `{wt_label}` {escape_markdown(branch)}\n"
             else:
                 msg += f"{status_emoji} `{wt_label}` —\n"
 
@@ -570,6 +570,10 @@ def handle_command(text):
             PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
             return "❌ Cancelled"
 
+        else:
+            # Block all other input until user confirms or cancels
+            return "⚠️ Confirmation pending. Reply **yes** or **no**."
+
     # Clear expired confirmation
     if time.time() >= PENDING_CONFIRMATION.get("expires", 0):
         PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
@@ -663,21 +667,21 @@ def handle_command(text):
             # Check if there are changes
             status = run_cmd("git status --porcelain", cwd=project_dir)
             if not status.strip():
-                results.append(f"WT{wt} (`{branch}`): no changes")
+                results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
                 continue
 
             # Commit and push
             output = run_cmd("git add -A && git commit -m 'manual checkpoint' 2>&1", cwd=project_dir)
             if "nothing to commit" in output.lower():
-                results.append(f"WT{wt} (`{branch}`): no changes")
+                results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
             else:
                 # Get short commit hash
                 commit_hash = run_cmd("git rev-parse --short HEAD", cwd=project_dir)
                 push_result = run_cmd("git push 2>&1", cwd=project_dir)
                 if "error" in push_result.lower() or "rejected" in push_result.lower():
-                    results.append(f"WT{wt} (`{branch}`): ✅ `{commit_hash}` ⚠️ push failed")
+                    results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` ⚠️ push failed")
                 else:
-                    results.append(f"WT{wt} (`{branch}`): ✅ `{commit_hash}` pushed")
+                    results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` pushed")
 
         return "💾 *Commit Results:*\n" + "\n".join(results)
 
