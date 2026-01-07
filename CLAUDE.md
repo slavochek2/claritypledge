@@ -46,7 +46,14 @@ npm run test:e2e:headed  # Run in headed browser
 - Navigate to pages and take screenshots
 - Check mobile (375px) and desktop views
 - Verify console for errors
-- Use for `/dev-loop` visual checks when UI is involved
+- Use for `/loop` visual checks when UI is involved
+
+**Chrome DevTools MCP** - For deep browser debugging:
+- Network inspection (headers, timing, failures)
+- Performance traces and profiling
+- Memory leak investigation
+- Connect to existing browser session (preserves auth state)
+- Use when Playwright isn't enough for debugging
 
 ## Cloud Agent (Run Tasks While AFK)
 
@@ -66,9 +73,10 @@ Run AI coding tasks on a Google Cloud VM. Supports **parallel execution** via wo
 | `/loop` workflow | ✅ | ❌ |
 | BMAD agents | ✅ | ❌ |
 | Playwright MCP | ✅ | ❌ |
+| Chrome DevTools MCP | ✅ | ❌ |
 
 **First-time setup:**
-1. Run `/c setup-mcp` to install Playwright on the VM
+1. Run `/c setup-mcp` to install Playwright and Chrome DevTools MCP on the VM
 2. Run `/c setup-worktrees` to create worktrees 1-3 for parallel execution
 
 See [docs/technical/cloud-agent.md](docs/technical/cloud-agent.md) for full documentation.

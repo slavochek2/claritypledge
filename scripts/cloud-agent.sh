@@ -70,6 +70,7 @@ show_help() {
     echo ""
     echo "VM CONTROL:"
     echo "  setup            One-time login (run first!)"
+    echo "  setup-mcp        Install Playwright + Chrome DevTools MCP"
     echo "  pause            Stop VM (save \$)"
     echo "  resume           Start VM"
     echo ""
@@ -130,6 +131,27 @@ case "$TASK" in
         exit 0
         ;;
     
+    "setup-mcp"|"install-mcp")
+        echo -e "${BLUE}🔧 Installing MCP servers on cloud VM...${NC}"
+        echo ""
+        gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+            echo '📦 Installing Playwright MCP...'
+            claude mcp add playwright -- npx @playwright/mcp@latest --headless
+
+            echo ''
+            echo '📦 Installing Chrome DevTools MCP...'
+            claude mcp add chrome-devtools -- npx chrome-devtools-mcp@latest
+
+            echo ''
+            echo '✅ MCP servers installed!'
+            echo ''
+            claude mcp list
+        " 2>/dev/null
+        echo ""
+        echo -e "${GREEN}✅ MCP servers ready on cloud VM${NC}"
+        exit 0
+        ;;
+
     "overnight"|"maintenance"|"improve")
         echo -e "${BLUE}🌙 Starting overnight maintenance...${NC}"
         echo ""

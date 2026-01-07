@@ -18,6 +18,7 @@ Run a task in the cloud. Works even when you close your laptop.
 | `/loop` workflow | ✅ | ❌ |
 | BMAD agents | ✅ | ❌ |
 | Playwright MCP | ✅ | ❌ |
+| Chrome DevTools MCP | ✅ | ❌ |
 | Best for | Complex features, UI | Quick fixes |
 
 ## Commands
@@ -31,7 +32,7 @@ Run a task in the cloud. Works even when you close your laptop.
 | `/c logs` | See full output |
 | `/c stop` | Cancel task |
 | `/c setup` | One-time login (run first!) |
-| `/c setup-mcp` | Install Playwright MCP for visual checks |
+| `/c setup-mcp` | Install Playwright + Chrome DevTools MCP |
 | `/c pause` | Stop VM (save $) |
 | `/c resume` | Start VM |
 
