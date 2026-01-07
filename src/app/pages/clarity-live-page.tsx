@@ -1385,11 +1385,12 @@ export function ClarityLivePage() {
   }, [requestMicPermission]);
 
   // P40: Handle mic permission dialog cancel
+  // B48: Cancel returns user to start view (they can't join without mic permission)
   const handleMicCancel = useCallback(() => {
     setShowMicDialog(false);
     resetMic();
+    setView('start');
     toast.error('Microphone access is required to join Clarity Meetings');
-    // User can still use the meeting, just without recording
   }, [resetMic]);
 
   // B48: Gate transition to live view behind mic permission check
