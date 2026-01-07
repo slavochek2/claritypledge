@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """
-Telegram Cloud Agent Handler v4 - Multi-Worktree + Supabase Sync
+Telegram Cloud Agent Handler v5 - UX Improvements
 - Tracks agents across worktrees 0-3 (cloud) and 1-7 (local)
 - Syncs status to Supabase worktree_status table
 - /worktrees command shows all worktrees (local + cloud)
 - Completion notifications with worktree context
 - Forward user messages to specific agents
+
+v5 changes:
+- Fixed double-message bug (update offset before processing)
+- Added markdown escaping for user content
+- Better error messages with actionable hints
+- Confirmation for destructive /stop all
+- Show commit result details
+- Cleaner /worktrees layout
+- Reorganized /help into categories
 """
 import os
 import subprocess
@@ -118,11 +127,26 @@ def save_state(state):
 # =============================================================================
 # TELEGRAM API
 # =============================================================================
+def escape_markdown(text):
+    """Escape special Markdown characters in user-provided text."""
+    if not text:
+        return text
+    # Escape: _ * [ ] ( ) ~ ` > # + - = | { } . !
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in special_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+
 def send_message(text, parse_mode="Markdown"):
     """Send a message to the configured Telegram chat."""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
-        requests.post(url, data={"chat_id": CHAT_ID, "text": text, "parse_mode": parse_mode}, timeout=REQUEST_TIMEOUT_SEC)
+        resp = requests.post(url, data={"chat_id": CHAT_ID, "text": text, "parse_mode": parse_mode}, timeout=REQUEST_TIMEOUT_SEC)
+        # If markdown parsing fails, retry without formatting
+        if resp.status_code == 400 and "parse" in resp.text.lower():
+            print(f"[Telegram] Markdown parse error, retrying as plain text")
+            requests.post(url, data={"chat_id": CHAT_ID, "text": text}, timeout=REQUEST_TIMEOUT_SEC)
     except requests.RequestException as e:
         print(f"[Telegram] Failed to send message: {e}")
 
@@ -180,54 +204,80 @@ def format_worktrees_from_supabase():
     """Format all worktrees status from Supabase for /worktrees command"""
     worktrees = supabase_get_worktrees()
     if not worktrees:
-        return "⚠️ Could not fetch worktree status"
-
-    msg = "*All Worktrees:*\n"
-    msg += "━━━━━━━━━━━━━━━━━━━\n"
+        return "⚠️ Could not fetch worktree status\n\n💡 Check Supabase connection"
 
     # Group by type
     local_wts = [w for w in worktrees if w['id'].startswith('wt')]
     cloud_wts = [w for w in worktrees if w['id'].startswith('cloud')]
 
-    # Local worktrees
+    # Count by status
+    active_count = sum(1 for w in worktrees if w.get('status') in ['active', 'running', 'in-progress'])
+    idle_count = sum(1 for w in worktrees if w.get('status') in ['idle', 'empty'])
+
+    msg = f"*Worktrees* ({active_count} active, {idle_count} idle)\n\n"
+
+    # Local worktrees - grouped by status
     if local_wts:
-        msg += "\n*📁 Local (Mac):*\n"
-        for wt in sorted(local_wts, key=lambda x: x['id']):
+        msg += "📁 *Local*\n"
+
+        # Sort: active first, then idle, then empty/not-setup
+        status_order = {'active': 0, 'in-progress': 0, 'idle': 1, 'empty': 2, 'not-setup': 3, 'stale': 1}
+        sorted_local = sorted(local_wts, key=lambda x: (status_order.get(x.get('status', 'unknown'), 4), x['id']))
+
+        for wt in sorted_local:
             status = wt.get('status', 'unknown')
             status_emoji = {
                 'active': '🟢',
+                'in-progress': '🔵',
                 'idle': '⚪',
                 'empty': '⚫',
-                'stuck': '🔴',
+                'stale': '🟡',
                 'not-setup': '⚫'
             }.get(status, '❓')
 
-            branch = wt.get('branch', '-')[:20] if wt.get('branch') else '-'
-            purpose = wt.get('purpose', '')[:30] if wt.get('purpose') else ''
+            wt_num = wt['id'].replace('wt', '')
+            branch = wt.get('branch', '')[:18] if wt.get('branch') else ''
+            purpose = wt.get('purpose', '')[:25] if wt.get('purpose') else ''
 
-            msg += f"{status_emoji} *{wt['id']}* | `{branch}`\n"
-            if purpose:
-                msg += f"   _{purpose}_\n"
+            # Compact format: emoji wt# branch (purpose)
+            if branch and purpose:
+                msg += f"{status_emoji} `{wt_num}` {branch} _{purpose}_\n"
+            elif branch:
+                msg += f"{status_emoji} `{wt_num}` {branch}\n"
+            else:
+                msg += f"{status_emoji} `{wt_num}` —\n"
 
     # Cloud worktrees
     if cloud_wts:
-        msg += "\n*☁️ Cloud (GCP):*\n"
-        for wt in sorted(cloud_wts, key=lambda x: x['id']):
+        msg += "\n☁️ *Cloud*\n"
+
+        status_order = {'running': 0, 'in-progress': 0, 'active': 0, 'idle': 1, 'empty': 2, 'not-setup': 3}
+        sorted_cloud = sorted(cloud_wts, key=lambda x: (status_order.get(x.get('status', 'unknown'), 4), x['id']))
+
+        for wt in sorted_cloud:
             status = wt.get('status', 'unknown')
             status_emoji = {
                 'running': '🟢',
+                'in-progress': '🔵',
+                'active': '🟢',
                 'idle': '⚪',
+                'empty': '⚫',
                 'not-setup': '⚫'
             }.get(status, '❓')
 
-            branch = wt.get('branch', '-')[:20] if wt.get('branch') else '-'
-            last_task = wt.get('last_task', '')[:35] if wt.get('last_task') else ''
+            # Simplify cloud-main -> main, cloud-wt2 -> wt2
+            wt_label = wt['id'].replace('cloud-', '')
+            branch = wt.get('branch', '')[:18] if wt.get('branch') else ''
+            last_task = wt.get('last_task', '')[:25] if wt.get('last_task') else ''
 
-            msg += f"{status_emoji} *{wt['id']}* | `{branch}`\n"
-            if last_task:
-                msg += f"   📋 _{last_task}_\n"
+            if branch and last_task:
+                msg += f"{status_emoji} `{wt_label}` {branch}\n   _{last_task}_\n"
+            elif branch:
+                msg += f"{status_emoji} `{wt_label}` {branch}\n"
+            else:
+                msg += f"{status_emoji} `{wt_label}` —\n"
 
-    msg += "\n💡 `/c --list` for ports"
+    msg += "\n💡 `/c pull N` to get work"
     return msg
 
 
@@ -477,6 +527,11 @@ def format_logs(wt):
 # =============================================================================
 # COMMAND HANDLING
 # =============================================================================
+
+# Pending confirmation state (for destructive actions)
+PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
+
+
 def parse_worktree_arg(text):
     """Parse worktree number from command like '/s2', '/l1', 'status 2'"""
     # Match patterns like: s2, l1, status 2, logs 1
@@ -489,108 +544,177 @@ def parse_worktree_arg(text):
 
 
 def handle_command(text):
-    text = text.strip().lower()
+    global PENDING_CONFIRMATION
+    text_lower = text.strip().lower()
+    text_original = text.strip()
+
+    # Check for pending confirmation
+    if PENDING_CONFIRMATION["action"] and time.time() < PENDING_CONFIRMATION["expires"]:
+        if text_lower in ["yes", "y", "confirm"]:
+            action = PENDING_CONFIRMATION["action"]
+            data = PENDING_CONFIRMATION["data"]
+            PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
+
+            if action == "stop_all":
+                for wt in data:
+                    session = get_tmux_session(wt)
+                    run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
+                return f"🛑 Stopped {len(data)} agent(s): WT{', WT'.join(map(str, data))}"
+
+        elif text_lower in ["no", "n", "cancel"]:
+            PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
+            return "❌ Cancelled"
+
+    # Clear expired confirmation
+    if time.time() >= PENDING_CONFIRMATION.get("expires", 0):
+        PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
 
     # Status commands
-    if text in ["/status", "status", "s", "/s"]:
+    if text_lower in ["/status", "status", "s", "/s"]:
         return format_all_status()
 
     # Status with worktree: /s2, status 2
-    if text.startswith(("/s", "s", "status")):
-        wt = parse_worktree_arg(text)
+    if text_lower.startswith(("/s", "s", "status")):
+        wt = parse_worktree_arg(text_lower)
         if wt is not None:
             return format_worktree_status(wt)
         return format_all_status()
 
     # Logs commands
-    if text in ["/logs", "logs", "l", "/l"]:
+    if text_lower in ["/logs", "logs", "l", "/l"]:
         running = get_running_worktrees()
         if running:
             return format_logs(running[0])
-        return "No agents running"
+        return "⚪ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
 
     # Logs with worktree: /l2, logs 2
-    if text.startswith(("/l", "l", "logs")):
-        wt = parse_worktree_arg(text)
+    if text_lower.startswith(("/l", "l", "logs")):
+        wt = parse_worktree_arg(text_lower)
         if wt is not None:
-            return format_logs(wt)
+            if is_agent_running(wt):
+                return format_logs(wt)
+            return f"⚪ WT{wt} not running\n\n💡 Check `/status` for active agents"
         running = get_running_worktrees()
         if running:
             return format_logs(running[0])
-        return "No agents running"
+        return "⚪ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
 
     # Stop commands
-    if text in ["/stop", "stop"]:
+    if text_lower in ["/stop", "stop"]:
         running = get_running_worktrees()
         if not running:
-            return "No agents running"
+            return "⚪ No agents running"
         # Stop first running agent
         wt = running[0]
+        task_short, _ = get_task_info(wt)
         session = get_tmux_session(wt)
         run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
-        return f"🛑 Stopped agent on WT{wt}"
+        return f"🛑 *Stopped WT{wt}*\nTask was: _{escape_markdown(task_short)}_"
 
-    # Stop with worktree: stop 2
-    if text.startswith("stop"):
-        wt = parse_worktree_arg(text)
+    # Stop with worktree: stop 2, /stop 2
+    if text_lower.startswith(("stop ", "/stop ")):
+        wt = parse_worktree_arg(text_lower)
         if wt is not None:
+            if not is_agent_running(wt):
+                return f"⚪ WT{wt} not running\n\n💡 Check `/status` for active agents"
+            task_short, _ = get_task_info(wt)
             session = get_tmux_session(wt)
             run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
-            return f"🛑 Stopped agent on WT{wt}"
-        return "Usage: stop N (where N is 0-3)"
+            return f"🛑 *Stopped WT{wt}*\nTask was: _{escape_markdown(task_short)}_"
+        return "⚠️ Usage: `stop N` where N is 0-3\n\nExample: `stop 2`"
 
-    # Stop all
-    if text in ["/stop all", "stop all"]:
+    # Stop all - requires confirmation
+    if text_lower in ["/stop all", "stop all"]:
         running = get_running_worktrees()
         if not running:
-            return "No agents running"
+            return "⚪ No agents running"
+
+        # Build preview of what will be stopped
+        preview = ""
         for wt in running:
-            session = get_tmux_session(wt)
-            run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
-        return f"🛑 Stopped {len(running)} agent(s)"
+            task_short, _ = get_task_info(wt)
+            preview += f"  • WT{wt}: {escape_markdown(task_short)}\n"
+
+        # Set pending confirmation (expires in 30 seconds)
+        PENDING_CONFIRMATION = {
+            "action": "stop_all",
+            "data": running,
+            "expires": time.time() + 30
+        }
+
+        return f"⚠️ *Stop {len(running)} agent(s)?*\n\n{preview}\nReply *yes* to confirm or *no* to cancel"
 
     # Commit/save
-    if text in ["/commit", "commit", "save"]:
+    if text_lower in ["/commit", "commit", "save"]:
         running = get_running_worktrees()
         if not running:
-            return "No agents running"
+            return "⚪ No agents running\n\n💡 Nothing to commit"
+
+        results = []
         for wt in running:
             project_dir = get_project_dir(wt)
-            run_cmd("git add -A && git commit -m 'manual checkpoint' && git push", cwd=project_dir)
-        return f"💾 Saved {len(running)} worktree(s)"
+            branch = run_cmd("git branch --show-current", cwd=project_dir) or "unknown"
+
+            # Check if there are changes
+            status = run_cmd("git status --porcelain", cwd=project_dir)
+            if not status.strip():
+                results.append(f"WT{wt} (`{branch}`): no changes")
+                continue
+
+            # Commit and push
+            output = run_cmd("git add -A && git commit -m 'manual checkpoint' 2>&1", cwd=project_dir)
+            if "nothing to commit" in output.lower():
+                results.append(f"WT{wt} (`{branch}`): no changes")
+            else:
+                # Get short commit hash
+                commit_hash = run_cmd("git rev-parse --short HEAD", cwd=project_dir)
+                push_result = run_cmd("git push 2>&1", cwd=project_dir)
+                if "error" in push_result.lower() or "rejected" in push_result.lower():
+                    results.append(f"WT{wt} (`{branch}`): ✅ `{commit_hash}` ⚠️ push failed")
+                else:
+                    results.append(f"WT{wt} (`{branch}`): ✅ `{commit_hash}` pushed")
+
+        return "💾 *Commit Results:*\n" + "\n".join(results)
 
     # Health
-    if text in ["/health", "health"]:
+    if text_lower in ["/health", "health"]:
         return format_health()
 
     # Worktrees (from Supabase)
-    if text in ["/worktrees", "worktrees", "/wt", "wt"]:
+    if text_lower in ["/worktrees", "worktrees", "/wt", "wt"]:
         return format_worktrees_from_supabase()
 
-    # Help
-    if text in ["/help", "help", "h", "/h", "?"]:
-        return """*Commands:*
-/status (s) - Cloud agents status
-/s2 - WT2 status only
-/logs (l) - Recent output
-/l1 - WT1 logs only
-/worktrees (wt) - All worktrees (local+cloud)
-/health - VM health + agent memory
-/stop - Stop first agent
-/stop 2 - Stop WT2
-/stop all - Stop all agents
-/commit - Save all checkpoints
+    # Help - reorganized into categories
+    if text_lower in ["/help", "help", "h", "/h", "?"]:
+        return """📊 *Status*
+`s` or `/status` — All agents
+`s2` — WT2 only
+`wt` — All worktrees (local+cloud)
+`health` — VM resources
 
-*Send text* = instruction to agent
-(Agent will see it next loop)"""
+📋 *Logs*
+`l` or `/logs` — First agent
+`l1` — WT1 logs
+
+🛑 *Control*
+`stop` — Stop first agent
+`stop 2` — Stop WT2
+`stop all` — Stop all (asks confirm)
+`commit` — Save + push all
+
+💬 *Feedback*
+Just type text → sent to running agent(s)
+
+💡 Start agent: `/c claude "task"`"""
 
     # Forward as instruction to active agents
-    if text and not text.startswith("/"):
+    if text_original and not text_original.startswith("/"):
         running = get_running_worktrees()
         if not running:
-            return "⚠️ No agents running to receive this message"
+            return "⚠️ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
 
         ts = time.strftime("%H:%M")
+        sent_to = []
 
         # Write to all running agents' feedback files
         for wt in running:
@@ -599,12 +723,15 @@ def handle_command(text):
             branch = run_cmd("git branch --show-current", cwd=project_dir) or "unknown"
 
             with open(feedback_file, "a") as f:
-                f.write(f"[{ts}] [{branch}] {text}\n")
+                f.write(f"[{ts}] [{branch}] {text_original}\n")
 
+            sent_to.append(f"WT{wt} (`{branch[:15]}`)")
+
+        escaped_text = escape_markdown(text_original[:50])
         if len(running) == 1:
-            return f"📝 Sent to WT{running[0]}: _{text[:50]}_"
+            return f"📝 Sent to {sent_to[0]}:\n_{escaped_text}_"
         else:
-            return f"📝 Sent to {len(running)} agents: _{text[:50]}_"
+            return f"📝 Sent to {len(running)} agents:\n" + ", ".join(sent_to) + f"\n_{escaped_text}_"
 
     return None
 
@@ -647,23 +774,23 @@ def check_for_updates():
                     pass
 
             if clean_exit:
-                msg = f"✅ *WT{wt} Complete!*\n"
-                msg += f"📋 {task_short}\n"
+                msg = f"✅ *WT{wt} Complete\\!*\n"
+                msg += f"📋 {escape_markdown(task_short)}\n"
                 if cp_num is not None:
                     msg += f"📍 Reached checkpoint {cp_num}\n"
                 msg += f"\n💡 `/c pull {wt}` to get work"
             else:
                 # Likely a crash
                 mem_pct, cpu_pct = get_system_health()
-                msg = f"⚠️ *WT{wt} CRASHED!*\n"
-                msg += f"📋 {task_short}\n"
+                msg = f"⚠️ *WT{wt} CRASHED\\!*\n"
+                msg += f"📋 {escape_markdown(task_short)}\n"
                 if cp_num is not None:
                     msg += f"📍 Last checkpoint: {cp_num}\n"
-                msg += f"💾 RAM: {mem_pct}% | CPU: {cpu_pct}%\n"
+                msg += f"💾 RAM: {mem_pct}% \\| CPU: {cpu_pct}%\n"
                 # Show last activity
                 if last_lines:
                     last_line = last_lines.strip().split('\n')[-1][:60]
-                    msg += f"📝 Last: _{last_line}_\n"
+                    msg += f"📝 Last: _{escape_markdown(last_line)}_\n"
                 msg += f"\n💡 Check `/c logs {wt}` or restart"
 
             send_message(msg)
@@ -674,7 +801,7 @@ def check_for_updates():
             if cp_num is not None and cp_num != wt_state.get("last_checkpoint"):
                 msg = f"📍 *WT{wt} Checkpoint {cp_num}*"
                 if cp_desc:
-                    msg += f": {cp_desc[:40]}"
+                    msg += f": {escape_markdown(cp_desc[:40])}"
                 send_message(msg)
                 wt_state["last_checkpoint"] = cp_num
 
@@ -685,7 +812,7 @@ def check_for_updates():
                 mtime = task_file.stat().st_mtime
                 if mtime != wt_state.get("task_started") and running:
                     task_short, _ = get_task_info(wt)
-                    send_message(f"🚀 *WT{wt} Started:* {task_short}")
+                    send_message(f"🚀 *WT{wt} Started:* {escape_markdown(task_short)}")
                     wt_state["task_started"] = mtime
                     wt_state["last_checkpoint"] = None
         except (FileNotFoundError, PermissionError, OSError) as e:
@@ -701,8 +828,8 @@ def check_for_updates():
 # MAIN LOOP
 # =============================================================================
 def main():
-    print("Telegram Handler v4 (Multi-Worktree + Supabase Sync) started")
-    send_message("🤖 Handler ready (v4 multi-worktree)\n/help for commands")
+    print("Telegram Handler v5 (UX Improvements) started")
+    send_message("🤖 *Handler ready* (v5)\n\nType `?` for commands")
 
     last_id = 0
     try:
@@ -714,8 +841,20 @@ def main():
 
     while True:
         # Handle incoming messages
-        for u in get_updates(last_id + 1):
+        updates = get_updates(last_id + 1)
+
+        for u in updates:
             uid = u.get("update_id", 0)
+
+            # CRITICAL: Update offset BEFORE processing to prevent double-messages
+            # If processing crashes, we won't re-fetch this message on restart
+            last_id = max(last_id, uid)
+            try:
+                LAST_UPDATE_FILE.write_text(str(last_id))
+            except (PermissionError, OSError) as e:
+                print(f"[Main] Failed to save last update ID: {e}")
+
+            # Now process the message
             txt = u.get("message", {}).get("text", "")
             cid = str(u.get("message", {}).get("chat", {}).get("id", ""))
 
@@ -723,12 +862,6 @@ def main():
                 resp = handle_command(txt)
                 if resp:
                     send_message(resp)
-
-            last_id = max(last_id, uid)
-            try:
-                LAST_UPDATE_FILE.write_text(str(last_id))
-            except (PermissionError, OSError) as e:
-                print(f"[Main] Failed to save last update ID: {e}")
 
         # Proactive updates
         if time.time() - last_proactive_check > PROACTIVE_CHECK_INTERVAL_SEC:
