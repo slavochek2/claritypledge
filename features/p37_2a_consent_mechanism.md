@@ -728,9 +728,21 @@ export async function getOrCreateGuestUser(
       throw new Error('Failed to create guest session');
     }
 
+    // Update the existing profile's user_id to match new anonymous auth session
+    // This ensures RLS SELECT queries will work (auth.uid() matches user_id)
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ user_id: anonAuth.user.id })
+      .eq('id', existingUser.id);
+
+    if (updateError) {
+      console.error('Failed to update profile user_id:', updateError);
+      throw new Error('Failed to update guest session');
+    }
+
     console.log('Returning unverified guest, reusing profile:', email);
     return {
-      userId: existingUser.id,
+      userId: anonAuth.user.id,
       isNew: false,
       requiresLogin: false,
     };

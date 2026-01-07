@@ -15,45 +15,6 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Supabase config - read from .env.local or environment
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../.env.local"
-if [ -f "$ENV_FILE" ]; then
-    SUPABASE_URL=$(grep -E '^VITE_SUPABASE_URL=' "$ENV_FILE" | cut -d'=' -f2-)
-    SUPABASE_ANON_KEY=$(grep -E '^VITE_SUPABASE_ANON_KEY=' "$ENV_FILE" | cut -d'=' -f2-)
-fi
-# Allow env vars to override
-SUPABASE_URL="${SUPABASE_URL:-$VITE_SUPABASE_URL}"
-SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-$VITE_SUPABASE_ANON_KEY}"
-
-# Warn if Supabase config missing (non-fatal)
-if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-    echo -e "${YELLOW}Warning: Supabase env vars not found - worktree status tracking disabled${NC}" >&2
-fi
-
-# Update worktree status in Supabase
-update_worktree_status() {
-    local wt_id="$1"
-    local status="$2"
-    local branch="$3"
-    local last_task="$4"
-    local last_commit="$5"
-
-    curl -s -X PATCH "${SUPABASE_URL}/rest/v1/worktree_status?id=eq.${wt_id}" \
-        -H "apikey: ${SUPABASE_ANON_KEY}" \
-        -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
-        -H "Content-Type: application/json" \
-        -H "Prefer: return=minimal" \
-        -d "{
-            \"status\": \"${status}\",
-            \"branch\": \"${branch}\",
-            \"last_task\": \"${last_task}\",
-            \"last_commit\": \"${last_commit}\",
-            \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-            \"updated_by\": \"cloud-agent.sh\"
-        }" > /dev/null 2>&1 || true
-}
-
 # Load gcloud
 source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc" 2>/dev/null || true
 
@@ -102,9 +63,8 @@ show_help() {
     echo "  claude \"task\"    Run with Claude Opus 4.5"
     echo ""
     echo "MONITOR:"
-    echo "  status           Check cloud agent progress"
-    echo "  worktrees        Show ALL worktrees status (from Supabase)"
-    echo "  logs             See full output"
+    echo "  status           Check progress"
+    echo "  logs             See full output"  
     echo "  pull [N]         Get work into worktree-N (default: 7)"
     echo "  stop             Cancel current task"
     echo ""
@@ -189,30 +149,6 @@ case "$TASK" in
         exit 0
         ;;
         
-    "worktrees"|"--list"|"wt")
-        echo -e "${BLUE}📊 All Worktrees Status (from Supabase)${NC}"
-        echo ""
-        # Fetch from Supabase and format
-        RESPONSE=$(curl -s "${SUPABASE_URL}/rest/v1/worktree_status?select=id,branch,status,purpose,last_task,updated_at&order=id" \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
-
-        if [ -z "$RESPONSE" ] || [ "$RESPONSE" = "[]" ]; then
-            echo "No worktrees found in database"
-            exit 0
-        fi
-
-        # Parse JSON and display (jq required for readable output)
-        if command -v jq &> /dev/null; then
-            echo "$RESPONSE" | jq -r '.[] | "[\(.status // "unknown")] \(.id): \(.branch // "no branch") - \(.last_task // .purpose // "no task")"'
-        else
-            echo "Install jq for formatted output: brew install jq"
-            echo ""
-            echo "Raw response received (${#RESPONSE} bytes)"
-        fi
-        exit 0
-        ;;
-
     "status")
         echo -e "${BLUE}📊 Cloud Agent Status${NC}"
         echo ""
@@ -328,12 +264,6 @@ case "$TASK" in
 
         echo ""
         echo -e "${GREEN}✅ Cloud work merged into worktree-$TARGET_WORKTREE${NC}"
-
-        # Update Supabase: mark cloud-main as idle, update wt with pulled work
-        LAST_COMMIT=$(git log -1 --oneline)
-        update_worktree_status "cloud-main" "idle" "$CLOUD_BRANCH" "" "$LAST_COMMIT"
-        update_worktree_status "wt${TARGET_WORKTREE}" "pulled" "$WORKTREE_BRANCH" "Pulled from cloud: $CLOUD_BRANCH" "$LAST_COMMIT"
-
         echo ""
         echo "Worktree path: $WORKTREE_PATH"
         echo "Worktree branch: $WORKTREE_BRANCH"
@@ -357,8 +287,6 @@ case "$TASK" in
         gcloud compute ssh $VM_NAME --zone=$ZONE --command="
             tmux kill-session -t agent 2>/dev/null && echo '✅ Agent stopped' || echo 'No agent was running'
         " 2>/dev/null
-        # Update Supabase: mark cloud-main as stopped
-        update_worktree_status "cloud-main" "stopped" "" "" ""
         exit 0
         ;;
         
@@ -412,30 +340,9 @@ esac
 
 # Default is Gemini, use Claude only when specified
 USE_CLAUDE=false
-CLOUD_WORKTREE=""  # Which cloud worktree to use (empty = main)
-
 if [[ "$TASK" == claude* ]]; then
     USE_CLAUDE=true
     TASK="${TASK#claude }"  # Remove "claude " prefix
-    TASK="${TASK# }"  # Remove any leading space
-fi
-
-# Parse --worktree N or -w N arguments
-if [[ "$TASK" =~ ^--worktree[[:space:]]+([0-9]+)[[:space:]]+(.*) ]]; then
-    CLOUD_WORKTREE="${BASH_REMATCH[1]}"
-    TASK="${BASH_REMATCH[2]}"
-elif [[ "$TASK" =~ ^-w[[:space:]]+([0-9]+)[[:space:]]+(.*) ]]; then
-    CLOUD_WORKTREE="${BASH_REMATCH[1]}"
-    TASK="${BASH_REMATCH[2]}"
-fi
-
-# Determine cloud project directory based on worktree
-if [ -n "$CLOUD_WORKTREE" ]; then
-    CLOUD_PROJECT_DIR="claritypledge-${CLOUD_WORKTREE}"
-    CLOUD_WT_ID="cloud-wt${CLOUD_WORKTREE}"
-else
-    CLOUD_PROJECT_DIR="$PROJECT_DIR"
-    CLOUD_WT_ID="cloud-main"
 fi
 
 # Default: Start a task with a prompt
@@ -443,9 +350,6 @@ if [ "$USE_CLAUDE" = true ]; then
     echo -e "${BLUE}☁️  Cloud Agent (Claude Opus 4.5)${NC}"
 else
     echo -e "${BLUE}☁️  Cloud Agent (Gemini 2.5 Pro)${NC}"
-fi
-if [ -n "$CLOUD_WORKTREE" ]; then
-    echo -e "   Using cloud worktree: ${CLOUD_WORKTREE} (${CLOUD_PROJECT_DIR})"
 fi
 echo ""
 
@@ -466,7 +370,7 @@ git push 2>/dev/null || true
 # Step 2: Pull on cloud, create feature branch from current branch
 echo "2. Creating feature branch: $FEATURE_BRANCH (from $CURRENT_BRANCH)..."
 gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-    cd ~/$CLOUD_PROJECT_DIR || { echo 'ERROR: Directory ~/$CLOUD_PROJECT_DIR not found'; exit 1; }
+    cd $PROJECT_DIR
     git fetch --all -q
     git checkout $CURRENT_BRANCH 2>/dev/null || git checkout -b $CURRENT_BRANCH origin/$CURRENT_BRANCH
     git pull -q
@@ -485,87 +389,100 @@ echo ""
 if [ "$USE_CLAUDE" = false ]; then
     # Use Aider with Gemini
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-        cd ~/$CLOUD_PROJECT_DIR
+        cd $PROJECT_DIR
 
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
 
         # Start new session with Aider + Gemini
-        # Use double quotes for outer bash -c to allow variable expansion
-        tmux new-session -d -s agent bash -c \"
-            cd ~/$CLOUD_PROJECT_DIR
+        tmux new-session -d -s agent bash -c '
             source ~/aider-env/bin/activate
-            aider --model gemini/gemini-3-pro-preview --message '$TASK' --yes-always 2>&1 | tee /tmp/agent-output.log
-            echo ''
-            echo '=== TASK COMPLETE ==='
-            echo 'Committing work...'
+            aider --model gemini/gemini-3-pro-preview --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
+            echo \"\"
+            echo \"=== TASK COMPLETE ===\"
+            echo \"Committing work...\"
             git add -A
-            git commit -m 'cloud-agent (gemini): $TASK' --allow-empty
+            git commit -m \"cloud-agent (gemini): $TASK\" --allow-empty
             git push -u origin $FEATURE_BRANCH
-            echo ''
-            echo '✅ Work pushed to branch: $FEATURE_BRANCH'
-            echo ''
-            echo 'Run /c pull to get the changes'
-            echo 'Press Enter to close...'
+            echo \"\"
+            echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
+            echo \"\"
+            echo \"Run /c pull to get the changes\"
+            echo \"Press Enter to close...\"
             read
-        \"
+        '
     " 2>/dev/null
 else
     # Use Claude Code with periodic commits and Telegram notifications
-    # Escape task for safe shell usage (replace single quotes)
-    ESCAPED_TASK=$(echo "$TASK" | sed "s/'/'\\\\''/g")
-
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-        cd ~/$CLOUD_PROJECT_DIR
+        cd $PROJECT_DIR
 
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
 
-        # Create a commit helper script with the correct project dir
-        cat > /tmp/periodic-commit.sh << COMMIT_SCRIPT
+        # Create a commit helper script
+        cat > /tmp/periodic-commit.sh << 'COMMIT_SCRIPT'
 #!/bin/bash
-cd ~/$CLOUD_PROJECT_DIR
+cd \$PROJECT_DIR
 while true; do
     sleep 300  # Every 5 minutes
-    if [ -n \"\\\$(git status --porcelain)\" ]; then
+    if [ -n \"\$(git status --porcelain)\" ]; then
         git add -A
         git commit -m \"cloud-agent: checkpoint [auto]\" --allow-empty 2>/dev/null
-        git push -u origin \\\$(git branch --show-current) 2>/dev/null
+        git push -u origin \$(git branch --show-current) 2>/dev/null
     fi
 done
 COMMIT_SCRIPT
         chmod +x /tmp/periodic-commit.sh
 
         # Save task name for status display
-        echo '$ESCAPED_TASK' > /tmp/current-task.txt
+        echo \"$TASK\" > /tmp/current-task.txt
 
         # Notify via Telegram that task started
-        ~/telegram-bot.sh start '$ESCAPED_TASK' '$FEATURE_BRANCH'
+        ~/telegram-bot.sh start \"$TASK\" \"$FEATURE_BRANCH\"
 
         # Start new session with task + periodic commits
-        tmux new-session -d -s agent 'cd ~/$CLOUD_PROJECT_DIR && /tmp/periodic-commit.sh & COMMIT_PID=\$! && claude --dangerously-skip-permissions -p \"$ESCAPED_TASK
+        tmux new-session -d -s agent bash -c '
+            # Start periodic commit in background
+            PROJECT_DIR=$PROJECT_DIR /tmp/periodic-commit.sh &
+            COMMIT_PID=\$!
+
+            # Run the main task (skip permissions for autonomous mode)
+            claude --dangerously-skip-permissions -p \"$TASK
 
 IMPORTANT: You are running autonomously without a human present.
 - Do NOT use AskUserQuestion - make reasonable decisions based on the spec
 - If something is ambiguous, pick the simpler option
 - For infrastructure setup (Supabase buckets, tables), document what needs manual creation
 - Commit after each major step completion
-- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later\" 2>&1 | tee /tmp/agent-output.log; kill \$COMMIT_PID 2>/dev/null; echo \"\"; echo \"=== TASK COMPLETE ===\"; echo \"Committing final work...\"; git add -A; git commit -m \"cloud-agent: task complete\" --allow-empty; git push -u origin $FEATURE_BRANCH; ~/telegram-bot.sh complete \"$ESCAPED_TASK\" \"$FEATURE_BRANCH\"; echo \"\"; echo \"Work pushed to branch: $FEATURE_BRANCH\"; echo \"\"; echo \"Run /c pull to get the changes\"'
+- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later\" 2>&1 | tee /tmp/agent-output.log
+
+            # Stop periodic commits
+            kill \$COMMIT_PID 2>/dev/null
+
+            echo \"\"
+            echo \"=== TASK COMPLETE ===\"
+            echo \"Committing final work...\"
+            git add -A
+            git commit -m \"cloud-agent: $TASK\" --allow-empty
+            git push -u origin $FEATURE_BRANCH
+
+            # Notify via Telegram
+            ~/telegram-bot.sh complete \"$TASK\" \"$FEATURE_BRANCH\"
+
+            echo \"\"
+            echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
+            echo \"\"
+            echo \"Run /c pull to get the changes\"
+        '
     " 2>/dev/null
 fi
-
-# Update Supabase with task start
-TASK_SHORT="${TASK:0:100}"
-update_worktree_status "$CLOUD_WT_ID" "running" "$FEATURE_BRANCH" "$TASK_SHORT" ""
 
 echo ""
 echo -e "${GREEN}✅ Task is running in the cloud!${NC}"
 echo ""
 echo "Feature branch: $FEATURE_BRANCH"
 echo "Base branch: $CURRENT_BRANCH"
-if [ -n "$CLOUD_WORKTREE" ]; then
-    echo "Cloud worktree: $CLOUD_WORKTREE ($CLOUD_PROJECT_DIR)"
-fi
 echo "Task: $TASK"
 if [ "$USE_CLAUDE" = true ]; then
     echo "Model: Claude Opus 4.5"
