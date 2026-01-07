@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2Icon, AlertCircleIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
+import { analytics } from "@/lib/mixpanel";
 
 interface LoginFormProps {
   onSwitchToSign: () => void;
@@ -44,14 +45,19 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
       const { error } = await signInWithEmail(email);
 
       if (error) {
+        analytics.track('login_magic_link_error', {
+          error_type: error.message.includes('rate') ? 'rate_limited' : 'unknown',
+        });
         setError(error.message);
         setIsSubmitting(false);
       } else {
         // Magic link sent successfully
+        analytics.track('login_magic_link_sent');
         setIsSubmitting(false);
         setIsSubmitted(true);
       }
     } catch {
+      analytics.track('login_magic_link_error', { error_type: 'network_error' });
       setError("An unexpected error occurred. Please try again.");
       setIsSubmitting(false);
     }

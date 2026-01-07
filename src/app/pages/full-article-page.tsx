@@ -18,6 +18,7 @@ import { ArrowLeftIcon, BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, Chev
 import articleContent from "../content/full-article.md?raw";
 import { getCurrentUser, signOut, Profile } from "@/app/data/api";
 import { SEO } from "@/app/components/seo";
+import { analytics } from "@/lib/mixpanel";
 
 export function FullArticlePage() {
   const navigate = useNavigate();
@@ -49,6 +50,11 @@ export function FullArticlePage() {
   }, []);
 
   useEffect(() => {
+    // Track page view
+    analytics.track('article_page_viewed', {
+      referrer: document.referrer || 'direct',
+    });
+
     // Load current user
     const loadUser = async () => {
       setIsLoadingUser(true);
@@ -80,16 +86,30 @@ export function FullArticlePage() {
 
   // Track scroll progress and show/hide floating CTA
   useEffect(() => {
+    // Track milestones for read depth (25%, 50%, 75%, 100%)
+    const trackedMilestones = new Set<number>();
+
     const handleScroll = () => {
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
       const scrollTop = window.scrollY;
       const progress = (scrollTop / (documentHeight - windowHeight)) * 100;
-      
+
       setScrollProgress(Math.min(progress, 100));
-      
+
       // Show floating CTA after scrolling past executive summary (around 20% of page)
       setShowFloatingCTA(progress > 15 && progress < 95 && !currentUser);
+
+      // Track read depth milestones
+      const milestones = [25, 50, 75, 100];
+      for (const milestone of milestones) {
+        if (progress >= milestone && !trackedMilestones.has(milestone)) {
+          trackedMilestones.add(milestone);
+          analytics.track('article_read_depth', {
+            depth_percent: milestone,
+          });
+        }
+      }
     };
 
     window.addEventListener('scroll', handleScroll);

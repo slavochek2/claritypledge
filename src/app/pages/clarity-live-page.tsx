@@ -1260,11 +1260,24 @@ export function ClarityLivePage() {
 
     // Track session exit
     if (session) {
+      const checksCompleted = liveState.checksCount;
+      const hadMeaningfulEngagement = checksCompleted > 0;
+
       analytics.track('live_session_exited', {
         session_code: session.code,
-        checks_completed: liveState.checksCount,
+        checks_completed: checksCompleted,
         is_creator: isCreator,
+        had_meaningful_engagement: hadMeaningfulEngagement,
       });
+
+      // Track session completion separately for funnel analysis
+      if (hadMeaningfulEngagement) {
+        analytics.track('live_session_completed', {
+          session_code: session.code,
+          checks_completed: checksCompleted,
+          is_creator: isCreator,
+        });
+      }
 
       // Notify partner by updating the database
       try {

@@ -3,7 +3,7 @@
  * @description About page for the Clarity Pledge movement.
  * Contains the founder's story, open source information, and a contact form.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { SEO } from "@/app/components/seo";
@@ -16,6 +16,7 @@ import {
   CodeIcon,
   MailIcon,
 } from "lucide-react";
+import { analytics } from "@/lib/mixpanel";
 
 export function AboutPage() {
   const [formData, setFormData] = useState({
@@ -25,9 +26,21 @@ export function AboutPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Track page view
+  useEffect(() => {
+    analytics.track('about_page_viewed', {
+      referrer: document.referrer || 'direct',
+    });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    analytics.track('contact_form_submitted', {
+      has_message: formData.message.trim().length > 0,
+      message_length: formData.message.trim().length,
+    });
 
     try {
       const formPayload = new FormData();
@@ -45,16 +58,19 @@ export function AboutPage() {
       const data = await response.json();
 
       if (data.success) {
+        analytics.track('contact_form_success');
         setIsSubmitted(true);
         setFormData({
           email: "",
           message: "",
         });
       } else {
+        analytics.track('contact_form_error', { reason: 'api_rejected' });
         toast.error("There was an error submitting the form. Please try again later.");
       }
     } catch (error) {
       console.error("Form submission error:", error);
+      analytics.track('contact_form_error', { reason: 'network_error' });
       toast.error("There was an error submitting the form. Please try again later.");
     } finally {
       setIsSubmitting(false);
@@ -130,6 +146,7 @@ export function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+                  onClick={() => analytics.track('founder_linkedin_clicked', { source: 'about_page' })}
                 >
                   <LinkedinIcon className="w-5 h-5" />
                   Vyacheslav Ladischenski on LinkedIn
@@ -161,6 +178,7 @@ export function AboutPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+                  onClick={() => analytics.track('github_link_clicked', { source: 'about_page' })}
                 >
                   <CodeIcon className="w-5 h-5" />
                   View on GitHub

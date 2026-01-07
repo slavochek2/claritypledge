@@ -7,9 +7,17 @@
  * manage their pledge, or view their profile.
  * It's a straightforward, single-purpose page designed to get users authenticated quickly.
  */
+import { useEffect } from "react";
 import { LoginForm } from "@/app/components/pledge/login-form";
+import { analytics } from "@/lib/mixpanel";
 
 export function LoginPage() {
+  useEffect(() => {
+    analytics.track('login_page_viewed', {
+      referrer: document.referrer || 'direct',
+    });
+  }, []);
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-lg">
       <div className="bg-card border border-border rounded-lg shadow-sm p-6 md:p-8">

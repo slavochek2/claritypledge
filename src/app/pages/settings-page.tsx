@@ -3,12 +3,13 @@
  * @description Protected settings page where authenticated users can edit their profile.
  * Redirects unauthenticated users to /sign-pledge.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
 import { updateProfile } from "@/app/data/api";
 import { toast } from "sonner";
 import { ArrowLeftIcon, Loader2Icon, CheckIcon } from "lucide-react";
+import { analytics } from "@/lib/mixpanel";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -24,6 +25,17 @@ export function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; linkedinUrl?: string }>({});
+  const hasTrackedPageView = useRef(false);
+
+  // Track page view (once per mount, after auth loaded)
+  useEffect(() => {
+    if (!authLoading && session && user && !hasTrackedPageView.current) {
+      hasTrackedPageView.current = true;
+      analytics.track('settings_page_viewed', {
+        profile_slug: user.slug,
+      });
+    }
+  }, [authLoading, session, user]);
 
   // Populate form with current profile data
   useEffect(() => {
@@ -103,6 +115,9 @@ export function SettingsPage() {
     });
 
     if (error) {
+      analytics.track('profile_update_error', {
+        profile_slug: user?.slug,
+      });
       toast.error("Failed to save changes. Please try again.");
       setIsSaving(false);
       return;
@@ -111,6 +126,15 @@ export function SettingsPage() {
     // Refresh profile in auth context
     await refreshProfile();
 
+    analytics.track('profile_updated', {
+      profile_slug: user?.slug,
+      fields_updated: [
+        name.trim() !== (user?.name || '') && 'name',
+        role.trim() !== (user?.role || '') && 'role',
+        linkedinUrl.trim() !== (user?.linkedinUrl || '') && 'linkedin',
+        reason.trim() !== (user?.reason || '') && 'reason',
+      ].filter(Boolean),
+    });
     toast.success("Profile updated successfully!");
     setHasChanges(false);
     setIsSaving(false);

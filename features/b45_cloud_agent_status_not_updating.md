@@ -1,178 +1,145 @@
-# B45: Cloud Agent Doesn't Update Worktree Status on Completion
+# B45: Cloud Agent Doesn't Update Worktree Status
 
 **Status:** Open
-**Priority:** MEDIUM (Developer experience issue)
+**Priority:** MEDIUM
 **Type:** Bug
 **Created:** 2026-01-07
-**Affects:** Cloud agent workflow, Telegram notifications, status tracking
 
 ---
 
-## Summary
+## Problem
 
-When cloud agent completes a task, it sends a Telegram notification but does NOT update the `worktree_status` table in Supabase. This causes the status tracker to show stale data, and Telegram status queries return outdated information.
-
----
-
-## How to Reproduce
-
-1. Run a cloud agent task:
-   ```bash
-   /c claude Execute features/_drafts/p24_nextjs_migration_v2.md
-   ```
-
-2. Wait for task to complete (agent finishes, pushes branch)
-
-3. Check worktree status:
-   ```sql
-   select id, branch, status, purpose, last_task
-   from worktree_status
-   where id like 'cloud%';
-   ```
-
-4. **Expected:** Status shows the completed task, branch name, status = 'completed' or 'active'
-
-5. **Actual:** Status shows stale data (e.g., still says "idle" or shows old task)
-
-6. Telegram bot `/status` command also shows stale data
+Cloud agent sends Telegram notifications but never updates `worktree_status` table. Status queries return stale data.
 
 ---
 
 ## Root Cause
 
-The `cloud-agent.sh` script calls `telegram-bot.sh complete` which sends a notification but doesn't update Supabase:
-
-```bash
-# cloud-agent.sh line 522
-~/telegram-bot.sh complete '$TASK' '$FEATURE_BRANCH'
-```
-
-The `telegram-bot.sh` only sends Telegram messages:
-
-```bash
-# telegram-bot.sh notify_complete function
-notify_complete() {
-    send_message "✅ *Cloud Agent Complete*
-Task: $1
-Branch: $2
-Run \`/c pull\` to get the changes."
-}
-```
-
-**Missing:** No call to update `worktree_status` table.
+`cloud-agent.sh` calls `telegram-bot.sh complete` which only sends messages — no Supabase update.
 
 ---
 
-## Affected Files
+## Fix
 
-| File | Location | Issue |
-|------|----------|-------|
-| `scripts/cloud-agent.sh` | Local repo | Doesn't update Supabase on start/complete |
-| `~/telegram-bot.sh` | Cloud VM | Doesn't update Supabase |
-| `worktree_status` table | Prod Supabase | Never gets updated by cloud agent |
+Add status updates to `cloud-agent.sh` at task start and end.
 
----
-
-## Proposed Fix
-
-### Option A: Update cloud-agent.sh (Recommended)
-
-Add Supabase update calls to `cloud-agent.sh` at task start and completion:
+### Code to Add
 
 ```bash
-# Add near top of script
+# Near other config vars (around line 50)
 SUPABASE_URL="https://besjtuodziykmjidubzw.supabase.co"
-SUPABASE_KEY="<service-role-key>"  # Or use anon key with proper RLS
+SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-}"  # Set in environment
 
-update_worktree_status() {
-    local worktree_id="$1"
-    local branch="$2"
-    local status="$3"
-    local purpose="$4"
-    local last_task="$5"
-
-    curl -s -X PATCH \
-        "${SUPABASE_URL}/rest/v1/worktree_status?id=eq.${worktree_id}" \
-        -H "apikey: ${SUPABASE_KEY}" \
-        -H "Authorization: Bearer ${SUPABASE_KEY}" \
+update_status() {
+    [ -z "$SUPABASE_ANON_KEY" ] && return  # Skip if no key
+    curl -sf -X PATCH \
+        "${SUPABASE_URL}/rest/v1/worktree_status?id=eq.cloud-wt${WORKTREE}" \
+        -H "apikey: ${SUPABASE_ANON_KEY}" \
         -H "Content-Type: application/json" \
-        -d "{
-            \"branch\": \"${branch}\",
-            \"status\": \"${status}\",
-            \"purpose\": \"${purpose}\",
-            \"last_task\": \"${last_task}\",
-            \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-            \"updated_by\": \"cloud-agent\"
-        }"
+        -d "{\"status\":\"$1\",\"last_task\":\"$2\",\"branch\":\"$3\",\"updated_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"updated_by\":\"cloud-agent\"}" \
+        || echo "Warning: Status update failed (non-critical)"
 }
 
-# Call on task start (around line 490)
-update_worktree_status "cloud-wt${WORKTREE}" "$FEATURE_BRANCH" "in-progress" "$TASK" "Starting task"
+# On task start (after branch creation)
+update_status "running" "$TASK" "$FEATURE_BRANCH"
 
-# Call on task complete (around line 522)
-update_worktree_status "cloud-wt${WORKTREE}" "$FEATURE_BRANCH" "active" "Completed: $TASK" "$TASK"
+# On task end (before telegram notification)
+update_status "done" "$TASK" "$FEATURE_BRANCH"
 ```
 
-### Option B: Update telegram-bot.sh on VM
+### Status Values
 
-Add the same logic to `telegram-bot.sh` on the cloud VM. Less ideal because:
-- Requires SSH to update
-- Duplicates logic if cloud-agent.sh also needs it
+| Status | Meaning |
+|--------|---------|
+| `running` | Agent currently executing |
+| `done` | Task finished |
 
-### Option C: Create dedicated status update script
-
-Create `update-status.sh` that both scripts can call. More modular but adds another file to maintain.
+The `last_task` field provides context. No need for `error`, `stale`, etc.
 
 ---
 
-## Implementation Steps
+## Implementation
 
-1. [ ] Add Supabase credentials to cloud-agent.sh (use env var or secrets)
-2. [ ] Add `update_worktree_status` function to cloud-agent.sh
-3. [ ] Call function on task start with status "in-progress"
-4. [ ] Call function on task complete with status "active"
-5. [ ] Call function on task error with status "stale" or "error"
-6. [ ] Test with a real cloud agent run
-7. [ ] Verify Telegram `/status` reflects updates
+1. [ ] Add `update_status` function to `cloud-agent.sh`
+2. [ ] Add `SUPABASE_ANON_KEY` to cloud VM environment (`~/.bashrc`)
+3. [ ] Call on task start and end
+4. [ ] Test locally (see below)
+5. [ ] Deploy to cloud VM and test real task
 
 ---
 
-## Security Consideration
+## Testing
 
-The Supabase key in the script should be:
-- **Option 1:** Service role key (full access, store securely)
-- **Option 2:** Anon key with RLS policy allowing updates from specific source
+### 1. Test the curl locally first
 
-RLS policy for Option 2:
-```sql
-CREATE POLICY "Allow cloud agent updates"
-ON worktree_status
-FOR UPDATE
-USING (true)  -- Or check for specific conditions
-WITH CHECK (updated_by IN ('cloud-agent', 'local-agent'));
+```bash
+# Set your anon key
+export SUPABASE_ANON_KEY="eyJ..."  # Get from .env.local
+
+# Simulate what the script will do
+WORKTREE="main"
+curl -sf -X PATCH \
+    "https://besjtuodziykmjidubzw.supabase.co/rest/v1/worktree_status?id=eq.cloud-wt${WORKTREE}" \
+    -H "apikey: ${SUPABASE_ANON_KEY}" \
+    -H "Content-Type: application/json" \
+    -d '{"status":"running","last_task":"test-task","branch":"test-branch","updated_at":"2026-01-07T12:00:00Z","updated_by":"cloud-agent"}'
+
+# Check it worked
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/worktree_status?id=eq.cloud-wtmain&select=status,last_task" \
+    -H "apikey: ${SUPABASE_ANON_KEY}"
 ```
+
+**Expected:** Returns `[{"status":"running","last_task":"test-task"}]`
+
+### 2. Test in cloud-agent.sh dry run
+
+After adding the function, test without running a full task:
+
+```bash
+# SSH to cloud VM
+ssh clarity-cloud
+
+# Source the updated script to get the function
+source ~/cloud-agent.sh  # or wherever it lives
+
+# Test the function directly
+WORKTREE="main"
+TASK="manual-test"
+FEATURE_BRANCH="test-branch"
+update_status "running" "$TASK" "$FEATURE_BRANCH"
+
+# Verify
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/worktree_status?id=eq.cloud-wtmain&select=status,last_task,branch" \
+    -H "apikey: ${SUPABASE_ANON_KEY}"
+```
+
+### 3. Full integration test
+
+```bash
+# Run a trivial cloud task
+/c claude "echo hello world"
+
+# Check status updated to "running" then "done"
+# Query from local:
+curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/worktree_status?id=like.cloud*&select=id,status,last_task" \
+    -H "apikey: ${SUPABASE_ANON_KEY}" | jq
+```
+
+### 4. Verify Telegram /status works
+
+After implementation, `/status` command in Telegram should show current data from the table.
 
 ---
 
-## Workaround (Manual)
+## Known Limitations
 
-Until fixed, manually update status after cloud tasks:
+**Script killed mid-run:** Status stays `running`. Acceptable — use `ps aux | grep claude` for real-time checks. Status table is a log, not live state.
 
-```sql
-UPDATE worktree_status SET
-  branch = 'cloud-agent/worktree-1-execute-2832',
-  status = 'active',
-  purpose = 'Next.js migration completed',
-  last_task = 'P24 Next.js migration v2',
-  updated_at = now(),
-  updated_by = 'manual'
-WHERE id = 'cloud-main';
-```
+**Network failure:** Logged and ignored. Telegram notification is primary feedback.
 
 ---
 
 ## Related
 
-- [cloud-agent.md](../docs/technical/cloud-agent.md) - Cloud agent documentation
-- `worktree_status` table in prod Supabase (`besjtuodziykmjidubzw`)
-- Telegram bot on cloud VM (`~/telegram-bot.sh`)
+- [cloud-agent.md](../docs/technical/cloud-agent.md)
+- `worktree_status` table in prod Supabase

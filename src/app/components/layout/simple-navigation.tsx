@@ -11,6 +11,7 @@ import {
 import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { NAV_LINKS } from "./nav-links";
+import { analytics } from "@/lib/mixpanel";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -87,6 +88,7 @@ export function SimpleNavigation() {
             <Link
               to="/sign-pledge"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent font-medium"
+              onClick={() => analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'desktop' })}
             >
               Take the Pledge
             </Link>
@@ -94,6 +96,7 @@ export function SimpleNavigation() {
             <Link
               to="/live"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+              onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
             >
               Try a Clarity Meeting
             </Link>
@@ -183,14 +186,20 @@ export function SimpleNavigation() {
               <Link
                 to="/live"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
-                onClick={closeMobileMenu}
+                onClick={() => {
+                  analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
+                  closeMobileMenu();
+                }}
               >
                 Try a Clarity Meeting
               </Link>
               <Link
                 to="/sign-pledge"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
-                onClick={closeMobileMenu}
+                onClick={() => {
+                  analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'mobile' });
+                  closeMobileMenu();
+                }}
               >
                 Take the Pledge
               </Link>

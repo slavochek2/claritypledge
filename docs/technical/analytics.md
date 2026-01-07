@@ -9,7 +9,12 @@ This document catalogs all Mixpanel events tracked in the Clarity Pledge app.
 Events are categorized by feature area:
 - [Core Funnel](#core-funnel) - Landing → Sign → Profile creation
 - [Profile & Sharing](#profile--sharing) - Profile views, sharing, certificates
-- [Social Features](#social-features) - Champions page, endorsements
+- [About & Contact](#about--contact) - About page, contact form, external links
+- [Settings](#settings) - Profile editing
+- [Login](#login) - Returning user authentication
+- [Navigation](#navigation) - CTA clicks
+- [Article/Content](#articlecontent) - Manifesto engagement
+- [Social Features](#social-features) - Pledgers page, endorsements
 - [Live Meetings](#live-meetings) - Real-time understanding verification
 
 ---
@@ -138,6 +143,130 @@ Certificate download failed.
 
 ---
 
+## About & Contact
+
+### `about_page_viewed`
+User views the About page.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `referrer` | string | Document referrer URL |
+
+### `contact_form_submitted`
+User submits the contact form.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `has_message` | boolean | Whether message field was filled |
+| `message_length` | number | Length of message in characters |
+
+### `contact_form_success`
+Contact form submission succeeded.
+
+*No properties*
+
+### `contact_form_error`
+Contact form submission failed.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `reason` | string | Error type: `api_rejected` or `network_error` |
+
+### `founder_linkedin_clicked`
+User clicked founder's LinkedIn link.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | Where link was clicked (e.g., `about_page`) |
+
+### `github_link_clicked`
+User clicked GitHub repository link.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `source` | string | Where link was clicked (e.g., `about_page`) |
+
+---
+
+## Settings
+
+### `settings_page_viewed`
+User views the settings page.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `profile_slug` | string | User's profile slug |
+
+### `profile_updated`
+User successfully updated their profile.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `profile_slug` | string | User's profile slug |
+| `fields_updated` | array | List of fields that changed (e.g., `['name', 'role']`) |
+
+### `profile_update_error`
+Profile update failed.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `profile_slug` | string | User's profile slug |
+
+---
+
+## Login
+
+### `login_page_viewed`
+User views the login page (returning users).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `referrer` | string | Document referrer URL |
+
+### `login_magic_link_sent`
+Magic link successfully sent for login.
+
+*No properties*
+
+### `login_magic_link_error`
+Magic link send failed for login.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `error_type` | string | Error type: `rate_limited`, `unknown`, or `network_error` |
+
+---
+
+## Navigation
+
+### `nav_cta_clicked`
+User clicked a CTA button in the navigation.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `cta` | string | CTA type: `take_pledge` or `try_meeting` |
+| `device` | string | Device type: `desktop` or `mobile` |
+
+---
+
+## Article/Content
+
+### `article_page_viewed`
+User views the manifesto article.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `referrer` | string | Document referrer URL |
+
+### `article_read_depth`
+User scrolled to a milestone in the article.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `depth_percent` | number | Read depth milestone: 25, 50, 75, or 100 |
+
+---
+
 ## Social Features
 
 ### `pledgers_page_viewed`
@@ -223,6 +352,16 @@ Partner joins an existing meeting.
 
 #### `live_session_exited`
 User leaves the meeting.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | 6-character room code |
+| `checks_completed` | number | Number of understanding checks completed |
+| `is_creator` | boolean | Whether user was the host |
+| `had_meaningful_engagement` | boolean | Whether at least one check was completed |
+
+#### `live_session_completed`
+User exits after meaningful engagement (at least one understanding check). This is a key conversion metric.
 
 | Property | Type | Description |
 |----------|------|-------------|
