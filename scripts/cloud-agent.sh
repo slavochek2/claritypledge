@@ -375,7 +375,7 @@ else
     echo -e "${BLUE}☁️  Cloud Agent (Gemini 2.5 Pro)${NC}"
 fi
 if [ -n "$CLOUD_WORKTREE" ]; then
-    echo -e "   Cloud worktree: ${CLOUD_WORKTREE} (${CLOUD_PROJECT_DIR})"
+    echo -e "   Cloud worktree: ${CLOUD_WORKTREE} - ${CLOUD_PROJECT_DIR}"
 fi
 echo ""
 
@@ -503,7 +503,7 @@ IMPORTANT: You are running autonomously without a human present.
             echo ''
             echo 'Run /c pull to get the changes'
         \"
-    \" 2>/dev/null
+    " 2>/dev/null
 fi
 
 echo ""
@@ -512,7 +512,7 @@ echo ""
 echo "Feature branch: $FEATURE_BRANCH"
 echo "Base branch: $CURRENT_BRANCH"
 if [ -n "$CLOUD_WORKTREE" ]; then
-    echo "Cloud worktree: $CLOUD_WORKTREE ($CLOUD_PROJECT_DIR)"
+    echo "Cloud worktree: $CLOUD_WORKTREE - $CLOUD_PROJECT_DIR"
 fi
 echo "Task: $TASK"
 if [ "$USE_CLAUDE" = true ]; then
