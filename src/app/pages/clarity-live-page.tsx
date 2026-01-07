@@ -1370,10 +1370,10 @@ export function ClarityLivePage() {
     const hasPermission = await requestMicPermission();
     if (hasPermission) {
       setShowMicDialog(false);
-      resetMic();
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
+      // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
-  }, [requestMicPermission, resetMic]);
+  }, [requestMicPermission]);
 
   // P40: Handle mic permission dialog cancel
   const handleMicCancel = useCallback(() => {
