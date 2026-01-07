@@ -583,7 +583,8 @@ def handle_command(text):
         return format_all_status()
 
     # Status with worktree: /s2, status 2
-    if text_lower.startswith(("/s", "s", "status")):
+    # Exclude "stop" commands which also start with "s"
+    if text_lower.startswith(("/s", "s", "status")) and not text_lower.startswith(("stop", "/stop")):
         wt = parse_worktree_arg(text_lower)
         if wt is not None:
             return format_worktree_status(wt)
