@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Telegram Cloud Agent Handler v3 - Multi-Worktree Support
-- Tracks agents across worktrees 0-3
-- Worktree-specific status and logs
+Telegram Cloud Agent Handler v4 - Multi-Worktree + Supabase Sync
+- Tracks agents across worktrees 0-3 (cloud) and 1-7 (local)
+- Syncs status to Supabase worktree_status table
+- /worktrees command shows all worktrees (local + cloud)
 - Completion notifications with worktree context
 - Forward user messages to specific agents
 """
@@ -14,12 +15,17 @@ import re
 import json
 import sys
 from pathlib import Path
+from datetime import datetime
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+
+# Supabase config for worktree_status table (prod database)
+SUPABASE_URL = "https://besjtuodziykmjidubzw.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI5NzYyNDYsImV4cCI6MjA0ODU1MjI0Nn0.CuzJsMGGu-5jHLb99A8zGfREgDlPnZhMve5ko_QTYOQ"
 
 if not TELEGRAM_TOKEN or not CHAT_ID:
     print("ERROR: Missing required environment variables:")
@@ -125,6 +131,99 @@ def get_updates(offset=0):
     except requests.RequestException as e:
         print(f"[Telegram] Failed to get updates: {e}")
         return []
+
+
+# =============================================================================
+# SUPABASE WORKTREE STATUS
+# =============================================================================
+def supabase_get_worktrees():
+    """Fetch all worktree statuses from Supabase"""
+    url = f"{SUPABASE_URL}/rest/v1/worktree_status?order=id"
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SEC)
+        if r.status_code == 200:
+            return r.json()
+    except requests.RequestException as e:
+        print(f"[Supabase] Failed to fetch worktrees: {e}")
+    return []
+
+
+def supabase_update_worktree(wt_id, data):
+    """Update a worktree status in Supabase"""
+    url = f"{SUPABASE_URL}/rest/v1/worktree_status?id=eq.{wt_id}"
+    headers = {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    data["updated_at"] = datetime.utcnow().isoformat()
+    data["updated_by"] = "telegram-handler"
+    try:
+        r = requests.patch(url, headers=headers, json=data, timeout=REQUEST_TIMEOUT_SEC)
+        return r.status_code in [200, 204]
+    except requests.RequestException as e:
+        print(f"[Supabase] Failed to update worktree {wt_id}: {e}")
+    return False
+
+
+def format_worktrees_from_supabase():
+    """Format all worktrees status from Supabase for /worktrees command"""
+    worktrees = supabase_get_worktrees()
+    if not worktrees:
+        return "⚠️ Could not fetch worktree status"
+
+    msg = "*All Worktrees:*\n"
+    msg += "━━━━━━━━━━━━━━━━━━━\n"
+
+    # Group by type
+    local_wts = [w for w in worktrees if w['id'].startswith('wt')]
+    cloud_wts = [w for w in worktrees if w['id'].startswith('cloud')]
+
+    # Local worktrees
+    if local_wts:
+        msg += "\n*📁 Local (Mac):*\n"
+        for wt in sorted(local_wts, key=lambda x: x['id']):
+            status = wt.get('status', 'unknown')
+            status_emoji = {
+                'active': '🟢',
+                'idle': '⚪',
+                'empty': '⚫',
+                'stuck': '🔴',
+                'not-setup': '⚫'
+            }.get(status, '❓')
+
+            branch = wt.get('branch', '-')[:20] if wt.get('branch') else '-'
+            purpose = wt.get('purpose', '')[:30] if wt.get('purpose') else ''
+
+            msg += f"{status_emoji} *{wt['id']}* | `{branch}`\n"
+            if purpose:
+                msg += f"   _{purpose}_\n"
+
+    # Cloud worktrees
+    if cloud_wts:
+        msg += "\n*☁️ Cloud (GCP):*\n"
+        for wt in sorted(cloud_wts, key=lambda x: x['id']):
+            status = wt.get('status', 'unknown')
+            status_emoji = {
+                'running': '🟢',
+                'idle': '⚪',
+                'not-setup': '⚫'
+            }.get(status, '❓')
+
+            branch = wt.get('branch', '-')[:20] if wt.get('branch') else '-'
+            last_task = wt.get('last_task', '')[:35] if wt.get('last_task') else ''
+
+            msg += f"{status_emoji} *{wt['id']}* | `{branch}`\n"
+            if last_task:
+                msg += f"   📋 _{last_task}_\n"
+
+    msg += "\n💡 `/c --list` for ports"
+    return msg
 
 
 # =============================================================================
@@ -459,13 +558,18 @@ def handle_command(text):
     if text in ["/health", "health"]:
         return format_health()
 
+    # Worktrees (from Supabase)
+    if text in ["/worktrees", "worktrees", "/wt", "wt"]:
+        return format_worktrees_from_supabase()
+
     # Help
     if text in ["/help", "help", "h", "/h", "?"]:
         return """*Commands:*
-/status (s) - All agents status
+/status (s) - Cloud agents status
 /s2 - WT2 status only
 /logs (l) - Recent output
 /l1 - WT1 logs only
+/worktrees (wt) - All worktrees (local+cloud)
 /health - VM health + agent memory
 /stop - Stop first agent
 /stop 2 - Stop WT2

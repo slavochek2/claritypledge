@@ -15,6 +15,33 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Supabase config for worktree_status table (prod database)
+SUPABASE_URL="https://besjtuodziykmjidubzw.supabase.co"
+SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI5NzYyNDYsImV4cCI6MjA0ODU1MjI0Nn0.CuzJsMGGu-5jHLb99A8zGfREgDlPnZhMve5ko_QTYOQ"
+
+# Update worktree status in Supabase
+update_worktree_status() {
+    local wt_id="$1"
+    local status="$2"
+    local branch="$3"
+    local last_task="$4"
+    local last_commit="$5"
+
+    curl -s -X PATCH "${SUPABASE_URL}/rest/v1/worktree_status?id=eq.${wt_id}" \
+        -H "apikey: ${SUPABASE_ANON_KEY}" \
+        -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+        -H "Content-Type: application/json" \
+        -H "Prefer: return=minimal" \
+        -d "{
+            \"status\": \"${status}\",
+            \"branch\": \"${branch}\",
+            \"last_task\": \"${last_task}\",
+            \"last_commit\": \"${last_commit}\",
+            \"updated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+            \"updated_by\": \"cloud-agent.sh\"
+        }" > /dev/null 2>&1 || true
+}
+
 # Load gcloud
 source "$(brew --prefix)/share/google-cloud-sdk/path.zsh.inc" 2>/dev/null || true
 
@@ -479,6 +506,10 @@ IMPORTANT: You are running autonomously without a human present.
         \"
     " 2>/dev/null
 fi
+
+# Update Supabase with task start
+TASK_SHORT="${TASK:0:100}"
+update_worktree_status "cloud-main" "running" "$FEATURE_BRANCH" "$TASK_SHORT" ""
 
 echo ""
 echo -e "${GREEN}✅ Task is running in the cloud!${NC}"

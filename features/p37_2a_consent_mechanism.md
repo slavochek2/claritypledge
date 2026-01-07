@@ -4,7 +4,7 @@
 **Priority:** CRITICAL (Blocks Public Launch)
 **Est. Effort:** 4-5 hours
 **Created:** 2026-01-06
-**Updated:** 2026-01-07 (Simplified based on Zoom/Google Meet patterns)
+**Updated:** 2026-01-07 (MVP simplified: no verification for returning guests)
 **Depends On:** None (P40 is included in this implementation)
 **Blocks:** P41 (Post-Session Email + Coaching)
 **Supersedes:** P26 (Lightweight Signup), P34.1, P34.2
@@ -88,8 +88,8 @@ Per [IAPP GDPR guidance](https://iapp.org/news/a/how-do-the-rules-on-audio-recor
 **Core Requirements:**
 - [ ] Single join dialog that covers: name, email, terms, privacy, recording consent
 - [ ] Guest "soft registration" (name + email = unverified user record created immediately)
-- [ ] No email confirmation needed for NEW guests — join instantly after entering name + email
-- [ ] Email verification required for EXISTING unverified users (security - prevent profile hijacking)
+- [ ] No email confirmation needed for guests — join instantly after entering name + email
+- [ ] Returning unverified guests rejoin with same profile (MVP simplification — see note below)
 - [ ] Post-session: magic link email (converts guest to verified user) — see P41
 
 **Host Requirement:**
@@ -102,7 +102,7 @@ Per [IAPP GDPR guidance](https://iapp.org/news/a/how-do-the-rules-on-audio-recor
 - [ ] Terms version tracking (re-prompt on policy updates)
 - [ ] No recording without consent logged
 - [ ] Handle edge case: guest enters email of existing verified user → prompt to log in
-- [ ] Handle edge case: guest enters email of existing unverified user → require email verification
+- [ ] Handle edge case: guest enters email of existing unverified user → rejoin with same profile (MVP)
 
 **Note:** AI coaching summary in post-session email is a P41 feature (depends on this).
 
@@ -369,80 +369,7 @@ export function JoinSessionDialog({
 }
 ```
 
-### 3. Email Verification Dialog (Security - Existing Unverified User)
-
-**File:** `src/app/components/live-meeting/email-verification-dialog.tsx`
-
-```typescript
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Mail } from 'lucide-react';
-
-interface EmailVerificationDialogProps {
-  open: boolean;
-  email: string;
-  onSendVerification: () => void;
-  onUseDifferentEmail: () => void;
-  isLoading?: boolean;
-}
-
-export function EmailVerificationDialog({
-  open,
-  email,
-  onSendVerification,
-  onUseDifferentEmail,
-  isLoading = false,
-}: EmailVerificationDialogProps) {
-  return (
-    <Dialog open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Verify Your Email
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <p className="text-muted-foreground">
-            We found an existing account for:
-          </p>
-
-          <p className="font-medium text-center py-2 bg-muted rounded-md">
-            {email}
-          </p>
-
-          <p className="text-sm text-muted-foreground">
-            We'll send a verification link to confirm this is your email.
-            Click the link to join the session.
-          </p>
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={onUseDifferentEmail}
-            disabled={isLoading}
-          >
-            Use Different Email
-          </Button>
-          <Button onClick={onSendVerification} disabled={isLoading}>
-            {isLoading ? 'Sending...' : 'Send Verification Link'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-```
-
-### 4. Terms Update Dialog
+### 3. Terms Update Dialog
 
 **File:** `src/app/components/live-meeting/terms-update-dialog.tsx`
 
@@ -619,11 +546,15 @@ export async function verifySessionConsent(
 /**
  * Create or get user from email (for guest soft-registration).
  * Creates unverified user record immediately — no email confirmation needed to join.
- * User becomes verified when they click the post-session email magic link.
+ * User becomes verified when they click the post-session email magic link (P41).
+ *
+ * MVP SIMPLIFICATION (Option 2):
+ * - Unverified returning guests rejoin without verification
+ * - Security tightening deferred to P41 (coaching email adds natural verification)
  *
  * EDGE CASES:
  * - If email belongs to existing verified user → requiresLogin: true
- * - If email belongs to existing unverified user → requiresVerification: true (SECURITY)
+ * - If email belongs to existing unverified user → Reuse profile (MVP)
  */
 export async function getOrCreateGuestUser(
   email: string,
@@ -632,7 +563,6 @@ export async function getOrCreateGuestUser(
   userId: string;
   isNew: boolean;
   requiresLogin: boolean;
-  requiresVerification: boolean;
 }> {
   // Check if user already exists in profiles
   const { data: existingUser } = await supabase
@@ -643,31 +573,28 @@ export async function getOrCreateGuestUser(
 
   if (existingUser) {
     if (existingUser.is_verified) {
-      // EDGE CASE: Email belongs to verified user
-      // They need to log in — we can't create consent record without auth
+      // Verified user must log in
       console.log('Existing verified user, requires login:', email);
       return {
         userId: existingUser.id,
         isNew: false,
         requiresLogin: true,
-        requiresVerification: false,
       };
     }
 
-    // SECURITY: Existing unverified user — need email verification first
-    // Otherwise anyone could hijack an unverified user's profile
-    console.log('Existing unverified user, requires verification:', email);
+    // MVP: Unverified user can rejoin without verification
+    // TODO (P41): Email verification happens naturally via coaching email magic link
+    console.log('Returning unverified guest, reusing profile:', email);
     return {
       userId: existingUser.id,
       isNew: false,
       requiresLogin: false,
-      requiresVerification: true,
     };
   }
 
   // Create new unverified user
   // Strategy: Create profile record directly without auth.users entry
-  // When they click post-session magic link:
+  // When they click post-session magic link (P41):
   // 1. auth.users entry is created
   // 2. AuthCallback matches by email and links to existing profile
   // 3. Profile becomes verified
@@ -691,7 +618,7 @@ export async function getOrCreateGuestUser(
   }
 
   console.log('Guest user created:', { userId, email, name });
-  return { userId, isNew: true, requiresLogin: false, requiresVerification: false };
+  return { userId, isNew: true, requiresLogin: false };
 }
 
 /**
@@ -799,10 +726,10 @@ async function hashIP(): Promise<string> {
 |-----------|-----------|---------|---------------|
 | First session, new guest | Guest | Create profile + join | 1 per session |
 | First session, registered | Verified | Join (skip dialog if terms current) | 1 per session |
-| Second session, same guest | Guest | Verify email → join | 1 per session |
+| Second session, same guest | Guest | **Rejoin with same profile (MVP)** | 1 per session |
 | Second session, verified user | Verified | Join immediately | 1 per session |
 | Email = verified user | Guest | Prompt login | 1 per session |
-| Email = unverified user | Guest | Verify email first (security) | 1 per session |
+| Email = unverified user | Guest | **Rejoin with same profile (MVP)** | 1 per session |
 | Terms changed | Any | Show terms update dialog | 1 per session |
 | Host creates session | Must be verified | Block guests from creating | N/A |
 
@@ -810,6 +737,8 @@ async function hashIP(): Promise<string> {
 - User can decline recording for specific sessions
 - Consent is contextual (different sessions may have different participants)
 - Matches Zoom/Google Meet pattern
+
+> **MVP Note:** Returning unverified guests rejoin without email verification. Security risk is low (unverified profiles have minimal value). Natural verification happens when P41 ships — coaching email contains magic link that verifies on click.
 
 ---
 
@@ -831,45 +760,27 @@ async function hashIP(): Promise<string> {
 
 ### Guest enters email of existing unverified user
 
-**SECURITY ISSUE IDENTIFIED:** Simply reusing an unverified profile allows impersonation.
+**MVP Decision:** Returning unverified guests simply rejoin with their existing profile.
 
-**Attack scenario:**
-1. Alice joins session with alice@example.com (unverified profile created)
-2. Mallory joins with alice@example.com (would hijack Alice's profile!)
+**Trade-off accepted:**
+- **Risk:** Theoretical impersonation (Mallory could enter alice@example.com)
+- **Mitigation:** Unverified profiles have minimal value — no verified badge, limited data
+- **Natural resolution:** P41 coaching email contains magic link → clicking verifies the real owner
 
-**Solution:** Require email confirmation before reusing unverified profile.
-
-**UI Flow:**
-```
-┌─────────────────────────────────────────────────────┐
-│  Verify Your Email                                  │
-│                                                     │
-│  We found an existing account for:                  │
-│  alice@example.com                                  │
-│                                                     │
-│  We'll send a verification link to confirm          │
-│  this is your email.                                │
-│                                                     │
-│  [Send Verification Link]   [Use Different Email]  │
-└─────────────────────────────────────────────────────┘
-```
-
-**Implementation:** Update `getOrCreateGuestUser()` to return `requiresVerification: true` for existing unverified users.
-
+**Implementation:**
 ```typescript
 if (existingUser && !existingUser.is_verified) {
-  // Existing unverified user — need to verify email first
+  // MVP: Allow rejoin without verification
+  // P41 handles verification naturally via coaching email
   return {
     userId: existingUser.id,
     isNew: false,
     requiresLogin: false,
-    requiresVerification: true, // NEW FIELD
-    email: email,
   };
 }
 ```
 
-After user clicks the email verification link, they return to the session and join automatically.
+**TODO when P41 ships:** Coaching email magic link will verify the email, converting unverified → verified. At that point, the profile is protected by verified user login requirement.
 
 ### Same person joins multiple sessions as guest
 
@@ -1001,3 +912,31 @@ Ensure Privacy Policy includes:
 **Legal Documents:**
 - [Privacy Policy](../src/app/pages/privacy-policy-page.tsx)
 - [Terms of Service](../src/app/pages/terms-of-service-page.tsx)
+
+---
+
+## MVP Simplifications
+
+### Unverified Guest Verification (Deferred to P41)
+
+**Current behavior:** Returning unverified guests rejoin with their existing profile without email verification.
+
+**Security trade-off accepted:**
+- Low risk — unverified profiles have minimal value to attackers
+- No verified badge, limited profile data
+- Natural verification happens when P41 ships (coaching email contains magic link)
+
+**What P41 adds:**
+- Post-session email sent to all participants
+- Email contains magic link to view coaching feedback
+- Clicking link verifies email → `is_verified = true`
+- After verification, profile is protected (verified users must log in)
+
+**Components NOT needed for P37.2a MVP:**
+- ~~`EmailVerificationDialog`~~ — removed
+- ~~`requiresVerification` return value~~ — removed
+- ~~Verification email sending logic~~ — deferred to P41
+
+**TODO when P41 ships:**
+- [ ] Coaching email magic link verifies guest email automatically
+- [ ] Consider adding stricter verification for sensitive actions (not session join)
