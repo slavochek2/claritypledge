@@ -572,7 +572,7 @@ def handle_command(text):
 
         else:
             # Block all other input until user confirms or cancels
-            return "⚠️ Confirmation pending. Reply **yes** or **no**."
+            return "⚠️ Confirmation pending. Reply *yes* or *no*."
 
     # Clear expired confirmation
     if time.time() >= PENDING_CONFIRMATION.get("expires", 0):
