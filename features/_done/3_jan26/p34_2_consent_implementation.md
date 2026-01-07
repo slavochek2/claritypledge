@@ -1,5 +1,17 @@
 # P34.2: Consent Notice Implementation
 
+> **⚠️ SUPERSEDED by [P37.2a](../p37_2a_consent_mechanism.md)**
+>
+> This implementation spec was replaced by P37.2a which:
+> - Goes beyond "consent notice" to full guest registration
+> - Creates audit trail in `session_consents` table
+> - Handles email verification for security
+> - Includes microphone permission flow (P40)
+>
+> **Archived:** 2026-01-07
+
+---
+
 ## Summary
 
 Add Terms & Privacy consent notice to all meeting entry points. Users must see the notice before starting or joining any meeting.

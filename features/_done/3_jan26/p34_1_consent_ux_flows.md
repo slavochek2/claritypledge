@@ -1,5 +1,17 @@
 # P34.1: Consent UX Flows - Edge Cases & User Journeys
 
+> **⚠️ SUPERSEDED by [P37.2a](../p37_2a_consent_mechanism.md)**
+>
+> This UX analysis was incorporated into P37.2a which provides:
+> - Single join dialog (consent + soft registration combined)
+> - Guest soft registration (name + email = unverified user)
+> - Terms version tracking in database
+> - All edge cases from this doc, plus security fixes
+>
+> **Archived:** 2026-01-07
+
+---
+
 ## Summary
 
 Design the UX for showing Terms & Privacy across all user states and touchpoints. Handle edge cases: logged-in vs anonymous users, new vs existing users, terms version updates, and meeting-specific consent.
