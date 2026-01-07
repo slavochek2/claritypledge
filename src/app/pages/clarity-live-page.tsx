@@ -42,7 +42,10 @@ import {
 } from '@/app/types';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
+import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
+import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
 import { SessionEventsCollector } from '@/lib/session-events-collector';
+import { toast } from 'sonner';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -150,6 +153,16 @@ export function ClarityLivePage() {
     chunkIntervalMs: 30000, // 30 seconds
   });
 
+  // P40: Microphone permission handling
+  const {
+    status: micStatus,
+    error: micError,
+    attemptCount: micAttemptCount,
+    requestPermission: requestMicPermission,
+    reset: resetMic,
+  } = useMicrophonePermission();
+  const [showMicDialog, setShowMicDialog] = useState(false);
+
   // P28.2: trackLiveEvent is now just analytics.track - ML collection happens automatically
   // via registerMLCollector() when recording starts. Keeping alias for grep-ability.
   const trackLiveEvent = analytics.track;
@@ -202,16 +215,32 @@ export function ClarityLivePage() {
     }
   }, [user?.name, name]);
 
-  // P28.1: Start audio recording when session goes live
-  // Also start the events collector to capture behavioral data
+  // P40: Check microphone permission when session goes live
+  // This runs in both dev and prod to ensure mic access works
+  useEffect(() => {
+    if (view === 'live' && session && micStatus === 'unknown') {
+      console.log('[P40] Checking microphone permission...');
+      requestMicPermission().then((hasPermission) => {
+        if (!hasPermission) {
+          console.log('[P40] Microphone permission denied, showing dialog');
+          setShowMicDialog(true);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only trigger on view/session change
+  }, [view, session?.id]);
+
+  // P28.1: Start audio recording when session goes live AND mic permission granted
   // P28.2: Only record in production to avoid polluting training data with dev sessions
   useEffect(() => {
-    if (view === 'live' && session && !isRecording) {
+    if (view === 'live' && session && !isRecording && micStatus === 'granted') {
       // Skip recording in dev - only capture production sessions
       if (!import.meta.env.PROD) {
-        console.log('[P28.1] Skipping recording in dev mode');
+        console.log('[P28.1] Skipping recording in dev mode (mic permission granted)');
         return;
       }
+
+      // Permission granted - start recording
       console.log('[P28.1] Session is live, starting recording and events collection');
       // Set refs for chunk upload callback (avoids stale closures)
       sessionCodeForChunks.current = session.code;
@@ -226,7 +255,7 @@ export function ClarityLivePage() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- name is immutable once view='live' (no UI to change it); we only want to trigger on session start
-  }, [view, session?.id]);
+  }, [view, session?.id, micStatus]);
 
   // P28.2: Keep sessionForChunks and userForChunks in sync with updates
   // This is important when joiner joins after recording has started
@@ -1336,6 +1365,24 @@ export function ClarityLivePage() {
     navigate('/live', { replace: true });
   }, [navigate, stopAndUploadRecording]);
 
+  // P40: Handle mic permission dialog retry
+  const handleMicRetry = useCallback(async () => {
+    const hasPermission = await requestMicPermission();
+    if (hasPermission) {
+      setShowMicDialog(false);
+      resetMic();
+      // Recording will start automatically via the useEffect when micStatus becomes 'granted'
+    }
+  }, [requestMicPermission, resetMic]);
+
+  // P40: Handle mic permission dialog cancel
+  const handleMicCancel = useCallback(() => {
+    setShowMicDialog(false);
+    resetMic();
+    toast.error('Microphone access is required to join Clarity Meetings');
+    // User can still use the meeting, just without recording
+  }, [resetMic]);
+
   // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
   useEffect(() => {
     if ((partnerLeft || sessionEnded) && isRecording) {
@@ -1745,6 +1792,15 @@ export function ClarityLivePage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* P40: Microphone permission dialog */}
+        <MicrophonePermissionDialog
+          open={showMicDialog}
+          error={micError}
+          attemptCount={micAttemptCount}
+          onRetry={handleMicRetry}
+          onCancel={handleMicCancel}
+        />
 
       </div>
     );
