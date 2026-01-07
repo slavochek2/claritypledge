@@ -50,13 +50,15 @@ npm run test:e2e:headed  # Run in headed browser
 
 ## Cloud Agent (Run Tasks While AFK)
 
-Run AI coding tasks on a Google Cloud VM. Works even when laptop is closed.
+Run AI coding tasks on a Google Cloud VM. Supports **parallel execution** via worktrees (0-3).
 
 ```bash
-/c claude Add feature X    # Claude + /loop + BMAD + visual checks (recommended)
-/c Fix typo                 # Gemini (simpler, no /loop or BMAD)
-/c status                   # Check progress
-/c pull                     # Get completed work
+/c claude Add feature X              # Auto-picks available worktree
+/c claude -w 2 Fix auth bug          # Explicitly use worktree 2
+/c status                            # Check ALL running agents
+/c --list                            # See worktree states
+/c pull 0                            # Get work from worktree 0
+/c reset all                         # Reset idle worktrees to main
 ```
 
 | Feature | Claude (`/c claude`) | Gemini (`/c`) |
@@ -65,7 +67,9 @@ Run AI coding tasks on a Google Cloud VM. Works even when laptop is closed.
 | BMAD agents | ✅ | ❌ |
 | Playwright MCP | ✅ | ❌ |
 
-**First-time setup:** Run `/c setup-mcp` to install Playwright on the VM.
+**First-time setup:**
+1. Run `/c setup-mcp` to install Playwright on the VM
+2. Run `/c setup-worktrees` to create worktrees 1-3 for parallel execution
 
 See [docs/technical/cloud-agent.md](docs/technical/cloud-agent.md) for full documentation.
 
@@ -82,6 +86,45 @@ git worktree list
 - Tree 1-7: `localhost:5100` through `localhost:5700`
 
 Each worktree has a unique port configured in `vite.config.ts` (committed to its branch). See [docs/technical/worktree-setup.md](docs/technical/worktree-setup.md) for full details on resetting, merging, and managing worktrees.
+
+## Worktree Status Tracking (IMPORTANT)
+
+**Source of truth:** `worktree_status` table in **prod Supabase** (`besjtuodziykmjidubzw`)
+
+When the user asks about worktrees, ports, cloud server status, or "what's on X":
+1. **Always query the status table first** - Don't rely on memory or git commands alone
+2. **Update after any change** - Reset, new work, completed task, etc.
+3. **Read-before-write** - Always fetch current status before updating to avoid race conditions
+
+**Status values:**
+- `empty` - Reset to main, ready for new work
+- `active` - Has work in progress or completed feature
+- `in-progress` - Agent currently working on it
+- `idle` - Available but not reset
+- `stale` - Needs attention/cleanup
+- `not-setup` - Environment not configured
+
+**Query status:**
+```sql
+select id, branch, status, purpose, last_task, updated_at
+from worktree_status
+order by id;
+```
+
+**Update status (always include all fields):**
+```sql
+update worktree_status set
+  branch = 'branch-name',
+  status = 'active',
+  purpose = 'What this worktree is for',
+  last_task = 'Description of last task',
+  last_commit = 'abc1234',
+  updated_at = now(),
+  updated_by = 'claude-code'  -- or 'cloud-agent', 'local'
+where id = 'wt1';  -- wt1-wt7, cloud-main, cloud-wt2
+```
+
+**IDs:** `wt1` through `wt7` (local), `cloud-main`, `cloud-wt2` (cloud server)
 
 ## Configuration
 

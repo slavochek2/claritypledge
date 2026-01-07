@@ -1,25 +1,85 @@
 # Cloud Agent
 
-Run AI coding tasks in the cloud. Works even when you close your laptop.
+Run AI coding tasks in the cloud. Works even when you close your laptop. Supports **parallel execution** via worktrees.
 
 ## Quick Reference
 
 ```bash
-/c claude Add dark mode         # Claude + /loop workflow + visual checks (recommended)
-/c Add dark mode                # Gemini (simpler, no /loop or BMAD)
-/c status                       # Check progress
-/c pull                         # Get work back
+/c claude Add dark mode         # Auto-picks available worktree (0-3)
+/c claude -w 2 Fix auth bug     # Explicitly use worktree 2
+/c status                       # Check ALL running agents
+/c --list                       # See worktree states
+/c pull 0                       # Get work from worktree 0
+/c reset all                    # Reset all idle worktrees to main
 /c pause                        # Stop VM (saves money)
 ```
+
+## Parallel Execution
+
+The cloud agent supports running **up to 4 agents simultaneously** using git worktrees:
+
+| Worktree | Directory | Dev Port | tmux Session |
+|----------|-----------|----------|--------------|
+| 0 (main) | `~/claritypledge` | 5001 | `agent-0` |
+| 1 | `~/claritypledge-1` | 5100 | `agent-1` |
+| 2 | `~/claritypledge-2` | 5200 | `agent-2` |
+| 3 | `~/claritypledge-3` | 5300 | `agent-3` |
+
+### Example Parallel Workflow
+
+```bash
+# Start two tasks in parallel
+/c claude "Fix auth bug"              # Auto-picks worktree 0
+/c claude "Add dark mode"             # Auto-picks worktree 1 (0 is busy)
+
+# Check both
+/c status
+# Output:
+# === Worktree 0 (RUNNING) ===
+# Task: Fix auth bug
+# ...
+# === Worktree 1 (RUNNING) ===
+# Task: Add dark mode
+# ...
+
+# Pull when done
+/c pull 0    # Get auth fix
+/c pull 1    # Get dark mode
+
+# Clean up for next tasks
+/c reset all
+```
+
+### Setting Up Worktrees (One-Time)
+
+```bash
+/c setup-worktrees
+```
+
+This creates worktrees 1-3 on the cloud VM with their own branches, symlinks `.env.local` from the main repo, and installs dependencies.
+
+### Auto-Exposed Dev URLs
+
+When a Claude agent starts, it automatically:
+1. Starts dev server on worktree-specific port
+2. Creates a cloudflared tunnel for external access
+3. Sends the public URL to Telegram
+
+You'll receive a message like:
+```
+🔗 WT1: https://abc-xyz.trycloudflare.com
+```
+
+Click to test the feature from your phone while the agent works!
 
 ## Claude vs Gemini
 
 | Feature | Claude (`/c claude`) | Gemini (`/c`) |
 |---------|---------------------|---------------|
-| `/loop` workflow | ✅ Yes | ❌ No |
-| BMAD agents | ✅ Yes | ❌ No |
-| Visual checks (Playwright MCP) | ✅ Yes | ❌ No |
-| Unit + E2E tests | ✅ Automated | ❌ Manual only |
+| `/loop` workflow | Yes | No |
+| BMAD agents | Yes | No |
+| Visual checks (Playwright MCP) | Yes | No |
+| Unit + E2E tests | Automated | Manual only |
 | Best for | Complex features, UI work | Quick refactors, simple fixes |
 | Cost | Higher (Claude API) | Lower (Gemini API) |
 
@@ -31,110 +91,26 @@ Send commands to `@clarity_cloud_agent_bot`:
 
 | Command | Action |
 |---------|--------|
-| `/status` or `s` | Task progress + checkpoint info |
-| `/logs` or `l` | Recent output (cleaned) |
-| `/stop` | Stop current task |
-| `/commit` | Manual checkpoint |
+| `/status` or `s` | All agents status |
+| `/s2` | Worktree 2 status only |
+| `/logs` or `l` | Recent output (first running agent) |
+| `/l1` | Worktree 1 logs |
+| `/stop` | Stop first running agent |
+| `/stop 2` | Stop worktree 2 |
+| `/stop all` | Stop all agents |
+| `/commit` | Manual checkpoint (all agents) |
+| `/health` | VM health (RAM, CPU, per-agent memory) |
 | `/help` | Show commands |
-| `[any text]` | Send instruction to agent |
+| `[any text]` | Send instruction to all running agents |
 
 ### Proactive Notifications
 
-The handler automatically sends:
-- **Task Started** when agent begins
-- **Checkpoint N** when agent commits with `checkpoint-N:` pattern
-- **Task Complete** when agent finishes
-
-### Sending Feedback
-
-Send any text (not a command) to give the agent instructions:
-
-```
-fix the button alignment
-```
-
-Response shows context:
-```
-📝 Noted for *cloud-agent/add-dark-mode-12345*:
-_fix the button alignment_
-
-📋 Task: Add dark mode to settings
-(Agent will see on next checkpoint)
-```
-
-Feedback is written to `/tmp/user-feedback.txt` with branch context. The agent can read this file during its next loop iteration.
-
-### How Tracking Works
-
-The handler tracks ONE task via:
-- **tmux session:** `agent`
-- **Project dir:** `~/claritypledge`
-- **Task file:** `/tmp/current-task.txt`
-- **State file:** `/tmp/cloud-agent-state.json` (checkpoint tracking)
-
-Since only one task runs at a time, this simple model works.
-
-## Architecture
-
-```
-┌─────────────────┐     ┌──────────────────────────────────┐
-│   Your Laptop   │     │   Google Cloud VM                │
-│                 │     │   (clarity-agent)                │
-│  ┌───────────┐  │     │                                  │
-│  │  Cursor   │  │     │  ┌────────────┐  ┌────────────┐  │
-│  │  + Claude │──┼─────┼──│   Claude   │  │  Telegram  │  │
-│  └───────────┘  │     │  │   Code     │  │  Handler   │  │
-│                 │     │  └─────┬──────┘  └─────┬──────┘  │
-│                 │     │        │               │         │
-└─────────────────┘     │        ▼               ▼         │
-        │               │  ┌──────────────────────────┐    │
-        │               │  │     Your Codebase        │    │
-        ▼               │  │     (git clone)          │    │
-   ┌─────────┐          │  └──────────────────────────┘    │
-   │ GitHub  │◄─────────┤                                  │
-   └─────────┘          └──────────────────────────────────┘
-        │                           │
-        ▼                           ▼
-   ┌─────────┐              ┌──────────────┐
-   │   PR    │              │   Telegram   │
-   └─────────┘              │   (notify)   │
-                            └──────────────┘
-```
-
-## How It Works
-
-### Single Task at a Time
-
-**Important:** The cloud agent runs ONE task at a time. Starting a new task kills any running task.
-
-```bash
-/c claude Fix the login bug     # Starts task A
-/c claude Add dark mode         # KILLS task A, starts task B
-```
-
-This is intentional (KISS). If you need to queue tasks, finish one before starting the next.
-
-### Starting a Task
-
-1. `/c [task]` pushes your local code to GitHub
-2. VM pulls latest code
-3. Creates feature branch: `cloud-agent/task-name-xxxxx`
-4. Runs Claude with full permissions
-5. Sends Telegram "Task Started" notification
-
-### During Task
-
-- Claude works **autonomously** (does NOT ask questions)
-- Makes reasonable decisions based on the spec
-- Periodic commits every 5 minutes
-- Check progress: `/c status` or Telegram `/status`
-
-### After Task
-
-1. Final commit pushed to feature branch
-2. Telegram "Task Complete" notification
-3. Run `/c pull` to checkout locally
-4. Review changes, then merge or create PR
+The handler automatically sends (with worktree context):
+- **WT0 Started:** when agent begins
+- **WT1 Checkpoint 3:** when agent commits with `checkpoint-N:` pattern
+- **WT2 Complete!** when agent finishes cleanly
+- **WT1 CRASHED!** when agent stops unexpectedly (includes RAM/CPU stats and last activity)
+- **🔗 WT1:** tunnel URL when dev server is ready
 
 ## Commands Reference
 
@@ -142,12 +118,24 @@ This is intentional (KISS). If you need to queue tasks, finish one before starti
 
 | Command | Description |
 |---------|-------------|
-| `/c [task]` | Run task with Gemini 3 Pro (default) |
-| `/c claude [task]` | Run task with Claude Opus 4.5 |
-| `/c status` | Check if agent is running |
-| `/c logs` | See recent output |
-| `/c pull` | Get work back (checkout feature branch) |
-| `/c stop` | Cancel current task |
+| `/c [task]` | Run task with Gemini (auto-picks worktree) |
+| `/c claude [task]` | Run task with Claude (auto-picks worktree) |
+| `/c claude -w N [task]` | Run on specific worktree N (0-3) |
+| `/c status` | Check ALL running agents |
+| `/c status N` | Check worktree N only |
+| `/c logs N` | See output for worktree N |
+| `/c --list` | Show all worktree states |
+| `/c pull N` | Get work from worktree N |
+| `/c stop N` | Stop agent on worktree N |
+| `/c stop all` | Stop all running agents |
+
+### Worktree Management
+
+| Command | Description |
+|---------|-------------|
+| `/c setup-worktrees` | Create worktrees 1-3 on cloud VM |
+| `/c reset N` | Reset worktree N to main (no agent running) |
+| `/c reset all` | Reset all idle worktrees to main |
 
 ### VM Commands
 
@@ -157,6 +145,67 @@ This is intentional (KISS). If you need to queue tasks, finish one before starti
 | `/c setup-mcp` | Install Playwright MCP for visual checks |
 | `/c pause` | Stop VM (saves ~$3/day) |
 | `/c resume` | Start VM |
+
+## Architecture
+
+```
+┌─────────────────┐     ┌─────────────────────────────────────────┐
+│   Your Laptop   │     │   Google Cloud VM (clarity-agent)       │
+│                 │     │                                         │
+│  ┌───────────┐  │     │  ┌────────────┐   ┌────────────┐        │
+│  │  Cursor   │  │     │  │  agent-0   │   │  agent-1   │        │
+│  │  + Claude │──┼─────┼──│  (tmux)    │   │  (tmux)    │        │
+│  └───────────┘  │     │  └─────┬──────┘   └─────┬──────┘        │
+│                 │     │        │                 │               │
+└─────────────────┘     │        ▼                 ▼               │
+        │               │  ~/claritypledge  ~/claritypledge-1     │
+        │               │    (port 5001)      (port 5100)         │
+        ▼               │                                         │
+   ┌─────────┐          │  ┌──────────────────────────────────┐   │
+   │ GitHub  │◄─────────┤  │       Telegram Handler v3        │   │
+   └─────────┘          │  │    (multi-worktree support)      │   │
+        │               │  └──────────────────────────────────┘   │
+        ▼               └─────────────────────────────────────────┘
+   ┌─────────┐                          │
+   │   PR    │                          ▼
+   └─────────┘                   ┌──────────────┐
+                                 │   Telegram   │
+                                 └──────────────┘
+```
+
+## How It Works
+
+### Auto-Detect Worktree
+
+When you run `/c claude "task"` without specifying a worktree:
+1. Script checks which worktrees have running agents
+2. Picks the **first available** (no tmux session)
+3. If all busy, shows error with options
+
+### Starting a Task
+
+1. `/c claude [task]` finds available worktree
+2. Pushes your local code to GitHub
+3. VM pulls latest code to that worktree
+4. Creates feature branch: `cloud-agent/task-name-xxxxx`
+5. Runs Claude with full permissions
+6. Sends Telegram "WTN Started" notification
+
+### During Task
+
+- Claude works **autonomously** (does NOT ask questions)
+- Makes reasonable decisions based on the spec
+- Periodic commits every 5 minutes
+- Dev server runs on worktree-specific port
+- Check progress: `/c status` or Telegram `/s`
+
+### After Task
+
+1. Final commit pushed to feature branch
+2. Telegram "WTN Complete!" notification
+3. Run `/c pull N` to get work locally
+4. Review changes, then merge or create PR
+5. Run `/c reset N` to prepare worktree for next task
 
 ## VM Configuration
 
@@ -169,17 +218,19 @@ This is intentional (KISS). If you need to queue tasks, finish one before starti
 | Type | `e2-standard-4` (4 vCPU, 16GB RAM) |
 | Cost | ~$0.13/hour (~$3/day running) |
 | OS | Ubuntu 22.04 LTS |
-| Project Dir | `~/claritypledge` |
 
 ### Files on VM
 
 | File | Purpose |
 |------|---------|
-| `~/claritypledge/` | Git clone of repo |
-| `~/telegram-bot.sh` | Notification script |
-| `~/telegram-command-handler.py` | Command handler |
-| `~/.claude/settings.json` | Claude permissions |
-| `/tmp/agent-output.log` | Current task output |
+| `~/claritypledge/` | Main repo (worktree 0) |
+| `~/claritypledge-1/` | Worktree 1 |
+| `~/claritypledge-2/` | Worktree 2 |
+| `~/claritypledge-3/` | Worktree 3 |
+| `~/telegram-command-handler.py` | Command handler v3 |
+| `/tmp/current-task-N.txt` | Task for worktree N |
+| `/tmp/agent-output-N.log` | Output for worktree N |
+| `/tmp/cloud-agent-multi-state.json` | Multi-worktree state |
 
 ### Credentials Stored
 
@@ -190,40 +241,40 @@ This is intentional (KISS). If you need to queue tasks, finish one before starti
 | `TELEGRAM_BOT_TOKEN` | Environment variable | Telegram bot API |
 | `TELEGRAM_CHAT_ID` | Environment variable | Your Telegram chat ID |
 
-### Setting Up Telegram (One-Time)
+## Troubleshooting
 
-1. Create a bot via [@BotFather](https://t.me/BotFather) and get the token
-2. Get your chat ID by messaging [@userinfobot](https://t.me/userinfobot)
-3. SSH into the VM and add to `~/.bashrc`:
+### Check worktree status
 
 ```bash
-export TELEGRAM_BOT_TOKEN="your-bot-token-here"
-export TELEGRAM_CHAT_ID="your-chat-id-here"
+/c --list
+
+# Or via SSH:
+gcloud compute ssh clarity-agent --zone=us-central1-a --command="git worktree list"
 ```
-
-4. Reload: `source ~/.bashrc`
-
-## Troubleshooting
 
 ### Agent stuck / no output
 
 ```bash
-# Check if Claude is running
-gcloud compute ssh clarity-agent --zone=us-central1-a --command="ps aux | grep claude"
+# Check specific worktree
+gcloud compute ssh clarity-agent --zone=us-central1-a --command="tmux has-session -t agent-1 && echo running || echo stopped"
 
 # Kill and restart
-/c stop
-/c [task again]
+/c stop 1
+/c claude -w 1 [task again]
 ```
 
-### GitHub push fails
+### Reset a stuck worktree
 
 ```bash
-# Check remote URL has token
-gcloud compute ssh clarity-agent --zone=us-central1-a --command="cd ~/claritypledge && git remote -v"
+/c reset 1   # Requires agent-1 to be stopped first
+```
 
-# If token missing, re-add:
-gcloud compute ssh clarity-agent --zone=us-central1-a --command="cd ~/claritypledge && git remote set-url origin https://TOKEN@github.com/USER/REPO.git"
+### All worktrees busy
+
+```bash
+/c --list        # See what's running
+/c stop all      # Stop everything
+/c reset all     # Reset to main
 ```
 
 ### Telegram not working
@@ -236,31 +287,14 @@ gcloud compute ssh clarity-agent --zone=us-central1-a --command="ps aux | grep t
 gcloud compute ssh clarity-agent --zone=us-central1-a --command="pkill -f telegram-command-handler; nohup python3 ~/telegram-command-handler.py > /tmp/telegram-handler.log 2>&1 &"
 ```
 
-### VM not responding
-
-```bash
-# Check VM status
-gcloud compute instances describe clarity-agent --zone=us-central1-a --format="value(status)"
-
-# Start if stopped
-/c resume
-```
-
 ## Cost Management
 
 | State | Cost |
 |-------|------|
-| Running | ~$0.13/hour = $3.22/day |
+| Running (4 agents) | ~$0.13/hour = $3.22/day |
 | Stopped | ~$0.01/day (disk only) |
 
 **Best practice:** Run `/c pause` when done for the day.
-
-## Security Notes
-
-- VM has no public IP (SSH via gcloud only)
-- GitHub token has `repo` scope only
-- Telegram bot only responds to your chat ID
-- Claude runs with full permissions (trusted environment)
 
 ## /loop Workflow and BMAD
 
@@ -269,7 +303,7 @@ When using Claude (`/c claude`), the agent automatically uses the `/loop` workfl
 1. **Task Analysis** - Determines task type, complexity, and required steps
 2. **Implementation** - Reads existing code, follows patterns
 3. **Unit Tests** - Runs `npm test`, fixes failures
-4. **Visual Check** - Uses Playwright MCP to verify UI (if applicable)
+4. **Visual Check** - Uses Playwright MCP to verify UI (dev server on worktree port)
 5. **E2E Tests** - Runs `npx playwright test` (if applicable)
 6. **UX Review** - Checks against design system (for significant UI features)
 
@@ -294,10 +328,3 @@ This installs:
 - Playwright + Chromium browser
 - MCP server for Claude Code
 - System dependencies for headless browser
-
-## Future Improvements
-
-- [ ] Real-time Q&A via Telegram (agent asks, you reply)
-- [ ] Auto-pause VM after idle timeout
-- [ ] PR auto-creation option
-- [ ] Cost alerts via Telegram
