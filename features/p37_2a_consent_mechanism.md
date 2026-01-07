@@ -1367,3 +1367,36 @@ See [P40 spec](./p40_microphone_permission.md) for full implementation details.
 3. Session starts
 
 Microphone check happens AFTER consent is recorded. If mic is denied, user can cancel and return — consent record remains (they agreed to terms, just didn't join).
+
+---
+
+## Post-Implementation Maintenance
+
+**These tasks are NOT required for launch but should be done periodically after P37.2a is live.**
+
+### Anonymous User Cleanup (Monthly)
+
+Anonymous auth creates `auth.users` entries that persist even after browser session ends. These should be cleaned up monthly to avoid database bloat.
+
+**Run this SQL in Supabase Dashboard → SQL Editor (monthly or as needed):**
+
+```sql
+-- Preview: See how many anonymous users exist
+SELECT COUNT(*) as count,
+       MIN(created_at) as oldest,
+       MAX(created_at) as newest
+FROM auth.users
+WHERE is_anonymous = true;
+
+-- Delete anonymous users older than 30 days
+DELETE FROM auth.users
+WHERE is_anonymous = true
+AND created_at < now() - interval '30 days';
+```
+
+**Why this is safe:**
+- Anonymous users are temporary auth entries only (no real user data)
+- Guest profiles in `profiles` table are NOT deleted (they have real data)
+- The anonymous user was just a "wrapper" to satisfy RLS during profile creation
+
+**Future improvement:** Set up a Supabase cron job (pg_cron) when usage grows. For now, manual monthly cleanup is sufficient.

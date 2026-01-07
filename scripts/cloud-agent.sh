@@ -340,9 +340,32 @@ esac
 
 # Default is Gemini, use Claude only when specified
 USE_CLAUDE=false
+CLOUD_WORKTREE=""  # Which cloud worktree to use (empty = main)
+
 if [[ "$TASK" == claude* ]]; then
     USE_CLAUDE=true
     TASK="${TASK#claude }"  # Remove "claude " prefix
+    TASK="${TASK# }"  # Remove any leading space
+fi
+
+# Parse --worktree N or -w N arguments using string manipulation
+if [[ "$TASK" == --worktree* ]]; then
+    remaining="${TASK#--worktree }"
+    CLOUD_WORKTREE="${remaining%% *}"
+    TASK="${remaining#* }"
+elif [[ "$TASK" == -w\ * ]]; then
+    remaining="${TASK#-w }"
+    CLOUD_WORKTREE="${remaining%% *}"
+    TASK="${remaining#* }"
+fi
+
+# Determine cloud project directory based on worktree
+if [ -n "$CLOUD_WORKTREE" ]; then
+    CLOUD_PROJECT_DIR="claritypledge-${CLOUD_WORKTREE}"
+    CLOUD_WT_ID="cloud-wt${CLOUD_WORKTREE}"
+else
+    CLOUD_PROJECT_DIR="$PROJECT_DIR"
+    CLOUD_WT_ID="cloud-main"
 fi
 
 # Default: Start a task with a prompt
@@ -350,6 +373,9 @@ if [ "$USE_CLAUDE" = true ]; then
     echo -e "${BLUE}☁️  Cloud Agent (Claude Opus 4.5)${NC}"
 else
     echo -e "${BLUE}☁️  Cloud Agent (Gemini 2.5 Pro)${NC}"
+fi
+if [ -n "$CLOUD_WORKTREE" ]; then
+    echo -e "   Cloud worktree: ${CLOUD_WORKTREE} (${CLOUD_PROJECT_DIR})"
 fi
 echo ""
 
@@ -370,7 +396,7 @@ git push 2>/dev/null || true
 # Step 2: Pull on cloud, create feature branch from current branch
 echo "2. Creating feature branch: $FEATURE_BRANCH (from $CURRENT_BRANCH)..."
 gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-    cd $PROJECT_DIR
+    cd ~/$CLOUD_PROJECT_DIR || { echo 'ERROR: Directory ~/$CLOUD_PROJECT_DIR not found'; exit 1; }
     git fetch --all -q
     git checkout $CURRENT_BRANCH 2>/dev/null || git checkout -b $CURRENT_BRANCH origin/$CURRENT_BRANCH
     git pull -q
@@ -389,47 +415,47 @@ echo ""
 if [ "$USE_CLAUDE" = false ]; then
     # Use Aider with Gemini
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-        cd $PROJECT_DIR
+        cd ~/$CLOUD_PROJECT_DIR
 
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
 
         # Start new session with Aider + Gemini
-        tmux new-session -d -s agent bash -c '
+        tmux new-session -d -s agent bash -c \"
             source ~/aider-env/bin/activate
-            aider --model gemini/gemini-3-pro-preview --message \"$TASK\" --yes-always 2>&1 | tee /tmp/agent-output.log
-            echo \"\"
-            echo \"=== TASK COMPLETE ===\"
-            echo \"Committing work...\"
+            aider --model gemini/gemini-3-pro-preview --message '$TASK' --yes-always 2>&1 | tee /tmp/agent-output.log
+            echo ''
+            echo '=== TASK COMPLETE ==='
+            echo 'Committing work...'
             git add -A
-            git commit -m \"cloud-agent (gemini): $TASK\" --allow-empty
+            git commit -m 'cloud-agent (gemini): $TASK' --allow-empty
             git push -u origin $FEATURE_BRANCH
-            echo \"\"
-            echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
-            echo \"\"
-            echo \"Run /c pull to get the changes\"
-            echo \"Press Enter to close...\"
+            echo ''
+            echo '✅ Work pushed to branch: $FEATURE_BRANCH'
+            echo ''
+            echo 'Run /c pull to get the changes'
+            echo 'Press Enter to close...'
             read
-        '
+        \"
     " 2>/dev/null
 else
     # Use Claude Code with periodic commits and Telegram notifications
     gcloud compute ssh $VM_NAME --zone=$ZONE --command="
-        cd $PROJECT_DIR
+        cd ~/$CLOUD_PROJECT_DIR
 
         # Kill existing session
         tmux kill-session -t agent 2>/dev/null || true
 
-        # Create a commit helper script
-        cat > /tmp/periodic-commit.sh << 'COMMIT_SCRIPT'
+        # Create a commit helper script with the correct project dir
+        cat > /tmp/periodic-commit.sh << COMMIT_SCRIPT
 #!/bin/bash
-cd \$PROJECT_DIR
+cd ~/$CLOUD_PROJECT_DIR
 while true; do
     sleep 300  # Every 5 minutes
-    if [ -n \"\$(git status --porcelain)\" ]; then
+    if [ -n \"\\\$(git status --porcelain)\" ]; then
         git add -A
         git commit -m \"cloud-agent: checkpoint [auto]\" --allow-empty 2>/dev/null
-        git push -u origin \$(git branch --show-current) 2>/dev/null
+        git push -u origin \\\$(git branch --show-current) 2>/dev/null
     fi
 done
 COMMIT_SCRIPT
@@ -442,40 +468,42 @@ COMMIT_SCRIPT
         ~/telegram-bot.sh start \"$TASK\" \"$FEATURE_BRANCH\"
 
         # Start new session with task + periodic commits
-        tmux new-session -d -s agent bash -c '
+        tmux new-session -d -s agent bash -c \"
+            cd ~/$CLOUD_PROJECT_DIR
+
             # Start periodic commit in background
-            PROJECT_DIR=$PROJECT_DIR /tmp/periodic-commit.sh &
-            COMMIT_PID=\$!
+            /tmp/periodic-commit.sh &
+            COMMIT_PID=\\\$!
 
             # Run the main task (skip permissions for autonomous mode)
-            claude --dangerously-skip-permissions -p \"$TASK
+            claude --dangerously-skip-permissions -p '$TASK
 
 IMPORTANT: You are running autonomously without a human present.
 - Do NOT use AskUserQuestion - make reasonable decisions based on the spec
 - If something is ambiguous, pick the simpler option
 - For infrastructure setup (Supabase buckets, tables), document what needs manual creation
 - Commit after each major step completion
-- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later\" 2>&1 | tee /tmp/agent-output.log
+- If truly blocked, write your question to /tmp/agent-question.txt and the human will check later' 2>&1 | tee /tmp/agent-output.log
 
             # Stop periodic commits
-            kill \$COMMIT_PID 2>/dev/null
+            kill \\\$COMMIT_PID 2>/dev/null
 
-            echo \"\"
-            echo \"=== TASK COMPLETE ===\"
-            echo \"Committing final work...\"
+            echo ''
+            echo '=== TASK COMPLETE ==='
+            echo 'Committing final work...'
             git add -A
-            git commit -m \"cloud-agent: $TASK\" --allow-empty
+            git commit -m 'cloud-agent: $TASK' --allow-empty
             git push -u origin $FEATURE_BRANCH
 
             # Notify via Telegram
-            ~/telegram-bot.sh complete \"$TASK\" \"$FEATURE_BRANCH\"
+            ~/telegram-bot.sh complete '$TASK' '$FEATURE_BRANCH'
 
-            echo \"\"
-            echo \"✅ Work pushed to branch: $FEATURE_BRANCH\"
-            echo \"\"
-            echo \"Run /c pull to get the changes\"
-        '
-    " 2>/dev/null
+            echo ''
+            echo '✅ Work pushed to branch: $FEATURE_BRANCH'
+            echo ''
+            echo 'Run /c pull to get the changes'
+        \"
+    \" 2>/dev/null
 fi
 
 echo ""
@@ -483,6 +511,9 @@ echo -e "${GREEN}✅ Task is running in the cloud!${NC}"
 echo ""
 echo "Feature branch: $FEATURE_BRANCH"
 echo "Base branch: $CURRENT_BRANCH"
+if [ -n "$CLOUD_WORKTREE" ]; then
+    echo "Cloud worktree: $CLOUD_WORKTREE ($CLOUD_PROJECT_DIR)"
+fi
 echo "Task: $TASK"
 if [ "$USE_CLAUDE" = true ]; then
     echo "Model: Claude Opus 4.5"
