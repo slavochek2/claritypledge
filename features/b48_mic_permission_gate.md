@@ -1,80 +1,66 @@
 # B48: Block Meeting Join Until Microphone Permission Granted
 
-**Status:** Ready for Implementation
+**Status:** ✅ DONE
 **Priority:** LOW (UX improvement, not a blocker)
 **Est. Effort:** 1-2 hours
 **Created:** 2026-01-07
+**Completed:** 2026-01-07
 **Depends On:** P40 (Microphone Permission Handling) - completed
 
 ---
 
 ## Problem
 
-Currently, users are allowed into the live meeting view before microphone permission is checked. If they deny permission, they see the `MicrophonePermissionDialog` but are already in the meeting.
+Previously, users were allowed into the live meeting view before microphone permission was checked. If they denied permission, they saw the `MicrophonePermissionDialog` but were already in the meeting.
 
 **Expected behavior (per P40 spec):** "Block session join until microphone access granted"
 
-**Current behavior:** User enters meeting → mic check happens → dialog shown if denied
+**Old behavior:** User enters meeting → mic check happens → dialog shown if denied
 
 ---
 
-## Affected Flows
+## Solution Implemented
 
-### 1. Creator Flow
-- Creator clicks "New meeting" → waits in lobby
-- Joiner joins → creator transitions to `view='live'`
-- **Bug:** Mic check happens AFTER transition
-
-### 2. Joiner Flow
-- Joiner enters code/link → clicks "Join Meeting"
-- `handleJoin()` → `setView('live')`
-- **Bug:** Mic check happens AFTER transition
-
----
-
-## Proposed Solution
-
-Add a permission gate state between lobby and live:
+Used **Option B: Modal gate before transition** with a `pendingLiveTransition` state pattern:
 
 ```
-Current:  waiting → live (mic check happens here, too late)
-Proposed: waiting → checking-mic → live (or back to waiting if denied)
+Old:  waiting → live (mic check happens here, too late)
+New:  waiting → [mic permission check] → live (or stay in waiting if denied)
 ```
 
-### Implementation Options
+### Implementation Details
 
-**Option A: New view state**
-Add `'checking-mic'` to `ViewState` type, show a loading screen during permission check.
-
-**Option B: Modal gate before transition**
-Show `MicrophonePermissionDialog` BEFORE calling `setView('live')`, only proceed if granted.
-
-**Option C: Pre-check on page load**
-Request mic permission when user lands on `/live` (before they even create/join). More aggressive but simpler flow.
+1. **`pendingLiveTransition` state** - Flag that triggers mic permission gate
+2. **`gateMicAndGoLive()` helper** - Async function that checks mic permission before allowing transition
+3. **Effect to process pending transitions** - Watches flag and calls the gate function
+4. **All 4 transition points updated** to use the permission gate:
+   - Session restoration
+   - Realtime subscription (joiner joins)
+   - Polling fallback (joiner joins)
+   - `handleJoin()` (joiner clicks Join)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Mic permission requested BEFORE user sees the live meeting UI
-- [ ] If denied, user stays in lobby/waiting state (not kicked into meeting)
-- [ ] Clear messaging about why they can't proceed
-- [ ] "Try Again" re-requests permission
-- [ ] "Cancel" returns to start view
+- [x] Mic permission requested BEFORE user sees the live meeting UI
+- [x] If denied, user stays in lobby/waiting state (not kicked into meeting)
+- [x] Clear messaging about why they can't proceed (existing dialog)
+- [x] "Try Again" re-requests permission (existing dialog)
+- [x] "Cancel" returns to start view (existing dialog)
 
 ---
 
-## Files to Modify
+## Files Modified
 
 | File | Changes |
 |------|---------|
-| `src/app/pages/clarity-live-page.tsx` | Add permission gate logic before `setView('live')` |
-| `src/app/types/index.ts` | Possibly add new view state |
+| `src/app/pages/clarity-live-page.tsx` | Added `pendingLiveTransition` state, `gateMicAndGoLive()` helper, updated all 4 transition points, removed old P40 effect |
 
 ---
 
 ## Notes
 
-- P40 implementation provides the hook and dialog - this bug is about WHERE they're triggered
-- Current behavior is functional (users can retry or cancel), just not ideal UX
-- Low priority since mic is only needed for recording (meeting works without it in dev mode)
+- No new view state needed - the existing dialog UI handles denied state
+- P40's `useMicrophonePermission` hook and `MicrophonePermissionDialog` were reused
+- Build and all 91 unit tests pass

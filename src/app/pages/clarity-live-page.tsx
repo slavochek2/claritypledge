@@ -100,6 +100,10 @@ export function ClarityLivePage() {
   const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
   const [departedPartnerName, setDepartedPartnerName] = useState<string | null>(null);
 
+  // B48: Pending live transition state (for gated mic permission check)
+  // When true, triggers gateMicAndGoLive effect instead of direct setView('live')
+  const [pendingLiveTransition, setPendingLiveTransition] = useState(false);
+
   // Derived values
   const partnerName = session
     ? isCreator
@@ -215,20 +219,8 @@ export function ClarityLivePage() {
     }
   }, [user?.name, name]);
 
-  // P40: Check microphone permission when session goes live
-  // This runs in both dev and prod to ensure mic access works
-  useEffect(() => {
-    if (view === 'live' && session && micStatus === 'unknown') {
-      console.log('[P40] Checking microphone permission...');
-      requestMicPermission().then((hasPermission) => {
-        if (!hasPermission) {
-          console.log('[P40] Microphone permission denied, showing dialog');
-          setShowMicDialog(true);
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only trigger on view/session change
-  }, [view, session?.id]);
+  // B48: Old P40 effect removed - mic permission is now checked BEFORE transitioning to live
+  // via gateMicAndGoLive() and pendingLiveTransition pattern (see line ~1390)
 
   // P28.1: Start audio recording when session goes live AND mic permission granted
   // P28.2: Only record in production to avoid polluting training data with dev sessions
@@ -319,8 +311,9 @@ export function ClarityLivePage() {
             }
 
             // Determine view based on session state
+            // B48: Use pendingLiveTransition to trigger mic permission gate
             if (restoredSession.joinerName) {
-              setView('live');
+              setPendingLiveTransition(true);
             } else if (savedIsCreator === 'true') {
               setView('waiting');
             } else {
@@ -439,10 +432,16 @@ export function ClarityLivePage() {
       }
 
       // When joiner joins, move to live view
-      // Use functional update to avoid stale closure
+      // B48: Use functional update + pendingLiveTransition to gate mic permission check
       if (updatedSession.joinerName) {
         markJoinerDetected(updatedSession.joinerName);
-        setView((currentView) => currentView === 'waiting' ? 'live' : currentView);
+        setView((currentView) => {
+          if (currentView === 'waiting') {
+            // Trigger mic permission gate instead of going directly to 'live'
+            setPendingLiveTransition(true);
+          }
+          return currentView; // Don't change view here - let the effect handle it
+        });
       }
     });
 
@@ -473,6 +472,7 @@ export function ClarityLivePage() {
         }
 
         // Check 1: Detect joiner (existing logic)
+        // B48: Use pendingLiveTransition to gate mic permission check
         if (freshSession.joinerName && !hasJoinerRef.current) {
           markJoinerDetected(freshSession.joinerName);
           setSession(freshSession);
@@ -480,7 +480,13 @@ export function ClarityLivePage() {
             setLiveState({ ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState);
             confirmedLiveStateRef.current = { ...DEFAULT_LIVE_STATE, ...freshSession.liveState } as LiveSessionState;
           }
-          setView((currentView) => currentView === 'waiting' ? 'live' : currentView);
+          setView((currentView) => {
+            if (currentView === 'waiting') {
+              // Trigger mic permission gate instead of going directly to 'live'
+              setPendingLiveTransition(true);
+            }
+            return currentView; // Don't change view here - let the effect handle it
+          });
           return;
         }
 
@@ -1194,8 +1200,7 @@ export function ClarityLivePage() {
 
       setSession(joinedSession);
       setIsCreator(false);
-      setView('live');
-      // HIGH #6: Save to localStorage for rejoin
+      // HIGH #6: Save to localStorage for rejoin (must happen before mic gate)
       saveSessionToStorage(joinedSession.code, trimmedName, false);
 
       // Track session join
@@ -1203,6 +1208,10 @@ export function ClarityLivePage() {
         session_code: joinedSession.code,
         join_method: isJoinViaLink ? 'link' : 'code',
       });
+
+      // B48: Gate transition to live behind mic permission check
+      // User stays in current view if permission denied (dialog shown)
+      await gateMicAndGoLive();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join session');
     } finally {
@@ -1382,6 +1391,43 @@ export function ClarityLivePage() {
     toast.error('Microphone access is required to join Clarity Meetings');
     // User can still use the meeting, just without recording
   }, [resetMic]);
+
+  // B48: Gate transition to live view behind mic permission check
+  // This ensures users grant microphone access BEFORE seeing the live meeting UI
+  // Returns true if transitioned to live, false if blocked by permission dialog
+  const gateMicAndGoLive = useCallback(async (): Promise<boolean> => {
+    // If already granted from a previous check, go straight to live
+    if (micStatus === 'granted') {
+      console.log('[B48] Mic already granted, transitioning to live');
+      setView('live');
+      return true;
+    }
+
+    // Request permission before allowing transition
+    console.log('[B48] Requesting mic permission before live transition...');
+    const hasPermission = await requestMicPermission();
+
+    if (hasPermission) {
+      console.log('[B48] Mic permission granted, transitioning to live');
+      setView('live');
+      return true;
+    } else {
+      console.log('[B48] Mic permission denied, showing dialog (blocking live transition)');
+      setShowMicDialog(true);
+      return false;
+    }
+  }, [micStatus, requestMicPermission]);
+
+  // B48: Effect to handle pending live transitions (from session restoration, subscription, polling)
+  // This decouples the async mic permission check from synchronous state updates
+  useEffect(() => {
+    if (pendingLiveTransition) {
+      console.log('[B48] Processing pending live transition...');
+      gateMicAndGoLive().finally(() => {
+        setPendingLiveTransition(false);
+      });
+    }
+  }, [pendingLiveTransition, gateMicAndGoLive]);
 
   // P28.2: Auto-stop recording when partner leaves (prevents orphan recordings)
   useEffect(() => {
