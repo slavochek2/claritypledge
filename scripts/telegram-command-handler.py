@@ -128,11 +128,16 @@ def save_state(state):
 # TELEGRAM API
 # =============================================================================
 def escape_markdown(text):
-    """Escape special Markdown characters in user-provided text."""
+    """Escape special Markdown characters in user-provided text.
+
+    Note: This escapes for Telegram's LEGACY Markdown mode (parse_mode="Markdown"),
+    NOT MarkdownV2. Legacy Markdown only requires escaping: _ * ` [
+    """
     if not text:
         return text
-    # Escape: _ * [ ] ( ) ~ ` > # + - = | { } . !
-    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    # Legacy Markdown special chars only: _ * ` [
+    # Do NOT escape ! | . etc - those are only needed for MarkdownV2
+    special_chars = ['_', '*', '`', '[']
     for char in special_chars:
         text = text.replace(char, f'\\{char}')
     return text
@@ -774,7 +779,7 @@ def check_for_updates():
                     pass
 
             if clean_exit:
-                msg = f"✅ *WT{wt} Complete\\!*\n"
+                msg = f"✅ *WT{wt} Complete!*\n"
                 msg += f"📋 {escape_markdown(task_short)}\n"
                 if cp_num is not None:
                     msg += f"📍 Reached checkpoint {cp_num}\n"
@@ -782,11 +787,11 @@ def check_for_updates():
             else:
                 # Likely a crash
                 mem_pct, cpu_pct = get_system_health()
-                msg = f"⚠️ *WT{wt} CRASHED\\!*\n"
+                msg = f"⚠️ *WT{wt} CRASHED!*\n"
                 msg += f"📋 {escape_markdown(task_short)}\n"
                 if cp_num is not None:
                     msg += f"📍 Last checkpoint: {cp_num}\n"
-                msg += f"💾 RAM: {mem_pct}% \\| CPU: {cpu_pct}%\n"
+                msg += f"💾 RAM: {mem_pct}% | CPU: {cpu_pct}%\n"
                 # Show last activity
                 if last_lines:
                     last_line = last_lines.strip().split('\n')[-1][:60]
