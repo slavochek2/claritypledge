@@ -149,7 +149,6 @@ Each card links to the experiment, shows status, has "View" and "Feedback" butto
 Update CLAUDE.md and cloud agent to:
 - Deploy prototype branches to `prototypes.claritypledge.com/[slug]`
 - Auto-add to gallery index
-- Track status in worktree_status table
 
 ## Vercel Configuration
 

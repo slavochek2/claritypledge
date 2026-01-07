@@ -119,44 +119,15 @@ git worktree add ../claritypledge-N -b feature-name-wtN
 ln -sf $(pwd)/.env.local ../claritypledge-N/.env.local
 ```
 
-## Worktree Status Tracking (IMPORTANT)
+## Checking Worktree Contents
 
-**Source of truth:** `worktree_status` table in **prod Supabase** (`besjtuodziykmjidubzw`)
+Git branches are the source of truth for what code is where. To see what's on a worktree:
 
-When the user asks about worktrees, ports, cloud server status, or "what's on X":
-1. **Always query the status table first** - Don't rely on memory or git commands alone
-2. **Update after any change** - Reset, new work, completed task, etc.
-3. **Read-before-write** - Always fetch current status before updating to avoid race conditions
-
-**Status values:**
-- `empty` - Reset to main, ready for new work
-- `active` - Has work in progress or completed feature
-- `in-progress` - Agent currently working on it
-- `idle` - Available but not reset
-- `stale` - Needs attention/cleanup
-- `not-setup` - Environment not configured
-
-**Query status:**
-```sql
-select id, branch, status, purpose, last_task, updated_at
-from worktree_status
-order by id;
+```bash
+# Check branch and recent commits
+cd ../claritypledge-N
+git log --oneline -5
 ```
-
-**Update status (always include all fields):**
-```sql
-update worktree_status set
-  branch = 'branch-name',
-  status = 'active',
-  purpose = 'What this worktree is for',
-  last_task = 'Description of last task',
-  last_commit = 'abc1234',
-  updated_at = now(),
-  updated_by = 'claude-code'  -- or 'cloud-agent', 'local'
-where id = 'wt1';  -- wt1-wt7, cloud-main, cloud-wt2
-```
-
-**IDs:** `wt1` through `wt7` (local), `cloud-main`, `cloud-wt2` (cloud server)
 
 ## Configuration
 

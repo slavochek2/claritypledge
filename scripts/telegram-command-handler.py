@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
 """
-Telegram Cloud Agent Handler v5 - UX Improvements
-- Tracks agents across worktrees 0-3 (cloud) and 1-7 (local)
-- Syncs status to Supabase worktree_status table
-- /worktrees command shows all worktrees (local + cloud)
+Telegram Cloud Agent Handler v6 - Simplified
+- Tracks agents across worktrees 0-3 (cloud)
+- Git branches are source of truth (no more Supabase status table)
 - Completion notifications with worktree context
 - Forward user messages to specific agents
 
-v5 changes:
-- Fixed double-message bug (update offset before processing)
-- Added markdown escaping for user content
-- Better error messages with actionable hints
-- Confirmation for destructive /stop all
-- Show commit result details
-- Cleaner /worktrees layout
-- Reorganized /help into categories
+v6 changes:
+- Removed worktree_status Supabase table integration
+- Simplified /status to show tmux + git info only
+- Removed /worktrees command (use git commands instead)
 """
 import os
 import subprocess
@@ -24,17 +19,12 @@ import re
 import json
 import sys
 from pathlib import Path
-from datetime import datetime
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
-
-# Supabase config - read from environment (set in ~/.bashrc on cloud VM)
-SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY", "")
 
 if not TELEGRAM_TOKEN or not CHAT_ID:
     print("ERROR: Missing required environment variables:")
@@ -45,11 +35,6 @@ if not TELEGRAM_TOKEN or not CHAT_ID:
     print('  export TELEGRAM_BOT_TOKEN="your-token-here"')
     print('  export TELEGRAM_CHAT_ID="your-chat-id"')
     sys.exit(1)
-
-# Warn if Supabase config is missing (non-fatal - Telegram still works)
-if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-    print("WARNING: Supabase env vars not set - /worktrees command will not work")
-    print("  Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in ~/.bashrc")
 
 # =============================================================================
 # CONSTANTS
@@ -165,125 +150,6 @@ def get_updates(offset=0):
     except requests.RequestException as e:
         print(f"[Telegram] Failed to get updates: {e}")
         return []
-
-
-# =============================================================================
-# SUPABASE WORKTREE STATUS
-# =============================================================================
-def supabase_get_worktrees():
-    """Fetch all worktree statuses from Supabase"""
-    url = f"{SUPABASE_URL}/rest/v1/worktree_status?order=id"
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}"
-    }
-    try:
-        r = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT_SEC)
-        if r.status_code == 200:
-            return r.json()
-    except requests.RequestException as e:
-        print(f"[Supabase] Failed to fetch worktrees: {e}")
-    return []
-
-
-def supabase_update_worktree(wt_id, data):
-    """Update a worktree status in Supabase"""
-    url = f"{SUPABASE_URL}/rest/v1/worktree_status?id=eq.{wt_id}"
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
-    }
-    data["updated_at"] = datetime.utcnow().isoformat()
-    data["updated_by"] = "telegram-handler"
-    try:
-        r = requests.patch(url, headers=headers, json=data, timeout=REQUEST_TIMEOUT_SEC)
-        return r.status_code in [200, 204]
-    except requests.RequestException as e:
-        print(f"[Supabase] Failed to update worktree {wt_id}: {e}")
-    return False
-
-
-def format_worktrees_from_supabase():
-    """Format all worktrees status from Supabase for /worktrees command"""
-    worktrees = supabase_get_worktrees()
-    if not worktrees:
-        return "⚠️ Could not fetch worktree status\n\n💡 Check Supabase connection"
-
-    # Group by type
-    local_wts = [w for w in worktrees if w['id'].startswith('wt')]
-    cloud_wts = [w for w in worktrees if w['id'].startswith('cloud')]
-
-    # Count by status
-    active_count = sum(1 for w in worktrees if w.get('status') in ['active', 'running', 'in-progress'])
-    idle_count = sum(1 for w in worktrees if w.get('status') in ['idle', 'empty'])
-
-    msg = f"*Worktrees* ({active_count} active, {idle_count} idle)\n\n"
-
-    # Local worktrees - grouped by status
-    if local_wts:
-        msg += "📁 *Local*\n"
-
-        # Sort: active first, then idle, then empty/not-setup
-        status_order = {'active': 0, 'in-progress': 0, 'idle': 1, 'empty': 2, 'not-setup': 3, 'stale': 1}
-        sorted_local = sorted(local_wts, key=lambda x: (status_order.get(x.get('status', 'unknown'), 4), x['id']))
-
-        for wt in sorted_local:
-            status = wt.get('status', 'unknown')
-            status_emoji = {
-                'active': '🟢',
-                'in-progress': '🔵',
-                'idle': '⚪',
-                'empty': '⚫',
-                'stale': '🟡',
-                'not-setup': '⚫'
-            }.get(status, '❓')
-
-            wt_num = wt['id'].replace('wt', '')
-            branch = wt.get('branch', '')[:18] if wt.get('branch') else ''
-            purpose = wt.get('purpose', '')[:25] if wt.get('purpose') else ''
-
-            # Compact format: emoji wt# branch (purpose)
-            if branch and purpose:
-                msg += f"{status_emoji} `{wt_num}` {escape_markdown(branch)} _{escape_markdown(purpose)}_\n"
-            elif branch:
-                msg += f"{status_emoji} `{wt_num}` {escape_markdown(branch)}\n"
-            else:
-                msg += f"{status_emoji} `{wt_num}` —\n"
-
-    # Cloud worktrees
-    if cloud_wts:
-        msg += "\n☁️ *Cloud*\n"
-
-        status_order = {'running': 0, 'in-progress': 0, 'active': 0, 'idle': 1, 'empty': 2, 'not-setup': 3}
-        sorted_cloud = sorted(cloud_wts, key=lambda x: (status_order.get(x.get('status', 'unknown'), 4), x['id']))
-
-        for wt in sorted_cloud:
-            status = wt.get('status', 'unknown')
-            status_emoji = {
-                'running': '🟢',
-                'in-progress': '🔵',
-                'active': '🟢',
-                'idle': '⚪',
-                'empty': '⚫',
-                'not-setup': '⚫'
-            }.get(status, '❓')
-
-            # Simplify cloud-main -> main, cloud-wt2 -> wt2
-            wt_label = wt['id'].replace('cloud-', '')
-            branch = wt.get('branch', '')[:18] if wt.get('branch') else ''
-            last_task = wt.get('last_task', '')[:25] if wt.get('last_task') else ''
-
-            if branch and last_task:
-                msg += f"{status_emoji} `{wt_label}` {escape_markdown(branch)}\n   _{escape_markdown(last_task)}_\n"
-            elif branch:
-                msg += f"{status_emoji} `{wt_label}` {escape_markdown(branch)}\n"
-            else:
-                msg += f"{status_emoji} `{wt_label}` —\n"
-
-    msg += "\n💡 `/c pull N` to get work"
-    return msg
 
 
 # =============================================================================
@@ -651,17 +517,11 @@ def cmd_health(args):
     return format_health()
 
 
-def cmd_worktrees(args):
-    """Handle worktrees command"""
-    return format_worktrees_from_supabase()
-
-
 def cmd_help(args):
     """Handle help command"""
     return """📊 *Status*
 `s` or `/status` — All agents
 `s2` — WT2 only
-`wt` — All worktrees (local+cloud)
 `health` — VM resources
 
 📋 *Logs*
@@ -763,11 +623,6 @@ COMMAND_TABLE = {
     "health": {
         "aliases": ["/health", "health"],
         "handler": cmd_health,
-        "arg_pattern": None,
-    },
-    "worktrees": {
-        "aliases": ["/worktrees", "worktrees", "/wt", "wt"],
-        "handler": cmd_worktrees,
         "arg_pattern": None,
     },
     "help": {
@@ -912,8 +767,8 @@ def check_for_updates():
 # MAIN LOOP
 # =============================================================================
 def main():
-    print("Telegram Handler v5 (UX Improvements) started")
-    send_message("🤖 *Handler ready* (v5)\n\nType `?` for commands")
+    print("Telegram Handler v6 (Simplified) started")
+    send_message("🤖 *Handler ready* (v6)\n\nType `?` for commands")
 
     last_id = 0
     try:
