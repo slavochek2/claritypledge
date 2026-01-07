@@ -23,9 +23,9 @@ from datetime import datetime
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
-# Supabase config for worktree_status table (prod database)
-SUPABASE_URL = "https://besjtuodziykmjidubzw.supabase.co"
-SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlc2p0dW9keml5a21qaWR1Ynp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI5NzYyNDYsImV4cCI6MjA0ODU1MjI0Nn0.CuzJsMGGu-5jHLb99A8zGfREgDlPnZhMve5ko_QTYOQ"
+# Supabase config - read from environment (set in ~/.bashrc on cloud VM)
+SUPABASE_URL = os.environ.get("VITE_SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.environ.get("VITE_SUPABASE_ANON_KEY", "")
 
 if not TELEGRAM_TOKEN or not CHAT_ID:
     print("ERROR: Missing required environment variables:")
@@ -36,6 +36,11 @@ if not TELEGRAM_TOKEN or not CHAT_ID:
     print('  export TELEGRAM_BOT_TOKEN="your-token-here"')
     print('  export TELEGRAM_CHAT_ID="your-chat-id"')
     sys.exit(1)
+
+# Warn if Supabase config is missing (non-fatal - Telegram still works)
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    print("WARNING: Supabase env vars not set - /worktrees command will not work")
+    print("  Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in ~/.bashrc")
 
 # =============================================================================
 # CONSTANTS
@@ -696,8 +701,8 @@ def check_for_updates():
 # MAIN LOOP
 # =============================================================================
 def main():
-    print("Telegram Handler v3 (Multi-Worktree) started")
-    send_message("🤖 Handler ready (v3 multi-worktree)\n/help for commands")
+    print("Telegram Handler v4 (Multi-Worktree + Supabase Sync) started")
+    send_message("🤖 Handler ready (v4 multi-worktree)\n/help for commands")
 
     last_id = 0
     try:

@@ -4,10 +4,17 @@
 **Priority:** CRITICAL (Blocks Public Launch)
 **Est. Effort:** 4-5 hours
 **Created:** 2026-01-06
-**Updated:** 2026-01-07 (MVP simplified: no verification for returning guests)
+**Updated:** 2026-01-07 (Architect review: fixed RLS, auth, and integration gaps)
 **Depends On:** None (P40 is included in this implementation)
 **Blocks:** P41 (Post-Session Email + Coaching)
 **Supersedes:** P26 (Lightweight Signup), P34.1, P34.2
+
+> **⚠️ AI Agent Implementation Notes (Added 2026-01-07)**
+> This spec has been reviewed for autonomous implementation. Key decisions:
+> - Guest profiles use "anon auth" pattern (see Auth Strategy section)
+> - Uses existing `ensureUniqueSlug()` from api.ts (no new slug function)
+> - Single consolidated migration file
+> - P40 microphone handling is a separate step AFTER consent
 
 ---
 
@@ -162,21 +169,82 @@ Per [IAPP GDPR guidance](https://iapp.org/news/a/how-do-the-rules-on-audio-recor
 
 ---
 
+## Auth Strategy for Guest Users (CRITICAL)
+
+**Problem:** The existing RLS policy for profiles requires `auth.uid() = id`, meaning only authenticated users can insert profiles. Guests are not authenticated.
+
+**Solution: Anonymous Auth Pattern**
+
+Supabase supports anonymous authentication. When a guest joins:
+1. Call `supabase.auth.signInAnonymously()` — creates a temporary auth.users entry
+2. Create profile with this anonymous user's ID
+3. RLS is satisfied because `auth.uid()` now matches
+4. Later (P41): When guest clicks magic link, anonymous account is "upgraded" to real account
+
+```typescript
+// Guest join flow
+const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+if (anonError) throw new Error('Failed to create guest session');
+
+const userId = anonAuth.user.id;
+// Now create profile with this userId — RLS will pass
+```
+
+**Why this works:**
+- No Supabase Edge Functions needed
+- No service_role key exposed to client
+- Guest gets a real user ID that satisfies all RLS policies
+- Profile is upgradeable when guest verifies email later
+
+**Supabase Dashboard Requirement:**
+- Enable "Anonymous sign-ins" in Authentication → Settings → Auth Providers
+- This is OFF by default — must be enabled before implementation
+
+---
+
+## Terms Version Management (KISS)
+
+**How it works:**
+1. `CURRENT_TERMS_VERSION` is a constant in code (`'v1.0'`)
+2. When you update Terms or Privacy Policy content:
+   - Edit the legal page content
+   - Bump `CURRENT_TERMS_VERSION` to `'v1.1'` (or `'v2.0'` for major changes)
+   - Commit and deploy
+3. All users with older `accepted_terms_version` see the update dialog
+
+**No admin UI needed.** Version is managed in code.
+
+**When to bump version:**
+- Material changes to data collection/usage → Bump version
+- Typo fixes or clarifications → No bump needed
+- New features that change what's recorded → Bump version
+
+---
+
 ## Database Schema
 
-### Table: `terms_acceptances`
+### Single Consolidated Migration
 
-**Migration file:** `supabase/migrations/20260107_terms_acceptances.sql`
+**Migration file:** `supabase/migrations/20260107_p37_consent_mechanism.sql`
 
 ```sql
--- P37.2a: Terms and consent acceptance tracking
--- Tracks when users accept Terms + Privacy Policy + Recording consent
+-- P37.2a: Recording Consent Mechanism
+-- Provides: terms_acceptances, session_consents tables + profiles column
 
-CREATE TABLE terms_acceptances (
+-- ============================================================================
+-- 1. Add accepted_terms_version to profiles (for quick lookup)
+-- ============================================================================
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS
+  accepted_terms_version TEXT DEFAULT NULL;
+
+-- ============================================================================
+-- 2. Terms Acceptances Table (audit trail)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS terms_acceptances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  -- User identification
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  -- User identification (works for both verified and anonymous users)
+  user_id UUID NOT NULL,
 
   -- Terms version accepted
   terms_version TEXT NOT NULL,  -- e.g., "v1.0", "v1.1"
@@ -191,38 +259,32 @@ CREATE TABLE terms_acceptances (
 );
 
 -- Index for lookups
-CREATE INDEX idx_terms_acceptances_user_id ON terms_acceptances(user_id);
+CREATE INDEX IF NOT EXISTS idx_terms_acceptances_user_id ON terms_acceptances(user_id);
 
 -- RLS Policies
 ALTER TABLE terms_acceptances ENABLE ROW LEVEL SECURITY;
 
--- Users can view their own acceptances
+-- Authenticated users can insert (includes anonymous auth users)
+CREATE POLICY "Authenticated users can record acceptance"
+  ON terms_acceptances FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Users can view their own (authenticated users)
 CREATE POLICY "Users can view own acceptances"
   ON terms_acceptances FOR SELECT
   USING (auth.uid() = user_id);
 
--- Users can insert own acceptances only
-CREATE POLICY "Users can record own acceptance"
-  ON terms_acceptances FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-```
-
-### Table: `session_consents`
-
-**Migration file:** `supabase/migrations/20260107_session_consents.sql`
-
-```sql
--- P37.2a: Per-session consent audit trail
--- Records that user consented before each recording session
-
-CREATE TABLE session_consents (
+-- ============================================================================
+-- 3. Session Consents Table (per-session audit trail)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS session_consents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Session identification
   session_id TEXT NOT NULL,  -- Live Meeting session code
 
-  -- User identification
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  -- User identification (works for both verified and anonymous users)
+  user_id UUID NOT NULL,
 
   -- Consent record
   consent_timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -234,30 +296,40 @@ CREATE TABLE session_consents (
 );
 
 -- Indexes
-CREATE INDEX idx_session_consents_session_id ON session_consents(session_id);
-CREATE INDEX idx_session_consents_user_id ON session_consents(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_consents_session_id ON session_consents(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_consents_user_id ON session_consents(user_id);
 
 -- RLS Policies
 ALTER TABLE session_consents ENABLE ROW LEVEL SECURITY;
 
--- Users can view own consents
+-- Authenticated users can insert (includes anonymous auth users)
+CREATE POLICY "Authenticated users can record consent"
+  ON session_consents FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Users can view their own
 CREATE POLICY "Users can view own consents"
   ON session_consents FOR SELECT
   USING (auth.uid() = user_id);
 
--- Users can insert own consents only
-CREATE POLICY "Users can record own consent"
-  ON session_consents FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+-- ============================================================================
+-- 4. Enable realtime for consent tables (optional, for future features)
+-- ============================================================================
+-- Not needed for MVP, but useful for admin dashboards later
+-- ALTER PUBLICATION supabase_realtime ADD TABLE terms_acceptances;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE session_consents;
 ```
 
-### Profile Table Addition
+**Note on RLS:** The INSERT policies use `WITH CHECK (auth.uid() IS NOT NULL)` because:
+1. Anonymous auth users have a valid `auth.uid()` from `signInAnonymously()`
+2. This prevents completely unauthenticated requests from inserting records
+3. Profile creation happens BEFORE the profile row exists, so we can't check `auth.uid() = user_id`
+4. SELECT still requires `auth.uid() = user_id` for privacy
 
-```sql
--- Add to profiles table
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS
-  accepted_terms_version TEXT DEFAULT NULL;
-```
+**Note on Foreign Keys:** The `user_id` columns intentionally have no FK to `auth.users` because:
+1. Anonymous users may be cleaned up by Supabase before consent records
+2. Consent records should persist for legal audit even if user is deleted
+3. When deleting a user, consider archiving consent records first (P42 data rights feature)
 
 ---
 
@@ -437,12 +509,77 @@ export function TermsUpdateDialog({
 }
 ```
 
-### 4. API Functions
+### 4. Requires Login Dialog (Edge Case)
+
+**File:** `src/app/components/live-meeting/requires-login-dialog.tsx`
+
+When a guest enters an email that belongs to a verified user, show this dialog:
+
+```typescript
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
+interface RequiresLoginDialogProps {
+  open: boolean;
+  email: string;
+  onSendLoginLink: () => void;
+  onUseDifferentEmail: () => void;
+  isLoading?: boolean;
+}
+
+export function RequiresLoginDialog({
+  open,
+  email,
+  onSendLoginLink,
+  onUseDifferentEmail,
+  isLoading = false,
+}: RequiresLoginDialogProps) {
+  return (
+    <Dialog open={open}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>This email has an account</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <p className="text-muted-foreground">
+            <strong>{email}</strong> is already registered.
+            To join this session, please log in first.
+          </p>
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onUseDifferentEmail} disabled={isLoading}>
+            Use Different Email
+          </Button>
+          <Button onClick={onSendLoginLink} disabled={isLoading}>
+            {isLoading ? 'Sending...' : 'Send Login Link'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+### 5. API Functions
 
 **File:** `src/app/data/api.ts` (add to existing file)
 
+**IMPORTANT:** Use the existing `ensureUniqueSlug()` function (line 537) — do NOT create a new one.
+
 ```typescript
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
+
+// ============================================================================
+// P37.2a: Consent Mechanism API Functions
+// ============================================================================
 
 /**
  * Check if user needs to accept updated terms.
@@ -544,17 +681,18 @@ export async function verifySessionConsent(
 }
 
 /**
- * Create or get user from email (for guest soft-registration).
- * Creates unverified user record immediately — no email confirmation needed to join.
- * User becomes verified when they click the post-session email magic link (P41).
+ * Create or get guest user with anonymous auth.
+ * Uses Supabase anonymous auth to satisfy RLS policies.
  *
- * MVP SIMPLIFICATION (Option 2):
- * - Unverified returning guests rejoin without verification
- * - Security tightening deferred to P41 (coaching email adds natural verification)
+ * Flow:
+ * 1. Check if email exists in profiles
+ * 2. If verified user → requiresLogin: true
+ * 3. If unverified user → sign in anonymously and reuse profile
+ * 4. If new user → sign in anonymously and create profile
  *
  * EDGE CASES:
- * - If email belongs to existing verified user → requiresLogin: true
- * - If email belongs to existing unverified user → Reuse profile (MVP)
+ * - Verified user email → requiresLogin: true (must log in)
+ * - Unverified user email → Reuse profile (MVP simplification)
  */
 export async function getOrCreateGuestUser(
   email: string,
@@ -573,7 +711,7 @@ export async function getOrCreateGuestUser(
 
   if (existingUser) {
     if (existingUser.is_verified) {
-      // Verified user must log in
+      // Verified user must log in — don't create anonymous session
       console.log('Existing verified user, requires login:', email);
       return {
         userId: existingUser.id,
@@ -583,7 +721,13 @@ export async function getOrCreateGuestUser(
     }
 
     // MVP: Unverified user can rejoin without verification
-    // TODO (P41): Email verification happens naturally via coaching email magic link
+    // Sign in anonymously to satisfy RLS for consent recording
+    const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+    if (anonError) {
+      console.error('Failed to create anonymous session:', anonError);
+      throw new Error('Failed to create guest session');
+    }
+
     console.log('Returning unverified guest, reusing profile:', email);
     return {
       userId: existingUser.id,
@@ -592,72 +736,52 @@ export async function getOrCreateGuestUser(
     };
   }
 
-  // Create new unverified user
-  // Strategy: Create profile record directly without auth.users entry
-  // When they click post-session magic link (P41):
-  // 1. auth.users entry is created
-  // 2. AuthCallback matches by email and links to existing profile
-  // 3. Profile becomes verified
+  // Create new guest user with anonymous auth
+  const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+  if (anonError) {
+    console.error('Failed to create anonymous session:', anonError);
+    throw new Error('Failed to create guest session');
+  }
 
-  const userId = crypto.randomUUID();
+  const userId = anonAuth.user.id;
 
-  const { error } = await supabase
+  // Create profile with anonymous user ID (RLS will pass)
+  const slug = await ensureUniqueSlug(name); // Use existing function!
+
+  const { error: profileError } = await supabase
     .from('profiles')
     .insert({
       id: userId,
       email: email,
       name: name,
-      slug: await generateUniqueSlug(name),
+      slug: slug,
       is_verified: false,
-      signed_at: new Date().toISOString(),
     });
 
-  if (error) {
-    console.error('Failed to create guest user:', error);
+  if (profileError) {
+    console.error('Failed to create guest profile:', profileError);
     throw new Error('Failed to create user record');
   }
 
-  console.log('Guest user created:', { userId, email, name });
+  console.log('Guest user created:', { userId, email, name, slug });
   return { userId, isNew: true, requiresLogin: false };
 }
 
 /**
- * Generate unique slug from name (e.g., "john-doe", "john-doe-2").
- */
-async function generateUniqueSlug(name: string): Promise<string> {
-  const baseSlug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-
-  let slug = baseSlug;
-  let attempt = 1;
-
-  while (attempt <= 3) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('slug', slug)
-      .single();
-
-    if (!data) {
-      return slug; // Slug is available
-    }
-
-    attempt++;
-    slug = `${baseSlug}-${attempt}`;
-  }
-
-  // Fallback to timestamp
-  return `${baseSlug}-${Date.now()}`;
-}
-
-/**
- * Hash IP address for audit trail.
+ * Hash IP address for audit trail (with timeout).
+ * Falls back gracefully if IP lookup fails or times out.
  */
 async function hashIP(): Promise<string> {
   try {
-    const response = await fetch('https://api.ipify.org?format=json');
+    // 3 second timeout to prevent blocking join flow
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch('https://api.ipify.org?format=json', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
     const { ip } = await response.json();
 
     const encoder = new TextEncoder();
@@ -666,6 +790,7 @@ async function hashIP(): Promise<string> {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   } catch {
+    // Fallback: use random identifier (still unique per request)
     return `browser_${crypto.randomUUID()}`;
   }
 }
@@ -940,3 +1065,293 @@ Ensure Privacy Policy includes:
 **TODO when P41 ships:**
 - [ ] Coaching email magic link verifies guest email automatically
 - [ ] Consider adding stricter verification for sensitive actions (not session join)
+
+---
+
+## Implementation Integration Points
+
+**This section tells the agent WHERE to wire up the new code.**
+
+### 1. Create Constants File
+
+**File:** `src/lib/constants.ts` (NEW FILE)
+
+```typescript
+// Current terms version - bump when Terms or Privacy Policy changes
+export const CURRENT_TERMS_VERSION = 'v1.0';
+```
+
+### 2. Integration into clarity-live-page.tsx
+
+The existing file has a join flow around line 1364. Here's how to integrate:
+
+**Add imports at top of file:**
+```typescript
+import { JoinSessionDialog } from '@/app/components/live-meeting/join-session-dialog';
+import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
+import { RequiresLoginDialog } from '@/app/components/live-meeting/requires-login-dialog';
+import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
+import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
+import {
+  getOrCreateGuestUser,
+  recordTermsAcceptance,
+  recordSessionConsent,
+  needsTermsAcceptance,
+  sendMagicLink,
+} from '@/app/data/api';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
+```
+
+**Add state variables:**
+```typescript
+// Consent flow state
+const [showJoinDialog, setShowJoinDialog] = useState(false);
+const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
+const [showRequiresLoginDialog, setShowRequiresLoginDialog] = useState(false);
+const [pendingJoinEmail, setPendingJoinEmail] = useState('');
+const [consentLoading, setConsentLoading] = useState(false);
+
+// Microphone permission (P40)
+const {
+  status: micStatus,
+  error: micError,
+  attemptCount: micAttemptCount,
+  requestPermission,
+  reset: resetMic,
+} = useMicrophonePermission();
+const [showMicDialog, setShowMicDialog] = useState(false);
+```
+
+**Replace the existing join handler with consent flow:**
+```typescript
+// Called when user clicks "Join" button (before entering session)
+const handleJoinClick = async () => {
+  const { user } = useAuth(); // or however you get current user
+
+  if (user) {
+    // Logged in user: check if terms acceptance needed
+    const needsAcceptance = await needsTermsAcceptance(user.id);
+    if (needsAcceptance) {
+      setShowTermsUpdateDialog(true);
+    } else {
+      // Terms current, proceed to mic check
+      await handleMicrophoneCheck(user.id);
+    }
+  } else {
+    // Guest: show join dialog to collect name + email
+    setShowJoinDialog(true);
+  }
+};
+
+// Guest submits join dialog
+const handleGuestJoin = async (name: string, email: string) => {
+  setConsentLoading(true);
+  try {
+    const result = await getOrCreateGuestUser(email, name);
+
+    if (result.requiresLogin) {
+      setPendingJoinEmail(email);
+      setShowJoinDialog(false);
+      setShowRequiresLoginDialog(true);
+      return;
+    }
+
+    // Record consent and proceed
+    await recordTermsAcceptance(result.userId);
+    await recordSessionConsent(session.code, result.userId);
+
+    // Proceed to microphone check
+    setShowJoinDialog(false);
+    await handleMicrophoneCheck(result.userId);
+
+  } catch (error) {
+    console.error('Guest join failed:', error);
+    toast({ title: 'Error', description: 'Failed to join. Please try again.' });
+  } finally {
+    setConsentLoading(false);
+  }
+};
+
+// Logged in user accepts updated terms
+const handleTermsAccept = async () => {
+  const { user } = useAuth();
+  if (!user) return;
+
+  setConsentLoading(true);
+  try {
+    await recordTermsAcceptance(user.id);
+    await recordSessionConsent(session.code, user.id);
+
+    setShowTermsUpdateDialog(false);
+    await handleMicrophoneCheck(user.id);
+  } catch (error) {
+    console.error('Terms acceptance failed:', error);
+    toast({ title: 'Error', description: 'Failed to record consent.' });
+  } finally {
+    setConsentLoading(false);
+  }
+};
+
+// Microphone permission check (P40)
+const handleMicrophoneCheck = async (userId: string) => {
+  const hasPermission = await requestPermission();
+
+  if (!hasPermission) {
+    setShowMicDialog(true);
+    return;
+  }
+
+  // Permission granted, proceed to session
+  proceedWithJoin(userId);
+};
+
+const handleMicRetry = async () => {
+  const hasPermission = await requestPermission();
+  if (hasPermission) {
+    setShowMicDialog(false);
+    resetMic();
+    // Need to track userId from earlier flow
+    proceedWithJoin(/* userId */);
+  }
+};
+
+const handleMicCancel = () => {
+  setShowMicDialog(false);
+  resetMic();
+  toast({
+    title: 'Microphone required',
+    description: 'Microphone access is required to join Clarity Meetings',
+  });
+};
+
+// Requires login handlers
+const handleSendLoginLink = async () => {
+  setConsentLoading(true);
+  try {
+    await sendMagicLink(pendingJoinEmail);
+    toast({ title: 'Check your email', description: 'Login link sent!' });
+    setShowRequiresLoginDialog(false);
+  } catch (error) {
+    toast({ title: 'Error', description: 'Failed to send login link.' });
+  } finally {
+    setConsentLoading(false);
+  }
+};
+
+const handleUseDifferentEmail = () => {
+  setShowRequiresLoginDialog(false);
+  setShowJoinDialog(true); // Go back to join dialog
+};
+```
+
+**Add dialog components to JSX:**
+```tsx
+return (
+  <>
+    {/* Consent dialogs */}
+    <JoinSessionDialog
+      open={showJoinDialog}
+      onJoin={handleGuestJoin}
+      onCancel={() => setShowJoinDialog(false)}
+      isLoading={consentLoading}
+    />
+
+    <TermsUpdateDialog
+      open={showTermsUpdateDialog}
+      onAccept={handleTermsAccept}
+      onCancel={() => setShowTermsUpdateDialog(false)}
+      isLoading={consentLoading}
+    />
+
+    <RequiresLoginDialog
+      open={showRequiresLoginDialog}
+      email={pendingJoinEmail}
+      onSendLoginLink={handleSendLoginLink}
+      onUseDifferentEmail={handleUseDifferentEmail}
+      isLoading={consentLoading}
+    />
+
+    {/* Microphone permission dialog (P40) */}
+    <MicrophonePermissionDialog
+      open={showMicDialog}
+      error={micError}
+      attemptCount={micAttemptCount}
+      onRetry={handleMicRetry}
+      onCancel={handleMicCancel}
+    />
+
+    {/* Rest of existing UI... */}
+  </>
+);
+```
+
+### 3. Run Migration
+
+After creating the migration file, apply it:
+
+```bash
+# Via Supabase CLI (local)
+npx supabase db push
+
+# Or via Supabase Dashboard
+# 1. Go to SQL Editor
+# 2. Paste contents of supabase/migrations/20260107_p37_consent_mechanism.sql
+# 3. Run
+```
+
+### 4. Enable Anonymous Auth in Supabase
+
+**CRITICAL MANUAL STEP:**
+1. Go to Supabase Dashboard → Authentication → Settings
+2. Under "Auth Providers", find "Anonymous sign-ins"
+3. Enable it
+4. Save
+
+Without this, `signInAnonymously()` will fail.
+
+### 5. Files to Create (Summary)
+
+| File | Type | Description |
+|------|------|-------------|
+| `src/lib/constants.ts` | NEW | Terms version constant |
+| `src/app/components/live-meeting/join-session-dialog.tsx` | NEW | Guest join form |
+| `src/app/components/live-meeting/terms-update-dialog.tsx` | NEW | Terms update for verified users |
+| `src/app/components/live-meeting/requires-login-dialog.tsx` | NEW | Verified email edge case |
+| `src/hooks/useMicrophonePermission.ts` | NEW | P40 mic permission hook |
+| `src/app/components/live-meeting/microphone-permission-dialog.tsx` | NEW | P40 mic denied UI |
+| `supabase/migrations/20260107_p37_consent_mechanism.sql` | NEW | Database migration |
+| `src/app/data/api.ts` | MODIFY | Add consent API functions |
+| `src/app/pages/clarity-live-page.tsx` | MODIFY | Wire up consent flow |
+
+### 6. Verification Before Recording
+
+**Existing code that uploads recordings should call `verifySessionConsent()` first:**
+
+Find the recording upload code (likely in `use-audio-recorder.ts` or similar) and add:
+
+```typescript
+// Before uploading recording
+const hasConsent = await verifySessionConsent(sessionCode, userId);
+if (!hasConsent) {
+  console.error('BLOCKING UPLOAD: No consent record found');
+  throw new Error('Recording upload blocked: consent not recorded');
+}
+// Proceed with upload
+```
+
+---
+
+## P40 Integration Note
+
+P40 (Microphone Permission) is implemented as part of this feature. The files are:
+- `src/hooks/useMicrophonePermission.ts` — Permission check hook
+- `src/app/components/live-meeting/microphone-permission-dialog.tsx` — Denied state UI
+
+See [P40 spec](./p40_microphone_permission.md) for full implementation details.
+
+**Flow order:**
+1. Consent (P37.2a) — Legal gate, records to DB
+2. Microphone (P40) — Technical gate, browser permission
+3. Session starts
+
+Microphone check happens AFTER consent is recorded. If mic is denied, user can cancel and return — consent record remains (they agreed to terms, just didn't join).
