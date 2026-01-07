@@ -539,7 +539,6 @@ PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
 
 def parse_worktree_arg(text):
     """Parse worktree number from command like '/s2', '/l1', 'status 2'"""
-    # Match patterns like: s2, l1, status 2, logs 1
     match = re.search(r'(\d)$', text.strip())
     if match:
         wt = int(match.group(1))
@@ -548,160 +547,118 @@ def parse_worktree_arg(text):
     return None
 
 
-def handle_command(text):
+# =============================================================================
+# COMMAND HANDLERS (each returns a string or None)
+# =============================================================================
+def cmd_status(args):
+    """Handle status command with optional worktree arg"""
+    wt = parse_worktree_arg(args) if args else None
+    if wt is not None:
+        return format_worktree_status(wt)
+    return format_all_status()
+
+
+def cmd_logs(args):
+    """Handle logs command with optional worktree arg"""
+    wt = parse_worktree_arg(args) if args else None
+    if wt is not None:
+        if is_agent_running(wt):
+            return format_logs(wt)
+        return f"⚪ WT{wt} not running\n\n💡 Check `/status` for active agents"
+    running = get_running_worktrees()
+    if running:
+        return format_logs(running[0])
+    return "⚪ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
+
+
+def cmd_stop(args):
+    """Handle stop command with optional worktree arg or 'all'"""
     global PENDING_CONFIRMATION
-    text_lower = text.strip().lower()
-    text_original = text.strip()
 
-    # Check for pending confirmation
-    if PENDING_CONFIRMATION["action"] and time.time() < PENDING_CONFIRMATION["expires"]:
-        if text_lower in ["yes", "y", "confirm"]:
-            action = PENDING_CONFIRMATION["action"]
-            data = PENDING_CONFIRMATION["data"]
-            PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
-
-            if action == "stop_all":
-                for wt in data:
-                    session = get_tmux_session(wt)
-                    run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
-                return f"🛑 Stopped {len(data)} agent(s): WT{', WT'.join(map(str, data))}"
-
-        elif text_lower in ["no", "n", "cancel"]:
-            PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
-            return "❌ Cancelled"
-
-        else:
-            # Block all other input until user confirms or cancels
-            return "⚠️ Confirmation pending. Reply *yes* or *no*."
-
-    # Clear expired confirmation
-    if time.time() >= PENDING_CONFIRMATION.get("expires", 0):
-        PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
-
-    # Status commands
-    if text_lower in ["/status", "status", "s", "/s"]:
-        return format_all_status()
-
-    # Status with worktree: /s2, status 2
-    # Exclude "stop" commands which also start with "s"
-    if text_lower.startswith(("/s", "s", "status")) and not text_lower.startswith(("stop", "/stop")):
-        wt = parse_worktree_arg(text_lower)
-        if wt is not None:
-            return format_worktree_status(wt)
-        return format_all_status()
-
-    # Logs commands
-    if text_lower in ["/logs", "logs", "l", "/l"]:
-        running = get_running_worktrees()
-        if running:
-            return format_logs(running[0])
-        return "⚪ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
-
-    # Logs with worktree: /l2, logs 2
-    if text_lower.startswith(("/l", "l", "logs")):
-        wt = parse_worktree_arg(text_lower)
-        if wt is not None:
-            if is_agent_running(wt):
-                return format_logs(wt)
-            return f"⚪ WT{wt} not running\n\n💡 Check `/status` for active agents"
-        running = get_running_worktrees()
-        if running:
-            return format_logs(running[0])
-        return "⚪ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
-
-    # Stop commands
-    if text_lower in ["/stop", "stop"]:
+    # stop all - requires confirmation
+    if args and args.strip().lower() == "all":
         running = get_running_worktrees()
         if not running:
             return "⚪ No agents running"
-        # Stop first running agent
-        wt = running[0]
-        task_short, _ = get_task_info(wt)
-        session = get_tmux_session(wt)
-        run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
-        return f"🛑 *Stopped WT{wt}*\nTask was: _{escape_markdown(task_short)}_"
-
-    # Stop with worktree: stop 2, /stop 2
-    if text_lower.startswith(("stop ", "/stop ")):
-        wt = parse_worktree_arg(text_lower)
-        if wt is not None:
-            if not is_agent_running(wt):
-                return f"⚪ WT{wt} not running\n\n💡 Check `/status` for active agents"
-            task_short, _ = get_task_info(wt)
-            session = get_tmux_session(wt)
-            run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
-            return f"🛑 *Stopped WT{wt}*\nTask was: _{escape_markdown(task_short)}_"
-        return "⚠️ Usage: `stop N` where N is 0-3\n\nExample: `stop 2`"
-
-    # Stop all - requires confirmation
-    if text_lower in ["/stop all", "stop all"]:
-        running = get_running_worktrees()
-        if not running:
-            return "⚪ No agents running"
-
-        # Build preview of what will be stopped
         preview = ""
         for wt in running:
             task_short, _ = get_task_info(wt)
             preview += f"  • WT{wt}: {escape_markdown(task_short)}\n"
-
-        # Set pending confirmation (expires in 30 seconds)
         PENDING_CONFIRMATION = {
             "action": "stop_all",
             "data": running,
             "expires": time.time() + 30
         }
-
         return f"⚠️ *Stop {len(running)} agent(s)?*\n\n{preview}\nReply *yes* to confirm or *no* to cancel"
 
-    # Commit/save
-    if text_lower in ["/commit", "commit", "save"]:
-        running = get_running_worktrees()
-        if not running:
-            return "⚪ No agents running\n\n💡 Nothing to commit"
+    # stop N - specific worktree
+    wt = parse_worktree_arg(args) if args else None
+    if wt is not None:
+        if not is_agent_running(wt):
+            return f"⚪ WT{wt} not running\n\n💡 Check `/status` for active agents"
+        task_short, _ = get_task_info(wt)
+        session = get_tmux_session(wt)
+        run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
+        return f"🛑 *Stopped WT{wt}*\nTask was: _{escape_markdown(task_short)}_"
 
-        results = []
-        for wt in running:
-            project_dir = get_project_dir(wt)
-            branch = run_cmd("git branch --show-current", cwd=project_dir) or "unknown"
+    # stop (no arg) - stop first running
+    running = get_running_worktrees()
+    if not running:
+        return "⚪ No agents running"
+    wt = running[0]
+    task_short, _ = get_task_info(wt)
+    session = get_tmux_session(wt)
+    run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
+    return f"🛑 *Stopped WT{wt}*\nTask was: _{escape_markdown(task_short)}_"
 
-            # Check if there are changes
-            status = run_cmd("git status --porcelain", cwd=project_dir)
-            if not status.strip():
-                results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
-                continue
 
-            # Commit and push
-            output = run_cmd("git add -A && git commit -m 'manual checkpoint' 2>&1", cwd=project_dir)
-            output_lower = output.lower()
-            if "nothing to commit" in output_lower:
-                results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
-            elif "error" in output_lower or "fatal" in output_lower or "failed" in output_lower:
-                # Commit failed - report the error, don't try to push
-                error_preview = output[:80].replace('\n', ' ')
-                results.append(f"WT{wt} (`{escape_markdown(branch)}`): ❌ commit failed: {escape_markdown(error_preview)}")
+def cmd_commit(args):
+    """Handle commit/save command"""
+    running = get_running_worktrees()
+    if not running:
+        return "⚪ No agents running\n\n💡 Nothing to commit"
+
+    results = []
+    for wt in running:
+        project_dir = get_project_dir(wt)
+        branch = run_cmd("git branch --show-current", cwd=project_dir) or "unknown"
+
+        status = run_cmd("git status --porcelain", cwd=project_dir)
+        if not status.strip():
+            results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
+            continue
+
+        output = run_cmd("git add -A && git commit -m 'manual checkpoint' 2>&1", cwd=project_dir)
+        output_lower = output.lower()
+        if "nothing to commit" in output_lower:
+            results.append(f"WT{wt} (`{escape_markdown(branch)}`): no changes")
+        elif "error" in output_lower or "fatal" in output_lower or "failed" in output_lower:
+            error_preview = output[:80].replace('\n', ' ')
+            results.append(f"WT{wt} (`{escape_markdown(branch)}`): ❌ commit failed: {escape_markdown(error_preview)}")
+        else:
+            commit_hash = run_cmd("git rev-parse --short HEAD", cwd=project_dir)
+            push_result = run_cmd("git push 2>&1", cwd=project_dir)
+            if "error" in push_result.lower() or "rejected" in push_result.lower() or "fatal" in push_result.lower():
+                results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` ⚠️ push failed")
             else:
-                # Commit succeeded - get the NEW commit hash and push
-                commit_hash = run_cmd("git rev-parse --short HEAD", cwd=project_dir)
-                push_result = run_cmd("git push 2>&1", cwd=project_dir)
-                if "error" in push_result.lower() or "rejected" in push_result.lower() or "fatal" in push_result.lower():
-                    results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` ⚠️ push failed")
-                else:
-                    results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` pushed")
+                results.append(f"WT{wt} (`{escape_markdown(branch)}`): ✅ `{commit_hash}` pushed")
 
-        return "💾 *Commit Results:*\n" + "\n".join(results)
+    return "💾 *Commit Results:*\n" + "\n".join(results)
 
-    # Health
-    if text_lower in ["/health", "health"]:
-        return format_health()
 
-    # Worktrees (from Supabase)
-    if text_lower in ["/worktrees", "worktrees", "/wt", "wt"]:
-        return format_worktrees_from_supabase()
+def cmd_health(args):
+    """Handle health command"""
+    return format_health()
 
-    # Help - reorganized into categories
-    if text_lower in ["/help", "help", "h", "/h", "?"]:
-        return """📊 *Status*
+
+def cmd_worktrees(args):
+    """Handle worktrees command"""
+    return format_worktrees_from_supabase()
+
+
+def cmd_help(args):
+    """Handle help command"""
+    return """📊 *Status*
 `s` or `/status` — All agents
 `s2` — WT2 only
 `wt` — All worktrees (local+cloud)
@@ -722,33 +679,145 @@ Just type text → sent to running agent(s)
 
 💡 Start agent: `/c claude "task"`"""
 
-    # Forward as instruction to active agents
+
+def cmd_forward_feedback(text):
+    """Forward text to all running agents"""
+    running = get_running_worktrees()
+    if not running:
+        return "⚠️ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
+
+    ts = time.strftime("%H:%M")
+    sent_to = []
+
+    for wt in running:
+        feedback_file = get_feedback_file(wt)
+        project_dir = get_project_dir(wt)
+        branch = run_cmd("git branch --show-current", cwd=project_dir) or "unknown"
+
+        with open(feedback_file, "a") as f:
+            f.write(f"[{ts}] [{branch}] {text}\n")
+
+        sent_to.append(f"WT{wt} (`{branch[:15]}`)")
+
+    escaped_text = escape_markdown(text[:50])
+    if len(running) == 1:
+        return f"📝 Sent to {sent_to[0]}:\n_{escaped_text}_"
+    return f"📝 Sent to {len(running)} agents:\n" + ", ".join(sent_to) + f"\n_{escaped_text}_"
+
+
+# =============================================================================
+# CONFIRMATION HANDLER (separate from command dispatch)
+# =============================================================================
+def handle_confirmation(text_lower):
+    """Handle pending confirmation responses. Returns response string or None to continue."""
+    global PENDING_CONFIRMATION
+
+    if text_lower in ["yes", "y", "confirm"]:
+        action = PENDING_CONFIRMATION["action"]
+        data = PENDING_CONFIRMATION["data"]
+        PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
+
+        # Dispatch confirmed actions
+        if action == "stop_all":
+            for wt in data:
+                session = get_tmux_session(wt)
+                run_cmd(f"tmux kill-session -t {session} 2>/dev/null")
+            return f"🛑 Stopped {len(data)} agent(s): WT{', WT'.join(map(str, data))}"
+
+        # Unknown action - should never happen, but handle gracefully
+        return f"⚠️ Unknown action: {action}"
+
+    if text_lower in ["no", "n", "cancel"]:
+        PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
+        return "❌ Cancelled"
+
+    # Block other input during confirmation
+    return "⚠️ Confirmation pending. Reply *yes* or *no*."
+
+
+# =============================================================================
+# COMMAND DISPATCH TABLE
+# =============================================================================
+# Format: "command": {"aliases": [...], "handler": func, "has_args": bool}
+COMMAND_TABLE = {
+    "status": {
+        "aliases": ["/status", "status", "/s", "s"],
+        "handler": cmd_status,
+        "arg_pattern": r"^(?:/s|s|status)\s*(\d)?$",  # s, s2, status, status 2
+    },
+    "logs": {
+        "aliases": ["/logs", "logs", "/l", "l"],
+        "handler": cmd_logs,
+        "arg_pattern": r"^(?:/l|l|logs)\s*(\d)?$",  # l, l2, logs, logs 2
+    },
+    "stop": {
+        "aliases": ["/stop", "stop"],
+        "handler": cmd_stop,
+        "arg_pattern": r"^(?:/stop|stop)\s*(.+)?$",  # stop, stop 2, stop all
+    },
+    "commit": {
+        "aliases": ["/commit", "commit", "save"],
+        "handler": cmd_commit,
+        "arg_pattern": None,
+    },
+    "health": {
+        "aliases": ["/health", "health"],
+        "handler": cmd_health,
+        "arg_pattern": None,
+    },
+    "worktrees": {
+        "aliases": ["/worktrees", "worktrees", "/wt", "wt"],
+        "handler": cmd_worktrees,
+        "arg_pattern": None,
+    },
+    "help": {
+        "aliases": ["/help", "help", "/h", "h", "?"],
+        "handler": cmd_help,
+        "arg_pattern": None,
+    },
+}
+
+
+def dispatch_command(text_lower, text_original):
+    """Match text against command table and dispatch to handler."""
+    for cmd_name, cmd_info in COMMAND_TABLE.items():
+        # Check exact alias match first
+        if text_lower in cmd_info["aliases"]:
+            return cmd_info["handler"](None)
+
+        # Check pattern match for commands with args
+        if cmd_info.get("arg_pattern"):
+            match = re.match(cmd_info["arg_pattern"], text_lower)
+            if match:
+                args = match.group(1) if match.lastindex else None
+                return cmd_info["handler"](args)
+
+    # No command matched - forward as feedback if not a slash command
     if text_original and not text_original.startswith("/"):
-        running = get_running_worktrees()
-        if not running:
-            return "⚠️ No agents running\n\n💡 Start one: `/c claude \"your task\"`"
-
-        ts = time.strftime("%H:%M")
-        sent_to = []
-
-        # Write to all running agents' feedback files
-        for wt in running:
-            feedback_file = get_feedback_file(wt)
-            project_dir = get_project_dir(wt)
-            branch = run_cmd("git branch --show-current", cwd=project_dir) or "unknown"
-
-            with open(feedback_file, "a") as f:
-                f.write(f"[{ts}] [{branch}] {text_original}\n")
-
-            sent_to.append(f"WT{wt} (`{branch[:15]}`)")
-
-        escaped_text = escape_markdown(text_original[:50])
-        if len(running) == 1:
-            return f"📝 Sent to {sent_to[0]}:\n_{escaped_text}_"
-        else:
-            return f"📝 Sent to {len(running)} agents:\n" + ", ".join(sent_to) + f"\n_{escaped_text}_"
+        return cmd_forward_feedback(text_original)
 
     return None
+
+
+# =============================================================================
+# MAIN COMMAND HANDLER
+# =============================================================================
+def handle_command(text):
+    """Main entry point for handling user commands."""
+    global PENDING_CONFIRMATION
+    text_lower = text.strip().lower()
+    text_original = text.strip()
+
+    # Step 1: Check for pending confirmation (takes priority)
+    if PENDING_CONFIRMATION["action"] and time.time() < PENDING_CONFIRMATION["expires"]:
+        return handle_confirmation(text_lower)
+
+    # Step 2: Clear expired confirmation
+    if time.time() >= PENDING_CONFIRMATION.get("expires", 0):
+        PENDING_CONFIRMATION = {"action": None, "data": None, "expires": 0}
+
+    # Step 3: Dispatch to command handler
+    return dispatch_command(text_lower, text_original)
 
 
 # =============================================================================
