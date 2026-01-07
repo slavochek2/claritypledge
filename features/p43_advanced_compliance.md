@@ -1,10 +1,37 @@
-# P37.2c: Advanced Compliance Features
+# P43: Advanced Compliance Features
 
-**Status:** Future Enhancement
-**Priority:** 🟢 LOW (Deploy at 100+ Users)
+**Status:** Future Enhancement (Deploy at 100+ Users)
+**Priority:** LOW (nice-to-have for scale)
 **Est. Effort:** 8-12 hours
 **Created:** 2026-01-06
-**Depends On:** P37.2a (Consent), P37.2b (Data Rights)
+**Renamed:** 2026-01-07 (was P37.2c)
+**Depends On:** P37.2a (Consent), P42 (Data Rights)
+
+---
+
+## Implementation Order
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  GDPR Compliance Phases                                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  LAUNCH (Now)        SCALE (10-20 users)   GROWTH (100+)   │
+│  ─────────────       ─────────────────     ─────────────   │
+│  P37.2a Consent  ──► P42 Data Rights   ──► P43 (This)      │
+│  P40 Microphone                                             │
+│  P41 Coaching                                               │
+│                                                             │
+│  P43 includes:                                              │
+│  - Consent withdrawal (separate from deletion)             │
+│  - ML training opt-out                                     │
+│  - Auto-delete after 90 days                               │
+│  - Admin dashboard                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**For AI agents:** Don't implement P43 until 100+ active users OR legal counsel recommends. These are enterprise-grade features.
 
 ---
 

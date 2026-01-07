@@ -87,6 +87,30 @@ git worktree list
 
 Each worktree has a unique port configured in `vite.config.ts` (committed to its branch). See [docs/technical/worktree-setup.md](docs/technical/worktree-setup.md) for full details on resetting, merging, and managing worktrees.
 
+### Worktree Naming Convention (MUST FOLLOW)
+
+**Directory names:** Always use `claritypledge-N` (e.g., `claritypledge-1`, `claritypledge-2`)
+- Local: `/Users/slavochek/Documents/claritypledge-N`
+- Cloud: `~/claritypledge-N`
+
+**Branch names:** Use descriptive names that include the worktree number:
+- Format: `{feature}-wt{N}` or `worktree-{N}` for generic
+- Examples: `p38-variant-a-wt3`, `dark-mode-wt1`, `worktree-cloud-2`
+
+**Why this matters:**
+- Auto-detect scripts look for `claritypledge-N` directories
+- Port auto-detection uses directory name to assign ports
+- `/c claude` parallel execution depends on this naming
+
+**Creating a new worktree:**
+```bash
+# From main repo
+git worktree add ../claritypledge-N -b feature-name-wtN
+
+# Then symlink .env.local (critical!)
+ln -sf $(pwd)/.env.local ../claritypledge-N/.env.local
+```
+
 ## Worktree Status Tracking (IMPORTANT)
 
 **Source of truth:** `worktree_status` table in **prod Supabase** (`besjtuodziykmjidubzw`)

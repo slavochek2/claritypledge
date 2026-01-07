@@ -1,10 +1,34 @@
-# P37.2b: Data Rights (Export & Deletion)
+# P42: Data Rights (Export & Deletion)
 
-**Status:** Ready for Implementation
-**Priority:** 🟡 HIGH (Deploy at 10-20 Users)
+**Status:** Deferred (Deploy at 10-20 Users)
+**Priority:** HIGH (but not blocking launch)
 **Est. Effort:** 6-8 hours
 **Created:** 2026-01-06
+**Renamed:** 2026-01-07 (was P37.2b)
 **Depends On:** P37.2a (Consent Mechanism)
+
+---
+
+## Implementation Order
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  GDPR Compliance Phases                                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  LAUNCH (Now)        SCALE (10-20 users)   GROWTH (100+)   │
+│  ─────────────       ─────────────────     ─────────────   │
+│  P37.2a Consent  ──► P42 Data Rights   ──► P43 Advanced    │
+│  P40 Microphone      (This)                                 │
+│  P41 Coaching                                               │
+│                                                             │
+│  Until P42: Handle data requests manually via email        │
+│  GDPR allows 30-day response window                        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**For AI agents:** Don't implement P42 until you have 10-20 active users. Until then, handle data requests manually via support@claritypledge.com.
 
 ---
 

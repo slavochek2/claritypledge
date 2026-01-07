@@ -1,6 +1,25 @@
 # P26: Lightweight Signup & Guest Conversion Flow
 
-## Problem
+**Status:** SUPERSEDED by P37.2a + P41
+**Archived:** 2026-01-07
+
+> **Note:** This feature has been superseded by:
+> - **P37.2a** - Collects name + email at session JOIN (not after)
+> - **P41** - Post-session email converts guests to verified users
+>
+> The P37.2a approach is better because it:
+> 1. Collects email earlier (at join, not after session)
+> 2. Integrates with GDPR consent requirements
+> 3. Enables post-session coaching email delivery
+>
+> Key concepts from P26 are preserved:
+> - Guest soft registration (name + email = unverified user)
+> - No pledge required to join sessions
+> - Magic link verification converts to full user
+
+---
+
+## Problem (Original)
 
 Currently, there's **no way to create an account without signing the full Clarity Pledge**. The only path is:
 

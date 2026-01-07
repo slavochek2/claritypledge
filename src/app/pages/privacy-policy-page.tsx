@@ -108,7 +108,8 @@ export function PrivacyPolicyPage() {
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-4">
               Audio recordings and session data may be used to improve our AI/ML models for better
-              understanding verification. By participating in a Live Meeting, you consent to this usage.
+              understanding verification. Before any recording starts, you will be informed and asked
+              to agree by joining the session. You can request deletion of your recordings anytime.
             </p>
           </section>
 

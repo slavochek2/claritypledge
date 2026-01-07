@@ -140,6 +140,33 @@ git add vite.config.ts
 git commit -m "Configure dev server port for worktree-1"
 ```
 
+## Environment Variables (.env.local)
+
+**Critical:** Worktrees don't copy gitignored files like `.env.local`. Use symlinks to share the main repo's env file:
+
+```bash
+# Link .env.local to all worktrees (run from main repo)
+cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+
+for i in 1 2 3 4 5 6 7; do
+  ln -sf /Users/slavochek/Documents/polymet-clarity-pledge-app/.env.local ../claritypledge-$i/.env.local
+done
+```
+
+**Why symlinks?**
+- Updates to main's `.env.local` automatically propagate to all worktrees
+- No duplicate secrets to maintain
+- Survives worktree resets (symlink is untracked)
+
+**If you see "Missing Supabase environment variables" error:**
+```bash
+# Check if .env.local exists and is a symlink
+ls -la ../claritypledge-X/.env.local
+
+# If missing, recreate the symlink
+ln -sf /Users/slavochek/Documents/polymet-clarity-pledge-app/.env.local ../claritypledge-X/.env.local
+```
+
 ## Creating New Worktrees
 
 To add additional worktrees (e.g., Tree 4):
@@ -150,6 +177,9 @@ cd /Users/slavochek/Documents/polymet-clarity-pledge-app
 
 # Create new worktree with new branch
 git worktree add ../claritypledge-4 -b worktree-4
+
+# Link environment variables
+ln -sf /Users/slavochek/Documents/polymet-clarity-pledge-app/.env.local ../claritypledge-4/.env.local
 
 # Configure port in new worktree
 cd ../claritypledge-4
