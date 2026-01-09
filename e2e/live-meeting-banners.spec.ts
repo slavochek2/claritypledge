@@ -107,6 +107,64 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
     });
   });
 
+  test.describe('Banner Title Centering', () => {
+    test('banner title is horizontally centered in viewport', async ({ page }) => {
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await page.goto('/live');
+
+      // Wait for page content to load
+      await expect(page.getByRole('heading', { name: 'Clarity Meeting' })).toBeVisible();
+
+      // Get the banner title element
+      const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
+      await expect(bannerTitle).toBeVisible();
+
+      // Get bounding box of the title
+      const titleBox = await bannerTitle.boundingBox();
+      expect(titleBox).not.toBeNull();
+
+      if (titleBox) {
+        // Calculate the center of the title
+        const titleCenter = titleBox.x + titleBox.width / 2;
+
+        // Calculate the center of the viewport
+        const viewportCenter = 1024 / 2;
+
+        // Title center should be within 20px of viewport center
+        const tolerance = 20;
+        expect(Math.abs(titleCenter - viewportCenter)).toBeLessThan(tolerance);
+      }
+    });
+
+    test('banner title is centered on mobile viewport', async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 667 });
+      await page.goto('/live');
+
+      // Wait for page content to load
+      await expect(page.getByRole('heading', { name: 'Clarity Meeting' })).toBeVisible();
+
+      // Get the banner title element
+      const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
+      await expect(bannerTitle).toBeVisible();
+
+      // Get bounding box of the title
+      const titleBox = await bannerTitle.boundingBox();
+      expect(titleBox).not.toBeNull();
+
+      if (titleBox) {
+        // Calculate the center of the title
+        const titleCenter = titleBox.x + titleBox.width / 2;
+
+        // Calculate the center of the viewport
+        const viewportCenter = 375 / 2;
+
+        // Title center should be within 20px of viewport center
+        const tolerance = 20;
+        expect(Math.abs(titleCenter - viewportCenter)).toBeLessThan(tolerance);
+      }
+    });
+  });
+
   test.describe('Banner Content', () => {
     test('start screen banner shows correct title', async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 768 });

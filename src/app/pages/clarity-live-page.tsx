@@ -298,6 +298,22 @@ export function ClarityLivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only track once on mount
   }, []);
 
+  // Request mic permission proactively when host enters waiting view
+  // This ensures the host is ready when partner joins (better UX than requesting mid-flow)
+  useEffect(() => {
+    // Only request if not already granted or in progress
+    if (view === 'waiting' && isCreator && micStatus === 'unknown') {
+      console.log('[Mic] Proactively requesting mic permission for host in waiting view');
+      requestMicPermission().then((granted) => {
+        if (!granted) {
+          // Show retry dialog if permission denied
+          console.log('[Mic] Permission denied in waiting view, showing retry dialog');
+          setShowMicDialog(true);
+        }
+      });
+    }
+  }, [view, isCreator, micStatus, requestMicPermission]);
+
   // HIGH #6: Restore session from sessionStorage on mount
   // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
   useEffect(() => {
