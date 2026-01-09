@@ -14,10 +14,11 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { ArrowLeftIcon, BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
+import { BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import articleContent from "../content/full-article.md?raw";
 import { getCurrentUser, signOut, Profile } from "@/app/data/api";
 import { SEO } from "@/app/components/seo";
+import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { analytics } from "@/lib/mixpanel";
 
 export function FullArticlePage() {
@@ -160,16 +161,11 @@ export function FullArticlePage() {
           style={{ width: `${scrollProgress}%` }}
         />
         <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between max-w-6xl">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/")}
-              className="px-2 sm:px-3"
-            >
-              <ArrowLeftIcon className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Back to Home</span>
-            </Button>
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Logo - links to home */}
+            <Link to="/" className="hover:opacity-80 transition-opacity">
+              <ClarityLogo size="sm" />
+            </Link>
             {/* Mobile TOC Toggle */}
             <Button
               variant="ghost"
