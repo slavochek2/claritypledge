@@ -15,10 +15,9 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   // Don't show navigation on pages that have their own navigation
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
-  const isFullArticlePage = location.pathname === "/article" || location.pathname === "/manifesto";
   // Live meeting pages have their own header (LiveSessionBanner)
   const isLiveMeetingPage = location.pathname === "/live" || location.pathname.startsWith("/live/");
-  const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isFullArticlePage || isLiveMeetingPage;
+  const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isLiveMeetingPage;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">

@@ -50,7 +50,7 @@ export function ClarityDemoPage() {
 
   // Subscribe to session updates when we have a session
   useEffect(() => {
-    if (!session) return;
+    if (!session?.id) return;
 
     // Clear any previous connection error on new subscription
     setConnectionError(null);

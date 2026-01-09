@@ -9,34 +9,33 @@
  */
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
-import { BookOpenIcon, MenuIcon, LogOutIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
+import { BookOpenIcon, ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import articleContent from "../content/full-article.md?raw";
-import { getCurrentUser, signOut, Profile } from "@/app/data/api";
 import { SEO } from "@/app/components/seo";
-import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { analytics } from "@/lib/mixpanel";
+import { useAuth } from "@/auth";
 
 export function FullArticlePage() {
-  const navigate = useNavigate();
+  const { user: currentUser, isLoading, sessionChecked } = useAuth();
   const [activeId, setActiveId] = useState("");
   const [isMobileTocOpen, setIsMobileTocOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
   const [expandedAppendices, setExpandedAppendices] = useState(false);
+
+  const isLoadingUser = !sessionChecked || isLoading;
 
   // Extract headers for TOC
   const headers = useMemo(() => {
     const headerRegex = /^(#{1,3})\s+(.+)$/gm;
     const foundHeaders: Array<{ id: string; text: string; level: number }> = [];
     let match;
-    
+
     while ((match = headerRegex.exec(articleContent)) !== null) {
       const level = match[1].length;
       const text = match[2].replace(/\*\*/g, ""); // Remove bold markers
@@ -46,7 +45,7 @@ export function FullArticlePage() {
         .replace(/\s+/g, "-");
       foundHeaders.push({ id, text, level });
     }
-    
+
     return foundHeaders.filter(h => h.level <= 2); // Only show h1 and h2 in TOC
   }, []);
 
@@ -55,15 +54,6 @@ export function FullArticlePage() {
     analytics.track('article_page_viewed', {
       referrer: document.referrer || 'direct',
     });
-
-    // Load current user
-    const loadUser = async () => {
-      setIsLoadingUser(true);
-      const user = await getCurrentUser();
-      setCurrentUser(user);
-      setIsLoadingUser(false);
-    };
-    loadUser();
   }, []);
 
   useEffect(() => {
@@ -76,7 +66,7 @@ export function FullArticlePage() {
           }
         });
       },
-      { rootMargin: "-10% 0% -80% 0%" } // Adjust rootMargin for more responsive highlighting
+      { rootMargin: "-10% 0% -80% 0%" }
     );
 
     const headings = document.querySelectorAll("article h1, article h2, article h3");
@@ -87,7 +77,6 @@ export function FullArticlePage() {
 
   // Track scroll progress and show/hide floating CTA
   useEffect(() => {
-    // Track milestones for read depth (25%, 50%, 75%, 100%)
     const trackedMilestones = new Set<number>();
 
     const handleScroll = () => {
@@ -97,8 +86,6 @@ export function FullArticlePage() {
       const progress = (scrollTop / (documentHeight - windowHeight)) * 100;
 
       setScrollProgress(Math.min(progress, 100));
-
-      // Show floating CTA after scrolling past executive summary (around 20% of page)
       setShowFloatingCTA(progress > 15 && progress < 95 && !currentUser);
 
       // Track read depth milestones
@@ -106,9 +93,7 @@ export function FullArticlePage() {
       for (const milestone of milestones) {
         if (progress >= milestone && !trackedMilestones.has(milestone)) {
           trackedMilestones.add(milestone);
-          analytics.track('article_read_depth', {
-            depth_percent: milestone,
-          });
+          analytics.track('article_read_depth', { depth_percent: milestone });
         }
       }
     };
@@ -116,12 +101,6 @@ export function FullArticlePage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [currentUser]);
-
-  const handleSignOut = async () => {
-    await signOut();
-    setCurrentUser(null);
-    navigate("/");
-  };
 
   return (
     <div className="min-h-screen bg-background overflow-x-clip">
@@ -139,7 +118,6 @@ export function FullArticlePage() {
         }}
       />
       <style>{`
-        /* Better math formula styling */
         .katex { font-size: 1.1em; }
         .katex-display {
           margin: 2rem 0;
@@ -148,65 +126,34 @@ export function FullArticlePage() {
           border-radius: 0.5rem;
           overflow-x: auto;
         }
-        /* Better inline code in formulas */
         article code {
           font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
         }
       `}</style>
-      {/* Simple Header */}
-      <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
-        {/* Progress bar */}
-        <div 
-          className="absolute top-0 left-0 h-0.5 bg-blue-500 transition-all duration-300"
+
+      {/* Progress bar - fixed at top */}
+      <div className="fixed top-16 lg:top-20 left-0 right-0 z-40 h-0.5">
+        <div
+          className="h-full bg-blue-500 transition-all duration-300"
           style={{ width: `${scrollProgress}%` }}
         />
-        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex items-center justify-between max-w-6xl">
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Logo - links to home */}
-            <Link to="/" className="hover:opacity-80 transition-opacity">
-              <ClarityLogo size="sm" />
-            </Link>
-            {/* Mobile TOC Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden px-2 sm:px-3"
-              onClick={() => setIsMobileTocOpen(!isMobileTocOpen)}
-            >
-              <MenuIcon className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Contents</span>
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            {!isLoadingUser && (
-              <>
-                {currentUser ? (
-                  <Button
-                    onClick={handleSignOut}
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                  >
-                    <LogOutIcon className="w-3 h-3" />
-                    <span className="hidden sm:inline">Log Out</span>
-                  </Button>
-                ) : (
-                  <Link
-                    to="/sign-pledge"
-                    className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs sm:text-sm font-medium transition-colors bg-blue-500 hover:bg-blue-600 text-white h-8 sm:h-9 px-2 sm:px-3"
-                  >
-                    Take the Pledge
-                  </Link>
-                )}
-              </>
-            )}
-          </div>
-        </div>
       </div>
+
+      {/* Mobile TOC Toggle - floating button */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="lg:hidden fixed top-20 left-4 z-40 shadow-md bg-background"
+        onClick={() => setIsMobileTocOpen(!isMobileTocOpen)}
+        aria-label="Contents"
+      >
+        <BookOpenIcon className="w-4 h-4 mr-2" />
+        Contents
+      </Button>
 
       {/* Mobile TOC Dropdown */}
       {isMobileTocOpen && (
-        <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-background border-b shadow-lg max-h-[60vh] overflow-y-auto">
+        <div className="lg:hidden fixed top-32 left-4 right-4 z-40 bg-background border rounded-lg shadow-lg max-h-[60vh] overflow-y-auto">
           <nav className="p-4 space-y-1">
             {headers.map((header) => (
               <a
@@ -220,9 +167,7 @@ export function FullArticlePage() {
                 onClick={(e) => {
                   e.preventDefault();
                   setIsMobileTocOpen(false);
-                  document
-                    .getElementById(header.id)
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  document.getElementById(header.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
               >
                 {header.text}
@@ -234,9 +179,9 @@ export function FullArticlePage() {
 
       <div className="container mx-auto px-4 py-12 max-w-7xl">
         <div className="flex gap-6 lg:gap-12">
-          {/* TOC Sidebar - Tablet and Desktop */}
+          {/* TOC Sidebar - Desktop */}
           <aside className="hidden lg:block w-72 flex-shrink-0">
-            <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <div className="sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto">
               <div className="flex items-center gap-2 text-sm font-bold mb-6 text-foreground">
                 <BookOpenIcon className="w-5 h-5" />
                 <span className="text-base">Contents</span>
@@ -253,9 +198,7 @@ export function FullArticlePage() {
                     } ${header.level === 2 ? "pl-8 text-xs" : "font-medium"}`}
                     onClick={(e) => {
                       e.preventDefault();
-                      document
-                        .getElementById(header.id)
-                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      document.getElementById(header.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
                     }}
                   >
                     {header.text}
@@ -280,7 +223,7 @@ export function FullArticlePage() {
                   Stop paying the hidden cost of miscommunication
                 </p>
               </div>
-              
+
               <div className="prose prose-lg dark:prose-invert max-w-none text-justify">
                 <p className="text-lg leading-relaxed">
                   We assume we understand each other, but often we're just guessing. When those guesses are wrong, we pay the price—in rework, in mistakes, in conflicts, in broken trust.
@@ -350,14 +293,13 @@ export function FullArticlePage() {
                   h2: ({ children, ...props }) => {
                     const text = children?.toString() || "";
                     const id = text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, "-");
-                    
-                    // Add inline CTA after key sections
+
                     const shouldShowInlineCTA = [
                       'the-hidden-cost-in-your-life',
                       'the-clarity-principle-the-solution',
                       'from-individual-pledge-to-societal-movement'
                     ].includes(id);
-                    
+
                     return (
                       <>
                         <h2 id={id} {...props}>{children}</h2>
@@ -388,7 +330,7 @@ export function FullArticlePage() {
                 {articleContent}
               </ReactMarkdown>
             </article>
-            
+
             {/* Collapsible Appendices Section */}
             <div className="mt-16 border-t border-border pt-8">
               <button
@@ -401,11 +343,11 @@ export function FullArticlePage() {
                     Formal definitions, implementation guide, and research references
                   </p>
                 </div>
-                <ChevronDownIcon 
+                <ChevronDownIcon
                   className={`w-6 h-6 text-muted-foreground group-hover:text-foreground transition-transform ${expandedAppendices ? 'rotate-180' : ''}`}
                 />
               </button>
-              
+
               {expandedAppendices && (
                 <article className="prose prose-lg dark:prose-invert mx-auto mt-8
                   prose-headings:scroll-mt-24 prose-headings:font-serif
@@ -413,13 +355,12 @@ export function FullArticlePage() {
                   prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-8 prose-h3:mb-4
                   prose-p:text-lg prose-p:leading-[1.75] prose-p:mb-6
                 ">
-                  {/* Extract and render only appendices content */}
                   <ReactMarkdown
                     remarkPlugins={[remarkMath]}
                     rehypePlugins={[rehypeKatex]}
                   >
-                    {articleContent.split('## Appendix')[0].includes('## Appendix') 
-                      ? '' 
+                    {articleContent.split('## Appendix')[0].includes('## Appendix')
+                      ? ''
                       : articleContent.substring(articleContent.indexOf('## Appendix') || articleContent.length)}
                   </ReactMarkdown>
                 </article>
