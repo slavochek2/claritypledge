@@ -165,11 +165,11 @@ describe('LiveSessionBanner', () => {
     });
   });
 
-  describe('Menu contents for logged-in user', () => {
+  describe('Menu contents for logged-in user WHO HAS PLEDGED', () => {
     beforeEach(() => {
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: 'test-user' },
+        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: 'test-user', hasPledged: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -404,7 +404,7 @@ describe('LiveSessionBanner', () => {
     it('does NOT show View My Pledge if user has no slug', async () => {
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: '' },
+        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: '', hasPledged: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -418,7 +418,7 @@ describe('LiveSessionBanner', () => {
     it('does NOT show View My Pledge if slug is undefined', async () => {
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com' },
+        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', hasPledged: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -427,6 +427,43 @@ describe('LiveSessionBanner', () => {
       await openMenu();
 
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
+    });
+  });
+
+  // ============================================================================
+  // P50: User registered via /live (has slug, but hasPledged=false)
+  // ============================================================================
+  describe('P50: Live-only user (hasPledged=false)', () => {
+    beforeEach(() => {
+      // User registered via /live - has slug but never took the pledge
+      mockAuthState = createAuthMock({
+        session: { user: { id: 'user-123' } },
+        user: { id: 'user-123', name: 'Live User', email: 'live@example.com', slug: 'live-user', hasPledged: false },
+        sessionChecked: true,
+        isLoading: false,
+      });
+    });
+
+    it('does NOT show View My Pledge for live-only users', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // User has slug but hasPledged=false - should NOT see View My Pledge
+      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
+    });
+
+    it('still shows Sign Out for live-only users', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      expect(screen.getByTestId('sign-out')).toBeInTheDocument();
+    });
+
+    it('still shows Home link for live-only users', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      expect(screen.getByTestId('home-link')).toBeInTheDocument();
     });
   });
 });

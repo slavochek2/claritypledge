@@ -96,8 +96,8 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             </DropdownMenuItem>
           )}
 
-          {/* View My Pledge - only for logged in users with profile */}
-          {isLoggedIn && currentUser.slug && (
+          {/* View My Pledge - only for users who have actually signed the pledge (P50) */}
+          {isLoggedIn && currentUser.hasPledged && currentUser.slug && (
             <DropdownMenuItem asChild data-testid="view-pledge">
               <Link to={`/p/${currentUser.slug}`}>
                 <EyeIcon className="h-4 w-4 mr-2" />
