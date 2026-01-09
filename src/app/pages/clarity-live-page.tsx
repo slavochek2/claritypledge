@@ -1677,7 +1677,7 @@ export function ClarityLivePage() {
   if (sessionEnded || partnerLeft) {
     return (
       <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="Meeting Ended" isLiveMeeting={false} />
+        <LiveSessionBanner title="" isLiveMeeting={false} />
         <div className="flex-1 flex items-center justify-center">
           <PartnerLeftScreen
             partnerName={departedPartnerName}
@@ -1849,13 +1849,17 @@ export function ClarityLivePage() {
       navigate('/login');
     };
 
-    // Show loading while checking auth state to prevent flicker
-    if (isAuthLoading) {
+    // Show loading while checking auth state OR creating session to prevent flicker
+    // The isLoading check prevents flash when guest account is created mid-flow
+    // (auth state updates -> isLoggedIn becomes true -> form would briefly show logged-in view)
+    if (isAuthLoading || isLoading) {
       return (
         <div className="flex flex-col h-screen">
           <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Loading...</div>
+            <div className="animate-pulse text-muted-foreground">
+              {isLoading ? 'Creating meeting...' : 'Loading...'}
+            </div>
           </div>
         </div>
       );
