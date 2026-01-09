@@ -1240,6 +1240,7 @@ export function ClarityLivePage() {
       const trimmedName = name.trim();
 
       // B50: For guests, create user record and record consent before creating session
+      let guestUserId: string | null = null;
       if (!user) {
         const result = await getOrCreateGuestUser(email.trim(), trimmedName);
 
@@ -1250,23 +1251,17 @@ export function ClarityLivePage() {
           return;
         }
 
+        guestUserId = result.userId;
         // Record terms acceptance for the new guest user
-        await recordTermsAcceptance(result.userId);
+        await recordTermsAcceptance(guestUserId);
       }
 
       const newSession = await createClaritySession(trimmedName);
 
-      // B50: For guests, record session consent after session is created
-      if (!user) {
-        // We need to get the user ID again since we don't have it stored
-        // The anonymous session should still be active from getOrCreateGuestUser
-        const { data: { user: anonUser } } = await import('@/lib/supabase').then(m => m.supabase.auth.getUser());
-        if (anonUser) {
-          await recordSessionConsent(newSession.code, anonUser.id);
-        }
-      } else {
-        // Logged-in user: record session consent
-        await recordSessionConsent(newSession.code, user.id);
+      // B50: Record session consent after session is created
+      const consentUserId = user?.id ?? guestUserId;
+      if (consentUserId) {
+        await recordSessionConsent(newSession.code, consentUserId);
       }
 
       // Reset all refs to ensure clean state for new session
