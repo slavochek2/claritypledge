@@ -1713,6 +1713,8 @@ export function ClarityLivePage() {
           <LiveSessionBanner title={joinTitle} isLiveMeeting={false} />
           <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
             <div className="text-center mb-8">
+              {/* Prominent heading inside form area for context clarity */}
+              <h2 className="text-2xl font-semibold mb-4">{joinTitle}</h2>
               {!hostName && (
                 <div className="inline-flex items-center px-3 py-1.5 bg-muted rounded-full">
                   <span className="text-sm text-muted-foreground">
