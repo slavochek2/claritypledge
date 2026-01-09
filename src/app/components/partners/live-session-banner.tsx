@@ -46,19 +46,21 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
   const displayTitle = title ?? (partnerName ? `Clarity Meeting with ${displayPartnerName}` : 'Live Clarity Meeting');
 
   return (
-    <div className="h-16 border-b bg-background flex items-center justify-between px-4 relative">
-      {/* Left: Logo */}
-      <Link to="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
-        <ClarityLogo size="sm" />
-      </Link>
+    <div className="h-16 border-b bg-background">
+      <div className="container mx-auto px-4 lg:px-8 h-full">
+        <div className="relative flex items-center justify-between h-full">
+          {/* Left: Logo */}
+          <Link to="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+            <ClarityLogo size="sm" />
+          </Link>
 
-      {/* Center: Meeting title - absolutely positioned for true centering */}
-      <span className="absolute left-1/2 -translate-x-1/2 text-sm text-muted-foreground">
-        {displayTitle}
-      </span>
+          {/* Center: Meeting title - absolutely positioned for true centering */}
+          <span className="absolute left-1/2 -translate-x-1/2 text-sm text-muted-foreground">
+            {displayTitle}
+          </span>
 
-      {/* Right: Menu dropdown - ALWAYS hamburger (KISS principle) */}
-      <DropdownMenu>
+          {/* Right: Menu dropdown - ALWAYS hamburger (KISS principle) */}
+          <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0"
@@ -136,7 +138,9 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenu>
+        </div>
+      </div>
     </div>
   );
 }
