@@ -2171,10 +2171,22 @@ export function ClarityLivePage() {
           onRetry={handleMicRetry}
           onCancel={handleMicCancel}
         />
-
       </div>
     );
   }
 
-  return null;
+  // B48 Fix: Render MicrophonePermissionDialog even when not in 'live' view
+  // This is needed because mic permission is checked BEFORE transitioning to 'live'
+  // If permission is denied, view stays at 'waiting'/'start' but dialog must still show
+  return (
+    <>
+      <MicrophonePermissionDialog
+        open={showMicDialog}
+        error={micError}
+        attemptCount={micAttemptCount}
+        onRetry={handleMicRetry}
+        onCancel={handleMicCancel}
+      />
+    </>
+  );
 }
