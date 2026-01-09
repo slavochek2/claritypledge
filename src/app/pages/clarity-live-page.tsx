@@ -1171,13 +1171,17 @@ export function ClarityLivePage() {
 
       setSession(joinedSession);
       setIsCreator(false);
-      setView('live');
+      // HIGH #6: Save to localStorage for rejoin (must happen before mic gate)
       saveSessionToStorage(joinedSession.code, joinName, false);
 
       analytics.track('live_session_joined', {
         session_code: joinedSession.code,
         join_method: isJoinViaLink ? 'link' : 'code',
       });
+
+      // B48: Gate transition to live behind mic permission check
+      // User stays in current view if permission denied (dialog shown)
+      await gateMicAndGoLive();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join session');
     } finally {

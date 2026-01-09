@@ -2918,16 +2918,15 @@ export async function getOrCreateGuestUser(
 
   const userId = anonAuth.user.id;
 
-  // Create profile with anonymous user ID (RLS will pass)
-  const slug = await ensureUniqueSlug(name);
-
+  // P50: Create profile with null slug - guests don't get public profile URLs
+  // Slugs are only assigned when user explicitly signs the pledge
   const { error: profileError } = await supabase
     .from('profiles')
     .insert({
       id: userId,
       email: email,
       name: name,
-      slug: slug,
+      slug: null,
       is_verified: false,
     });
 
@@ -2936,7 +2935,7 @@ export async function getOrCreateGuestUser(
     throw new Error('Failed to create user record');
   }
 
-  console.log('Guest user created:', { userId, email, name, slug });
+  console.log('Guest user created (no slug - not a pledger):', { userId, email, name });
   return { userId, isNew: true, requiresLogin: false };
 }
 
