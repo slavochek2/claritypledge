@@ -2749,12 +2749,24 @@ export async function uploadSessionRecording(
 // P37.2a: Consent Mechanism API Functions
 // ============================================================================
 
+/** UUID v4 regex for input validation */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Validates that a string is a valid UUID v4 */
+function isValidUUID(value: string): boolean {
+  return UUID_REGEX.test(value);
+}
+
 /**
  * Check if user needs to accept updated terms.
  * @param userId - The user's UUID
  * @returns true if user needs to accept terms, false if current
  */
 export async function needsTermsAcceptance(userId: string): Promise<boolean> {
+  if (!isValidUUID(userId)) {
+    console.error('Invalid userId format:', userId);
+    return true; // Fail safe - require acceptance if invalid
+  }
   const { data, error } = await supabase
     .from('profiles')
     .select('accepted_terms_version')
@@ -2772,6 +2784,10 @@ export async function needsTermsAcceptance(userId: string): Promise<boolean> {
  * @param userId - The user's UUID
  */
 export async function recordTermsAcceptance(userId: string): Promise<void> {
+  if (!isValidUUID(userId)) {
+    throw new Error('Invalid userId format');
+  }
+
   const ipHash = await hashIP();
 
   // Update profile
@@ -2812,6 +2828,13 @@ export async function recordSessionConsent(
   sessionId: string,
   userId: string
 ): Promise<void> {
+  if (!sessionId || sessionId.length < 4 || sessionId.length > 20) {
+    throw new Error('Invalid sessionId format');
+  }
+  if (!isValidUUID(userId)) {
+    throw new Error('Invalid userId format');
+  }
+
   const ipHash = await hashIP();
 
   const { error } = await supabase
@@ -2842,6 +2865,10 @@ export async function verifySessionConsent(
   sessionId: string,
   userId: string
 ): Promise<boolean> {
+  if (!sessionId || !isValidUUID(userId)) {
+    return false; // Fail safe - no consent if invalid inputs
+  }
+
   const { data, error } = await supabase
     .from('session_consents')
     .select('id')
@@ -2903,15 +2930,16 @@ export async function getOrCreateGuestUser(
 
     // MVP: Unverified user can rejoin without verification
     // Sign in anonymously to satisfy RLS for consent recording
-    const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+    // B50: Use existing profile ID for consent tracking (not anonymous user ID)
+    const { error: anonError } = await supabase.auth.signInAnonymously();
     if (anonError) {
       console.error('Failed to create anonymous session:', anonError);
       throw new Error('Failed to create guest session');
     }
 
-    console.log('Returning unverified guest, reusing profile:', email);
+    console.log('Returning unverified guest, reusing profile:', email, 'profileId:', existingUser.id);
     return {
-      userId: anonAuth.user.id,
+      userId: existingUser.id, // Use existing profile ID for consent audit trail
       isNew: false,
       requiresLogin: false,
     };

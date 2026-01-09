@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { X, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
-import { getUserById, getUserEngagements, getIdeaById, formatTimeAgo, type User } from '../data/mock-data';
+import { getUserById, getUserEngagements, formatTimeAgo } from '../data/mock-data';
 import { routes } from '../config';
-import { PositionButtons } from './shared/PositionButtons';
 
 export function StoryView() {
   const { userId } = useParams<{ userId: string }>();

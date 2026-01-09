@@ -12,7 +12,7 @@ interface StoryAvatarProps {
   onClick: () => void;
 }
 
-function StoryAvatar({ user, hasUnviewed, badgeCount, isCurrentUser, onClick }: StoryAvatarProps) {
+function StoryAvatar({ user, hasUnviewed: _hasUnviewed, badgeCount, isCurrentUser, onClick }: StoryAvatarProps) {
   const hasBadge = badgeCount > 0;
 
   return (

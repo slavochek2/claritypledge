@@ -104,8 +104,8 @@ export function ClarityLivePage() {
   // P37.2a: Consent flow state
   const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
   const [consentLoading, setConsentLoading] = useState(false);
-  // Store pending join info for after consent
-  const pendingJoinRef = useRef<{ code: string; userId?: string } | null>(null);
+  // Store pending join info for after consent or mic retry
+  const pendingJoinRef = useRef<{ code: string; userId?: string; joinName?: string } | null>(null);
   // B50: Inline email field for join/create flows (no dialog)
   const [email, setEmail] = useState('');
   // B50: Verified user edge case - show inline message instead of dialog
@@ -1153,10 +1153,40 @@ export function ClarityLivePage() {
 
   /**
    * Complete the actual session join after consent is recorded.
+   *
+   * IMPORTANT (Bug fix): Mic permission is checked BEFORE writing to database.
+   * This ensures joiner_name is only set when the joiner is actually ready to
+   * enter the live view. Without this, the creator would see the joiner as
+   * "joined" even if they denied mic permission.
    */
   const completeJoin = async (code: string, joinName: string) => {
     setIsLoading(true);
     try {
+      // Step 1: Check mic permission BEFORE writing to database
+      // This ensures we don't tell the creator we "joined" if we can't actually participate
+      // Note: We check permission directly, NOT via gateMicAndGoLive which also changes view
+      console.log('[Join] Checking mic permission before joining session...');
+
+      let hasMicPermission = micStatus === 'granted';
+      if (!hasMicPermission) {
+        hasMicPermission = await requestMicPermission();
+      }
+
+      if (!hasMicPermission) {
+        // Mic permission denied - don't write to database, don't join
+        // Store join info for retry, then show the mic dialog
+        console.log('[Join] Mic permission denied, aborting join');
+        pendingJoinRef.current = { code, joinName };
+        setShowMicDialog(true);
+        analytics.track('live_session_join_blocked', {
+          session_code: code,
+          reason: 'mic_permission_denied',
+        });
+        return;
+      }
+
+      // Step 2: Mic granted - now safe to join the session
+      console.log('[Join] Mic granted, joining session...');
       const joinedSession = await joinClaritySession(code, joinName);
       if (!joinedSession) {
         setError('Session not found or already full');
@@ -1173,7 +1203,7 @@ export function ClarityLivePage() {
 
       setSession(joinedSession);
       setIsCreator(false);
-      // HIGH #6: Save to localStorage for rejoin (must happen before mic gate)
+      // Save to localStorage for rejoin
       saveSessionToStorage(joinedSession.code, joinName, false);
 
       analytics.track('live_session_joined', {
@@ -1181,9 +1211,9 @@ export function ClarityLivePage() {
         join_method: isJoinViaLink ? 'link' : 'code',
       });
 
-      // B48: Gate transition to live behind mic permission check
-      // User stays in current view if permission denied (dialog shown)
-      await gateMicAndGoLive();
+      // Step 3: Now transition to live view (mic is granted, session is joined)
+      console.log('[Join] Session joined, transitioning to live view');
+      setView('live');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join session');
     } finally {
@@ -1531,10 +1561,42 @@ export function ClarityLivePage() {
   }, [navigate, stopAndUploadRecording]);
 
   // P40: Handle mic permission dialog retry
+  // If we have pending join info, complete the join after mic is granted
   const handleMicRetry = useCallback(async () => {
     const hasPermission = await requestMicPermission();
     if (hasPermission) {
       setShowMicDialog(false);
+
+      // If we have pending join info (from failed join attempt), complete the join
+      const pendingJoin = pendingJoinRef.current;
+      if (pendingJoin?.joinName) {
+        console.log('[MicRetry] Mic granted, completing pending join...');
+        pendingJoinRef.current = null;
+        // Complete the join now that mic is granted
+        // Since completeJoin checks mic first, and we just granted it, this will succeed
+        const joinedSession = await joinClaritySession(pendingJoin.code, pendingJoin.joinName);
+        if (joinedSession) {
+          // Reset refs and set session
+          iAmLeavingRef.current = false;
+          partnerLeftRef.current = false;
+          sessionEndedRef.current = false;
+          hasJoinerRef.current = false;
+          lastJoinerNameRef.current = null;
+
+          setSession(joinedSession);
+          setIsCreator(false);
+          saveSessionToStorage(joinedSession.code, pendingJoin.joinName, false);
+
+          analytics.track('live_session_joined', {
+            session_code: joinedSession.code,
+            join_method: 'mic_retry',
+          });
+
+          setView('live');
+        } else {
+          setError('Session not found or already full');
+        }
+      }
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
       // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
@@ -1545,6 +1607,7 @@ export function ClarityLivePage() {
   const handleMicCancel = useCallback(() => {
     setShowMicDialog(false);
     resetMic();
+    pendingJoinRef.current = null; // Clear any pending join info
     setView('start');
     toast.error('Microphone access is required to join Clarity Meetings');
   }, [resetMic]);
@@ -1745,6 +1808,15 @@ export function ClarityLivePage() {
               pendingJoinRef.current = null;
             }}
             isLoading={consentLoading}
+          />
+
+          {/* B48 Fix: Mic dialog must be rendered in all views */}
+          <MicrophonePermissionDialog
+            open={showMicDialog}
+            error={micError}
+            attemptCount={micAttemptCount}
+            onRetry={handleMicRetry}
+            onCancel={handleMicCancel}
           />
         </div>
       );
@@ -1991,6 +2063,15 @@ export function ClarityLivePage() {
             }}
             isLoading={consentLoading}
           />
+
+          {/* B48 Fix: Mic dialog must be rendered in all views */}
+          <MicrophonePermissionDialog
+            open={showMicDialog}
+            error={micError}
+            attemptCount={micAttemptCount}
+            onRetry={handleMicRetry}
+            onCancel={handleMicCancel}
+          />
         </div>
       </div>
     );
@@ -2096,6 +2177,15 @@ export function ClarityLivePage() {
             </Button>
           </div>
         </div>
+
+        {/* B48 Fix: Mic dialog must be rendered in all views */}
+        <MicrophonePermissionDialog
+          open={showMicDialog}
+          error={micError}
+          attemptCount={micAttemptCount}
+          onRetry={handleMicRetry}
+          onCancel={handleMicCancel}
+        />
       </div>
     );
   }

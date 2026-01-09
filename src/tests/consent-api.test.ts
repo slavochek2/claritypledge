@@ -2,6 +2,7 @@
  * @file consent-api.test.ts
  * TDD tests for P37.2a Recording Consent Mechanism API functions
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock supabase before importing the module that uses it
@@ -69,7 +70,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { needsTermsAcceptance } = await import('@/app/data/api');
-      const result = await needsTermsAcceptance('user-123');
+      const result = await needsTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(true);
       expect(mockFrom).toHaveBeenCalledWith('profiles');
@@ -89,7 +90,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { needsTermsAcceptance } = await import('@/app/data/api');
-      const result = await needsTermsAcceptance('user-123');
+      const result = await needsTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(true);
     });
@@ -109,7 +110,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { needsTermsAcceptance } = await import('@/app/data/api');
-      const result = await needsTermsAcceptance('user-123');
+      const result = await needsTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(false);
     });
@@ -128,7 +129,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { needsTermsAcceptance } = await import('@/app/data/api');
-      const result = await needsTermsAcceptance('user-123');
+      const result = await needsTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(true);
     });
@@ -155,7 +156,7 @@ describe('Consent API Functions', () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
       const { recordTermsAcceptance } = await import('@/app/data/api');
-      await recordTermsAcceptance('user-123');
+      await recordTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(mockUpdate).toHaveBeenCalled();
       expect(mockInsert).toHaveBeenCalled();
@@ -179,7 +180,7 @@ describe('Consent API Functions', () => {
 
       const { recordTermsAcceptance } = await import('@/app/data/api');
 
-      await expect(recordTermsAcceptance('user-123')).rejects.toThrow(
+      await expect(recordTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d')).rejects.toThrow(
         'Failed to record terms acceptance'
       );
     });
@@ -207,7 +208,7 @@ describe('Consent API Functions', () => {
       const { recordTermsAcceptance } = await import('@/app/data/api');
 
       // Should not throw even if audit fails
-      await expect(recordTermsAcceptance('user-123')).resolves.not.toThrow();
+      await expect(recordTermsAcceptance('a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d')).resolves.not.toThrow();
     });
   });
 
@@ -225,12 +226,12 @@ describe('Consent API Functions', () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
       const { recordSessionConsent } = await import('@/app/data/api');
-      await recordSessionConsent('SESSION-ABC', 'user-123');
+      await recordSessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           session_id: 'SESSION-ABC',
-          user_id: 'user-123',
+          user_id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
         })
       );
     });
@@ -251,7 +252,7 @@ describe('Consent API Functions', () => {
 
       const { recordSessionConsent } = await import('@/app/data/api');
 
-      await expect(recordSessionConsent('SESSION-ABC', 'user-123')).rejects.toThrow(
+      await expect(recordSessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d')).rejects.toThrow(
         'Failed to record consent'
       );
     });
@@ -274,7 +275,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { verifySessionConsent } = await import('@/app/data/api');
-      const result = await verifySessionConsent('SESSION-ABC', 'user-123');
+      const result = await verifySessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(true);
     });
@@ -295,7 +296,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { verifySessionConsent } = await import('@/app/data/api');
-      const result = await verifySessionConsent('SESSION-ABC', 'user-123');
+      const result = await verifySessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(false);
     });
@@ -307,7 +308,7 @@ describe('Consent API Functions', () => {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
-              data: { id: 'verified-user-123', is_verified: true },
+              data: { id: '11111111-1111-4111-8111-111111111111', is_verified: true },
               error: null,
             }),
           }),
@@ -326,7 +327,7 @@ describe('Consent API Functions', () => {
       const mockSelect = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({
-            data: { id: 'unverified-user-123', is_verified: false },
+            data: { id: '22222222-2222-4222-8222-222222222222', is_verified: false },
             error: null,
           }),
         }),
@@ -345,7 +346,7 @@ describe('Consent API Functions', () => {
       });
 
       vi.mocked(supabase.auth.signInAnonymously).mockResolvedValue({
-        data: { user: { id: 'anon-user-456' } },
+        data: { user: { id: '33333333-3333-4333-8333-333333333333' } },
         error: null,
       } as any);
 
@@ -354,7 +355,8 @@ describe('Consent API Functions', () => {
 
       expect(result.requiresLogin).toBe(false);
       expect(result.isNew).toBe(false);
-      expect(result.userId).toBe('anon-user-456');
+      // B50 fix: Use existing profile ID for consent tracking (not anonymous user ID)
+      expect(result.userId).toBe('22222222-2222-4222-8222-222222222222');
     });
 
     it('should create new guest user with anonymous auth for new email', async () => {
@@ -381,7 +383,7 @@ describe('Consent API Functions', () => {
       });
 
       vi.mocked(supabase.auth.signInAnonymously).mockResolvedValue({
-        data: { user: { id: 'new-anon-user-789' } },
+        data: { user: { id: '44444444-4444-4444-8444-444444444444' } },
         error: null,
       } as any);
 
@@ -390,7 +392,7 @@ describe('Consent API Functions', () => {
 
       expect(result.requiresLogin).toBe(false);
       expect(result.isNew).toBe(true);
-      expect(result.userId).toBe('new-anon-user-789');
+      expect(result.userId).toBe('44444444-4444-4444-8444-444444444444');
       expect(supabase.auth.signInAnonymously).toHaveBeenCalled();
     });
 
