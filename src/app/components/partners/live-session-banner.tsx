@@ -5,14 +5,14 @@
  * V12: Added sound toggle button (right side)
  * V13: Added logo on left, full-width header with proper spacing
  * V14: Unified menu dropdown - consolidated Exit and Sound into hamburger menu
- * V15: Avatar for logged-in users, hamburger for anonymous
+ * V16: KISS - Always show hamburger menu, contents vary by auth state
+ *      Removes complexity of conditional avatar/hamburger trigger
  */
 import { Link } from 'react-router-dom';
-import { Menu, Volume2, VolumeX, LogOut, Home, EyeIcon } from 'lucide-react';
+import { Menu, Volume2, VolumeX, LogOut, Home, EyeIcon, LogIn } from 'lucide-react';
 import { getFirstName } from './shared';
 import { useSoundEnabled } from '@/hooks/use-sound';
 import { useAuth } from '@/auth';
-import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import {
   DropdownMenu,
@@ -36,8 +36,11 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
   const { session, user: currentUser, sessionChecked, isLoading } = useAuth();
 
-  // Show avatar when session AND profile are loaded
+  // Determine auth state for menu contents (not for trigger button)
+  // Show user-specific options only when fully loaded with profile
   const isLoggedIn = sessionChecked && !isLoading && !!session && !!currentUser;
+  // Show login option only when we're sure there's no session
+  const showLoginOption = sessionChecked && !session;
 
   // Determine display title
   const displayTitle = title ?? (partnerName ? `Clarity Meeting with ${displayPartnerName}` : 'Live Clarity Meeting');
@@ -54,33 +57,23 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
         {displayTitle}
       </span>
 
-      {/* Right: Menu dropdown - Avatar for logged in, hamburger for anonymous */}
+      {/* Right: Menu dropdown - ALWAYS hamburger (KISS principle) */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          {isLoggedIn ? (
-            <button
-              className="flex items-center justify-center hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
-              aria-label="User menu"
-            >
-              <GravatarAvatar
-                email={currentUser.email}
-                name={currentUser.name}
-                size="sm"
-                avatarColor={currentUser.avatarColor}
-              />
-            </button>
-          ) : (
-            <button
-              className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0"
-              aria-label="Menu"
-            >
-              <Menu className="h-5 w-5 text-muted-foreground" />
-            </button>
-          )}
+          <button
+            className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0"
+            aria-label="Menu"
+            data-testid="menu-trigger"
+          >
+            <Menu className="h-5 w-5 text-muted-foreground" />
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          {/* Sound toggle */}
-          <DropdownMenuItem onClick={() => setSoundEnabled(!soundEnabled)}>
+          {/* Sound toggle - always available */}
+          <DropdownMenuItem
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            data-testid="sound-toggle"
+          >
             {soundEnabled ? (
               <Volume2 className="h-4 w-4 mr-2" />
             ) : (
@@ -93,15 +86,19 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
 
           {/* Leave Meeting - only if in live meeting and onExit provided */}
           {isLiveMeeting && onExit && (
-            <DropdownMenuItem onClick={onExit} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              onClick={onExit}
+              className="text-destructive focus:text-destructive"
+              data-testid="leave-meeting"
+            >
               <LogOut className="h-4 w-4 mr-2" />
               Leave Meeting
             </DropdownMenuItem>
           )}
 
-          {/* View My Pledge - only for logged in users */}
-          {isLoggedIn && (
-            <DropdownMenuItem asChild>
+          {/* View My Pledge - only for logged in users with profile */}
+          {isLoggedIn && currentUser.slug && (
+            <DropdownMenuItem asChild data-testid="view-pledge">
               <Link to={`/p/${currentUser.slug}`}>
                 <EyeIcon className="h-4 w-4 mr-2" />
                 View My Pledge
@@ -109,8 +106,18 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             </DropdownMenuItem>
           )}
 
+          {/* Log In - only for anonymous users (when session check complete and no session) */}
+          {showLoginOption && (
+            <DropdownMenuItem asChild data-testid="login-option">
+              <Link to="/login">
+                <LogIn className="h-4 w-4 mr-2" />
+                Log In
+              </Link>
+            </DropdownMenuItem>
+          )}
+
           {/* Home - always available */}
-          <DropdownMenuItem asChild>
+          <DropdownMenuItem asChild data-testid="home-link">
             <Link to="/">
               <Home className="h-4 w-4 mr-2" />
               Home
