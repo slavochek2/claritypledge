@@ -180,10 +180,12 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
 
     // Single query: fetch more than needed, then sort/filter client-side
     // This avoids the two-query backfill approach for better performance
+    // P50: Only show verified users who have explicitly signed the pledge
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select(selectFields)
       .eq('is_verified', true)
+      .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
       .order('created_at', { ascending: false })
       .limit(MAX_FEATURED_PROFILES * 3);
 
@@ -241,10 +243,12 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
  */
 export async function getVerifiedProfileCount(): Promise<number> {
   try {
+    // P50: Only count verified users who have explicitly signed the pledge
     const { count, error } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('is_verified', true);
+      .eq('is_verified', true)
+      .eq('has_pledged', true); // P50: Filter out non-pledgers
 
     if (error) {
       console.error('Error fetching verified profile count:', error.message);
@@ -267,10 +271,12 @@ export async function getVerifiedProfileCount(): Promise<number> {
  */
 export async function getVerifiedProfiles(): Promise<Profile[]> {
   try {
+    // P50: Only show verified users who have explicitly signed the pledge
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .eq('is_verified', true)
+      .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
       .order('created_at', { ascending: false });
 
     if (profilesError) {
@@ -335,7 +341,8 @@ export async function createProfile(
   // NOTE: Slug is generated at profile creation time in AuthCallbackPage, not here.
   // This prevents race conditions when multiple users with the same name sign up simultaneously.
 
-  const redirectUrl = `${window.location.origin}/auth/callback`;
+  // P50: Add source=pledge param so AuthCallbackPage knows this is a pledge signup
+  const redirectUrl = `${window.location.origin}/auth/callback?source=pledge`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -499,6 +506,7 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     reciprocations,
     avatarColor: dbProfile.avatar_color,
     pledgeVersion: dbProfile.pledge_version || 2,
+    hasPledged: dbProfile.has_pledged ?? true, // P50: Default true for existing users
   };
 }
 
@@ -2918,7 +2926,7 @@ export async function getOrCreateGuestUser(
 
   const userId = anonAuth.user.id;
 
-  // P50: Create profile with null slug - guests don't get public profile URLs
+  // P50: Create profile with null slug and has_pledged=false - guests don't get public profile URLs
   // Slugs are only assigned when user explicitly signs the pledge
   const { error: profileError } = await supabase
     .from('profiles')
@@ -2928,6 +2936,7 @@ export async function getOrCreateGuestUser(
       name: name,
       slug: null,
       is_verified: false,
+      has_pledged: false, // P50: Mark as non-pledger (joined via /live)
     });
 
   if (profileError) {

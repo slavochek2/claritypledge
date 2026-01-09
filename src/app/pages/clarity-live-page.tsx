@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
-import { ConsentNotice } from '@/app/components/legal/consent-notice';
+// P50: ConsentNotice import removed - replaced with inline consent checkbox
 import {
   Dialog,
   DialogContent,
@@ -110,6 +110,8 @@ export function ClarityLivePage() {
   const [email, setEmail] = useState('');
   // B50: Verified user edge case - show inline message instead of dialog
   const [verifiedEmailError, setVerifiedEmailError] = useState<string | null>(null);
+  // P50: Consent checkbox state for non-logged-in users
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
@@ -1669,7 +1671,8 @@ export function ClarityLivePage() {
             ) : (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Your Name</Label>
+                  {/* P50: Updated label per spec */}
+                  <Label htmlFor="name">What should we call you?</Label>
                   <Input
                     id="name"
                     placeholder="Enter your name"
@@ -1680,7 +1683,8 @@ export function ClarityLivePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Your Email</Label>
+                  {/* P50: Updated label per spec */}
+                  <Label htmlFor="email">Your email (for session link)</Label>
                   <Input
                     id="email"
                     type="email"
@@ -1692,22 +1696,30 @@ export function ClarityLivePage() {
 
                 {error && <p className="text-sm text-red-600">{error}</p>}
 
-                {/* B50: Terms notice inline (required by spec) */}
-                <p className="text-sm text-muted-foreground">
-                  This session will be recorded.{' '}
-                  By joining, you agree to our{' '}
-                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                    Terms
-                  </a>{' '}
-                  and{' '}
-                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                    Privacy Policy
-                  </a>.
-                </p>
+                {/* P50: Consent checkbox (replaces passive notice) */}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="consent-join"
+                    checked={consentChecked}
+                    onChange={(e) => setConsentChecked(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="consent-join" className="text-sm text-muted-foreground leading-relaxed">
+                    I agree that this session will be recorded, and I accept the{' '}
+                    <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Terms
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Privacy Policy
+                    </a>.
+                  </label>
+                </div>
 
                 <Button
                   onClick={handleJoin}
-                  disabled={isLoading || consentLoading || !canJoinViaLink}
+                  disabled={isLoading || consentLoading || !canJoinViaLink || !consentChecked}
                   className="w-full bg-blue-500 hover:bg-blue-600"
                   size="lg"
                 >
@@ -1760,7 +1772,8 @@ export function ClarityLivePage() {
     }
 
     // B50: Check if guest can create/join (needs both name and email)
-    const guestCanProceed = isLoggedIn || (name.trim() && email.trim() && email.includes('@'));
+    // P50: Also requires consent checkbox for non-logged-in users
+    const guestCanProceed = isLoggedIn || (name.trim() && email.trim() && email.includes('@') && consentChecked);
 
     return (
       <div className="flex flex-col h-screen">
@@ -1813,7 +1826,8 @@ export function ClarityLivePage() {
                     {!isLoggedIn && (
                       <>
                         <div className="flex flex-col gap-1.5">
-                          <Label htmlFor="name" className="text-sm font-medium">Your Name</Label>
+                          {/* P50: Updated label per spec */}
+                          <Label htmlFor="name" className="text-sm font-medium">What should we call you?</Label>
                           <Input
                             id="name"
                             placeholder="Enter your name"
@@ -1824,7 +1838,8 @@ export function ClarityLivePage() {
                           />
                         </div>
                         <div className="flex flex-col gap-1.5">
-                          <Label htmlFor="email" className="text-sm font-medium">Your Email</Label>
+                          {/* P50: Updated label per spec */}
+                          <Label htmlFor="email" className="text-sm font-medium">Your email (for session link)</Label>
                           <Input
                             id="email"
                             type="email"
@@ -1833,6 +1848,26 @@ export function ClarityLivePage() {
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-[280px] rounded-full h-11 text-sm"
                           />
+                        </div>
+                        {/* P50: Consent checkbox (replaces passive notice) */}
+                        <div className="flex items-start gap-3 w-[280px]">
+                          <input
+                            type="checkbox"
+                            id="consent-start"
+                            checked={consentChecked}
+                            onChange={(e) => setConsentChecked(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
+                            I agree that this session will be recorded, and I accept the{' '}
+                            <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              Terms
+                            </a>{' '}
+                            and{' '}
+                            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              Privacy Policy
+                            </a>.
+                          </label>
                         </div>
                       </>
                     )}
@@ -1867,7 +1902,8 @@ export function ClarityLivePage() {
                             inputError = 'Code must be 6 characters';
                           }
                         } else if (hasInput && isValidInput && !guestCanProceed) {
-                          inputError = isLoggedIn ? '' : 'Enter name and email first';
+                          // P50: Show appropriate error message based on what's missing
+                          inputError = isLoggedIn ? '' : (!name.trim() || !email.trim() || !email.includes('@')) ? 'Enter name and email first' : 'Accept terms to continue';
                         }
 
                         return (
@@ -1925,20 +1961,22 @@ export function ClarityLivePage() {
                   </div>
                 )}
 
-                {/* B50: Terms notice with recording disclosure */}
-                <div className="text-center pt-4">
-                  <p className="text-sm text-muted-foreground">
-                    This session will be recorded.{' '}
-                    By starting or joining, you agree to our{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Terms
-                    </a>{' '}
-                    and{' '}
-                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Privacy Policy
-                    </a>.
-                  </p>
-                </div>
+                {/* B50: Passive terms notice - only for logged-in users (guests have checkbox) */}
+                {isLoggedIn && (
+                  <div className="text-center pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      This session will be recorded.{' '}
+                      By starting or joining, you agree to our{' '}
+                      <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Terms
+                      </a>{' '}
+                      and{' '}
+                      <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Privacy Policy
+                      </a>.
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1953,6 +1991,7 @@ export function ClarityLivePage() {
             }}
             isLoading={consentLoading}
           />
+        </div>
       </div>
     );
   }

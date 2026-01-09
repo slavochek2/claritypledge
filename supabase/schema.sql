@@ -13,6 +13,7 @@ create table public.profiles (
   avatar_color text,
   is_verified boolean default false,
   pledge_version integer default 2,
+  has_pledged boolean not null default true, -- P50: false for /live registrations, true for /sign-pledge
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

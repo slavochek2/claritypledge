@@ -130,15 +130,18 @@ export function SimpleNavigation() {
                 )}
                 {showUserMenu && (
                   <>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to={`/p/${currentUser.slug}`}
-                        className="cursor-pointer"
-                      >
-                        <EyeIcon className="w-4 h-4 mr-2" />
-                        View My Pledge
-                      </Link>
-                    </DropdownMenuItem>
+                    {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
+                    {currentUser.hasPledged && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to={`/p/${currentUser.slug}`}
+                          className="cursor-pointer"
+                        >
+                          <EyeIcon className="w-4 h-4 mr-2" />
+                          View My Pledge
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem asChild>
                       <Link to="/settings" className="cursor-pointer">
                         <SettingsIcon className="w-4 h-4 mr-2" />
@@ -233,14 +236,17 @@ export function SimpleNavigation() {
               {showUserMenu && (
                 <>
                   <div className="border-t border-border my-2"></div>
-                  <Link
-                    to={`/p/${currentUser.slug}`}
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    <EyeIcon className="w-4 h-4 inline mr-2" />
-                    View My Pledge
-                  </Link>
+                  {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
+                  {currentUser.hasPledged && (
+                    <Link
+                      to={`/p/${currentUser.slug}`}
+                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                      onClick={closeMobileMenu}
+                    >
+                      <EyeIcon className="w-4 h-4 inline mr-2" />
+                      View My Pledge
+                    </Link>
+                  )}
                   <Link
                     to="/settings"
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
