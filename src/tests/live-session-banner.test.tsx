@@ -156,6 +156,13 @@ describe('LiveSessionBanner', () => {
 
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
+
+    it('does NOT show Sign Out option', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
+    });
   });
 
   describe('Menu contents for logged-in user', () => {
@@ -196,6 +203,23 @@ describe('LiveSessionBanner', () => {
       await openMenu();
 
       expect(screen.queryByTestId('login-option')).not.toBeInTheDocument();
+    });
+
+    it('shows Sign Out option', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      expect(screen.getByTestId('sign-out')).toBeInTheDocument();
+      expect(screen.getByText('Sign Out')).toBeInTheDocument();
+    });
+
+    it('calls signOut when Sign Out clicked', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      await user.click(screen.getByTestId('sign-out'));
+      expect(mockAuthState.signOut).toHaveBeenCalledTimes(1);
     });
   });
 

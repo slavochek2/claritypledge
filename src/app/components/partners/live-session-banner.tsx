@@ -34,7 +34,7 @@ interface LiveSessionBannerProps {
 export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = true }: LiveSessionBannerProps) {
   const displayPartnerName = partnerName ? getFirstName(partnerName) : '';
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
-  const { session, user: currentUser, sessionChecked, isLoading } = useAuth();
+  const { session, user: currentUser, sessionChecked, isLoading, signOut } = useAuth();
 
   // Determine auth state for menu contents (not for trigger button)
   // Show user-specific options only when fully loaded with profile
@@ -103,6 +103,17 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
                 <EyeIcon className="h-4 w-4 mr-2" />
                 View My Pledge
               </Link>
+            </DropdownMenuItem>
+          )}
+
+          {/* Sign Out - only for logged in users */}
+          {isLoggedIn && (
+            <DropdownMenuItem
+              onClick={() => signOut()}
+              data-testid="sign-out"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
             </DropdownMenuItem>
           )}
 
