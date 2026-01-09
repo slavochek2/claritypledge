@@ -69,7 +69,7 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          {/* Sound toggle - always available */}
+          {/* === SETTINGS === */}
           <DropdownMenuItem
             onClick={() => setSoundEnabled(!soundEnabled)}
             data-testid="sound-toggle"
@@ -82,21 +82,30 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             Sound: {soundEnabled ? 'On' : 'Off'}
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
-
-          {/* Leave Meeting - only if in live meeting and onExit provided */}
+          {/* === MEETING ACTIONS === */}
           {isLiveMeeting && onExit && (
-            <DropdownMenuItem
-              onClick={onExit}
-              className="text-destructive focus:text-destructive"
-              data-testid="leave-meeting"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Leave Meeting
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onExit}
+                className="text-destructive focus:text-destructive"
+                data-testid="leave-meeting"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Leave Meeting
+              </DropdownMenuItem>
+            </>
           )}
 
-          {/* View My Pledge - only for users who have actually signed the pledge (P50) */}
+          {/* === NAVIGATION === */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild data-testid="home-link">
+            <Link to="/">
+              <Home className="h-4 w-4 mr-2" />
+              Home
+            </Link>
+          </DropdownMenuItem>
+
           {isLoggedIn && currentUser.hasPledged && currentUser.slug && (
             <DropdownMenuItem asChild data-testid="view-pledge">
               <Link to={`/p/${currentUser.slug}`}>
@@ -106,18 +115,8 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             </DropdownMenuItem>
           )}
 
-          {/* Sign Out - only for logged in users */}
-          {isLoggedIn && (
-            <DropdownMenuItem
-              onClick={() => signOut()}
-              data-testid="sign-out"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </DropdownMenuItem>
-          )}
-
-          {/* Log In - only for anonymous users (when session check complete and no session) */}
+          {/* === ACCOUNT === */}
+          <DropdownMenuSeparator />
           {showLoginOption && (
             <DropdownMenuItem asChild data-testid="login-option">
               <Link to="/login">
@@ -127,13 +126,15 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             </DropdownMenuItem>
           )}
 
-          {/* Home - always available */}
-          <DropdownMenuItem asChild data-testid="home-link">
-            <Link to="/">
-              <Home className="h-4 w-4 mr-2" />
-              Home
-            </Link>
-          </DropdownMenuItem>
+          {isLoggedIn && (
+            <DropdownMenuItem
+              onClick={() => signOut()}
+              data-testid="sign-out"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

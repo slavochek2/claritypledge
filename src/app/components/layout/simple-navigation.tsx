@@ -209,17 +209,6 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Auth Actions - Log In higher for visibility */}
-              {showPublicCTAs && (
-                <Link
-                  to="/login"
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  Log In
-                </Link>
-              )}
-
               {/* Navigation Links */}
               {NAV_LINKS.map((link) => (
                 <Link
@@ -232,10 +221,23 @@ export function SimpleNavigation() {
                 </Link>
               ))}
 
-              {/* Auth Actions - User menu at bottom */}
+              {/* === ACCOUNT SECTION === */}
+              <div className="border-t border-border my-2"></div>
+
+              {/* Log In - for anonymous users */}
+              {showPublicCTAs && (
+                <Link
+                  to="/login"
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Log In
+                </Link>
+              )}
+
+              {/* User menu items */}
               {showUserMenu && (
                 <>
-                  <div className="border-t border-border my-2"></div>
                   {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
                   {currentUser.hasPledged && (
                     <Link
