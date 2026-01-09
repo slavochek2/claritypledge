@@ -35,6 +35,9 @@ npm run test:e2e         # Run all E2E tests
 npm run test:e2e:ui      # Run with Playwright UI
 npm run test:e2e:headed  # Run in headed browser
 
+# Pre-commit Checks (REQUIRED before committing)
+./scripts/pre-commit-checks.sh
+
 # Visual Inspection (Playwright MCP)
 # Use Playwright MCP tools to take screenshots and verify UI
 # Requires dev server running: npm run dev
@@ -365,6 +368,36 @@ Sentry.captureMessage('Unexpected state detected', 'warning');
 // Add context to errors
 Sentry.setContext('session', { code: sessionCode, phase: ratingPhase });
 ```
+
+## Pre-Commit Checks (MUST RUN)
+
+**Before creating any commit, Claude MUST run:**
+```bash
+./scripts/pre-commit-checks.sh
+```
+
+This script runs automatically if installed as a git hook, but Claude should run it explicitly before committing to catch issues early.
+
+### What it checks:
+
+| Check | Blocks commit? | Purpose |
+|-------|---------------|---------|
+| **Lint** | Yes | ESLint errors |
+| **Build** | Yes | TypeScript errors, import issues |
+| **Tests** | Yes | Regressions |
+| **Secrets scan** | Yes | Accidentally committed API keys, tokens |
+| **Bundle size** | Warning | Alerts if dist/ exceeds 20MB |
+| **console.log** | Warning | Debug logs left in code |
+| **TODO/FIXME** | Warning | New tech debt being added |
+
+### After checks pass, also review:
+
+1. **Logic bugs and edge cases** - Does the code handle errors?
+2. **Security issues** - XSS, injection, auth bypass?
+3. **Accessibility** - Can keyboard/screen reader users use it?
+4. **CLAUDE.md patterns** - Does it follow project conventions?
+
+If issues are found, ask the user how to proceed before committing.
 
 ## Available Cloud Credits
 
