@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import * as Sentry from '@sentry/react';
 import type { AuthError } from '@supabase/supabase-js';
 import type {
@@ -2733,5 +2734,237 @@ export async function uploadSessionRecording(
       extra: { sessionCode, eventCount: events.length, durationMs: metadata.durationMs },
     });
     // Don't throw - recording failure shouldn't break the session
+  }
+}
+
+// ============================================================================
+// P37.2a: Consent Mechanism API Functions
+// ============================================================================
+
+/**
+ * Check if user needs to accept updated terms.
+ * @param userId - The user's UUID
+ * @returns true if user needs to accept terms, false if current
+ */
+export async function needsTermsAcceptance(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('accepted_terms_version')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) return true;
+
+  return data.accepted_terms_version !== CURRENT_TERMS_VERSION;
+}
+
+/**
+ * Record terms acceptance for a user.
+ * Updates profile and creates audit trail entry.
+ * @param userId - The user's UUID
+ */
+export async function recordTermsAcceptance(userId: string): Promise<void> {
+  const ipHash = await hashIP();
+
+  // Update profile
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
+    .eq('id', userId);
+
+  if (profileError) {
+    console.error('Failed to update profile terms version:', profileError);
+    throw new Error('Failed to record terms acceptance');
+  }
+
+  // Insert audit record
+  const { error: auditError } = await supabase
+    .from('terms_acceptances')
+    .insert({
+      user_id: userId,
+      terms_version: CURRENT_TERMS_VERSION,
+      ip_hash: ipHash,
+      user_agent: navigator.userAgent,
+    });
+
+  if (auditError) {
+    console.error('Failed to insert terms acceptance audit:', auditError);
+    // Don't throw - profile was updated, audit is secondary
+  }
+
+  console.log('Terms acceptance recorded:', { userId, version: CURRENT_TERMS_VERSION });
+}
+
+/**
+ * Record session consent (per-session audit trail).
+ * @param sessionId - The Live Meeting session code
+ * @param userId - The user's UUID
+ */
+export async function recordSessionConsent(
+  sessionId: string,
+  userId: string
+): Promise<void> {
+  const ipHash = await hashIP();
+
+  const { error } = await supabase
+    .from('session_consents')
+    .insert({
+      session_id: sessionId,
+      user_id: userId,
+      terms_version: CURRENT_TERMS_VERSION,
+      ip_hash: ipHash,
+      user_agent: navigator.userAgent,
+    });
+
+  if (error) {
+    console.error('Failed to record session consent:', error);
+    throw new Error('Failed to record consent');
+  }
+
+  console.log('Session consent recorded:', { sessionId, userId });
+}
+
+/**
+ * Verify consent exists for a session before uploading recordings.
+ * @param sessionId - The Live Meeting session code
+ * @param userId - The user's UUID
+ * @returns true if consent exists, false otherwise
+ */
+export async function verifySessionConsent(
+  sessionId: string,
+  userId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('session_consents')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) {
+    console.error('Consent verification failed:', error);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Create or get guest user with anonymous auth.
+ * Uses Supabase anonymous auth to satisfy RLS policies.
+ *
+ * Flow:
+ * 1. Check if email exists in profiles
+ * 2. If verified user → requiresLogin: true
+ * 3. If unverified user → sign in anonymously and reuse profile
+ * 4. If new user → sign in anonymously and create profile
+ *
+ * EDGE CASES:
+ * - Verified user email → requiresLogin: true (must log in)
+ * - Unverified user email → Reuse profile (MVP simplification)
+ *
+ * @param email - Guest's email address
+ * @param name - Guest's name
+ * @returns Object with userId, isNew flag, and requiresLogin flag
+ */
+export async function getOrCreateGuestUser(
+  email: string,
+  name: string
+): Promise<{
+  userId: string;
+  isNew: boolean;
+  requiresLogin: boolean;
+}> {
+  // Check if user already exists in profiles
+  const { data: existingUser } = await supabase
+    .from('profiles')
+    .select('id, is_verified')
+    .eq('email', email)
+    .single();
+
+  if (existingUser) {
+    if (existingUser.is_verified) {
+      // Verified user must log in — don't create anonymous session
+      console.log('Existing verified user, requires login:', email);
+      return {
+        userId: existingUser.id,
+        isNew: false,
+        requiresLogin: true,
+      };
+    }
+
+    // MVP: Unverified user can rejoin without verification
+    // Sign in anonymously to satisfy RLS for consent recording
+    const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+    if (anonError) {
+      console.error('Failed to create anonymous session:', anonError);
+      throw new Error('Failed to create guest session');
+    }
+
+    console.log('Returning unverified guest, reusing profile:', email);
+    return {
+      userId: anonAuth.user.id,
+      isNew: false,
+      requiresLogin: false,
+    };
+  }
+
+  // Create new guest user with anonymous auth
+  const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+  if (anonError) {
+    console.error('Failed to create anonymous session:', anonError);
+    throw new Error('Failed to create guest session');
+  }
+
+  const userId = anonAuth.user.id;
+
+  // Create profile with anonymous user ID (RLS will pass)
+  const slug = await ensureUniqueSlug(name);
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      id: userId,
+      email: email,
+      name: name,
+      slug: slug,
+      is_verified: false,
+    });
+
+  if (profileError) {
+    console.error('Failed to create guest profile:', profileError);
+    throw new Error('Failed to create user record');
+  }
+
+  console.log('Guest user created:', { userId, email, name, slug });
+  return { userId, isNew: true, requiresLogin: false };
+}
+
+/**
+ * Hash IP address for audit trail (with timeout).
+ * Falls back gracefully if IP lookup fails or times out.
+ * @returns Hashed IP or fallback identifier
+ */
+async function hashIP(): Promise<string> {
+  try {
+    // 3 second timeout to prevent blocking join flow
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch('https://api.ipify.org?format=json', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const { ip } = await response.json();
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(ip);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    // Fallback: use random identifier (still unique per request)
+    return `browser_${crypto.randomUUID()}`;
   }
 }

@@ -33,7 +33,13 @@ import {
   uploadEventsSnapshot,
   MAX_NAME_LENGTH,
   type ClaritySession,
+  // P37.2a: Consent mechanism
+  getOrCreateGuestUser,
+  recordTermsAcceptance,
+  recordSessionConsent,
+  needsTermsAcceptance,
 } from '@/app/data/api';
+import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
 import { useAuth } from '@/auth';
 import {
@@ -94,6 +100,16 @@ export function ClarityLivePage() {
 
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // P37.2a: Consent flow state
+  const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(false);
+  // Store pending join info for after consent
+  const pendingJoinRef = useRef<{ code: string; userId?: string } | null>(null);
+  // B50: Inline email field for join/create flows (no dialog)
+  const [email, setEmail] = useState('');
+  // B50: Verified user edge case - show inline message instead of dialog
+  const [verifiedEmailError, setVerifiedEmailError] = useState<string | null>(null);
 
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
@@ -1073,6 +1089,118 @@ export function ClarityLivePage() {
     });
   }, [updateLiveState]);
 
+  // ============================================================================
+  // P37.2a: Consent Flow Handlers
+  // ============================================================================
+
+  /**
+   * B50: Called when guest submits inline form (name + email entered).
+   * Creates/gets guest user and records consent before joining.
+   * No dialog - handles verified user edge case inline.
+   */
+  const handleGuestJoin = async (guestName: string, guestEmail: string, code: string) => {
+    setConsentLoading(true);
+    setVerifiedEmailError(null);
+    setError(null);
+
+    try {
+      const result = await getOrCreateGuestUser(guestEmail, guestName);
+
+      if (result.requiresLogin) {
+        // B50: Email belongs to verified user - show inline error instead of dialog
+        setVerifiedEmailError(guestEmail);
+        return;
+      }
+
+      // Record consent
+      await recordTermsAcceptance(result.userId);
+      await recordSessionConsent(code, result.userId);
+
+      // Now do the actual join with the guest name
+      await completeJoin(code, guestName);
+
+    } catch (err) {
+      console.error('Guest join failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to join. Please try again.');
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  /**
+   * Called when logged-in user accepts updated terms.
+   */
+  const handleTermsAccept = async () => {
+    if (!user || !pendingJoinRef.current) return;
+
+    setConsentLoading(true);
+    try {
+      await recordTermsAcceptance(user.id);
+      await recordSessionConsent(pendingJoinRef.current.code, user.id);
+
+      setShowTermsUpdateDialog(false);
+      await completeJoin(pendingJoinRef.current.code, user.name || name);
+
+    } catch (err) {
+      console.error('Terms acceptance failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to record consent.');
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  /**
+   * Complete the actual session join after consent is recorded.
+   */
+  const completeJoin = async (code: string, joinName: string) => {
+    setIsLoading(true);
+    try {
+      const joinedSession = await joinClaritySession(code, joinName);
+      if (!joinedSession) {
+        setError('Session not found or already full');
+        return;
+      }
+
+      // Reset all refs for clean state
+      iAmLeavingRef.current = false;
+      partnerLeftRef.current = false;
+      sessionEndedRef.current = false;
+      hasJoinerRef.current = false;
+      lastJoinerNameRef.current = null;
+      pendingJoinRef.current = null;
+
+      setSession(joinedSession);
+      setIsCreator(false);
+      setView('live');
+      saveSessionToStorage(joinedSession.code, joinName, false);
+
+      analytics.track('live_session_joined', {
+        session_code: joinedSession.code,
+        join_method: isJoinViaLink ? 'link' : 'code',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to join session');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * B50: Handle "Send Login Link" for verified user edge case.
+   */
+  const handleSendLoginLink = () => {
+    // Redirect to login page - could enhance with magic link later
+    navigate('/login');
+  };
+
+  /**
+   * B50: Handle "Use Different Email" for verified user edge case.
+   */
+  const handleUseDifferentEmail = () => {
+    setVerifiedEmailError(null);
+    setEmail('');
+  };
+
   // MEDIUM: Name validation helper
   const validateName = (inputName: string): string | null => {
     const trimmed = inputName.trim();
@@ -1085,7 +1213,7 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // Create session handler
+  // B50: Create session handler - with email capture for guests
   const handleCreate = async () => {
     const nameError = validateName(name);
     if (nameError) {
@@ -1093,15 +1221,53 @@ export function ClarityLivePage() {
       return;
     }
 
+    // B50: Guest creating session needs email for P41 post-session emails
+    if (!user) {
+      if (!email.trim() || !email.includes('@')) {
+        setError('Please enter a valid email address');
+        return;
+      }
+    }
+
     // P25: Track start meeting click
     analytics.track('live_meeting_start_clicked');
 
     setIsLoading(true);
     setError(null);
+    setVerifiedEmailError(null);
 
     try {
       const trimmedName = name.trim();
+
+      // B50: For guests, create user record and record consent before creating session
+      if (!user) {
+        const result = await getOrCreateGuestUser(email.trim(), trimmedName);
+
+        if (result.requiresLogin) {
+          // B50: Email belongs to verified user - show inline error
+          setVerifiedEmailError(email.trim());
+          setIsLoading(false);
+          return;
+        }
+
+        // Record terms acceptance for the new guest user
+        await recordTermsAcceptance(result.userId);
+      }
+
       const newSession = await createClaritySession(trimmedName);
+
+      // B50: For guests, record session consent after session is created
+      if (!user) {
+        // We need to get the user ID again since we don't have it stored
+        // The anonymous session should still be active from getOrCreateGuestUser
+        const { data: { user: anonUser } } = await import('@/lib/supabase').then(m => m.supabase.auth.getUser());
+        if (anonUser) {
+          await recordSessionConsent(newSession.code, anonUser.id);
+        }
+      } else {
+        // Logged-in user: record session consent
+        await recordSessionConsent(newSession.code, user.id);
+      }
 
       // Reset all refs to ensure clean state for new session
       // Critical: Without this, stale refs from previous sessions could cause
@@ -1155,14 +1321,8 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // Join session handler
+  // B50: Join session handler - inline consent (no dialog)
   const handleJoin = async () => {
-    const nameError = validateName(name);
-    if (nameError) {
-      setError(nameError);
-      return;
-    }
-
     // Extract code from URL or direct input
     const extractedCode = extractCodeFromInput(roomCode);
     if (!extractedCode) {
@@ -1178,44 +1338,39 @@ export function ClarityLivePage() {
       input_type: inputWasLink ? 'link' : 'code',
     });
 
-    setIsLoading(true);
     setError(null);
+    setVerifiedEmailError(null);
 
-    try {
-      const trimmedName = name.trim();
-      const joinedSession = await joinClaritySession(normalizedCode, trimmedName);
-      if (!joinedSession) {
-        setError('Session not found or already full');
+    // Store the code for after consent flow completes
+    pendingJoinRef.current = { code: normalizedCode };
+
+    if (user) {
+      // Logged-in user: check if terms acceptance needed
+      const needsAcceptance = await needsTermsAcceptance(user.id);
+      if (needsAcceptance) {
+        setShowTermsUpdateDialog(true);
+      } else {
+        // Terms current, record session consent and join directly
+        try {
+          await recordSessionConsent(normalizedCode, user.id);
+          await completeJoin(normalizedCode, user.name || name);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to record consent');
+        }
+      }
+    } else {
+      // B50: Guest - validate inline form (name + email required)
+      const nameError = validateName(name);
+      if (nameError) {
+        setError(nameError);
         return;
       }
-
-      // Reset all refs to ensure clean state for new session
-      // Critical: Without this, stale refs from previous sessions could cause
-      // subscription/polling to skip updates (guards check these refs)
-      iAmLeavingRef.current = false;
-      partnerLeftRef.current = false;
-      sessionEndedRef.current = false;
-      hasJoinerRef.current = false;
-      lastJoinerNameRef.current = null;
-
-      setSession(joinedSession);
-      setIsCreator(false);
-      // HIGH #6: Save to localStorage for rejoin (must happen before mic gate)
-      saveSessionToStorage(joinedSession.code, trimmedName, false);
-
-      // Track session join
-      analytics.track('live_session_joined', {
-        session_code: joinedSession.code,
-        join_method: isJoinViaLink ? 'link' : 'code',
-      });
-
-      // B48: Gate transition to live behind mic permission check
-      // User stays in current view if permission denied (dialog shown)
-      await gateMicAndGoLive();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to join session');
-    } finally {
-      setIsLoading(false);
+      if (!email.trim() || !email.includes('@')) {
+        setError('Please enter a valid email address');
+        return;
+      }
+      // Proceed with guest join (inline, no dialog)
+      await handleGuestJoin(name.trim(), email.trim(), normalizedCode);
     }
   };
 
@@ -1468,9 +1623,11 @@ export function ClarityLivePage() {
 
   // START VIEW
   if (view === 'start') {
-    // Join via link: simplified UI with just name input + join button
+    // B50: Join via link - single screen with name + email + terms (no dialog)
     if (isJoinViaLink) {
       const joinTitle = hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting';
+      const canJoinViaLink = name.trim() && email.trim() && email.includes('@');
+
       return (
         <div className="flex flex-col h-screen">
           <LiveSessionBanner title={joinTitle} isLiveMeeting={false} />
@@ -1485,40 +1642,99 @@ export function ClarityLivePage() {
               )}
             </div>
 
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Your Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
+            {/* B50: Verified user edge case - inline message */}
+            {verifiedEmailError ? (
+              <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                <div className="space-y-2">
+                  <h3 className="font-medium text-blue-900">This email has an account</h3>
+                  <p className="text-sm text-blue-700">
+                    <strong>{verifiedEmailError}</strong> is registered. Log in to continue.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleUseDifferentEmail}
+                    className="flex-1"
+                  >
+                    Use Different Email
+                  </Button>
+                  <Button
+                    onClick={handleSendLoginLink}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                  >
+                    Log In
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Your Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Your Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
 
-              <Button
-                onClick={handleJoin}
-                disabled={isLoading || !name.trim()}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? 'Joining...' : 'Join Meeting'}
-              </Button>
+                {error && <p className="text-sm text-red-600">{error}</p>}
 
-              {/* Terms & Privacy consent notice (same pattern as sign-pledge-form) */}
-              <ConsentNotice />
+                {/* B50: Terms notice inline (required by spec) */}
+                <p className="text-sm text-muted-foreground">
+                  This session will be recorded.{' '}
+                  By joining, you agree to our{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    Terms
+                  </a>{' '}
+                  and{' '}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    Privacy Policy
+                  </a>.
+                </p>
 
-              <Link
-                to="/live"
-                className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
-              >
-                Back
-              </Link>
-            </div>
+                <Button
+                  onClick={handleJoin}
+                  disabled={isLoading || consentLoading || !canJoinViaLink}
+                  className="w-full bg-blue-500 hover:bg-blue-600"
+                  size="lg"
+                >
+                  {isLoading || consentLoading ? 'Joining...' : 'Join Meeting'}
+                </Button>
+
+                <Link
+                  to="/live"
+                  className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+                >
+                  Back
+                </Link>
+              </div>
+            )}
           </div>
+
+          {/* Terms update dialog (for logged-in users only) */}
+          <TermsUpdateDialog
+            open={showTermsUpdateDialog}
+            onAccept={handleTermsAccept}
+            onCancel={() => {
+              setShowTermsUpdateDialog(false);
+              pendingJoinRef.current = null;
+            }}
+            isLoading={consentLoading}
+          />
         </div>
       );
     }
@@ -1544,6 +1760,9 @@ export function ClarityLivePage() {
       );
     }
 
+    // B50: Check if guest can create/join (needs both name and email)
+    const guestCanProceed = isLoggedIn || (name.trim() && email.trim() && email.includes('@'));
+
     return (
       <div className="flex flex-col h-screen">
         <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
@@ -1559,121 +1778,182 @@ export function ClarityLivePage() {
               </p>
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {/* B50: Verified user edge case - inline message */}
+            {verifiedEmailError ? (
+              <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg max-w-md mx-auto">
+                <div className="space-y-2">
+                  <h3 className="font-medium text-blue-900">This email has an account</h3>
+                  <p className="text-sm text-blue-700">
+                    <strong>{verifiedEmailError}</strong> is registered. Log in to continue.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleUseDifferentEmail}
+                    className="flex-1"
+                  >
+                    Use Different Email
+                  </Button>
+                  <Button
+                    onClick={handleSendLoginLink}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                  >
+                    Log In
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
-            {/* Form controls - centered container, left-aligned contents */}
-            <div className="flex justify-center">
-              <div className="flex flex-col gap-4">
-                {/* Guest: name input - above buttons, left-aligned with them */}
+                {/* Form controls - centered container, left-aligned contents */}
+                <div className="flex justify-center">
+                  <div className="flex flex-col gap-4">
+                    {/* B50: Guest: name + email inputs - above buttons */}
+                    {!isLoggedIn && (
+                      <>
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="name" className="text-sm font-medium">Your Name</Label>
+                          <Input
+                            id="name"
+                            placeholder="Enter your name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            autoFocus
+                            className="w-[280px] rounded-full h-11 text-sm"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="email" className="text-sm font-medium">Your Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="your@email.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-[280px] rounded-full h-11 text-sm"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
+                    <div className="flex flex-col md:flex-row md:items-center items-start gap-3">
+                      {/* New meeting button - compact (not full width) */}
+                      <Button
+                        onClick={handleCreate}
+                        disabled={isLoading || !guestCanProceed}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
+                      >
+                        <Mic className="h-[18px] w-[18px]" />
+                        <span className="text-sm">{isLoading ? 'Creating...' : 'New meeting'}</span>
+                      </Button>
+
+                      {/* Code input + Join - with real-time validation */}
+                      {(() => {
+                        // Real-time validation for code/link input
+                        const hasInput = roomCode.trim().length > 0;
+                        const extractedCode = hasInput ? extractCodeFromInput(roomCode) : null;
+                        const isValidInput = !!extractedCode;
+                        // B50: Now also requires email for guests
+                        const canJoin = guestCanProceed && isValidInput;
+
+                        // Determine error message for inline display
+                        let inputError: string | null = null;
+                        if (hasInput && !isValidInput) {
+                          if (roomCode.includes('/') || roomCode.includes('.')) {
+                            inputError = 'Invalid meeting link';
+                          } else {
+                            inputError = 'Code must be 6 characters';
+                          }
+                        } else if (hasInput && isValidInput && !guestCanProceed) {
+                          inputError = isLoggedIn ? '' : 'Enter name and email first';
+                        }
+
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className={`flex items-center rounded-full h-11 px-4 gap-2 bg-background transition-colors border-2 ${
+                                hasInput && !isValidInput
+                                  ? 'border-red-400'
+                                  : 'border-input focus-within:border-blue-500'
+                              }`}>
+                                <Keyboard className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+                                  hasInput && !isValidInput
+                                    ? 'text-red-400'
+                                    : 'text-muted-foreground'
+                                }`} />
+                                <input
+                                  placeholder="Enter a code or link"
+                                  value={roomCode}
+                                  onChange={(e) => setRoomCode(e.target.value)}
+                                  maxLength={500}
+                                  className="bg-transparent outline-none text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
+                                />
+                              </div>
+                              <button
+                                onClick={handleJoin}
+                                disabled={isLoading || !canJoin}
+                                className={`font-medium text-sm transition-colors px-2 py-2 flex-shrink-0 ${
+                                  canJoin
+                                    ? 'text-blue-600 hover:text-blue-700'
+                                    : 'text-muted-foreground cursor-default'
+                                }`}
+                              >
+                                Join
+                              </button>
+                            </div>
+                            {inputError && (
+                              <p className="text-xs text-red-500 pl-1">{inputError}</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* P25: Login link for guests */}
                 {!isLoggedIn && (
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="name" className="text-sm font-medium">Your Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      autoFocus
-                      className="w-[280px] rounded-full h-11 text-sm"
-                    />
+                  <div className="text-center pt-2">
+                    <button
+                      onClick={handleLoginClick}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Already have an account? <span className="underline">Log in</span>
+                    </button>
                   </div>
                 )}
 
-                {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
-                <div className="flex flex-col md:flex-row md:items-center items-start gap-3">
-              {/* New meeting button - compact (not full width) */}
-              <Button
-                onClick={handleCreate}
-                disabled={isLoading || (!isLoggedIn && !name.trim())}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
-              >
-                <Mic className="h-[18px] w-[18px]" />
-                <span className="text-sm">{isLoading ? 'Creating...' : 'New meeting'}</span>
-              </Button>
-
-              {/* Code input + Join - with real-time validation */}
-              {(() => {
-                // Real-time validation for code/link input
-                const hasInput = roomCode.trim().length > 0;
-                const extractedCode = hasInput ? extractCodeFromInput(roomCode) : null;
-                const isValidInput = !!extractedCode;
-                const hasName = isLoggedIn || name.trim().length > 0;
-                const canJoin = hasName && isValidInput;
-
-                // Determine error message for inline display
-                let inputError: string | null = null;
-                if (hasInput && !isValidInput) {
-                  if (roomCode.includes('/') || roomCode.includes('.')) {
-                    inputError = 'Invalid meeting link';
-                  } else {
-                    inputError = 'Code must be 6 characters';
-                  }
-                } else if (hasInput && isValidInput && !hasName) {
-                  inputError = 'Enter your name first';
-                }
-
-                return (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center rounded-full h-11 px-4 gap-2 bg-background transition-colors border-2 ${
-                        hasInput && !isValidInput
-                          ? 'border-red-400'
-                          : 'border-input focus-within:border-blue-500'
-                      }`}>
-                        <Keyboard className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
-                          hasInput && !isValidInput
-                            ? 'text-red-400'
-                            : 'text-muted-foreground'
-                        }`} />
-                        <input
-                          placeholder="Enter a code or link"
-                          value={roomCode}
-                          onChange={(e) => setRoomCode(e.target.value)}
-                          maxLength={500}
-                          className="bg-transparent outline-none text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
-                        />
-                      </div>
-                      <button
-                        onClick={handleJoin}
-                        disabled={isLoading || !canJoin}
-                        className={`font-medium text-sm transition-colors px-2 py-2 flex-shrink-0 ${
-                          canJoin
-                            ? 'text-blue-600 hover:text-blue-700'
-                            : 'text-muted-foreground cursor-default'
-                        }`}
-                      >
-                        Join
-                      </button>
-                    </div>
-                    {inputError && (
-                      <p className="text-xs text-red-500 pl-1">{inputError}</p>
-                    )}
-                  </div>
-                );
-              })()}
+                {/* B50: Terms notice with recording disclosure */}
+                <div className="text-center pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    This session will be recorded.{' '}
+                    By starting or joining, you agree to our{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Terms
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Privacy Policy
+                    </a>.
+                  </p>
                 </div>
-
-              </div>
-            </div>
-
-            {/* P25: Login link for guests */}
-            {!isLoggedIn && (
-              <div className="text-center pt-2">
-                <button
-                  onClick={handleLoginClick}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Already have an account? <span className="underline">Log in</span>
-                </button>
-              </div>
+              </>
             )}
-
-            {/* P34.2: Terms & Privacy consent notice - moved below login */}
-            <div className="pt-4">
-              <ConsentNotice />
-            </div>
           </div>
-        </div>
+
+          {/* Terms update dialog (for logged-in users only) */}
+          <TermsUpdateDialog
+            open={showTermsUpdateDialog}
+            onAccept={handleTermsAccept}
+            onCancel={() => {
+              setShowTermsUpdateDialog(false);
+              pendingJoinRef.current = null;
+            }}
+            isLoading={consentLoading}
+          />
       </div>
     );
   }
