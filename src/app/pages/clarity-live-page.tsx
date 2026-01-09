@@ -1710,7 +1710,7 @@ export function ClarityLivePage() {
 
       return (
         <div className="flex flex-col h-screen">
-          <LiveSessionBanner title={joinTitle} isLiveMeeting={false} />
+          <LiveSessionBanner title="" isLiveMeeting={false} />
           <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
             <div className="text-center mb-8">
               {/* Prominent heading inside form area for context clarity */}
@@ -2139,11 +2139,12 @@ export function ClarityLivePage() {
 
     return (
       <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="Waiting for Partner" isLiveMeeting={false} />
+        <LiveSessionBanner title="" isLiveMeeting={false} />
         <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
           <div className="text-center space-y-6">
+            <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
             <p className="text-muted-foreground">
-              Share this link with your partner:
+              Share this link to start your clarity session:
             </p>
 
             {/* Link row with copy/share */}

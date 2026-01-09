@@ -6,7 +6,7 @@
  * 1. WHAT they're joining (whose meeting)
  * 2. WHY they need to provide info (to join the meeting)
  *
- * The title should be prominent INSIDE the form area, not just in the header.
+ * The title should be prominent INSIDE the form area, not duplicated in header.
  */
 import { test, expect } from '@playwright/test';
 
@@ -48,5 +48,19 @@ test.describe('Join Form UX - Context Clarity', () => {
 
     // ASSERTION: Heading should be ABOVE the input fields
     expect(headingBox.y + headingBox.height).toBeLessThan(inputBox.y);
+  });
+
+  test('header does not duplicate the form heading (KISS)', async ({ page }) => {
+    await page.goto('/live/TEST123');
+
+    await expect(page.locator('input[placeholder="Enter your name"]')).toBeVisible();
+
+    // The header banner should NOT have a duplicate "Join...Meeting" title
+    // Header is the first child of main, contains logo and menu
+    const headerBanner = page.locator('main > div > div').first();
+    const headerText = await headerBanner.textContent();
+
+    // Header should just have "Clarity Pledge" (logo text), not the join title
+    expect(headerText).not.toMatch(/Join.*Meeting/i);
   });
 });
