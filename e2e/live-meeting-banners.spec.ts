@@ -55,7 +55,7 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
       await page.getByRole('button', { name: /new meeting/i }).click();
 
       // Wait for waiting screen
-      await expect(page.getByText('Waiting for partner to join')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Waiting for partner to join...')).toBeVisible({ timeout: 10000 });
 
       // ASSERTION: Banner should be visible
       await expectBannerVisible(page);
@@ -100,7 +100,7 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
       await page.getByRole('button', { name: /new meeting/i }).click();
 
       // Wait for waiting screen
-      await expect(page.getByText('Waiting for partner to join')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Waiting for partner to join...')).toBeVisible({ timeout: 10000 });
 
       // ASSERTION: Banner should be visible
       await expectBannerVisible(page);
@@ -132,7 +132,7 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
       await page.getByRole('button', { name: /new meeting/i }).click();
 
       // Wait for waiting screen
-      await expect(page.getByText('Waiting for partner to join')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('Waiting for partner to join...')).toBeVisible({ timeout: 10000 });
 
       // Banner title should be "Waiting for Partner" - find it in the banner area
       const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
