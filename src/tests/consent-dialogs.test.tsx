@@ -83,4 +83,25 @@ describe('TermsUpdateDialog', () => {
 
     expect(screen.getByText('Continuing...')).toBeInTheDocument();
   });
+
+  /**
+   * E2E TEST GAP DOCUMENTATION
+   *
+   * The TermsUpdateDialog integration (showing for returning users with
+   * outdated accepted_terms_version) is NOT covered by E2E tests due to
+   * complexity of setup:
+   *
+   * To test E2E would require:
+   * 1. Creating a user with accepted_terms_version='v0.9' in database
+   * 2. Authenticating as that user
+   * 3. Navigating to /live and trying to join/create a meeting
+   * 4. Verifying dialog appears and "Continue" records consent
+   *
+   * Current coverage:
+   * - Unit tests here verify component behavior (render, callbacks, states)
+   * - Unit tests in consent-api.test.ts verify needsTermsAcceptance() logic
+   * - Integration in clarity-live-page.tsx verified via code review
+   *
+   * If regression occurs, add E2E test or seed test database with outdated user.
+   */
 });

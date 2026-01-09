@@ -2,7 +2,6 @@
  * @file consent-api.test.ts
  * TDD tests for P37.2a Recording Consent Mechanism API functions
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock supabase before importing the module that uses it
