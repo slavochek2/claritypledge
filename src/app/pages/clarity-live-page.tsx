@@ -74,6 +74,31 @@ const POLL_INTERVAL_MS = 1000;
 /** Use sessionStorage for tab-isolated storage (each tab has its own session data) */
 const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
 
+// ============================================================================
+// STATE SYNCHRONIZATION ARCHITECTURE
+// ============================================================================
+// This component uses a ref-based state machine to handle real-time sync
+// between two users. The complexity is intentional to handle edge cases:
+//
+// REFS (immediate updates, no re-render delay):
+// - hasJoinerRef: Tracks if joiner has been detected (for departure detection)
+// - lastJoinerNameRef: Stores joiner name before it's cleared (for partner left screen)
+// - sessionCodeRef: Current session code for polling (avoids stale closures)
+// - currentSessionIdRef: Guards against stale subscription callbacks
+// - confirmedLiveStateRef: Last confirmed state from server (prevents drift)
+// - updateInFlightRef: Prevents polling from overwriting optimistic updates
+// - partnerLeftRef/sessionEndedRef: Track departure state immediately
+// - iAmLeavingRef: Prevents detecting own departure as partner leaving
+//
+// SYNC STRATEGY:
+// 1. Supabase Realtime subscription for immediate updates
+// 2. Polling fallback (POLL_INTERVAL_MS) for unreliable mobile connections
+// 3. Drift detection compares server state vs confirmedLiveStateRef
+// 4. Optimistic updates blocked during updateInFlightRef=true
+//
+// See: B48 (mic permission gating), P28.1 (audio recording)
+// ============================================================================
+
 export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
