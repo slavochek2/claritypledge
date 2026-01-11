@@ -194,7 +194,7 @@ export function useAudioRecorder(options: UseAudioRecorderOptions = {}): UseAudi
         setError('Failed to start recording');
       }
     }
-  }, [onChunkReady, chunkIntervalMs, flushAndUploadChunk]);
+  }, [onChunkReady, chunkIntervalMs, flushAndUploadChunk, maxDurationMs]);
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     const mediaRecorder = mediaRecorderRef.current;

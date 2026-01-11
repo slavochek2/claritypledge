@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
-import { ConsentNotice } from '@/app/components/legal/consent-notice';
+// P50: ConsentNotice import removed - replaced with inline consent checkbox
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,13 @@ import {
   uploadEventsSnapshot,
   MAX_NAME_LENGTH,
   type ClaritySession,
+  // P37.2a: Consent mechanism
+  getOrCreateGuestUser,
+  recordTermsAcceptance,
+  recordSessionConsent,
+  needsTermsAcceptance,
 } from '@/app/data/api';
+import { TermsUpdateDialog } from '@/app/components/live-meeting/terms-update-dialog';
 import { analytics } from '@/lib/mixpanel';
 import { useAuth } from '@/auth';
 import {
@@ -68,6 +74,31 @@ const POLL_INTERVAL_MS = 1000;
 /** Use sessionStorage for tab-isolated storage (each tab has its own session data) */
 const storage = typeof window !== 'undefined' ? window.sessionStorage : null;
 
+// ============================================================================
+// STATE SYNCHRONIZATION ARCHITECTURE
+// ============================================================================
+// This component uses a ref-based state machine to handle real-time sync
+// between two users. The complexity is intentional to handle edge cases:
+//
+// REFS (immediate updates, no re-render delay):
+// - hasJoinerRef: Tracks if joiner has been detected (for departure detection)
+// - lastJoinerNameRef: Stores joiner name before it's cleared (for partner left screen)
+// - sessionCodeRef: Current session code for polling (avoids stale closures)
+// - currentSessionIdRef: Guards against stale subscription callbacks
+// - confirmedLiveStateRef: Last confirmed state from server (prevents drift)
+// - updateInFlightRef: Prevents polling from overwriting optimistic updates
+// - partnerLeftRef/sessionEndedRef: Track departure state immediately
+// - iAmLeavingRef: Prevents detecting own departure as partner leaving
+//
+// SYNC STRATEGY:
+// 1. Supabase Realtime subscription for immediate updates
+// 2. Polling fallback (POLL_INTERVAL_MS) for unreliable mobile connections
+// 3. Drift detection compares server state vs confirmedLiveStateRef
+// 4. Optimistic updates blocked during updateInFlightRef=true
+//
+// See: B48 (mic permission gating), P28.1 (audio recording)
+// ============================================================================
+
 export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
@@ -94,6 +125,18 @@ export function ClarityLivePage() {
 
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // P37.2a: Consent flow state
+  const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(false);
+  // Store pending join info for after consent or mic retry
+  const pendingJoinRef = useRef<{ code: string; userId?: string; joinName?: string } | null>(null);
+  // B50: Inline email field for join/create flows (no dialog)
+  const [email, setEmail] = useState('');
+  // B50: Verified user edge case - show inline message instead of dialog
+  const [verifiedEmailError, setVerifiedEmailError] = useState<string | null>(null);
+  // P50: Consent checkbox state for non-logged-in users
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
@@ -279,6 +322,22 @@ export function ClarityLivePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only track once on mount
   }, []);
+
+  // Request mic permission proactively when host enters waiting view
+  // This ensures the host is ready when partner joins (better UX than requesting mid-flow)
+  useEffect(() => {
+    // Only request if not already granted or in progress
+    if (view === 'waiting' && isCreator && micStatus === 'unknown') {
+      console.log('[Mic] Proactively requesting mic permission for host in waiting view');
+      requestMicPermission().then((granted) => {
+        if (!granted) {
+          // Show retry dialog if permission denied
+          console.log('[Mic] Permission denied in waiting view, showing retry dialog');
+          setShowMicDialog(true);
+        }
+      });
+    }
+  }, [view, isCreator, micStatus, requestMicPermission]);
 
   // HIGH #6: Restore session from sessionStorage on mount
   // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
@@ -1073,6 +1132,152 @@ export function ClarityLivePage() {
     });
   }, [updateLiveState]);
 
+  // ============================================================================
+  // P37.2a: Consent Flow Handlers
+  // ============================================================================
+
+  /**
+   * B50: Called when guest submits inline form (name + email entered).
+   * Creates/gets guest user and records consent before joining.
+   * No dialog - handles verified user edge case inline.
+   */
+  const handleGuestJoin = async (guestName: string, guestEmail: string, code: string) => {
+    setConsentLoading(true);
+    setVerifiedEmailError(null);
+    setError(null);
+
+    try {
+      const result = await getOrCreateGuestUser(guestEmail, guestName);
+
+      if (result.requiresLogin) {
+        // B50: Email belongs to verified user - show inline error instead of dialog
+        setVerifiedEmailError(guestEmail);
+        return;
+      }
+
+      // Record consent
+      await recordTermsAcceptance(result.userId);
+      await recordSessionConsent(code, result.userId);
+
+      // Now do the actual join with the guest name
+      await completeJoin(code, guestName);
+
+    } catch (err) {
+      console.error('Guest join failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to join. Please try again.');
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  /**
+   * Called when logged-in user accepts updated terms.
+   */
+  const handleTermsAccept = async () => {
+    if (!user || !pendingJoinRef.current) return;
+
+    setConsentLoading(true);
+    try {
+      await recordTermsAcceptance(user.id);
+      await recordSessionConsent(pendingJoinRef.current.code, user.id);
+
+      setShowTermsUpdateDialog(false);
+      await completeJoin(pendingJoinRef.current.code, user.name || name);
+
+    } catch (err) {
+      console.error('Terms acceptance failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to record consent.');
+    } finally {
+      setConsentLoading(false);
+    }
+  };
+
+  /**
+   * Complete the actual session join after consent is recorded.
+   *
+   * IMPORTANT (Bug fix): Mic permission is checked BEFORE writing to database.
+   * This ensures joiner_name is only set when the joiner is actually ready to
+   * enter the live view. Without this, the creator would see the joiner as
+   * "joined" even if they denied mic permission.
+   */
+  const completeJoin = async (code: string, joinName: string) => {
+    setIsLoading(true);
+    try {
+      // Step 1: Check mic permission BEFORE writing to database
+      // This ensures we don't tell the creator we "joined" if we can't actually participate
+      // Note: We check permission directly, NOT via gateMicAndGoLive which also changes view
+      console.log('[Join] Checking mic permission before joining session...');
+
+      let hasMicPermission = micStatus === 'granted';
+      if (!hasMicPermission) {
+        hasMicPermission = await requestMicPermission();
+      }
+
+      if (!hasMicPermission) {
+        // Mic permission denied - don't write to database, don't join
+        // Store join info for retry, then show the mic dialog
+        console.log('[Join] Mic permission denied, aborting join');
+        pendingJoinRef.current = { code, joinName };
+        setShowMicDialog(true);
+        analytics.track('live_session_join_blocked', {
+          session_code: code,
+          reason: 'mic_permission_denied',
+        });
+        return;
+      }
+
+      // Step 2: Mic granted - now safe to join the session
+      console.log('[Join] Mic granted, joining session...');
+      const joinedSession = await joinClaritySession(code, joinName);
+      if (!joinedSession) {
+        setError('Session not found or already full');
+        return;
+      }
+
+      // Reset all refs for clean state
+      iAmLeavingRef.current = false;
+      partnerLeftRef.current = false;
+      sessionEndedRef.current = false;
+      hasJoinerRef.current = false;
+      lastJoinerNameRef.current = null;
+      pendingJoinRef.current = null;
+
+      setSession(joinedSession);
+      setIsCreator(false);
+      // Save to localStorage for rejoin
+      saveSessionToStorage(joinedSession.code, joinName, false);
+
+      analytics.track('live_session_joined', {
+        session_code: joinedSession.code,
+        join_method: isJoinViaLink ? 'link' : 'code',
+      });
+
+      // Step 3: Now transition to live view (mic is granted, session is joined)
+      console.log('[Join] Session joined, transitioning to live view');
+      setView('live');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to join session');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * B50: Handle "Send Login Link" for verified user edge case.
+   */
+  const handleSendLoginLink = () => {
+    // Redirect to login page - could enhance with magic link later
+    navigate('/login');
+  };
+
+  /**
+   * B50: Handle "Use Different Email" for verified user edge case.
+   */
+  const handleUseDifferentEmail = () => {
+    setVerifiedEmailError(null);
+    setEmail('');
+  };
+
   // MEDIUM: Name validation helper
   const validateName = (inputName: string): string | null => {
     const trimmed = inputName.trim();
@@ -1085,7 +1290,7 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // Create session handler
+  // B50: Create session handler - with email capture for guests
   const handleCreate = async () => {
     const nameError = validateName(name);
     if (nameError) {
@@ -1093,15 +1298,48 @@ export function ClarityLivePage() {
       return;
     }
 
+    // B50: Guest creating session needs email for P41 post-session emails
+    if (!user) {
+      if (!email.trim() || !email.includes('@')) {
+        setError('Please enter a valid email address');
+        return;
+      }
+    }
+
     // P25: Track start meeting click
     analytics.track('live_meeting_start_clicked');
 
     setIsLoading(true);
     setError(null);
+    setVerifiedEmailError(null);
 
     try {
       const trimmedName = name.trim();
+
+      // B50: For guests, create user record and record consent before creating session
+      let guestUserId: string | null = null;
+      if (!user) {
+        const result = await getOrCreateGuestUser(email.trim(), trimmedName);
+
+        if (result.requiresLogin) {
+          // B50: Email belongs to verified user - show inline error
+          setVerifiedEmailError(email.trim());
+          setIsLoading(false);
+          return;
+        }
+
+        guestUserId = result.userId;
+        // Record terms acceptance for the new guest user
+        await recordTermsAcceptance(guestUserId);
+      }
+
       const newSession = await createClaritySession(trimmedName);
+
+      // B50: Record session consent after session is created
+      const consentUserId = user?.id ?? guestUserId;
+      if (consentUserId) {
+        await recordSessionConsent(newSession.code, consentUserId);
+      }
 
       // Reset all refs to ensure clean state for new session
       // Critical: Without this, stale refs from previous sessions could cause
@@ -1155,14 +1393,8 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // Join session handler
+  // B50: Join session handler - inline consent (no dialog)
   const handleJoin = async () => {
-    const nameError = validateName(name);
-    if (nameError) {
-      setError(nameError);
-      return;
-    }
-
     // Extract code from URL or direct input
     const extractedCode = extractCodeFromInput(roomCode);
     if (!extractedCode) {
@@ -1178,44 +1410,39 @@ export function ClarityLivePage() {
       input_type: inputWasLink ? 'link' : 'code',
     });
 
-    setIsLoading(true);
     setError(null);
+    setVerifiedEmailError(null);
 
-    try {
-      const trimmedName = name.trim();
-      const joinedSession = await joinClaritySession(normalizedCode, trimmedName);
-      if (!joinedSession) {
-        setError('Session not found or already full');
+    // Store the code for after consent flow completes
+    pendingJoinRef.current = { code: normalizedCode };
+
+    if (user) {
+      // Logged-in user: check if terms acceptance needed
+      const needsAcceptance = await needsTermsAcceptance(user.id);
+      if (needsAcceptance) {
+        setShowTermsUpdateDialog(true);
+      } else {
+        // Terms current, record session consent and join directly
+        try {
+          await recordSessionConsent(normalizedCode, user.id);
+          await completeJoin(normalizedCode, user.name || name);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to record consent');
+        }
+      }
+    } else {
+      // B50: Guest - validate inline form (name + email required)
+      const nameError = validateName(name);
+      if (nameError) {
+        setError(nameError);
         return;
       }
-
-      // Reset all refs to ensure clean state for new session
-      // Critical: Without this, stale refs from previous sessions could cause
-      // subscription/polling to skip updates (guards check these refs)
-      iAmLeavingRef.current = false;
-      partnerLeftRef.current = false;
-      sessionEndedRef.current = false;
-      hasJoinerRef.current = false;
-      lastJoinerNameRef.current = null;
-
-      setSession(joinedSession);
-      setIsCreator(false);
-      // HIGH #6: Save to localStorage for rejoin (must happen before mic gate)
-      saveSessionToStorage(joinedSession.code, trimmedName, false);
-
-      // Track session join
-      analytics.track('live_session_joined', {
-        session_code: joinedSession.code,
-        join_method: isJoinViaLink ? 'link' : 'code',
-      });
-
-      // B48: Gate transition to live behind mic permission check
-      // User stays in current view if permission denied (dialog shown)
-      await gateMicAndGoLive();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to join session');
-    } finally {
-      setIsLoading(false);
+      if (!email.trim() || !email.includes('@')) {
+        setError('Please enter a valid email address');
+        return;
+      }
+      // Proceed with guest join (inline, no dialog)
+      await handleGuestJoin(name.trim(), email.trim(), normalizedCode);
     }
   };
 
@@ -1375,10 +1602,42 @@ export function ClarityLivePage() {
   }, [navigate, stopAndUploadRecording]);
 
   // P40: Handle mic permission dialog retry
+  // If we have pending join info, complete the join after mic is granted
   const handleMicRetry = useCallback(async () => {
     const hasPermission = await requestMicPermission();
     if (hasPermission) {
       setShowMicDialog(false);
+
+      // If we have pending join info (from failed join attempt), complete the join
+      const pendingJoin = pendingJoinRef.current;
+      if (pendingJoin?.joinName) {
+        console.log('[MicRetry] Mic granted, completing pending join...');
+        pendingJoinRef.current = null;
+        // Complete the join now that mic is granted
+        // Since completeJoin checks mic first, and we just granted it, this will succeed
+        const joinedSession = await joinClaritySession(pendingJoin.code, pendingJoin.joinName);
+        if (joinedSession) {
+          // Reset refs and set session
+          iAmLeavingRef.current = false;
+          partnerLeftRef.current = false;
+          sessionEndedRef.current = false;
+          hasJoinerRef.current = false;
+          lastJoinerNameRef.current = null;
+
+          setSession(joinedSession);
+          setIsCreator(false);
+          saveSessionToStorage(joinedSession.code, pendingJoin.joinName, false);
+
+          analytics.track('live_session_joined', {
+            session_code: joinedSession.code,
+            join_method: 'mic_retry',
+          });
+
+          setView('live');
+        } else {
+          setError('Session not found or already full');
+        }
+      }
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
       // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
@@ -1389,6 +1648,7 @@ export function ClarityLivePage() {
   const handleMicCancel = useCallback(() => {
     setShowMicDialog(false);
     resetMic();
+    pendingJoinRef.current = null; // Clear any pending join info
     setView('start');
     toast.error('Microphone access is required to join Clarity Meetings');
   }, [resetMic]);
@@ -1442,7 +1702,7 @@ export function ClarityLivePage() {
   if (sessionEnded || partnerLeft) {
     return (
       <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="Meeting Ended" isLiveMeeting={false} />
+        <LiveSessionBanner title="" isLiveMeeting={false} />
         <div className="flex-1 flex items-center justify-center">
           <PartnerLeftScreen
             partnerName={departedPartnerName}
@@ -1468,14 +1728,18 @@ export function ClarityLivePage() {
 
   // START VIEW
   if (view === 'start') {
-    // Join via link: simplified UI with just name input + join button
+    // B50: Join via link - single screen with name + email + terms (no dialog)
     if (isJoinViaLink) {
       const joinTitle = hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting';
+      const canJoinViaLink = name.trim() && email.trim() && email.includes('@');
+
       return (
         <div className="flex flex-col h-screen">
-          <LiveSessionBanner title={joinTitle} isLiveMeeting={false} />
+          <LiveSessionBanner title="" isLiveMeeting={false} />
           <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
             <div className="text-center mb-8">
+              {/* Prominent heading inside form area for context clarity */}
+              <h2 className="text-2xl font-semibold mb-4">{joinTitle}</h2>
               {!hostName && (
                 <div className="inline-flex items-center px-3 py-1.5 bg-muted rounded-full">
                   <span className="text-sm text-muted-foreground">
@@ -1485,40 +1749,118 @@ export function ClarityLivePage() {
               )}
             </div>
 
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Your Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
+            {/* B50: Verified user edge case - inline message */}
+            {verifiedEmailError ? (
+              <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                <div className="space-y-2">
+                  <h3 className="font-medium text-blue-900">This email has an account</h3>
+                  <p className="text-sm text-blue-700">
+                    <strong>{verifiedEmailError}</strong> is registered. Log in to continue.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleUseDifferentEmail}
+                    className="flex-1"
+                  >
+                    Use Different Email
+                  </Button>
+                  <Button
+                    onClick={handleSendLoginLink}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                  >
+                    Log In
+                  </Button>
+                </div>
               </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  {/* P50: Updated label per spec */}
+                  <Label htmlFor="name">What should we call you?</Label>
+                  <Input
+                    id="name"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+                <div className="space-y-2">
+                  {/* P50: Updated label per spec */}
+                  <Label htmlFor="email">Your email (for session link)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
 
-              <Button
-                onClick={handleJoin}
-                disabled={isLoading || !name.trim()}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? 'Joining...' : 'Join Meeting'}
-              </Button>
+                {error && <p className="text-sm text-red-600">{error}</p>}
 
-              {/* Terms & Privacy consent notice (same pattern as sign-pledge-form) */}
-              <ConsentNotice />
+                {/* P50: Consent checkbox (replaces passive notice) */}
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="consent-join"
+                    checked={consentChecked}
+                    onChange={(e) => setConsentChecked(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="consent-join" className="text-sm text-muted-foreground leading-relaxed">
+                    I agree that this session will be recorded, and I accept the{' '}
+                    <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Terms
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Privacy Policy
+                    </a>.
+                  </label>
+                </div>
 
-              <Link
-                to="/live"
-                className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
-              >
-                Back
-              </Link>
-            </div>
+                <Button
+                  onClick={handleJoin}
+                  disabled={isLoading || consentLoading || !canJoinViaLink || !consentChecked}
+                  className="w-full bg-blue-500 hover:bg-blue-600"
+                  size="lg"
+                >
+                  {isLoading || consentLoading ? 'Joining...' : 'Join Meeting'}
+                </Button>
+
+                <Link
+                  to="/live"
+                  className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+                >
+                  Back
+                </Link>
+              </div>
+            )}
           </div>
+
+          {/* Terms update dialog (for logged-in users only) */}
+          <TermsUpdateDialog
+            open={showTermsUpdateDialog}
+            onAccept={handleTermsAccept}
+            onCancel={() => {
+              setShowTermsUpdateDialog(false);
+              pendingJoinRef.current = null;
+            }}
+            isLoading={consentLoading}
+          />
+
+          {/* B48 Fix: Mic dialog must be rendered in all views */}
+          <MicrophonePermissionDialog
+            open={showMicDialog}
+            error={micError}
+            attemptCount={micAttemptCount}
+            onRetry={handleMicRetry}
+            onCancel={handleMicCancel}
+          />
         </div>
       );
     }
@@ -1532,17 +1874,25 @@ export function ClarityLivePage() {
       navigate('/login');
     };
 
-    // Show loading while checking auth state to prevent flicker
-    if (isAuthLoading) {
+    // Show loading while checking auth state OR creating session to prevent flicker
+    // The isLoading check prevents flash when guest account is created mid-flow
+    // (auth state updates -> isLoggedIn becomes true -> form would briefly show logged-in view)
+    if (isAuthLoading || isLoading) {
       return (
         <div className="flex flex-col h-screen">
           <LiveSessionBanner title="Clarity Meeting" isLiveMeeting={false} />
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Loading...</div>
+            <div className="animate-pulse text-muted-foreground">
+              {isLoading ? 'Creating meeting...' : 'Loading...'}
+            </div>
           </div>
         </div>
       );
     }
+
+    // B50: Check if guest can create/join (needs both name and email)
+    // P50: Also requires consent checkbox for non-logged-in users
+    const guestCanProceed = isLoggedIn || (name.trim() && email.trim() && email.includes('@') && consentChecked);
 
     return (
       <div className="flex flex-col h-screen">
@@ -1559,120 +1909,216 @@ export function ClarityLivePage() {
               </p>
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {/* B50: Verified user edge case - inline message */}
+            {verifiedEmailError ? (
+              <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg max-w-md mx-auto">
+                <div className="space-y-2">
+                  <h3 className="font-medium text-blue-900">This email has an account</h3>
+                  <p className="text-sm text-blue-700">
+                    <strong>{verifiedEmailError}</strong> is registered. Log in to continue.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleUseDifferentEmail}
+                    className="flex-1"
+                  >
+                    Use Different Email
+                  </Button>
+                  <Button
+                    onClick={handleSendLoginLink}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600"
+                  >
+                    Log In
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
-            {/* Form controls - centered container, left-aligned contents */}
-            <div className="flex justify-center">
-              <div className="flex flex-col gap-4">
-                {/* Guest: name input - above buttons, left-aligned with them */}
+                {/* Form controls - centered container, left-aligned contents */}
+                <div className="flex justify-center">
+                  <div className="flex flex-col gap-4">
+                    {/* B50: Guest: name + email inputs - above buttons */}
+                    {!isLoggedIn && (
+                      <>
+                        <div className="flex flex-col gap-1.5">
+                          {/* P50: Updated label per spec */}
+                          <Label htmlFor="name" className="text-sm font-medium">What should we call you?</Label>
+                          <Input
+                            id="name"
+                            placeholder="Enter your name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            autoFocus
+                            className="w-[280px] rounded-full h-11 text-sm"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          {/* P50: Updated label per spec */}
+                          <Label htmlFor="email" className="text-sm font-medium">Your email (for session link)</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="your@email.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-[280px] rounded-full h-11 text-sm"
+                          />
+                        </div>
+                        {/* P50: Consent checkbox (replaces passive notice) */}
+                        <div className="flex items-start gap-3 w-[280px]">
+                          <input
+                            type="checkbox"
+                            id="consent-start"
+                            checked={consentChecked}
+                            onChange={(e) => setConsentChecked(e.target.checked)}
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
+                            I agree that this session will be recorded, and I accept the{' '}
+                            <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              Terms
+                            </a>{' '}
+                            and{' '}
+                            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              Privacy Policy
+                            </a>.
+                          </label>
+                        </div>
+                      </>
+                    )}
+
+                    {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
+                    <div className="flex flex-col md:flex-row md:items-center items-start gap-3">
+                      {/* New meeting button - compact (not full width) */}
+                      <Button
+                        onClick={handleCreate}
+                        disabled={isLoading || !guestCanProceed}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
+                      >
+                        <Mic className="h-[18px] w-[18px]" />
+                        <span className="text-sm">{isLoading ? 'Creating...' : 'New meeting'}</span>
+                      </Button>
+
+                      {/* Code input + Join - with real-time validation */}
+                      {(() => {
+                        // Real-time validation for code/link input
+                        const hasInput = roomCode.trim().length > 0;
+                        const extractedCode = hasInput ? extractCodeFromInput(roomCode) : null;
+                        const isValidInput = !!extractedCode;
+                        // B50: Now also requires email for guests
+                        const canJoin = guestCanProceed && isValidInput;
+
+                        // Determine error message for inline display
+                        let inputError: string | null = null;
+                        if (hasInput && !isValidInput) {
+                          if (roomCode.includes('/') || roomCode.includes('.')) {
+                            inputError = 'Invalid meeting link';
+                          } else {
+                            inputError = 'Code must be 6 characters';
+                          }
+                        } else if (hasInput && isValidInput && !guestCanProceed) {
+                          // P50: Show appropriate error message based on what's missing
+                          inputError = isLoggedIn ? '' : (!name.trim() || !email.trim() || !email.includes('@')) ? 'Enter name and email first' : 'Accept terms to continue';
+                        }
+
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className={`flex items-center rounded-full h-11 px-4 gap-2 bg-background transition-colors border-2 ${
+                                hasInput && !isValidInput
+                                  ? 'border-red-400'
+                                  : 'border-input focus-within:border-blue-500'
+                              }`}>
+                                <Keyboard className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
+                                  hasInput && !isValidInput
+                                    ? 'text-red-400'
+                                    : 'text-muted-foreground'
+                                }`} />
+                                <input
+                                  placeholder="Enter a code or link"
+                                  value={roomCode}
+                                  onChange={(e) => setRoomCode(e.target.value)}
+                                  maxLength={500}
+                                  className="bg-transparent outline-none text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
+                                />
+                              </div>
+                              <button
+                                onClick={handleJoin}
+                                disabled={isLoading || !canJoin}
+                                className={`font-medium text-sm transition-colors px-2 py-2 flex-shrink-0 ${
+                                  canJoin
+                                    ? 'text-blue-600 hover:text-blue-700'
+                                    : 'text-muted-foreground cursor-default'
+                                }`}
+                              >
+                                Join
+                              </button>
+                            </div>
+                            {inputError && (
+                              <p className="text-xs text-red-500 pl-1">{inputError}</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* P25: Login link for guests */}
                 {!isLoggedIn && (
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="name" className="text-sm font-medium">Your Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      autoFocus
-                      className="w-[280px] rounded-full h-11 text-sm"
-                    />
+                  <div className="text-center pt-2">
+                    <button
+                      onClick={handleLoginClick}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Already have an account? <span className="underline">Log in</span>
+                    </button>
                   </div>
                 )}
 
-                {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
-                <div className="flex flex-col md:flex-row md:items-center items-start gap-3">
-              {/* New meeting button - compact (not full width) */}
-              <Button
-                onClick={handleCreate}
-                disabled={isLoading || (!isLoggedIn && !name.trim())}
-                className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
-              >
-                <Mic className="h-[18px] w-[18px]" />
-                <span className="text-sm">{isLoading ? 'Creating...' : 'New meeting'}</span>
-              </Button>
-
-              {/* Code input + Join - with real-time validation */}
-              {(() => {
-                // Real-time validation for code/link input
-                const hasInput = roomCode.trim().length > 0;
-                const extractedCode = hasInput ? extractCodeFromInput(roomCode) : null;
-                const isValidInput = !!extractedCode;
-                const hasName = isLoggedIn || name.trim().length > 0;
-                const canJoin = hasName && isValidInput;
-
-                // Determine error message for inline display
-                let inputError: string | null = null;
-                if (hasInput && !isValidInput) {
-                  if (roomCode.includes('/') || roomCode.includes('.')) {
-                    inputError = 'Invalid meeting link';
-                  } else {
-                    inputError = 'Code must be 6 characters';
-                  }
-                } else if (hasInput && isValidInput && !hasName) {
-                  inputError = 'Enter your name first';
-                }
-
-                return (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center rounded-full h-11 px-4 gap-2 bg-background transition-colors border-2 ${
-                        hasInput && !isValidInput
-                          ? 'border-red-400'
-                          : 'border-input focus-within:border-blue-500'
-                      }`}>
-                        <Keyboard className={`h-[18px] w-[18px] flex-shrink-0 transition-colors ${
-                          hasInput && !isValidInput
-                            ? 'text-red-400'
-                            : 'text-muted-foreground'
-                        }`} />
-                        <input
-                          placeholder="Enter a code or link"
-                          value={roomCode}
-                          onChange={(e) => setRoomCode(e.target.value)}
-                          maxLength={500}
-                          className="bg-transparent outline-none text-sm placeholder:text-muted-foreground w-[160px] md:w-[180px]"
-                        />
-                      </div>
-                      <button
-                        onClick={handleJoin}
-                        disabled={isLoading || !canJoin}
-                        className={`font-medium text-sm transition-colors px-2 py-2 flex-shrink-0 ${
-                          canJoin
-                            ? 'text-blue-600 hover:text-blue-700'
-                            : 'text-muted-foreground cursor-default'
-                        }`}
-                      >
-                        Join
-                      </button>
-                    </div>
-                    {inputError && (
-                      <p className="text-xs text-red-500 pl-1">{inputError}</p>
-                    )}
+                {/* B50: Passive terms notice - only for logged-in users (guests have checkbox) */}
+                {isLoggedIn && (
+                  <div className="text-center pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      This session will be recorded.{' '}
+                      By starting or joining, you agree to our{' '}
+                      <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Terms
+                      </a>{' '}
+                      and{' '}
+                      <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        Privacy Policy
+                      </a>.
+                    </p>
                   </div>
-                );
-              })()}
-                </div>
-
-              </div>
-            </div>
-
-            {/* P25: Login link for guests */}
-            {!isLoggedIn && (
-              <div className="text-center pt-2">
-                <button
-                  onClick={handleLoginClick}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Already have an account? <span className="underline">Log in</span>
-                </button>
-              </div>
+                )}
+              </>
             )}
-
-            {/* P34.2: Terms & Privacy consent notice - moved below login */}
-            <div className="pt-4">
-              <ConsentNotice />
-            </div>
           </div>
+
+          {/* Terms update dialog (for logged-in users only) */}
+          <TermsUpdateDialog
+            open={showTermsUpdateDialog}
+            onAccept={handleTermsAccept}
+            onCancel={() => {
+              setShowTermsUpdateDialog(false);
+              pendingJoinRef.current = null;
+            }}
+            isLoading={consentLoading}
+          />
+
+          {/* B48 Fix: Mic dialog must be rendered in all views */}
+          <MicrophonePermissionDialog
+            open={showMicDialog}
+            error={micError}
+            attemptCount={micAttemptCount}
+            onRetry={handleMicRetry}
+            onCancel={handleMicCancel}
+          />
         </div>
       </div>
     );
@@ -1722,11 +2168,12 @@ export function ClarityLivePage() {
 
     return (
       <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="Waiting for Partner" isLiveMeeting={false} />
+        <LiveSessionBanner title="" isLiveMeeting={false} />
         <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
           <div className="text-center space-y-6">
+            <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
             <p className="text-muted-foreground">
-              Share this link with your partner:
+              Share this link to start your clarity session:
             </p>
 
             {/* Link row with copy/share */}
@@ -1778,6 +2225,15 @@ export function ClarityLivePage() {
             </Button>
           </div>
         </div>
+
+        {/* B48 Fix: Mic dialog must be rendered in all views */}
+        <MicrophonePermissionDialog
+          open={showMicDialog}
+          error={micError}
+          attemptCount={micAttemptCount}
+          onRetry={handleMicRetry}
+          onCancel={handleMicCancel}
+        />
       </div>
     );
   }
@@ -1853,10 +2309,22 @@ export function ClarityLivePage() {
           onRetry={handleMicRetry}
           onCancel={handleMicCancel}
         />
-
       </div>
     );
   }
 
-  return null;
+  // B48 Fix: Render MicrophonePermissionDialog even when not in 'live' view
+  // This is needed because mic permission is checked BEFORE transitioning to 'live'
+  // If permission is denied, view stays at 'waiting'/'start' but dialog must still show
+  return (
+    <>
+      <MicrophonePermissionDialog
+        open={showMicDialog}
+        error={micError}
+        attemptCount={micAttemptCount}
+        onRetry={handleMicRetry}
+        onCancel={handleMicCancel}
+      />
+    </>
+  );
 }

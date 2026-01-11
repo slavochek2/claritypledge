@@ -13,6 +13,8 @@ create table public.profiles (
   avatar_color text,
   is_verified boolean default false,
   pledge_version integer default 2,
+  has_pledged boolean not null default true, -- P50: false for /live registrations, true for /sign-pledge
+  accepted_terms_version text default null, -- P37.2a: Track which terms version user accepted
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -66,6 +68,61 @@ create policy "Authenticated users can insert witnesses"
 --
 -- The old trigger (on_auth_user_created) was removed from production on 2025-12-04
 -- because it created profiles with NULL slugs (metadata didn't include slug).
+
+-- ============================================================================
+-- P37.2a: CONSENT MECHANISM TABLES
+-- ============================================================================
+
+-- Terms Acceptances Table (audit trail for terms acceptance)
+CREATE TABLE IF NOT EXISTS terms_acceptances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  terms_version TEXT NOT NULL,
+  accepted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip_hash TEXT,
+  user_agent TEXT,
+  UNIQUE(user_id, terms_version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_terms_acceptances_user_id ON terms_acceptances(user_id);
+
+ALTER TABLE terms_acceptances ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated users can insert (includes anonymous auth users)
+CREATE POLICY "Authenticated users can record acceptance"
+  ON terms_acceptances FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Users can view their own (authenticated users)
+CREATE POLICY "Users can view own acceptances"
+  ON terms_acceptances FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Session Consents Table (per-session consent audit trail)
+CREATE TABLE IF NOT EXISTS session_consents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL,
+  user_id UUID NOT NULL,
+  consent_timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
+  terms_version TEXT NOT NULL,
+  ip_hash TEXT,
+  user_agent TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_consents_session_id ON session_consents(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_consents_user_id ON session_consents(user_id);
+
+ALTER TABLE session_consents ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated users can insert (includes anonymous auth users)
+CREATE POLICY "Authenticated users can record consent"
+  ON session_consents FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Users can view their own
+CREATE POLICY "Users can view own consents"
+  ON session_consents FOR SELECT
+  USING (auth.uid() = user_id);
 
 -- ============================================================================
 -- CLARITY PARTNERS TABLES (P19 MVP)

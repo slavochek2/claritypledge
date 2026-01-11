@@ -83,6 +83,14 @@ export function AuthCallbackPage() {
       // before this callback runs, leaving is_verified as false.
       setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
+      // P50: Detect registration source from URL params
+      // - source=pledge → user signed up via /sign-pledge (pledger)
+      // - source=live → user signed up via /live (non-pledger) - currently not used as /live uses anonymous auth
+      // - no source → existing login flow (preserve existing has_pledged status)
+      const urlParams = new URLSearchParams(window.location.search);
+      const source = urlParams.get('source');
+      const isLiveRegistration = source === 'live';
+
       // For returning users, the profile from useAuth might not be loaded yet.
       // Fetch directly to ensure we preserve existing slugs for returning users.
       // This prevents generating a new slug when an existing user re-verifies.
@@ -96,7 +104,14 @@ export function AuthCallbackPage() {
       // signing up simultaneously with the same name would both get the same slug
       // since neither profile exists yet when they query.
       const name = existingProfile?.name || user_metadata.name || 'Anonymous';
-      let slug = existingProfile?.slug || generateSlug(name);
+
+      // P50: For /live registrations, don't generate slug (they're not pledgers)
+      // For existing users, preserve their slug
+      // For new pledge signups, generate slug as usual
+      let slug: string | null = existingProfile?.slug || null;
+      if (!isLiveRegistration && !slug) {
+        slug = generateSlug(name);
+      }
 
       // Validate email exists (should always be present from auth, but be defensive)
       const email = authUser.email;
@@ -105,6 +120,11 @@ export function AuthCallbackPage() {
         console.error("❌ Auth user has no email:", authUser.id);
         return;
       }
+
+      // P50: Determine has_pledged status
+      // - Preserve existing status for returning users
+      // - For new users: false if source=live, true otherwise (source=pledge or no source)
+      const hasPledged = existingProfile?.hasPledged ?? !isLiveRegistration;
 
       const upsertData = {
         id: authUser.id,
@@ -118,6 +138,8 @@ export function AuthCallbackPage() {
         is_verified: true,
         // Preserve existing pledge version for returning users, default to v2 for new signups
         pledge_version: existingProfile?.pledgeVersion || 2,
+        // P50: Track whether user explicitly signed the pledge
+        has_pledged: hasPledged,
       };
 
       console.log('🔄 Profile data to save:', upsertData);
@@ -210,6 +232,8 @@ export function AuthCallbackPage() {
       }
 
       // Identify user and track successful auth
+      // P50: Include has_pledged and registration_source for user segmentation
+      const registrationSource = source || (isReturningUser ? 'returning' : 'pledge');
       analytics.identify(authUser.id);
       analytics.setUserProperties({
         email: authUser.email,
@@ -218,12 +242,18 @@ export function AuthCallbackPage() {
         has_linkedin: !!upsertData.linkedin_url,
         profile_slug: slug,
         created_at: new Date().toISOString(),
+        // P50: User segmentation properties
+        has_pledged: hasPledged,
+        registration_source: registrationSource,
       });
       analytics.track(isReturningUser ? 'login_complete' : 'profile_created', {
         slug,
         has_role: !!upsertData.role,
         has_linkedin: !!upsertData.linkedin_url,
         has_reason: !!upsertData.reason,
+        // P50: Include source in event tracking
+        registration_source: registrationSource,
+        has_pledged: hasPledged,
       });
 
       // Refresh profile in auth context so nav/header shows correct user data

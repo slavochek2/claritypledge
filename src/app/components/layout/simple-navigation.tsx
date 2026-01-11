@@ -28,10 +28,16 @@ export function SimpleNavigation() {
   // 2. sessionChecked=true, session=null → show public CTAs (not logged in)
   // 3. sessionChecked=true, session exists, isLoading=true → show nothing (profile loading)
   // 4. sessionChecked=true, session exists, isLoading=false, currentUser exists → show user menu
+  // 5. sessionChecked=true, session exists, isLoading=false, currentUser=null → show logout only
+  //    (handles anonymous guests with session but no matching profile)
 
   // Show user menu only when BOTH session AND profile are loaded
   // This prevents the "?" avatar flash when session loads before profile
   const showUserMenu = sessionChecked && !isLoading && !!session && !!currentUser;
+
+  // Show logout only when session exists but profile doesn't
+  // This handles returning anonymous guests whose profile ID doesn't match their session
+  const showLogoutOnly = sessionChecked && !isLoading && !!session && !currentUser;
 
   // Show public CTAs only when session check done AND no session found
   // This prevents the "Log In" flash when page loads
@@ -130,15 +136,18 @@ export function SimpleNavigation() {
                 )}
                 {showUserMenu && (
                   <>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to={`/p/${currentUser.slug}`}
-                        className="cursor-pointer"
-                      >
-                        <EyeIcon className="w-4 h-4 mr-2" />
-                        View My Pledge
-                      </Link>
-                    </DropdownMenuItem>
+                    {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
+                    {currentUser.hasPledged && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to={`/p/${currentUser.slug}`}
+                          className="cursor-pointer"
+                        >
+                          <EyeIcon className="w-4 h-4 mr-2" />
+                          View My Pledge
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem asChild>
                       <Link to="/settings" className="cursor-pointer">
                         <SettingsIcon className="w-4 h-4 mr-2" />
@@ -154,6 +163,16 @@ export function SimpleNavigation() {
                       Log Out
                     </DropdownMenuItem>
                   </>
+                )}
+                {/* Session exists but no profile (e.g., returning anonymous guest) */}
+                {showLogoutOnly && (
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="cursor-pointer"
+                  >
+                    <LogOutIcon className="w-4 h-4 mr-2" />
+                    Log Out
+                  </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -206,17 +225,6 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Auth Actions - Log In higher for visibility */}
-              {showPublicCTAs && (
-                <Link
-                  to="/login"
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  Log In
-                </Link>
-              )}
-
               {/* Navigation Links */}
               {NAV_LINKS.map((link) => (
                 <Link
@@ -229,18 +237,34 @@ export function SimpleNavigation() {
                 </Link>
               ))}
 
-              {/* Auth Actions - User menu at bottom */}
+              {/* === ACCOUNT SECTION === */}
+              <div className="border-t border-border my-2"></div>
+
+              {/* Log In - for anonymous users */}
+              {showPublicCTAs && (
+                <Link
+                  to="/login"
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Log In
+                </Link>
+              )}
+
+              {/* User menu items */}
               {showUserMenu && (
                 <>
-                  <div className="border-t border-border my-2"></div>
-                  <Link
-                    to={`/p/${currentUser.slug}`}
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    <EyeIcon className="w-4 h-4 inline mr-2" />
-                    View My Pledge
-                  </Link>
+                  {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
+                  {currentUser.hasPledged && (
+                    <Link
+                      to={`/p/${currentUser.slug}`}
+                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                      onClick={closeMobileMenu}
+                    >
+                      <EyeIcon className="w-4 h-4 inline mr-2" />
+                      View My Pledge
+                    </Link>
+                  )}
                   <Link
                     to="/settings"
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -257,6 +281,17 @@ export function SimpleNavigation() {
                     Log Out
                   </button>
                 </>
+              )}
+
+              {/* Session exists but no profile (e.g., returning anonymous guest) */}
+              {showLogoutOnly && (
+                <button
+                  onClick={handleSignOut}
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                >
+                  <LogOutIcon className="w-4 h-4 inline mr-2" />
+                  Log Out
+                </button>
               )}
             </div>
           </div>

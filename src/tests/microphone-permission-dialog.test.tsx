@@ -73,31 +73,8 @@ describe('MicrophonePermissionDialog', () => {
     });
   });
 
-  describe('escalated messaging', () => {
-    it('does not show escalated message on first attempt', () => {
-      render(<MicrophonePermissionDialog {...defaultProps} attemptCount={1} />);
-
-      expect(
-        screen.queryByText(/your browser may have blocked this site/i)
-      ).not.toBeInTheDocument();
-    });
-
-    it('shows escalated message after 2 attempts', () => {
-      render(<MicrophonePermissionDialog {...defaultProps} attemptCount={2} />);
-
-      expect(
-        screen.getByText(/your browser may have blocked this site/i)
-      ).toBeInTheDocument();
-    });
-
-    it('shows escalated message after 3+ attempts', () => {
-      render(<MicrophonePermissionDialog {...defaultProps} attemptCount={5} />);
-
-      expect(
-        screen.getByText(/your browser may have blocked this site/i)
-      ).toBeInTheDocument();
-    });
-  });
+  // Note: Escalated messaging logic (attemptCount thresholds) is tested in
+  // useMicrophonePermission.test.ts at the hook level. Component tests focus on UI.
 
   describe('platform-specific instructions', () => {
     it('shows desktop instructions for desktop user agent', () => {

@@ -360,7 +360,7 @@ export function ClarityChatPage() {
 
   // Subscribe to session updates
   useEffect(() => {
-    if (!session) return;
+    if (!session?.id) return;
 
     const unsubscribe = subscribeToClaritySession(session.id, (updatedSession) => {
       console.log('Session updated:', updatedSession);
@@ -377,7 +377,7 @@ export function ClarityChatPage() {
 
   // Load initial messages and subscribe
   useEffect(() => {
-    if (!session || view !== 'chat') return;
+    if (!session?.id || view !== 'chat') return;
 
     // Load existing messages
     getChatMessages(session.id).then(setMessages);

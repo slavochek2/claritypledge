@@ -24,6 +24,7 @@ export interface Profile {
   reciprocations: number;
   avatarColor?: string;
   pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
+  hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
 }
 
 /**
@@ -68,6 +69,7 @@ export interface DbProfile {
   witnesses?: DbWitness[];
   avatar_color?: string;
   pledge_version?: number;
+  has_pledged?: boolean; // P50: false for /live registrations, true for /sign-pledge
 }
 
 /**

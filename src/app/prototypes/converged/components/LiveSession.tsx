@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Mic, MicOff, Play, Square, Star, CheckCircle, Plus } from 'lucide-react';
+import { ArrowLeft, Mic, Play, Square, Star, CheckCircle, Plus } from 'lucide-react';
 import { getUserById, users } from '../data/mock-data';
 import { routes } from '../config';
 import { BottomNav } from './BottomNav';

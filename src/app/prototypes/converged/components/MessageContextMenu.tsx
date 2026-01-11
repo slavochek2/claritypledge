@@ -8,7 +8,7 @@ interface MessageContextMenuProps {
   onClose: () => void;
 }
 
-export function MessageContextMenu({ message, isOwn, onVerify, onClose }: MessageContextMenuProps) {
+export function MessageContextMenu({ onVerify, onClose }: Omit<MessageContextMenuProps, 'message' | 'isOwn'>) {
   return (
     <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose}>
       <div

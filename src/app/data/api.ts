@@ -7,6 +7,7 @@
  * It DOES NOT write to the database. Do not add database writes to the signup flow here.
  */
 import { supabase } from '@/lib/supabase';
+import { CURRENT_TERMS_VERSION } from '@/lib/constants';
 import * as Sentry from '@sentry/react';
 import type { AuthError } from '@supabase/supabase-js';
 import type {
@@ -179,10 +180,12 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
 
     // Single query: fetch more than needed, then sort/filter client-side
     // This avoids the two-query backfill approach for better performance
+    // P50: Only show verified users who have explicitly signed the pledge
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select(selectFields)
       .eq('is_verified', true)
+      .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
       .order('created_at', { ascending: false })
       .limit(MAX_FEATURED_PROFILES * 3);
 
@@ -240,10 +243,12 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
  */
 export async function getVerifiedProfileCount(): Promise<number> {
   try {
+    // P50: Only count verified users who have explicitly signed the pledge
     const { count, error } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('is_verified', true);
+      .eq('is_verified', true)
+      .eq('has_pledged', true); // P50: Filter out non-pledgers
 
     if (error) {
       console.error('Error fetching verified profile count:', error.message);
@@ -266,10 +271,12 @@ export async function getVerifiedProfileCount(): Promise<number> {
  */
 export async function getVerifiedProfiles(): Promise<Profile[]> {
   try {
+    // P50: Only show verified users who have explicitly signed the pledge
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .eq('is_verified', true)
+      .eq('has_pledged', true) // P50: Filter out non-pledgers (e.g., /live guests)
       .order('created_at', { ascending: false });
 
     if (profilesError) {
@@ -334,7 +341,8 @@ export async function createProfile(
   // NOTE: Slug is generated at profile creation time in AuthCallbackPage, not here.
   // This prevents race conditions when multiple users with the same name sign up simultaneously.
 
-  const redirectUrl = `${window.location.origin}/auth/callback`;
+  // P50: Add source=pledge param so AuthCallbackPage knows this is a pledge signup
+  const redirectUrl = `${window.location.origin}/auth/callback?source=pledge`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -498,6 +506,7 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     reciprocations,
     avatarColor: dbProfile.avatar_color,
     pledgeVersion: dbProfile.pledge_version || 2,
+    hasPledged: dbProfile.has_pledged ?? true, // P50: Default true for existing users
   };
 }
 
@@ -2733,5 +2742,265 @@ export async function uploadSessionRecording(
       extra: { sessionCode, eventCount: events.length, durationMs: metadata.durationMs },
     });
     // Don't throw - recording failure shouldn't break the session
+  }
+}
+
+// ============================================================================
+// P37.2a: Consent Mechanism API Functions
+// ============================================================================
+
+/** UUID v4 regex for input validation */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Validates that a string is a valid UUID v4 */
+function isValidUUID(value: string): boolean {
+  return UUID_REGEX.test(value);
+}
+
+/**
+ * Check if user needs to accept updated terms.
+ * @param userId - The user's UUID
+ * @returns true if user needs to accept terms, false if current
+ */
+export async function needsTermsAcceptance(userId: string): Promise<boolean> {
+  if (!isValidUUID(userId)) {
+    console.error('Invalid userId format:', userId);
+    return true; // Fail safe - require acceptance if invalid
+  }
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('accepted_terms_version')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) return true;
+
+  return data.accepted_terms_version !== CURRENT_TERMS_VERSION;
+}
+
+/**
+ * Record terms acceptance for a user.
+ * Updates profile and creates audit trail entry.
+ * @param userId - The user's UUID
+ */
+export async function recordTermsAcceptance(userId: string): Promise<void> {
+  if (!isValidUUID(userId)) {
+    throw new Error('Invalid userId format');
+  }
+
+  const ipHash = await hashIP();
+
+  // Update profile
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ accepted_terms_version: CURRENT_TERMS_VERSION })
+    .eq('id', userId);
+
+  if (profileError) {
+    console.error('Failed to update profile terms version:', profileError);
+    throw new Error('Failed to record terms acceptance');
+  }
+
+  // Insert audit record
+  const { error: auditError } = await supabase
+    .from('terms_acceptances')
+    .insert({
+      user_id: userId,
+      terms_version: CURRENT_TERMS_VERSION,
+      ip_hash: ipHash,
+      user_agent: navigator.userAgent,
+    });
+
+  if (auditError) {
+    console.error('Failed to insert terms acceptance audit:', auditError);
+    // Don't throw - profile was updated, audit is secondary
+  }
+
+  console.log('Terms acceptance recorded:', { userId, version: CURRENT_TERMS_VERSION });
+}
+
+/**
+ * Record session consent (per-session audit trail).
+ * @param sessionId - The Live Meeting session code
+ * @param userId - The user's UUID
+ */
+export async function recordSessionConsent(
+  sessionId: string,
+  userId: string
+): Promise<void> {
+  if (!sessionId || sessionId.length < 4 || sessionId.length > 20) {
+    throw new Error('Invalid sessionId format');
+  }
+  if (!isValidUUID(userId)) {
+    throw new Error('Invalid userId format');
+  }
+
+  const ipHash = await hashIP();
+
+  const { error } = await supabase
+    .from('session_consents')
+    .insert({
+      session_id: sessionId,
+      user_id: userId,
+      terms_version: CURRENT_TERMS_VERSION,
+      ip_hash: ipHash,
+      user_agent: navigator.userAgent,
+    });
+
+  if (error) {
+    console.error('Failed to record session consent:', error);
+    throw new Error('Failed to record consent');
+  }
+
+  console.log('Session consent recorded:', { sessionId, userId });
+}
+
+/**
+ * Verify consent exists for a session before uploading recordings.
+ * @param sessionId - The Live Meeting session code
+ * @param userId - The user's UUID
+ * @returns true if consent exists, false otherwise
+ */
+export async function verifySessionConsent(
+  sessionId: string,
+  userId: string
+): Promise<boolean> {
+  if (!sessionId || !isValidUUID(userId)) {
+    return false; // Fail safe - no consent if invalid inputs
+  }
+
+  const { data, error } = await supabase
+    .from('session_consents')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) {
+    console.error('Consent verification failed:', error);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Create or get guest user with anonymous auth.
+ * Uses Supabase anonymous auth to satisfy RLS policies.
+ *
+ * Flow:
+ * 1. Check if email exists in profiles
+ * 2. If verified user → requiresLogin: true
+ * 3. If unverified user → sign in anonymously and reuse profile
+ * 4. If new user → sign in anonymously and create profile
+ *
+ * EDGE CASES:
+ * - Verified user email → requiresLogin: true (must log in)
+ * - Unverified user email → Reuse profile (MVP simplification)
+ *
+ * @param email - Guest's email address
+ * @param name - Guest's name
+ * @returns Object with userId, isNew flag, and requiresLogin flag
+ */
+export async function getOrCreateGuestUser(
+  email: string,
+  name: string
+): Promise<{
+  userId: string;
+  isNew: boolean;
+  requiresLogin: boolean;
+}> {
+  // Check if user already exists in profiles
+  const { data: existingUser } = await supabase
+    .from('profiles')
+    .select('id, is_verified')
+    .eq('email', email)
+    .single();
+
+  if (existingUser) {
+    if (existingUser.is_verified) {
+      // Verified user must log in — don't create anonymous session
+      console.log('Existing verified user, requires login:', email);
+      return {
+        userId: existingUser.id,
+        isNew: false,
+        requiresLogin: true,
+      };
+    }
+
+    // MVP: Unverified user can rejoin without verification
+    // Sign in anonymously to satisfy RLS for consent recording
+    // B50: Use existing profile ID for consent tracking (not anonymous user ID)
+    const { error: anonError } = await supabase.auth.signInAnonymously();
+    if (anonError) {
+      console.error('Failed to create anonymous session:', anonError);
+      throw new Error('Failed to create guest session');
+    }
+
+    console.log('Returning unverified guest, reusing profile:', email, 'profileId:', existingUser.id);
+    return {
+      userId: existingUser.id, // Use existing profile ID for consent audit trail
+      isNew: false,
+      requiresLogin: false,
+    };
+  }
+
+  // Create new guest user with anonymous auth
+  const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+  if (anonError) {
+    console.error('Failed to create anonymous session:', anonError);
+    throw new Error('Failed to create guest session');
+  }
+
+  const userId = anonAuth.user.id;
+
+  // P50: Create profile with null slug and has_pledged=false - guests don't get public profile URLs
+  // Slugs are only assigned when user explicitly signs the pledge
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .insert({
+      id: userId,
+      email: email,
+      name: name,
+      slug: null,
+      is_verified: false,
+      has_pledged: false, // P50: Mark as non-pledger (joined via /live)
+    });
+
+  if (profileError) {
+    console.error('Failed to create guest profile:', profileError);
+    throw new Error('Failed to create user record');
+  }
+
+  console.log('Guest user created (no slug - not a pledger):', { userId, email, name });
+  return { userId, isNew: true, requiresLogin: false };
+}
+
+/**
+ * Hash IP address for audit trail (with timeout).
+ * Falls back gracefully if IP lookup fails or times out.
+ * @returns Hashed IP or fallback identifier
+ */
+async function hashIP(): Promise<string> {
+  try {
+    // 3 second timeout to prevent blocking join flow
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const response = await fetch('https://api.ipify.org?format=json', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const { ip } = await response.json();
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(ip);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    // Fallback: use random identifier (still unique per request)
+    return `browser_${crypto.randomUUID()}`;
   }
 }

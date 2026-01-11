@@ -475,8 +475,13 @@ describe("SettingsPage", () => {
         expect(screen.getByText("Saving...")).toBeInTheDocument();
       });
 
-      // Resolve the promise
+      // Resolve the promise and wait for component to process it
       resolveUpdate!({ error: null });
+
+      // Wait for loading state to clear (component processes the resolution)
+      await waitFor(() => {
+        expect(screen.queryByText("Saving...")).not.toBeInTheDocument();
+      });
     });
 
     it("should handle API errors gracefully", async () => {

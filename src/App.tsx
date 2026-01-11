@@ -1,28 +1,42 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
-import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
-import { ClarityPledgersPage } from "@/app/pages/clarity-pledgers-page";
-import { ProfilePage } from "@/app/pages/profile-page";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
-import { AboutPage } from "@/app/pages/about-page";
-import { FullArticlePage } from "@/app/pages/full-article-page";
-import { LoginPage } from "@/app/pages/login-page";
+import { ScrollToTop } from "@/app/components/scroll-to-top";
+
+// Critical path pages - loaded synchronously for fast initial render
+import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { SignPledgePage } from "@/app/pages/sign-pledge-page";
 import { PledgeConfirmationPage } from "@/app/pages/pledge-confirmation-page";
-import { PrivacyPolicyPage } from "@/app/pages/privacy-policy-page";
-import { TermsOfServicePage } from "@/app/pages/terms-of-service-page";
-import { SettingsPage } from "@/app/pages/settings-page";
-import { ClarityDemoPage } from "@/app/pages/clarity-demo-page";
-import { ClarityChatPage } from "@/app/pages/clarity-chat-page";
-import { IdeaFeedPage } from "@/app/pages/idea-feed-page";
-import { IdeaDetailPage } from "@/app/pages/idea-detail-page";
-import { ClarityLivePage } from "@/app/pages/clarity-live-page";
-import { ScrollToTop } from "@/app/components/scroll-to-top";
-import { PremiumPrototype } from "@/app/prototypes/premium";
-import { ConvergedPrototype } from "@/app/prototypes/converged";
-import { TreePage } from "@/app/pages/TreePage";
+import { ProfilePage } from "@/app/pages/profile-page";
+import { ClarityPledgersPage } from "@/app/pages/clarity-pledgers-page";
+import { LoginPage } from "@/app/pages/login-page";
+
+// Lazy loaded pages - split into separate chunks
+const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
+const FullArticlePage = lazy(() => import("@/app/pages/full-article-page").then(m => ({ default: m.FullArticlePage })));
+const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").then(m => ({ default: m.PrivacyPolicyPage })));
+const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
+const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
+const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
+const ClarityChatPage = lazy(() => import("@/app/pages/clarity-chat-page").then(m => ({ default: m.ClarityChatPage })));
+const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
+const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
+const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
+const PremiumPrototype = lazy(() => import("@/app/prototypes/premium").then(m => ({ default: m.PremiumPrototype })));
+const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(m => ({ default: m.ConvergedPrototype })));
+const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
+
+// Loading fallback for lazy routes
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">Loading...</div>
+    </div>
+  );
+}
 
 // ErrorFallback renders OUTSIDE Router context (Sentry.ErrorBoundary wraps Router)
 // so it cannot use any router hooks like useLocation, useNavigate, etc.
@@ -119,7 +133,9 @@ export default function ClarityPledgeApp() {
           path="/about"
           element={
             <ClarityLandingLayout>
-              <AboutPage />
+              <Suspense fallback={<PageLoader />}>
+                <AboutPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -137,7 +153,9 @@ export default function ClarityPledgeApp() {
           path="/manifesto"
           element={
             <ClarityLandingLayout>
-              <FullArticlePage />
+              <Suspense fallback={<PageLoader />}>
+                <FullArticlePage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -146,7 +164,9 @@ export default function ClarityPledgeApp() {
           path="/article"
           element={
             <ClarityLandingLayout>
-              <FullArticlePage />
+              <Suspense fallback={<PageLoader />}>
+                <FullArticlePage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -155,7 +175,9 @@ export default function ClarityPledgeApp() {
           path="/privacy-policy"
           element={
             <ClarityLandingLayout>
-              <PrivacyPolicyPage />
+              <Suspense fallback={<PageLoader />}>
+                <PrivacyPolicyPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -164,7 +186,9 @@ export default function ClarityPledgeApp() {
           path="/terms-of-service"
           element={
             <ClarityLandingLayout>
-              <TermsOfServicePage />
+              <Suspense fallback={<PageLoader />}>
+                <TermsOfServicePage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -173,7 +197,9 @@ export default function ClarityPledgeApp() {
           path="/settings"
           element={
             <ClarityLandingLayout>
-              <SettingsPage />
+              <Suspense fallback={<PageLoader />}>
+                <SettingsPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -182,7 +208,9 @@ export default function ClarityPledgeApp() {
           path="/demo"
           element={
             <ClarityLandingLayout>
-              <ClarityDemoPage />
+              <Suspense fallback={<PageLoader />}>
+                <ClarityDemoPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -196,7 +224,9 @@ export default function ClarityPledgeApp() {
           path="/chat"
           element={
             <ClarityLandingLayout>
-              <ClarityChatPage />
+              <Suspense fallback={<PageLoader />}>
+                <ClarityChatPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -210,7 +240,9 @@ export default function ClarityPledgeApp() {
           path="/feed"
           element={
             <ClarityLandingLayout>
-              <IdeaFeedPage />
+              <Suspense fallback={<PageLoader />}>
+                <IdeaFeedPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -219,7 +251,9 @@ export default function ClarityPledgeApp() {
           path="/idea/:id"
           element={
             <ClarityLandingLayout>
-              <IdeaDetailPage />
+              <Suspense fallback={<PageLoader />}>
+                <IdeaDetailPage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -228,7 +262,9 @@ export default function ClarityPledgeApp() {
           path="/live"
           element={
             <ClarityLandingLayout>
-              <ClarityLivePage />
+              <Suspense fallback={<PageLoader />}>
+                <ClarityLivePage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
@@ -238,20 +274,22 @@ export default function ClarityPledgeApp() {
           path="/live/:code"
           element={
             <ClarityLandingLayout>
-              <ClarityLivePage />
+              <Suspense fallback={<PageLoader />}>
+                <ClarityLivePage />
+              </Suspense>
             </ClarityLandingLayout>
           }
         />
 
 
         {/* Premium Prototype - P32 Overnight */}
-        <Route path="/prototype/premium/*" element={<PremiumPrototype />} />
+        <Route path="/prototype/premium/*" element={<Suspense fallback={<PageLoader />}><PremiumPrototype /></Suspense>} />
 
         {/* Converged Prototype - P32.3 */}
-        <Route path="/prototype/converged/*" element={<ConvergedPrototype />} />
+        <Route path="/prototype/converged/*" element={<Suspense fallback={<PageLoader />}><ConvergedPrototype /></Suspense>} />
 
         {/* Developer navigation tree */}
-        <Route path="/tree" element={<TreePage />} />
+        <Route path="/tree" element={<Suspense fallback={<PageLoader />}><TreePage /></Suspense>} />
       </Routes>
       </AuthProvider>
     </Router>

@@ -48,12 +48,13 @@ export function Chat() {
   };
 
   // Navigate to Live session for message verification
-  const handleVerifyMessage = (message: Message, isOwn: boolean) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleVerifyMessage = (_message: Message, _isOwn: boolean) => {
     navigate(routes.live, {
       state: {
         partnerId: otherUser.id,
-        messageId: message.id,
-        messageText: message.text,
+        messageId: _message.id,
+        messageText: _message.text,
         convertToIdea: true,
       }
     });

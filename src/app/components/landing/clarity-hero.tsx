@@ -14,7 +14,7 @@ export function ClarityHero({ onSignPledge }: ClarityHeroProps) {
       setCurrentWord((prev) => (prev + 1) % words.length);
     }, 1300); // Adjusted timing for better readability
     return () => clearInterval(interval);
-  }, []);
+  }, [words.length]);
 
   const scrollToManifesto = () => {
     const element = document.getElementById("manifesto");
