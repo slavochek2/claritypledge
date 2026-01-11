@@ -157,6 +157,35 @@ From the [Tournament Theory](./v2.%20tournament%20_%20theory.md):
 
 > "By knowing exactly who understands, the network becomes 'anti-fragile.' You can identify the 'understanding gaps' in the network and route communication specifically to those nodes to re-sync the entire group."
 
+### 3.1 Routing Intelligence: Which Gaps Matter Most
+
+Common knowledge doesn't emerge from closing ALL understanding gaps. It emerges from closing the RIGHT gaps — those where verification would maximally accelerate coordination.
+
+**The Selection Problem:** In a group of 30 people discussing 5 ideas, there are potentially 30 × 29 × 5 = 4,350 possible verification pairs. We can't verify them all. Which ones matter?
+
+**The Routing Heuristic:** Prioritize gaps where:
+
+1. **Cross-Disagreement:** The parties hold opposing positions on the idea. Verifying understanding across disagreement is more valuable than verifying among those who already agree.
+
+2. **Network Centrality:** The parties are well-connected hubs. Their verification propagates trust through more edges.
+
+3. **Under-Verification:** The idea has low verification coverage. Ideas where everyone *assumes* alignment but no one has *verified* are high-risk.
+
+4. **Downstream Dependency:** Other decisions or actions block on this idea being understood. Coordination bottlenecks deserve priority.
+
+**The Formula (Conceptual):**
+```
+Gap_Value(A, B, Idea) =
+  Position_Divergence(A, B, Idea) ×
+  Centrality(A) × Centrality(B) ×
+  (1 - Verification_Coverage(Idea)) ×
+  Downstream_Dependency(Idea)
+```
+
+**The Implication:** The √N bridges from Section 4 are not random. They are the highest-value gaps — the conversations that, if verified, unlock coordination for everyone else. A skilled facilitator intuits this. The system makes it computable.
+
+**Future Feature:** Network-aware matching — AI suggests "Talk to X about Idea Y" based on Gap_Value. See [P52: Network-Aware Matching](../../features/p52_network_aware_matching.md).
+
 ---
 
 ## 4. The Cascade
@@ -507,6 +536,7 @@ When a new feature idea emerges, ask:
 
 ## Changelog
 
+- **2026-01-11:** Added Section 3.1 "Routing Intelligence: Which Gaps Matter Most" — operationalizes how to select which understanding gaps to prioritize. Introduces Gap_Value heuristic (cross-disagreement × centrality × under-verification × downstream dependency). Links to P52 for future implementation.
 - **2025-01-04:** Added Section 6.1 "The Facilitation Ladder" — tactical sequence for building from 1-on-1 to group sync. Reordered priorities to reflect: Ideas first (gives stakes), then mutual seeding, then group features. Manual topology validation before building UI.
 - Updated validation strategy — H1 (/live works) marked as validated, H2 (visibility changes behavior) is now current focus. Priorities reordered.
 - Initial synthesis from Innovation Strategist session

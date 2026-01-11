@@ -1290,6 +1290,20 @@ export function ClarityLivePage() {
     return null;
   };
 
+  // Email validation helper (matches pledge form validation)
+  const validateEmail = (inputEmail: string): string | null => {
+    const trimmed = inputEmail.trim();
+    if (!trimmed) {
+      return 'Please enter your email address';
+    }
+    // Same regex as use-pledge-form.ts for consistency
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  };
+
   // B50: Create session handler - with email capture for guests
   const handleCreate = async () => {
     const nameError = validateName(name);
@@ -1300,8 +1314,9 @@ export function ClarityLivePage() {
 
     // B50: Guest creating session needs email for P41 post-session emails
     if (!user) {
-      if (!email.trim() || !email.includes('@')) {
-        setError('Please enter a valid email address');
+      const emailError = validateEmail(email);
+      if (emailError) {
+        setError(emailError);
         return;
       }
     }
@@ -1437,8 +1452,9 @@ export function ClarityLivePage() {
         setError(nameError);
         return;
       }
-      if (!email.trim() || !email.includes('@')) {
-        setError('Please enter a valid email address');
+      const emailError = validateEmail(email);
+      if (emailError) {
+        setError(emailError);
         return;
       }
       // Proceed with guest join (inline, no dialog)
@@ -1731,7 +1747,7 @@ export function ClarityLivePage() {
     // B50: Join via link - single screen with name + email + terms (no dialog)
     if (isJoinViaLink) {
       const joinTitle = hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting';
-      const canJoinViaLink = name.trim() && email.trim() && email.includes('@');
+      const canJoinViaLink = !validateName(name) && !validateEmail(email);
 
       return (
         <div className="flex flex-col h-screen">
@@ -1892,7 +1908,7 @@ export function ClarityLivePage() {
 
     // B50: Check if guest can create/join (needs both name and email)
     // P50: Also requires consent checkbox for non-logged-in users
-    const guestCanProceed = isLoggedIn || (name.trim() && email.trim() && email.includes('@') && consentChecked);
+    const guestCanProceed = isLoggedIn || (!validateName(name) && !validateEmail(email) && consentChecked);
 
     return (
       <div className="flex flex-col h-screen">
@@ -2022,7 +2038,7 @@ export function ClarityLivePage() {
                           }
                         } else if (hasInput && isValidInput && !guestCanProceed) {
                           // P50: Show appropriate error message based on what's missing
-                          inputError = isLoggedIn ? '' : (!name.trim() || !email.trim() || !email.includes('@')) ? 'Enter name and email first' : 'Accept terms to continue';
+                          inputError = isLoggedIn ? '' : (validateName(name) || validateEmail(email)) ? 'Enter name and email first' : 'Accept terms to continue';
                         }
 
                         return (

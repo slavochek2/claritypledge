@@ -146,8 +146,16 @@ test.describe('Mic Permission Gating', () => {
 
       // Wait for the mic permission flow to complete
       // getUserMedia will reject when no permission is granted in Playwright context
+      // Instead of a fixed timeout, wait for either:
+      // - Mic permission dialog appears (joiner blocked at mic step)
+      // - Error message appears (joiner's join was rejected)
+      // - Join form is still visible (joiner never left start screen)
       console.log('[Test] Waiting for mic permission flow...');
-      await joinerPage.waitForTimeout(5000);
+      await Promise.race([
+        joinerPage.getByRole('dialog').waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+        joinerPage.getByText(/microphone|permission|denied/i).waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+        joinerPage.waitForTimeout(5000), // Fallback timeout
+      ]);
 
       // Step 4: Check what state the joiner ended up in
       // After mic denied, joiner should see EITHER:

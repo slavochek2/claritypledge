@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -25,16 +26,14 @@ export function TermsUpdateDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Updated Terms</DialogTitle>
+          <DialogDescription>
+            We've updated our Terms and Privacy Policy.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <p className="text-muted-foreground">
-            We've updated our Terms and Privacy Policy.
-          </p>
-
           <p className="text-sm text-muted-foreground">
-            This session will be recorded.{' '}
-            By continuing, you agree to the updated terms.
+            This session will be recorded. By continuing, you agree to the updated terms.
           </p>
 
           <div className="flex gap-4 text-sm">

@@ -225,11 +225,11 @@ describe('Consent API Functions', () => {
       mockFetch.mockRejectedValue(new Error('Network error'));
 
       const { recordSessionConsent } = await import('@/app/data/api');
-      await recordSessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
+      await recordSessionConsent('ABC123', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          session_id: 'SESSION-ABC',
+          session_id: 'ABC123',
           user_id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
         })
       );
@@ -251,7 +251,7 @@ describe('Consent API Functions', () => {
 
       const { recordSessionConsent } = await import('@/app/data/api');
 
-      await expect(recordSessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d')).rejects.toThrow(
+      await expect(recordSessionConsent('ABC123', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d')).rejects.toThrow(
         'Failed to record consent'
       );
     });
@@ -274,7 +274,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { verifySessionConsent } = await import('@/app/data/api');
-      const result = await verifySessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
+      const result = await verifySessionConsent('ABC123', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(true);
     });
@@ -295,7 +295,7 @@ describe('Consent API Functions', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const { verifySessionConsent } = await import('@/app/data/api');
-      const result = await verifySessionConsent('SESSION-ABC', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
+      const result = await verifySessionConsent('ABC123', 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d');
 
       expect(result).toBe(false);
     });

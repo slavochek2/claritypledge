@@ -2828,7 +2828,8 @@ export async function recordSessionConsent(
   sessionId: string,
   userId: string
 ): Promise<void> {
-  if (!sessionId || sessionId.length < 4 || sessionId.length > 20) {
+  // Session codes are exactly 6 alphanumeric characters
+  if (!sessionId || sessionId.length !== 6 || !/^[A-Z0-9]{6}$/i.test(sessionId)) {
     throw new Error('Invalid sessionId format');
   }
   if (!isValidUUID(userId)) {
