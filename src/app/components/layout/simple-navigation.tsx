@@ -28,10 +28,16 @@ export function SimpleNavigation() {
   // 2. sessionChecked=true, session=null → show public CTAs (not logged in)
   // 3. sessionChecked=true, session exists, isLoading=true → show nothing (profile loading)
   // 4. sessionChecked=true, session exists, isLoading=false, currentUser exists → show user menu
+  // 5. sessionChecked=true, session exists, isLoading=false, currentUser=null → show logout only
+  //    (handles anonymous guests with session but no matching profile)
 
   // Show user menu only when BOTH session AND profile are loaded
   // This prevents the "?" avatar flash when session loads before profile
   const showUserMenu = sessionChecked && !isLoading && !!session && !!currentUser;
+
+  // Show logout only when session exists but profile doesn't
+  // This handles returning anonymous guests whose profile ID doesn't match their session
+  const showLogoutOnly = sessionChecked && !isLoading && !!session && !currentUser;
 
   // Show public CTAs only when session check done AND no session found
   // This prevents the "Log In" flash when page loads
@@ -158,6 +164,16 @@ export function SimpleNavigation() {
                     </DropdownMenuItem>
                   </>
                 )}
+                {/* Session exists but no profile (e.g., returning anonymous guest) */}
+                {showLogoutOnly && (
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="cursor-pointer"
+                  >
+                    <LogOutIcon className="w-4 h-4 mr-2" />
+                    Log Out
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -265,6 +281,17 @@ export function SimpleNavigation() {
                     Log Out
                   </button>
                 </>
+              )}
+
+              {/* Session exists but no profile (e.g., returning anonymous guest) */}
+              {showLogoutOnly && (
+                <button
+                  onClick={handleSignOut}
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                >
+                  <LogOutIcon className="w-4 h-4 inline mr-2" />
+                  Log Out
+                </button>
               )}
             </div>
           </div>
