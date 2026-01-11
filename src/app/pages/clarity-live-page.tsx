@@ -2293,8 +2293,6 @@ export function ClarityLivePage() {
           onLetThemSpeak={handleLetThemSpeak}
           onClarifyStart={handleClarifyStart}
           onClarifyDone={handleClarifyDone}
-          // P28.1: Show recording indicator when recording is active
-          isRecording={isRecording}
         />
 
         {/* Exit confirmation dialog */}

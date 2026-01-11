@@ -360,6 +360,41 @@ describe('LiveModeView', () => {
     });
   });
 
+  describe('Recording indicator (P28 KISS fix)', () => {
+    it('always shows recording indicator when session is live', () => {
+      // KISS: The recording banner should ALWAYS show when LiveModeView is rendered
+      // It should NOT depend on isRecording prop
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          liveState={DEFAULT_LIVE_STATE}
+          // Note: NOT passing isRecording prop at all
+        />
+      );
+
+      // The recording indicator should be visible
+      expect(screen.getByText(/Recording session/i)).toBeInTheDocument();
+    });
+
+    it('shows recording indicator in different session states', () => {
+      // Banner should show regardless of session phase
+      const ratingState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'rating',
+        checkerName: 'alice',
+      };
+
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          liveState={ratingState}
+        />
+      );
+
+      expect(screen.getByText(/Recording session/i)).toBeInTheDocument();
+    });
+  });
+
   describe('Skip functionality', () => {
     it('calls onSharePerspective when "Speak freely" is clicked in gap-revealed state', () => {
       // In gap-revealed phase, the listener (responder) sees "Speak freely" button
