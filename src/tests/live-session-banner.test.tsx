@@ -369,6 +369,14 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByText('My Custom Title')).toBeInTheDocument();
       expect(screen.queryByText(/Bob/)).not.toBeInTheDocument();
     });
+
+    it('hides center title when empty string is passed', () => {
+      renderWithRouter(<LiveSessionBanner title="" />);
+
+      // Should not show any title text in the center
+      expect(screen.queryByText('Clarity Meeting')).not.toBeInTheDocument();
+      expect(screen.queryByText('Live Clarity Meeting')).not.toBeInTheDocument();
+    });
   });
 
   // ============================================================================

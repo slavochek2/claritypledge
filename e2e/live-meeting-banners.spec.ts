@@ -46,10 +46,17 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
     test('waiting screen has banner', async ({ page }) => {
       await page.goto('/live');
 
-      // Fill name and create meeting
+      // Fill name and email (required for guest to create meeting)
       const nameInput = page.locator('input[placeholder="Enter your name"]');
       await expect(nameInput).toBeVisible();
       await nameInput.fill('Test User');
+
+      const emailInput = page.locator('input[placeholder="your@email.com"]');
+      await emailInput.fill('test@example.com');
+
+      // Check consent checkbox
+      const consentCheckbox = page.locator('input[type="checkbox"]');
+      await consentCheckbox.check();
 
       // Click new meeting button
       await page.getByRole('button', { name: /new meeting/i }).click();
@@ -91,10 +98,17 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
     test('waiting screen has banner on mobile', async ({ page }) => {
       await page.goto('/live');
 
-      // Fill name and create meeting
+      // Fill name and email (required for guest to create meeting)
       const nameInput = page.locator('input[placeholder="Enter your name"]');
       await expect(nameInput).toBeVisible();
       await nameInput.fill('Mobile Test User');
+
+      const emailInput = page.locator('input[placeholder="your@email.com"]');
+      await emailInput.fill('mobile@example.com');
+
+      // Check consent checkbox
+      const consentCheckbox = page.locator('input[type="checkbox"]');
+      await consentCheckbox.check();
 
       // Click new meeting button
       await page.getByRole('button', { name: /new meeting/i }).click();
@@ -107,94 +121,45 @@ test.describe('B50: Live Meeting Banner Consistency', () => {
     });
   });
 
-  test.describe('Banner Title Centering', () => {
-    test('banner title is horizontally centered in viewport', async ({ page }) => {
-      await page.setViewportSize({ width: 1024, height: 768 });
-      await page.goto('/live');
-
-      // Wait for page content to load
-      await expect(page.getByRole('heading', { name: 'Clarity Meeting' })).toBeVisible();
-
-      // Get the banner title element
-      const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
-      await expect(bannerTitle).toBeVisible();
-
-      // Get bounding box of the title
-      const titleBox = await bannerTitle.boundingBox();
-      expect(titleBox).not.toBeNull();
-
-      if (titleBox) {
-        // Calculate the center of the title
-        const titleCenter = titleBox.x + titleBox.width / 2;
-
-        // Calculate the center of the viewport
-        const viewportCenter = 1024 / 2;
-
-        // Title center should be within 20px of viewport center
-        const tolerance = 20;
-        expect(Math.abs(titleCenter - viewportCenter)).toBeLessThan(tolerance);
-      }
-    });
-
-    test('banner title is centered on mobile viewport', async ({ page }) => {
-      await page.setViewportSize({ width: 375, height: 667 });
-      await page.goto('/live');
-
-      // Wait for page content to load
-      await expect(page.getByRole('heading', { name: 'Clarity Meeting' })).toBeVisible();
-
-      // Get the banner title element
-      const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
-      await expect(bannerTitle).toBeVisible();
-
-      // Get bounding box of the title
-      const titleBox = await bannerTitle.boundingBox();
-      expect(titleBox).not.toBeNull();
-
-      if (titleBox) {
-        // Calculate the center of the title
-        const titleCenter = titleBox.x + titleBox.width / 2;
-
-        // Calculate the center of the viewport
-        const viewportCenter = 375 / 2;
-
-        // Title center should be within 20px of viewport center
-        const tolerance = 20;
-        expect(Math.abs(titleCenter - viewportCenter)).toBeLessThan(tolerance);
-      }
-    });
-  });
-
   test.describe('Banner Content', () => {
-    test('start screen banner shows correct title', async ({ page }) => {
+    test('start screen banner title is empty (no redundancy with h1)', async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.goto('/live');
 
       // Wait for page content to load - use the h1 specifically
       await expect(page.getByRole('heading', { name: 'Clarity Meeting' })).toBeVisible();
 
-      // After fix: Banner title should match or be related to "Clarity Meeting"
-      // The LiveSessionBanner shows title in center - find it in the banner area
+      // Banner should exist but center title span should be empty (to avoid redundancy with h1)
+      // Empty span is considered "hidden" by Playwright, so we check it exists and has no text
       const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
-      await expect(bannerTitle).toBeVisible();
-      await expect(bannerTitle).toContainText('Clarity Meeting');
+      await expect(bannerTitle).toHaveCount(1); // Element exists
+      await expect(bannerTitle).toHaveText(''); // But is empty
     });
 
-    test('waiting screen banner shows "Waiting for Partner"', async ({ page }) => {
+    test('waiting screen banner title is empty (KISS - info is in page content)', async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.goto('/live');
 
-      // Create meeting
+      // Fill name and email (required for guest to create meeting)
       const nameInput = page.locator('input[placeholder="Enter your name"]');
       await nameInput.fill('Test User');
+
+      const emailInput = page.locator('input[placeholder="your@email.com"]');
+      await emailInput.fill('test@example.com');
+
+      // Check consent checkbox
+      const consentCheckbox = page.locator('input[type="checkbox"]');
+      await consentCheckbox.check();
+
       await page.getByRole('button', { name: /new meeting/i }).click();
 
       // Wait for waiting screen
       await expect(page.getByText('Waiting for partner to join...')).toBeVisible({ timeout: 10000 });
 
-      // Banner title should be "Waiting for Partner" - find it in the banner area
+      // Banner title should be empty (KISS - the page content shows "Waiting for partner to join...")
       const bannerTitle = page.locator('.h-16.border-b span.text-sm.text-muted-foreground');
-      await expect(bannerTitle).toContainText('Waiting for Partner');
+      await expect(bannerTitle).toHaveCount(1);
+      await expect(bannerTitle).toHaveText('');
     });
   });
 });

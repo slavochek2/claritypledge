@@ -38,57 +38,107 @@ A compact 4-segment bar below the header showing:
 - **Who is speaking** (🎤 icon next to active speaker)
 - **Verification state** of content from each person
 
-**Layout: 4-Segment Verification Bar**
+**Layout: 4-Segment Verification Bar (No Labels)**
 
 ```
-┌────────────────────────────────────────────────────┐
-│  [←]        Meeting with Gosha              [Exit] │
-├────────────────────────────────────────────────────┤
-│  🎤Slava                                     Gosha │
-│  ┌─────────────────────────────────────────────┐   │
-│  │ Slava said │ ✓ understood ║ ✓ understood │ Gosha said │
-│  │   (gray)   │    (blue)    ║    (blue)    │   (gray)   │
-│  └─────────────────────────────────────────────┘   │
-├────────────────────────────────────────────────────┤
-│              ... existing UI ...                   │
-└────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  [←]           Meeting with Gosha                    [Exit] │
+├─────────────────────────────────────────────────────────────┤
+│  🎤Slava         65% verified         👂1:45 Gosha          │
+│  ┌───────────────────┬┬───────────────────┐                 │
+│  │░░░░░│▓▓▓▓▓▓▓▓▓▓▓▓▓││▓▓▓▓▓▓▓▓▓▓▓│░░░░░░░│                 │
+│  └───────────────────┴┴───────────────────┘                 │
+├─────────────────────────────────────────────────────────────┤
+│                  ... existing UI ...                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**The 4 Segments:**
+**What's shown:**
+- **Top row:** 🎤Speaker name (left) | % verified (center) | 👂Listening time + Listener name (right)
+- **Bar:** Verification state (gray = unverified, blue = verified)
+- **Center divider:** Clear boundary between each person's content
 
-| Segment | Label | Color | Meaning |
-|---------|-------|-------|---------|
-| Left outer | "Slava said" | Light gray | What Slava shared, not yet verified |
-| Left inner | "✓ understood" | Blue | What Slava shared AND Gosha confirmed understanding |
-| Right inner | "✓ understood" | Blue | What Gosha shared AND Slava confirmed understanding |
-| Right outer | "Gosha said" | Light gray | What Gosha shared, not yet verified |
+**How users read it (no labels needed):**
+- **Left half** = Slava's content (under Slava's name)
+- **Right half** = Gosha's content (under Gosha's name)
+- **Gray** = shared but unverified ("I said it, do you get it?")
+- **Blue** = verified ("You proved you got it")
+- **Listening time** = how long the listener has been listening (incentivizes listening)
+- **% verified** = THE top metric, how much is now common knowledge
 
-**Simpler mental model:**
-- Gray = "I said it, but do you get it?"
-- Blue = "You proved you got it" (via explain-back)
+**The 4 Segments (left to right):**
+
+| Position | Color | Meaning |
+|----------|-------|---------|
+| Left outer | Gray | Slava shared, not yet verified |
+| Left inner | Blue | Gosha proved he understood Slava ✓ |
+| Right inner | Blue | Slava proved he understood Gosha ✓ |
+| Right outer | Gray | Gosha shared, not yet verified |
+
+**Mental model:**
+- **Bar width = speaking time ratio** (if Slava spoke 70%, his half takes 70% of bar)
+- **Gray = unverified** (content shared but not yet verified)
+- **Blue = verified** (partner proved they understood via explain-back)
+- Blue grows inward from edges as verification happens
+- The goal: convert gray → blue (create common knowledge)
 
 **Visual progression during a session:**
 
 ```
-Start (no one spoke yet):
-│                    empty                           │
+1. START
+   🎤Slava         0% verified         👂0:00 Gosha
+   ┌─────────────────┬┬─────────────────┐
+   │                 ││                 │
+   └─────────────────┴┴─────────────────┘
 
-Slava shares an idea:
-│ ████████████████████████████████ unverified ░░░░░ │
-│            Slava 100%                              │
+2. SLAVA TALKS FOR 2 MINUTES (Gosha listens for 2:00)
+   🎤Slava         0% verified         👂2:00 Gosha
+   ┌───────────────────────────────────┬┬┐
+   │░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░││ │  ← 100% Slava's, all gray
+   └───────────────────────────────────┴┴┘
 
-Gosha shares a response:
-│ █████████████ Slava ░░░░░│░░░░░ Gosha ████████████ │
-│   unverified 50%         │        unverified 50%   │
+3. GOSHA TALKS FOR 1 MINUTE (Slava now listening)
+   👂1:00 Slava         0% verified         🎤Gosha
+   ┌───────────────────────┬┬───────────┐
+   │░░░░░░░░░░░░░░░░░░░░░░░││░░░░░░░░░░░│  ← 67/33 split, all gray
+   └───────────────────────┴┴───────────┘
 
-Gosha explains back Slava's idea (verification!):
-│ ████ Slava ░░│▓▓▓▓▓▓▓▓▓▓▓│░░░░░ Gosha ███████████ │
-│ unverified   │  verified │        unverified      │
-│    20%       │    30%    │           50%          │
+4. GOSHA EXPLAINS BACK SLAVA'S IDEA ✓
+   👂2:30 Slava         30% verified         🎤Gosha
+   ┌─────────────────┬┬─────────────────┐
+   │░░░░│▓▓▓▓▓▓▓▓▓▓▓▓││░░░░░░░░░░░░░░░░░│
+   └─────────────────┴┴─────────────────┘
+         ↑ blue grows toward center
 
-Both verify each other's content:
-│ ███ │▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│ ███████████ │
-│ 10% │         verified 60%         │    30%      │
+5. SLAVA EXPLAINS BACK GOSHA'S IDEA ✓
+   🎤Slava         65% verified         👂2:30 Gosha
+   ┌─────────────────┬┬─────────────────┐
+   │░░│▓▓▓▓▓▓▓▓▓▓▓▓▓▓││▓▓▓▓▓▓▓▓▓▓▓▓│░░░░│
+   └─────────────────┴┴─────────────────┘
+
+
+THE GOAL: Blue meets in the middle!
+
+   BAD SESSION (all gray - 0% verified):
+   🎤Slava         0% verified         👂5:00 Gosha
+   ┌─────────────────┬┬─────────────────┐
+   │░░░░░░░░░░░░░░░░░││░░░░░░░░░░░░░░░░░│
+   └─────────────────┴┴─────────────────┘
+   "We talked 10 min, but 0% verified"
+
+   GOOD SESSION (mostly blue - 90% verified):
+   🎤Slava         90% verified         👂5:00 Gosha
+   ┌─────────────────┬┬─────────────────┐
+   │░│▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓││▓▓▓▓▓▓▓▓▓▓▓▓▓▓│░░│
+   └─────────────────┴┴─────────────────┘
+   "We talked 10 min, 90% is common knowledge!"
+
+   IMBALANCED SESSION (80% Slava, 20% Gosha, 60% verified):
+   🎤Slava         60% verified         👂4:00 Gosha
+   ┌────────────────────────────┬┬────────┐
+   │░░░░│▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓││▓▓│░░░░░░│
+   └────────────────────────────┴┴────────┘
+   "Slava dominated, but Gosha verified most of it"
 ```
 
 ### Gamification
@@ -114,20 +164,21 @@ Session Summary:
 
 | Element | Why |
 |---------|-----|
+| **65% verified** (centered, top row) | THE primary metric — how much is now common knowledge |
 | **4-segment bar** | Visualizes common knowledge creation — the core value proposition |
-| **🎤 speaker indicator** | Real-time awareness of turn-taking |
+| **🎤 speaker indicator** | Real-time awareness of who's talking |
+| **👂 listening time** | Incentivizes the harder behavior (listening) — shown next to listener's name |
 | **Verified vs unverified proportions** | Incentivizes verification through visibility |
-| **Individual verification credit** | Gamifies listening (the harder skill) |
 
 ### What We DON'T Show
 
 | Removed | Why Not |
 |---------|---------|
+| **Speaking time** | Incentivizes wrong behavior (talking more) |
 | **Streak timer** | Wrong focus — verification matters, not speaking duration |
-| **Speaking percentages** | Incentivizes wrong behavior (speaking more) |
-| **Separate listening bar** | Verification IS the meaningful listening metric |
+| **Speaking percentages** | Creates competition to speak, not listen |
+| **Separate listening bar** | Listening time in header row is sufficient |
 | **Numeric percentages in bar** | Visual proportions are clearer; numbers cause layout shift |
-| **Speaking time accumulation** | Creates competition to speak, not listen |
 
 ### Detection Logic
 

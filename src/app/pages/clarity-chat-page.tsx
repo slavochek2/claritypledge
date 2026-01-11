@@ -252,7 +252,7 @@ function VerificationThread({
                     {v.position === 'agree' && <ThumbsUp className="h-3 w-3" />}
                     {v.position === 'disagree' && <ThumbsDown className="h-3 w-3" />}
                     {v.position === 'dont_know' && <HelpCircle className="h-3 w-3" />}
-                    {v.verifierName} {v.position === 'agree' ? 'agrees' : v.position === 'disagree' ? 'disagrees' : 'is unsure'}
+                    {v.verifierName} {v.position === 'agree' ? 'agrees' : v.position === 'disagree' ? 'disagrees' : "doesn't know"}
                   </div>
                 )}
               </div>
