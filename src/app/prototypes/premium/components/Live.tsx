@@ -40,23 +40,14 @@ export function Live() {
     setPhase('result');
   };
 
-  const handleDone = () => {
-    // If user somehow deep-linked to LiveSession (no history)
-    if (window.history.length <= 1) {
-      navigate(routes.feed); // Fallback to feed
-    } else {
-      navigate(-1); // Standard back navigation
-    }
-  };
-
   const renderSetup = () => (
     <div className="flex flex-col items-center justify-center flex-1 px-6">
       {/* Idea Card */}
       {idea && (
         <div className="w-full bg-white rounded-[20px] p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] mb-8">
           <div className="flex items-start gap-2 mb-3">
-            <Lightbulb size={16} className="text-blue-500 mt-0.5 shrink-0" />
-            <span className="text-[13px] font-medium text-blue-500">Verifying Understanding On</span>
+            <Lightbulb size={16} className="text-[#007AFF] mt-0.5 shrink-0" />
+            <span className="text-[13px] font-medium text-[#007AFF]">Verifying Understanding On</span>
           </div>
           <p className="text-[17px] leading-relaxed text-gray-900">{idea.text}</p>
         </div>
@@ -79,7 +70,7 @@ export function Live() {
 
         <button
           onClick={() => handleStartSession(true)}
-          className="w-full py-4 bg-blue-500 text-white rounded-2xl font-semibold text-[17px] transition-all hover:bg-blue-600 active:scale-[0.98]"
+          className="w-full py-4 bg-[#007AFF] text-white rounded-2xl font-semibold text-[17px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
         >
           I'll Explain My Position
         </button>
@@ -136,7 +127,7 @@ export function Live() {
 
         <button
           onClick={handleFinishSpeaking}
-          className="px-8 py-3 bg-blue-500 text-white rounded-full font-semibold text-[15px] transition-all hover:bg-blue-600 active:scale-95"
+          className="px-8 py-3 bg-[#007AFF] text-white rounded-full font-semibold text-[15px] transition-all hover:bg-[#0066DD] active:scale-95"
         >
           {isSpeaker ? 'Done Speaking' : 'Ready to Play Back'}
         </button>
@@ -172,7 +163,7 @@ export function Live() {
       {/* Controls */}
       <button
         onClick={handleFinishPlayback}
-        className="px-8 py-3 bg-blue-500 text-white rounded-full font-semibold text-[15px] transition-all hover:bg-blue-600 active:scale-95"
+        className="px-8 py-3 bg-[#007AFF] text-white rounded-full font-semibold text-[15px] transition-all hover:bg-[#0066DD] active:scale-95"
       >
         Done Playing Back
       </button>
@@ -195,7 +186,7 @@ export function Live() {
             max="10"
             value={listenerConfidence}
             onChange={(e) => setListenerConfidence(Number(e.target.value))}
-            className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500"
+            className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-[#007AFF]"
           />
           <span className="text-[24px] font-semibold text-gray-900 tabular-nums w-10 text-center">
             {listenerConfidence}
@@ -215,7 +206,7 @@ export function Live() {
             max="10"
             value={speakerRating}
             onChange={(e) => setSpeakerRating(Number(e.target.value))}
-            className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-500"
+            className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-[#007AFF]"
           />
           <span className="text-[24px] font-semibold text-gray-900 tabular-nums w-10 text-center">
             {speakerRating}
@@ -233,7 +224,7 @@ export function Live() {
 
       <button
         onClick={handleSubmitRatings}
-        className="w-full py-4 bg-blue-500 text-white rounded-2xl font-semibold text-[17px] transition-all hover:bg-blue-600 active:scale-[0.98]"
+        className="w-full py-4 bg-[#007AFF] text-white rounded-2xl font-semibold text-[17px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
       >
         Submit Ratings
       </button>
@@ -278,22 +269,22 @@ export function Live() {
       <div className="w-full space-y-3">
         <button
           onClick={() => setPhase('setup')}
-          className="w-full py-4 bg-blue-500 text-white rounded-2xl font-semibold text-[17px] transition-all hover:bg-blue-600 active:scale-[0.98]"
+          className="w-full py-4 bg-[#007AFF] text-white rounded-2xl font-semibold text-[17px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
         >
           Verify Another Idea
         </button>
         <button
-          onClick={handleDone}
+          onClick={() => navigate(routes.feed)}
           className="w-full py-4 min-h-[44px] bg-white text-gray-900 rounded-2xl font-semibold text-[17px] border border-gray-200 transition-all hover:bg-gray-50 active:scale-[0.98]"
         >
-          Done
+          Back to Ideas
         </button>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
         <div className="flex items-center justify-between px-4 h-14 max-w-[500px] mx-auto">
@@ -320,7 +311,7 @@ export function Live() {
             return (
               <div
                 key={step}
-                className={`flex-1 h-1 rounded-full transition-all ${isCompleted || isCurrent ? 'bg-blue-500' : 'bg-gray-200'}`}
+                className={`flex-1 h-1 rounded-full transition-all ${isCompleted || isCurrent ? 'bg-[#007AFF]' : 'bg-gray-200'}`}
               />
             );
           })}

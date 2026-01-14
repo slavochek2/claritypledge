@@ -47,30 +47,8 @@ export function Chat() {
     }
   };
 
-  // Navigate to Live session for message verification
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleVerifyMessage = (_message: Message, _isOwn: boolean) => {
-    navigate(routes.live, {
-      state: {
-        partnerId: otherUser.id,
-        messageId: _message.id,
-        messageText: _message.text,
-        convertToIdea: true,
-      }
-    });
-  };
-
-  // Navigate to Live session from "Go Live" button
-  const handleGoLive = () => {
-    navigate(routes.live, {
-      state: {
-        partnerId: otherUser.id,
-      }
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#F2F2F7] flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
         <div className="flex items-center justify-between px-4 h-14 max-w-[500px] mx-auto">
@@ -84,9 +62,9 @@ export function Chat() {
             </div>
           </div>
           <button
-            onClick={handleGoLive}
+            onClick={() => navigate(routes.live)}
             aria-label="Start a live verification session"
-            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] bg-blue-500 text-white rounded-full text-[13px] font-medium transition-all hover:bg-blue-600 active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] bg-[#007AFF] text-white rounded-full text-[13px] font-medium transition-all hover:bg-[#0066DD] active:scale-95"
           >
             <Radio size={14} aria-hidden="true" />
             Go Live
@@ -113,7 +91,7 @@ export function Chat() {
                     className={`
                       px-4 py-2.5 rounded-2xl
                       ${isOwn
-                        ? 'bg-blue-500 text-white rounded-br-md'
+                        ? 'bg-[#007AFF] text-white rounded-br-md'
                         : 'bg-white text-gray-900 rounded-bl-md shadow-[0_1px_2px_rgba(0,0,0,0.05)]'
                       }
                     `}
@@ -128,7 +106,7 @@ export function Chat() {
                       className="mt-2 w-full p-3 min-h-[44px] bg-white rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-left hover:bg-gray-50 transition-colors"
                     >
                       <div className="flex items-start gap-2">
-                        <Lightbulb size={14} className="text-blue-500 mt-0.5 shrink-0" />
+                        <Lightbulb size={14} className="text-[#007AFF] mt-0.5 shrink-0" />
                         <p className="text-[13px] text-gray-700 line-clamp-2">{linkedIdea.text}</p>
                       </div>
                     </button>
@@ -173,7 +151,7 @@ export function Chat() {
             className={`
               w-9 h-9 rounded-full flex items-center justify-center transition-all
               ${inputText.trim()
-                ? 'bg-blue-500 text-white active:scale-95'
+                ? 'bg-[#007AFF] text-white active:scale-95'
                 : 'bg-gray-100 text-gray-300'
               }
             `}

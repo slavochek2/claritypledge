@@ -27,7 +27,7 @@ export function IdeaDetail() {
 
   if (!idea) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F2F2F7] flex items-center justify-center">
         <p className="text-gray-500">Idea not found</p>
       </div>
     );
@@ -62,7 +62,7 @@ export function IdeaDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F2F2F7]">
       {/* Header */}
       <header
         className={`
@@ -75,13 +75,13 @@ export function IdeaDetail() {
             onClick={() => navigate(-1)}
             className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
-            <ChevronLeft size={24} className="text-blue-500" />
+            <ChevronLeft size={24} className="text-[#007AFF]" />
           </button>
           <h1 className={`text-[17px] font-semibold text-gray-900 transition-opacity ${isScrolled ? 'opacity-100' : 'opacity-0'}`}>
             Idea
           </h1>
           <button className="w-10 h-10 -mr-2 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
-            <Share size={20} className="text-blue-500" />
+            <Share size={20} className="text-[#007AFF]" />
           </button>
         </div>
       </header>
@@ -190,8 +190,8 @@ export function IdeaDetail() {
 
           {idea.crossDisagreementCount > 0 && (
             <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl mb-4">
-              <ArrowRightLeft size={16} className="text-blue-500" />
-              <span className="text-[13px] text-blue-500 font-medium">
+              <ArrowRightLeft size={16} className="text-[#007AFF]" />
+              <span className="text-[13px] text-[#007AFF] font-medium">
                 {idea.crossDisagreementCount} verified across disagreement
               </span>
             </div>
@@ -222,7 +222,7 @@ export function IdeaDetail() {
                       <p className="text-[11px] text-gray-400">{formatTimeAgo(cert.createdAt)}</p>
                     </div>
                     {isCrossDisagreement && (
-                      <ArrowRightLeft size={14} className="text-blue-500" />
+                      <ArrowRightLeft size={14} className="text-[#007AFF]" />
                     )}
                   </div>
                 );
@@ -235,13 +235,7 @@ export function IdeaDetail() {
           )}
 
           <button
-            onClick={() => navigate(routes.live, {
-              state: {
-                partnerId: author?.id,
-                ideaId: idea.id,
-                ideaText: idea.text,
-              }
-            })}
+            onClick={() => navigate(routes.live, { state: { ideaId: idea.id } })}
             className="w-full mt-4 py-3 min-h-[44px] bg-[#007AFF] text-white rounded-full font-semibold text-[15px] transition-all hover:bg-[#0066DD] active:scale-[0.98]"
           >
             Verify Understanding
@@ -311,7 +305,7 @@ export function IdeaDetail() {
                 }}
                 disabled={!commentText.trim()}
                 aria-label="Submit comment"
-                className={`min-w-[44px] min-h-[44px] -mr-2 flex items-center justify-center transition-colors ${commentText.trim() ? 'text-blue-500' : 'text-gray-300'}`}
+                className={`min-w-[44px] min-h-[44px] -mr-2 flex items-center justify-center transition-colors ${commentText.trim() ? 'text-[#007AFF]' : 'text-gray-300'}`}
               >
                 <Send size={18} aria-hidden="true" />
               </button>

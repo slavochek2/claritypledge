@@ -120,7 +120,7 @@ export function IdeaCard({ idea, currentUserPosition, onPositionChange }: IdeaCa
           <span>{idea.verificationCount} verified</span>
         </div>
         {idea.crossDisagreementCount > 0 && (
-          <div className="flex items-center gap-1.5 text-blue-500">
+          <div className="flex items-center gap-1.5 text-[#007AFF]">
             <ArrowRightLeft size={14} />
             <span>{idea.crossDisagreementCount} across disagreement</span>
           </div>

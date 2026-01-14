@@ -93,7 +93,7 @@ export function Topology() {
         ctx.beginPath();
         ctx.moveTo(sourceNode.x, sourceNode.y);
         ctx.lineTo(targetNode.x, targetNode.y);
-        ctx.strokeStyle = edge.isCrossDisagreement ? '#3B82F6' : '#E5E5EA';
+        ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#E5E5EA';
         ctx.lineWidth = edge.isCrossDisagreement ? 3 : 2;
         ctx.stroke();
 
@@ -114,7 +114,7 @@ export function Topology() {
           midX - arrowLength * Math.cos(angle + Math.PI / 6),
           midY - arrowLength * Math.sin(angle + Math.PI / 6)
         );
-        ctx.strokeStyle = edge.isCrossDisagreement ? '#3B82F6' : '#8E8E93';
+        ctx.strokeStyle = edge.isCrossDisagreement ? '#007AFF' : '#8E8E93';
         ctx.lineWidth = 2;
         ctx.stroke();
       });
@@ -127,9 +127,9 @@ export function Topology() {
         // Node circle
         ctx.beginPath();
         ctx.arc(node.x, node.y, isSelected ? 28 : 24, 0, 2 * Math.PI);
-        ctx.fillStyle = isCurrentUser ? '#3B82F6' : '#F5F5F5';
+        ctx.fillStyle = isCurrentUser ? '#007AFF' : '#F2F2F7';
         ctx.fill();
-        ctx.strokeStyle = isSelected ? '#3B82F6' : '#E5E5EA';
+        ctx.strokeStyle = isSelected ? '#007AFF' : '#E5E5EA';
         ctx.lineWidth = isSelected ? 3 : 2;
         ctx.stroke();
 
@@ -181,7 +181,7 @@ export function Topology() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#F2F2F7]">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
         <div className="flex items-center justify-between px-4 h-14 max-w-[500px] mx-auto">
@@ -209,7 +209,7 @@ export function Topology() {
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div className="text-center">
-            <p className="text-[20px] font-semibold text-blue-500 tabular-nums">{crossDisagreementCount}</p>
+            <p className="text-[20px] font-semibold text-[#007AFF] tabular-nums">{crossDisagreementCount}</p>
             <p className="text-[11px] text-gray-400">Across Disagreement</p>
           </div>
         </div>
@@ -248,7 +248,7 @@ export function Topology() {
             <p className="text-[13px] font-medium text-gray-900 mb-3">Legend</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5 bg-blue-500" />
+                <div className="w-6 h-0.5 bg-[#007AFF]" />
                 <span className="text-[12px] text-gray-600">Across Disagreement</span>
               </div>
               <div className="flex items-center gap-2">
@@ -256,7 +256,7 @@ export function Topology() {
                 <span className="text-[12px] text-gray-600">Same Position</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-blue-500" />
+                <div className="w-4 h-4 rounded-full bg-[#007AFF]" />
                 <span className="text-[12px] text-gray-600">You</span>
               </div>
             </div>
@@ -294,7 +294,7 @@ export function Topology() {
               </div>
               <div className="w-px h-8 bg-gray-100" />
               <div className="text-center flex-1">
-                <p className="text-[20px] font-semibold text-blue-500 tabular-nums">
+                <p className="text-[20px] font-semibold text-[#007AFF] tabular-nums">
                   {selectedUserConnections.filter(e => e.isCrossDisagreement).length}
                 </p>
                 <p className="text-[11px] text-gray-400">Cross</p>
@@ -316,7 +316,7 @@ export function Topology() {
                         key={i}
                         className={`flex items-center gap-2 p-2 rounded-lg ${edge.isCrossDisagreement ? 'bg-blue-50' : 'bg-gray-50'}`}
                       >
-                        {edge.isCrossDisagreement && <ArrowRightLeft size={12} className="text-blue-500" />}
+                        {edge.isCrossDisagreement && <ArrowRightLeft size={12} className="text-[#007AFF]" />}
                         <span className="text-[13px] text-gray-700">
                           {direction} <span className="font-medium">{otherUser?.name}</span>
                         </span>
