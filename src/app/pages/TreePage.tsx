@@ -1,29 +1,38 @@
 import { Link } from 'react-router-dom';
 
-const routes = [
-  { path: '/feed', label: 'Feed', description: 'Browse and vote on ideas' },
-  { path: '/chat', label: 'Chat', description: 'Chat interface' },
-  { path: '/demo', label: 'Demo', description: 'Original demo page' },
-  { path: '/alternative', label: 'Alternative', description: 'Alternative landing page' },
-  { path: '/prototype/premium/feed', label: 'Premium Prototype', description: 'Premium prototype (Apple-style)' },
-  { path: '/prototype/converged/feed', label: 'Converged Prototype', description: 'Converged prototype (P32.3)' },
-  { path: '/prototype/converged/profile', label: 'Converged Profile', description: 'P32.3 converged prototype - Profile view' },
+const productionPages = [
+  {
+    path: '/feed',
+    label: 'Feed',
+    description: 'Browse and vote on ideas'
+  },
+  {
+    path: '/chat',
+    label: 'Chat',
+    description: 'Chat interface'
+  },
+  {
+    path: '/demo',
+    label: 'Demo',
+    description: 'Original demo page'
+  },
 ];
 
-const recentFixes = [
+const prototypeRoutes = [
   {
-    date: '2026-01-06',
-    title: 'Fixed P32.4 documentation paths',
-    description: 'Corrected 7 files that incorrectly referenced /prototype/premium instead of /prototype/converged',
-    files: [
-      'p32_4_00b_design_system_unification.md',
-      'p32_4_05_profile_redesign_after_04.md',
-      'p32_4_08b_prototype_live_session.md',
-      'p32_4_09_wire_prototype_to_live.md',
-      'p32_4_10_create_idea_during_live.md',
-      'p32_4_final_review_checklist.md',
-      'p32_4_improvements_summary.md',
-    ],
+    path: '/prototype/linkedin-like/profile',
+    label: 'LinkedIn-like',
+    description: 'P55 - Idea verification with swipe interface'
+  },
+  {
+    path: '/prototype/premium/feed',
+    label: 'Premium Prototype',
+    description: 'P32 - Apple-style premium design'
+  },
+  {
+    path: '/prototype/converged/feed',
+    label: 'Converged Prototype',
+    description: 'P32.3 - Unified design system'
   },
 ];
 
@@ -31,10 +40,17 @@ export function TreePage() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Prototypes</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Developer Pages</h1>
+        <p className="text-sm text-gray-500 mb-6">
+          Navigation hub for development and testing.
+        </p>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100">
-          {routes.map((route) => (
+        {/* Production Pages */}
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Production Pages
+        </h2>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100 mb-6">
+          {productionPages.map((route) => (
             <Link
               key={route.path}
               to={route.path}
@@ -45,33 +61,45 @@ export function TreePage() {
                   <span className="font-medium text-gray-900">{route.label}</span>
                   <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
                 </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
             </Link>
           ))}
         </div>
 
-        <h2 className="text-xl font-bold text-gray-900 mt-8 mb-4">Recent Fixes</h2>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          {recentFixes.map((fix, idx) => (
-            <div key={idx} className="mb-6 last:mb-0">
-              <div className="flex items-baseline gap-2 mb-1">
-                <span className="text-xs text-gray-500">{fix.date}</span>
-                <h3 className="font-semibold text-gray-900">{fix.title}</h3>
+        {/* Prototypes */}
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          Prototypes
+        </h2>
+        <p className="text-xs text-gray-400 mb-2">
+          Isolated experimental features with mock data.
+        </p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 divide-y divide-gray-100">
+          {prototypeRoutes.map((route) => (
+            <Link
+              key={route.path}
+              to={route.path}
+              className="block px-4 py-3 hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-gray-900">{route.label}</span>
+                  <p className="text-sm text-gray-500 mt-0.5">{route.description}</p>
+                </div>
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
-              <p className="text-sm text-gray-600 mb-2">{fix.description}</p>
-              <details className="text-xs">
-                <summary className="cursor-pointer text-blue-600 hover:text-blue-700">
-                  Show affected files ({fix.files.length})
-                </summary>
-                <ul className="mt-2 space-y-1 ml-4 list-disc text-gray-600">
-                  {fix.files.map((file) => (
-                    <li key={file}>{file}</li>
-                  ))}
-                </ul>
-              </details>
-            </div>
+            </Link>
           ))}
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link to="/" className="text-sm text-blue-600 hover:underline">
+            Back to main app
+          </Link>
         </div>
       </div>
     </div>
