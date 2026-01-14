@@ -71,7 +71,11 @@ export default function ClarityPledgeApp() {
       <Routes>
         <Route
           path="/"
-          element={<ClarityPledgeLanding />}
+          element={
+            <ClarityLandingLayout>
+              <ClarityPledgeLanding />
+            </ClarityLandingLayout>
+          }
         />
 
         <Route

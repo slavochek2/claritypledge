@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { SimpleNavigation } from "@/app/components/layout/simple-navigation";
 import { LegalFooter } from "@/app/components/layout/legal-footer";
+import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineBanner } from "@/app/components/offline-banner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -12,12 +13,14 @@ interface ClarityLandingLayoutProps {
 export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   const location = useLocation();
 
-  // Don't show navigation on pages that have their own navigation
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
   // Live meeting pages have their own header (LiveSessionBanner)
   const isLiveMeetingPage = location.pathname === "/live" || location.pathname.startsWith("/live/");
-  const hasOwnNavigation = isLandingPage || isAlternativeLandingPage || isLiveMeetingPage;
+  // Pages that have their own navigation (skip layout nav)
+  const hasOwnNavigation = isAlternativeLandingPage || isLiveMeetingPage;
+  // Landing page needs nav but no top padding (hero goes to top)
+  const needsTopPadding = !hasOwnNavigation && !isLandingPage;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -25,8 +28,8 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
       {!hasOwnNavigation && (
         <SimpleNavigation />
       )}
-      <main className={!hasOwnNavigation ? "pt-16 lg:pt-20 flex-1" : "flex-1"}>{children}</main>
-      <LegalFooter />
+      <main className={needsTopPadding ? "pt-16 lg:pt-20 flex-1" : "flex-1"}>{children}</main>
+      {isLandingPage ? <ClarityFooter /> : <LegalFooter />}
       <Toaster position="top-center" />
     </div>
   );
