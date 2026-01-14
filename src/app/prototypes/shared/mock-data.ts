@@ -1,0 +1,591 @@
+// ============================================================================
+// Shared Mock Data for Prototypes
+// ============================================================================
+// Single source of truth for all prototype mock data.
+// Both linkedin-like and premium import from here.
+
+import type {
+  User,
+  Idea,
+  IdeaSimple,
+  Certification,
+  VerificationSession,
+  Comment,
+  Message,
+  Position,
+  UserCalibration,
+  CalibrationState,
+} from './types';
+
+// -----------------------------------------------------------------------------
+// Current User
+// -----------------------------------------------------------------------------
+
+export const currentUser: User = {
+  id: 'current',
+  name: 'You',
+  avatar: '👤',
+  verifiedListenerScore: 5,
+  bio: 'Building better understanding',
+  role: 'Product Manager',
+  company: 'TechCorp',
+  connections: 127,
+};
+
+// -----------------------------------------------------------------------------
+// Mock Users
+// -----------------------------------------------------------------------------
+
+export const mockUsers: User[] = [
+  {
+    id: '1',
+    name: 'Alice Chen',
+    avatar: '👩‍💼',
+    verifiedListenerScore: 12,
+    bio: 'Driving product strategy with empathy and data.',
+    role: 'Senior Product Manager',
+    company: 'TechCorp',
+    connections: 543,
+  },
+  {
+    id: '2',
+    name: 'Bob Smith',
+    avatar: '👨‍💻',
+    verifiedListenerScore: 8,
+    bio: 'Full-stack engineer. Passionate about clean code.',
+    role: 'Staff Engineer',
+    company: 'StartupXYZ',
+    connections: 312,
+  },
+  {
+    id: '3',
+    name: 'Carol Davis',
+    avatar: '👩‍🔬',
+    verifiedListenerScore: 15,
+    bio: 'UX Research Lead. Making products people actually want to use.',
+    role: 'Research Lead',
+    company: 'DesignCo',
+    connections: 891,
+  },
+  {
+    id: '4',
+    name: 'David Park',
+    avatar: '👨‍🎨',
+    verifiedListenerScore: 6,
+    bio: 'Design systems and accessibility advocate.',
+    role: 'Principal Designer',
+    company: 'TechCorp',
+    connections: 234,
+  },
+  {
+    id: '5',
+    name: 'Emma Wilson',
+    avatar: '👩‍💻',
+    verifiedListenerScore: 10,
+    bio: 'Engineering manager building high-performing teams.',
+    role: 'Engineering Manager',
+    company: 'BigTech Inc',
+    connections: 678,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Mock Ideas (Full format with timestamps and visibility)
+// -----------------------------------------------------------------------------
+
+export const mockIdeas: Idea[] = [
+  {
+    id: '1',
+    text: 'Remote work is more productive than office work for knowledge workers',
+    createdBy: '1',
+    createdAt: '2026-01-03T10:00:00Z',
+    visibility: 'public',
+    positions: {
+      '1': { position: 'agree', timestamp: '2026-01-03T10:00:00Z' },
+      '2': { position: 'disagree', timestamp: '2026-01-03T14:30:00Z' },
+      '3': { position: 'agree', timestamp: '2026-01-04T09:15:00Z' },
+      '4': { position: 'dont_know', timestamp: '2026-01-05T11:00:00Z' },
+      '5': { position: 'disagree', timestamp: '2026-01-06T16:45:00Z' },
+      'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },
+    },
+    verificationCount: 3,
+    crossDisagreementCount: 1,
+    commentCount: 5,
+  },
+  {
+    id: '2',
+    text: 'AI will replace most knowledge work within 10 years',
+    createdBy: '2',
+    createdAt: '2026-01-02T14:00:00Z',
+    visibility: 'public',
+    positions: {
+      '1': { position: 'disagree', timestamp: '2026-01-02T15:00:00Z' },
+      '2': { position: 'agree', timestamp: '2026-01-02T14:00:00Z' },
+      '3': { position: 'dont_know', timestamp: '2026-01-03T10:30:00Z' },
+      '4': { position: 'disagree', timestamp: '2026-01-04T13:00:00Z' },
+      '5': { position: 'agree', timestamp: '2026-01-05T09:00:00Z' },
+      'current': { position: 'disagree', timestamp: '2026-01-06T11:15:00Z' },
+    },
+    verificationCount: 2,
+    crossDisagreementCount: 2,
+    commentCount: 12,
+  },
+  {
+    id: '3',
+    text: 'Code reviews are more valuable than automated testing',
+    createdBy: '3',
+    createdAt: '2026-01-01T09:00:00Z',
+    visibility: 'shared',
+    positions: {
+      '1': { position: 'dont_know', timestamp: '2026-01-01T12:00:00Z' },
+      '2': { position: 'disagree', timestamp: '2026-01-02T08:30:00Z' },
+      '3': { position: 'agree', timestamp: '2026-01-01T09:00:00Z' },
+      '4': { position: 'agree', timestamp: '2026-01-03T14:00:00Z' },
+      '5': { position: 'disagree', timestamp: '2026-01-04T10:15:00Z' },
+      'current': { position: 'agree', timestamp: '2026-01-05T16:30:00Z' },
+    },
+    verificationCount: 1,
+    crossDisagreementCount: 0,
+    commentCount: 8,
+  },
+  {
+    id: '4',
+    text: 'Startups should prioritize speed over code quality in early stages',
+    createdBy: '4',
+    createdAt: '2025-12-30T16:00:00Z',
+    visibility: 'public',
+    positions: {
+      '1': { position: 'agree', timestamp: '2025-12-30T18:00:00Z' },
+      '2': { position: 'agree', timestamp: '2025-12-31T09:30:00Z' },
+      '3': { position: 'disagree', timestamp: '2026-01-01T11:00:00Z' },
+      '4': { position: 'agree', timestamp: '2025-12-30T16:00:00Z' },
+      '5': { position: 'dont_know', timestamp: '2026-01-02T14:45:00Z' },
+      'current': { position: 'dont_know', timestamp: '2026-01-03T10:00:00Z' },
+    },
+    verificationCount: 4,
+    crossDisagreementCount: 1,
+    commentCount: 15,
+  },
+  {
+    id: '5',
+    text: 'Most meetings could be replaced by async communication',
+    createdBy: '5',
+    createdAt: '2025-12-28T11:00:00Z',
+    visibility: 'shared',
+    positions: {
+      '1': { position: 'agree', timestamp: '2025-12-28T14:00:00Z' },
+      '2': { position: 'agree', timestamp: '2025-12-29T09:00:00Z' },
+      '3': { position: 'agree', timestamp: '2025-12-30T10:30:00Z' },
+      '4': { position: 'disagree', timestamp: '2025-12-31T15:00:00Z' },
+      '5': { position: 'agree', timestamp: '2025-12-28T11:00:00Z' },
+      'current': { position: 'agree', timestamp: '2026-01-01T08:00:00Z' },
+    },
+    verificationCount: 5,
+    crossDisagreementCount: 1,
+    commentCount: 20,
+  },
+  {
+    id: '6',
+    text: 'The best engineers are those who can explain complex things simply',
+    createdBy: 'current',
+    createdAt: '2025-12-25T09:00:00Z',
+    visibility: 'private',
+    positions: {
+      'current': { position: 'agree', timestamp: '2025-12-25T09:00:00Z' },
+    },
+    verificationCount: 0,
+    crossDisagreementCount: 0,
+    commentCount: 0,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Simplified Ideas (for Premium prototype)
+// -----------------------------------------------------------------------------
+
+export function getSimplifiedIdeas(): IdeaSimple[] {
+  return mockIdeas.map(idea => ({
+    id: idea.id,
+    text: idea.text,
+    createdBy: idea.createdBy,
+    createdAt: idea.createdAt,
+    verificationCount: idea.verificationCount,
+    crossDisagreementCount: idea.crossDisagreementCount,
+    commentCount: idea.commentCount,
+    positions: Object.fromEntries(
+      Object.entries(idea.positions).map(([userId, entry]) => [
+        userId,
+        entry?.position ?? null,
+      ])
+    ) as Record<string, Position>,
+  }));
+}
+
+// -----------------------------------------------------------------------------
+// Verification Sessions
+// -----------------------------------------------------------------------------
+
+export const mockVerificationSessions: VerificationSession[] = [
+  // Idea 1: Mix of all statuses and directionalities for current user
+  {
+    id: 'v1',
+    ideaId: '1',
+    participants: ['current', '1'],
+    status: 'verified',
+    startedAt: '2026-01-05T10:00:00Z',
+    completedAt: '2026-01-05T10:30:00Z',
+    verifiedBy: ['current', '1'], // Mutual - both understand each other
+    ratings: { 'current': 9, '1': 8 }, // You gave 9/10, Alice gave 8/10
+  },
+  {
+    id: 'v1b',
+    ideaId: '1',
+    participants: ['current', '2'],
+    status: 'in_progress',
+    startedAt: '2026-01-06T14:00:00Z',
+    verifiedBy: ['current'], // One-way: You understand Bob, waiting on Bob
+    ratings: { 'current': 7 }, // You gave 7/10, Bob hasn't rated yet
+  },
+  {
+    id: 'v1c',
+    ideaId: '1',
+    participants: ['current', '3'],
+    status: 'in_progress',
+    startedAt: '2026-01-07T11:00:00Z',
+    verifiedBy: ['3'], // One-way: Carol understands you, you haven't verified her
+    ratings: { '3': 6 }, // Carol gave 6/10, you haven't rated yet
+  },
+  // User 4, 5 with current user on idea 1 = not_started (no session)
+  {
+    id: 'v4',
+    ideaId: '1',
+    participants: ['1', '2'],
+    status: 'verified',
+    startedAt: '2026-01-04T10:00:00Z',
+    completedAt: '2026-01-04T10:30:00Z',
+    verifiedBy: ['1', '2'], // Mutual between Alice and Bob
+    ratings: { '1': 10, '2': 9 }, // Alice gave 10/10, Bob gave 9/10
+  },
+  // Idea 2: in_progress for current user
+  {
+    id: 'v2',
+    ideaId: '2',
+    participants: ['current', '2'],
+    status: 'in_progress',
+    startedAt: '2026-01-06T14:00:00Z',
+    verifiedBy: [], // Started but no one has verified yet
+    ratings: {}, // No ratings yet
+  },
+  {
+    id: 'v2b',
+    ideaId: '2',
+    participants: ['current', '1'],
+    status: 'verified',
+    startedAt: '2026-01-07T09:00:00Z',
+    completedAt: '2026-01-07T09:30:00Z',
+    verifiedBy: ['current', '1'], // Mutual
+    ratings: { 'current': 8, '1': 10 }, // You gave 8/10, Alice gave perfect 10
+  },
+  // Idea 3: verified for current user
+  {
+    id: 'v3',
+    ideaId: '3',
+    participants: ['current', '3'],
+    status: 'verified',
+    startedAt: '2026-01-04T11:00:00Z',
+    completedAt: '2026-01-04T11:45:00Z',
+    verifiedBy: ['current', '3'], // Mutual
+    ratings: { 'current': 10, '3': 10 }, // Perfect mutual understanding!
+  },
+  {
+    id: 'v3b',
+    ideaId: '3',
+    participants: ['current', '2'],
+    status: 'in_progress',
+    startedAt: '2026-01-08T10:00:00Z',
+    verifiedBy: ['2'], // One-way: Bob understands you
+    ratings: { '2': 5 }, // Bob gave 5/10, you haven't rated yet
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Certifications
+// -----------------------------------------------------------------------------
+
+export const mockCertifications: Certification[] = [
+  { id: '1', ideaId: '1', speakerId: '1', listenerId: '2', speakerPosition: 'agree', listenerPosition: 'disagree', createdAt: '2026-01-04T10:00:00Z' },
+  { id: '2', ideaId: '1', speakerId: '2', listenerId: '1', speakerPosition: 'disagree', listenerPosition: 'agree', createdAt: '2026-01-04T10:30:00Z' },
+  { id: '3', ideaId: '2', speakerId: '2', listenerId: '5', speakerPosition: 'agree', listenerPosition: 'agree', createdAt: '2026-01-03T15:00:00Z' },
+  { id: '4', ideaId: '4', speakerId: '3', listenerId: '1', speakerPosition: 'disagree', listenerPosition: 'agree', createdAt: '2026-01-02T14:00:00Z' },
+  { id: '5', ideaId: '5', speakerId: '4', listenerId: '5', speakerPosition: 'disagree', listenerPosition: 'agree', createdAt: '2026-01-01T12:00:00Z' },
+];
+
+// -----------------------------------------------------------------------------
+// Comments
+// -----------------------------------------------------------------------------
+
+export const mockComments: Comment[] = [
+  { id: '1', ideaId: '1', userId: '2', text: 'I think this depends heavily on the type of work and team culture. In my experience, deep work is easier at home, but collaboration suffers.', createdAt: '2026-01-03T11:00:00Z', likes: 12 },
+  { id: '2', ideaId: '1', userId: '3', text: 'The data from our team supports this — 20% productivity increase after going remote. We should verify understanding on the metrics definition though.', createdAt: '2026-01-03T12:00:00Z', likes: 8 },
+  { id: '3', ideaId: '1', userId: '4', text: 'What about collaboration and spontaneous conversations? Those are harder to measure but crucial for innovation.', createdAt: '2026-01-03T13:00:00Z', likes: 5 },
+  { id: '4', ideaId: '2', userId: '1', text: 'I think AI will augment rather than replace. The timeline seems aggressive. Would love to verify understanding on what "replace" means exactly.', createdAt: '2026-01-02T15:00:00Z', likes: 15 },
+  { id: '5', ideaId: '2', userId: '3', text: 'Depends on your definition of "knowledge work" — some tasks are more automatable than others. Let\'s break this down.', createdAt: '2026-01-02T16:00:00Z', likes: 7 },
+];
+
+// -----------------------------------------------------------------------------
+// Messages
+// -----------------------------------------------------------------------------
+
+export const mockMessages: Message[] = [
+  { id: '1', senderId: '1', text: 'Hey, I saw your position on the remote work idea. I disagree but would love to understand your perspective better.', createdAt: '2026-01-04T09:00:00Z', read: true },
+  { id: '2', senderId: 'current', text: 'Thanks for reaching out! I think we might be defining "productive" differently.', createdAt: '2026-01-04T09:05:00Z', read: true },
+  { id: '3', senderId: '1', text: 'Exactly. For me, productivity includes quality of deep work AND collaboration output. What\'s your framework?', createdAt: '2026-01-04T09:10:00Z', read: true },
+  { id: '4', senderId: 'current', text: 'I was thinking more about focused output — lines of code, documents completed. But your point about collaboration is valid.', createdAt: '2026-01-04T09:15:00Z', read: true },
+  { id: '5', senderId: '1', text: 'Want to go live and verify properly? I think we can reach mutual understanding even if we still disagree.', createdAt: '2026-01-04T09:20:00Z', ideaId: '1', read: false },
+];
+
+// -----------------------------------------------------------------------------
+// P55: Understanding Verification Loop Mock Data
+// -----------------------------------------------------------------------------
+
+import type { SurfacedIdea, IdeaQueueItem } from './types';
+
+/**
+ * Mock surfaced ideas for a live meeting.
+ * These are ideas Alice (user 1) has surfaced for the current user to review.
+ */
+export const mockSurfacedIdeas: SurfacedIdea[] = [
+  {
+    id: 's1',
+    text: 'We should ship the MVP by Friday to get early user feedback',
+    surfacedBy: '1', // Alice
+    surfacedAt: '2026-01-12T10:05:00Z',
+  },
+  {
+    id: 's2',
+    text: 'The checkout flow needs a progress indicator to reduce abandonment',
+    surfacedBy: '1', // Alice
+    surfacedAt: '2026-01-12T10:08:00Z',
+  },
+  {
+    id: 's3',
+    text: 'We should prioritize mobile experience over desktop for the beta',
+    surfacedBy: '1', // Alice
+    surfacedAt: '2026-01-12T10:12:00Z',
+  },
+  {
+    id: 's4',
+    text: 'The onboarding should ask for fewer permissions upfront',
+    surfacedBy: '1', // Alice
+    surfacedAt: '2026-01-12T10:15:00Z',
+  },
+];
+
+/**
+ * Convert surfaced ideas to queue items (LIFO order).
+ * Most recent ideas appear first in the queue.
+ */
+export function createIdeaQueue(ideas: SurfacedIdea[]): IdeaQueueItem[] {
+  // Sort by surfacedAt descending (newest first) for LIFO
+  const sorted = [...ideas].sort((a, b) =>
+    new Date(b.surfacedAt).getTime() - new Date(a.surfacedAt).getTime()
+  );
+
+  return sorted.map((idea, index) => ({
+    ...idea,
+    queuePosition: index,
+    actioned: false,
+  }));
+}
+
+/**
+ * Get the initial queue for "Your Ideas" section.
+ */
+export function getInitialYourIdeasQueue(): IdeaQueueItem[] {
+  return createIdeaQueue(mockSurfacedIdeas);
+}
+
+/**
+ * Mock ideas the current user has surfaced for Alice to review.
+ */
+export const mockYourSurfacedIdeas: SurfacedIdea[] = [
+  {
+    id: 'y1',
+    text: 'We need to add better error messages for form validation',
+    surfacedBy: 'current',
+    surfacedAt: '2026-01-12T10:03:00Z',
+  },
+  {
+    id: 'y2',
+    text: 'The API response times are too slow for the dashboard',
+    surfacedBy: 'current',
+    surfacedAt: '2026-01-12T10:10:00Z',
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Helper Functions
+// -----------------------------------------------------------------------------
+
+export function getUserById(id: string): User | undefined {
+  if (id === 'current') return currentUser;
+  return mockUsers.find(u => u.id === id);
+}
+
+export function getIdeaById(id: string): Idea | undefined {
+  return mockIdeas.find(i => i.id === id);
+}
+
+export function getSimpleIdeaById(id: string): IdeaSimple | undefined {
+  return getSimplifiedIdeas().find(i => i.id === id);
+}
+
+export function getCommentsForIdea(ideaId: string): Comment[] {
+  return mockComments.filter(c => c.ideaId === ideaId);
+}
+
+export function getCertificationsForIdea(ideaId: string): Certification[] {
+  return mockCertifications.filter(c => c.ideaId === ideaId);
+}
+
+export function getCertificationsForUser(userId: string): { given: Certification[]; received: Certification[] } {
+  return {
+    given: mockCertifications.filter(c => c.speakerId === userId),
+    received: mockCertifications.filter(c => c.listenerId === userId),
+  };
+}
+
+export function getVerificationStatus(ideaId: string, userId1: string, userId2: string): VerificationSession | null {
+  return mockVerificationSessions.find(s =>
+    s.ideaId === ideaId &&
+    s.participants.includes(userId1) &&
+    s.participants.includes(userId2)
+  ) || null;
+}
+
+/**
+ * Get all verification sessions for an idea involving a specific user.
+ * Useful for determining the "best" status across all partners.
+ */
+export function getVerificationSessionsForIdea(ideaId: string, userId: string): VerificationSession[] {
+  return mockVerificationSessions.filter(s =>
+    s.ideaId === ideaId &&
+    s.participants.includes(userId)
+  );
+}
+
+/**
+ * Get ALL verification sessions for an idea (regardless of user).
+ * Use this when displaying all verification activity on an idea.
+ */
+export function getAllVerificationSessionsForIdea(ideaId: string): VerificationSession[] {
+  return mockVerificationSessions.filter(s => s.ideaId === ideaId);
+}
+
+// -----------------------------------------------------------------------------
+// Profile Aggregate Metrics (P56)
+// -----------------------------------------------------------------------------
+
+export interface UserMetrics {
+  positionsTaken: number;       // Total ideas user has staked a position on
+  claritySessions: number;      // Total clarity sessions completed (ratings given)
+  crossVerifications: number;   // Verifications across disagreement
+}
+
+/**
+ * Calculate aggregate metrics for a user's profile.
+ * Shows their overall engagement: positions, clarity sessions, cross-verifications.
+ */
+export function getUserMetrics(userId: string): UserMetrics {
+  let positionsTaken = 0;
+  let claritySessions = 0;
+  let crossVerifications = 0;
+
+  // Count positions taken across all ideas
+  for (const idea of mockIdeas) {
+    const entry = idea.positions[userId];
+    if (entry?.position) {
+      positionsTaken++;
+    }
+  }
+
+  // Count clarity sessions (verifications where this user gave a rating)
+  for (const session of mockVerificationSessions) {
+    if (!session.participants.includes(userId)) continue;
+
+    const ratings = session.ratings || {};
+    if (ratings[userId] !== undefined) {
+      claritySessions++;
+
+      // Check if this was across disagreement
+      const [p1, p2] = session.participants;
+      const idea = mockIdeas.find(i => i.id === session.ideaId);
+      if (idea) {
+        const p1Position = idea.positions[p1]?.position;
+        const p2Position = idea.positions[p2]?.position;
+        if (p1Position && p2Position && p1Position !== p2Position) {
+          crossVerifications++;
+        }
+      }
+    }
+  }
+
+  return { positionsTaken, claritySessions, crossVerifications };
+}
+
+// -----------------------------------------------------------------------------
+// Calibration Data (P56.1)
+// -----------------------------------------------------------------------------
+
+/**
+ * Mock calibration data for each user.
+ * In production, this would be calculated from actual session data.
+ */
+const mockCalibrationData: Record<string, UserCalibration> = {
+  'current': {
+    listener: { avgGap: -1.2, state: 'overconfident', sessionCount: 8 },
+    speaker: { avgGap: 0.3, state: 'calibrated', sessionCount: 8 },
+  },
+  '1': { // Alice - well calibrated
+    listener: { avgGap: 0.2, state: 'calibrated', sessionCount: 15 },
+    speaker: { avgGap: -0.1, state: 'calibrated', sessionCount: 15 },
+  },
+  '2': { // Bob - overconfident as listener
+    listener: { avgGap: -2.1, state: 'overconfident', sessionCount: 10 },
+    speaker: { avgGap: -1.5, state: 'overconfident', sessionCount: 10 },
+  },
+  '3': { // Carol - underconfident
+    listener: { avgGap: 1.8, state: 'underconfident', sessionCount: 20 },
+    speaker: { avgGap: 1.2, state: 'underconfident', sessionCount: 20 },
+  },
+  '4': { // David - mixed
+    listener: { avgGap: -0.8, state: 'overconfident', sessionCount: 5 },
+    speaker: { avgGap: 0.5, state: 'calibrated', sessionCount: 5 },
+  },
+  '5': { // Emma - new user, few sessions
+    listener: { avgGap: 0, state: 'calibrated', sessionCount: 2 },
+    speaker: { avgGap: 0, state: 'calibrated', sessionCount: 2 },
+  },
+};
+
+/**
+ * Get calibration data for a user.
+ * Returns null if user has no calibration data yet (< 3 sessions).
+ */
+export function getUserCalibration(userId: string): UserCalibration | null {
+  const data = mockCalibrationData[userId];
+  if (!data) return null;
+  // Require minimum sessions for meaningful calibration
+  if (data.listener.sessionCount < 3 && data.speaker.sessionCount < 3) return null;
+  return data;
+}
+
+/**
+ * Calculate calibration state from average gap.
+ * Threshold: ±0.5 is considered calibrated.
+ */
+export function getCalibrationState(avgGap: number): CalibrationState {
+  if (avgGap < -0.5) return 'overconfident';
+  if (avgGap > 0.5) return 'underconfident';
+  return 'calibrated';
+}

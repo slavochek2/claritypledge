@@ -25,9 +25,12 @@ const ClarityChatPage = lazy(() => import("@/app/pages/clarity-chat-page").then(
 const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
 const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
+
+// Isolated prototypes - completely self-contained, no dependencies on main app
+const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
 const PremiumPrototype = lazy(() => import("@/app/prototypes/premium").then(m => ({ default: m.PremiumPrototype })));
 const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(m => ({ default: m.ConvergedPrototype })));
-const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
+const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
 
 // Loading fallback for lazy routes
 function PageLoader() {
@@ -285,15 +288,15 @@ export default function ClarityPledgeApp() {
           }
         />
 
-
-        {/* Premium Prototype - P32 Overnight */}
-        <Route path="/prototype/premium/*" element={<Suspense fallback={<PageLoader />}><PremiumPrototype /></Suspense>} />
-
-        {/* Converged Prototype - P32.3 */}
-        <Route path="/prototype/converged/*" element={<Suspense fallback={<PageLoader />}><ConvergedPrototype /></Suspense>} />
-
-        {/* Developer navigation tree */}
+        {/* ============================================================
+            PROTOTYPES - Isolated experimental features under /tree
+            These are completely self-contained with their own mock data.
+            They do NOT import from main app code (api.ts, auth, etc.)
+            ============================================================ */}
         <Route path="/tree" element={<Suspense fallback={<PageLoader />}><TreePage /></Suspense>} />
+        <Route path="/prototype/premium/*" element={<Suspense fallback={<PageLoader />}><PremiumPrototype /></Suspense>} />
+        <Route path="/prototype/converged/*" element={<Suspense fallback={<PageLoader />}><ConvergedPrototype /></Suspense>} />
+        <Route path="/prototype/linkedin-like/*" element={<Suspense fallback={<PageLoader />}><LinkedInLikePrototype /></Suspense>} />
       </Routes>
       </AuthProvider>
     </Router>
