@@ -8,7 +8,7 @@
 
 ## One-Sentence Description
 
-A chat-based brain dump interface where AI separates your messy thoughts into **Stories** (protected for empathy) and **Points** (sharpened for truth).
+A chat-based brain dump interface where AI separates your messy thoughts into **Stories** (protected for empathy) and **Points** (sharpened for truth-seeking).
 
 ---
 
@@ -21,175 +21,101 @@ A chat-based brain dump interface where AI separates your messy thoughts into **
 
 ---
 
-## User Journey
+## Core Philosophy
 
-### Entry Point
+### Stories vs Points
 
-User opens Sifter (from home, profile, or event prep):
+| Type | What it is | Scale | Purpose |
+|------|------------|-------|---------|
+| **Story** | Your lived experience | 0-10: "Do you feel understood?" | To be seen, not debated |
+| **Point** | A claim about reality | 0-10: "How much do you agree?" | To invite stress-testing with other Stories |
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    CLARITY SIFTER                       │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  What's on your mind?                                   │
-│                                                         │
-│  Just talk or type freely. I'll help you separate      │
-│  your lived experience from your logical claims.        │
-│                                                         │
-│  ┌───────────────────────────────────────────────────┐ │
-│  │                                                   │ │
-│  │ [Type or tap 🎤 to speak...]                      │ │
-│  │                                                   │ │
-│  └───────────────────────────────────────────────────┘ │
-│                                                         │
-│            [🎤 Voice]     [⌨️ Type]                     │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+### Why Points Exist
 
-### Brain Dump Phase
+> "The reason to attach a Point is to invite people to stress test it with other Stories"
 
-User types or speaks freely:
+- If you just want to be heard → Story only (private or shared)
+- If you want to spread/discover truth → Story + Point → invite debate
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    CLARITY SIFTER                       │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  YOU:                                                   │
-│  "I've been thinking about remote work. I used to      │
-│  commute 2 hours every day and it destroyed me.        │
-│  I was exhausted, couldn't see my kids, and my         │
-│  health suffered. I really think remote work is        │
-│  better for most knowledge workers. Companies          │
-│  that force return-to-office are making a mistake."    │
-│                                                         │
-│  ─────────────────────────────────────────────────────  │
-│                                                         │
-│  AI is analyzing...                                     │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+### Key Insight
 
-### Sift Result
+> "Suffering shared is half the suffering. Happiness shared is double the happiness."
+> But we can't share what we don't see. And we've stopped seeing each other.
 
-AI highlights and separates:
+---
+
+## Algorithm (v2 — Refined)
+
+### Design Principles
+
+1. **Stories first, Points optional** — Feel understood before extracting claims
+2. **One at a time** — Easier to rate, easier to correct
+3. **Options as default** — People often can't articulate from blank space; options unlock them
+4. **10/10 required for Stories** — Must feel fully understood before publishing
+5. **7+ required for Points** — Below 7 triggers "You seem unsure. Keep, refine, or discard?"
+
+### Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    CLARITY SIFTER                       │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  I found 1 STORY and 2 POINTS in what you shared.      │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 🔵 YOUR STORY                                   │   │
-│  │                                                 │   │
-│  │ "I commuted 2 hours daily. I was exhausted,    │   │
-│  │ couldn't see my kids, and my health suffered." │   │
-│  │                                                 │   │
-│  │ This is YOUR experience. It can't be debated   │   │
-│  │ — only understood.                             │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 🟡 POINT #1 (raw)                              │   │
-│  │ "Remote work is better for knowledge workers"  │   │
-│  │                                                 │   │
-│  │ → Hardened version:                            │   │
-│  │ "Remote work improves productivity and         │   │
-│  │ wellbeing for most knowledge workers"          │   │
-│  │                                                 │   │
-│  │ [Accept hardened] [Keep original] [Edit]       │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 🟡 POINT #2 (raw)                              │   │
-│  │ "Companies forcing RTO are making a mistake"   │   │
-│  │                                                 │   │
-│  │ → Hardened version:                            │   │
-│  │ "Mandatory return-to-office policies reduce    │   │
-│  │ employee retention and productivity"           │   │
-│  │                                                 │   │
-│  │ [Accept hardened] [Keep original] [Edit]       │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  [Continue dumping]  [Done — Review all]               │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+1. BRAIN DUMP
+   └── User types/speaks freely
+
+2. STORY EXTRACTION (one at a time)
+   ├── AI: "Here's what I heard:" [synthesized story]
+   ├── User: Rate 0-10 "Do you feel understood?"
+   │
+   ├── If <10:
+   │   ├── AI shares what it's uncertain about
+   │   ├── Offers options: A/B/C/D/Other
+   │   └── Loop until 10
+   │
+   └── If 10:
+       ├── Story saved
+       └── AI: "I noticed another story. Capture it?" (only if AI sees one)
+           ├── Yes → repeat step 2
+           └── No → move to Points
+
+3. POINTS EXTRACTION (optional)
+   ├── AI: "Your story contains this belief: [hardened Point]"
+   ├── AI: "Want others to stress test it with their Stories?"
+   │
+   ├── [Yes] → "How strongly do you believe it? 0-10"
+   │   ├── 7+ → saved with agreement score
+   │   └── <7 → "You seem unsure. Refine, keep anyway, or discard?"
+   │
+   └── [No] → Skip this Point (belief stays embedded in Story)
+
+   Repeat for each Point found
+
+4. PUBLISH
+   ├── Stories: saved (10/10 understood, private by default)
+   └── Points: saved with agreement scores (public, invites stress-testing)
 ```
 
-### Mirror Test
+### AI Behavior by Rating
 
-Before saving, AI plays back understanding:
+| Rating | AI Response |
+|--------|-------------|
+| **8-10** | "Got it!" — Accept or minor tweak |
+| **5-7** | "Almost there. What's missing?" + Options A/B/C/D/Other |
+| **<5** | "I think I'm missing something important. Here's what I'm uncertain about: [X, Y]. Which is off?" + Options |
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    MIRROR TEST                          │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Let me make sure I captured the soul of what          │
-│  you're saying...                                       │
-│                                                         │
-│  ─────────────────────────────────────────────────────  │
-│                                                         │
-│  YOUR STORY is about burnout from commuting —          │
-│  the exhaustion, missing family time, and health       │
-│  impact of long daily travel to an office.             │
-│                                                         │
-│  This experience led you to two POINTS:                │
-│                                                         │
-│  1. Remote work is generally better for knowledge      │
-│     workers (productivity + wellbeing)                 │
-│                                                         │
-│  2. Companies forcing return-to-office are harming     │
-│     themselves (retention + productivity)              │
-│                                                         │
-│  ─────────────────────────────────────────────────────  │
-│                                                         │
-│  Did I capture your intent?                            │
-│                                                         │
-│        [0] [1] [2] [3] [4] [5] [6] [7] [8] [9] [10]   │
-│        Not at all                        Perfectly     │
-│                                                         │
-│  [Edit something]  [Start over]                        │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+**Same mechanic** (options), different **framing** (confidence level). KISS.
 
-### Save & Next Steps
+---
 
-After Mirror Test passes (7+):
+## User Journey (Wireframes)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    SIFT COMPLETE ✓                      │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Your thoughts have been sifted and saved.             │
-│                                                         │
-│  🔵 1 Story (private — only shared when you verify)   │
-│  🟡 2 Points (ready to stake positions)               │
-│                                                         │
-│  ─────────────────────────────────────────────────────  │
-│                                                         │
-│  What's next?                                          │
-│                                                         │
-│  [Stake positions on my Points]                        │
-│  → Agree/disagree, find people with opposite views     │
-│                                                         │
-│  [Add to an Event]                                     │
-│  → Share Points with event participants                │
-│                                                         │
-│  [Keep sifting]                                        │
-│  → I have more thoughts to work through                │
-│                                                         │
-│  [Just save for now]                                   │
-│  → Review later in My Sifted Thoughts                  │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
+See: [sifter-mvp-wireframe-v4.excalidraw](../docs/bmad/diagrams/sifter-mvp-wireframe-v4.excalidraw)
+
+### Screen Flow
+
+1. **Entry** — "Dump your thoughts. I'll help untangle them."
+2. **Processing** — AI sifts, shows progress
+3. **Review Dashboard** — Shows all extracted Stories/Points, user picks which to review
+4. **Story Review (Chat)** — Rate 0-10, AI asks clarifying questions until 10
+5. **Point Review (Chat)** — Rate 0-10 agreement, AI refines until satisfied
+6. **Publish** — Summary of what's ready, publish button
 
 ---
 
@@ -200,34 +126,60 @@ After Mirror Test passes (7+):
 ```
 You are a thought sifter. Your job is to help users separate their messy thoughts into two categories:
 
-**STORIES** (World 2 — Subjective):
+**STORIES** (Subjective — World 2):
 - Personal experiences, feelings, memories
 - Things that happened TO the user
 - Emotional content, lived reality
 - Cannot be "disagreed with" — only understood
 - Markers: "I felt", "I experienced", "I remember", "It was hard", etc.
 
-**POINTS** (World 3 — Objective):
+**POINTS** (Objective — World 3):
 - Claims about reality
 - Assertions that could be true or false
 - Things that CAN be agreed/disagreed with
 - Markers: "I think", "We should", "It's better", "Companies are", etc.
 
-Given user input, output:
-1. Identified STORIES (preserve original language)
-2. Identified POINTS (preserve original language)
-3. For each POINT, suggest a "hardened" version that is:
-   - More specific and falsifiable
-   - Removes vague words ("better", "should", etc.)
-   - Makes the claim testable
+Given user input:
+1. Synthesize Stories into ONE cohesive narrative (don't fragment into quotes)
+2. Extract Points (already hardened — specific and falsifiable)
+3. Keep the user's voice and intent
 
-Keep the user's voice. Don't sanitize emotion from Stories or add emotion to Points.
+When rating is below 10:
+- Share what you're uncertain about
+- Offer options (A/B/C/D/Other) — don't ask open-ended questions
+- Options help users correct you even when they can't articulate what's wrong
 ```
 
-### Hardener Prompt
+### Story Refinement Prompt
 
 ```
-You are a claim hardener. Given a vague Point, transform it into a falsifiable statement.
+The user rated their Story {rating}/10 for how well you captured their experience.
+
+If rating < 10, something is missing or wrong.
+
+Your job:
+1. State what you're uncertain about from the Story
+2. Offer 3-4 specific options for what might be off
+3. Always include "Other — tell me" as the last option
+
+Example:
+"You rated 7/10. Here's what I'm uncertain about:
+- Was it more about the health impact or the guilt?
+- Did I miss the time pressure aspect?
+
+What's closer?
+A) It was mainly about guilt for not being present
+B) The exhaustion was physical, not emotional
+C) There's a work culture element I missed
+D) Other — tell me"
+
+Keep iterating until they reach 10/10.
+```
+
+### Point Hardening Prompt
+
+```
+You are a claim hardener. Transform vague Points into falsifiable statements.
 
 Rules:
 - Make every word matter (no filler)
@@ -238,25 +190,11 @@ Rules:
 
 Examples:
 - "Cars are bad" → "Removing cars from city centers reduces respiratory illness rates"
-- "Remote work is better" → "Remote work improves productivity and wellbeing for most knowledge workers"
-- "AI will change everything" → "AI will automate >50% of knowledge work tasks within 10 years"
+- "Remote work is better" → "Remote work improves wellbeing for knowledge workers, though productivity varies by role"
+- "We don't pay attention" → "Most people operate on autopilot, missing what's happening around them because sustained attention is neither taught nor culturally valued"
 
-If the Point is already specific and falsifiable, say so.
-```
-
-### Mirror Test Prompt
-
-```
-You are verifying understanding. Given a user's sifted Stories and Points, play back what you understood in 2-3 sentences.
-
-Structure:
-1. Summarize the STORY (the lived experience, the "why")
-2. Summarize the POINT(S) (the claim(s) they're making)
-3. Show the connection (how the Story leads to the Point)
-
-Tone: Warm but concise. You're checking, not lecturing.
-
-Ask: "Did I capture your intent?" and invite a 0-10 rating.
+Present the hardened version directly. User rates 0-10 agreement.
+If <7, ask what's holding them back (with options).
 ```
 
 ---
@@ -270,12 +208,13 @@ stories (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) not null,
   text text not null,
-  sift_session_id uuid,           -- which sift created this
+  accuracy_rating int not null check (accuracy_rating = 10), -- must be 10 to save
+  sift_session_id uuid,
+  is_public boolean default false,
   created_at timestamp default now()
 )
 
--- RLS: Users can only see their own Stories
--- Stories are private unless shared in verification
+-- RLS: Users can only see their own Stories (unless is_public)
 ```
 
 ### Points Table
@@ -284,15 +223,15 @@ stories (
 points (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references profiles(id) not null,
-  original_text text not null,    -- user's original wording
-  hardened_text text,             -- AI-refined version
-  used_hardened boolean default false,  -- which version is "active"
-  event_id uuid references events(id),  -- null = personal/global
-  sift_session_id uuid,           -- which sift created this
+  text text not null,                 -- hardened version only
+  agreement_rating int not null check (agreement_rating >= 0 and agreement_rating <= 10),
+  story_id uuid references stories(id), -- optional link to source Story
+  sift_session_id uuid,
   created_at timestamp default now()
 )
 
 -- RLS: Points are readable by all, writable by creator
+-- Points with agreement_rating shown publicly: "Maria agrees (8/10)"
 ```
 
 ### Sift Sessions Table
@@ -301,8 +240,7 @@ points (
 sift_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) not null,
-  raw_input text not null,        -- original brain dump
-  mirror_test_rating int,         -- 0-10
+  raw_input text not null,
   completed_at timestamp,
   created_at timestamp default now()
 )
@@ -316,21 +254,21 @@ sift_sessions (
 // Start a sift session
 createSiftSession(rawInput: string): Promise<{
   sessionId: string;
-  stories: SiftedStory[];
-  points: SiftedPoint[];
+  stories: ExtractedStory[];
+  points: ExtractedPoint[];
 }>
 
-// Accept/reject hardened version
-updatePointVersion(pointId: string, useHardened: boolean): Promise<void>
+// Update story after refinement
+updateStory(storyId: string, text: string, rating: number): Promise<void>
 
-// Complete Mirror Test
-completeMirrorTest(sessionId: string, rating: number): Promise<void>
+// Accept/reject story
+finalizeStory(storyId: string, accepted: boolean): Promise<void>
 
-// Save sifted content
-saveSiftedContent(sessionId: string): Promise<{
-  storyIds: string[];
-  pointIds: string[];
-}>
+// Update point after refinement
+updatePoint(pointId: string, text: string, rating: number): Promise<void>
+
+// Accept/reject point
+finalizePoint(pointId: string, accepted: boolean): Promise<void>
 
 // Get user's sifted content
 getMySiftedContent(): Promise<{
@@ -345,12 +283,14 @@ getMySiftedContent(): Promise<{
 
 | Component | Location | Description |
 |-----------|----------|-------------|
-| `SifterChat` | `src/app/components/sifter/` | Main chat interface |
-| `SiftResult` | `src/app/components/sifter/` | Display sifted Stories/Points |
-| `StoryCard` | `src/app/components/sifter/` | Blue card for Story display |
-| `PointCard` | `src/app/components/sifter/` | Yellow card for Point display |
-| `HardenerToggle` | `src/app/components/sifter/` | Accept/reject hardened version |
-| `MirrorTest` | `src/app/components/sifter/` | AI playback + rating |
+| `SifterEntry` | `src/app/components/sifter/` | Brain dump input |
+| `SifterProcessing` | `src/app/components/sifter/` | Processing animation |
+| `ReviewDashboard` | `src/app/components/sifter/` | Overview of extracted items |
+| `StoryReviewChat` | `src/app/components/sifter/` | Chat-based story refinement |
+| `PointReviewChat` | `src/app/components/sifter/` | Chat-based point refinement |
+| `RatingScale` | `src/app/components/sifter/` | 0-10 rating component |
+| `OptionPicker` | `src/app/components/sifter/` | A/B/C/D/Other selector |
+| `PublishSummary` | `src/app/components/sifter/` | Final review before publish |
 | `SifterPage` | `src/app/pages/` | Route: `/sift` |
 
 ---
@@ -360,9 +300,10 @@ getMySiftedContent(): Promise<{
 | Metric | Target | Why |
 |--------|--------|-----|
 | Sift completion rate | >50% | Do users finish? |
-| Mirror Test rating | avg >7 | Is AI capturing intent? |
-| Hardened version acceptance | >60% | Is hardening useful? |
-| Points created per session | 1-3 | Are we over-extracting? |
+| Stories reaching 10/10 | >70% | Can AI understand users? |
+| Average iterations to 10 | <3 | Is refinement efficient? |
+| Points accepted | >40% | Do users want to stake claims? |
+| Point agreement scores | avg >7 | Are users confident in Points? |
 | Time to complete | <5 min | Is it too slow? |
 
 ---
@@ -374,18 +315,10 @@ getMySiftedContent(): Promise<{
 User shares only Story (pure experience):
 
 ```
-"I had a really hard day. My boss yelled at me
-and I felt terrible."
-```
+AI: "I found your Story but no claims you're making.
+     That's okay — sometimes we just need to be heard.
 
-Response:
-```
-I found 1 STORY but no POINTS (claims you're making).
-
-That's okay! Sometimes we just need to process
-an experience before forming opinions about it.
-
-[Save Story]  [Help me find a Point]
+     [Save Story only]  [Help me find a Point]"
 ```
 
 ### No Story detected
@@ -393,37 +326,54 @@ an experience before forming opinions about it.
 User shares only Point (pure assertion):
 
 ```
-"Companies should have unlimited PTO policies."
+AI: "I found a claim but no experience behind it.
+     A Story helps others understand WHY you believe this.
+
+     [Add my Story]  [Just save the Point]"
 ```
 
-Response:
-```
-I found 1 POINT but no STORY (experience behind it).
+### Story stuck below 10
 
-A Story helps others understand WHY you believe this.
-Want to add context?
-
-[Add my Story]  [Just save the Point]
-```
-
-### User rejects Mirror Test
-
-Rating < 5:
+After 5+ iterations without reaching 10:
 
 ```
-What did I miss?
+AI: "We've been at this a while. Would you like to:
 
-[The Story is wrong]
-[The Point is wrong]
-[The connection is wrong]
-[Start over completely]
+     A) Save at current rating (8/10) — close enough
+     B) Start fresh with different words
+     C) Skip this Story entirely"
+```
+
+**Note:** Option A should be rare. The goal is 10/10. But don't trap users.
+
+### Point below 7 agreement
+
+```
+AI: "You rated 5/10 agreement. You seem unsure about this.
+
+     [Refine it] — let's adjust the wording
+     [Keep anyway] — save with 5/10 shown
+     [Discard] — don't publish this Point"
 ```
 
 ---
 
-## Voice Input (V1.1)
+## Future Enhancements (V1.1+)
 
-For MVP, text-only. Voice can be added later:
+### Point Matching
+
+Before creating new Points, search existing database:
+
+```
+AI: "5 people already believe something similar:
+     'Remote work improves wellbeing for most workers'
+
+     [Join this Point]  [Create my own version]"
+```
+
+**Why not MVP:** No Points database yet. Design for it (normalized text, tags), build later.
+
+### Voice Input
 
 ```
 □ Whisper API for transcription
@@ -434,14 +384,27 @@ For MVP, text-only. Voice can be added later:
 
 ---
 
+## Decisions Made
+
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| Can Story publish below 10? | **No** | The whole point is feeling understood |
+| Can Point publish below 7? | **Yes, with "keep anyway"** | User choice, but score is shown |
+| Show raw + hardened Point? | **No — hardened only** | Simpler. One version to rate. |
+| When move to Points? | **After all Stories settled OR user says "enough"** | User controls pace |
+| Zero Points valid? | **Yes** | Some dumps are pure processing |
+| Point matching in MVP? | **No** | Build database first, match later |
+
+---
+
 ## Integration Points
 
 ### → Position Staking (Phase 1)
 
 After sift complete:
 - Points become available for position staking
-- User can immediately Agree with their own Point
-- Point appears in feeds (if event-scoped)
+- Agreement score shown: "Maria agrees (8/10)"
+- Others can stake their own position on same Point
 
 ### → Verification /live (Phase 3)
 
@@ -457,29 +420,10 @@ AI summarizes Stories behind positions:
 
 ---
 
-## Open Questions
-
-### Q1: Can users sift without creating Points?
-
-**Current:** Yes — Story-only sifts are valid.
-**Rationale:** Sometimes processing experience is enough.
-
-### Q2: Are Points always linked to Stories?
-
-**Current:** No — Points can exist without Stories.
-**Rationale:** Some claims don't need personal context.
-**Future:** Encourage Story linking for richer verification.
-
-### Q3: Can users edit after Mirror Test?
-
-**Current:** Yes — edit anything before final save.
-**After save:** Story is immutable, Point can be re-hardened.
-
----
-
 ## Related Documents
 
 - [ROADMAP.md](./ROADMAP.md) — Where this fits in the build order
+- [sifter-mvp-wireframe-v4.excalidraw](../docs/bmad/diagrams/sifter-mvp-wireframe-v4.excalidraw) — UI wireframes
 - [v5_1_sensemaking_platform_synthesis.md](../docs/visions/v5_1_sensemaking_platform_synthesis.md) — Philosophy of Story/Point
 
 ---
@@ -489,3 +433,4 @@ AI summarizes Stories behind positions:
 | Date | Change |
 |------|--------|
 | 2026-01-14 | Created from v5/v6 synthesis |
+| 2026-01-14 | **v2 algorithm**: Stories-first, one-at-a-time, options-based refinement, chat-based review |
