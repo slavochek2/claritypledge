@@ -11,6 +11,14 @@ import {
   getIdeaById,
 } from '../data/mock-data';
 
+// SVG colors mapped to Tailwind tokens (for maintainability)
+const COLORS = {
+  blue500: '#3b82f6',   // blue-500 (primary interactive)
+  gray400: '#9ca3af',   // gray-400 (neutral edges)
+  gray800: '#1f2937',   // gray-800 (dark nodes)
+  gray700: '#374151',   // gray-700 (node labels)
+} as const;
+
 interface Node {
   id: string;
   x: number;
@@ -159,7 +167,7 @@ export function Topology() {
                     y1={source.y}
                     x2={target.x}
                     y2={target.y}
-                    stroke={edge.isCrossDisagreement ? '#3B82F6' : '#9CA3AF'}
+                    stroke={edge.isCrossDisagreement ? COLORS.blue500 : COLORS.gray400}
                     strokeWidth={isHighlighted ? 3 : 1.5}
                     strokeOpacity={selectedNode ? (isHighlighted ? 1 : 0.2) : 0.6}
                     className="transition-all"
@@ -193,7 +201,7 @@ export function Topology() {
                         cy={node.y}
                         r={node.size / 2 + 6}
                         fill="none"
-                        stroke="#3B82F6"
+                        stroke={COLORS.blue500}
                         strokeWidth={3}
                         className="animate-pulse"
                       />
@@ -203,7 +211,7 @@ export function Topology() {
                       cx={node.x}
                       cy={node.y}
                       r={node.size / 2}
-                      fill={node.id === 'current' ? '#3B82F6' : '#1F2937'}
+                      fill={node.id === 'current' ? COLORS.blue500 : COLORS.gray800}
                       className="transition-all hover:scale-110"
                       style={{ transformOrigin: `${node.x}px ${node.y}px` }}
                     />
@@ -224,7 +232,7 @@ export function Topology() {
                       y={node.y + node.size / 2 + 14}
                       textAnchor="middle"
                       fontSize={10}
-                      fill="#374151"
+                      fill={COLORS.gray700}
                       className="pointer-events-none select-none"
                     >
                       {node.id === 'current' ? 'You' : node.user?.name.split(' ')[0]}

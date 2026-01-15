@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Plus, ChevronDown, User, Settings, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { currentUser } from '../data/mock-data';
 
 export function PrototypeHeader() {
@@ -28,17 +29,18 @@ export function PrototypeHeader() {
           {/* Right side: New Meeting + Avatar */}
           <div className="flex items-center gap-3">
             {/* New Meeting button */}
-            <button
+            <Button
               onClick={() => navigate('/prototype/linkedin-like/live')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-sm transition-colors ${
+              size="sm"
+              className={
                 isOnLive
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                   : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
+              }
             >
               <Plus size={16} />
               <span>New Meeting</span>
-            </button>
+            </Button>
 
             {/* Avatar dropdown */}
             <div className="relative">
