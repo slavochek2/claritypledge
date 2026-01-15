@@ -1,12 +1,19 @@
 # P63: Google OAuth Authentication with Profile Pictures
 
-**Status:** Blocked (waiting on P63_UX)
+**Status:** ✅ Ready for Implementation (UX spec complete)
 **Priority:** Medium
 **Complexity:** Low
-**Estimated Effort:** 2-4 hours (implementation only, after UX spec complete)
+**Estimated Effort:** 2-4 hours implementation + testing
 
 **Prerequisites:**
-- ⏳ [P63_UX: Google OAuth UX Flows](p63_ux_google_oauth_flows.md) - Must complete first
+- ✅ [P63_UX: Google OAuth UX Flows](p63_ux_google_oauth_flows.md) - **COMPLETE** (2026-01-15)
+- ✅ [Wireframes](../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw) - Visual reference for implementation
+
+**UX Decisions Summary:**
+- Google OAuth on `/live` (priority: reduces friction for first-time users)
+- Google OAuth on `/login` (priority: faster access for returning users)
+- NO Google OAuth on `/sign-pledge` (keeps pledge signup thoughtful)
+- See [P63_UX](p63_ux_google_oauth_flows.md) for complete UX spec, wireframes, copy, and edge cases
 
 ## Overview
 
@@ -40,19 +47,113 @@ Enable users to sign up and log in using Google OAuth, automatically importing t
 - P63 creates `features/p63_2_production_deployment.md` with step-by-step guide
 - You follow P63_2.md to replicate on production
 
+## UX Specification (Completed 2026-01-15)
+
+### Where Google OAuth Appears
+
+| Entry Point | Google OAuth? | Rationale |
+|-------------|---------------|-----------|
+| `/live` (Clarity Meeting) | ✅ **YES** | Biggest pain point - reduces friction dramatically for first-time users. Critical UX win. |
+| `/login` (Returning users) | ✅ **YES** | Clear win. No downside, faster access. |
+| `/sign-pledge` (Take pledge) | ❌ **NO** | Form is thoughtful conversion moment. Adding Google creates decision fatigue and risks skipping "reason" field. |
+| Main page | ❌ NO | Already have 2 CTAs. Third would confuse. |
+| Settings page | ❌ NO | Supabase auto-links. KISS approach. |
+
+### Visual Design
+
+**Wireframes:** [p63-google-oauth-wireframes-1737027727609.excalidraw](../docs/bmad/diagrams/p63-google-oauth-wireframes-1737027727609.excalidraw)
+
+**`/live` page layout:**
+```
+[🔵 Continue with Google]  ← Primary blue button (#1976d2)
+────── or enter manually ────── ← Clickable, expands form
+(Collapsed by default)
+
+☐ I agree session recorded... ← Always visible
+
+[New meeting] [Join]
+```
+
+**`/login` page layout:**
+```
+[🔵 Continue with Google]  ← Primary button
+────── or use magic link ──────
+
+Email Address
+[your@email.com]
+
+[Send Me a Magic Link]  ← Same blue
+```
+
+### Copy Documentation
+
+| Element | Exact Copy | Notes |
+|---------|-----------|-------|
+| Google button | "Continue with Google" | Works for both new + returning users |
+| Divider (`/live`) | "or enter manually" | Clickable link, expands form |
+| Divider (`/login`) | "or use magic link" | Static text |
+| Consent checkbox | "I agree session will be recorded and accept Terms and Privacy Policy" | Existing, no change |
+
+### User Flows
+
+**`/live` - First-time user:**
+1. User sees "Continue with Google" button (prominent, blue)
+2. Below: "or enter manually" (clickable, gray)
+3. Below: Consent checkbox (always visible)
+4. User clicks Google button → OAuth flow → Returns with session
+5. Name pre-filled from Google profile
+6. Redirected to meeting creation
+
+**Alternative - Manual entry:**
+1. User clicks "or enter manually" → Form expands
+2. Shows: Name field + Email field
+3. Consent checkbox still visible
+4. User fills form → Creates session via magic link
+
+**`/login` - Returning user:**
+1. User sees both options (no collapsing):
+   - "Continue with Google" (primary)
+   - Divider
+   - Email field + "Send Magic Link" button
+2. User chooses method → Authenticates → Access profile
+
+### Edge Cases (MVP Approach)
+
+| Scenario | Handling |
+|----------|----------|
+| Google without photo | Show generated avatar (initials + color) |
+| Different name in Google | Use Google name, editable in settings later |
+| Corporate email | Treat same as any email |
+| Multiple Google accounts | Supabase handles |
+| Google auth revoked | Email fallback works automatically |
+| Account linking | Supabase auto-links by email (silent) |
+| Google auth failure | Toast: "Sign in failed. Try again or use email." |
+
+### Post-Meeting CTA
+
+After first live meeting completion, show prompt:
+```
+Great session! 🎉
+Want to make your commitment official?
+[Take the Clarity Pledge]
+(Earn certificate and join verified pledgers)
+```
+
+**Trigger:** First meeting completion
+**Frequency:** Once per user
+**Dismiss:** Allow closing
+
 ## Proposed Solution
 
-### User Experience
+### User Experience Summary
 
-**Sign-up/Login Flow:**
-1. Landing page shows two auth options:
-   - "Continue with Google" (new)
-   - "Continue with Email" (existing magic link)
-2. Google button triggers Supabase OAuth flow
+**General OAuth Flow:**
+1. User clicks "Continue with Google"
+2. Supabase triggers Google OAuth
 3. User authorizes via Google consent screen
 4. Redirected back to app with session + Google metadata
-5. Profile created with Google avatar URL
-6. Redirected to their profile page
+5. Profile created/updated with Google avatar URL
+6. Redirected to appropriate page (meeting or profile)
 
 **Profile Display:**
 - If `avatar_url` exists: Show Google profile picture

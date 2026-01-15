@@ -65,6 +65,31 @@ npm run test:e2e:headed  # Run in headed browser
 - Connect to existing browser session (preserves auth state)
 - Use when Playwright isn't enough for debugging
 
+**Chrome Integration** (beta, `claude --chrome`) - Browser automation via Chrome extension:
+- Uses your actual logged-in browser sessions (Gmail, Google Docs, OAuth flows)
+- Real-world testing with authenticated state
+- Requires: Chrome + Claude extension (v1.0.36+) + visible browser window
+- Enable with `claude --chrome` or `/chrome` command
+
+## Browser Tools Decision Guide
+
+Four browser tools are available. Choose based on your task:
+
+| Task | Use This |
+|------|----------|
+| Quick visual check / screenshot | Playwright MCP |
+| Run test suite / CI | `npm run test:e2e` (Playwright) |
+| Debug network/performance/memory | Chrome DevTools MCP |
+| Test with logged-in sessions | Chrome Integration |
+
+**When to use each:**
+- **Playwright MCP** - Default for visual inspection. Fast, no setup needed.
+- **Playwright E2E** - For actual tests with assertions. Use for `/loop` validation.
+- **Chrome DevTools MCP** - When you need to see network requests, timing, headers, or memory.
+- **Chrome Integration** - When you need your actual browser session (OAuth, production sites, authenticated APIs).
+
+**Prefer headless mode** for Playwright MCP, Playwright E2E, and Chrome DevTools MCP. Headless is faster, uses fewer resources, and doesn't interrupt the user with browser windows. Only use headed mode (`--headed`) when you need to visually debug a specific issue. Chrome Integration is the exception—it requires a visible browser by design.
+
 ## Cloud Agent (Run Tasks While AFK)
 
 Run AI coding tasks on a Google Cloud VM. Supports **parallel execution** via worktrees (0-3).
@@ -84,6 +109,7 @@ Run AI coding tasks on a Google Cloud VM. Supports **parallel execution** via wo
 | BMAD agents | ✅ | ❌ |
 | Playwright MCP | ✅ | ❌ |
 | Chrome DevTools MCP | ✅ | ❌ |
+| Chrome Integration | ❌ (needs visible browser) | ❌ |
 
 **First-time setup:**
 1. Run `/c setup-mcp` to install Playwright and Chrome DevTools MCP on the VM
