@@ -1,0 +1,17 @@
+{
+  "enabledMcpjsonServers": ["supabase"],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/design-system-check.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -45,6 +45,13 @@ npm run test:e2e:headed  # Run in headed browser
 
 ## MCP Servers Available
 
+**Supabase MCP** - Direct database access and management:
+- Execute SQL queries against the database
+- List tables and view schemas
+- Inspect database functions and triggers
+- View RLS policies
+- Useful for debugging data issues and exploring schema
+
 **Playwright MCP** - For visual UI inspection during development:
 - Navigate to pages and take screenshots
 - Check mobile (375px) and desktop views
@@ -480,6 +487,29 @@ When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colo
 - Never use yellow/amber/orange/purple
 - Buttons that look clickable should be blue (primary) or outlined (secondary)
 - Info banners should be gray, NOT blue (blue implies interactivity)
+
+### Before Creating UI (Checklist)
+
+Before creating wireframes, prototypes, or modifying frontend components:
+
+**For Excalidraw wireframes:**
+- [ ] Primary buttons use `#3b82f6` (blue-500)
+- [ ] User's own content uses blue tints (`#eff6ff` bg, `#bfdbfe` stroke)
+- [ ] Other's content uses gray (`#f5f5f5` bg, `#e0e0e0` stroke)
+- [ ] Success states ONLY use green (`#dcfce7` bg, `#22c55e` stroke)
+- [ ] No yellow/amber/orange/purple anywhere
+
+**For React components:**
+- [ ] Use shadcn/ui Button variants (not custom inline styles)
+- [ ] Use semantic Tailwind (`blue-500`, `text-muted-foreground`) not hex codes
+- [ ] Follow landing page patterns, not prototype divergences
+- [ ] Check existing components in `src/components/ui/` before creating new ones
+
+**Forbidden patterns:**
+- `#007AFF` (iOS blue) - use `#3b82f6` instead
+- `bg-amber-*`, `bg-orange-*`, `bg-yellow-*` - use `bg-blue-*` with messaging
+- Hard-coded pixel sizes like `text-[17px]` - use semantic `text-lg`
+- Custom button styles - use `<Button variant="...">` from shadcn/ui
 
 ## Code Style Conventions
 
