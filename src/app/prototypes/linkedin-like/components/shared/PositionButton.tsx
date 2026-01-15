@@ -1,4 +1,4 @@
-import { Position, currentUser } from '../../data/mock-data';
+import { Position } from '../../data/mock-data';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
