@@ -253,7 +253,7 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-[11px] text-white font-bold">C</span>
+          <span className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
           <span className="font-medium text-gray-900">Clarity Sessions</span>
           <span className="text-sm text-gray-500">({verifications.length})</span>
         </div>

@@ -31,7 +31,7 @@ export function VerifyButton({ verificationCount, onClick, isOpen = false }: Ver
             onClick={onClick}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-medium transition-colors ${getButtonStyle()}`}
           >
-            <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white font-bold">C</span>
+            <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
             <span>{verificationCount}</span>
             <ChevronIcon size={14} />
           </button>

@@ -253,7 +253,7 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center gap-1.5 text-sm cursor-default">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white font-bold">C</span>
+                      <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
                       <span>{displayVerifications}</span>
                     </span>
                   </TooltipTrigger>
