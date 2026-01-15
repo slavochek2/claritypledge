@@ -25,6 +25,7 @@ import { PrototypeLayout } from './PrototypeLayout';
 import { mockUsers, currentUser, getInitialYourIdeasQueue } from '../data/mock-data';
 import { QRCodeSVG } from 'qrcode.react';
 import { Toaster } from '@/components/ui/sonner';
+import { Button } from '@/components/ui/button';
 import { YourIdeasQueue, TheirIdeas, SurfaceIdeaDrawer } from './ideas';
 
 // ============================================================================
@@ -716,13 +717,14 @@ export function Live() {
           </p>
 
           {/* Simulate partner joined button (for prototype) */}
-          <button
+          <Button
             onClick={handlePartnerJoined}
-            className="mt-4 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3"
+            size="lg"
           >
             <Check className="w-5 h-5" />
             Simulate: Partner Joined
-          </button>
+          </Button>
         </div>
       </PrototypeLayout>
     );
