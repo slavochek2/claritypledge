@@ -423,93 +423,13 @@ Consider using these for features requiring cloud infrastructure (compute, stora
 
 ## Design System
 
-**Specification:** [docs/bmad/ux-design-specification.md](docs/bmad/ux-design-specification.md)
+**Specification:** [docs/design-system.md](docs/design-system.md)
 
-The landing page is the source of truth for visual design. All new UI should follow these patterns:
+**Before creating UI**: Read the spec above. It references shadcn/ui and Tailwind CSS - use those components and tokens.
 
-### Colors
-| Token | Usage |
-|-------|-------|
-| `blue-500` | Primary CTA, accent icons, interactive elements |
-| `blue-600` | Hover states |
-| `blue-50` | Highlight backgrounds |
-| `green-500/600` | Success states only (e.g., "accepted", "verified") |
-| `red-500` | Recording indicator, destructive actions |
-| `primary` (dark) | Own message bubbles |
-| `muted` | Other message bubbles, secondary backgrounds |
-
-### Do NOT use
-- `amber-*` colors (use `blue-*` with animation for pending states)
-- `orange-*` colors (use `blue-*` with messaging for retry states)
-- Multiple semantic color palettes for similar concepts
-
-### Button Patterns
-```tsx
-// Primary CTA (blue)
-className="bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-md"
-
-// Secondary/Outline
-className="border border-input bg-background hover:bg-accent rounded-md"
-
-// Action pill (e.g., "Explain back")
-className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-full px-3 py-1.5 text-xs font-medium"
-```
-
-### Status Badges
-```tsx
-// Accepted/Success
-className="bg-green-50 text-green-700 border border-green-200 rounded-md"
-
-// Pending/In Progress
-className="bg-blue-50 text-blue-700 border border-blue-200 rounded-md"
-```
-
-### Excalidraw Wireframe Colors
-
-When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colors consistently:
-
-| Element Type | Stroke | Background | Text | When to use |
-|--------------|--------|------------|------|-------------|
-| **Primary button** | `#3b82f6` | `#3b82f6` | `#ffffff` | Main CTAs ("Let Me Explain Back") |
-| **Secondary button** | `#e0e0e0` | `#ffffff` | `#1e1e1e` | Alternative actions ("Good Enough") |
-| **Your status/action** | `#bfdbfe` | `#eff6ff` | `#1e40af` | "You're speaking...", "You rated: 6/10" |
-| **Other person's status** | `#e0e0e0` | `#f5f5f5` | `#757575` | "Slava finished speaking", "Gosha speaking..." |
-| **Content/Quotes** | `#e0e0e0` | `#fafafa` | `#1e1e1e` | "You said:...", transcript boxes |
-| **Success state** | `#22c55e` | `#dcfce7` | `#166534` | ONLY for verified/confirmed ("Understanding Verified!") |
-| **Recording indicator** | `#ef4444` | `#ef4444` | - | Red dot only |
-| **Phone frame** | `#1e1e1e` | `#ffffff` | - | Device outline |
-| **Footer area** | `#e0e0e0` | `#f5f5f5` | - | Bottom status bar |
-
-**Key rules:**
-- Blue = YOUR actions/status (things you do or your data)
-- Gray = OTHER person's actions/status or neutral info
-- Green = SUCCESS only (verified, confirmed, connected)
-- Never use yellow/amber/orange/purple
-- Buttons that look clickable should be blue (primary) or outlined (secondary)
-- Info banners should be gray, NOT blue (blue implies interactivity)
-
-### Before Creating UI (Checklist)
-
-Before creating wireframes, prototypes, or modifying frontend components:
-
-**For Excalidraw wireframes:**
-- [ ] Primary buttons use `#3b82f6` (blue-500)
-- [ ] User's own content uses blue tints (`#eff6ff` bg, `#bfdbfe` stroke)
-- [ ] Other's content uses gray (`#f5f5f5` bg, `#e0e0e0` stroke)
-- [ ] Success states ONLY use green (`#dcfce7` bg, `#22c55e` stroke)
-- [ ] No yellow/amber/orange/purple anywhere
-
-**For React components:**
-- [ ] Use shadcn/ui Button variants (not custom inline styles)
-- [ ] Use semantic Tailwind (`blue-500`, `text-muted-foreground`) not hex codes
-- [ ] Follow landing page patterns, not prototype divergences
-- [ ] Check existing components in `src/components/ui/` before creating new ones
-
-**Forbidden patterns:**
-- `#007AFF` (iOS blue) - use `#3b82f6` instead
-- `bg-amber-*`, `bg-orange-*`, `bg-yellow-*` - use `bg-blue-*` with messaging
-- Hard-coded pixel sizes like `text-[17px]` - use semantic `text-lg`
-- Custom button styles - use `<Button variant="...">` from shadcn/ui
+**Quick rules (most common violations):**
+- ✅ Blue for actions/CTAs, green for SUCCESS ONLY
+- ❌ Never green action buttons, amber/orange/yellow, purple in UI
 
 ## Code Style Conventions
 

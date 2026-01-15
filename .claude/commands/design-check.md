@@ -4,7 +4,7 @@ description: 'Run a full design system compliance check on UI files'
 
 # Design System Compliance Check
 
-You are running a design system audit. Check all UI-related files against the design specification in CLAUDE.md.
+You are running a design system audit. Check all UI-related files against the design specification in [docs/design-system.md](../../docs/design-system.md).
 
 ## What to Check
 
@@ -22,7 +22,7 @@ find docs/bmad/diagrams -name "*.excalidraw" -type f 2>/dev/null
 # Forbidden: purple (#a855f7, #9333ea, #7c3aed)
 ```
 
-**Correct colors per CLAUDE.md:**
+**Correct colors per docs/design-system.md:**
 | Element | Stroke | Background |
 |---------|--------|------------|
 | Primary button | #3b82f6 | #3b82f6 |
@@ -75,4 +75,4 @@ Generate a report like:
 3. Generate the report
 4. If issues found, offer to fix them
 
-Start by reading CLAUDE.md's Design System section to confirm the current spec, then scan the files.
+Start by reading docs/design-system.md to confirm the current spec, then scan the files.

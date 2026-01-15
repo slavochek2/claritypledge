@@ -106,7 +106,7 @@ fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ $WARNINGS -gt 0 ]; then
   echo "⚠️  Found $WARNINGS design system warning(s)"
-  echo "   See CLAUDE.md 'Design System' section for the spec"
+  echo "   See docs/design-system.md for the spec"
 else
   echo "✓ Design system compliance check passed"
 fi
