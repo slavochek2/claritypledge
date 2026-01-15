@@ -109,34 +109,39 @@ export function AboutPage() {
           <div className="bg-card border border-border rounded-lg p-8">
             <div className="space-y-6">
               <p className="text-lg leading-relaxed text-muted-foreground">
-                Before the Clarity Pledge, I spent years in B2B sales and as a founder: raising over $392k for a SaaS startup, parting ways with multiple co-founders, and coaching teams on how to close deals instead of just talk about them. Again and again, the most expensive mistakes came from misalignment, vague promises, and conversations where everyone nodded but nobody meant the same thing.
+                I've worked in multinationals where nothing was real. Bullshitters at the top. Everyone kissing up. Your work doesn't matter and everyone knows it. I didn't burn out—I burned myself trying to make it matter anyway.
               </p>
 
               <p className="text-lg leading-relaxed text-muted-foreground">
-                But for me, this wasn't just a business problem. It was personal. Growing up between cultures—born in Ukraine, raised in Germany—I never had the luxury of assumed understanding. Combined with being neurodivergent, I was wired to need explicit communication to function, while the corporate world seemed to thrive on strategic ambiguity.
+                Then I spent years leading startups. Multiple co-founders came and went. Each separation was painful—not because we disagreed, but because we thought we agreed and didn't. We'd nod in meetings, then discover months later we'd been building different things in our heads.
               </p>
 
               <p className="text-lg leading-relaxed text-muted-foreground">
-                This created a constant, painful friction I now call{" "}
-                <Link
-                  to="/article"
-                  className="font-semibold text-foreground hover:text-blue-600 dark:hover:text-blue-400 underline underline-offset-4"
-                >
-                  Intellectual Moral Injury
-                </Link>
-                .
+                The pattern showed up everywhere. In sales, vague promises closed deals that imploded later. In hiring, "culture fit" meant everyone nodding to different definitions. In relationships—the breaking point—when I'd ask "play back what you heard," she'd refuse. Thought I was calling her stupid. I just wanted to know she understood me.
               </p>
 
               <p className="text-lg leading-relaxed text-muted-foreground">
-                The deep dissonance of being forced to pretend that nonsense makes sense to protect a paycheck. I watched good people burn out, trapped in collective hallucinations, and realized the cost of ambiguity wasn't just financial—it was human.
+                I learned early I couldn't rely on implied understanding. I had to verify explicitly. What felt like a weakness turned out to be structural insight—everyone is miscalibrated, most just don't notice until it's expensive.
               </p>
 
               <p className="text-lg leading-relaxed text-muted-foreground">
-                The Clarity Pledge started as my survival mechanism. A practical fix. I began documenting every painful mistake—around hiring, partners, and trust—and turning them into simple, testable rules. Influenced by tools like Ray Dalio's <em>Principles</em>, I refined pages of notes into the core commitments that now form the pledge.
+                This friction—the exhaustion of trying to be understood while struggling to understand others, the deep dissonance of pretending nonsense makes sense to protect a paycheck, of watching partnerships fail because nobody verified what was meant—became unbearable.
+              </p>
+
+              <p className="text-lg leading-relaxed text-muted-foreground">
+                The Clarity Pledge started as my survival mechanism. I documented every painful mistake and turned them into simple rules. Influenced by Ray Dalio's <em>Principles</em>, I refined pages of notes into the core practice: <strong>If you ask me to repeat back what I understood, I will.</strong> Not because you're stupid—because I might be wrong.
               </p>
 
               <p className="text-lg leading-relaxed text-foreground font-medium">
-                If you've ever felt that physical flinch of nodding along to a lie, or paid a high price for miscommunication in sales, hiring, or co-founder decisions—this was built for you. It's for anyone who cares more about what is <em>true</em> than what is polite.
+                The pledge is a signal. When I take it, I'm saying you have control over how I understand you. When you take it, you signal the same. When someone refuses? That's data too. Not everyone will sign. But the ones who do—they're the people you can actually build with.
+              </p>
+
+              <p className="text-lg leading-relaxed text-foreground font-medium">
+                If you've ever paid a high price for miscommunication in co-founder decisions, sales, or relationships—this was built for you. For people who care more about what is <em>true</em> than what is polite.
+              </p>
+
+              <p className="text-sm text-muted-foreground pt-6 border-t border-border/50 mt-6">
+                — Vyacheslav Ladischenski (Slava), Founder of Clarity Pledge
               </p>
 
               {/* LinkedIn Link */}
@@ -149,7 +154,7 @@ export function AboutPage() {
                   onClick={() => analytics.track('founder_linkedin_clicked', { source: 'about_page' })}
                 >
                   <LinkedinIcon className="w-5 h-5" />
-                  Vyacheslav Ladischenski on LinkedIn
+                  Connect with me
                 </a>
               </div>
             </div>
