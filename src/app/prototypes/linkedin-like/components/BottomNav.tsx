@@ -36,7 +36,7 @@ export function BottomNav() {
             }`}
           >
             {item.icon}
-            <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
+            <span className="text-xs mt-0.5 font-medium">{item.label}</span>
           </button>
         ))}
       </div>

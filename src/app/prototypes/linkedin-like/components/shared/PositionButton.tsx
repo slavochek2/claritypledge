@@ -1,4 +1,5 @@
-import { Position, currentUser } from '../../data/mock-data';
+import { Position } from '../../data/mock-data';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -46,15 +47,15 @@ export function PositionButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
+        <Button
           onClick={onClick}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-            active ? c.activeClass : c.inactiveClass
-          }`}
+          variant="outline"
+          size="sm"
+          className={`rounded-full ${active ? c.activeClass : c.inactiveClass}`}
         >
           <span>{c.label}</span>
           <span className={active ? 'opacity-90' : 'opacity-60'}>{count}</span>
-        </button>
+        </Button>
       </TooltipTrigger>
       <TooltipContent>
         <p>{active ? `You ${c.label.toLowerCase()}d` : c.label}</p>

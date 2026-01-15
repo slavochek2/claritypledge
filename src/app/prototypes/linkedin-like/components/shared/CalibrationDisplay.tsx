@@ -41,7 +41,7 @@ export function CalibrationDisplay({
 
       {/* Help panel */}
       {showHelp && (
-        <div className="mb-2 p-2 bg-gray-50 rounded text-[11px] text-gray-500">
+        <div className="mb-2 p-2 bg-gray-50 rounded text-xs text-gray-500">
           <p>Based on {totalSessions} clarity sessions.</p>
           <p className="mt-1">Compares self-estimated understanding vs actual ratings.</p>
         </div>
@@ -49,7 +49,7 @@ export function CalibrationDisplay({
 
       {/* Legend - only when comparing */}
       {hasComparison && (
-        <div className="flex items-center gap-3 mb-2 text-[10px]">
+        <div className="flex items-center gap-3 mb-2 text-xs">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-gray-700" />
             <span className="text-gray-400">{userLabel || 'Them'}</span>
@@ -111,8 +111,8 @@ function CalibrationRow({
     <div>
       {/* Label + State */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-gray-400">{label}</span>
-        <span className="text-[10px] text-gray-500">{getStateLabel(state)}</span>
+        <span className="text-xs text-gray-400">{label}</span>
+        <span className="text-xs text-gray-500">{getStateLabel(state)}</span>
       </div>
 
       {/* Grayscale spectrum bar */}

@@ -123,7 +123,7 @@ export function Profile() {
                         <span>{metrics.positionsTaken}</span>
                       </span>
                       <span className="flex items-center gap-1.5 text-sm">
-                        <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white font-bold">C</span>
+                        <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
                         <span>{metrics.claritySessions}</span>
                       </span>
                       <span className={`flex items-center gap-1.5 text-sm ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
@@ -224,7 +224,7 @@ export function Profile() {
                       <span>{metrics.positionsTaken}</span>
                     </span>
                     <span className="flex items-center gap-1.5 text-sm">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-[10px] text-white font-bold">C</span>
+                      <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
                       <span>{metrics.claritySessions}</span>
                     </span>
                     <span className={`flex items-center gap-1.5 text-sm ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
