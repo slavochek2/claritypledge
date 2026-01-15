@@ -10,9 +10,6 @@ export function LegalFooter() {
   return (
     <footer className="border-t border-border py-8 mt-16">
       <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-        <p>
-          © 2026 The Clarity Pledge
-        </p>
         <p className="mt-2">
           <Link to="/privacy-policy" className="hover:text-blue-600">Privacy Policy</Link>
           {" · "}
@@ -28,6 +25,9 @@ export function LegalFooter() {
             <GithubIcon className="w-3.5 h-3.5" />
             Open Source (AGPL-3.0)
           </a>
+        </p>
+        <p className="mt-2">
+          © 2026 The Clarity Pledge
         </p>
       </div>
     </footer>
