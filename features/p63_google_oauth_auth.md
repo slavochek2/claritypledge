@@ -23,6 +23,16 @@ Enable users to sign up and log in using Google OAuth, automatically importing t
 - Profile creation in `AuthCallbackPage.tsx` after email verification
 - No social login options
 
+## Implementation Approach
+
+**Two-phase deployment:**
+- **P63:** Build on test Supabase + create deployment guide
+- **P63_2:** Apply guide to production (10 min follow-up)
+
+**Key constraint:** Agent cannot configure production Supabase (requires your credentials)
+
+**Solution:** Agent does ALL code work on test, documents exact manual steps, you repeat for prod
+
 ## Proposed Solution
 
 ### User Experience
@@ -226,25 +236,53 @@ Supabase automatically links accounts by email:
 
 ## Rollout Plan
 
-### Phase 1: Infrastructure (30 min)
-1. Run database migration (add columns)
-2. Configure Google OAuth in Supabase dashboard
-3. Set up Google Cloud Console OAuth credentials
+### P63 (Part 1): Test Environment Implementation
 
-### Phase 2: Backend (1 hour)
-1. Update `AuthCallbackPage.tsx` to capture Google metadata
-2. Update `mapProfileFromDb()` in `api.ts`
-3. Update TypeScript types
+**Goal:** Build and verify on test Supabase project, document manual steps for production
 
-### Phase 3: Frontend (1-2 hours)
-1. Create `ProfileAvatar` component
-2. Replace all avatar rendering with new component
-3. Add Google button to sign-up/login UI
-4. Test fallback behavior
+**Agent work (autonomous):**
+1. **Database migration** - Create SQL file for schema changes
+2. **Backend changes** - Update auth flow, types, API layer
+3. **Frontend components** - Build ProfileAvatar, add Google button
+4. **Automated tests** - Unit tests + E2E test structure
+5. **Visual verification** - Use Playwright MCP to screenshot UI
+6. **Documentation** - Create P63_IMPLEMENTATION_GUIDE.md with:
+   - Exact SQL to run
+   - Supabase dashboard steps (with screenshots if possible)
+   - Google Cloud Console setup steps
+   - Environment variables needed
+   - Verification checklist
 
-### Phase 4: Testing (30 min - 1 hour)
-1. E2E test for Google OAuth
-2. Manual testing across both flows
+**Manual steps (you):**
+1. Create test Google OAuth app in Google Cloud Console
+2. Configure test Supabase project with Google provider
+3. Test actual OAuth flow with real Google account
+4. Verify avatar display works end-to-end
+
+**Output:** Complete implementation on test + deployment guide for production
+
+### P63_2 (Part 2): Production Deployment
+
+**Goal:** Apply tested changes to production Supabase
+
+**Agent work (autonomous):**
+1. Verify no code changes needed (should be identical)
+2. Run pre-commit checks
+3. Assist with deployment verification
+
+**Manual steps (you):**
+1. Follow P63_IMPLEMENTATION_GUIDE.md to:
+   - Create production Google OAuth app
+   - Configure production Supabase
+   - Update environment variables
+2. Deploy code to production
+3. Test production OAuth flow
+
+**Why split into two parts?**
+- Test Supabase config can be done by agent autonomously
+- Production Supabase requires your credentials
+- Same code works for both (only config differs)
+- Documentation from P63 makes P63_2 a 10-minute follow-up
 
 ## Success Metrics
 
