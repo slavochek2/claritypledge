@@ -165,6 +165,22 @@ cd ../claritypledge-N
 git log --oneline -5
 ```
 
+### Task Completion Output (REQUIRED)
+
+**When finishing work on a worktree, agents MUST output:**
+
+```
+✅ Task complete!
+
+🔗 Test link: http://localhost:51XX (where XX = worktree number)
+📁 Worktree: claritypledge-N
+🌿 Branch: feature-name-wtN
+
+To test: Dev server should be running. If not, run `npm run dev` in the worktree.
+```
+
+This saves the user from asking "what's the link?" or "which worktree?"
+
 ## Configuration
 
 **Environment Variables:** Create `.env.local` from `.env.example`:
