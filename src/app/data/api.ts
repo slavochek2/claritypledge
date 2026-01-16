@@ -2539,11 +2539,17 @@ export async function uploadAudioChunk(
 
     // If this is the last chunk, record in DB for tracking
     if (isLastChunk) {
+      // chunkNumber is 0-indexed, so total chunks = chunkNumber + 1
+      // Each chunk is 30 seconds
+      const totalChunks = chunkNumber + 1;
+      const durationMs = totalChunks * 30000;
+
       const { error: dbError } = await supabase.from('ml_training_sessions').insert({
         session_code: sessionCode,
         user_name: userName,
         audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${sanitizedName}_chunk_*.webm`,
-        duration_ms: null, // Unknown in chunked mode
+        duration_ms: durationMs,
+        chunk_count: totalChunks,
       });
 
       if (dbError) {
