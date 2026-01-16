@@ -74,6 +74,7 @@ export function ProfileVisitorView({
           role={profile.role}
           linkedinUrl={profile.linkedinUrl}
           avatarColor={profile.avatarColor}
+          photoUrl={profile.avatarUrl}
           showQrCode={true}
           profileUrl={pledgeUrl} // P50: QR code links to certificate page
           nameUrl={profileUrl} // P50: Name links to profile page

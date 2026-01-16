@@ -1,13 +1,13 @@
-import { useState, useEffect } from "react";
-import { getInitials, getGravatarUrl } from "@/lib/utils";
+import { useState } from "react";
+import { getInitials } from "@/lib/utils";
 
 interface GravatarAvatarProps {
-  email?: string;
+  email?: string; // Kept for API compatibility, but not used
   name: string;
   size?: "sm" | "md" | "lg";
   avatarColor?: string;
   className?: string;
-  /** Direct photo URL - takes priority over Gravatar */
+  /** Direct photo URL (e.g., from Google OAuth) */
   photoUrl?: string;
 }
 
@@ -17,66 +17,32 @@ const sizeClasses = {
   lg: "w-16 h-16 text-xl",
 };
 
-const sizePx = {
-  sm: 80,
-  md: 112,
-  lg: 128,
-};
-
 export function GravatarAvatar({
-  email,
   name,
   size = "md",
   avatarColor = "#0044CC",
   className = "",
   photoUrl,
 }: GravatarAvatarProps) {
-  const [gravatarUrl, setGravatarUrl] = useState<string | undefined>(undefined);
   const [imageError, setImageError] = useState(false);
 
-  useEffect(() => {
-    // Reset error state when inputs change - allows re-attempting image load
-    setImageError(false);
+  // Show photo if we have a URL and it hasn't errored
+  const showImage = photoUrl && !imageError;
 
-    // Skip Gravatar lookup if we have a direct photo URL
-    if (photoUrl) {
-      setGravatarUrl(undefined);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadGravatar() {
-      if (!email) {
-        setGravatarUrl(undefined);
-        return;
-      }
-
-      const url = await getGravatarUrl(email, sizePx[size]);
-      if (!cancelled) {
-        setGravatarUrl(url);
-      }
-    }
-
-    loadGravatar();
-    return () => { cancelled = true; };
-  }, [email, size, photoUrl]);
-
-  // photoUrl takes priority, then Gravatar
-  const imageUrl = photoUrl || gravatarUrl;
-  const showImage = imageUrl && !imageError;
+  console.log('🔍 GravatarAvatar:', { name, photoUrl, imageError, showImage });
 
   return (
     <div
-      className={`rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${className}`}
+      className={`rounded-full flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${className} ${!showImage ? 'flex items-center justify-center text-white font-bold' : ''}`}
       style={{ backgroundColor: showImage ? "transparent" : avatarColor }}
     >
       {showImage ? (
         <img
-          src={imageUrl}
+          src={photoUrl}
           alt={`${name}'s avatar`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover block"
           onError={() => setImageError(true)}
+          referrerPolicy="no-referrer"
         />
       ) : (
         getInitials(name)

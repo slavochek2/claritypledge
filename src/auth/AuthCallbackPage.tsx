@@ -170,7 +170,8 @@ export function AuthCallbackPage() {
       // If we generated in createProfile (before email verification), two users
       // signing up simultaneously with the same name would both get the same slug
       // since neither profile exists yet when they query.
-      const name = existingProfile?.name || user_metadata.name || 'Anonymous';
+      // P63: Prefer Google's full_name for new users, fallback to existing patterns
+      const name = existingProfile?.name || user_metadata.full_name || user_metadata.name || 'Anonymous';
 
       // P50: For /live registrations, don't generate slug (they're not pledgers)
       // For existing users, preserve their slug
@@ -193,6 +194,42 @@ export function AuthCallbackPage() {
       // - For new users: false if source=live, true otherwise (source=pledge or no source)
       const hasPledged = existingProfile?.hasPledged ?? !isLiveRegistration;
 
+      // P63: Capture Google OAuth avatar if user authenticated via Google
+      // Note: app_metadata.provider shows ORIGINAL signup method, not current login method
+      // For linked accounts (email user who later logs in with Google), we detect Google
+      // by checking for Google-specific fields in user_metadata (picture, iss containing google)
+      const googleAvatarUrl = user_metadata?.picture || user_metadata?.avatar_url;
+      const hasGoogleMetadata = !!(user_metadata?.picture || user_metadata?.iss?.includes('google'));
+      const isGoogleAuth = hasGoogleMetadata;
+
+      console.log('🔍 P63 Debug - user_metadata:', user_metadata);
+      console.log('🔍 P63 Debug - hasGoogleMetadata:', hasGoogleMetadata, 'isGoogleAuth:', isGoogleAuth);
+      console.log('🔍 P63 Debug - googleAvatarUrl:', googleAvatarUrl);
+
+      // P63: Determine avatar fields
+      // - If Google auth: use Google avatar URL, set provider to 'google'
+      // - If existing profile has avatar: preserve it (unless re-authenticating with Google)
+      // - Otherwise: use generated avatar with color
+      let avatarUrl = existingProfile?.avatarUrl;
+      let avatarProvider = existingProfile?.avatarProvider;
+      let avatarColor = existingProfile?.avatarColor || user_metadata.avatar_color;
+
+      console.log('🔍 P63 Debug - BEFORE avatar logic:', { avatarUrl, avatarProvider, avatarColor });
+
+      if (isGoogleAuth && googleAvatarUrl) {
+        // User authenticated with Google - use their Google avatar
+        // This also handles the "auto-update on re-login" decision (Option A from spec)
+        avatarUrl = googleAvatarUrl;
+        avatarProvider = 'google';
+        avatarColor = null; // Google users don't need generated color
+        console.log('🔍 P63 Debug - SET Google avatar:', { avatarUrl, avatarProvider });
+      } else if (!avatarProvider) {
+        // New user without Google auth - will use generated avatar
+        avatarProvider = 'generated';
+      }
+
+      console.log('🔍 P63 Debug - AFTER avatar logic:', { avatarUrl, avatarProvider, avatarColor });
+
       const upsertData = {
         id: authUser.id,
         email,
@@ -201,7 +238,9 @@ export function AuthCallbackPage() {
         role: existingProfile?.role || user_metadata.role,
         linkedin_url: existingProfile?.linkedinUrl || user_metadata.linkedin_url,
         reason: existingProfile?.reason || user_metadata.reason,
-        avatar_color: existingProfile?.avatarColor || user_metadata.avatar_color,
+        avatar_color: avatarColor,
+        avatar_url: avatarUrl, // P63: Google avatar URL
+        avatar_provider: avatarProvider, // P63: Avatar source
         is_verified: true,
         // Preserve existing pledge version for returning users, default to v2 for new signups
         pledge_version: existingProfile?.pledgeVersion || 2,

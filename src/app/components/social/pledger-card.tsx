@@ -19,6 +19,8 @@ export interface PledgerCardProps {
   reason?: string;
   signedAt: string;
   avatarColor?: string;
+  /** P63: Direct photo URL (e.g., from Google OAuth) */
+  avatarUrl?: string;
   witnessCount?: number;
   reciprocations?: number;
   showStats?: boolean;
@@ -34,6 +36,7 @@ export function PledgerCard({
   reason,
   signedAt,
   avatarColor = "#0044CC",
+  avatarUrl,
   witnessCount = 0,
   reciprocations = 0,
   showStats = true,
@@ -41,6 +44,10 @@ export function PledgerCard({
   className = "",
   style,
 }: PledgerCardProps) {
+  // P63 Debug - remove after fixing
+  if (avatarUrl) {
+    console.log('🖼️ PledgerCard avatarUrl for', name, ':', avatarUrl);
+  }
   return (
     <Link
       to={`/p/${slug}`}
@@ -51,10 +58,12 @@ export function PledgerCard({
       {/* Avatar and Info */}
       <div className="flex items-start gap-4 mb-4">
         {/* GravatarAvatar - will show initials fallback since no email in public lists */}
+        {/* P63: Now also supports photoUrl from Google OAuth */}
         <GravatarAvatar
           name={name}
           size="lg"
           avatarColor={avatarColor}
+          photoUrl={avatarUrl}
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">

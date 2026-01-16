@@ -1991,27 +1991,30 @@ export function ClarityLivePage() {
                             className="w-[280px] rounded-full h-11 text-sm"
                           />
                         </div>
-                        {/* P50: Consent checkbox (replaces passive notice) */}
-                        <div className="flex items-start gap-3 w-[280px]">
-                          <input
-                            type="checkbox"
-                            id="consent-start"
-                            checked={consentChecked}
-                            onChange={(e) => setConsentChecked(e.target.checked)}
-                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
-                            I agree that this session will be recorded, and I accept the{' '}
-                            <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              Terms
-                            </a>{' '}
-                            and{' '}
-                            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              Privacy Policy
-                            </a>.
-                          </label>
-                        </div>
                       </>
+                    )}
+
+                    {/* P50/P63: Consent checkbox - always visible for non-logged-in users */}
+                    {!isLoggedIn && (
+                      <div className="flex items-start gap-3 w-[280px]">
+                        <input
+                          type="checkbox"
+                          id="consent-start"
+                          checked={consentChecked}
+                          onChange={(e) => setConsentChecked(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
+                          I agree that this session will be recorded, and I accept the{' '}
+                          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Terms
+                          </a>{' '}
+                          and{' '}
+                          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Privacy Policy
+                          </a>.
+                        </label>
+                      </div>
                     )}
 
                     {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
