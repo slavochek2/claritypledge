@@ -91,7 +91,7 @@ export function CreateEvent() {
     setIsSubmitting(false);
 
     // Navigate to the new event (mock)
-    navigate(`/prototype/events/${slug}?created=true`);
+    navigate(`/events/${slug}?created=true`);
   };
 
   // Get tomorrow's date for min date attribute
@@ -101,21 +101,19 @@ export function CreateEvent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/prototype/events')}
-            className="p-2 -ml-2 hover:bg-muted rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="font-semibold">Create Event</h1>
-        </div>
-      </div>
-
       {/* Form */}
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6">
+        {/* Back link and title */}
+        <div className="mb-6">
+          <Link
+            to="/events"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Events
+          </Link>
+          <h1 className="text-2xl font-bold">Create Event</h1>
+        </div>
         <div className="space-y-6">
           {/* Event Name */}
           <div>

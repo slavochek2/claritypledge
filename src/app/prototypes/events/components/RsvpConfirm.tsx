@@ -15,7 +15,7 @@ export function RsvpConfirm() {
   // Auto-redirect to event page after confirmation
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigate(`/prototype/events/${slug}`);
+      navigate(`/events/${slug}`);
     }, AUTO_REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
@@ -27,7 +27,7 @@ export function RsvpConfirm() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
           <p className="text-muted-foreground mb-4">This event doesn't exist or has been removed.</p>
-          <Link to="/prototype/events">
+          <Link to="/events">
             <Button variant="outline">Back to Events</Button>
           </Link>
         </div>
@@ -98,7 +98,7 @@ export function RsvpConfirm() {
               Add to Calendar
             </Button>
 
-            <Link to={`/prototype/events/${slug}`} className="block">
+            <Link to={`/events/${slug}`} className="block">
               <Button variant="ghost" className="w-full gap-2">
                 View Event Details
                 <ArrowRight className="w-4 h-4" />
@@ -115,7 +115,7 @@ export function RsvpConfirm() {
         {/* Back to events link */}
         <div className="text-center mt-6">
           <Link
-            to="/prototype/events"
+            to="/events"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Browse more events

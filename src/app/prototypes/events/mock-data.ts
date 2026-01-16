@@ -229,6 +229,11 @@ export const mockCurrentUser = {
   rsvpdEventIds: ['evt-1', 'evt-2'], // Hike and Workshop
 };
 
+// Toggle for prototype demo - allows switching between logged in/out views
+export function setMockLoggedIn(value: boolean) {
+  mockCurrentUser.isLoggedIn = value;
+};
+
 // Check if current user is RSVP'd to an event
 export function isUserRsvpd(eventId: string): boolean {
   return mockCurrentUser.rsvpdEventIds.includes(eventId);

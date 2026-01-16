@@ -6,15 +6,16 @@ import { formatDateShort, formatTime } from '../utils';
 
 interface EventCardProps {
   event: MockEvent;
+  isLoggedIn?: boolean;
 }
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
   const eventDate = new Date(event.datetime);
-  const userIsGoing = isUserRsvpd(event.id);
+  const userIsGoing = isLoggedIn && isUserRsvpd(event.id);
 
   return (
     <Link
-      to={`/prototype/events/${event.slug}`}
+      to={`/events/${event.slug}`}
       className="group block border border-border rounded-xl overflow-hidden bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
     >
       {/* Cover gradient */}

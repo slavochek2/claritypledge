@@ -298,7 +298,7 @@ export default function ClarityPledgeApp() {
         <Route path="/prototype/premium/*" element={<Suspense fallback={<PageLoader />}><PremiumPrototype /></Suspense>} />
         <Route path="/prototype/converged/*" element={<Suspense fallback={<PageLoader />}><ConvergedPrototype /></Suspense>} />
         <Route path="/prototype/linkedin-like/*" element={<Suspense fallback={<PageLoader />}><LinkedInLikePrototype /></Suspense>} />
-        <Route path="/prototype/events/*" element={<Suspense fallback={<PageLoader />}><EventsPrototype /></Suspense>} />
+        <Route path="/events/*" element={<ClarityLandingLayout><Suspense fallback={<PageLoader />}><EventsPrototype /></Suspense></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>
     </Router>

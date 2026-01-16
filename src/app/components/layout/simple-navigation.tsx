@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon, CalendarDaysIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
@@ -149,6 +149,12 @@ export function SimpleNavigation() {
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem asChild>
+                      <Link to="/events" className="cursor-pointer">
+                        <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                        My Events
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link to="/settings" className="cursor-pointer">
                         <SettingsIcon className="w-4 h-4 mr-2" />
                         Settings
@@ -265,6 +271,14 @@ export function SimpleNavigation() {
                       View My Pledge
                     </Link>
                   )}
+                  <Link
+                    to="/events"
+                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                    onClick={closeMobileMenu}
+                  >
+                    <CalendarDaysIcon className="w-4 h-4 inline mr-2" />
+                    My Events
+                  </Link>
                   <Link
                     to="/settings"
                     className="text-left text-base font-medium hover:text-primary transition-colors py-2"

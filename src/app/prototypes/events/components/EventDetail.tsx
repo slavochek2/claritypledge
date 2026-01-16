@@ -48,7 +48,7 @@ export function EventDetail() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
           <p className="text-muted-foreground mb-4">This event doesn't exist or has been removed.</p>
-          <Link to="/prototype/events">
+          <Link to="/events">
             <Button variant="outline">Back to Events</Button>
           </Link>
         </div>
@@ -62,7 +62,7 @@ export function EventDetail() {
 
   const handleRsvp = async () => {
     if (!mockCurrentUser.isLoggedIn) {
-      navigate('/sign-pledge?redirect=/prototype/events/' + slug);
+      navigate('/sign-pledge?redirect=/events/' + slug);
       return;
     }
 
@@ -70,7 +70,7 @@ export function EventDetail() {
     await new Promise(resolve => setTimeout(resolve, 500));
     setJustRsvpd(true);
     setIsLoading(false);
-    navigate(`/prototype/events/${slug}/confirm`);
+    navigate(`/events/${slug}/confirm`);
   };
 
   const handleCancelRsvp = async () => {
@@ -96,19 +96,6 @@ export function EventDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-4">
-          <button
-            onClick={() => navigate('/prototype/events')}
-            className="p-2 -ml-2 hover:bg-muted rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="font-semibold truncate flex-1">Event Details</h1>
-        </div>
-      </div>
-
       {/* Cover Image or Gradient */}
       {event.coverImageUrl ? (
         <div className="w-full h-48 md:h-64 overflow-hidden">
@@ -129,6 +116,15 @@ export function EventDetail() {
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
+        {/* Back link */}
+        <Link
+          to="/events"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Events
+        </Link>
+
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Column - Event Details */}
           <div className="flex-1">
