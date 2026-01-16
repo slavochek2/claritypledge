@@ -229,6 +229,7 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
       }
     });
 
+    // mapProfileSummaryFromDb has fallback logic for slug, so all results have valid slugs
     return combined.map(p => mapProfileSummaryFromDb(p, witnessCounts[p.id] || 0, reciprocationCounts[p.id] || 0));
   } catch (err) {
     console.error('Unexpected error in getFeaturedProfiles:', err);
@@ -310,7 +311,11 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
       witnesses: (allWitnesses || []).filter(w => w.profile_id === profile.id)
     }));
 
-    return profilesWithWitnesses.map(p => mapProfileFromDb(p));
+    // Map to Profile objects and filter out any with null slugs (defensive)
+    // Verified + pledged users should always have slugs, but filter as safety
+    return profilesWithWitnesses
+      .map(p => mapProfileFromDb(p))
+      .filter((p): p is Profile & { slug: string } => p.slug !== null);
   } catch (err) {
     console.error('Unexpected error in getVerifiedProfiles:', err);
     return [];

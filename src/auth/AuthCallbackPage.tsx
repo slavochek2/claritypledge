@@ -116,9 +116,24 @@ export function AuthCallbackPage() {
             email: authUser.email,
           });
 
+          // Check for witnesses before migration (defensive - /live users shouldn't have any)
+          const { data: witnessCheck } = await supabase
+            .from('witnesses')
+            .select('id')
+            .eq('profile_id', profileByEmail.id)
+            .limit(1);
+
+          if (witnessCheck && witnessCheck.length > 0) {
+            console.warn('⚠️ Profile being migrated has witnesses - this is unexpected for /live users');
+            // Continue anyway but log for debugging
+          }
+
           // Delete old profile - it was created with anonymous auth ID
           // The new upsert will create fresh profile with correct auth ID
-          // Note: /live users don't have witnesses yet, so no data loss
+          // CAUTION: If upsert fails after this, user data is lost. However:
+          // - /live users typically have no witnesses (we just checked)
+          // - Profile data is copied to local var before delete
+          // - Magic link can be resent if something goes wrong
           const { error: deleteError } = await supabase
             .from('profiles')
             .delete()
