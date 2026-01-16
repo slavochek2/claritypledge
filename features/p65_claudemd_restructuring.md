@@ -21,7 +21,8 @@ CLAUDE.md is ~620 lines. Every agent loads it, but most content is situational:
 
 ## Goal
 
-Lean CLAUDE.md that contains only what EVERY agent needs. Situational context moves to referenced docs that agents load on-demand.
+1. Lean CLAUDE.md that contains only what EVERY agent needs. Situational context moves to referenced docs that agents load on-demand.
+2. Clean up `features/` folder naming inconsistencies.
 
 ---
 
@@ -124,6 +125,34 @@ Add:
 - [ ] All critical gotchas still in CLAUDE.md
 - [ ] Reference docs created and linked
 - [ ] No broken workflows (agents can still complete tasks)
+
+---
+
+## Features Folder Cleanup
+
+### Current Issues
+
+| Issue | Examples |
+|-------|----------|
+| Spaces in filenames | `p55_Understanding Verification Loop.md`, `p60_navigating stories and points.md` |
+| Duplicate numbers | `p64_*.md` (2 files), `p65_*.md` (2 files) |
+| Bugs in root | `b38_*`, `b52_*` should be in `bugs_and_debt/` |
+
+### Cleanup Tasks
+
+- [ ] Rename files with spaces to snake_case
+- [ ] Renumber duplicate feature numbers
+- [ ] Move `b*` files to `bugs_and_debt/`
+- [ ] Update CLAUDE.md naming convention docs
+
+### Naming Convention (to document in CLAUDE.md)
+
+| Prefix | Meaning | Example |
+|--------|---------|---------|
+| `p{N}_` | Feature | `p67_knowledge_driven_development.md` |
+| `b{N}_` | Bug fix | `bugs_and_debt/b38_layout_wrapper.md` |
+| `r{N}_` | Refactor | `r54_clarity_live_refactor.md` |
+| `ROADMAP_v{N}` | Roadmap version | `ROADMAP_v1.md` |
 
 ---
 
