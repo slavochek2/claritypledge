@@ -29,8 +29,6 @@ export function GravatarAvatar({
   // Show photo if we have a URL and it hasn't errored
   const showImage = photoUrl && !imageError;
 
-  console.log('🔍 GravatarAvatar:', { name, photoUrl, imageError, showImage });
-
   return (
     <div
       className={`rounded-full flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${className} ${!showImage ? 'flex items-center justify-center text-white font-bold' : ''}`}

@@ -202,9 +202,6 @@ export function AuthCallbackPage() {
       const hasGoogleMetadata = !!(user_metadata?.picture || user_metadata?.iss?.includes('google'));
       const isGoogleAuth = hasGoogleMetadata;
 
-      console.log('🔍 P63 Debug - user_metadata:', user_metadata);
-      console.log('🔍 P63 Debug - hasGoogleMetadata:', hasGoogleMetadata, 'isGoogleAuth:', isGoogleAuth);
-      console.log('🔍 P63 Debug - googleAvatarUrl:', googleAvatarUrl);
 
       // P63: Determine avatar fields
       // - If Google auth: use Google avatar URL, set provider to 'google'
@@ -214,21 +211,16 @@ export function AuthCallbackPage() {
       let avatarProvider = existingProfile?.avatarProvider;
       let avatarColor = existingProfile?.avatarColor || user_metadata.avatar_color;
 
-      console.log('🔍 P63 Debug - BEFORE avatar logic:', { avatarUrl, avatarProvider, avatarColor });
-
       if (isGoogleAuth && googleAvatarUrl) {
         // User authenticated with Google - use their Google avatar
         // This also handles the "auto-update on re-login" decision (Option A from spec)
         avatarUrl = googleAvatarUrl;
         avatarProvider = 'google';
-        avatarColor = null; // Google users don't need generated color
-        console.log('🔍 P63 Debug - SET Google avatar:', { avatarUrl, avatarProvider });
+        avatarColor = undefined; // Google users don't need generated color
       } else if (!avatarProvider) {
         // New user without Google auth - will use generated avatar
         avatarProvider = 'generated';
       }
-
-      console.log('🔍 P63 Debug - AFTER avatar logic:', { avatarUrl, avatarProvider, avatarColor });
 
       const upsertData = {
         id: authUser.id,

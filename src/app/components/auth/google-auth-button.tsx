@@ -60,34 +60,40 @@ function GoogleLogo({ className = "" }: { className?: string }) {
 
 export function GoogleAuthButton({ context, className = "", disabled = false }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleClick = async () => {
     setIsLoading(true);
+    setError(null);
     analytics.track('google_auth_initiated', { context });
 
-    const { error } = await signInWithGoogle();
+    const { error: authError } = await signInWithGoogle();
 
-    if (error) {
-      console.error('Google auth error:', error);
-      analytics.track('google_auth_error', { context, error: error.message });
+    if (authError) {
+      console.error('Google auth error:', authError);
+      analytics.track('google_auth_error', { context, error: authError.message });
+      setError('Unable to connect to Google. Please try again.');
       setIsLoading(false);
-      // Note: Most errors here are network/config issues
-      // The user will see a toast or be redirected back with an error
     }
     // If successful, user will be redirected to Google OAuth
     // No need to reset loading state as page will navigate away
   };
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={handleClick}
-      disabled={disabled || isLoading}
-      className={`w-full h-11 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-medium ${className}`}
-    >
-      <GoogleLogo className="mr-3" />
-      {isLoading ? "Redirecting..." : "Continue with Google"}
-    </Button>
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleClick}
+        disabled={disabled || isLoading}
+        className={`w-full h-11 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-100 dark:border-gray-600 font-medium ${className}`}
+      >
+        <GoogleLogo className="mr-3" />
+        {isLoading ? "Redirecting..." : "Continue with Google"}
+      </Button>
+      {error && (
+        <p className="text-sm text-destructive text-center">{error}</p>
+      )}
+    </div>
   );
 }

@@ -44,10 +44,6 @@ export function PledgerCard({
   className = "",
   style,
 }: PledgerCardProps) {
-  // P63 Debug - remove after fixing
-  if (avatarUrl) {
-    console.log('🖼️ PledgerCard avatarUrl for', name, ':', avatarUrl);
-  }
   return (
     <Link
       to={`/p/${slug}`}
