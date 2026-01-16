@@ -126,7 +126,14 @@ export function ProfilePage() {
     setResendSuccess(false);
 
     try {
-      await createProfile(profile.email);
+      // P50 fix: createProfile requires (name, email, role?, linkedinUrl?, reason?)
+      await createProfile(
+        profile.name,
+        profile.email,
+        profile.role,
+        profile.linkedinUrl,
+        profile.reason
+      );
       setResendSuccess(true);
 
       // Reset success message after 5 seconds

@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon, UserIcon, FileTextIcon } from "lucide-react";
+import { MenuIcon, XIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
@@ -30,11 +30,10 @@ export function SimpleNavigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // KISS: Only two states - verified user or everyone else
+  // Note: showPublicCTAs and slug are handled by NavigationMenuItems (shared component)
   const {
     showUserMenu,
-    showPublicCTAs,
     hasPledged,
-    slug,
     sessionChecked,
     signOut,
   } = useNavAuthState();
@@ -192,63 +191,12 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* KISS: Two states only */}
-              {showPublicCTAs && (
-                <Link
-                  to="/login"
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  Log In
-                </Link>
-              )}
-
-              {showUserMenu && (
-                <>
-                  <Link
-                    to="/me"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    <UserIcon className="w-4 h-4 inline mr-2" />
-                    View My Profile
-                  </Link>
-                  {hasPledged && slug ? (
-                    <Link
-                      to={`/p/${slug}/pledge`}
-                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                      onClick={closeMobileMenu}
-                    >
-                      <EyeIcon className="w-4 h-4 inline mr-2" />
-                      View My Pledge
-                    </Link>
-                  ) : (
-                    <Link
-                      to="/sign-pledge?prefill=true"
-                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                      onClick={closeMobileMenu}
-                    >
-                      <FileTextIcon className="w-4 h-4 inline mr-2" />
-                      Take the Pledge
-                    </Link>
-                  )}
-                  <Link
-                    to="/settings"
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                    onClick={closeMobileMenu}
-                  >
-                    <SettingsIcon className="w-4 h-4 inline mr-2" />
-                    Settings
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  >
-                    <LogOutIcon className="w-4 h-4 inline mr-2" />
-                    Log Out
-                  </button>
-                </>
-              )}
+              {/* KISS: Two states only - using shared NavigationMenuItems */}
+              <NavigationMenuItems
+                variant="mobile"
+                onSignOut={handleSignOut}
+                onItemClick={closeMobileMenu}
+              />
             </div>
           </div>
         )}
