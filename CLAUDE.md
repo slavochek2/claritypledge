@@ -475,7 +475,7 @@ This script runs automatically if installed as a git hook, but Claude should run
 | **Lint** | Yes | ESLint errors (includes accessibility via jsx-a11y) |
 | **Build** | Yes | TypeScript errors, import issues |
 | **Tests** | Yes | Regressions |
-| **Secrets scan** | Yes | Accidentally committed API keys, tokens |
+| **Secrets scan** | Yes | API keys, tokens, credentials (via gitleaks) |
 | **Bundle size** | Warning | Alerts if dist/ exceeds 20MB |
 | **console.log** | Warning | Debug logs left in code |
 | **TODO/FIXME** | Warning | New tech debt being added |

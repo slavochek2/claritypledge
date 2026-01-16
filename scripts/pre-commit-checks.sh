@@ -47,20 +47,42 @@ else
 fi
 echo ""
 
-# 4. Secrets scan (in staged files)
+# 4. Secrets scan (using gitleaks if available, fallback to grep)
 echo ">>> Scanning for secrets..."
-STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
-if [ -n "$STAGED_FILES" ]; then
-    SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -E '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
-    if [ -n "$SECRETS_FOUND" ]; then
-        echo -e "${RED}✗ Possible secrets found in:${NC}"
-        echo "$SECRETS_FOUND"
+if command -v gitleaks &> /dev/null; then
+    # Use gitleaks for comprehensive secret detection
+    # --no-git scans files directly, --staged scans staged changes
+    if git diff --cached --quiet 2>/dev/null; then
+        # No staged changes, scan recent changes
+        GITLEAKS_OUTPUT=$(gitleaks detect --source . --no-git --redact -v 2>&1 || true)
+    else
+        # Scan staged changes
+        GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
+    fi
+
+    if echo "$GITLEAKS_OUTPUT" | grep -q "leaks found"; then
+        echo -e "${RED}✗ Secrets detected by gitleaks:${NC}"
+        echo "$GITLEAKS_OUTPUT" | grep -A5 "Secret:" || echo "$GITLEAKS_OUTPUT"
         ERRORS=$((ERRORS + 1))
     else
-        echo -e "${GREEN}✓ No secrets detected${NC}"
+        echo -e "${GREEN}✓ No secrets detected (gitleaks)${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠ No staged files to scan${NC}"
+    # Fallback to grep-based scan
+    echo -e "${YELLOW}(gitleaks not installed, using basic grep scan)${NC}"
+    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+    if [ -n "$STAGED_FILES" ]; then
+        SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -E '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
+        if [ -n "$SECRETS_FOUND" ]; then
+            echo -e "${RED}✗ Possible secrets found in:${NC}"
+            echo "$SECRETS_FOUND"
+            ERRORS=$((ERRORS + 1))
+        else
+            echo -e "${GREEN}✓ No secrets detected${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ No staged files to scan${NC}"
+    fi
 fi
 echo ""
 
