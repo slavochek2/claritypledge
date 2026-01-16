@@ -15,6 +15,7 @@ import { PledgePage } from "@/app/pages/pledge-page";
 import { MePage } from "@/app/pages/me-page";
 import { ClarityPledgersPage } from "@/app/pages/clarity-pledgers-page";
 import { LoginPage } from "@/app/pages/login-page";
+import { SignupPage } from "@/app/pages/signup-page";
 
 // Lazy loaded pages - split into separate chunks
 const AboutPage = lazy(() => import("@/app/pages/about-page").then(m => ({ default: m.AboutPage })));
@@ -88,6 +89,15 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <LoginPage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            <ClarityLandingLayout>
+              <SignupPage />
             </ClarityLandingLayout>
           }
         />

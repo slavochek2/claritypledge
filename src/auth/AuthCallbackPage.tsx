@@ -20,7 +20,7 @@
  * DO NOT move this logic to a global hook or context.
  */
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { LoaderIcon, AlertCircleIcon } from "lucide-react";
@@ -43,6 +43,7 @@ function escapeLikePattern(str: string): string {
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState("Finalizing authentication...");
   const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
 
@@ -83,13 +84,17 @@ export function AuthCallbackPage() {
       // before this callback runs, leaving is_verified as false.
       setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
-      // P50: Detect registration source from URL params
+      // P50/P64: Detect registration source from URL params
       // - source=pledge → user signed up via /sign-pledge (pledger)
+      // - source=signup → user signed up via /signup (account only, no pledge)
       // - source=live → user signed up via /live (non-pledger) - currently not used as /live uses anonymous auth
-      // - no source → existing login flow (preserve existing has_pledged status)
-      const urlParams = new URLSearchParams(window.location.search);
+      // - source=login → user logging in (must have existing account)
+      // - no source → legacy login flow (treat as login)
+      // NOTE: Use location.search (from useLocation) for testability with MemoryRouter
+      const urlParams = new URLSearchParams(location.search);
       const source = urlParams.get('source');
       const isLiveRegistration = source === 'live';
+      const isLoginSource = source === 'login' || !source;
 
       // For returning users, the profile from useAuth might not be loaded yet.
       // Fetch directly to ensure we preserve existing slugs for returning users.
@@ -166,6 +171,15 @@ export function AuthCallbackPage() {
         }
       }
 
+      // P64: If this is a login attempt (no source or source=login) and no account exists,
+      // redirect to signup page instead of auto-creating account
+      if (isLoginSource && !existingProfile) {
+        console.log('🚫 Login attempt with no existing account - redirecting to signup');
+        analytics.track('login_no_account', { email: authUser.email });
+        navigate('/signup?message=no-account', { replace: true });
+        return;
+      }
+
       // Generate slug at profile creation time to prevent race conditions.
       // If we generated in createProfile (before email verification), two users
       // signing up simultaneously with the same name would both get the same slug
@@ -189,10 +203,17 @@ export function AuthCallbackPage() {
         return;
       }
 
-      // P50: Determine has_pledged status
-      // - Preserve existing status for returning users
-      // - For new users: false if source=live, true otherwise (source=pledge or no source)
-      const hasPledged = existingProfile?.hasPledged ?? !isLiveRegistration;
+      // P50/P64: Determine has_pledged status
+      // - source=pledge → ALWAYS true (user is explicitly pledging)
+      // - source=signup → ALWAYS false (user just wants an account)
+      // - source=live → ALWAYS false (non-pledger)
+      // - no source (login) → preserve existing status for returning users, default true for legacy
+      // CRITICAL: source=pledge overrides existing false status (non-pledged user taking pledge)
+      const isSignupRegistration = source === 'signup';
+      const isPledgeSource = source === 'pledge';
+      const hasPledged = isPledgeSource
+        ? true  // Pledging always sets has_pledged=true, even if they had an account with false
+        : (existingProfile?.hasPledged ?? (!isLiveRegistration && !isSignupRegistration));
 
       // P63: Capture Google OAuth avatar if user authenticated via Google
       // Note: app_metadata.provider shows ORIGINAL signup method, not current login method
@@ -374,7 +395,7 @@ export function AuthCallbackPage() {
     };
 
     processAuth();
-  }, [isLoading, sessionChecked, session, user, navigate, refreshProfile]);
+  }, [isLoading, sessionChecked, session, user, navigate, location.search, refreshProfile]);
 
   // Error state - show helpful recovery options
   if (status === "auth_error") {

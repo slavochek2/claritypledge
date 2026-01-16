@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2Icon, AlertCircleIcon } from "lucide-react";
-import { signInWithEmail } from "@/app/data/api";
+import { signInWithEmail, checkEmailExists } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
@@ -43,6 +43,15 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
     setError("");
 
     try {
+      // P64: Check if email exists before sending magic link
+      const emailExists = await checkEmailExists(email);
+      if (!emailExists) {
+        analytics.track('login_no_account', { attempted_email: email.toLowerCase().trim() });
+        setError("No account found with this email. Sign up instead.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const { error } = await signInWithEmail(email);
 
       if (error) {
@@ -92,8 +101,8 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
 
   return (
     <div className="space-y-6">
-      {/* P63: Google OAuth button - primary option */}
-      <GoogleAuthButton context="login" />
+      {/* P63/P64: Google OAuth button - primary option */}
+      <GoogleAuthButton context="login" source="login" />
 
       {/* P63: Divider */}
       <div className="relative">
@@ -150,7 +159,7 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
             onClick={onSwitchToSign}
             className="text-sm text-muted-foreground hover:text-foreground underline"
           >
-            Don't have a pledge? Sign now
+            Don't have an account? Sign up
           </button>
         </div>
       </form>

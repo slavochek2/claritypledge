@@ -220,9 +220,9 @@ describe('CRITICAL AUTH FLOW', () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(null); // User does not exist yet
 
-      // 2. Render
+      // 2. Render - P64: Must include source=pledge to create profile (otherwise redirects to signup)
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -278,8 +278,9 @@ describe('CRITICAL AUTH FLOW', () => {
       // Return existing slugs for query
       mockOr.mockReturnValueOnce({ data: [{ slug: 'john-doe' }], error: null });
 
+      // P64: Must include source=pledge to create profile (otherwise redirects to signup)
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -341,8 +342,9 @@ describe('CRITICAL AUTH FLOW', () => {
         error: null
       });
 
+      // P64: Must include source=pledge to create profile (otherwise redirects to signup)
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -377,8 +379,10 @@ describe('CRITICAL AUTH FLOW', () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(null);
 
+      // P64: Must include source=pledge to test email validation path
+      // (without source, would redirect to signup before reaching email check)
       const { container } = render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -390,6 +394,72 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(mockUpsert).not.toHaveBeenCalled();
         // Should show error status
         expect(container.textContent).toContain('No email found');
+      });
+    });
+
+    it('P64: should redirect to signup when login attempt has no existing account', async () => {
+      // Setup: User tries to login but has no account
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
+          email: 'new@example.com',
+          user_metadata: {
+            name: 'New User',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null); // No existing account
+
+      // No source parameter = login flow
+      render(
+        <MemoryRouter initialEntries={['/auth/callback']}>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        // Should NOT create profile
+        expect(mockUpsert).not.toHaveBeenCalled();
+        // Should redirect to signup with message
+        expect(mockNavigate).toHaveBeenCalledWith('/signup?message=no-account', { replace: true });
+      });
+    });
+
+    it('P64: should create profile with has_pledged=false for signup flow', async () => {
+      // Setup: User signing up (not pledging)
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
+          email: 'new@example.com',
+          user_metadata: {
+            name: 'New User',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null);
+
+      // source=signup for standalone account creation
+      render(
+        <MemoryRouter initialEntries={['/auth/callback?source=signup']}>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(mockUpsert).toHaveBeenCalled();
+        const upsertData = getUpsertData();
+        // P64: signup flow creates account with has_pledged=false
+        expect(upsertData.has_pledged).toBe(false);
+        // Should redirect to profile page (not pledge certificate)
+        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
       });
     });
   });

@@ -407,27 +407,51 @@ export async function addWitness(
  * @param email - The email address to send the magic link to.
  * @returns A promise that resolves with an error object if the sign-in failed.
  */
-export async function signInWithEmail(email: string): Promise<{ error: AuthError | null }> {
+export async function signInWithEmail(email: string, source?: 'signup' | 'pledge' | 'login'): Promise<{ error: AuthError | null }> {
+  const redirectUrl = source
+    ? `${window.location.origin}/auth/callback?source=${source}`
+    : `${window.location.origin}/auth/callback`;
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
+      emailRedirectTo: redirectUrl,
     },
   });
   return { error };
 }
 
 /**
- * P63: Initiates Google OAuth sign-in flow.
+ * P64: Check if an email already exists in the profiles table.
+ * Used by login form to validate before sending magic link.
+ * @param email - The email address to check
+ * @returns True if a profile with this email exists, false otherwise
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email.toLowerCase().trim())
+    .single();
+  return !!data;
+}
+
+/**
+ * P63/P64: Initiates Google OAuth sign-in flow.
  * User will be redirected to Google's consent screen, then back to /auth/callback.
  * The AuthCallbackPage will handle profile creation/update with Google avatar.
+ * @param source - The source of the auth request: 'login', 'signup', or 'pledge'
  * @returns A promise that resolves when the OAuth redirect is initiated.
  */
-export async function signInWithGoogle(): Promise<{ error: AuthError | null }> {
+export async function signInWithGoogle(source?: 'login' | 'signup' | 'pledge'): Promise<{ error: AuthError | null }> {
+  const redirectUrl = source
+    ? `${window.location.origin}/auth/callback?source=${source}`
+    : `${window.location.origin}/auth/callback`;
+
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: redirectUrl,
       queryParams: {
         // Request profile scope to get avatar
         access_type: 'offline',

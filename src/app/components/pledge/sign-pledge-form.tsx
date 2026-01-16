@@ -114,7 +114,8 @@ export function SignPledgeForm({
     : "";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
       {/* Double Border Frame - Matching Certificate */}
       <div
         className="rounded-lg p-4 md:p-12 bg-[#FDFBF7] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]"
@@ -359,6 +360,7 @@ export function SignPledgeForm({
           Already pledged? Log in
         </button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }
