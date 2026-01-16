@@ -10,6 +10,7 @@ vi.mock('@/lib/supabase', () => ({
     from: vi.fn(),
     auth: {
       signInAnonymously: vi.fn(),
+      getSession: vi.fn(),
     },
   },
 }));
@@ -303,6 +304,12 @@ describe('Consent API Functions', () => {
 
   describe('getOrCreateGuestUser', () => {
     it('should return requiresLogin=true for verified existing user', async () => {
+      // Mock: no existing session
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      } as any);
+
       const mockFrom = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -323,6 +330,12 @@ describe('Consent API Functions', () => {
     });
 
     it('should reuse profile for unverified existing user (MVP behavior)', async () => {
+      // Mock: existing session - KISS fix uses existing session instead of creating new one
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: { user: { id: '33333333-3333-4333-8333-333333333333' } } },
+        error: null,
+      } as any);
+
       const mockSelect = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({
@@ -356,9 +369,17 @@ describe('Consent API Functions', () => {
       expect(result.isNew).toBe(false);
       // B50 fix: Use existing profile ID for consent tracking (not anonymous user ID)
       expect(result.userId).toBe('22222222-2222-4222-8222-222222222222');
+      // KISS fix: Should NOT call signInAnonymously when existing session exists
+      expect(supabase.auth.signInAnonymously).not.toHaveBeenCalled();
     });
 
     it('should create new guest user with anonymous auth for new email', async () => {
+      // Mock: no existing session
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      } as any);
+
       // First query returns no existing user
       const mockSelect = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -396,6 +417,12 @@ describe('Consent API Functions', () => {
     });
 
     it('should throw error when anonymous auth fails', async () => {
+      // Mock: no existing session
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      } as any);
+
       const mockSelect = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           single: vi.fn().mockResolvedValue({

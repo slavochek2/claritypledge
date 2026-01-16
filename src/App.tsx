@@ -11,6 +11,8 @@ import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
 import { SignPledgePage } from "@/app/pages/sign-pledge-page";
 import { PledgeConfirmationPage } from "@/app/pages/pledge-confirmation-page";
 import { ProfilePage } from "@/app/pages/profile-page";
+import { PledgePage } from "@/app/pages/pledge-page";
+import { MePage } from "@/app/pages/me-page";
 import { ClarityPledgersPage } from "@/app/pages/clarity-pledgers-page";
 import { LoginPage } from "@/app/pages/login-page";
 
@@ -109,10 +111,28 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
+          path="/me"
+          element={
+            <ClarityLandingLayout>
+              <MePage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
           path="/p/:id"
           element={
             <ClarityLandingLayout>
               <ProfilePage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/p/:id/pledge"
+          element={
+            <ClarityLandingLayout>
+              <PledgePage />
             </ClarityLandingLayout>
           }
         />

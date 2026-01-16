@@ -60,13 +60,19 @@ vi.mock('@/lib/supabase', () => ({
         select: (fields: string) => {
           mockSelect(fields);
           return {
+            eq: () => ({
+              single: () => ({ data: null, error: null }), // Default: no profile found by email
+            }),
             or: (filter: string) => {
               mockOr(filter);
               // Return configured similar slugs (default: empty)
               return mockOr.mock.results[mockOr.mock.calls.length - 1]?.value ?? { data: [], error: null };
             }
           };
-        }
+        },
+        delete: () => ({
+          eq: () => ({ error: null }), // Default: delete succeeds
+        })
       };
     },
   },
@@ -189,8 +195,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // Should redirect to existing slug
-        expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug', { replace: true });
+        // P50: Should redirect to pledge certificate for existing pledger
+        expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug/pledge', { replace: true });
       });
     });
 
@@ -243,8 +249,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // Should redirect to the generated slug
-        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
+        // P50: Should redirect to pledge certificate for new pledger
+        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user/pledge', { replace: true });
       });
     });
 
@@ -285,7 +291,8 @@ describe('CRITICAL AUTH FLOW', () => {
         // Second call should have slug with -2 suffix
         const secondCall = mockUpsert.mock.calls[1][0];
         expect(secondCall.slug).toBe('john-doe-2');
-        expect(mockNavigate).toHaveBeenCalledWith('/p/john-doe-2', { replace: true });
+        // P50: Redirects to pledge certificate
+        expect(mockNavigate).toHaveBeenCalledWith('/p/john-doe-2/pledge', { replace: true });
       });
     });
 
@@ -348,7 +355,8 @@ describe('CRITICAL AUTH FLOW', () => {
         // Final call should have timestamp slug
         const finalCall = mockUpsert.mock.calls[3][0];
         expect(finalCall.slug).toBe(`popular-name-${mockTimestamp}`);
-        expect(mockNavigate).toHaveBeenCalledWith(`/p/popular-name-${mockTimestamp}`, { replace: true });
+        // P50: Redirects to pledge certificate
+        expect(mockNavigate).toHaveBeenCalledWith(`/p/popular-name-${mockTimestamp}/pledge`, { replace: true });
       });
 
       vi.restoreAllMocks();

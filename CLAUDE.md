@@ -336,6 +336,24 @@ interface Witness {
 - Profile creation must only happen in auth callback (not hooks)
 - E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing.md](docs/technical/e2e-testing.md))
 
+## Source of Truth Convention
+
+When working with documentation and tests:
+
+- **Tests** define correct behavior (what the code should do)
+- **Feature docs** (`features/*.md`) explain decisions and rationale (why we chose this approach)
+- **Code** implements what tests specify
+
+**When conflicts arise:**
+- Tests win for behavior (they're executable specifications)
+- Feature docs win for intent (they explain the "why")
+
+**Practical implications:**
+1. Update tests FIRST when changing behavior (TDD)
+2. Update feature docs when making architectural decisions
+3. If docs and tests conflict, investigate which is correct before changing either
+4. One feature doc per feature - avoid multiple overlapping docs
+
 ## Observability (Mixpanel + Sentry)
 
 Both tools are production-only (disabled in dev to avoid polluting data).

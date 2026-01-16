@@ -473,22 +473,14 @@ function mapProfileSummaryFromDb(
  * @param reciprocations - Count of profiles where this user is a witness (how many people they've inspired)
  */
 function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Profile {
-  // Generate a safe slug if one doesn't exist or is empty
-  // Priority: 1) existing slug 2) generate from name 3) use id as fallback
-  let safeSlug: string;
-
-  if (dbProfile.slug && dbProfile.slug.trim() !== '') {
-    safeSlug = dbProfile.slug;
-  } else if (dbProfile.name && dbProfile.name.trim() !== '') {
-    safeSlug = generateSlug(dbProfile.name);
-  } else {
-    // Fallback to id if both slug and name are missing
-    safeSlug = dbProfile.id || 'user';
-  }
+  // P50: Preserve null slugs for /live users who haven't verified yet
+  // Only use DB slug - do NOT auto-generate from name
+  // Null slug means user hasn't completed verification/pledge flow
+  const slug = dbProfile.slug && dbProfile.slug.trim() !== '' ? dbProfile.slug : null;
 
   return {
     id: dbProfile.id,
-    slug: safeSlug,
+    slug,
     name: dbProfile.name || 'Anonymous',
     email: dbProfile.email,
     role: dbProfile.role,
@@ -595,6 +587,7 @@ export async function updateProfile(
     role?: string;
     linkedin_url?: string;
     reason?: string;
+    has_pledged?: boolean; // P50: Support upgrading non-pledgers to pledgers
   }
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase
@@ -2890,14 +2883,16 @@ export async function verifySessionConsent(
  * Uses Supabase anonymous auth to satisfy RLS policies.
  *
  * Flow:
- * 1. Check if email exists in profiles
- * 2. If verified user → requiresLogin: true
- * 3. If unverified user → sign in anonymously and reuse profile
- * 4. If new user → sign in anonymously and create profile
+ * 1. Check if we already have an auth session (KISS: don't create new one if exists)
+ * 2. Check if email exists in profiles
+ * 3. If verified user → requiresLogin: true
+ * 4. If unverified user with matching session → reuse (no new auth)
+ * 5. If new user → sign in anonymously and create profile
  *
  * EDGE CASES:
  * - Verified user email → requiresLogin: true (must log in)
  * - Unverified user email → Reuse profile (MVP simplification)
+ * - Returning user with existing session → Don't create new anonymous session!
  *
  * @param email - Guest's email address
  * @param name - Guest's name
@@ -2911,6 +2906,10 @@ export async function getOrCreateGuestUser(
   isNew: boolean;
   requiresLogin: boolean;
 }> {
+  // KISS: Check if we already have an auth session
+  // Don't create a new anonymous session if one exists - this breaks profile matching!
+  const { data: { session: existingSession } } = await supabase.auth.getSession();
+
   // Check if user already exists in profiles
   const { data: existingUser } = await supabase
     .from('profiles')
@@ -2930,15 +2929,26 @@ export async function getOrCreateGuestUser(
     }
 
     // MVP: Unverified user can rejoin without verification
-    // Sign in anonymously to satisfy RLS for consent recording
-    // B50: Use existing profile ID for consent tracking (not anonymous user ID)
+    // KISS: If we already have a session, don't create a new one!
+    // Creating a new anonymous session would give us a different user ID
+    // that doesn't match the existing profile, breaking auth state.
+    if (existingSession) {
+      console.log('Returning unverified guest with existing session:', email, 'profileId:', existingUser.id);
+      return {
+        userId: existingUser.id,
+        isNew: false,
+        requiresLogin: false,
+      };
+    }
+
+    // No session exists - create anonymous session for RLS
     const { error: anonError } = await supabase.auth.signInAnonymously();
     if (anonError) {
       console.error('Failed to create anonymous session:', anonError);
       throw new Error('Failed to create guest session');
     }
 
-    console.log('Returning unverified guest, reusing profile:', email, 'profileId:', existingUser.id);
+    console.log('Returning unverified guest, created new session:', email, 'profileId:', existingUser.id);
     return {
       userId: existingUser.id, // Use existing profile ID for consent audit trail
       isNew: false,
@@ -2946,14 +2956,22 @@ export async function getOrCreateGuestUser(
     };
   }
 
-  // Create new guest user with anonymous auth
-  const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
-  if (anonError) {
-    console.error('Failed to create anonymous session:', anonError);
-    throw new Error('Failed to create guest session');
-  }
+  // New user - need to create profile
+  // If we have an existing session, use that user ID; otherwise create anonymous session
+  let userId: string;
 
-  const userId = anonAuth.user.id;
+  if (existingSession) {
+    userId = existingSession.user.id;
+    console.log('New guest using existing session:', email, 'userId:', userId);
+  } else {
+    const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+    if (anonError) {
+      console.error('Failed to create anonymous session:', anonError);
+      throw new Error('Failed to create guest session');
+    }
+    userId = anonAuth.user.id;
+    console.log('New guest with new anonymous session:', email, 'userId:', userId);
+  }
 
   // P50: Create profile with null slug and has_pledged=false - guests don't get public profile URLs
   // Slugs are only assigned when user explicitly signs the pledge

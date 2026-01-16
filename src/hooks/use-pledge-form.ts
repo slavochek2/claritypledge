@@ -1,9 +1,21 @@
 import { useState } from "react";
-import { createProfile } from "@/app/data/api";
+import { createProfile, updateProfile } from "@/app/data/api";
 import { triggerConfetti } from "@/lib/confetti";
 import { analytics } from "@/lib/mixpanel";
+import type { Profile } from "@/app/data/api";
 
-export function usePledgeForm(onSuccess?: () => void) {
+interface UsePledgeFormOptions {
+  onSuccess?: () => void;
+  /**
+   * P50: Upgrade mode - when an existing user is upgrading to pledger
+   * If true, the form will update the profile instead of creating a new one
+   */
+  isUpgrading?: boolean;
+  currentUser?: Profile | null;
+}
+
+export function usePledgeForm(options?: UsePledgeFormOptions) {
+  const { onSuccess, isUpgrading = false, currentUser = null } = options || {};
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
@@ -17,23 +29,26 @@ export function usePledgeForm(onSuccess?: () => void) {
     e.preventDefault();
     setError("");
 
-    if (!name.trim() || !email.trim()) {
-      setError("Please fill in your name and email to sign the pledge.");
-      return;
-    }
+    // P50: For upgrade flow, skip name/email validation (already verified)
+    if (!isUpgrading) {
+      if (!name.trim() || !email.trim()) {
+        setError("Please fill in your name and email to sign the pledge.");
+        return;
+      }
 
-    // Validate full name (at least first and last name, each at least 2 characters)
-    const nameParts = name.trim().split(/\s+/);
-    if (nameParts.length < 2 || nameParts.some(part => part.length < 2)) {
-      setError("Please enter your full name (first and last, each at least 2 characters) for the official pledge.");
-      return;
-    }
+      // Validate full name (at least first and last name, each at least 2 characters)
+      const nameParts = name.trim().split(/\s+/);
+      if (nameParts.length < 2 || nameParts.some(part => part.length < 2)) {
+        setError("Please enter your full name (first and last, each at least 2 characters) for the official pledge.");
+        return;
+      }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError("Please enter a valid email address.");
-      return;
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        setError("Please enter a valid email address.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -44,29 +59,58 @@ export function usePledgeForm(onSuccess?: () => void) {
         normalizedLinkedInUrl = `https://${normalizedLinkedInUrl}`;
       }
 
-      await createProfile(
-        name.trim(),
-        email.trim(),
-        role.trim() || undefined,
-        normalizedLinkedInUrl || undefined,
-        reason.trim() || undefined
-      );
+      // P50: Upgrade flow - update existing profile instead of creating new one
+      if (isUpgrading && currentUser) {
+        const { error } = await updateProfile(currentUser.id, {
+          role: role.trim() || undefined,
+          linkedin_url: normalizedLinkedInUrl || undefined,
+          reason: reason.trim() || undefined,
+          has_pledged: true,
+        });
 
-      // Track successful pledge submission
-      analytics.track('pledge_form_submitted', {
-        has_role: !!role.trim(),
-        has_linkedin: !!normalizedLinkedInUrl,
-        has_reason: !!reason.trim(),
-      });
+        if (error) {
+          throw error;
+        }
 
-      // Store email for success page display (sessionStorage expires with browser session)
-      sessionStorage.setItem('pendingVerificationEmail', email.trim());
-      sessionStorage.setItem('firstTimePledge', 'true');
-      triggerConfetti();
-      setIsSubmitting(false);
+        // Track successful pledge upgrade
+        analytics.track('pledge_upgrade_completed', {
+          has_role: !!role.trim(),
+          has_linkedin: !!normalizedLinkedInUrl,
+          has_reason: !!reason.trim(),
+        });
 
-      if (onSuccess) {
-        onSuccess();
+        triggerConfetti();
+        setIsSubmitting(false);
+
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        // Standard flow - new user signing pledge
+        await createProfile(
+          name.trim(),
+          email.trim(),
+          role.trim() || undefined,
+          normalizedLinkedInUrl || undefined,
+          reason.trim() || undefined
+        );
+
+        // Track successful pledge submission
+        analytics.track('pledge_form_submitted', {
+          has_role: !!role.trim(),
+          has_linkedin: !!normalizedLinkedInUrl,
+          has_reason: !!reason.trim(),
+        });
+
+        // Store email for success page display (sessionStorage expires with browser session)
+        sessionStorage.setItem('pendingVerificationEmail', email.trim());
+        sessionStorage.setItem('firstTimePledge', 'true');
+        triggerConfetti();
+        setIsSubmitting(false);
+
+        if (onSuccess) {
+          onSuccess();
+        }
       }
 
     } catch (error) {

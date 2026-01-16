@@ -69,7 +69,7 @@ describe("ProfilePage", () => {
       );
 
       // Should show loading state, NOT "Profile Not Found"
-      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
       expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
     });
 
@@ -96,7 +96,7 @@ describe("ProfilePage", () => {
       );
 
       // Initially should show loading
-      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
 
       // Simulate user auth completing (profile still doesn't exist in DB)
       useUserSpy.mockReturnValue(
@@ -140,7 +140,7 @@ describe("ProfilePage", () => {
       );
 
       // Should initially show loading
-      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
       
       // Crucially: Should NOT show "Profile Not Found" yet
       expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
@@ -150,9 +150,9 @@ describe("ProfilePage", () => {
           resolveProfile!(mockProfile);
       });
 
-      // Should show profile - heading shows visitor view text
+      // Should show profile - new ProfilePage structure
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: `${mockProfile.name} made you a promise` })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: mockProfile.name })).toBeInTheDocument();
       });
     });
   });
@@ -275,7 +275,8 @@ describe("ProfilePage", () => {
   });
 
   describe("First Time User Flow", () => {
-    it("should show welcome dialog for first-time profile owner", async () => {
+    // P50: Welcome dialog is now in PledgePage, not ProfilePage
+    it.skip("should show welcome dialog for first-time profile owner", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
       vi.spyOn(auth, "useAuth").mockReturnValue(
         createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })

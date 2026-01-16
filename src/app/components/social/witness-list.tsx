@@ -2,29 +2,10 @@ import { useState } from "react";
 import { type Witness } from "@/app/data/api";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2Icon } from "lucide-react";
-import { getInitials } from "@/lib/utils";
+import { getInitials, getAvatarColor } from "@/lib/utils";
 
 interface WitnessListProps {
   witnesses: Witness[];
-}
-
-// Helper function to generate consistent color from name
-function getAvatarColor(name: string): string {
-  const colors = [
-    "bg-blue-500",
-    "bg-purple-500",
-    "bg-green-500",
-    "bg-orange-500",
-    "bg-pink-500",
-    "bg-teal-500",
-    "bg-indigo-500",
-    "bg-red-500",
-  ];
-
-  const index = name
-    .split("")
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[index % colors.length];
 }
 
 export function WitnessList({ witnesses }: WitnessListProps) {
