@@ -1,3 +1,5 @@
+with claude--chrome extension you have can you run please:
+
 # P64 User Acceptance Test - Standalone Signup
 
 **Target:** Worktree 2 (`localhost:5200`)

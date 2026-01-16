@@ -1,3 +1,5 @@
+with claude--chrome extension you have can you run please:
+
 # P50 + P63 User Acceptance Test
 
 **Target:** Main branch (`localhost:5001`)
