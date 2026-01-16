@@ -531,7 +531,7 @@ docs/
 ├── bmad/               # BMAD workflow status files
 ├── plan.md             # Product planning
 ├── learnings.md        # Project learnings
-└── product-requirements.md
+└── mvp_pledge.md            # Product requirements
 
 bmad/
 └── artifacts/          # Tech-specs and sprint artifacts

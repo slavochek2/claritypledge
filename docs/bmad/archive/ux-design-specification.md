@@ -1,7 +1,7 @@
 ---
 stepsCompleted: [1]
 inputDocuments:
-  - docs/product-requirements.md
+  - docs/mvp_pledge.md
   - features/p19_2_clarity-chat-mvp.md
 workflowType: 'ux-design'
 lastStep: 1
