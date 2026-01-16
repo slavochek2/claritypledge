@@ -110,10 +110,7 @@ export function SignupPage() {
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-lg">
       <div className="bg-card border border-border rounded-lg shadow-sm p-6 md:p-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-center mb-2">Create Account</h1>
-        <p className="text-muted-foreground text-center mb-8">
-          Join the community and explore
-        </p>
+        <h1 className="text-2xl md:text-3xl font-bold text-center mb-6">Create Account</h1>
 
         {/* P64: Show message if redirected from login */}
         {message === 'no-account' && (
@@ -187,18 +184,6 @@ export function SignupPage() {
             </div>
           </form>
 
-          {/* Pledge CTA - subtle, not prominent */}
-          <div className="pt-4 border-t border-border">
-            <p className="text-sm text-muted-foreground text-center">
-              Want to commit to clear communication?{" "}
-              <Link
-                to="/sign-pledge"
-                className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
-              >
-                Sign the Clarity Pledge
-              </Link>
-            </p>
-          </div>
         </div>
       </div>
     </div>

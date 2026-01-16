@@ -6,7 +6,6 @@ import { usePledgeForm } from "@/hooks/use-pledge-form";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useMemo, useEffect } from "react";
 import { useAuth } from "@/auth";
-import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 import {
   PLEDGE_TEXT,
   YourRightTextTailwind,
@@ -116,21 +115,6 @@ export function SignPledgeForm({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* P64: Google OAuth option for quick pledge - only show for non-prefilled users */}
-      {!shouldPrefill && (
-        <div className="space-y-4">
-          <GoogleAuthButton context="pledge" source="pledge" />
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">or fill out the form</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
       {/* Double Border Frame - Matching Certificate */}
       <div
