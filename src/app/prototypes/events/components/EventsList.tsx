@@ -31,8 +31,10 @@ export function EventsList() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit">
+          <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
             <button
+              role="tab"
+              aria-selected={activeTab === 'upcoming'}
               onClick={() => setActiveTab('upcoming')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'upcoming'
@@ -43,6 +45,8 @@ export function EventsList() {
               Upcoming ({upcomingEvents.length})
             </button>
             <button
+              role="tab"
+              aria-selected={activeTab === 'past'}
               onClick={() => setActiveTab('past')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'past'

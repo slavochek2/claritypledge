@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Calendar, CheckCircle2 } from 'lucide-react';
 import type { MockEvent } from '../mock-data';
 import { isUserRsvpd } from '../mock-data';
+import { formatDateShort, formatTime } from '../utils';
 
 interface EventCardProps {
   event: MockEvent;
@@ -9,35 +10,7 @@ interface EventCardProps {
 
 export function EventCard({ event }: EventCardProps) {
   const eventDate = new Date(event.datetime);
-  const isNearCapacity = event.maxAttendees && event.attendees.length >= event.maxAttendees * 0.9;
-  const isFull = event.maxAttendees && event.attendees.length >= event.maxAttendees;
   const userIsGoing = isUserRsvpd(event.id);
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatDate = (date: Date) => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
-    } else {
-      return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-  };
 
   return (
     <Link
@@ -65,7 +38,7 @@ export function EventCard({ event }: EventCardProps) {
         {/* Time */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
           <Calendar className="w-4 h-4" />
-          <span>{formatDate(eventDate)} at {formatTime(eventDate)}</span>
+          <span>{formatDateShort(eventDate)} at {formatTime(eventDate)}</span>
         </div>
 
         {/* Title */}
@@ -108,17 +81,6 @@ export function EventCard({ event }: EventCardProps) {
               {event.attendees.length} {event.status === 'completed' ? 'attended' : 'going'}
             </span>
           </div>
-
-          {/* Status badge */}
-          {isFull ? (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-              Full
-            </span>
-          ) : isNearCapacity ? (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
-              Almost Full
-            </span>
-          ) : null}
         </div>
       </div>
     </Link>

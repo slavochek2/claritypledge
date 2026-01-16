@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getEventBySlug, mockCurrentUser, isUserRsvpd } from '../mock-data';
+import { formatDate, formatTime, downloadICSFile, getGoogleCalendarUrl } from '../utils';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -59,23 +60,6 @@ export function EventDetail() {
   const endDate = new Date(eventDate.getTime() + event.durationHours * 60 * 60 * 1000);
   const isPast = event.status === 'completed';
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   const handleRsvp = async () => {
     if (!mockCurrentUser.isLoggedIn) {
       navigate('/sign-pledge?redirect=/prototype/events/' + slug);
@@ -97,52 +81,15 @@ export function EventDetail() {
     setIsLoading(false);
   };
 
-  // Generate ICS file
-  const handleAddToCalendar = () => {
-    const formatICSDate = (date: Date) => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    };
-
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Clarity Pledge//Events//EN
-BEGIN:VEVENT
-UID:${event.id}@claritypledge.com
-DTSTAMP:${formatICSDate(new Date())}
-DTSTART:${formatICSDate(eventDate)}
-DTEND:${formatICSDate(endDate)}
-SUMMARY:${event.title}
-DESCRIPTION:${event.description.replace(/\n/g, '\\n').substring(0, 200)}
-LOCATION:${event.location}
-END:VEVENT
-END:VCALENDAR`;
-
-    const blob = new Blob([icsContent], { type: 'text/calendar' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${event.slug}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  // Generate Google Calendar URL
-  const getGoogleCalendarUrl = () => {
-    const formatGoogleDate = (date: Date) => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    };
-
-    const params = new URLSearchParams({
-      action: 'TEMPLATE',
-      text: event.title,
-      dates: `${formatGoogleDate(eventDate)}/${formatGoogleDate(endDate)}`,
-      details: event.description.substring(0, 500),
-      location: event.location,
-    });
-
-    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  // Event data for calendar utilities
+  const calendarEventData = {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    location: event.location,
+    slug: event.slug,
+    startDate: eventDate,
+    endDate: endDate,
   };
 
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
@@ -228,7 +175,7 @@ END:VCALENDAR`;
                   {calendarMenuOpen && (
                     <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-20 overflow-hidden min-w-[200px]">
                       <a
-                        href={getGoogleCalendarUrl()}
+                        href={getGoogleCalendarUrl(calendarEventData)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
@@ -244,7 +191,7 @@ END:VCALENDAR`;
                       </a>
                       <button
                         onClick={() => {
-                          handleAddToCalendar();
+                          downloadICSFile(calendarEventData);
                           setCalendarMenuOpen(false);
                         }}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors w-full text-left"
@@ -313,12 +260,8 @@ END:VCALENDAR`;
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>
 
-              <button
-                className="flex flex-col items-center text-center w-full hover:bg-muted rounded-lg p-3 -m-3 transition-colors group"
-                onClick={() => {
-                  // TODO: Navigate to organizer profile
-                  console.log('View organizer profile:', event.hostId);
-                }}
+              <div
+                className="flex flex-col items-center text-center w-full p-3 -m-3"
               >
                 <div
                   className="w-16 h-16 rounded-full flex items-center justify-center text-white font-semibold text-xl mb-2"
@@ -326,9 +269,9 @@ END:VCALENDAR`;
                 >
                   {event.hostName.charAt(0)}
                 </div>
-                <p className="font-semibold group-hover:text-blue-600 transition-colors">{event.hostName}</p>
+                <p className="font-semibold">{event.hostName}</p>
                 <p className="text-sm text-muted-foreground">{event.hostRole}</p>
-              </button>
+              </div>
             </div>
 
             {/* Participants Card */}
@@ -338,13 +281,9 @@ END:VCALENDAR`;
               </h2>
               <div className="space-y-2">
                 {event.attendees.map(attendee => (
-                  <button
+                  <div
                     key={attendee.id}
-                    className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-muted transition-colors text-left group"
-                    onClick={() => {
-                      // TODO: Navigate to profile when implemented
-                      console.log('View profile:', attendee.id);
-                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded-lg text-left"
                   >
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
@@ -353,14 +292,14 @@ END:VCALENDAR`;
                       {attendee.name.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate group-hover:text-blue-600 transition-colors">
+                      <p className="font-medium text-sm truncate">
                         {attendee.name}
                       </p>
                     </div>
                     <span className="text-xs text-green-600 font-medium">
                       {isPast ? 'Attended' : 'Going'}
                     </span>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>

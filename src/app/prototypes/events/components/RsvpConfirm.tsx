@@ -3,17 +3,20 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle2, Calendar, MapPin, ArrowRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getEventBySlug } from '../mock-data';
+import { formatDate, formatTime, downloadICSFile } from '../utils';
+
+const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 
 export function RsvpConfirm() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const event = slug ? getEventBySlug(slug) : undefined;
 
-  // Auto-redirect after 10 seconds
+  // Auto-redirect to event page after confirmation
   useEffect(() => {
     const timer = setTimeout(() => {
       navigate(`/prototype/events/${slug}`);
-    }, 10000);
+    }, AUTO_REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
   }, [navigate, slug]);
@@ -35,52 +38,15 @@ export function RsvpConfirm() {
   const eventDate = new Date(event.datetime);
   const endDate = new Date(eventDate.getTime() + event.durationHours * 60 * 60 * 1000);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  // Generate ICS file content
-  const generateICS = () => {
-    const formatICSDate = (date: Date) => {
-      return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    };
-
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Clarity Pledge//Events//EN
-BEGIN:VEVENT
-UID:${event.id}@claritypledge.com
-DTSTAMP:${formatICSDate(new Date())}
-DTSTART:${formatICSDate(eventDate)}
-DTEND:${formatICSDate(endDate)}
-SUMMARY:${event.title}
-DESCRIPTION:${event.description.replace(/\n/g, '\\n').substring(0, 200)}
-LOCATION:${event.location}
-END:VEVENT
-END:VCALENDAR`;
-
-    const blob = new Blob([icsContent], { type: 'text/calendar' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${event.slug}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  // Event data for calendar download
+  const calendarEventData = {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    location: event.location,
+    slug: event.slug,
+    startDate: eventDate,
+    endDate: endDate,
   };
 
   return (
@@ -124,7 +90,7 @@ END:VCALENDAR`;
           {/* Actions */}
           <div className="space-y-3">
             <Button
-              onClick={generateICS}
+              onClick={() => downloadICSFile(calendarEventData)}
               variant="outline"
               className="w-full gap-2"
             >
