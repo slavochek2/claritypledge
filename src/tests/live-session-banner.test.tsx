@@ -1,8 +1,14 @@
 /**
  * @file live-session-banner.test.tsx
- * @description Comprehensive tests for LiveSessionBanner component
+ * @description KISS Navigation Tests for LiveSessionBanner
  *
- * KISS principle: Menu trigger ALWAYS renders (hamburger icon)
+ * TWO STATES ONLY:
+ * 1. Verified user → Full menu (View My Profile, pledge items, Settings, Log Out)
+ * 2. Everyone else → Public menu (Log In)
+ *
+ * "Everyone else" includes: anonymous, unverified /live users, loading states
+ *
+ * Menu trigger ALWAYS renders (hamburger icon)
  * Auth state only affects menu CONTENTS, not whether trigger exists
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -18,6 +24,7 @@ vi.mock('@/hooks/use-sound', () => ({
 }));
 
 // Create a mock factory for useAuth with different states
+// P52: Now includes isVerified check - users must be verified to see user menu
 const createAuthMock = (overrides: {
   session?: object | null;
   user?: object | null;
@@ -165,11 +172,13 @@ describe('LiveSessionBanner', () => {
     });
   });
 
-  describe('Menu contents for logged-in user WHO HAS PLEDGED', () => {
+  // P52: User menu only shows for VERIFIED users
+  describe('Menu contents for verified logged-in user WHO HAS PLEDGED', () => {
     beforeEach(() => {
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: 'test-user', hasPledged: true },
+        // P52: isVerified must be true to see user menu
+        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: 'test-user', hasPledged: true, isVerified: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -182,13 +191,34 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
     });
 
+    // P52: New menu items - View My Profile
+    it('shows View My Profile with correct link', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      const profileLink = screen.getByTestId('view-profile');
+      expect(profileLink).toBeInTheDocument();
+      expect(profileLink).toHaveAttribute('href', '/me');
+    });
+
     it('shows View My Pledge with correct link', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
       const pledgeLink = screen.getByTestId('view-pledge');
       expect(pledgeLink).toBeInTheDocument();
-      expect(pledgeLink).toHaveAttribute('href', '/p/test-user');
+      // P52: Link now goes to /p/slug/pledge to match SimpleNavigation
+      expect(pledgeLink).toHaveAttribute('href', '/p/test-user/pledge');
+    });
+
+    // P52: New menu items - Settings
+    it('shows Settings link', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      const settingsLink = screen.getByTestId('settings');
+      expect(settingsLink).toBeInTheDocument();
+      expect(settingsLink).toHaveAttribute('href', '/settings');
     });
 
     it('shows Home link', async () => {
@@ -205,15 +235,16 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('login-option')).not.toBeInTheDocument();
     });
 
-    it('shows Sign Out option', async () => {
+    it('shows Log Out option', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
       expect(screen.getByTestId('sign-out')).toBeInTheDocument();
-      expect(screen.getByText('Sign Out')).toBeInTheDocument();
+      // P52: Changed from "Sign Out" to "Log Out" to match SimpleNavigation
+      expect(screen.getByText('Log Out')).toBeInTheDocument();
     });
 
-    it('calls signOut when Sign Out clicked', async () => {
+    it('calls signOut when Log Out clicked', async () => {
       const user = userEvent.setup();
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
@@ -223,9 +254,11 @@ describe('LiveSessionBanner', () => {
     });
   });
 
+  // KISS: Session without profile = public menu (same as anonymous)
   describe('Menu contents for user with session but no profile', () => {
     beforeEach(() => {
       // Edge case: has Supabase session but profile fetch failed/pending
+      // KISS: Treated same as anonymous for menu purposes
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
         user: null,
@@ -241,12 +274,20 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
 
-    it('does NOT show Log In (session exists)', async () => {
+    it('shows Log In (KISS: same as anonymous)', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      // Should not show Log In because session exists (even if profile is missing)
-      expect(screen.queryByTestId('login-option')).not.toBeInTheDocument();
+      // KISS: No verified user profile = public menu with Log In
+      expect(screen.getByTestId('login-option')).toBeInTheDocument();
+    });
+
+    it('does NOT show Log Out (KISS: treated as anonymous)', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // KISS: Without verified profile, user sees public menu
+      expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
     it('still shows Sound toggle and Home', async () => {
@@ -258,6 +299,7 @@ describe('LiveSessionBanner', () => {
     });
   });
 
+  // KISS: Loading state = public menu (safe default)
   describe('Menu contents during loading state', () => {
     beforeEach(() => {
       mockAuthState = createAuthMock({
@@ -268,12 +310,12 @@ describe('LiveSessionBanner', () => {
       });
     });
 
-    it('does NOT show Log In during initial load', async () => {
+    it('shows Log In during loading (KISS: safe default)', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      // Should not show Login until sessionChecked is true
-      expect(screen.queryByTestId('login-option')).not.toBeInTheDocument();
+      // KISS: Loading = public menu (shows Log In as safe default)
+      expect(screen.getByTestId('login-option')).toBeInTheDocument();
     });
 
     it('does NOT show View My Pledge during load', async () => {
@@ -281,6 +323,13 @@ describe('LiveSessionBanner', () => {
       await openMenu();
 
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
+    });
+
+    it('does NOT show Log Out during loading', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
     it('still shows Sound toggle and Home (always available)', async () => {
@@ -406,13 +455,14 @@ describe('LiveSessionBanner', () => {
   });
 
   // ============================================================================
-  // Edge case: User without slug (shouldn't show View My Pledge)
+  // Edge case: Verified user without slug (shouldn't show View My Pledge)
   // ============================================================================
-  describe('Edge case: logged in user without slug', () => {
+  describe('Edge case: verified user without slug', () => {
     it('does NOT show View My Pledge if user has no slug', async () => {
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: '', hasPledged: true },
+        // P52: isVerified=true to show user menu, but empty slug means no pledge link
+        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: '', hasPledged: true, isVerified: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -426,7 +476,8 @@ describe('LiveSessionBanner', () => {
     it('does NOT show View My Pledge if slug is undefined', async () => {
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', hasPledged: true },
+        // P52: isVerified=true to show user menu
+        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', hasPledged: true, isVerified: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -439,14 +490,15 @@ describe('LiveSessionBanner', () => {
   });
 
   // ============================================================================
-  // P50: User registered via /live (has slug, but hasPledged=false)
+  // P50/P52: User registered via /live (has slug, hasPledged=false, isVerified=true)
   // ============================================================================
-  describe('P50: Live-only user (hasPledged=false)', () => {
+  describe('P50/P52: Verified live-only user (hasPledged=false)', () => {
     beforeEach(() => {
-      // User registered via /live - has slug but never took the pledge
+      // User registered via /live - verified but never took the pledge
+      // P52: isVerified=true is required to show user menu
       mockAuthState = createAuthMock({
         session: { user: { id: 'user-123' } },
-        user: { id: 'user-123', name: 'Live User', email: 'live@example.com', slug: 'live-user', hasPledged: false },
+        user: { id: 'user-123', name: 'Live User', email: 'live@example.com', slug: 'live-user', hasPledged: false, isVerified: true },
         sessionChecked: true,
         isLoading: false,
       });
@@ -460,7 +512,16 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
 
-    it('still shows Sign Out for live-only users', async () => {
+    it('shows Take the Pledge instead', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // P52: Non-pledgers see "Take the Pledge" link instead
+      expect(screen.getByTestId('take-pledge')).toBeInTheDocument();
+      expect(screen.getByTestId('take-pledge')).toHaveAttribute('href', '/sign-pledge?prefill=true');
+    });
+
+    it('still shows Log Out for live-only users', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
@@ -472,6 +533,54 @@ describe('LiveSessionBanner', () => {
       await openMenu();
 
       expect(screen.getByTestId('home-link')).toBeInTheDocument();
+    });
+  });
+
+  // ============================================================================
+  // KISS: Unverified user = same menu as anonymous
+  // ============================================================================
+  describe('KISS: Unverified user sees public menu (same as anonymous)', () => {
+    beforeEach(() => {
+      // User registered via /live but hasn't verified email yet
+      // KISS: Treated same as anonymous for menu purposes
+      mockAuthState = createAuthMock({
+        session: { user: { id: 'user-123' } },
+        user: { id: 'user-123', name: 'Unverified User', email: 'unverified@example.com', slug: null, hasPledged: false, isVerified: false },
+        sessionChecked: true,
+        isLoading: false,
+      });
+    });
+
+    it('shows Log In (KISS: treated same as anonymous)', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // KISS: Unverified = public menu with Log In
+      expect(screen.getByTestId('login-option')).toBeInTheDocument();
+    });
+
+    it('does NOT show Log Out (KISS: treated same as anonymous)', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // KISS: Unverified users see public menu, no Log Out
+      expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
+    });
+
+    it('does NOT show View My Profile', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // KISS: Unverified = public menu, no profile link
+      expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
+    });
+
+    it('does NOT show Settings', async () => {
+      renderWithRouter(<LiveSessionBanner />);
+      await openMenu();
+
+      // KISS: Unverified = public menu, no settings
+      expect(screen.queryByTestId('settings')).not.toBeInTheDocument();
     });
   });
 });

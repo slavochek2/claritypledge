@@ -24,6 +24,8 @@ interface ProfileCertificateProps {
   showQrCode?: boolean;
   /** Profile URL for QR code */
   profileUrl?: string;
+  /** P50: Profile page URL for name link (separate from QR code which links to pledge) */
+  nameUrl?: string;
   /** Number of people who accepted the pledge */
   acceptanceCount?: number;
   /** Export mode: shows acceptance count and watermark at bottom */
@@ -42,6 +44,7 @@ export function ProfileCertificate({
   photoUrl,
   showQrCode = false,
   profileUrl,
+  nameUrl,
   acceptanceCount = 0,
   exportMode = false,
   pledgeVersion = 3,
@@ -85,7 +88,17 @@ export function ProfileCertificate({
           className="text-lg leading-relaxed text-[#1A1A1A] dark:text-foreground font-serif"
           style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
         >
-          I, <span className="font-bold">{name}</span>, hereby commit to{" "}
+          I, {nameUrl ? (
+            <a
+              href={nameUrl}
+              className="font-bold hover:text-[#0044CC] hover:underline transition-colors"
+              title="View profile"
+            >
+              {name}
+            </a>
+          ) : (
+            <span className="font-bold">{name}</span>
+          )}, hereby commit to{" "}
           <span className="font-semibold">everyone</span>
           —including strangers, people I disagree with, and even those I
           dislike:

@@ -106,7 +106,8 @@ export function ClarityLivePage() {
   const isJoinViaLink = !!urlCode;
 
   // Get logged-in user's name (if authenticated)
-  const { user, isLoading: isAuthLoading } = useAuth();
+  // P50: Add refreshProfile to update AuthContext after guest profile creation
+  const { user, isLoading: isAuthLoading, refreshProfile } = useAuth();
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
@@ -1155,6 +1156,9 @@ export function ClarityLivePage() {
         return;
       }
 
+      // P50: Refresh AuthContext so menu shows correct items for new guest profile
+      await refreshProfile();
+
       // Record consent
       await recordTermsAcceptance(result.userId);
       await recordSessionConsent(code, result.userId);
@@ -1346,6 +1350,9 @@ export function ClarityLivePage() {
         guestUserId = result.userId;
         // Record terms acceptance for the new guest user
         await recordTermsAcceptance(guestUserId);
+
+        // P50: Refresh AuthContext so menu shows correct items for new guest profile
+        await refreshProfile();
       }
 
       const newSession = await createClaritySession(trimmedName);

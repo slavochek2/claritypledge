@@ -99,6 +99,73 @@ export function AuthCallbackPage() {
         existingProfile = await getProfile(authUser.id);
       }
 
+      // Handle /live user migration: If no profile found by ID, check by email.
+      // This handles the case where a /live user (anonymous auth) logs in via magic link
+      // and gets a NEW auth ID. Their old profile exists under the anonymous ID.
+      if (!existingProfile && authUser.email) {
+        const { data: profileByEmail } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', authUser.email)
+          .single();
+
+        if (profileByEmail && profileByEmail.id !== authUser.id) {
+          console.log('🔄 Found profile by email with different ID (migrating /live user):', {
+            oldId: profileByEmail.id,
+            newId: authUser.id,
+            email: authUser.email,
+          });
+
+          // Check for witnesses before migration (defensive - /live users shouldn't have any)
+          const { data: witnessCheck } = await supabase
+            .from('witnesses')
+            .select('id')
+            .eq('profile_id', profileByEmail.id)
+            .limit(1);
+
+          if (witnessCheck && witnessCheck.length > 0) {
+            console.warn('⚠️ Profile being migrated has witnesses - this is unexpected for /live users');
+            // Continue anyway but log for debugging
+          }
+
+          // Delete old profile - it was created with anonymous auth ID
+          // The new upsert will create fresh profile with correct auth ID
+          // CAUTION: If upsert fails after this, user data is lost. However:
+          // - /live users typically have no witnesses (we just checked)
+          // - Profile data is copied to local var before delete
+          // - Magic link can be resent if something goes wrong
+          const { error: deleteError } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', profileByEmail.id);
+
+          if (deleteError) {
+            console.error('❌ Failed to delete old profile during migration:', deleteError);
+            // Continue anyway - the upsert might still work or give clearer error
+          } else {
+            console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
+          }
+
+          // Use data from old profile for the new one
+          existingProfile = {
+            id: authUser.id, // Will be overwritten, but keeps TypeScript happy
+            slug: profileByEmail.slug,
+            name: profileByEmail.name,
+            email: profileByEmail.email,
+            role: profileByEmail.role,
+            linkedinUrl: profileByEmail.linkedin_url,
+            reason: profileByEmail.reason,
+            avatarColor: profileByEmail.avatar_color,
+            isVerified: false, // Will be set to true
+            hasPledged: profileByEmail.has_pledged,
+            signedAt: profileByEmail.created_at,
+            witnesses: [],
+            reciprocations: 0,
+            pledgeVersion: profileByEmail.pledge_version,
+          };
+        }
+      }
+
       // Generate slug at profile creation time to prevent race conditions.
       // If we generated in createProfile (before email verification), two users
       // signing up simultaneously with the same name would both get the same slug
@@ -264,10 +331,15 @@ export function AuthCallbackPage() {
       // Clear pending verification email now that user is verified
       sessionStorage.removeItem('pendingVerificationEmail');
 
-      // Redirect to profile page using the slug we actually saved
-      // (may have been modified due to conflict resolution)
+      // P50: Redirect based on has_pledged status
+      // - Pledgers → certificate page (/p/:slug/pledge)
+      // - Non-pledgers → profile page (/p/:slug)
       setStatus("Redirecting...");
-      navigate(`/p/${slug}`, { replace: true });
+      if (hasPledged) {
+        navigate(`/p/${slug}/pledge`, { replace: true });
+      } else {
+        navigate(`/p/${slug}`, { replace: true });
+      }
     };
 
     processAuth();

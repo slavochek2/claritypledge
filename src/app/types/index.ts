@@ -12,7 +12,7 @@ export interface Witness {
 
 export interface Profile {
   id: string;
-  slug: string;
+  slug: string | null; // P50: null for /live users who haven't verified yet
   name: string;
   email: string;
   role?: string;
