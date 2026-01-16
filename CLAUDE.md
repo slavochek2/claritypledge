@@ -86,9 +86,9 @@ npm run test:e2e:headed  # Run in headed browser
 ### When to Use Each (Agent Decision Guide)
 
 **Default choice: Playwright MCP**
-- Fast, headless, parallel-safe
+- Fast, headless, parallel-safe (isolated profile)
 - Use for: screenshots, visual verification, UI testing
-- Limitation: No access to logged-in state (isolated profile)
+- Limitation: No access to logged-in state (fresh browser each session)
 
 **Playwright E2E** (`npm run test:e2e`)
 - Use for: Actual tests with assertions, `/loop` validation
@@ -101,23 +101,15 @@ npm run test:e2e:headed  # Run in headed browser
 **Chrome Integration (`claude --chrome`)**
 - Use when: Testing OAuth flows, Google login, or any authenticated state
 - Requires user to start Claude with `--chrome` flag
-- If you need auth and don't have Chrome Integration, **ask the user** to restart with `claude --chrome`
+- **Detection:** If Chrome Integration tools fail or aren't available, ask the user to restart with `claude --chrome`
 
-### Isolation Mode Explained
+### Isolation & Headless Mode
 
-Both Playwright MCP and Chrome DevTools MCP run with `--isolated`:
-- **Why:** Enables multiple Claude sessions to run in parallel without browser conflicts
+Both Playwright MCP and Chrome DevTools MCP run with `--isolated --headless`:
+- **Isolated:** Enables multiple Claude sessions to run in parallel without browser conflicts
+- **Headless:** No visible browser window (faster, doesn't interrupt workflow)
 - **Trade-off:** Each session starts with a fresh browser (no cookies, no login state)
-- **If you need persistent state:** Ask user to use Chrome Integration (`claude --chrome`)
-
-### Headless by Default
-
-All MCP browser tools run headless (no visible window). This is intentional:
-- Faster execution
-- Doesn't interrupt user's workflow
-- Works on cloud VMs without displays
-
-Chrome Integration is the exception - it requires a visible browser by design.
+- **If you need persistent state or visible browser:** Ask user to use Chrome Integration (`claude --chrome`)
 
 ## Cloud Agent (Run Tasks While AFK)
 
