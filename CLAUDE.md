@@ -372,6 +372,18 @@ interface Witness {
 - Requires: `.env.test.local` with `SUPABASE_SERVICE_ROLE_KEY`
 - Full guide: [docs/technical/e2e-testing.md](docs/technical/e2e-testing.md)
 
+### Test Modification Rules (IMPORTANT)
+
+**NEVER do these without explicit user approval:**
+- Uncomment or enable skipped tests (`.skip`, `skip()`, commented-out tests)
+- Use `.only` or `only()` to isolate tests (this breaks CI)
+- Delete or disable failing tests to make the suite pass
+- Modify test assertions to match broken behavior
+
+**Skipped tests exist for a reason** - usually a known limitation, flaky behavior, or pending fix. If a skipped test is relevant to your work, ask the user before enabling it.
+
+**If tests fail:** Fix the code, not the tests. If you believe a test is wrong, explain why and ask before modifying it.
+
 ## Known Issues
 
 - Magic link auth requires correct redirect URLs in Supabase dashboard
