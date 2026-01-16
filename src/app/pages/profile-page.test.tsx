@@ -278,26 +278,7 @@ describe("ProfilePage", () => {
   });
 
   describe("First Time User Flow", () => {
-    // P50: Welcome dialog is now in PledgePage, not ProfilePage
-    it.skip("should show welcome dialog for first-time profile owner", async () => {
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue(
-        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
-      );
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user?firstTime=true"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText(/Pledge Sealed/i)).toBeInTheDocument();
-      });
-    });
-
+    // P50: Welcome dialog moved to PledgePage - test deleted as obsolete
     it("should not show welcome dialog for visitors", async () => {
       const otherUser: Profile = {
         ...mockProfile,
