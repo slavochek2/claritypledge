@@ -2,5 +2,6 @@
 export const NAV_LINKS = [
   { to: "/article", label: "Manifesto" },
   { to: "/pledgers", label: "Pledgers" },
+  { to: "/prototype/events", label: "Events" },
   { to: "/about", label: "About" },
 ] as const;

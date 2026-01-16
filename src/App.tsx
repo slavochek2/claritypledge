@@ -31,6 +31,7 @@ const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default:
 const PremiumPrototype = lazy(() => import("@/app/prototypes/premium").then(m => ({ default: m.PremiumPrototype })));
 const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(m => ({ default: m.ConvergedPrototype })));
 const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
+const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
 
 // Loading fallback for lazy routes
 function PageLoader() {
@@ -297,6 +298,7 @@ export default function ClarityPledgeApp() {
         <Route path="/prototype/premium/*" element={<Suspense fallback={<PageLoader />}><PremiumPrototype /></Suspense>} />
         <Route path="/prototype/converged/*" element={<Suspense fallback={<PageLoader />}><ConvergedPrototype /></Suspense>} />
         <Route path="/prototype/linkedin-like/*" element={<Suspense fallback={<PageLoader />}><LinkedInLikePrototype /></Suspense>} />
+        <Route path="/prototype/events/*" element={<Suspense fallback={<PageLoader />}><EventsPrototype /></Suspense>} />
       </Routes>
       </AuthProvider>
     </Router>
