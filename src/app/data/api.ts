@@ -176,7 +176,7 @@ export async function getProfileResult(id: string): Promise<ApiResult<Profile>> 
  */
 export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
   try {
-    const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, created_at, is_verified';
+    const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, avatar_url, avatar_provider, created_at, is_verified';
 
     // Single query: fetch more than needed, then sort/filter client-side
     // This avoids the two-query backfill approach for better performance
@@ -418,6 +418,27 @@ export async function signInWithEmail(email: string): Promise<{ error: AuthError
 }
 
 /**
+ * P63: Initiates Google OAuth sign-in flow.
+ * User will be redirected to Google's consent screen, then back to /auth/callback.
+ * The AuthCallbackPage will handle profile creation/update with Google avatar.
+ * @returns A promise that resolves when the OAuth redirect is initiated.
+ */
+export async function signInWithGoogle(): Promise<{ error: AuthError | null }> {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: {
+        // Request profile scope to get avatar
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+    },
+  });
+  return { error };
+}
+
+/**
  * Fetches the profile of the currently authenticated user.
  * This function first gets the current user session from Supabase Auth,
  * then uses the user's ID to fetch their full profile information.
@@ -466,6 +487,8 @@ function mapProfileSummaryFromDb(
     signedAt: dbProfile.created_at,
     isVerified: dbProfile.is_verified,
     avatarColor: dbProfile.avatar_color,
+    avatarUrl: dbProfile.avatar_url, // P63: Google OAuth avatar
+    avatarProvider: dbProfile.avatar_provider, // P63: Avatar source
     witnessCount,
     reciprocations,
   };
@@ -502,6 +525,8 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     })),
     reciprocations,
     avatarColor: dbProfile.avatar_color,
+    avatarUrl: dbProfile.avatar_url, // P63: Google OAuth avatar
+    avatarProvider: dbProfile.avatar_provider, // P63: Avatar source
     pledgeVersion: dbProfile.pledge_version || 2,
     hasPledged: dbProfile.has_pledged ?? true, // P50: Default true for existing users
   };
