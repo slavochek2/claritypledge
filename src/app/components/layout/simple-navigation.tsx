@@ -1,6 +1,12 @@
+/**
+ * @file simple-navigation.tsx
+ * @description KISS Navigation - Two states only
+ *
+ * 1. Verified user → Full menu (View My Profile, pledge items, Settings, Log Out)
+ * 2. Everyone else → Public menu (Log In)
+ */
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,10 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon } from "lucide-react";
+import { MenuIcon, XIcon, LogOutIcon, EyeIcon, SettingsIcon, UserIcon, FileTextIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
+import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { NavigationMenuItems } from "./navigation-menu-items";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -21,27 +29,15 @@ export function SimpleNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const { session, user: currentUser, isLoading, sessionChecked, signOut } = useAuth();
-
-  // Auth state phases:
-  // 1. sessionChecked=false → show nothing (checking session)
-  // 2. sessionChecked=true, session=null → show public CTAs (not logged in)
-  // 3. sessionChecked=true, session exists, isLoading=true → show nothing (profile loading)
-  // 4. sessionChecked=true, session exists, isLoading=false, currentUser exists → show user menu
-  // 5. sessionChecked=true, session exists, isLoading=false, currentUser=null → show logout only
-  //    (handles anonymous guests with session but no matching profile)
-
-  // Show user menu only when BOTH session AND profile are loaded
-  // This prevents the "?" avatar flash when session loads before profile
-  const showUserMenu = sessionChecked && !isLoading && !!session && !!currentUser;
-
-  // Show logout only when session exists but profile doesn't
-  // This handles returning anonymous guests whose profile ID doesn't match their session
-  const showLogoutOnly = sessionChecked && !isLoading && !!session && !currentUser;
-
-  // Show public CTAs only when session check done AND no session found
-  // This prevents the "Log In" flash when page loads
-  const showPublicCTAs = sessionChecked && !session;
+  // KISS: Only two states - verified user or everyone else
+  const {
+    showUserMenu,
+    showPublicCTAs,
+    hasPledged,
+    slug,
+    sessionChecked,
+    signOut,
+  } = useNavAuthState();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,7 +53,6 @@ export function SimpleNavigation() {
       setIsMobileMenuOpen(false);
       navigate("/");
     } catch {
-      // Sign out failed - don't navigate, user is still logged in
       setIsMobileMenuOpen(false);
     }
   };
@@ -90,15 +85,17 @@ export function SimpleNavigation() {
 
           {/* Desktop: CTAs + Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Secondary CTA */}
-            <Link
-              to="/sign-pledge"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent font-medium"
-              onClick={() => analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'desktop' })}
-            >
-              Take the Pledge
-            </Link>
-            {/* Primary CTA */}
+            {/* Take the Pledge CTA - hide for verified pledgers */}
+            {sessionChecked && (!showUserMenu || !hasPledged) && (
+              <Link
+                to="/sign-pledge"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent font-medium"
+                onClick={() => analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'desktop' })}
+              >
+                Take the Pledge
+              </Link>
+            )}
+            {/* Try a Clarity Meeting CTA */}
             <Link
               to="/live"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
@@ -126,54 +123,8 @@ export function SimpleNavigation() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                {/* Auth Actions */}
-                {showPublicCTAs && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/login" className="cursor-pointer">
-                      Log In
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {showUserMenu && (
-                  <>
-                    {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
-                    {currentUser.hasPledged && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to={`/p/${currentUser.slug}`}
-                          className="cursor-pointer"
-                        >
-                          <EyeIcon className="w-4 h-4 mr-2" />
-                          View My Pledge
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem asChild>
-                      <Link to="/settings" className="cursor-pointer">
-                        <SettingsIcon className="w-4 h-4 mr-2" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleSignOut}
-                      className="cursor-pointer"
-                    >
-                      <LogOutIcon className="w-4 h-4 mr-2" />
-                      Log Out
-                    </DropdownMenuItem>
-                  </>
-                )}
-                {/* Session exists but no profile (e.g., returning anonymous guest) */}
-                {showLogoutOnly && (
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="cursor-pointer"
-                  >
-                    <LogOutIcon className="w-4 h-4 mr-2" />
-                    Log Out
-                  </DropdownMenuItem>
-                )}
+                {/* Auth Menu Items - KISS: Uses shared component */}
+                <NavigationMenuItems onSignOut={handleSignOut} />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -194,14 +145,14 @@ export function SimpleNavigation() {
           </button>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu - KISS: Same two-state logic */}
         {isMobileMenuOpen && (
           <div
             id={MOBILE_MENU_ID}
             className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
-              {/* CTAs first - Primary then Secondary */}
+              {/* CTAs */}
               <Link
                 to="/live"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
@@ -212,16 +163,18 @@ export function SimpleNavigation() {
               >
                 Try a Clarity Meeting
               </Link>
-              <Link
-                to="/sign-pledge"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
-                onClick={() => {
-                  analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'mobile' });
-                  closeMobileMenu();
-                }}
-              >
-                Take the Pledge
-              </Link>
+              {sessionChecked && (!showUserMenu || !hasPledged) && (
+                <Link
+                  to="/sign-pledge"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
+                  onClick={() => {
+                    analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'mobile' });
+                    closeMobileMenu();
+                  }}
+                >
+                  Take the Pledge
+                </Link>
+              )}
 
               <div className="border-t border-border my-2"></div>
 
@@ -237,10 +190,9 @@ export function SimpleNavigation() {
                 </Link>
               ))}
 
-              {/* === ACCOUNT SECTION === */}
               <div className="border-t border-border my-2"></div>
 
-              {/* Log In - for anonymous users */}
+              {/* KISS: Two states only */}
               {showPublicCTAs && (
                 <Link
                   to="/login"
@@ -251,18 +203,33 @@ export function SimpleNavigation() {
                 </Link>
               )}
 
-              {/* User menu items */}
               {showUserMenu && (
                 <>
-                  {/* P50: Only show "View My Pledge" for users who have signed the pledge */}
-                  {currentUser.hasPledged && (
+                  <Link
+                    to="/me"
+                    className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                    onClick={closeMobileMenu}
+                  >
+                    <UserIcon className="w-4 h-4 inline mr-2" />
+                    View My Profile
+                  </Link>
+                  {hasPledged && slug ? (
                     <Link
-                      to={`/p/${currentUser.slug}`}
+                      to={`/p/${slug}/pledge`}
                       className="text-left text-base font-medium hover:text-primary transition-colors py-2"
                       onClick={closeMobileMenu}
                     >
                       <EyeIcon className="w-4 h-4 inline mr-2" />
                       View My Pledge
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/sign-pledge?prefill=true"
+                      className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                      onClick={closeMobileMenu}
+                    >
+                      <FileTextIcon className="w-4 h-4 inline mr-2" />
+                      Take the Pledge
                     </Link>
                   )}
                   <Link
@@ -281,17 +248,6 @@ export function SimpleNavigation() {
                     Log Out
                   </button>
                 </>
-              )}
-
-              {/* Session exists but no profile (e.g., returning anonymous guest) */}
-              {showLogoutOnly && (
-                <button
-                  onClick={handleSignOut}
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                >
-                  <LogOutIcon className="w-4 h-4 inline mr-2" />
-                  Log Out
-                </button>
               )}
             </div>
           </div>
