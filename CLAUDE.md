@@ -52,43 +52,72 @@ npm run test:e2e:headed  # Run in headed browser
 - View RLS policies
 - Useful for debugging data issues and exploring schema
 
-**Playwright MCP** - For visual UI inspection during development:
+**Playwright MCP** (`--isolated` mode) - For visual UI inspection during development:
 - Navigate to pages and take screenshots
 - Check mobile (375px) and desktop views
 - Verify console for errors
 - Use for `/loop` visual checks when UI is involved
+- Runs in isolated mode: fresh browser profile each session, enables parallel agents
 
-**Chrome DevTools MCP** - For deep browser debugging:
+**Chrome DevTools MCP** (`--isolated` mode) - For deep browser debugging:
 - Network inspection (headers, timing, failures)
 - Performance traces and profiling
 - Memory leak investigation
-- Connect to existing browser session (preserves auth state)
-- Use when Playwright isn't enough for debugging
+- Runs in isolated mode: fresh browser profile each session, enables parallel agents
 
 **Chrome Integration** (beta, `claude --chrome`) - Browser automation via Chrome extension:
 - Uses your actual logged-in browser sessions (Gmail, Google Docs, OAuth flows)
 - Real-world testing with authenticated state
 - Requires: Chrome + Claude extension (v1.0.36+) + visible browser window
 - Enable with `claude --chrome` or `/chrome` command
+- **This is the only way to test OAuth flows or access authenticated state**
 
 ## Browser Tools Decision Guide
 
-Four browser tools are available. Choose based on your task:
+**Choose the right tool based on what you need:**
 
-| Task | Use This |
-|------|----------|
-| Quick visual check / screenshot | Playwright MCP |
-| Run test suite / CI | `npm run test:e2e` (Playwright) |
-| Debug network/performance/memory | Chrome DevTools MCP |
-| Test with logged-in sessions | Chrome Integration |
+| Need | Tool | Mode | Parallel-Safe |
+|------|------|------|---------------|
+| Quick screenshot / visual check | Playwright MCP | isolated, headless | ✅ |
+| Run test suite / CI | `npm run test:e2e` | headless | ✅ |
+| Debug network/perf/memory | Chrome DevTools MCP | isolated, headless | ✅ |
+| OAuth / logged-in sessions | Chrome Integration | headed, persistent | ❌ |
 
-**When to use each:**
-- **Playwright MCP** - Default for visual inspection. Fast, no setup needed.
-- **Playwright E2E** - For actual tests with assertions. Use for `/loop` validation.
-- **Chrome DevTools MCP** - When you need to see network requests, timing, headers, or memory.
-- **Chrome Integration** - When you need your actual browser session (OAuth, production sites, authenticated APIs).
+### When to Use Each (Agent Decision Guide)
 
-**Prefer headless mode** for Playwright MCP, Playwright E2E, and Chrome DevTools MCP. Headless is faster, uses fewer resources, and doesn't interrupt the user with browser windows. Only use headed mode (`--headed`) when you need to visually debug a specific issue. Chrome Integration is the exception—it requires a visible browser by design.
+**Default choice: Playwright MCP**
+- Fast, headless, parallel-safe
+- Use for: screenshots, visual verification, UI testing
+- Limitation: No access to logged-in state (isolated profile)
+
+**Playwright E2E** (`npm run test:e2e`)
+- Use for: Actual tests with assertions, `/loop` validation
+- Different from Playwright MCP - this runs the test suite, not ad-hoc browser actions
+
+**Chrome DevTools MCP**
+- Use when: Need network requests, headers, timing, performance traces
+- Same limitations as Playwright MCP (isolated profile)
+
+**Chrome Integration (`claude --chrome`)**
+- Use when: Testing OAuth flows, Google login, or any authenticated state
+- Requires user to start Claude with `--chrome` flag
+- If you need auth and don't have Chrome Integration, **ask the user** to restart with `claude --chrome`
+
+### Isolation Mode Explained
+
+Both Playwright MCP and Chrome DevTools MCP run with `--isolated`:
+- **Why:** Enables multiple Claude sessions to run in parallel without browser conflicts
+- **Trade-off:** Each session starts with a fresh browser (no cookies, no login state)
+- **If you need persistent state:** Ask user to use Chrome Integration (`claude --chrome`)
+
+### Headless by Default
+
+All MCP browser tools run headless (no visible window). This is intentional:
+- Faster execution
+- Doesn't interrupt user's workflow
+- Works on cloud VMs without displays
+
+Chrome Integration is the exception - it requires a visible browser by design.
 
 ## Cloud Agent (Run Tasks While AFK)
 
@@ -443,19 +472,30 @@ This script runs automatically if installed as a git hook, but Claude should run
 
 | Check | Blocks commit? | Purpose |
 |-------|---------------|---------|
-| **Lint** | Yes | ESLint errors |
+| **Lint** | Yes | ESLint errors (includes accessibility via jsx-a11y) |
 | **Build** | Yes | TypeScript errors, import issues |
 | **Tests** | Yes | Regressions |
 | **Secrets scan** | Yes | Accidentally committed API keys, tokens |
 | **Bundle size** | Warning | Alerts if dist/ exceeds 20MB |
 | **console.log** | Warning | Debug logs left in code |
 | **TODO/FIXME** | Warning | New tech debt being added |
+| **@ts-ignore** | Warning | TypeScript escape hatches that bypass type safety |
+| **debugger** | Yes | Leftover debug statements |
+| **any types** | Warning | New `any` types in non-test code |
+
+### ESLint includes accessibility checks (jsx-a11y):
+
+The linter catches common accessibility issues:
+- Missing alt text on images
+- Empty anchor/button content
+- Invalid ARIA roles
+- Click handlers without keyboard support (warning)
 
 ### After checks pass, also review:
 
 1. **Logic bugs and edge cases** - Does the code handle errors?
 2. **Security issues** - XSS, injection, auth bypass?
-3. **Accessibility** - Can keyboard/screen reader users use it?
+3. **Accessibility** - Linter catches basics, but verify keyboard navigation works
 4. **CLAUDE.md patterns** - Does it follow project conventions?
 
 If issues are found, ask the user how to proceed before committing.

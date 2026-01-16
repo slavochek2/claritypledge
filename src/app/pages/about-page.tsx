@@ -4,7 +4,6 @@
  * Contains the founder's story, open source information, and a contact form.
  */
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
