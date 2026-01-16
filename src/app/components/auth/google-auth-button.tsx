@@ -11,6 +11,8 @@ import { analytics } from "@/lib/mixpanel";
 interface GoogleAuthButtonProps {
   /** Context for analytics tracking (e.g., 'live', 'login') */
   context: string;
+  /** P64: Source for auth callback routing ('login', 'signup', or 'pledge') */
+  source?: 'login' | 'signup' | 'pledge';
   /** Additional class names */
   className?: string;
   /** Whether button is disabled */
@@ -58,16 +60,16 @@ function GoogleLogo({ className = "" }: { className?: string }) {
   );
 }
 
-export function GoogleAuthButton({ context, className = "", disabled = false }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ context, source, className = "", disabled = false }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleClick = async () => {
     setIsLoading(true);
     setError(null);
-    analytics.track('google_auth_initiated', { context });
+    analytics.track('google_auth_initiated', { context, source });
 
-    const { error: authError } = await signInWithGoogle();
+    const { error: authError } = await signInWithGoogle(source);
 
     if (authError) {
       console.error('Google auth error:', authError);
