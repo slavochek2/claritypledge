@@ -1,15 +1,15 @@
 # P65: CLAUDE.md Restructuring
 
-**Status:** Planning
-**Priority:** High (foundational - blocks P64)
+**Status:** Ready for Implementation
+**Priority:** High (foundational)
 **Created:** 2026-01-16
-**Updated:** 2026-01-16
+**Updated:** 2026-01-17
 
 ---
 
 ## Problem Statement
 
-CLAUDE.md is ~620 lines. Every agent loads it, but most content is situational:
+CLAUDE.md is 622 lines. Every agent loads it, but most content is situational:
 - Auth flow details only matter for auth work
 - Worktree setup only matters when using worktrees
 - MCP server details only matter when debugging browser issues
@@ -21,143 +21,173 @@ CLAUDE.md is ~620 lines. Every agent loads it, but most content is situational:
 
 ## Goal
 
-1. Lean CLAUDE.md that contains only what EVERY agent needs. Situational context moves to referenced docs that agents load on-demand.
-2. Clean up `features/` folder naming inconsistencies.
+Lean CLAUDE.md (~380 lines) containing only what EVERY agent needs. Situational content moves to reference docs that agents load on-demand.
 
 ---
 
-## Analysis: What's in CLAUDE.md Today
+## Existing Reference Docs (Audit)
 
-| Section | Lines | Every agent needs it? |
-|---------|-------|----------------------|
-| Project Overview | 15 | ✅ Yes |
-| Development Commands | 30 | ✅ Yes |
-| MCP Servers Available | 30 | ❌ Only browser debugging |
-| Browser Tools Decision Guide | 40 | ❌ Only browser debugging |
-| Cloud Agent | 25 | ❌ Only when using /c |
-| Git Worktree Setup | 60 | ❌ Only parallel dev |
-| Configuration | 15 | ✅ Yes |
-| Project Structure | 45 | ✅ Yes (abbreviated) |
-| Architecture (Auth, Data, DB) | 100 | ⚠️ Partial - gotchas yes, details no |
-| Type Definitions | 30 | ❌ Can read from code |
-| Common Gotchas | 25 | ✅ Yes (critical) |
-| Testing | 50 | ⚠️ Partial - rules yes, details no |
-| Known Issues | 10 | ✅ Yes |
-| Source of Truth | 20 | ✅ Yes |
-| Observability | 40 | ❌ Only when adding analytics |
-| Pre-Commit Checks | 50 | ✅ Yes |
-| Cloud Credits | 10 | ❌ Rarely needed |
-| Tech Debt | 15 | ✅ Yes |
-| Design System | 10 | ✅ Yes (brief) |
-| Code Style | 30 | ✅ Yes |
-| Code Quality Principles | 30 | ✅ Yes |
-| File Creation Rules | 50 | ✅ Yes |
+| Doc | Lines | Status |
+|-----|-------|--------|
+| `docs/technical/authentication.md` | 12 | Stub — needs expansion |
+| `docs/technical/database.md` | 31 | Stub — needs expansion |
+| `docs/technical/debugging.md` | 10 | Stub — not useful |
+| `docs/technical/testing.md` | 56 | Partial |
+| `docs/technical/e2e-testing.md` | 481 | Comprehensive |
+| `docs/technical/analytics.md` | 501 | Comprehensive |
+| `docs/technical/worktree-setup.md` | 290 | Comprehensive |
+| `docs/technical/cloud-agent.md` | 330 | Comprehensive |
 
-**Estimated savings:** ~250 lines (40%) can move to referenced docs.
+**Key insight:** 4 docs already comprehensive. Only need to expand 2 stubs + create 1 new doc.
 
 ---
 
-## Proposed Structure
+## What Stays in CLAUDE.md (~380 lines)
 
-### CLAUDE.md (Lean Core ~370 lines)
+| Section | Lines | Rationale |
+|---------|-------|-----------|
+| Project Overview | 15 | Every agent needs context |
+| Development Commands | 30 | Every agent runs commands |
+| Configuration | 15 | Every agent needs env setup |
+| Project Structure | 40 | Every agent navigates code |
+| Common Gotchas | 25 | **Critical** — prevents repeat mistakes |
+| Pre-Commit Checks | 50 | Every agent commits code |
+| Code Style & Quality | 60 | Every agent writes code |
+| File Creation Rules | 50 | Every agent creates files |
+| Design System (brief) | 10 | Every agent touches UI |
+| Tech Debt | 15 | Prevents confusion |
+| Known Issues | 10 | Prevents confusion |
+| Source of Truth | 20 | Prevents doc conflicts |
+| Test Modification Rules | 20 | Every agent may touch tests |
+| **Deep Dive References (new)** | 20 | Index to situational docs |
 
-Keep:
-- Project Overview
-- Development Commands
-- Configuration
-- Project Structure (abbreviated)
-- Common Gotchas
-- Key Conventions (source of truth, pre-commit, code style, file rules)
-- Design System (brief)
-- Tech Debt
-- Known Issues
-
-Add:
-- "Deep Dive References" section pointing to docs for situational context
-
-### New Reference Docs
-
-| Doc | Contains | When to load |
-|-----|----------|--------------|
-| `docs/technical/mcp-servers.md` | MCP tools, browser decision guide | Browser debugging, visual testing |
-| `docs/technical/worktree-setup.md` | Already exists, expand | Parallel development |
-| `docs/technical/cloud-agent.md` | Already exists | Using /c command |
-| `docs/technical/auth-architecture.md` | Reader-Writer pattern, auth callback | Auth work |
-| `docs/technical/database.md` | Schema, RLS, data layer patterns | Database work |
-| `docs/technical/testing.md` | Test setup, helpers, modification rules | Writing tests |
-| `docs/technical/observability.md` | Mixpanel, Sentry patterns | Adding analytics |
+**Total:** ~380 lines
 
 ---
 
-## Migration Plan
+## What Moves Out (~240 lines)
 
-### Phase 1: Create/Update Reference Docs
-- [ ] Create `docs/technical/mcp-servers.md` (extract from CLAUDE.md)
-- [ ] Create `docs/technical/auth-architecture.md` (extract from CLAUDE.md)
-- [ ] Create `docs/technical/database.md` (extract from CLAUDE.md)
-- [ ] Update `docs/technical/testing.md` if needed
-- [ ] Create `docs/technical/observability.md` (extract from CLAUDE.md)
+| Content | Lines | Destination | Action |
+|---------|-------|-------------|--------|
+| MCP Servers + Browser Tools Guide | 70 | `docs/technical/browser-tools.md` | **Create new** |
+| Auth Architecture (Reader-Writer, callback) | 50 | `docs/technical/authentication.md` | **Expand stub** |
+| Database Schema + RLS + Data Layer | 40 | `docs/technical/database.md` | **Expand stub** |
+| Type Definitions | 30 | `docs/technical/database.md` | **Merge into DB doc** |
+| Observability (Mixpanel/Sentry details) | 40 | `docs/technical/analytics.md` | **Already there** — just link |
+| Cloud Agent details | 25 | `docs/technical/cloud-agent.md` | **Already there** — just link |
+| Worktree details | 30 | `docs/technical/worktree-setup.md` | **Already there** — just link |
+
+---
+
+## New Section: Deep Dive References
+
+Add this to CLAUDE.md after "Development Commands":
+
+```markdown
+## Deep Dive References
+
+Load these when working on specific areas:
+
+| Working on... | Read |
+|---------------|------|
+| Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
+| Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
+| Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
+| E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
+| Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
+| Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+```
+
+---
+
+## Implementation Plan
+
+### Phase 1: Expand Reference Docs
+
+**Task 1.1:** Create `docs/technical/browser-tools.md`
+- Extract MCP Servers section from CLAUDE.md
+- Extract Browser Tools Decision Guide from CLAUDE.md
+- Include the decision table and isolation/headless notes
+
+**Task 1.2:** Expand `docs/technical/authentication.md`
+- Extract Auth Architecture section from CLAUDE.md
+- Include Reader-Writer pattern explanation
+- Include AuthCallbackPage transaction flow
+- Include "DO NOT move profile creation" warning
+
+**Task 1.3:** Expand `docs/technical/database.md`
+- Extract Database Schema section from CLAUDE.md
+- Extract Type Definitions section from CLAUDE.md
+- Include RLS design decisions
+- Include slug generation trade-off explanation
 
 ### Phase 2: Slim CLAUDE.md
-- [ ] Add "Deep Dive References" section
-- [ ] Remove sections that moved to reference docs
-- [ ] Keep abbreviated pointers ("For auth details, see docs/technical/auth-architecture.md")
+
+**Task 2.1:** Add Deep Dive References section (after Development Commands)
+
+**Task 2.2:** Remove moved content, replace with 1-line pointers:
+- MCP Servers → "See [browser-tools.md](docs/technical/browser-tools.md)"
+- Auth Architecture → "See [authentication.md](docs/technical/authentication.md)"
+- Database Schema → "See [database.md](docs/technical/database.md)"
+- Type Definitions → "See [database.md](docs/technical/database.md)"
+- Observability details → "See [analytics.md](docs/technical/analytics.md)"
+- Cloud Agent details → Already has link, just trim
+- Worktree details → Already has link, just trim
+
+**Task 2.3:** Keep these in CLAUDE.md (critical):
+- Common Gotchas (all 5 items)
+- Test Modification Rules
+- Pre-Commit Checks
+- File Creation Rules
 
 ### Phase 3: Validate
-- [ ] Run a few typical tasks, verify agents still work
-- [ ] Check that gotchas and critical rules stayed in CLAUDE.md
+
+- [ ] Line count under 400
+- [ ] Run `./scripts/pre-commit-checks.sh`
+- [ ] Verify an agent can complete a typical task (e.g., "fix a bug")
+- [ ] Verify auth-related task still works with reference doc
 
 ---
 
-## Risk Analysis
+## Features Folder Cleanup (Separate PR)
 
-| Risk | Mitigation |
-|------|------------|
-| Agents miss context they need | Keep gotchas and critical rules in CLAUDE.md |
-| Extra tool calls for references | Only ~5 reference docs; agents load on-demand |
-| Reference docs go stale | Minimal content + links to code; same risk as today |
+### Files to Rename
+
+| Current | New |
+|---------|-----|
+| `p55_Understanding Verification Loop.md` | `p55_understanding_verification_loop.md` |
+| `p60_navigating stories and points.md` | `p60_navigating_stories_and_points.md` |
+
+### Files to Renumber
+
+| Current | New | Reason |
+|---------|-----|--------|
+| `p65_live_auth_gate.md` | `p66_live_auth_gate.md` | Duplicate p65 |
+
+### Naming Convention (document in CLAUDE.md)
+
+| Prefix | Meaning | Location |
+|--------|---------|----------|
+| `p{N}_` | Feature | `features/` |
+| `b{N}_` | Bug fix | `features/bugs_and_debt/` |
+| `r{N}_` | Refactor | `features/` |
 
 ---
 
 ## Success Criteria
 
-- [ ] CLAUDE.md under 400 lines
-- [ ] All critical gotchas still in CLAUDE.md
-- [ ] Reference docs created and linked
-- [ ] No broken workflows (agents can still complete tasks)
-
----
-
-## Features Folder Cleanup
-
-### Current Issues
-
-| Issue | Examples |
-|-------|----------|
-| Spaces in filenames | `p55_Understanding Verification Loop.md`, `p60_navigating stories and points.md` |
-| Duplicate numbers | `p64_*.md` (2 files), `p65_*.md` (2 files) |
-| Bugs in root | `b38_*`, `b52_*` should be in `bugs_and_debt/` |
-
-### Cleanup Tasks
-
-- [ ] Rename files with spaces to snake_case
-- [ ] Renumber duplicate feature numbers
-- [ ] Move `b*` files to `bugs_and_debt/`
-- [ ] Update CLAUDE.md naming convention docs
-
-### Naming Convention (to document in CLAUDE.md)
-
-| Prefix | Meaning | Example |
-|--------|---------|---------|
-| `p{N}_` | Feature | `p67_knowledge_driven_development.md` |
-| `b{N}_` | Bug fix | `bugs_and_debt/b38_layout_wrapper.md` |
-| `r{N}_` | Refactor | `r54_clarity_live_refactor.md` |
-| `ROADMAP_v{N}` | Roadmap version | `ROADMAP_v1.md` |
+- [ ] CLAUDE.md ≤ 400 lines
+- [ ] All 5 Common Gotchas remain in CLAUDE.md
+- [ ] Deep Dive References table added
+- [ ] 3 reference docs created/expanded
+- [ ] No broken agent workflows
+- [ ] Features folder naming consistent
 
 ---
 
 ## Out of Scope
 
-- Automated context loading (agent decides what to read)
-- Removing any information (only moving it)
-- Restructuring docs/ folder beyond technical/
+- Automated context loading (agents decide what to read)
+- Restructuring `docs/` folder beyond `technical/`
+- Changes to existing comprehensive docs (analytics, e2e-testing, worktree-setup, cloud-agent)
