@@ -7,16 +7,17 @@ Before starting, analyze the task and determine:
 1. **Task type**: bug fix | feature | refactor | UI change | backend-only
 2. **Complexity**: trivial (1 file) | small (2-3 files) | medium (4-10 files) | large (10+)
 3. **Has UI impact?**: yes | no
+4. **Auth-gated?**: Does this touch protected routes? (check `App.tsx` for `ProtectedRoute`)
 
 **Suggested workflow by type:**
 
 | Type | Steps |
 |------|-------|
-| Bug fix (backend) | Implement → Unit tests → Done |
-| Bug fix (UI) | Implement → Visual check → E2E tests → Done |
-| Feature (with UI) | Implement → Unit tests → Visual check → E2E tests → UX review (if significant) → Done |
-| Feature (backend-only) | Implement → Unit tests → Done |
-| Refactor | Implement → All tests → Done |
+| Bug fix (backend) | Failing test → Implement → Tests pass → Done |
+| Bug fix (UI) | Failing test → Implement → Tests pass → Visual check → E2E tests → Done |
+| Feature (with UI) | Failing test → Implement → Tests pass → Visual check → E2E tests → UX review (if significant) → Done |
+| Feature (backend-only) | Failing test → Implement → Tests pass → Done |
+| Refactor | Tests pass (baseline) → Refactor → Tests still pass → Done |
 | UI change only | Implement → Visual check → UX review → Done |
 
 **For bug fixes, always start with reproduction** (see Step 0.5 below).
@@ -24,7 +25,8 @@ Before starting, analyze the task and determine:
 **Present to user:**
 ```
 Task: [brief description]
-Type: [task type] | Complexity: [level] | UI: [yes/no]
+Type: [task type] | Complexity: [level] | UI: [yes/no] | Auth-gated: [yes/no]
+Worktree: [detected worktree name and port, or "main repo (5001)"]
 Steps: [ordered list]
 Skipping: [what and why]
 
@@ -32,6 +34,39 @@ Proceed? (y / adjust steps / more context needed)
 ```
 
 Wait for user confirmation before proceeding.
+
+---
+
+## Pre-Flight Checks (run before any work)
+
+### Detect Worktree and Port
+
+```bash
+# Get current directory name
+pwd | xargs basename
+```
+
+**Port mapping:**
+- `polymet-clarity-pledge-app` (main): `localhost:5001`
+- `claritypledge-1`: `localhost:5100`
+- `claritypledge-2`: `localhost:5200`
+- `claritypledge-3`: `localhost:5300`
+- ... up to `claritypledge-7`: `localhost:5700`
+
+Store the detected port for use in visual checks. If directory doesn't match pattern, check `vite.config.ts` for the port.
+
+### Check Dev Server (if UI work)
+
+Before visual checks, verify server is running:
+```bash
+curl -s http://localhost:${PORT} > /dev/null && echo "Server running" || echo "Server NOT running"
+```
+
+If not running, start it:
+```bash
+npm run dev &
+sleep 3  # Wait for startup
+```
 
 ---
 
@@ -55,19 +90,42 @@ Before implementing a fix, confirm the bug exists and capture it in a test:
 
 ---
 
-### 1. Implementation
-- Read relevant existing code first
-- Implement the feature or fix
-- Follow patterns from existing codebase
+### 1. Write Failing Test First (TDD)
 
-### 2. Unit Tests (when applicable)
+**For features and bug fixes, write the test BEFORE implementing:**
+
+1. **Identify what success looks like** — What behavior should exist when done?
+2. **Write a test that asserts that behavior** — It WILL fail (that's the point)
+3. **Run the test to confirm it fails:**
+   ```bash
+   npm test -- --testNamePattern="your test name"
+   ```
+4. **Verify failure is for the RIGHT reason** — Test should fail because feature doesn't exist, not because of syntax errors
+
+**Skip this step only for:**
+- Pure refactoring (tests already exist)
+- UI-only changes with no testable logic
+- Trivial changes (typos, copy updates)
+
+---
+
+### 2. Implementation
+
+- Read relevant existing code first
+- Implement the minimal code to make the test pass
+- Follow patterns from existing codebase
+- Resist the urge to add extras — just make the test green
+
+### 3. Unit Tests
+
 ```bash
 npm test
 ```
+- All tests must pass (including your new one)
 - Fix failures before proceeding
 - If tests fail 3+ times on same issue → stop and ask user
 
-### 2.5 Test Verification Gate (REQUIRED)
+### 3.5 Test Verification Gate (REQUIRED)
 
 Before proceeding past unit tests, you MUST:
 
@@ -89,42 +147,79 @@ Before proceeding past unit tests, you MUST:
 
 This gate exists because agents have historically self-reported "tests pass" without actually running them. Pasting the output creates accountability.
 
-### 3. Visual Check (when UI is involved)
+### 4. Visual Check (when UI is involved)
 
-**Requires dev server running.** If not running, start it:
-```bash
-npm run dev
-```
+**Use the port detected in Pre-Flight Checks** (NOT hardcoded 5173).
 
-Use Playwright MCP to verify the UI:
+#### Auth-Gate Detection
 
-1. **Navigate** to the affected page (e.g., `http://localhost:5173/p/test-user`)
+Before taking screenshots, check if the page requires authentication:
+
+1. **Check route in `App.tsx`** — Is it wrapped in `ProtectedRoute`?
+2. **If auth-gated AND you need to see authenticated state:**
+   - **Option A:** Test with a public profile page instead (e.g., `/p/test-user`)
+   - **Option B:** Ask user: "This page requires auth. Start Claude with `claude --chrome` to test with your logged-in browser?"
+   - **Option C:** Skip visual check and note: "Auth-gated, visual check skipped (requires chrome integration)"
+3. **If NOT auth-gated:** Proceed normally
+
+#### Browser Tool Selection
+
+| What You Need | Tool | When |
+|---------------|------|------|
+| Screenshots, UI verification | Playwright MCP | Default choice |
+| Network requests, API debugging | Chrome DevTools MCP | Tests fail due to API errors |
+| Performance traces | Chrome DevTools MCP | Page is slow, need profiling |
+| Authenticated state | Chrome Integration | Auth-gated pages, OAuth flows |
+
+#### Visual Check Steps (Playwright MCP)
+
+1. **Navigate** to the affected page: `http://localhost:${PORT}/your-route`
 2. **Take desktop screenshot** - check layout, colors, spacing
-3. **Take mobile screenshot** (375px width) - check responsive behavior
-4. **Check browser console** for errors
+3. **Take mobile screenshot** (resize to 375px width) - check responsive behavior
+4. **Check browser console** for errors:
+   ```
+   Use: mcp__playwright__browser_console_messages
+   ```
 5. **Verify against design system:**
    - Primary CTAs: `blue-500` / `blue-600` hover
    - Success states: `green-500` only
    - No amber/orange colors
    - Buttons have adequate padding
 
+#### If API Calls Fail (use Chrome DevTools MCP)
+
+When tests or visual checks fail due to network issues:
+
+1. **List network requests:**
+   ```
+   Use: mcp__chrome-devtools__list_network_requests
+   ```
+2. **Inspect failed request:**
+   ```
+   Use: mcp__chrome-devtools__get_network_request with the reqid
+   ```
+3. **Check for:** 401/403 (auth issues), 500 (server errors), CORS errors
+
 **Report findings:**
 ```
 Visual Check:
+- Worktree: [name] | Port: [port]
 - Desktop: [OK / issues found]
 - Mobile: [OK / issues found]
 - Console: [clean / errors found]
+- Network: [OK / failures found] (if checked)
 - Design system: [compliant / violations]
+- Auth note: [if applicable]
 ```
 
-### 4. E2E Tests (when applicable)
+### 5. E2E Tests (when applicable)
 ```bash
 npx playwright test
 ```
 - Fix failures before proceeding
 - If flaky test unrelated to change → note it and continue
 
-### 5. UX Review (for significant UI features only)
+### 6. UX Review (for significant UI features only)
 
 Only perform for:
 - New user-facing features
@@ -249,6 +344,7 @@ If stuck on a checkpoint for 3+ attempts:
 - Confidence drops below 80%
 - Unsure which workflow steps apply
 - Need to modify files outside the expected scope
+- Page requires auth and Chrome Integration isn't available
 
 ---
 
@@ -257,7 +353,7 @@ If stuck on a checkpoint for 3+ attempts:
 After completing:
 ```
 Task: [description]
-Complexity: [level] | Files changed: [N]
+Complexity: [level] | Files changed: [N] | Worktree: [name/port]
 
 Test Evidence:
 ```
@@ -267,7 +363,7 @@ Test Evidence:
 
 Results:
 - Unit tests: X passed, Y failed (from actual output above)
-- Visual check: OK / ISSUES / SKIPPED
+- Visual check: OK / ISSUES / SKIPPED (auth-gated)
 - E2E tests: PASS / FAIL / SKIPPED
 - UX review: OK / ISSUES / SKIPPED
 
