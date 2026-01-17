@@ -37,170 +37,27 @@ npm run test:e2e:headed  # Run in headed browser
 
 # Pre-commit Checks (REQUIRED before committing)
 ./scripts/pre-commit-checks.sh
-
-# Visual Inspection (Playwright MCP)
-# Use Playwright MCP tools to take screenshots and verify UI
-# Requires dev server running: npm run dev
 ```
 
-## MCP Servers Available
+## Deep Dive References
 
-**Supabase MCP** - Direct database access and management:
-- Execute SQL queries against the database
-- List tables and view schemas
-- Inspect database functions and triggers
-- View RLS policies
-- Useful for debugging data issues and exploring schema
+Load these docs when working on specific areas:
 
-**Playwright MCP** (`--isolated` mode) - For visual UI inspection during development:
-- Navigate to pages and take screenshots
-- Check mobile (375px) and desktop views
-- Verify console for errors
-- Use for `/loop` visual checks when UI is involved
-- Runs in isolated mode: fresh browser profile each session, enables parallel agents
+| Working on... | Read |
+|---------------|------|
+| Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
+| Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
+| Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
+| E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
+| Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
+| Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+| Past decisions, why we chose X over Y | [DECISIONS.md](docs/DECISIONS.md) |
 
-**Chrome DevTools MCP** (`--isolated` mode) - For deep browser debugging:
-- Network inspection (headers, timing, failures)
-- Performance traces and profiling
-- Memory leak investigation
-- Runs in isolated mode: fresh browser profile each session, enables parallel agents
+## Knowledge-Driven Development
 
-**Chrome Integration** (beta, `claude --chrome`) - Browser automation via Chrome extension:
-- Uses your actual logged-in browser sessions (Gmail, Google Docs, OAuth flows)
-- Real-world testing with authenticated state
-- Requires: Chrome + Claude extension (v1.0.36+) + visible browser window
-- Enable with `claude --chrome` or `/chrome` command
-- **This is the only way to test OAuth flows or access authenticated state**
-
-## Browser Tools Decision Guide
-
-**Choose the right tool based on what you need:**
-
-| Need | Tool | Mode | Parallel-Safe |
-|------|------|------|---------------|
-| Quick screenshot / visual check | Playwright MCP | isolated, headless | ✅ |
-| Run test suite / CI | `npm run test:e2e` | headless | ✅ |
-| Debug network/perf/memory | Chrome DevTools MCP | isolated, headless | ✅ |
-| OAuth / logged-in sessions | Chrome Integration | headed, persistent | ❌ |
-
-### When to Use Each (Agent Decision Guide)
-
-**Default choice: Playwright MCP**
-- Fast, headless, parallel-safe (isolated profile)
-- Use for: screenshots, visual verification, UI testing
-- Limitation: No access to logged-in state (fresh browser each session)
-
-**Playwright E2E** (`npm run test:e2e`)
-- Use for: Actual tests with assertions, `/loop` validation
-- Different from Playwright MCP - this runs the test suite, not ad-hoc browser actions
-
-**Chrome DevTools MCP**
-- Use when: Need network requests, headers, timing, performance traces
-- Same limitations as Playwright MCP (isolated profile)
-
-**Chrome Integration (`claude --chrome`)**
-- Use when: Testing OAuth flows, Google login, or any authenticated state
-- Requires user to start Claude with `--chrome` flag
-- **Detection:** If Chrome Integration tools fail or aren't available, ask the user to restart with `claude --chrome`
-
-### Isolation & Headless Mode
-
-Both Playwright MCP and Chrome DevTools MCP run with `--isolated --headless`:
-- **Isolated:** Enables multiple Claude sessions to run in parallel without browser conflicts
-- **Headless:** No visible browser window (faster, doesn't interrupt workflow)
-- **Trade-off:** Each session starts with a fresh browser (no cookies, no login state)
-- **If you need persistent state or visible browser:** Ask user to use Chrome Integration (`claude --chrome`)
-
-## Cloud Agent (Run Tasks While AFK)
-
-Run AI coding tasks on a Google Cloud VM. Supports **parallel execution** via worktrees (0-3).
-
-```bash
-/c claude Add feature X              # Auto-picks available worktree
-/c claude -w 2 Fix auth bug          # Explicitly use worktree 2
-/c status                            # Check ALL running agents
-/c --list                            # See worktree states
-/c pull 0                            # Get work from worktree 0
-/c reset all                         # Reset idle worktrees to main
-```
-
-| Feature | Claude (`/c claude`) | Gemini (`/c`) |
-|---------|---------------------|---------------|
-| `/loop` workflow | ✅ | ❌ |
-| BMAD agents | ✅ | ❌ |
-| Playwright MCP | ✅ | ❌ |
-| Chrome DevTools MCP | ✅ | ❌ |
-| Chrome Integration | ❌ (needs visible browser) | ❌ |
-
-**First-time setup:**
-1. Run `/c setup-mcp` to install Playwright and Chrome DevTools MCP on the VM
-2. Run `/c setup-worktrees` to create worktrees 1-3 for parallel execution
-
-See [docs/technical/cloud-agent.md](docs/technical/cloud-agent.md) for full documentation.
-
-## Git Worktree Setup (Parallel Development)
-
-This project uses git worktrees for parallel AI agent development. **If you're working in a worktree, check which one:**
-
-```bash
-git worktree list
-```
-
-**Worktree ports:**
-- Main repo: `localhost:5001`
-- Tree 1-7: `localhost:5100` through `localhost:5700`
-
-Each worktree has a unique port configured in `vite.config.ts` (committed to its branch). See [docs/technical/worktree-setup.md](docs/technical/worktree-setup.md) for full details on resetting, merging, and managing worktrees.
-
-### Worktree Naming Convention (MUST FOLLOW)
-
-**Directory names:** Always use `claritypledge-N` (e.g., `claritypledge-1`, `claritypledge-2`)
-- Local: `/Users/slavochek/Documents/claritypledge-N`
-- Cloud: `~/claritypledge-N`
-
-**Branch names:** Use descriptive names that include the worktree number:
-- Format: `{feature}-wt{N}` or `worktree-{N}` for generic
-- Examples: `p38-variant-a-wt3`, `dark-mode-wt1`, `worktree-cloud-2`
-
-**Why this matters:**
-- Auto-detect scripts look for `claritypledge-N` directories
-- Port auto-detection uses directory name to assign ports
-- `/c claude` parallel execution depends on this naming
-
-**Creating a new worktree:**
-```bash
-# From main repo
-git worktree add ../claritypledge-N -b feature-name-wtN
-
-# Then symlink .env.local (critical!)
-ln -sf $(pwd)/.env.local ../claritypledge-N/.env.local
-```
-
-## Checking Worktree Contents
-
-Git branches are the source of truth for what code is where. To see what's on a worktree:
-
-```bash
-# Check branch and recent commits
-cd ../claritypledge-N
-git log --oneline -5
-```
-
-### Task Completion Output (REQUIRED)
-
-**When finishing work on a worktree, agents MUST output:**
-
-```
-✅ Task complete!
-
-🔗 Test link: http://localhost:51XX (where XX = worktree number)
-📁 Worktree: claritypledge-N
-🌿 Branch: feature-name-wtN
-
-To test: Dev server should be running. If not, run `npm run dev` in the worktree.
-```
-
-This saves the user from asking "what's the link?" or "which worktree?"
+- `/kdd` - Record decisions (run after features with interesting trade-offs)
+- [DECISIONS.md](docs/DECISIONS.md) - Why we chose things (append-only, newest at top)
 
 ## Configuration
 
@@ -261,111 +118,24 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Architecture
 
-### Authentication Flow (CRITICAL)
+For detailed architecture docs, see the [Deep Dive References](#deep-dive-references) section above.
 
-The authentication system uses a **Reader-Writer pattern** to prevent race conditions:
-
-1. **Reader** ([useAuth.ts](src/auth/useAuth.ts)): Read-only hook that observes auth state and fetches user profiles. Never writes to database or handles redirects. Import via `import { useAuth } from '@/auth'`.
-
-2. **Writer** ([AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx)): Handles the critical transaction after magic link verification:
-   - Verifies incoming session
-   - Creates profile for new users (signup)
-   - Redirects existing users to their profile (login)
-
-The auth module (`src/auth/`) is a self-contained feature module with its own public API via `index.ts`. Import from `@/auth`, never from internal files directly.
-
-**DO NOT move profile creation logic to hooks or global context.** This separation is intentional to avoid race conditions that occurred in earlier implementations.
-
-### Data Layer ([api.ts](src/app/data/api.ts))
-
-All Supabase interactions go through `src/app/data/api.ts`. Key patterns:
-
-- **`createProfile()`**: Sends magic link only. Does NOT write to database. Profile creation happens in auth callback.
-- **Database writes**: Profiles are created via `upsert()` in [AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx) after email verification.
-- **Profile fetching**: Profiles and witnesses are fetched separately (not via joins) to avoid Supabase PostgREST limitations.
-- **Slug generation**: Slugs are created from names (`john-doe`) and must be unique. On conflict, sequential suffixes are used (`john-doe-2`, `john-doe-3`). This is intentional for memorable URLs - timestamp fallback only after 3 retries. See `generateSlug()` in api.ts and slug conflict handling in AuthCallbackPage.tsx.
-
-### Database Schema ([schema.sql](supabase/schema.sql))
-
-Two main tables with RLS policies:
-
-**profiles table:**
-- `id` (uuid, FK to auth.users)
-- `slug` (unique, URL-friendly identifier)
-- `email`, `name`, `role`, `linkedin_url`, `reason`
-- `avatar_color`, `is_verified`, timestamps
-
-**witnesses table:**
-- `id`, `profile_id` (FK to profiles)
-- `witness_name`, `witness_linkedin_url`
-- `witness_profile_id` (optional FK if witness is also a user)
-- `is_verified`, timestamps
-
-**RLS Design Decision:** The witnesses insert policy intentionally allows ANY authenticated user to add witnesses to ANY profile. This enables users to endorse someone's pledge without requiring the endorsee to have an account. This is a feature, not a security gap.
-
-**Note:** There is NO database trigger for profile creation. The old `handle_new_user()` trigger was removed (2025-12-04) because it created profiles with NULL slugs. Profile creation happens ONLY in AuthCallbackPage.tsx after email verification.
-
-**Client-Side Slug Generation Trade-off:** The slug conflict resolution logic in AuthCallbackPage.tsx runs in the browser, not in a database function. This is a deliberate trade-off:
-- **Why not server-side:** Supabase doesn't support custom server functions without Edge Functions, which adds deployment complexity.
-- **Safety guarantees:** The retry loop (up to 3 attempts) with timestamp fallback ensures eventual success. Worst case: user gets `john-doe-1733270400000` instead of `john-doe-2`.
-- **Risk accepted:** If browser closes mid-transaction, user can re-verify via magic link. No data corruption possible.
-
-### Component Organization
-
-**UI Components** (`src/components/ui/`): Radix UI primitives (shadcn/ui pattern)
-- Built with class-variance-authority for variants
-- Styled with Tailwind CSS
-
-**App Components** (`src/app/components/`):
-- Feature components (pledge forms, certificates, witness lists)
-- Navigation components in `navigation/` subdirectory
-- Profile views split into owner/visitor views
-
-**Pages** (`src/app/pages/`): Route components
-- All pages wrapped in `ClarityLandingLayout`
-- Routes defined in [App.tsx](src/App.tsx)
+**Key patterns:**
+- **Auth:** Reader-Writer pattern separates `useAuth` (read-only) from `AuthCallbackPage` (writes). Import from `@/auth`.
+- **Data layer:** All Supabase calls go through `src/app/data/api.ts`. Fetch profiles and witnesses separately.
+- **Components:** UI primitives in `src/components/ui/` (shadcn/ui), feature components in `src/app/components/`.
 
 ### Key Routes
 
-- `/` - Landing page
-- `/sign-pledge` - Pledge signup form
-- `/auth/callback` - **Critical auth handler** (do not modify without understanding Reader-Writer pattern)
-- `/p/:id` - Public profile pages (`:id` is slug, not UUID)
-- `/pledgers` - Directory of verified signatories
-  - Redirects: `/clarity-champions` → `/pledgers`, `/understanding-champions` → `/pledgers`
-- `/about` - About page with founder story and contact form
-- `/settings` - User settings (authenticated)
-
-## Type Definitions
-
-Core types in [src/app/types/index.ts](src/app/types/index.ts):
-
-```typescript
-interface Profile {
-  id: string;           // UUID from auth.users
-  slug: string;         // URL-friendly identifier (used in routes)
-  name: string;
-  email: string;
-  role?: string;
-  linkedinUrl?: string;
-  reason?: string;
-  signedAt: string;
-  isVerified: boolean;
-  witnesses: Witness[];
-  reciprocations: number;
-  avatarColor?: string;
-}
-
-interface Witness {
-  id: string;
-  name: string;
-  linkedinUrl?: string;
-  timestamp: string;
-  isVerified: boolean;
-}
-```
-
-**Important:** Database uses snake_case, frontend uses camelCase. `mapProfileFromDb()` handles conversion.
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page |
+| `/sign-pledge` | Pledge signup form |
+| `/auth/callback` | **Critical auth handler** - do not modify without reading [authentication.md](docs/technical/authentication.md) |
+| `/p/:id` | Public profile (`:id` is slug, not UUID) |
+| `/pledgers` | Directory of verified signatories |
+| `/about` | About page with contact form |
+| `/settings` | User settings (authenticated) |
 
 ## Common Gotchas
 
@@ -429,45 +199,16 @@ When working with documentation and tests:
 3. If docs and tests conflict, investigate which is correct before changing either
 4. One feature doc per feature - avoid multiple overlapping docs
 
-## Observability (Mixpanel + Sentry)
+## Observability
 
-Both tools are production-only (disabled in dev to avoid polluting data).
-
-### Mixpanel Analytics
-
-Use for tracking user behavior and product metrics. Wrapper at [src/lib/mixpanel.ts](src/lib/mixpanel.ts).
+Both Mixpanel (analytics) and Sentry (errors) are production-only.
 
 ```tsx
 import { analytics } from '@/lib/mixpanel';
-
-// Track events
-analytics.track('feature_used', { feature: 'live_meeting', action: 'started' });
-
-// Identify users (after auth)
-analytics.identify(userId);
-
-// Set user properties
-analytics.setUserProperties({ plan: 'free', signupDate: '2024-01-15' });
+analytics.track('feature_used', { feature: 'live_meeting' });
 ```
 
-**When adding new features:** Add Mixpanel events for key user actions. See [docs/technical/analytics.md](docs/technical/analytics.md) for the full event catalog and naming conventions.
-
-### Sentry Error Tracking
-
-Initialized in [src/main.tsx](src/main.tsx). Errors are auto-captured. For manual tracking:
-
-```tsx
-import * as Sentry from '@sentry/react';
-
-// Capture exceptions
-Sentry.captureException(error);
-
-// Capture messages (for non-error events worth tracking)
-Sentry.captureMessage('Unexpected state detected', 'warning');
-
-// Add context to errors
-Sentry.setContext('session', { code: sessionCode, phase: ratingPhase });
-```
+For full event catalog and patterns, see [docs/technical/analytics.md](docs/technical/analytics.md).
 
 ## Pre-Commit Checks (MUST RUN)
 

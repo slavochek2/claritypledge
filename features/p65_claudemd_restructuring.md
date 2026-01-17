@@ -60,8 +60,9 @@ Lean CLAUDE.md (~380 lines) containing only what EVERY agent needs. Situational 
 | Source of Truth | 20 | Prevents doc conflicts |
 | Test Modification Rules | 20 | Every agent may touch tests |
 | **Deep Dive References (new)** | 20 | Index to situational docs |
+| **Knowledge-Driven Development (new)** | 5 | `/kdd` skill + decision log reference |
 
-**Total:** ~380 lines
+**Total:** ~385 lines
 
 ---
 
@@ -97,6 +98,7 @@ Load these when working on specific areas:
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+| Past decisions, why we chose X over Y | [DECISIONS.md](docs/DECISIONS.md), [KDD.md](docs/KDD.md) |
 ```
 
 ---
@@ -125,6 +127,15 @@ Load these when working on specific areas:
 ### Phase 2: Slim CLAUDE.md
 
 **Task 2.1:** Add Deep Dive References section (after Development Commands)
+
+**Task 2.1b:** Add Knowledge-Driven Development section (brief, ~5 lines):
+```markdown
+## Knowledge-Driven Development
+
+- `/kdd` - Record decisions (run after features with interesting trade-offs)
+- `docs/DECISIONS.md` - Why we chose things (append-only, newest at top)
+- `features/archive/` - Completed feature docs (move manually after merge)
+```
 
 **Task 2.2:** Remove moved content, replace with 1-line pointers:
 - MCP Servers → "See [browser-tools.md](docs/technical/browser-tools.md)"
