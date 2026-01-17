@@ -37,133 +37,27 @@ npm run test:e2e:headed  # Run in headed browser
 
 # Pre-commit Checks (REQUIRED before committing)
 ./scripts/pre-commit-checks.sh
-
-# Visual Inspection (Playwright MCP)
-# Use Playwright MCP tools to take screenshots and verify UI
-# Requires dev server running: npm run dev
 ```
 
-## MCP Servers Available
+## Deep Dive References
 
-**Supabase MCP** - Direct database access and management:
-- Execute SQL queries against the database
-- List tables and view schemas
-- Inspect database functions and triggers
-- View RLS policies
-- Useful for debugging data issues and exploring schema
+Load these docs when working on specific areas:
 
-**Playwright MCP** - For visual UI inspection during development:
-- Navigate to pages and take screenshots
-- Check mobile (375px) and desktop views
-- Verify console for errors
-- Use for `/loop` visual checks when UI is involved
+| Working on... | Read |
+|---------------|------|
+| Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
+| Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
+| Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
+| E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
+| Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
+| Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+| Past decisions, why we chose X over Y | [DECISIONS.md](docs/DECISIONS.md) |
 
-**Chrome DevTools MCP** - For deep browser debugging:
-- Network inspection (headers, timing, failures)
-- Performance traces and profiling
-- Memory leak investigation
-- Connect to existing browser session (preserves auth state)
-- Use when Playwright isn't enough for debugging
+## Knowledge-Driven Development
 
-**Chrome Integration** (beta, `claude --chrome`) - Browser automation via Chrome extension:
-- Uses your actual logged-in browser sessions (Gmail, Google Docs, OAuth flows)
-- Real-world testing with authenticated state
-- Requires: Chrome + Claude extension (v1.0.36+) + visible browser window
-- Enable with `claude --chrome` or `/chrome` command
-
-## Browser Tools Decision Guide
-
-Four browser tools are available. Choose based on your task:
-
-| Task | Use This |
-|------|----------|
-| Quick visual check / screenshot | Playwright MCP |
-| Run test suite / CI | `npm run test:e2e` (Playwright) |
-| Debug network/performance/memory | Chrome DevTools MCP |
-| Test with logged-in sessions | Chrome Integration |
-
-**When to use each:**
-- **Playwright MCP** - Default for visual inspection. Fast, no setup needed.
-- **Playwright E2E** - For actual tests with assertions. Use for `/loop` validation.
-- **Chrome DevTools MCP** - When you need to see network requests, timing, headers, or memory.
-- **Chrome Integration** - When you need your actual browser session (OAuth, production sites, authenticated APIs).
-
-**Prefer headless mode** for Playwright MCP, Playwright E2E, and Chrome DevTools MCP. Headless is faster, uses fewer resources, and doesn't interrupt the user with browser windows. Only use headed mode (`--headed`) when you need to visually debug a specific issue. Chrome Integration is the exception—it requires a visible browser by design.
-
-## Cloud Agent (Run Tasks While AFK)
-
-Run AI coding tasks on a Google Cloud VM. Supports **parallel execution** via worktrees (0-3).
-
-```bash
-/c claude Add feature X              # Auto-picks available worktree
-/c claude -w 2 Fix auth bug          # Explicitly use worktree 2
-/c status                            # Check ALL running agents
-/c --list                            # See worktree states
-/c pull 0                            # Get work from worktree 0
-/c reset all                         # Reset idle worktrees to main
-```
-
-| Feature | Claude (`/c claude`) | Gemini (`/c`) |
-|---------|---------------------|---------------|
-| `/loop` workflow | ✅ | ❌ |
-| BMAD agents | ✅ | ❌ |
-| Playwright MCP | ✅ | ❌ |
-| Chrome DevTools MCP | ✅ | ❌ |
-| Chrome Integration | ❌ (needs visible browser) | ❌ |
-
-**First-time setup:**
-1. Run `/c setup-mcp` to install Playwright and Chrome DevTools MCP on the VM
-2. Run `/c setup-worktrees` to create worktrees 1-3 for parallel execution
-
-See [docs/technical/cloud-agent.md](docs/technical/cloud-agent.md) for full documentation.
-
-## Git Worktree Setup (Parallel Development)
-
-This project uses git worktrees for parallel AI agent development. **If you're working in a worktree, check which one:**
-
-```bash
-git worktree list
-```
-
-**Worktree ports:**
-- Main repo: `localhost:5001`
-- Tree 1-7: `localhost:5100` through `localhost:5700`
-
-Each worktree has a unique port configured in `vite.config.ts` (committed to its branch). See [docs/technical/worktree-setup.md](docs/technical/worktree-setup.md) for full details on resetting, merging, and managing worktrees.
-
-### Worktree Naming Convention (MUST FOLLOW)
-
-**Directory names:** Always use `claritypledge-N` (e.g., `claritypledge-1`, `claritypledge-2`)
-- Local: `/Users/slavochek/Documents/claritypledge-N`
-- Cloud: `~/claritypledge-N`
-
-**Branch names:** Use descriptive names that include the worktree number:
-- Format: `{feature}-wt{N}` or `worktree-{N}` for generic
-- Examples: `p38-variant-a-wt3`, `dark-mode-wt1`, `worktree-cloud-2`
-
-**Why this matters:**
-- Auto-detect scripts look for `claritypledge-N` directories
-- Port auto-detection uses directory name to assign ports
-- `/c claude` parallel execution depends on this naming
-
-**Creating a new worktree:**
-```bash
-# From main repo
-git worktree add ../claritypledge-N -b feature-name-wtN
-
-# Then symlink .env.local (critical!)
-ln -sf $(pwd)/.env.local ../claritypledge-N/.env.local
-```
-
-## Checking Worktree Contents
-
-Git branches are the source of truth for what code is where. To see what's on a worktree:
-
-```bash
-# Check branch and recent commits
-cd ../claritypledge-N
-git log --oneline -5
-```
+- `/kdd` - Record decisions (run after features with interesting trade-offs)
+- [DECISIONS.md](docs/DECISIONS.md) - Why we chose things (append-only, newest at top)
 
 ## Configuration
 
@@ -224,111 +118,24 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Architecture
 
-### Authentication Flow (CRITICAL)
+For detailed architecture docs, see the [Deep Dive References](#deep-dive-references) section above.
 
-The authentication system uses a **Reader-Writer pattern** to prevent race conditions:
-
-1. **Reader** ([useAuth.ts](src/auth/useAuth.ts)): Read-only hook that observes auth state and fetches user profiles. Never writes to database or handles redirects. Import via `import { useAuth } from '@/auth'`.
-
-2. **Writer** ([AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx)): Handles the critical transaction after magic link verification:
-   - Verifies incoming session
-   - Creates profile for new users (signup)
-   - Redirects existing users to their profile (login)
-
-The auth module (`src/auth/`) is a self-contained feature module with its own public API via `index.ts`. Import from `@/auth`, never from internal files directly.
-
-**DO NOT move profile creation logic to hooks or global context.** This separation is intentional to avoid race conditions that occurred in earlier implementations.
-
-### Data Layer ([api.ts](src/app/data/api.ts))
-
-All Supabase interactions go through `src/app/data/api.ts`. Key patterns:
-
-- **`createProfile()`**: Sends magic link only. Does NOT write to database. Profile creation happens in auth callback.
-- **Database writes**: Profiles are created via `upsert()` in [AuthCallbackPage.tsx](src/auth/AuthCallbackPage.tsx) after email verification.
-- **Profile fetching**: Profiles and witnesses are fetched separately (not via joins) to avoid Supabase PostgREST limitations.
-- **Slug generation**: Slugs are created from names (`john-doe`) and must be unique. On conflict, sequential suffixes are used (`john-doe-2`, `john-doe-3`). This is intentional for memorable URLs - timestamp fallback only after 3 retries. See `generateSlug()` in api.ts and slug conflict handling in AuthCallbackPage.tsx.
-
-### Database Schema ([schema.sql](supabase/schema.sql))
-
-Two main tables with RLS policies:
-
-**profiles table:**
-- `id` (uuid, FK to auth.users)
-- `slug` (unique, URL-friendly identifier)
-- `email`, `name`, `role`, `linkedin_url`, `reason`
-- `avatar_color`, `is_verified`, timestamps
-
-**witnesses table:**
-- `id`, `profile_id` (FK to profiles)
-- `witness_name`, `witness_linkedin_url`
-- `witness_profile_id` (optional FK if witness is also a user)
-- `is_verified`, timestamps
-
-**RLS Design Decision:** The witnesses insert policy intentionally allows ANY authenticated user to add witnesses to ANY profile. This enables users to endorse someone's pledge without requiring the endorsee to have an account. This is a feature, not a security gap.
-
-**Note:** There is NO database trigger for profile creation. The old `handle_new_user()` trigger was removed (2025-12-04) because it created profiles with NULL slugs. Profile creation happens ONLY in AuthCallbackPage.tsx after email verification.
-
-**Client-Side Slug Generation Trade-off:** The slug conflict resolution logic in AuthCallbackPage.tsx runs in the browser, not in a database function. This is a deliberate trade-off:
-- **Why not server-side:** Supabase doesn't support custom server functions without Edge Functions, which adds deployment complexity.
-- **Safety guarantees:** The retry loop (up to 3 attempts) with timestamp fallback ensures eventual success. Worst case: user gets `john-doe-1733270400000` instead of `john-doe-2`.
-- **Risk accepted:** If browser closes mid-transaction, user can re-verify via magic link. No data corruption possible.
-
-### Component Organization
-
-**UI Components** (`src/components/ui/`): Radix UI primitives (shadcn/ui pattern)
-- Built with class-variance-authority for variants
-- Styled with Tailwind CSS
-
-**App Components** (`src/app/components/`):
-- Feature components (pledge forms, certificates, witness lists)
-- Navigation components in `navigation/` subdirectory
-- Profile views split into owner/visitor views
-
-**Pages** (`src/app/pages/`): Route components
-- All pages wrapped in `ClarityLandingLayout`
-- Routes defined in [App.tsx](src/App.tsx)
+**Key patterns:**
+- **Auth:** Reader-Writer pattern separates `useAuth` (read-only) from `AuthCallbackPage` (writes). Import from `@/auth`.
+- **Data layer:** All Supabase calls go through `src/app/data/api.ts`. Fetch profiles and witnesses separately.
+- **Components:** UI primitives in `src/components/ui/` (shadcn/ui), feature components in `src/app/components/`.
 
 ### Key Routes
 
-- `/` - Landing page
-- `/sign-pledge` - Pledge signup form
-- `/auth/callback` - **Critical auth handler** (do not modify without understanding Reader-Writer pattern)
-- `/p/:id` - Public profile pages (`:id` is slug, not UUID)
-- `/pledgers` - Directory of verified signatories
-  - Redirects: `/clarity-champions` → `/pledgers`, `/understanding-champions` → `/pledgers`
-- `/about` - About page with founder story and contact form
-- `/settings` - User settings (authenticated)
-
-## Type Definitions
-
-Core types in [src/app/types/index.ts](src/app/types/index.ts):
-
-```typescript
-interface Profile {
-  id: string;           // UUID from auth.users
-  slug: string;         // URL-friendly identifier (used in routes)
-  name: string;
-  email: string;
-  role?: string;
-  linkedinUrl?: string;
-  reason?: string;
-  signedAt: string;
-  isVerified: boolean;
-  witnesses: Witness[];
-  reciprocations: number;
-  avatarColor?: string;
-}
-
-interface Witness {
-  id: string;
-  name: string;
-  linkedinUrl?: string;
-  timestamp: string;
-  isVerified: boolean;
-}
-```
-
-**Important:** Database uses snake_case, frontend uses camelCase. `mapProfileFromDb()` handles conversion.
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page |
+| `/sign-pledge` | Pledge signup form |
+| `/auth/callback` | **Critical auth handler** - do not modify without reading [authentication.md](docs/technical/authentication.md) |
+| `/p/:id` | Public profile (`:id` is slug, not UUID) |
+| `/pledgers` | Directory of verified signatories |
+| `/about` | About page with contact form |
+| `/settings` | User settings (authenticated) |
 
 ## Common Gotchas
 
@@ -356,51 +163,52 @@ interface Witness {
 - Requires: `.env.test.local` with `SUPABASE_SERVICE_ROLE_KEY`
 - Full guide: [docs/technical/e2e-testing.md](docs/technical/e2e-testing.md)
 
+### Test Modification Rules (IMPORTANT)
+
+**NEVER do these without explicit user approval:**
+- Uncomment or enable skipped tests (`.skip`, `skip()`, commented-out tests)
+- Use `.only` or `only()` to isolate tests (this breaks CI)
+- Delete or disable failing tests to make the suite pass
+- Modify test assertions to match broken behavior
+
+**Skipped tests exist for a reason** - usually a known limitation, flaky behavior, or pending fix. If a skipped test is relevant to your work, ask the user before enabling it.
+
+**If tests fail:** Fix the code, not the tests. If you believe a test is wrong, explain why and ask before modifying it.
+
 ## Known Issues
 
 - Magic link auth requires correct redirect URLs in Supabase dashboard
 - Profile creation must only happen in auth callback (not hooks)
 - E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing.md](docs/technical/e2e-testing.md))
 
-## Observability (Mixpanel + Sentry)
+## Source of Truth Convention
 
-Both tools are production-only (disabled in dev to avoid polluting data).
+When working with documentation and tests:
 
-### Mixpanel Analytics
+- **Tests** define correct behavior (what the code should do)
+- **Feature docs** (`features/*.md`) explain decisions and rationale (why we chose this approach)
+- **Code** implements what tests specify
 
-Use for tracking user behavior and product metrics. Wrapper at [src/lib/mixpanel.ts](src/lib/mixpanel.ts).
+**When conflicts arise:**
+- Tests win for behavior (they're executable specifications)
+- Feature docs win for intent (they explain the "why")
+
+**Practical implications:**
+1. Update tests FIRST when changing behavior (TDD)
+2. Update feature docs when making architectural decisions
+3. If docs and tests conflict, investigate which is correct before changing either
+4. One feature doc per feature - avoid multiple overlapping docs
+
+## Observability
+
+Both Mixpanel (analytics) and Sentry (errors) are production-only.
 
 ```tsx
 import { analytics } from '@/lib/mixpanel';
-
-// Track events
-analytics.track('feature_used', { feature: 'live_meeting', action: 'started' });
-
-// Identify users (after auth)
-analytics.identify(userId);
-
-// Set user properties
-analytics.setUserProperties({ plan: 'free', signupDate: '2024-01-15' });
+analytics.track('feature_used', { feature: 'live_meeting' });
 ```
 
-**When adding new features:** Add Mixpanel events for key user actions. See [docs/technical/analytics.md](docs/technical/analytics.md) for the full event catalog and naming conventions.
-
-### Sentry Error Tracking
-
-Initialized in [src/main.tsx](src/main.tsx). Errors are auto-captured. For manual tracking:
-
-```tsx
-import * as Sentry from '@sentry/react';
-
-// Capture exceptions
-Sentry.captureException(error);
-
-// Capture messages (for non-error events worth tracking)
-Sentry.captureMessage('Unexpected state detected', 'warning');
-
-// Add context to errors
-Sentry.setContext('session', { code: sessionCode, phase: ratingPhase });
-```
+For full event catalog and patterns, see [docs/technical/analytics.md](docs/technical/analytics.md).
 
 ## Pre-Commit Checks (MUST RUN)
 
@@ -415,19 +223,30 @@ This script runs automatically if installed as a git hook, but Claude should run
 
 | Check | Blocks commit? | Purpose |
 |-------|---------------|---------|
-| **Lint** | Yes | ESLint errors |
+| **Lint** | Yes | ESLint errors (includes accessibility via jsx-a11y) |
 | **Build** | Yes | TypeScript errors, import issues |
 | **Tests** | Yes | Regressions |
-| **Secrets scan** | Yes | Accidentally committed API keys, tokens |
+| **Secrets scan** | Yes | API keys, tokens, credentials (via gitleaks) |
 | **Bundle size** | Warning | Alerts if dist/ exceeds 20MB |
 | **console.log** | Warning | Debug logs left in code |
 | **TODO/FIXME** | Warning | New tech debt being added |
+| **@ts-ignore** | Warning | TypeScript escape hatches that bypass type safety |
+| **debugger** | Yes | Leftover debug statements |
+| **any types** | Warning | New `any` types in non-test code |
+
+### ESLint includes accessibility checks (jsx-a11y):
+
+The linter catches common accessibility issues:
+- Missing alt text on images
+- Empty anchor/button content
+- Invalid ARIA roles
+- Click handlers without keyboard support (warning)
 
 ### After checks pass, also review:
 
 1. **Logic bugs and edge cases** - Does the code handle errors?
 2. **Security issues** - XSS, injection, auth bypass?
-3. **Accessibility** - Can keyboard/screen reader users use it?
+3. **Accessibility** - Linter catches basics, but verify keyboard navigation works
 4. **CLAUDE.md patterns** - Does it follow project conventions?
 
 If issues are found, ask the user how to proceed before committing.
@@ -531,7 +350,7 @@ docs/
 ├── bmad/               # BMAD workflow status files
 ├── plan.md             # Product planning
 ├── learnings.md        # Project learnings
-└── product-requirements.md
+└── mvp_pledge.md            # Product requirements
 
 bmad/
 └── artifacts/          # Tech-specs and sprint artifacts

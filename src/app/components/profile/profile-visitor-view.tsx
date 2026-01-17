@@ -4,26 +4,7 @@ import { ProfileCertificate } from "@/app/components/profile/profile-certificate
 import { ShareDropdown } from "@/app/components/profile/share-dropdown";
 import { WitnessCard } from "@/app/components/social/witness-card";
 import { WitnessList } from "@/app/components/social/witness-list";
-import { getInitials } from "@/lib/utils";
-
-// Helper function to generate consistent color from name
-function getAvatarColor(name: string): string {
-  const colors = [
-    "bg-blue-500",
-    "bg-purple-500",
-    "bg-green-500",
-    "bg-orange-500",
-    "bg-pink-500",
-    "bg-teal-500",
-    "bg-indigo-500",
-    "bg-red-500",
-  ];
-
-  const index = name
-    .split("")
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return colors[index % colors.length];
-}
+import { getInitials, getAvatarColor } from "@/lib/utils";
 
 interface ProfileVisitorViewProps {
   profile: Profile;
@@ -40,7 +21,9 @@ export function ProfileVisitorView({
 }: ProfileVisitorViewProps) {
   const [hasAccepted, setHasAccepted] = useState(false);
 
+  // P50: QR code links to certificate page, not profile page
   const profileUrl = `${window.location.origin}/p/${profile.slug}`;
+  const pledgeUrl = `${window.location.origin}/p/${profile.slug}/pledge`;
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
     await onWitness(witnessName, linkedinUrl);
@@ -91,8 +74,10 @@ export function ProfileVisitorView({
           role={profile.role}
           linkedinUrl={profile.linkedinUrl}
           avatarColor={profile.avatarColor}
+          photoUrl={profile.avatarUrl}
           showQrCode={true}
-          profileUrl={profileUrl}
+          profileUrl={pledgeUrl} // P50: QR code links to certificate page
+          nameUrl={profileUrl} // P50: Name links to profile page
           pledgeVersion={profile.pledgeVersion as 1 | 2 | 3}
         />
       </div>

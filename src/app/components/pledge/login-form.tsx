@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2Icon, AlertCircleIcon } from "lucide-react";
-import { signInWithEmail } from "@/app/data/api";
+import { signInWithEmail, checkEmailExists } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
+import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
 interface LoginFormProps {
   onSwitchToSign: () => void;
@@ -42,6 +43,15 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
     setError("");
 
     try {
+      // P64: Check if email exists before sending magic link
+      const emailExists = await checkEmailExists(email);
+      if (!emailExists) {
+        analytics.track('login_no_account', { attempted_email: email.toLowerCase().trim() });
+        setError("No account found with this email. Sign up instead.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const { error } = await signInWithEmail(email);
 
       if (error) {
@@ -90,53 +100,69 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="login-email" className="text-sm font-medium">
-            Email Address
-          </Label>
-          <Input
-            id="login-email"
-            type="text"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError(""); // Clear error when typing
-            }}
-            required
-            className="w-full"
-          />
+    <div className="space-y-6">
+      {/* P63/P64: Google OAuth button - primary option */}
+      <GoogleAuthButton context="login" source="login" />
 
-          {error && (
-            <div className="flex items-start gap-2 text-sm text-destructive mt-2">
-              <AlertCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-
-              <p>{error}</p>
-            </div>
-          )}
+      {/* P63: Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">or use magic link</span>
         </div>
       </div>
 
-      <Button
-        type="submit"
-        className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
-        size="lg"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? "Sending..." : "Send Me a Magic Link"}
-      </Button>
+      {/* Existing magic link form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="login-email" className="text-sm font-medium">
+              Email Address
+            </Label>
+            <Input
+              id="login-email"
+              type="text"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(""); // Clear error when typing
+              }}
+              required
+              className="w-full"
+            />
 
-      <div className="text-center">
-        <button
-          type="button"
-          onClick={onSwitchToSign}
-          className="text-sm text-muted-foreground hover:text-foreground underline"
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-destructive mt-2">
+                <AlertCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+
+                <p>{error}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
+          size="lg"
+          disabled={isSubmitting}
         >
-          Don't have a pledge? Sign now
-        </button>
-      </div>
-    </form>
+          {isSubmitting ? "Sending..." : "Send Me a Magic Link"}
+        </Button>
+
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={onSwitchToSign}
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
+            Don't have an account? Sign up
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

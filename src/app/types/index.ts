@@ -12,7 +12,7 @@ export interface Witness {
 
 export interface Profile {
   id: string;
-  slug: string;
+  slug: string | null; // P50: null for /live users who haven't verified yet
   name: string;
   email: string;
   role?: string;
@@ -23,6 +23,8 @@ export interface Profile {
   witnesses: Witness[];
   reciprocations: number;
   avatarColor?: string;
+  avatarUrl?: string; // P63: URL to avatar image (e.g., from Google OAuth)
+  avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
 }
@@ -41,6 +43,8 @@ export interface ProfileSummary {
   signedAt: string;
   isVerified: boolean;
   avatarColor?: string;
+  avatarUrl?: string; // P63: URL to avatar image (e.g., from Google OAuth)
+  avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   witnessCount?: number;
   reciprocations?: number;
 }
@@ -68,6 +72,8 @@ export interface DbProfile {
   is_verified: boolean;
   witnesses?: DbWitness[];
   avatar_color?: string;
+  avatar_url?: string; // P63: URL to avatar image (e.g., from Google OAuth)
+  avatar_provider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledge_version?: number;
   has_pledged?: boolean; // P50: false for /live registrations, true for /sign-pledge
 }
@@ -85,6 +91,8 @@ export interface DbProfileSummary {
   created_at: string;
   is_verified: boolean;
   avatar_color?: string;
+  avatar_url?: string; // P63: URL to avatar image (e.g., from Google OAuth)
+  avatar_provider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
 }
 
 // ============================================================================

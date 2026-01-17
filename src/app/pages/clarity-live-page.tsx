@@ -106,7 +106,8 @@ export function ClarityLivePage() {
   const isJoinViaLink = !!urlCode;
 
   // Get logged-in user's name (if authenticated)
-  const { user, isLoading: isAuthLoading } = useAuth();
+  // P50: Add refreshProfile to update AuthContext after guest profile creation
+  const { user, isLoading: isAuthLoading, refreshProfile } = useAuth();
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
@@ -254,6 +255,14 @@ export function ClarityLivePage() {
     partnerLeftRef.current = partnerLeft;
     sessionEndedRef.current = sessionEnded;
   }, [partnerLeft, sessionEnded]);
+
+  // P66.1: Auth gate - redirect guests without join code to signup
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (user) return;
+    if (isJoinViaLink) return;
+    navigate('/signup');
+  }, [isAuthLoading, user, isJoinViaLink, navigate]);
 
   // Pre-fill name from logged-in user (if authenticated and name is empty)
   useEffect(() => {
@@ -1155,6 +1164,9 @@ export function ClarityLivePage() {
         return;
       }
 
+      // P50: Refresh AuthContext so menu shows correct items for new guest profile
+      await refreshProfile();
+
       // Record consent
       await recordTermsAcceptance(result.userId);
       await recordSessionConsent(code, result.userId);
@@ -1304,21 +1316,18 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // B50: Create session handler - with email capture for guests
+  // P66: Create session handler - auth gate (only logged-in users can host)
   const handleCreate = async () => {
+    // P66: Auth gate - redirect unauthenticated users to signup
+    if (!user) {
+      navigate('/signup');
+      return;
+    }
+
     const nameError = validateName(name);
     if (nameError) {
       setError(nameError);
       return;
-    }
-
-    // B50: Guest creating session needs email for P41 post-session emails
-    if (!user) {
-      const emailError = validateEmail(email);
-      if (emailError) {
-        setError(emailError);
-        return;
-      }
     }
 
     // P25: Track start meeting click
@@ -1326,35 +1335,13 @@ export function ClarityLivePage() {
 
     setIsLoading(true);
     setError(null);
-    setVerifiedEmailError(null);
 
     try {
       const trimmedName = name.trim();
-
-      // B50: For guests, create user record and record consent before creating session
-      let guestUserId: string | null = null;
-      if (!user) {
-        const result = await getOrCreateGuestUser(email.trim(), trimmedName);
-
-        if (result.requiresLogin) {
-          // B50: Email belongs to verified user - show inline error
-          setVerifiedEmailError(email.trim());
-          setIsLoading(false);
-          return;
-        }
-
-        guestUserId = result.userId;
-        // Record terms acceptance for the new guest user
-        await recordTermsAcceptance(guestUserId);
-      }
-
       const newSession = await createClaritySession(trimmedName);
 
-      // B50: Record session consent after session is created
-      const consentUserId = user?.id ?? guestUserId;
-      if (consentUserId) {
-        await recordSessionConsent(newSession.code, consentUserId);
-      }
+      // P66: Record session consent for the authenticated user
+      await recordSessionConsent(newSession.code, user.id);
 
       // Reset all refs to ensure clean state for new session
       // Critical: Without this, stale refs from previous sessions could cause
@@ -1984,27 +1971,30 @@ export function ClarityLivePage() {
                             className="w-[280px] rounded-full h-11 text-sm"
                           />
                         </div>
-                        {/* P50: Consent checkbox (replaces passive notice) */}
-                        <div className="flex items-start gap-3 w-[280px]">
-                          <input
-                            type="checkbox"
-                            id="consent-start"
-                            checked={consentChecked}
-                            onChange={(e) => setConsentChecked(e.target.checked)}
-                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
-                            I agree that this session will be recorded, and I accept the{' '}
-                            <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              Terms
-                            </a>{' '}
-                            and{' '}
-                            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              Privacy Policy
-                            </a>.
-                          </label>
-                        </div>
                       </>
+                    )}
+
+                    {/* P50/P63: Consent checkbox - always visible for non-logged-in users */}
+                    {!isLoggedIn && (
+                      <div className="flex items-start gap-3 w-[280px]">
+                        <input
+                          type="checkbox"
+                          id="consent-start"
+                          checked={consentChecked}
+                          onChange={(e) => setConsentChecked(e.target.checked)}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
+                          I agree that this session will be recorded, and I accept the{' '}
+                          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Terms
+                          </a>{' '}
+                          and{' '}
+                          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Privacy Policy
+                          </a>.
+                        </label>
+                      </div>
                     )}
 
                     {/* P25: Google Meet style - stacked on mobile, inline on desktop */}

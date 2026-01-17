@@ -60,13 +60,19 @@ vi.mock('@/lib/supabase', () => ({
         select: (fields: string) => {
           mockSelect(fields);
           return {
+            eq: () => ({
+              single: () => ({ data: null, error: null }), // Default: no profile found by email
+            }),
             or: (filter: string) => {
               mockOr(filter);
               // Return configured similar slugs (default: empty)
               return mockOr.mock.results[mockOr.mock.calls.length - 1]?.value ?? { data: [], error: null };
             }
           };
-        }
+        },
+        delete: () => ({
+          eq: () => ({ error: null }), // Default: delete succeeds
+        })
       };
     },
   },
@@ -189,8 +195,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // Should redirect to existing slug
-        expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug', { replace: true });
+        // P50: Should redirect to pledge certificate for existing pledger
+        expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug/pledge', { replace: true });
       });
     });
 
@@ -214,9 +220,9 @@ describe('CRITICAL AUTH FLOW', () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(null); // User does not exist yet
 
-      // 2. Render
+      // 2. Render - P64: Must include source=pledge to create profile (otherwise redirects to signup)
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -243,8 +249,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // Should redirect to the generated slug
-        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
+        // P50: Should redirect to pledge certificate for new pledger
+        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user/pledge', { replace: true });
       });
     });
 
@@ -272,8 +278,9 @@ describe('CRITICAL AUTH FLOW', () => {
       // Return existing slugs for query
       mockOr.mockReturnValueOnce({ data: [{ slug: 'john-doe' }], error: null });
 
+      // P64: Must include source=pledge to create profile (otherwise redirects to signup)
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -285,7 +292,8 @@ describe('CRITICAL AUTH FLOW', () => {
         // Second call should have slug with -2 suffix
         const secondCall = mockUpsert.mock.calls[1][0];
         expect(secondCall.slug).toBe('john-doe-2');
-        expect(mockNavigate).toHaveBeenCalledWith('/p/john-doe-2', { replace: true });
+        // P50: Redirects to pledge certificate
+        expect(mockNavigate).toHaveBeenCalledWith('/p/john-doe-2/pledge', { replace: true });
       });
     });
 
@@ -334,8 +342,9 @@ describe('CRITICAL AUTH FLOW', () => {
         error: null
       });
 
+      // P64: Must include source=pledge to create profile (otherwise redirects to signup)
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -348,7 +357,8 @@ describe('CRITICAL AUTH FLOW', () => {
         // Final call should have timestamp slug
         const finalCall = mockUpsert.mock.calls[3][0];
         expect(finalCall.slug).toBe(`popular-name-${mockTimestamp}`);
-        expect(mockNavigate).toHaveBeenCalledWith(`/p/popular-name-${mockTimestamp}`, { replace: true });
+        // P50: Redirects to pledge certificate
+        expect(mockNavigate).toHaveBeenCalledWith(`/p/popular-name-${mockTimestamp}/pledge`, { replace: true });
       });
 
       vi.restoreAllMocks();
@@ -369,8 +379,10 @@ describe('CRITICAL AUTH FLOW', () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(null);
 
+      // P64: Must include source=pledge to test email validation path
+      // (without source, would redirect to signup before reaching email check)
       const { container } = render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={['/auth/callback?source=pledge']}>
           <AuthProvider>
             <AuthCallbackPage />
           </AuthProvider>
@@ -382,6 +394,72 @@ describe('CRITICAL AUTH FLOW', () => {
         expect(mockUpsert).not.toHaveBeenCalled();
         // Should show error status
         expect(container.textContent).toContain('No email found');
+      });
+    });
+
+    it('P64: should redirect to signup when login attempt has no existing account', async () => {
+      // Setup: User tries to login but has no account
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
+          email: 'new@example.com',
+          user_metadata: {
+            name: 'New User',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null); // No existing account
+
+      // No source parameter = login flow
+      render(
+        <MemoryRouter initialEntries={['/auth/callback']}>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        // Should NOT create profile
+        expect(mockUpsert).not.toHaveBeenCalled();
+        // Should redirect to signup with message
+        expect(mockNavigate).toHaveBeenCalledWith('/signup?message=no-account', { replace: true });
+      });
+    });
+
+    it('P64: should create profile with has_pledged=false for signup flow', async () => {
+      // Setup: User signing up (not pledging)
+      const mockSession = {
+        user: {
+          id: 'new-user-id',
+          email: 'new@example.com',
+          user_metadata: {
+            name: 'New User',
+          }
+        }
+      };
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+      mockGetProfile.mockResolvedValue(null);
+
+      // source=signup for standalone account creation
+      render(
+        <MemoryRouter initialEntries={['/auth/callback?source=signup']}>
+          <AuthProvider>
+            <AuthCallbackPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(mockUpsert).toHaveBeenCalled();
+        const upsertData = getUpsertData();
+        // P64: signup flow creates account with has_pledged=false
+        expect(upsertData.has_pledged).toBe(false);
+        // Should redirect to profile page (not pledge certificate)
+        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
       });
     });
   });

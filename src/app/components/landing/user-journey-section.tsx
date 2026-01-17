@@ -5,7 +5,7 @@ export function UserJourneySection() {
     {
       icon: VideoIcon,
       step: "1",
-      title: "Try a Clarity Meeting",
+      title: "Start a Clarity Meeting",
       description:
         "Start a meeting, rate understanding, bridge the gaps.",
     },

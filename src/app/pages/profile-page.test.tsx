@@ -15,12 +15,14 @@ const createAuthMock = (overrides: {
   user?: Profile | null;
   sessionUserId?: string | null;
   isLoading?: boolean;
+  sessionChecked?: boolean;
 } = {}): ReturnType<typeof auth.useAuth> => ({
   session: overrides.sessionUserId
     ? ({ user: { id: overrides.sessionUserId } } as ReturnType<typeof auth.useAuth>["session"])
     : null,
   user: overrides.user ?? null,
   isLoading: overrides.isLoading ?? false,
+  sessionChecked: overrides.sessionChecked ?? true, // Default to true for tests
   signOut: vi.fn(),
   refreshProfile: vi.fn(),
 });
@@ -39,6 +41,7 @@ describe("ProfilePage", () => {
     witnesses: [],
     reciprocations: 0,
     avatarColor: "#4A90E2",
+    hasPledged: true, // P50: Required for profile/pledge separation
   };
 
   beforeEach(() => {
@@ -69,7 +72,7 @@ describe("ProfilePage", () => {
       );
 
       // Should show loading state, NOT "Profile Not Found"
-      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
       expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
     });
 
@@ -96,7 +99,7 @@ describe("ProfilePage", () => {
       );
 
       // Initially should show loading
-      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
 
       // Simulate user auth completing (profile still doesn't exist in DB)
       useUserSpy.mockReturnValue(
@@ -140,7 +143,7 @@ describe("ProfilePage", () => {
       );
 
       // Should initially show loading
-      expect(screen.getByText(/Loading Pledge.../i)).toBeInTheDocument();
+      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
       
       // Crucially: Should NOT show "Profile Not Found" yet
       expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
@@ -150,9 +153,9 @@ describe("ProfilePage", () => {
           resolveProfile!(mockProfile);
       });
 
-      // Should show profile - heading shows visitor view text
+      // Should show profile - new ProfilePage structure
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: `${mockProfile.name} made you a promise` })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: mockProfile.name })).toBeInTheDocument();
       });
     });
   });
@@ -275,25 +278,7 @@ describe("ProfilePage", () => {
   });
 
   describe("First Time User Flow", () => {
-    it("should show welcome dialog for first-time profile owner", async () => {
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue(
-        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
-      );
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user?firstTime=true"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText(/Pledge Sealed/i)).toBeInTheDocument();
-      });
-    });
-
+    // P50: Welcome dialog moved to PledgePage - test deleted as obsolete
     it("should not show welcome dialog for visitors", async () => {
       const otherUser: Profile = {
         ...mockProfile,
@@ -376,6 +361,52 @@ describe("ProfilePage", () => {
 
       // Verify that setLoading(true) is called at the start of loadProfile
       // This ensures navigation changes reset loading state properly
+    });
+  });
+
+  describe("Resend Verification Email", () => {
+    it("should call createProfile with correct parameters when resending verification", async () => {
+      // P50: Unverified owner viewing their profile sees resend button
+      const unverifiedProfile: Profile = {
+        ...mockProfile,
+        isVerified: false,
+      };
+
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(unverifiedProfile);
+      vi.mocked(api.createProfile).mockResolvedValue();
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: unverifiedProfile, sessionUserId: unverifiedProfile.id })
+      );
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Should show verification prompt for unverified owner
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: /Verify Your Email/i })).toBeInTheDocument();
+      });
+
+      // Click resend button
+      const resendButton = screen.getByRole("button", { name: /Resend Verification Email/i });
+      await act(async () => {
+        resendButton.click();
+      });
+
+      // Verify createProfile was called with ALL required parameters (not just email)
+      await waitFor(() => {
+        expect(api.createProfile).toHaveBeenCalledWith(
+          unverifiedProfile.name,
+          unverifiedProfile.email,
+          unverifiedProfile.role,
+          unverifiedProfile.linkedinUrl,
+          unverifiedProfile.reason
+        );
+      });
     });
   });
 });

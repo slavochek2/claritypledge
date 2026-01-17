@@ -8,6 +8,8 @@ This document catalogs all Mixpanel events tracked in the Clarity Pledge app.
 
 Events are categorized by feature area:
 - [Core Funnel](#core-funnel) - Landing → Sign → Profile creation
+- [Signup](#signup) - Standalone account creation (P64)
+- [Google OAuth](#google-oauth) - Google sign-in (P63)
 - [Profile & Sharing](#profile--sharing) - Profile views, sharing, certificates
 - [About & Contact](#about--contact) - About page, contact form, external links
 - [Settings](#settings) - Profile editing
@@ -64,6 +66,11 @@ Returning user logged in successfully.
 | Property | Type | Description |
 |----------|------|-------------|
 | `slug` | string | User's profile slug |
+| `has_role` | boolean | Whether user has a role |
+| `has_linkedin` | boolean | Whether user has LinkedIn URL |
+| `has_reason` | boolean | Whether user has a reason |
+| `registration_source` | string | Source: `returning`, `pledge`, `signup`, or `live` |
+| `has_pledged` | boolean | Whether user has signed the pledge |
 
 ### `profile_created`
 New user profile created after email verification.
@@ -71,6 +78,86 @@ New user profile created after email verification.
 | Property | Type | Description |
 |----------|------|-------------|
 | `slug` | string | User's profile slug |
+| `has_role` | boolean | Whether user provided a role |
+| `has_linkedin` | boolean | Whether user provided LinkedIn URL |
+| `has_reason` | boolean | Whether user provided a reason |
+| `registration_source` | string | Source: `pledge`, `signup`, or `live` |
+| `has_pledged` | boolean | Whether user signed the pledge |
+
+### `login_no_account`
+User attempted to log in but no account exists with that email. (P64)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `email` | string | Email that was attempted (from auth callback) |
+| `attempted_email` | string | Email that was attempted (from login form) |
+
+### `pledge_upgrade_completed`
+Non-pledger user signs the pledge (converts from account-only to pledger). (P51)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `has_role` | boolean | Whether user provided a role |
+| `has_linkedin` | boolean | Whether user provided LinkedIn URL |
+| `has_reason` | boolean | Whether user provided a reason |
+| `pledge_version` | number | Version of pledge signed |
+
+### `pledge_page_viewed`
+User views the pledge certificate page (`/p/:slug/pledge`).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `profile_slug` | string | Profile slug |
+| `is_own_profile` | boolean | Whether viewer owns the profile |
+
+---
+
+## Signup
+
+Events for the standalone signup flow (P64) - users creating accounts without pledging.
+
+### `signup_page_viewed`
+User views the signup page (`/signup`).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `referrer` | string | Document referrer URL |
+| `has_message` | boolean | Whether URL has a message param |
+| `message_type` | string | Message type (e.g., `no-account`) |
+
+### `signup_magic_link_sent`
+Magic link successfully sent for signup.
+
+*No properties*
+
+### `signup_magic_link_error`
+Magic link send failed for signup.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `error_type` | string | Error type: `rate_limited`, `unknown`, or `network_error` |
+
+---
+
+## Google OAuth
+
+Events for Google OAuth authentication (P63).
+
+### `google_auth_initiated`
+User clicked "Continue with Google" button.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `context` | string | Where button was clicked: `login`, `signup`, `live` |
+| `source` | string | Auth flow source: `login`, `signup`, or `pledge` |
+
+### `google_auth_error`
+Google OAuth flow failed.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `context` | string | Where button was clicked |
+| `error` | string | Error message |
 
 ---
 
@@ -333,6 +420,34 @@ Witness submission failed.
 
 Events for the `/live` real-time understanding verification feature.
 
+### Page Entry
+
+#### `live_meeting_page_view`
+User views the `/live` page (landing state before joining/creating).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `referrer` | string | Document referrer URL |
+| `has_session_code` | boolean | Whether URL contains a session code |
+| `is_authenticated` | boolean | Whether user is logged in |
+
+#### `live_meeting_start_clicked`
+User clicked "Start Meeting" button.
+
+*No properties*
+
+#### `live_meeting_join_clicked`
+User clicked "Join" to enter a session code.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `code_length` | number | Length of entered code |
+
+#### `live_meeting_login_clicked`
+User clicked login prompt in live meeting.
+
+*No properties*
+
 ### Session Lifecycle
 
 #### `live_session_created`
@@ -368,6 +483,24 @@ User exits after meaningful engagement (at least one understanding check). This 
 | `session_code` | string | 6-character room code |
 | `checks_completed` | number | Number of understanding checks completed |
 | `is_creator` | boolean | Whether user was the host |
+
+#### `live_session_partner_left`
+Partner disconnected from the meeting (detected via presence).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | 6-character room code |
+| `checks_completed` | number | Number of understanding checks completed |
+| `was_in_flow` | boolean | Whether a check was in progress |
+| `trigger` | string | What triggered detection: `presence_change`, `polling`, etc. |
+
+#### `live_session_join_blocked`
+User attempted to join a session but was blocked.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | Attempted room code |
+| `reason` | string | Why blocked: `session_full`, `session_not_found`, etc. |
 
 ### Understanding Flow
 
@@ -494,8 +627,28 @@ Events are production-only via `import.meta.env.PROD` check.
 
 Users are identified with Mixpanel in two places:
 
-1. **AuthCallbackPage** - When user clicks magic link and completes authentication. Also sets user properties (email, name, slug, etc.)
+1. **AuthCallbackPage** - When user clicks magic link or completes Google OAuth. Also sets user properties.
 
 2. **AuthContext** - When returning user loads the app with an existing session (cookie). This ensures returning users are identified without requiring re-authentication.
 
 The `analytics.reset()` call on sign out clears the user identity so subsequent events aren't attributed to the wrong user.
+
+## User Properties
+
+Properties set on the user profile in Mixpanel (via `analytics.setUserProperties()`):
+
+| Property | Type | Description | Set When |
+|----------|------|-------------|----------|
+| `email` | string | User's email address | Auth callback |
+| `name` | string | User's display name | Auth callback |
+| `profile_slug` | string | User's URL slug | Auth callback |
+| `has_role` | boolean | Whether user has a professional role | Auth callback |
+| `has_linkedin` | boolean | Whether user has LinkedIn URL | Auth callback |
+| `created_at` | string | ISO timestamp of profile creation | Auth callback |
+| `has_pledged` | boolean | Whether user signed the pledge (P50) | Auth callback |
+| `registration_source` | string | How user registered: `pledge`, `signup`, `live`, or `returning` (P64) | Auth callback |
+
+These properties enable segmentation in Mixpanel:
+- **Pledgers vs Non-pledgers**: Filter by `has_pledged`
+- **Registration cohorts**: Group by `registration_source`
+- **Profile completeness**: Filter by `has_role`, `has_linkedin`

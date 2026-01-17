@@ -25,7 +25,7 @@ export function LoginPage() {
         <p className="text-muted-foreground text-center mb-8">
           Enter your email to access your pledge profile
         </p>
-        <LoginForm onSwitchToSign={() => window.location.href = '/sign-pledge'} />
+        <LoginForm onSwitchToSign={() => window.location.href = '/signup'} />
       </div>
     </div>
   );

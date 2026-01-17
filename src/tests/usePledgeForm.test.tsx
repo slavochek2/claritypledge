@@ -27,7 +27,7 @@ describe('usePledgeForm', () => {
       expect(result.current.formState.linkedinUrl).toBe('');
       expect(result.current.formState.reason).toBe('');
       expect(result.current.formState.isSubmitting).toBe(false);
-      expect(result.current.formState.error).toBe('');
+      expect(result.current.formState.error).toBeNull();
     });
   });
 
@@ -43,7 +43,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please fill in your name and email to sign the pledge.');
+      expect(result.current.formState.error?.message).toBe('Please fill in your name and email to sign the pledge.');
     });
 
     it('shows error when email is empty', async () => {
@@ -57,7 +57,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please fill in your name and email to sign the pledge.');
+      expect(result.current.formState.error?.message).toBe('Please fill in your name and email to sign the pledge.');
     });
 
     it('shows error when both name and email are empty', async () => {
@@ -67,7 +67,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please fill in your name and email to sign the pledge.');
+      expect(result.current.formState.error?.message).toBe('Please fill in your name and email to sign the pledge.');
     });
 
     it('shows error when name is only whitespace', async () => {
@@ -82,7 +82,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please fill in your name and email to sign the pledge.');
+      expect(result.current.formState.error?.message).toBe('Please fill in your name and email to sign the pledge.');
     });
   });
 
@@ -99,7 +99,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please enter a valid email address.');
+      expect(result.current.formState.error?.message).toBe('Please enter a valid email address.');
     });
 
     it('shows error for email without domain', async () => {
@@ -114,7 +114,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please enter a valid email address.');
+      expect(result.current.formState.error?.message).toBe('Please enter a valid email address.');
     });
 
     it('shows error for email without TLD', async () => {
@@ -129,7 +129,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please enter a valid email address.');
+      expect(result.current.formState.error?.message).toBe('Please enter a valid email address.');
     });
 
     it('shows error for email with spaces', async () => {
@@ -144,7 +144,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('Please enter a valid email address.');
+      expect(result.current.formState.error?.message).toBe('Please enter a valid email address.');
     });
 
     it('accepts valid email format', async () => {
@@ -159,7 +159,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('');
+      expect(result.current.formState.error).toBeNull();
     });
 
     it('accepts email with subdomain', async () => {
@@ -174,7 +174,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('');
+      expect(result.current.formState.error).toBeNull();
     });
 
     it('accepts email with plus sign', async () => {
@@ -189,7 +189,7 @@ describe('usePledgeForm', () => {
         await result.current.handleSubmit({ preventDefault: vi.fn() } as unknown as React.FormEvent);
       });
 
-      expect(result.current.formState.error).toBe('');
+      expect(result.current.formState.error).toBeNull();
     });
   });
 

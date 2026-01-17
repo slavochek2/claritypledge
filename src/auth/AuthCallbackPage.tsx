@@ -20,11 +20,12 @@
  * DO NOT move this logic to a global hook or context.
  */
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { generateSlug, getProfile } from "@/app/data/api";
+import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
 
@@ -43,6 +44,7 @@ function escapeLikePattern(str: string): string {
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState("Finalizing authentication...");
   const { user, session, isLoading, sessionChecked, refreshProfile } = useAuth();
 
@@ -83,13 +85,17 @@ export function AuthCallbackPage() {
       // before this callback runs, leaving is_verified as false.
       setStatus(isReturningUser ? "Verifying..." : "Creating your profile...");
 
-      // P50: Detect registration source from URL params
+      // P50/P64: Detect registration source from URL params
       // - source=pledge → user signed up via /sign-pledge (pledger)
+      // - source=signup → user signed up via /signup (account only, no pledge)
       // - source=live → user signed up via /live (non-pledger) - currently not used as /live uses anonymous auth
-      // - no source → existing login flow (preserve existing has_pledged status)
-      const urlParams = new URLSearchParams(window.location.search);
+      // - source=login → user logging in (must have existing account)
+      // - no source → legacy login flow (treat as login)
+      // NOTE: Use location.search (from useLocation) for testability with MemoryRouter
+      const urlParams = new URLSearchParams(location.search);
       const source = urlParams.get('source');
       const isLiveRegistration = source === 'live';
+      const isLoginSource = source === 'login' || !source;
 
       // For returning users, the profile from useAuth might not be loaded yet.
       // Fetch directly to ensure we preserve existing slugs for returning users.
@@ -99,11 +105,88 @@ export function AuthCallbackPage() {
         existingProfile = await getProfile(authUser.id);
       }
 
+      // Handle /live user migration: If no profile found by ID, check by email.
+      // This handles the case where a /live user (anonymous auth) logs in via magic link
+      // and gets a NEW auth ID. Their old profile exists under the anonymous ID.
+      if (!existingProfile && authUser.email) {
+        const { data: profileByEmail } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', authUser.email)
+          .single();
+
+        if (profileByEmail && profileByEmail.id !== authUser.id) {
+          console.log('🔄 Found profile by email with different ID (migrating /live user):', {
+            oldId: profileByEmail.id,
+            newId: authUser.id,
+            email: authUser.email,
+          });
+
+          // Check for witnesses before migration (defensive - /live users shouldn't have any)
+          const { data: witnessCheck } = await supabase
+            .from('witnesses')
+            .select('id')
+            .eq('profile_id', profileByEmail.id)
+            .limit(1);
+
+          if (witnessCheck && witnessCheck.length > 0) {
+            console.warn('⚠️ Profile being migrated has witnesses - this is unexpected for /live users');
+            // Continue anyway but log for debugging
+          }
+
+          // Delete old profile - it was created with anonymous auth ID
+          // The new upsert will create fresh profile with correct auth ID
+          // CAUTION: If upsert fails after this, user data is lost. However:
+          // - /live users typically have no witnesses (we just checked)
+          // - Profile data is copied to local var before delete
+          // - Magic link can be resent if something goes wrong
+          const { error: deleteError } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', profileByEmail.id);
+
+          if (deleteError) {
+            console.error('❌ Failed to delete old profile during migration:', deleteError);
+            // Continue anyway - the upsert might still work or give clearer error
+          } else {
+            console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
+          }
+
+          // Use data from old profile for the new one
+          existingProfile = {
+            id: authUser.id, // Will be overwritten, but keeps TypeScript happy
+            slug: profileByEmail.slug,
+            name: profileByEmail.name,
+            email: profileByEmail.email,
+            role: profileByEmail.role,
+            linkedinUrl: profileByEmail.linkedin_url,
+            reason: profileByEmail.reason,
+            avatarColor: profileByEmail.avatar_color,
+            isVerified: false, // Will be set to true
+            hasPledged: profileByEmail.has_pledged,
+            signedAt: profileByEmail.created_at,
+            witnesses: [],
+            reciprocations: 0,
+            pledgeVersion: profileByEmail.pledge_version,
+          };
+        }
+      }
+
+      // P64: If this is a login attempt (no source or source=login) and no account exists,
+      // redirect to signup page instead of auto-creating account
+      if (isLoginSource && !existingProfile) {
+        console.log('🚫 Login attempt with no existing account - redirecting to signup');
+        analytics.track('login_no_account', { email: authUser.email });
+        navigate('/signup?message=no-account', { replace: true });
+        return;
+      }
+
       // Generate slug at profile creation time to prevent race conditions.
       // If we generated in createProfile (before email verification), two users
       // signing up simultaneously with the same name would both get the same slug
       // since neither profile exists yet when they query.
-      const name = existingProfile?.name || user_metadata.name || 'Anonymous';
+      // P63: Prefer Google's full_name for new users, fallback to existing patterns
+      const name = existingProfile?.name || user_metadata.full_name || user_metadata.name || 'Anonymous';
 
       // P50: For /live registrations, don't generate slug (they're not pledgers)
       // For existing users, preserve their slug
@@ -121,10 +204,45 @@ export function AuthCallbackPage() {
         return;
       }
 
-      // P50: Determine has_pledged status
-      // - Preserve existing status for returning users
-      // - For new users: false if source=live, true otherwise (source=pledge or no source)
-      const hasPledged = existingProfile?.hasPledged ?? !isLiveRegistration;
+      // P50/P64: Determine has_pledged status
+      // - source=pledge → ALWAYS true (user is explicitly pledging)
+      // - source=signup → ALWAYS false (user just wants an account)
+      // - source=live → ALWAYS false (non-pledger)
+      // - no source (login) → preserve existing status for returning users, default true for legacy
+      // CRITICAL: source=pledge overrides existing false status (non-pledged user taking pledge)
+      const isSignupRegistration = source === 'signup';
+      const isPledgeSource = source === 'pledge';
+      const hasPledged = isPledgeSource
+        ? true  // Pledging always sets has_pledged=true, even if they had an account with false
+        : (existingProfile?.hasPledged ?? (!isLiveRegistration && !isSignupRegistration));
+
+      // P63: Capture Google OAuth avatar if user authenticated via Google
+      // Note: app_metadata.provider shows ORIGINAL signup method, not current login method
+      // For linked accounts (email user who later logs in with Google), we detect Google
+      // by checking for Google-specific fields in user_metadata (picture, iss containing google)
+      const googleAvatarUrl = user_metadata?.picture || user_metadata?.avatar_url;
+      const hasGoogleMetadata = !!(user_metadata?.picture || user_metadata?.iss?.includes('google'));
+      const isGoogleAuth = hasGoogleMetadata;
+
+
+      // P63: Determine avatar fields
+      // - If Google auth: use Google avatar URL, set provider to 'google'
+      // - If existing profile has avatar: preserve it (unless re-authenticating with Google)
+      // - Otherwise: use generated avatar with color
+      let avatarUrl = existingProfile?.avatarUrl;
+      let avatarProvider = existingProfile?.avatarProvider;
+      let avatarColor = existingProfile?.avatarColor || user_metadata.avatar_color;
+
+      if (isGoogleAuth && googleAvatarUrl) {
+        // User authenticated with Google - use their Google avatar
+        // This also handles the "auto-update on re-login" decision (Option A from spec)
+        avatarUrl = googleAvatarUrl;
+        avatarProvider = 'google';
+        avatarColor = undefined; // Google users don't need generated color
+      } else if (!avatarProvider) {
+        // New user without Google auth - will use generated avatar
+        avatarProvider = 'generated';
+      }
 
       const upsertData = {
         id: authUser.id,
@@ -134,12 +252,16 @@ export function AuthCallbackPage() {
         role: existingProfile?.role || user_metadata.role,
         linkedin_url: existingProfile?.linkedinUrl || user_metadata.linkedin_url,
         reason: existingProfile?.reason || user_metadata.reason,
-        avatar_color: existingProfile?.avatarColor || user_metadata.avatar_color,
+        avatar_color: avatarColor,
+        avatar_url: avatarUrl, // P63: Google avatar URL
+        avatar_provider: avatarProvider, // P63: Avatar source
         is_verified: true,
         // Preserve existing pledge version for returning users, default to v2 for new signups
         pledge_version: existingProfile?.pledgeVersion || 2,
         // P50: Track whether user explicitly signed the pledge
         has_pledged: hasPledged,
+        // P37.2a: Set terms version at signup so /live doesn't show dialog for new users
+        accepted_terms_version: CURRENT_TERMS_VERSION,
       };
 
       console.log('🔄 Profile data to save:', upsertData);
@@ -264,14 +386,19 @@ export function AuthCallbackPage() {
       // Clear pending verification email now that user is verified
       sessionStorage.removeItem('pendingVerificationEmail');
 
-      // Redirect to profile page using the slug we actually saved
-      // (may have been modified due to conflict resolution)
+      // P50: Redirect based on has_pledged status
+      // - Pledgers → certificate page (/p/:slug/pledge)
+      // - Non-pledgers → profile page (/p/:slug)
       setStatus("Redirecting...");
-      navigate(`/p/${slug}`, { replace: true });
+      if (hasPledged) {
+        navigate(`/p/${slug}/pledge`, { replace: true });
+      } else {
+        navigate(`/p/${slug}`, { replace: true });
+      }
     };
 
     processAuth();
-  }, [isLoading, sessionChecked, session, user, navigate, refreshProfile]);
+  }, [isLoading, sessionChecked, session, user, navigate, location.search, refreshProfile]);
 
   // Error state - show helpful recovery options
   if (status === "auth_error") {

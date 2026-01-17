@@ -176,7 +176,7 @@ export async function getProfileResult(id: string): Promise<ApiResult<Profile>> 
  */
 export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
   try {
-    const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, created_at, is_verified';
+    const selectFields = 'id, slug, name, role, linkedin_url, reason, avatar_color, avatar_url, avatar_provider, created_at, is_verified';
 
     // Single query: fetch more than needed, then sort/filter client-side
     // This avoids the two-query backfill approach for better performance
@@ -229,6 +229,7 @@ export async function getFeaturedProfiles(): Promise<ProfileSummary[]> {
       }
     });
 
+    // mapProfileSummaryFromDb has fallback logic for slug, so all results have valid slugs
     return combined.map(p => mapProfileSummaryFromDb(p, witnessCounts[p.id] || 0, reciprocationCounts[p.id] || 0));
   } catch (err) {
     console.error('Unexpected error in getFeaturedProfiles:', err);
@@ -310,7 +311,11 @@ export async function getVerifiedProfiles(): Promise<Profile[]> {
       witnesses: (allWitnesses || []).filter(w => w.profile_id === profile.id)
     }));
 
-    return profilesWithWitnesses.map(p => mapProfileFromDb(p));
+    // Map to Profile objects and filter out any with null slugs (defensive)
+    // Verified + pledged users should always have slugs, but filter as safety
+    return profilesWithWitnesses
+      .map(p => mapProfileFromDb(p))
+      .filter((p): p is Profile & { slug: string } => p.slug !== null);
   } catch (err) {
     console.error('Unexpected error in getVerifiedProfiles:', err);
     return [];
@@ -402,11 +407,56 @@ export async function addWitness(
  * @param email - The email address to send the magic link to.
  * @returns A promise that resolves with an error object if the sign-in failed.
  */
-export async function signInWithEmail(email: string): Promise<{ error: AuthError | null }> {
+export async function signInWithEmail(email: string, source?: 'signup' | 'pledge' | 'login'): Promise<{ error: AuthError | null }> {
+  const redirectUrl = source
+    ? `${window.location.origin}/auth/callback?source=${source}`
+    : `${window.location.origin}/auth/callback`;
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
+      emailRedirectTo: redirectUrl,
+    },
+  });
+  return { error };
+}
+
+/**
+ * P64: Check if an email already exists in the profiles table.
+ * Used by login form to validate before sending magic link.
+ * @param email - The email address to check
+ * @returns True if a profile with this email exists, false otherwise
+ */
+export async function checkEmailExists(email: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email.toLowerCase().trim())
+    .single();
+  return !!data;
+}
+
+/**
+ * P63/P64: Initiates Google OAuth sign-in flow.
+ * User will be redirected to Google's consent screen, then back to /auth/callback.
+ * The AuthCallbackPage will handle profile creation/update with Google avatar.
+ * @param source - The source of the auth request: 'login', 'signup', or 'pledge'
+ * @returns A promise that resolves when the OAuth redirect is initiated.
+ */
+export async function signInWithGoogle(source?: 'login' | 'signup' | 'pledge'): Promise<{ error: AuthError | null }> {
+  const redirectUrl = source
+    ? `${window.location.origin}/auth/callback?source=${source}`
+    : `${window.location.origin}/auth/callback`;
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: redirectUrl,
+      queryParams: {
+        // Request profile scope to get avatar
+        access_type: 'offline',
+        prompt: 'consent',
+      },
     },
   });
   return { error };
@@ -461,6 +511,8 @@ function mapProfileSummaryFromDb(
     signedAt: dbProfile.created_at,
     isVerified: dbProfile.is_verified,
     avatarColor: dbProfile.avatar_color,
+    avatarUrl: dbProfile.avatar_url, // P63: Google OAuth avatar
+    avatarProvider: dbProfile.avatar_provider, // P63: Avatar source
     witnessCount,
     reciprocations,
   };
@@ -473,22 +525,14 @@ function mapProfileSummaryFromDb(
  * @param reciprocations - Count of profiles where this user is a witness (how many people they've inspired)
  */
 function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Profile {
-  // Generate a safe slug if one doesn't exist or is empty
-  // Priority: 1) existing slug 2) generate from name 3) use id as fallback
-  let safeSlug: string;
-
-  if (dbProfile.slug && dbProfile.slug.trim() !== '') {
-    safeSlug = dbProfile.slug;
-  } else if (dbProfile.name && dbProfile.name.trim() !== '') {
-    safeSlug = generateSlug(dbProfile.name);
-  } else {
-    // Fallback to id if both slug and name are missing
-    safeSlug = dbProfile.id || 'user';
-  }
+  // P50: Preserve null slugs for /live users who haven't verified yet
+  // Only use DB slug - do NOT auto-generate from name
+  // Null slug means user hasn't completed verification/pledge flow
+  const slug = dbProfile.slug && dbProfile.slug.trim() !== '' ? dbProfile.slug : null;
 
   return {
     id: dbProfile.id,
-    slug: safeSlug,
+    slug,
     name: dbProfile.name || 'Anonymous',
     email: dbProfile.email,
     role: dbProfile.role,
@@ -505,6 +549,8 @@ function mapProfileFromDb(dbProfile: DbProfile, reciprocations: number = 0): Pro
     })),
     reciprocations,
     avatarColor: dbProfile.avatar_color,
+    avatarUrl: dbProfile.avatar_url, // P63: Google OAuth avatar
+    avatarProvider: dbProfile.avatar_provider, // P63: Avatar source
     pledgeVersion: dbProfile.pledge_version || 2,
     hasPledged: dbProfile.has_pledged ?? true, // P50: Default true for existing users
   };
@@ -595,6 +641,7 @@ export async function updateProfile(
     role?: string;
     linkedin_url?: string;
     reason?: string;
+    has_pledged?: boolean; // P50: Support upgrading non-pledgers to pledgers
   }
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase
@@ -2539,11 +2586,17 @@ export async function uploadAudioChunk(
 
     // If this is the last chunk, record in DB for tracking
     if (isLastChunk) {
+      // chunkNumber is 0-indexed, so total chunks = chunkNumber + 1
+      // Each chunk is 30 seconds
+      const totalChunks = chunkNumber + 1;
+      const durationMs = totalChunks * 30000;
+
       const { error: dbError } = await supabase.from('ml_training_sessions').insert({
         session_code: sessionCode,
         user_name: userName,
         audio_path: `gs://claritypledge-ml-training/sessions/${sessionCode}/${sanitizedName}_chunk_*.webm`,
-        duration_ms: null, // Unknown in chunked mode
+        duration_ms: durationMs,
+        chunk_count: totalChunks,
       });
 
       if (dbError) {
@@ -2890,14 +2943,16 @@ export async function verifySessionConsent(
  * Uses Supabase anonymous auth to satisfy RLS policies.
  *
  * Flow:
- * 1. Check if email exists in profiles
- * 2. If verified user → requiresLogin: true
- * 3. If unverified user → sign in anonymously and reuse profile
- * 4. If new user → sign in anonymously and create profile
+ * 1. Check if we already have an auth session (KISS: don't create new one if exists)
+ * 2. Check if email exists in profiles
+ * 3. If verified user → requiresLogin: true
+ * 4. If unverified user with matching session → reuse (no new auth)
+ * 5. If new user → sign in anonymously and create profile
  *
  * EDGE CASES:
  * - Verified user email → requiresLogin: true (must log in)
  * - Unverified user email → Reuse profile (MVP simplification)
+ * - Returning user with existing session → Don't create new anonymous session!
  *
  * @param email - Guest's email address
  * @param name - Guest's name
@@ -2911,6 +2966,10 @@ export async function getOrCreateGuestUser(
   isNew: boolean;
   requiresLogin: boolean;
 }> {
+  // KISS: Check if we already have an auth session
+  // Don't create a new anonymous session if one exists - this breaks profile matching!
+  const { data: { session: existingSession } } = await supabase.auth.getSession();
+
   // Check if user already exists in profiles
   const { data: existingUser } = await supabase
     .from('profiles')
@@ -2930,15 +2989,26 @@ export async function getOrCreateGuestUser(
     }
 
     // MVP: Unverified user can rejoin without verification
-    // Sign in anonymously to satisfy RLS for consent recording
-    // B50: Use existing profile ID for consent tracking (not anonymous user ID)
+    // KISS: If we already have a session, don't create a new one!
+    // Creating a new anonymous session would give us a different user ID
+    // that doesn't match the existing profile, breaking auth state.
+    if (existingSession) {
+      console.log('Returning unverified guest with existing session:', email, 'profileId:', existingUser.id);
+      return {
+        userId: existingUser.id,
+        isNew: false,
+        requiresLogin: false,
+      };
+    }
+
+    // No session exists - create anonymous session for RLS
     const { error: anonError } = await supabase.auth.signInAnonymously();
     if (anonError) {
       console.error('Failed to create anonymous session:', anonError);
       throw new Error('Failed to create guest session');
     }
 
-    console.log('Returning unverified guest, reusing profile:', email, 'profileId:', existingUser.id);
+    console.log('Returning unverified guest, created new session:', email, 'profileId:', existingUser.id);
     return {
       userId: existingUser.id, // Use existing profile ID for consent audit trail
       isNew: false,
@@ -2946,14 +3016,22 @@ export async function getOrCreateGuestUser(
     };
   }
 
-  // Create new guest user with anonymous auth
-  const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
-  if (anonError) {
-    console.error('Failed to create anonymous session:', anonError);
-    throw new Error('Failed to create guest session');
-  }
+  // New user - need to create profile
+  // If we have an existing session, use that user ID; otherwise create anonymous session
+  let userId: string;
 
-  const userId = anonAuth.user.id;
+  if (existingSession) {
+    userId = existingSession.user.id;
+    console.log('New guest using existing session:', email, 'userId:', userId);
+  } else {
+    const { data: anonAuth, error: anonError } = await supabase.auth.signInAnonymously();
+    if (anonError) {
+      console.error('Failed to create anonymous session:', anonError);
+      throw new Error('Failed to create guest session');
+    }
+    userId = anonAuth.user.id;
+    console.log('New guest with new anonymous session:', email, 'userId:', userId);
+  }
 
   // P50: Create profile with null slug and has_pledged=false - guests don't get public profile URLs
   // Slugs are only assigned when user explicitly signs the pledge

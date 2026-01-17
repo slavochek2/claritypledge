@@ -61,6 +61,13 @@
   --chart-5: 340 75% 55%;
 }
 
+html {
+  /* Prevent layout shift when scrollbar appears/disappears
+   * This ensures fixed nav (SimpleNavigation) and static nav (LiveSessionBanner)
+   * have identical container positioning */
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: "Inter", system-ui, -apple-system, sans-serif;
   font-weight: 400;

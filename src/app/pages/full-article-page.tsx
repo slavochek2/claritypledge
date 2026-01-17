@@ -379,7 +379,7 @@ export function FullArticlePage() {
                     to="/live"
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold text-lg px-10 py-6 h-auto"
                   >
-                    Try a Clarity Meeting
+                    Start a Clarity Meeting
                   </Link>
                   <p className="text-muted-foreground">
                     or{" "}

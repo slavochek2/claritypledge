@@ -119,6 +119,7 @@ export function ClarityPledgersPage() {
                   reason={profile.reason}
                   signedAt={profile.signedAt}
                   avatarColor={profile.avatarColor}
+                  avatarUrl={profile.avatarUrl}
                   showStats={false}
                   showDate={false}
                   className="flex-shrink-0"
@@ -185,6 +186,7 @@ export function ClarityPledgersPage() {
                   reason={profile.reason}
                   signedAt={profile.signedAt}
                   avatarColor={profile.avatarColor}
+                  avatarUrl={profile.avatarUrl}
                   showStats={false}
                   showDate={false}
                   className="h-[340px]"

@@ -7,12 +7,14 @@
  * V14: Unified menu dropdown - consolidated Exit and Sound into hamburger menu
  * V16: KISS - Always show hamburger menu, contents vary by auth state
  *      Removes complexity of conditional avatar/hamburger trigger
+ * V17: P52 - Use shared useNavAuthState hook for consistent auth across all navigations
+ *      Added missing menu items: View My Profile, Take the Pledge, Settings
  */
-import { Link } from 'react-router-dom';
-import { Menu, Volume2, VolumeX, LogOut, Home, EyeIcon, LogIn } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MenuIcon, Volume2, VolumeX, LogOut, Home } from 'lucide-react';
 import { getFirstName } from './shared';
 import { useSoundEnabled } from '@/hooks/use-sound';
-import { useAuth } from '@/auth';
+import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { ClarityLogo } from '@/components/ui/clarity-logo';
 import {
   DropdownMenu,
@@ -21,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-items';
 
 interface LiveSessionBannerProps {
   partnerName?: string;
@@ -32,25 +35,22 @@ interface LiveSessionBannerProps {
 }
 
 export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = true }: LiveSessionBannerProps) {
+  const navigate = useNavigate();
   const displayPartnerName = partnerName ? getFirstName(partnerName) : '';
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
-  const { session, user: currentUser, sessionChecked, isLoading, signOut } = useAuth();
 
-  // Determine auth state for menu contents (not for trigger button)
-  // Show user-specific options only when fully loaded with profile
-  const isLoggedIn = sessionChecked && !isLoading && !!session && !!currentUser;
-  // Show login option only when we're sure there's no session
-  const showLoginOption = sessionChecked && !session;
+  // P52: Use shared navigation auth state hook for consistency with SimpleNavigation
+  const { signOut } = useNavAuthState();
 
   // Determine display title
   const displayTitle = title ?? (partnerName ? `Clarity Meeting with ${displayPartnerName}` : 'Live Clarity Meeting');
 
   return (
-    <div className="h-16 border-b bg-background">
+    <div className="h-16 lg:h-20 bg-background">
       <div className="container mx-auto px-4 lg:px-8 h-full">
         <div className="relative flex items-center justify-between h-full">
-          {/* Left: Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+          {/* Left: Logo - P52: Aligned styling with SimpleNavigation */}
+          <Link to="/" className="hover:opacity-80 transition-opacity">
             <ClarityLogo size="sm" />
           </Link>
 
@@ -60,18 +60,19 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
           </span>
 
           {/* Right: Menu dropdown - ALWAYS hamburger (KISS principle) */}
-          <DropdownMenu>
+          {/* P52: Aligned styling with SimpleNavigation for consistent positioning */}
+          <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-1.5 rounded-full hover:bg-muted transition-colors shrink-0"
+            className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
             aria-label="Menu"
             data-testid="menu-trigger"
           >
-            <Menu className="h-5 w-5 text-muted-foreground" />
+            <MenuIcon className="w-5 h-5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          {/* === SETTINGS === */}
+        <DropdownMenuContent align="end" sideOffset={8} className="w-48">
+          {/* === LIVE-SPECIFIC SETTINGS === */}
           <DropdownMenuItem
             onClick={() => setSoundEnabled(!soundEnabled)}
             data-testid="sound-toggle"
@@ -108,35 +109,14 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             </Link>
           </DropdownMenuItem>
 
-          {isLoggedIn && currentUser.hasPledged && currentUser.slug && (
-            <DropdownMenuItem asChild data-testid="view-pledge">
-              <Link to={`/p/${currentUser.slug}`}>
-                <EyeIcon className="h-4 w-4 mr-2" />
-                View My Pledge
-              </Link>
-            </DropdownMenuItem>
-          )}
-
-          {/* === ACCOUNT === */}
-          <DropdownMenuSeparator />
-          {showLoginOption && (
-            <DropdownMenuItem asChild data-testid="login-option">
-              <Link to="/login">
-                <LogIn className="h-4 w-4 mr-2" />
-                Log In
-              </Link>
-            </DropdownMenuItem>
-          )}
-
-          {isLoggedIn && (
-            <DropdownMenuItem
-              onClick={() => signOut()}
-              data-testid="sign-out"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </DropdownMenuItem>
-          )}
+          {/* === AUTH MENU ITEMS - P50 Phase 2: Use shared component === */}
+          <NavigationMenuItems
+            onSignOut={async () => {
+              await signOut();
+              navigate('/');
+            }}
+            includeTestIds={true}
+          />
         </DropdownMenuContent>
           </DropdownMenu>
         </div>

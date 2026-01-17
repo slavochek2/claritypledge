@@ -3,8 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BadgeCheckIcon, PenToolIcon } from "lucide-react";
 import { usePledgeForm } from "@/hooks/use-pledge-form";
-import { Link } from "react-router-dom";
-import { useMemo } from "react";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useMemo, useEffect } from "react";
+import { useAuth } from "@/auth";
 import {
   PLEDGE_TEXT,
   YourRightTextTailwind,
@@ -21,6 +22,33 @@ export function SignPledgeForm({
   onSuccess,
   onSwitchToLogin,
 }: SignPledgeFormProps) {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
+
+  // P50/P64: Prefill vs Upgrade mode
+  // - Prefill: ANY authenticated user who hasn't pledged gets form prefilled
+  //   - Explicit: ?prefill=true query param
+  //   - Implicit: Authenticated user with hasPledged=false (Google OAuth or email signup)
+  // - Upgrade: Only VERIFIED users skip magic link (direct profile update)
+  // Unverified users (e.g., /live) see prefilled form but still need magic link
+  const isPrefillParam = searchParams.get('prefill') === 'true';
+  // P64: Auto-prefill for authenticated non-pledgers (Google OAuth flow or email signup)
+  const isAuthenticatedNonPledger = !!currentUser && !currentUser.hasPledged;
+  const shouldPrefill = (isPrefillParam || isAuthenticatedNonPledger) && !!currentUser;
+  const isUpgrading = shouldPrefill && currentUser?.isVerified;
+
+  // P50: For upgrade flow, redirect directly to certificate on success
+  const handleFormSuccess = () => {
+    if (isUpgrading && currentUser) {
+      // Upgrade success - redirect to certificate
+      navigate(`/p/${currentUser.slug}/pledge`, { replace: true });
+    } else {
+      // Standard flow - use parent's onSuccess (redirect to confirmation)
+      onSuccess();
+    }
+  };
+
   const {
     formState: {
       name,
@@ -39,7 +67,24 @@ export function SignPledgeForm({
       setReason
     },
     handleSubmit
-  } = usePledgeForm(onSuccess);
+  } = usePledgeForm({
+    onSuccess: handleFormSuccess,
+    isUpgrading,
+    currentUser,
+    isNameLocked: shouldPrefill, // P64: Name is locked when form is prefilled
+  });
+
+  // P50: Prefill form fields for ANY authenticated user at ?prefill=true
+  // This includes unverified /live users - they see prefilled data but still need magic link
+  useEffect(() => {
+    if (shouldPrefill && currentUser) {
+      setName(currentUser.name);
+      setEmail(currentUser.email);
+      setRole(currentUser.role || '');
+      setLinkedinUrl(currentUser.linkedinUrl || '');
+      // Don't prefill reason - that's specific to the pledge
+    }
+  }, [shouldPrefill, currentUser, setName, setEmail, setRole, setLinkedinUrl]);
 
   // Profile strength calculation - requires email + reason (min 10 chars), then optional fields
   const profileStrength = useMemo(() => {
@@ -74,7 +119,8 @@ export function SignPledgeForm({
     : "";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
       {/* Double Border Frame - Matching Certificate */}
       <div
         className="rounded-lg p-4 md:p-12 bg-[#FDFBF7] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]"
@@ -113,9 +159,10 @@ export function SignPledgeForm({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              title="Enter your full name as it will appear on your certificate"
+              title={shouldPrefill ? "Your name (from profile)" : "Enter your full name as it will appear on your certificate"}
               className="inline-block w-auto min-w-[140px] md:min-w-[150px] mx-1 md:mx-2 px-2 md:px-3 py-0.5 md:py-1 border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] font-serif text-base md:text-lg h-auto"
               style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
+              readOnly={shouldPrefill}
             />
 
             <span
@@ -187,20 +234,23 @@ export function SignPledgeForm({
             </div>
           </div>
 
-          <div className="space-y-1.5 md:space-y-2">
-            <Label htmlFor="email" className="text-sm text-[#1A1A1A]/70">
-              Email
-            </Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="border-0 border-b-2 border-[#1A1A1A] rounded-none focus-visible:border-[#0044CC] focus-visible:ring-0 bg-transparent px-0"
-            />
-          </div>
+          {/* P50: Hide email for prefilled users (already have it from profile) */}
+          {!shouldPrefill && (
+            <div className="space-y-1.5 md:space-y-2">
+              <Label htmlFor="email" className="text-sm text-[#1A1A1A]/70">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="border-0 border-b-2 border-[#1A1A1A] rounded-none focus-visible:border-[#0044CC] focus-visible:ring-0 bg-transparent px-0"
+              />
+            </div>
+          )}
 
           <div className="space-y-1 md:space-y-2">
             <Label htmlFor="reason" className="text-sm text-[#1A1A1A]/70">
@@ -265,7 +315,19 @@ export function SignPledgeForm({
         {/* Error Message */}
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">
+              {error.message}
+              {/* P64: Show Settings link when name field is locked and invalid */}
+              {error.requiresSettingsLink && (
+                <>
+                  {' '}
+                  <Link to="/settings" className="underline font-medium hover:text-red-700">
+                    Update it in Settings
+                  </Link>{' '}
+                  to continue.
+                </>
+              )}
+            </p>
           </div>
         )}
 
@@ -315,6 +377,7 @@ export function SignPledgeForm({
           Already pledged? Log in
         </button>
       </div>
-    </form>
+      </form>
+    </div>
   );
 }

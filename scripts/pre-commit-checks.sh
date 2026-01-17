@@ -47,20 +47,42 @@ else
 fi
 echo ""
 
-# 4. Secrets scan (in staged files)
+# 4. Secrets scan (using gitleaks if available, fallback to grep)
 echo ">>> Scanning for secrets..."
-STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
-if [ -n "$STAGED_FILES" ]; then
-    SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -E '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
-    if [ -n "$SECRETS_FOUND" ]; then
-        echo -e "${RED}✗ Possible secrets found in:${NC}"
-        echo "$SECRETS_FOUND"
+if command -v gitleaks &> /dev/null; then
+    # Use gitleaks for comprehensive secret detection
+    # --no-git scans files directly, --staged scans staged changes
+    if git diff --cached --quiet 2>/dev/null; then
+        # No staged changes, scan recent changes
+        GITLEAKS_OUTPUT=$(gitleaks detect --source . --no-git --redact -v 2>&1 || true)
+    else
+        # Scan staged changes
+        GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
+    fi
+
+    if echo "$GITLEAKS_OUTPUT" | grep -q "leaks found"; then
+        echo -e "${RED}✗ Secrets detected by gitleaks:${NC}"
+        echo "$GITLEAKS_OUTPUT" | grep -A5 "Secret:" || echo "$GITLEAKS_OUTPUT"
         ERRORS=$((ERRORS + 1))
     else
-        echo -e "${GREEN}✓ No secrets detected${NC}"
+        echo -e "${GREEN}✓ No secrets detected (gitleaks)${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠ No staged files to scan${NC}"
+    # Fallback to grep-based scan
+    echo -e "${YELLOW}(gitleaks not installed, using basic grep scan)${NC}"
+    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+    if [ -n "$STAGED_FILES" ]; then
+        SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -E '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
+        if [ -n "$SECRETS_FOUND" ]; then
+            echo -e "${RED}✗ Possible secrets found in:${NC}"
+            echo "$SECRETS_FOUND"
+            ERRORS=$((ERRORS + 1))
+        else
+            echo -e "${GREEN}✓ No secrets detected${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ No staged files to scan${NC}"
+    fi
 fi
 echo ""
 
@@ -111,6 +133,61 @@ if [ -n "$NEW_TODOS" ]; then
     WARNINGS=$((WARNINGS + 1))
 else
     echo -e "${GREEN}✓ No new TODOs added${NC}"
+fi
+echo ""
+
+# 8. @ts-ignore / @ts-expect-error check (in staged files)
+echo ">>> Checking for TypeScript escape hatches..."
+if [ -n "$TS_FILES" ]; then
+    TS_IGNORES=$(echo "$TS_FILES" | xargs grep -n '@ts-ignore\|@ts-expect-error\|@ts-nocheck' 2>/dev/null || true)
+    if [ -n "$TS_IGNORES" ]; then
+        echo -e "${YELLOW}⚠ TypeScript suppressions found:${NC}"
+        echo "$TS_IGNORES"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        echo -e "${GREEN}✓ No @ts-ignore or @ts-expect-error${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No TypeScript files to check${NC}"
+fi
+echo ""
+
+# 9. debugger statement check (in staged files)
+echo ">>> Checking for debugger statements..."
+if [ -n "$TS_FILES" ]; then
+    DEBUGGERS=$(echo "$TS_FILES" | xargs grep -n '^\s*debugger' 2>/dev/null || true)
+    if [ -n "$DEBUGGERS" ]; then
+        echo -e "${RED}✗ debugger statements found:${NC}"
+        echo "$DEBUGGERS"
+        ERRORS=$((ERRORS + 1))
+    else
+        echo -e "${GREEN}✓ No debugger statements${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No TypeScript files to check${NC}"
+fi
+echo ""
+
+# 10. Check for 'any' type in new code (stricter type safety)
+echo ">>> Checking for new 'any' types..."
+if [ -n "$STAGED_FILES" ]; then
+    # Only check staged TypeScript files, excluding test files
+    NON_TEST_TS=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx)$' | grep -v '\.test\.' | grep -v '/tests/' || true)
+    if [ -n "$NON_TEST_TS" ]; then
+        # Look for ': any' patterns in the diff (new additions)
+        ANY_TYPES=$(git diff --cached -- $NON_TEST_TS 2>/dev/null | grep -E '^\+.*:\s*any(\s|,|;|\)|>|$)' || true)
+        if [ -n "$ANY_TYPES" ]; then
+            echo -e "${YELLOW}⚠ New 'any' types added (consider using specific types):${NC}"
+            echo "$ANY_TYPES"
+            WARNINGS=$((WARNINGS + 1))
+        else
+            echo -e "${GREEN}✓ No new 'any' types${NC}"
+        fi
+    else
+        echo -e "${GREEN}✓ No non-test TypeScript files staged${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ No staged files to check${NC}"
 fi
 echo ""
 
