@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { LoaderIcon, AlertCircleIcon } from "lucide-react";
 import { generateSlug, getProfile } from "@/app/data/api";
+import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
 
@@ -259,6 +260,8 @@ export function AuthCallbackPage() {
         pledge_version: existingProfile?.pledgeVersion || 2,
         // P50: Track whether user explicitly signed the pledge
         has_pledged: hasPledged,
+        // P37.2a: Set terms version at signup so /live doesn't show dialog for new users
+        accepted_terms_version: CURRENT_TERMS_VERSION,
       };
 
       console.log('🔄 Profile data to save:', upsertData);
