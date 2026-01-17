@@ -12,10 +12,24 @@ interface UsePledgeFormOptions {
    */
   isUpgrading?: boolean;
   currentUser?: Profile | null;
+  /**
+   * P64: Whether the name field is locked (read-only)
+   * When true and name validation fails, error message includes Settings link
+   */
+  isNameLocked?: boolean;
+}
+
+/**
+ * Structured error type for pledge form - avoids fragile string parsing
+ */
+export interface PledgeFormError {
+  message: string;
+  /** When true, UI should render a link to /settings for the user to fix their name */
+  requiresSettingsLink?: boolean;
 }
 
 export function usePledgeForm(options?: UsePledgeFormOptions) {
-  const { onSuccess, isUpgrading = false, currentUser = null } = options || {};
+  const { onSuccess, isUpgrading = false, currentUser = null, isNameLocked = false } = options || {};
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
@@ -23,30 +37,38 @@ export function usePledgeForm(options?: UsePledgeFormOptions) {
   const [reason, setReason] = useState("");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<PledgeFormError | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError(null);
 
     // P50: For upgrade flow, skip name/email validation (already verified)
     if (!isUpgrading) {
       if (!name.trim() || !email.trim()) {
-        setError("Please fill in your name and email to sign the pledge.");
+        setError({ message: "Please fill in your name and email to sign the pledge." });
         return;
       }
 
       // Validate full name (at least first and last name, each at least 2 characters)
       const nameParts = name.trim().split(/\s+/);
       if (nameParts.length < 2 || nameParts.some(part => part.length < 2)) {
-        setError("Please enter your full name (first and last, each at least 2 characters) for the official pledge.");
+        // P64: When name is locked (Google OAuth or prefill), direct user to Settings
+        if (isNameLocked) {
+          setError({
+            message: "Your name needs a first and last name.",
+            requiresSettingsLink: true,
+          });
+        } else {
+          setError({ message: "Please enter your full name (first and last, each at least 2 characters) for the official pledge." });
+        }
         return;
       }
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
-        setError("Please enter a valid email address.");
+        setError({ message: "Please enter a valid email address." });
         return;
       }
     }
@@ -113,21 +135,21 @@ export function usePledgeForm(options?: UsePledgeFormOptions) {
         }
       }
 
-    } catch (error) {
-      console.error("Error signing pledge:", error);
+    } catch (err) {
+      console.error("Error signing pledge:", err);
       let errorMessage = "Failed to sign pledge. Please try again.";
       let errorType = 'unknown';
-      if (error instanceof Error) {
-        if (error.message?.includes("rate limit")) {
+      if (err instanceof Error) {
+        if (err.message?.includes("rate limit")) {
           errorMessage = "Too many requests. Please wait a moment and try again.";
           errorType = 'rate_limit';
-        } else if (error.message?.includes("Invalid email")) {
+        } else if (err.message?.includes("Invalid email")) {
           errorMessage = "Please enter a valid email address.";
           errorType = 'invalid_email';
         }
       }
       analytics.track('pledge_form_error', { error_type: errorType });
-      setError(errorMessage);
+      setError({ message: errorMessage });
       setIsSubmitting(false);
     }
   };

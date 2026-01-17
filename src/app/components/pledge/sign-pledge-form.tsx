@@ -26,12 +26,16 @@ export function SignPledgeForm({
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
 
-  // P50: Prefill vs Upgrade mode
-  // - Prefill: ANY authenticated user at ?prefill=true gets form prefilled
+  // P50/P64: Prefill vs Upgrade mode
+  // - Prefill: ANY authenticated user who hasn't pledged gets form prefilled
+  //   - Explicit: ?prefill=true query param
+  //   - Implicit: Authenticated user with hasPledged=false (Google OAuth or email signup)
   // - Upgrade: Only VERIFIED users skip magic link (direct profile update)
   // Unverified users (e.g., /live) see prefilled form but still need magic link
-  const isPrefill = searchParams.get('prefill') === 'true';
-  const shouldPrefill = isPrefill && !!currentUser;
+  const isPrefillParam = searchParams.get('prefill') === 'true';
+  // P64: Auto-prefill for authenticated non-pledgers (Google OAuth flow or email signup)
+  const isAuthenticatedNonPledger = !!currentUser && !currentUser.hasPledged;
+  const shouldPrefill = (isPrefillParam || isAuthenticatedNonPledger) && !!currentUser;
   const isUpgrading = shouldPrefill && currentUser?.isVerified;
 
   // P50: For upgrade flow, redirect directly to certificate on success
@@ -66,7 +70,8 @@ export function SignPledgeForm({
   } = usePledgeForm({
     onSuccess: handleFormSuccess,
     isUpgrading,
-    currentUser
+    currentUser,
+    isNameLocked: shouldPrefill, // P64: Name is locked when form is prefilled
   });
 
   // P50: Prefill form fields for ANY authenticated user at ?prefill=true
@@ -310,7 +315,19 @@ export function SignPledgeForm({
         {/* Error Message */}
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">
+              {error.message}
+              {/* P64: Show Settings link when name field is locked and invalid */}
+              {error.requiresSettingsLink && (
+                <>
+                  {' '}
+                  <Link to="/settings" className="underline font-medium hover:text-red-700">
+                    Update it in Settings
+                  </Link>{' '}
+                  to continue.
+                </>
+              )}
+            </p>
           </div>
         )}
 

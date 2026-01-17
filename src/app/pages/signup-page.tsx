@@ -9,7 +9,8 @@ import { useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2Icon, AlertCircleIcon, InfoIcon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CheckCircle2Icon, InfoIcon } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
 import { analytics } from "@/lib/mixpanel";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
@@ -20,6 +21,7 @@ export function SignupPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Check for message param (e.g., redirected from login with no account)
   const searchParams = new URLSearchParams(location.search);
@@ -39,6 +41,7 @@ export function SignupPage() {
     setIsSubmitting(false);
     setEmail("");
     setError("");
+    setTermsAccepted(false);
   }, [location.key]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -145,7 +148,7 @@ export function SignupPage() {
                 </Label>
                 <Input
                   id="signup-email"
-                  type="text"
+                  type="email"
                   placeholder="your@email.com"
                   value={email}
                   onChange={(e) => {
@@ -157,19 +160,43 @@ export function SignupPage() {
                 />
 
                 {error && (
-                  <div className="flex items-start gap-2 text-sm text-destructive mt-2">
-                    <AlertCircleIcon className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <p>{error}</p>
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md mt-2">
+                    <p className="text-sm text-red-600">{error}</p>
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Terms & Privacy checkbox */}
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="terms-accept"
+                checked={termsAccepted}
+                onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                aria-describedby="terms-label"
+                className="mt-0.5"
+              />
+              <Label
+                id="terms-label"
+                htmlFor="terms-accept"
+                className="text-sm text-muted-foreground leading-relaxed font-normal cursor-pointer"
+              >
+                I accept the{' '}
+                <Link to="/terms-of-service" className="text-blue-600 hover:underline">
+                  Terms
+                </Link>{' '}
+                and{' '}
+                <Link to="/privacy-policy" className="text-blue-600 hover:underline">
+                  Privacy Policy
+                </Link>.
+              </Label>
             </div>
 
             <Button
               type="submit"
               className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
               size="lg"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !termsAccepted}
             >
               {isSubmitting ? "Sending..." : "Create Account"}
             </Button>

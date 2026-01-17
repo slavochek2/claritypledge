@@ -73,6 +73,12 @@ export function SettingsPage() {
 
     if (!name.trim()) {
       newErrors.name = "Name is required";
+    } else {
+      // Validate full name format (first and last, each 2+ chars) - consistent with pledge form
+      const nameParts = name.trim().split(/\s+/);
+      if (nameParts.length < 2 || nameParts.some(part => part.length < 2)) {
+        newErrors.name = "Please enter your full name (first and last, each at least 2 characters)";
+      }
     }
 
     // Validate LinkedIn URL if provided
