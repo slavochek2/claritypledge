@@ -51,6 +51,11 @@ create policy "Users can update own profile"
   on public.profiles for update
   using ( auth.uid() = id );
 
+-- Users can delete profiles matching their email (for /live user migration)
+create policy "Users can delete profiles by email match"
+  on public.profiles for delete
+  using ( email = auth.email() );
+
 -- Witnesses:
 -- Anyone can read witnesses
 create policy "Witnesses are viewable by everyone"
