@@ -1,8 +1,19 @@
 # Product Roadmap
 
+Build sequence and priorities. What we're building and in what order.
+
 **Status:** Active Planning
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-17
 **North Star:** First open-space Clarity Event
+
+> **Current Build Sequence (5 days):**
+> 1. Events backend (worktree-4) — Days 1-2
+> 2. /live connection from event — Days 2-3
+> 3. Stories + Points in profile (mockup) — Days 3-4
+> 4. Sifter (mockup + AI agent) — Days 4-5
+> 5. Calibration banner — Day 5
+>
+> See [DECISIONS.md](../docs/DECISIONS.md) entry 2026-01-17 for rationale.
 
 ---
 

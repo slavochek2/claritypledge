@@ -1,11 +1,21 @@
+> **Archived 2026-01-18:** Key concepts extracted to:
+> - [hypotheses.md](../docs/hypotheses.md) — Four States of Agreement, A1-A7 assumptions
+> - [lean-canvas.md](../docs/lean-canvas.md) — Layer 1-2-3 model, "calibration is per-idea"
+>
+> The core /live verification concept remains valid. Events-first strategy is documented in [DECISIONS.md](../docs/DECISIONS.md).
+
+---
+
 # P55: Understanding Verification Loop
 
-**Status:** Vision (Strategic Pivot)
+**Status:** Archived (concepts extracted)
 **Priority:** High (addresses cold-start problem)
 **Est. Effort:** TBD (phased approach)
 **Created:** 2026-01-11
 **Revised:** 2026-01-11 (crystallized after strategy session)
 **Origin:** Innovation strategy session — response to friend's skepticism about 1-on-1 cold start adoption
+
+> **Note (2026-01-17):** The core /live verification concept remains valid. However, we've returned to "Vision A" (Events-first) rather than "Vision B" (ambient listener). Events are the growth engine — organizers bring users. The "ambient AI listening" concept is future scope, not MVP. See [DECISIONS.md](../docs/DECISIONS.md) and [hypotheses.md](../docs/hypotheses.md).
 
 ---
 

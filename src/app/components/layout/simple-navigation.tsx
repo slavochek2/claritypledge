@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
+import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
@@ -31,8 +32,10 @@ export function SimpleNavigation() {
 
   // KISS: Only two states - verified user or everyone else
   // Note: showPublicCTAs and slug are handled by NavigationMenuItems (shared component)
+  // P67: user is needed for avatar display
   const {
     showUserMenu,
+    user,
     hasPledged,
     sessionChecked,
     signOut,
@@ -103,14 +106,30 @@ export function SimpleNavigation() {
             >
               Start a Clarity Meeting
             </Link>
-            {/* Hamburger Menu */}
-            <DropdownMenu modal={false}>
+            {/* Menu Trigger - P67: Avatar for verified users, hamburger for everyone else */}
+            <DropdownMenu modal={false} onOpenChange={(open) => {
+              if (open) {
+                analytics.track('nav_menu_opened', {
+                  trigger: showUserMenu && user ? 'avatar' : 'hamburger',
+                  device: 'desktop',
+                });
+              }
+            }}>
               <DropdownMenuTrigger asChild>
                 <button
                   className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
                   aria-label="Menu"
                 >
-                  <MenuIcon className="w-5 h-5" />
+                  {showUserMenu && user ? (
+                    <GravatarAvatar
+                      name={user.name}
+                      avatarColor={user.avatarColor}
+                      photoUrl={user.avatarUrl}
+                      size="sm"
+                    />
+                  ) : (
+                    <MenuIcon className="w-5 h-5" />
+                  )}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={8} className="w-48">
@@ -129,9 +148,19 @@ export function SimpleNavigation() {
             </DropdownMenu>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - P67: Avatar for verified users when closed, X when open */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => {
+              const wasOpen = isMobileMenuOpen;
+              setIsMobileMenuOpen(!isMobileMenuOpen);
+              // Track opening (not closing)
+              if (!wasOpen) {
+                analytics.track('nav_menu_opened', {
+                  trigger: showUserMenu && user ? 'avatar' : 'hamburger',
+                  device: 'mobile',
+                });
+              }
+            }}
             className="lg:hidden p-2"
             aria-expanded={isMobileMenuOpen}
             aria-controls={MOBILE_MENU_ID}
@@ -139,6 +168,13 @@ export function SimpleNavigation() {
           >
             {isMobileMenuOpen ? (
               <XIcon className="w-6 h-6" />
+            ) : showUserMenu && user ? (
+              <GravatarAvatar
+                name={user.name}
+                avatarColor={user.avatarColor}
+                photoUrl={user.avatarUrl}
+                size="sm"
+              />
             ) : (
               <MenuIcon className="w-6 h-6" />
             )}
