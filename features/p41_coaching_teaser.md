@@ -188,6 +188,7 @@ Uses `ComingSoonTeaser` component (shared with P50 Phase 2).
 ## Dependencies
 
 - **P50 Phase 1** (required): `has_pledged` column, source param detection
+- **P70_2** (required): Consent flow — coaching only sent for sessions where `ai_insights_enabled = true`
 - **Brevo account** (required): Transactional email setup
 - **Email template copy** (required): Slava to provide
 
@@ -197,6 +198,7 @@ Uses `ComingSoonTeaser` component (shared with P50 Phase 2).
 
 - [P50: Non-Pledger Experience](./p50_non_pledger_experience.md) - Provides `has_pledged` infrastructure, shares `ComingSoonTeaser`
 - [P51: Pledge Upgrade Flow](./p51_pledge_upgrade.md) - Non-pledger → Pledger conversion (future)
+- [P70_2: Consent Flow](./p70_2_consent_flow.md) - Users must consent for coaching to activate
 
 ---
 

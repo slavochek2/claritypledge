@@ -4,9 +4,30 @@ This file provides guidance for AI agents working with code in this repository.
 
 **For humans:** See [README.md](./README.md) for setup instructions and deployment guide.
 
-## Project Overview
+## Agent Behavior Rules
 
-The Clarity Pledge is a web application where professionals publicly commit to clear communication. Users sign a pledge via magic link authentication, receive a public profile page with a shareable certificate, and can collect endorsements from colleagues.
+**Report broken tooling:** If a script, linter, or automated check produces incorrect results (false positives/negatives, misleading output, bugs in logic), do NOT silently work around it. Report the issue to the user before proceeding. Broken tooling should be fixed, not ignored.
+
+## Product Overview
+
+A **Sensemaking Platform** that reveals calibration gaps in how well people understand each other — and motivates them to close those gaps.
+
+**Core loop:**
+1. **Events** — Organizers create events, seed Stories and Points
+2. **Stories** — Personal experiences that can only be understood (not debated)
+3. **Points** — Claims about reality that can be agreed/disagreed with
+4. **Verification** — `/live` sessions where partners explain back each other's Stories
+5. **Calibration** — Profile shows understanding gap (how well you think you communicated vs. how well you actually did)
+
+**Two user journeys:**
+- **Journey A:** Event attendee → verifier → maybe pledger (1%)
+- **Journey B:** Organic visitor → pledger → maybe event host
+
+**The Pledge** is a graduation feature — ~1% of engaged users publicly commit to clear communication, get a profile page and certificate.
+
+**Growth model:** B2B2C — event organizers bring their people. Events are the growth engine.
+
+**Philosophy:** See [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) and [v7_communicative_critical_rationalism.md](docs/visions/v7_communicative_critical_rationalism.md) for epistemological foundations.
 
 **Domain:** `claritypledge.com` (old domain `understandingpledge.com` redirects via Vercel)
 
@@ -45,6 +66,8 @@ Load these docs when working on specific areas:
 
 | Working on... | Read |
 |---------------|------|
+| Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
+| What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
@@ -52,12 +75,14 @@ Load these docs when working on specific areas:
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
-| Past decisions, why we chose X over Y | [DECISIONS.md](docs/DECISIONS.md) |
+| Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
+| Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
+| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 
 ## Knowledge-Driven Development
 
 - `/kdd` - Record decisions (run after features with interesting trade-offs)
-- [DECISIONS.md](docs/DECISIONS.md) - Why we chose things (append-only, newest at top)
+- [decisions.md](docs/decisions.md) - Why we chose things (append-only, newest at top)
 
 ## Configuration
 
@@ -347,10 +372,12 @@ Before creating a new function, hook, or component:
 ```
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
+├── visions/            # Philosophy docs (v0, v7)
 ├── bmad/               # BMAD workflow status files
+├── archive/            # Archived docs (superseded)
+├── hypotheses.md       # What we're testing
 ├── plan.md             # Product planning
-├── learnings.md        # Project learnings
-└── mvp_pledge.md            # Product requirements
+└── learnings.md        # Project learnings
 
 bmad/
 └── artifacts/          # Tech-specs and sprint artifacts

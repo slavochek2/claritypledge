@@ -128,7 +128,7 @@ interface LiveModeViewProps {
   onCancelLocalRating: () => void;
   /** Exit the meeting entirely and return to the join/lobby screen */
   onExitMeeting: () => void;
-  /** V11: Listener taps "Done Explaining" to unlock speaker's feeling interface */
+  /** V11: Listener taps "Done Explaining" to unlock speaker's belief interface */
   onExplainBackDone: () => void;
   /** Called when user clicks "Continue" on celebration screen - resets shared state for new rounds */
   onCelebrationComplete: () => void;
@@ -628,14 +628,14 @@ function IdleScreen({
               </DrawerDescription>
               <DrawerTitle className="sr-only">
                 {isProverInitiated
-                  ? `Rate how well you feel understood by ${proverName}`
+                  ? `Rate how well you believe ${proverName} understands you`
                   : `Rate how well you understood ${checkerName}`}
               </DrawerTitle>
             </DrawerHeader>
             <div className="px-4 pb-8 pt-4 space-y-4">
               <RatingCard
                 question={isProverInitiated
-                  ? `How well do you feel understood by ${proverName}?`
+                  ? `How well do you believe ${proverName} understands you?`
                   : `How confident are you that you understand ${checkerName}?`}
                 onSelect={onRatingSubmit}
                 onSkip={onSkip}
@@ -718,16 +718,16 @@ function RatingScreen({
   if (isProverInitiated) {
     // "Did I get it?" flow - listener initiated
     // Prover (listener): "How confident are you that you understand [Speaker]?"
-    // Checker (speaker): "How well do you feel understood by [Prover]?"
+    // Checker (speaker): "How well do you believe [Prover] understands you?"
     prompt = isChecker
-      ? `How well do you feel understood by ${displayPartnerName}?`
+      ? `How well do you believe ${displayPartnerName} understands you?`
       : `How confident are you that you understand ${checkerName}?`;
   } else {
     // "Did you get it?" flow - speaker initiated (existing)
-    // Checker (speaker): "How well do you feel [Partner] understands you?"
+    // Checker (speaker): "How well do you believe [Partner] understands you?"
     // Responder (listener): "How confident are you that you understand [Checker]?"
     prompt = isChecker
-      ? `How well do you feel ${displayPartnerName} understands you?`
+      ? `How well do you believe ${displayPartnerName} understands you?`
       : `How confident are you that you understand ${checkerName}?`;
   }
 
@@ -818,7 +818,7 @@ function RatingScreenWithOptionalDrawer({
   // 2. If prover-initiated and no drawer: User is the prover (responder) rating first
   //    → "How confident are you that you understand {checker}?"
   // 3. If checker-initiated and no drawer: User is the checker rating first
-  //    → "How well do you feel {partner} understands you?"
+  //    → "How well do you believe {partner} understands you?"
   let prompt: string;
   if (showDrawer) {
     // Partner already submitted as checker, user is responder
@@ -828,7 +828,7 @@ function RatingScreenWithOptionalDrawer({
     prompt = `How confident are you that you understand ${checkerName}?`;
   } else {
     // Checker-initiated flow - checker is rating how understood they feel
-    prompt = `How well do you feel ${displayPartnerName} understands you?`;
+    prompt = `How well do you believe ${displayPartnerName} understands you?`;
   }
 
   // When user is locally rating, determine their role for journey card
@@ -1038,13 +1038,13 @@ function JourneyToUnderstanding({
   if (isProverInitiated) {
     // "Did I get it?" flow - listener (prover) initiated
     headerText = isChecker
-      ? <>{proverName}'s journey to <span className="font-semibold text-foreground">make you feel understood</span></>
-      : <>Your journey to <span className="font-semibold text-foreground">make {checkerName} feel understood</span></>;
+      ? <>{proverName}'s journey to <span className="font-semibold text-foreground">understand you</span></>
+      : <>Your journey to <span className="font-semibold text-foreground">understand {checkerName}</span></>;
   } else {
     // "Did you get it?" flow - speaker (checker) initiated
     headerText = isChecker
-      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">make you feel understood</span></>
-      : <>Your journey to <span className="font-semibold text-foreground">make {checkerName} feel understood</span></>;
+      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">understand you</span></>
+      : <>Your journey to <span className="font-semibold text-foreground">understand {checkerName}</span></>;
   }
 
   // Determine which ratings are available
@@ -1068,11 +1068,11 @@ function JourneyToUnderstanding({
   } else {
     // Sealed-bid mode: show your own rating immediately, hide partner's
     if (isChecker) {
-      // I'm the checker (speaker) - show my feeling, hide responder's confidence
+      // I'm the checker (speaker) - show my belief, hide responder's confidence
       shouldRevealCheckerRating = hasCheckerRating;
       shouldRevealResponderRating = false;
     } else {
-      // I'm the responder (listener) - show my confidence, hide checker's feeling
+      // I'm the responder (listener) - show my confidence, hide checker's belief
       shouldRevealCheckerRating = false;
       shouldRevealResponderRating = hasResponderRating;
     }
@@ -1092,7 +1092,7 @@ function JourneyToUnderstanding({
           {/* Show ratings - in sealed-bid mode, only reveal when both submitted */}
           {isChecker ? (
             <>
-              {/* Speaker view: show listener's confidence (if available), then your feeling */}
+              {/* Speaker view: show listener's confidence (if available), then your belief */}
               {hasResponderRating && shouldRevealResponderRating ? (
                 <RatingDisplay
                   label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
@@ -1105,18 +1105,18 @@ function JourneyToUnderstanding({
               )}
               {hasCheckerRating && shouldRevealCheckerRating ? (
                 <RatingDisplay
-                  label={<b className="text-foreground">Your feeling</b>}
+                  label={<b className="text-foreground">Your belief</b>}
                   rating={checkerRating}
                 />
               ) : (
                 <RatingDisplayPending
-                  label={<b className="text-foreground">Your feeling</b>}
+                  label={<b className="text-foreground">Your belief</b>}
                 />
               )}
             </>
           ) : (
             <>
-              {/* Listener view: show your confidence (if available), then speaker's feeling */}
+              {/* Listener view: show your confidence (if available), then speaker's belief */}
               {hasResponderRating && shouldRevealResponderRating ? (
                 <RatingDisplay
                   label={<span className="text-muted-foreground">Your confidence</span>}
@@ -1129,12 +1129,12 @@ function JourneyToUnderstanding({
               )}
               {hasCheckerRating && shouldRevealCheckerRating ? (
                 <RatingDisplay
-                  label={<b className="text-foreground">{checkerName}'s feeling</b>}
+                  label={<b className="text-foreground">{checkerName}'s belief</b>}
                   rating={checkerRating}
                 />
               ) : (
                 <RatingDisplayPending
-                  label={<b className="text-foreground">{checkerName}'s feeling</b>}
+                  label={<b className="text-foreground">{checkerName}'s belief</b>}
                 />
               )}
             </>
@@ -1145,8 +1145,8 @@ function JourneyToUnderstanding({
             <div key={index} className="pt-2 border-t">
               <RatingDisplay
                 label={isChecker
-                  ? <><b className="text-foreground">Your feeling</b> <span className="text-muted-foreground">(round {index + 1})</span></>
-                  : <><b className="text-foreground">{checkerName}'s feeling</b> <span className="text-muted-foreground">(round {index + 1})</span></>
+                  ? <><b className="text-foreground">Your belief</b> <span className="text-muted-foreground">(round {index + 1})</span></>
+                  : <><b className="text-foreground">{checkerName}'s belief</b> <span className="text-muted-foreground">(round {index + 1})</span></>
                 }
                 rating={rating}
               />
@@ -1169,7 +1169,7 @@ function JourneyToUnderstanding({
 
       <div className="space-y-2">
         {/* Initial round (0) - show one-time rating first for each role */}
-        {/* Speaker rates "feeling" (subjective), Listener rates "confidence" (self-assessment) */}
+        {/* Speaker rates "belief" (subjective), Listener rates "confidence" (self-assessment) */}
         {/* In sealed-bid mode, only reveal ratings when BOTH have submitted */}
         <div className={showRoundNumbers ? "flex gap-3" : ""}>
           {showRoundNumbers && (
@@ -1178,7 +1178,7 @@ function JourneyToUnderstanding({
           <div className="flex-1 space-y-1">
             {isChecker ? (
               <>
-                {/* Speaker view: show listener's confidence first (one-time, muted), then your feeling */}
+                {/* Speaker view: show listener's confidence first (one-time, muted), then your belief */}
                 {hasResponderRating && shouldRevealResponderRating ? (
                   <RatingDisplay
                     label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>}
@@ -1191,18 +1191,18 @@ function JourneyToUnderstanding({
                 )}
                 {hasCheckerRating && shouldRevealCheckerRating ? (
                   <RatingDisplay
-                    label={<b className="text-foreground">Your feeling</b>}
+                    label={<b className="text-foreground">Your belief</b>}
                     rating={checkerRating}
                   />
                 ) : (
                   <RatingDisplayPending
-                    label={<b className="text-foreground">Your feeling</b>}
+                    label={<b className="text-foreground">Your belief</b>}
                   />
                 )}
               </>
             ) : (
               <>
-                {/* Listener view: show your confidence first, then speaker's feeling (bold) */}
+                {/* Listener view: show your confidence first, then speaker's belief (bold) */}
                 {hasResponderRating && shouldRevealResponderRating ? (
                   <RatingDisplay
                     label={<span className="text-muted-foreground">Your confidence</span>}
@@ -1215,12 +1215,12 @@ function JourneyToUnderstanding({
                 )}
                 {hasCheckerRating && shouldRevealCheckerRating ? (
                   <RatingDisplay
-                    label={<b className="text-foreground">{checkerName}'s feeling</b>}
+                    label={<b className="text-foreground">{checkerName}'s belief</b>}
                     rating={checkerRating}
                   />
                 ) : (
                   <RatingDisplayPending
-                    label={<b className="text-foreground">{checkerName}'s feeling</b>}
+                    label={<b className="text-foreground">{checkerName}'s belief</b>}
                   />
                 )}
               </>
@@ -1228,15 +1228,15 @@ function JourneyToUnderstanding({
           </div>
         </div>
 
-        {/* Previous explain-back rounds - only speaker's feeling after each explain-back */}
+        {/* Previous explain-back rounds - only speaker's belief after each explain-back */}
         {explainBackRatings.map((rating, index) => (
           <div key={index} className="flex gap-3 pt-2 border-t">
             <div className="w-4 shrink-0 text-xs text-muted-foreground pt-0.5 text-right">{index + 1}</div>
             <div className="flex-1">
               <RatingDisplay
                 label={isChecker
-                  ? <b className="text-foreground">Your feeling</b>
-                  : <b className="text-foreground">{checkerName}'s feeling</b>
+                  ? <b className="text-foreground">Your belief</b>
+                  : <b className="text-foreground">{checkerName}'s belief</b>
                 }
                 rating={rating}
               />
@@ -1587,7 +1587,7 @@ function UnderstandingScreen({
       }
 
       // Branch 2: Listener tapped Done - show rating in drawer
-      const explainBackPrompt = `How well did ${displayPartnerName} capture the intention behind your idea?`;
+      const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
       return (
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} />
@@ -1956,7 +1956,7 @@ function UnderstandingScreen({
             <p className="text-blue-700 text-sm text-center">{insightMessage}</p>
           </div>
           <ActionArea
-            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood. Withhold premature judgment.` : undefined}
+            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
           >
             {isChecker ? (
               // Speaker view in gap-revealed: wait for listener to decide
@@ -2054,8 +2054,8 @@ function UnderstandingScreen({
   if (phase === 'calibrated') {
     // Insight message matching the gap-revealed pattern but for calibrated state
     const insightMessage = isChecker
-      ? <>You feel {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
-      : <>{checkerName} feels you understand <span className="font-bold">exactly as much</span> as you think</>;
+      ? <>You believe {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
+      : <>{checkerName} believes you understand <span className="font-bold">exactly as much</span> as you think</>;
 
     return (
       <div className="flex flex-col h-full">
@@ -2078,7 +2078,7 @@ function UnderstandingScreen({
             <p className="text-muted-foreground text-sm text-center">{insightMessage}</p>
           </div>
           <ActionArea
-            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} feel more understood. Withhold premature judgment.` : undefined}
+            title={!isChecker && !listenerWaitingForNegotiation ? `Help ${checkerName} understand you better. Withhold premature judgment.` : undefined}
           >
             {isChecker ? (
               // Speaker view: wait for listener to decide (same as gap-revealed)
@@ -2311,9 +2311,9 @@ function UnderstandingScreen({
         />
         <ActionArea
           title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
-            ? `Help ${displayPartnerName} reach a perfect 10`
+            ? `What is missing to a perfect 10?`
             : !isChecker && clarificationPhase !== 'speaker-deciding' && !listenerWaitingForNegotiation && negotiation?.requestedBy !== currentUserName
-              ? `Help ${checkerName} feel more understood. Withhold premature judgment.`
+              ? `Help ${checkerName} understand you better. Withhold premature judgment.`
               : undefined}
         >
           {isChecker ? (

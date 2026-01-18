@@ -334,6 +334,14 @@ User clicked a CTA button in the navigation.
 | `cta` | string | CTA type: `take_pledge` or `try_meeting` |
 | `device` | string | Device type: `desktop` or `mobile` |
 
+### `nav_menu_opened`
+User opened the navigation menu (hamburger or avatar trigger). (P67)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `trigger` | string | Trigger type: `hamburger` (signed out) or `avatar` (verified user) |
+| `device` | string | Device type: `desktop` or `mobile` |
+
 ---
 
 ## Article/Content

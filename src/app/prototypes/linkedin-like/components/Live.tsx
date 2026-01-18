@@ -456,8 +456,8 @@ export function Live() {
     const bothSubmitted = state.checkerSubmitted && state.responderSubmitted;
 
     const headerText = isChecker
-      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">make you feel understood</span></>
-      : <>Your journey to <span className="font-semibold text-foreground">make {getFirstName(state.checkerName || partnerName)} feel understood</span></>;
+      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">understand you</span></>
+      : <>Your journey to <span className="font-semibold text-foreground">understand {getFirstName(state.checkerName || partnerName)}</span></>;
 
     return (
       <div className={`${bgClass} rounded-lg p-4 min-h-[180px] text-left w-full max-w-sm`}>
@@ -477,9 +477,9 @@ export function Live() {
                     <RatingDisplayPending label={<span className="text-muted-foreground">{displayPartnerName}'s confidence</span>} />
                   )}
                   {state.checkerRating !== undefined ? (
-                    <RatingDisplay label={<b className="text-foreground">Your feeling</b>} rating={state.checkerRating} />
+                    <RatingDisplay label={<b className="text-foreground">Your belief</b>} rating={state.checkerRating} />
                   ) : (
-                    <RatingDisplayPending label={<b className="text-foreground">Your feeling</b>} />
+                    <RatingDisplayPending label={<b className="text-foreground">Your belief</b>} />
                   )}
                 </>
               ) : (
@@ -490,9 +490,9 @@ export function Live() {
                     <RatingDisplayPending label={<span className="text-muted-foreground">Your confidence</span>} />
                   )}
                   {bothSubmitted && state.checkerRating !== undefined ? (
-                    <RatingDisplay label={<b className="text-foreground">{getFirstName(state.checkerName || partnerName)}'s feeling</b>} rating={state.checkerRating} />
+                    <RatingDisplay label={<b className="text-foreground">{getFirstName(state.checkerName || partnerName)}'s belief</b>} rating={state.checkerRating} />
                   ) : (
-                    <RatingDisplayPending label={<b className="text-foreground">{getFirstName(state.checkerName || partnerName)}'s feeling</b>} />
+                    <RatingDisplayPending label={<b className="text-foreground">{getFirstName(state.checkerName || partnerName)}'s belief</b>} />
                   )}
                 </>
               )}
@@ -506,8 +506,8 @@ export function Live() {
               <div className="flex-1">
                 <RatingDisplay
                   label={isChecker
-                    ? <b className="text-foreground">Your feeling</b>
-                    : <b className="text-foreground">{getFirstName(state.checkerName || partnerName)}'s feeling</b>
+                    ? <b className="text-foreground">Your belief</b>
+                    : <b className="text-foreground">{getFirstName(state.checkerName || partnerName)}'s belief</b>
                   }
                   rating={rating}
                 />
@@ -825,7 +825,7 @@ export function Live() {
   // RATING PHASE - User is rating
   if (state.ratingPhase === 'rating') {
     const prompt = isChecker
-      ? `How well do you feel ${displayPartnerName} understands you?`
+      ? `How well do you believe ${displayPartnerName} understands you?`
       : `How confident are you that you understand ${getFirstName(state.checkerName || partnerName)}?`;
 
     return (
@@ -861,7 +861,7 @@ export function Live() {
   if (state.ratingPhase === 'waiting') {
     const waitingMessage = isChecker
       ? `Waiting for ${displayPartnerName} to share their confidence...`
-      : `Waiting for ${getFirstName(state.checkerName || partnerName)} to share their feeling...`;
+      : `Waiting for ${getFirstName(state.checkerName || partnerName)} to share their belief...`;
 
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -883,8 +883,8 @@ export function Live() {
 
     const insightMessage = isCalibrated
       ? (isChecker
-          ? <>You feel {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
-          : <>{getFirstName(state.checkerName || partnerName)} feels you understand <span className="font-bold">exactly as much</span> as you think</>)
+          ? <>You believe {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
+          : <>{getFirstName(state.checkerName || partnerName)} believes you understand <span className="font-bold">exactly as much</span> as you think</>)
       : gapType === 'overconfidence'
         ? (isChecker
             ? <>You think {displayPartnerName} understands <span className="font-bold">less</span> than they think</>
@@ -910,7 +910,7 @@ export function Live() {
           </div>
 
           <ActionArea
-            title={!isChecker ? `Help ${getFirstName(state.checkerName || partnerName)} feel more understood. Withhold premature judgment.` : undefined}
+            title={!isChecker ? `Help ${getFirstName(state.checkerName || partnerName)} understand you better. Withhold premature judgment.` : undefined}
           >
             {isChecker ? (
               <WaitingIndicator
@@ -953,7 +953,7 @@ export function Live() {
       }
 
       // Listener tapped done - show rating drawer
-      const explainBackPrompt = `How well did ${displayPartnerName} capture the intention behind your idea?`;
+      const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
 
       return (
         <div className="flex flex-col min-h-screen bg-background">
@@ -1029,7 +1029,7 @@ export function Live() {
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding />
           <ActionArea
-            title={!isChecker ? `Help ${getFirstName(state.checkerName || partnerName)} feel more understood. Withhold premature judgment.` : undefined}
+            title={!isChecker ? `Help ${getFirstName(state.checkerName || partnerName)} understand you better. Withhold premature judgment.` : undefined}
           >
             {isChecker ? (
               <>

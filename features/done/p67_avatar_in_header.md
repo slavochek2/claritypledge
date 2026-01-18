@@ -6,9 +6,18 @@ When users are signed in, there's no visual confirmation in the header. The hamb
 
 ## Solution
 
-Replace the hamburger icon with a colored initials avatar for signed-in verified users. The avatar triggers the same dropdown menu — just a visual swap of the trigger icon.
+Replace the hamburger icon with the user's avatar for signed-in verified users. The avatar triggers the same dropdown menu — just a visual swap of the trigger icon.
 
 **Key insight:** One menu is better UX. Don't add a second trigger.
+
+## Key Decisions
+
+| # | Decision | Choice |
+|---|----------|--------|
+| 1 | Mobile menu open state | X replaces avatar (matches current hamburger behavior) |
+| 2 | Avatar size | 40px (`sm` size) — good touch target, no new code |
+| 3 | Initials format | Two initials via `getInitials()` — more distinctive |
+| 4 | Component | Reuse existing `GravatarAvatar` — supports photos + initials fallback |
 
 ## Architecture Overview
 
@@ -70,17 +79,20 @@ Both use `NavigationMenuItems` for shared menu content.
 
 ### Avatar Component
 
+Reuse existing `GravatarAvatar` component (`src/components/ui/gravatar-avatar.tsx`):
+
 ```
-   ┌───┐
-   │ S │   ← First letter of name, white text
-   └───┘
+   ┌────┐
+   │ JD │   ← Two initials via getInitials(), white text
+   └────┘      OR photo if user.avatarUrl exists
      ↑
-  32x32px circle
-  Background: user's avatar_color (or #3b82f6 fallback)
+  40x40px circle (size="sm")
+  Background: user's avatarColor (or #0044CC fallback)
 ```
 
-- Same size as hamburger button (~40x40 touch target with padding)
-- Hover: ring or subtle highlight
+- 40x40 touch target (existing `sm` size)
+- Supports photo URLs (P63 Google OAuth avatars) with fallback to initials
+- Hover: ring or subtle highlight (added via wrapper button)
 - Focus: visible focus ring (accessibility)
 
 ### Visual Change
@@ -107,67 +119,38 @@ Both use `NavigationMenuItems` for shared menu content.
 ### Files to Modify
 
 1. **`src/app/components/layout/simple-navigation.tsx`**
-   - Import avatar component
+   - Import `GravatarAvatar`
    - Swap hamburger icon for avatar when `showUserMenu === true`
-   - Desktop: swap `<MenuIcon>` for `<UserAvatar>`
-   - Mobile: swap `<MenuIcon>` / `<XIcon>` for `<UserAvatar>` / `<XIcon>`
+   - Desktop: swap `<MenuIcon>` for `<GravatarAvatar>`
+   - Mobile: swap `<MenuIcon>` for `<GravatarAvatar>` (X icon still shows when open)
 
 2. **`src/app/components/partners/live-session-banner.tsx`**
    - Same pattern: swap trigger icon based on auth state
-   - Keep all existing menu items (Sound, Leave Meeting, etc.)
-
-3. **Create `src/app/components/layout/user-avatar.tsx`** (new)
-   - Simple presentational component
-   - Props: `name`, `avatarColor`, `size`
-   - Returns circular div with first letter
 
 ### No Changes Needed
 
+- `GravatarAvatar` — already exists with all needed functionality
 - `NavigationMenuItems` — already handles all menu content correctly
 - `useNavAuthState` — already provides all needed state
 - `nav-links.ts` — static, no changes
 
 ### Implementation Details
 
-#### user-avatar.tsx (new file)
-
-```tsx
-interface UserAvatarProps {
-  name: string;
-  avatarColor?: string;
-  size?: 'sm' | 'md';
-  className?: string;
-}
-
-export function UserAvatar({ name, avatarColor, size = 'sm', className }: UserAvatarProps) {
-  const initial = name?.charAt(0)?.toUpperCase() || '?';
-  const bgColor = avatarColor || '#3b82f6'; // blue-500 fallback
-
-  const sizeClasses = size === 'sm' ? 'w-8 h-8 text-sm' : 'w-10 h-10 text-base';
-
-  return (
-    <div
-      className={cn(
-        'rounded-full flex items-center justify-center text-white font-medium',
-        sizeClasses,
-        className
-      )}
-      style={{ backgroundColor: bgColor }}
-    >
-      {initial}
-    </div>
-  );
-}
-```
-
 #### simple-navigation.tsx changes
 
 ```tsx
+import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+
 // In desktop menu trigger:
 <DropdownMenuTrigger asChild>
   <button className="..." aria-label="Menu">
     {showUserMenu && user ? (
-      <UserAvatar name={user.name} avatarColor={user.avatarColor} />
+      <GravatarAvatar
+        name={user.name}
+        avatarColor={user.avatarColor}
+        photoUrl={user.avatarUrl}
+        size="sm"
+      />
     ) : (
       <MenuIcon className="w-5 h-5" />
     )}
@@ -179,7 +162,12 @@ export function UserAvatar({ name, avatarColor, size = 'sm', className }: UserAv
   {isMobileMenuOpen ? (
     <XIcon className="w-6 h-6" />
   ) : showUserMenu && user ? (
-    <UserAvatar name={user.name} avatarColor={user.avatarColor} />
+    <GravatarAvatar
+      name={user.name}
+      avatarColor={user.avatarColor}
+      photoUrl={user.avatarUrl}
+      size="sm"
+    />
   ) : (
     <MenuIcon className="w-6 h-6" />
   )}
@@ -188,7 +176,7 @@ export function UserAvatar({ name, avatarColor, size = 'sm', className }: UserAv
 
 #### live-session-banner.tsx changes
 
-Same pattern — swap `<MenuIcon>` for `<UserAvatar>` when `showUserMenu && user`.
+Same pattern — swap `<MenuIcon>` for `<GravatarAvatar>` when `showUserMenu && user`.
 
 ## Edge Cases
 
@@ -196,9 +184,9 @@ Same pattern — swap `<MenuIcon>` for `<UserAvatar>` when `showUserMenu && user
 |------|----------|
 | Auth loading | Show hamburger (prevents flicker) |
 | Unverified user | Show hamburger (treated as signed out for menu) |
-| No `avatar_color` | Fallback to `#3b82f6` (blue-500) |
-| No name | Show "?" as initial |
-| Name starts with emoji/number | Show first character as-is |
+| No `avatarColor` | Fallback to `#0044CC` (GravatarAvatar default) |
+| Has `avatarUrl` | Show photo, fall back to initials on error |
+| No name | Show "?" as initial (via `getInitials`) |
 
 ## Test Updates Required
 
@@ -213,10 +201,16 @@ Same pattern — swap `<MenuIcon>` for `<UserAvatar>` when `showUserMenu && user
 ```tsx
 // Verified user sees avatar instead of hamburger
 it('shows avatar trigger for verified user', () => {
-  mockAuthState({ showUserMenu: true, user: { name: 'Slava', avatarColor: '#10b981' } });
+  mockAuthState({ showUserMenu: true, user: { name: 'Slava Kuzmich', avatarColor: '#10b981' } });
   render(<SimpleNavigation />);
-  expect(screen.getByText('S')).toBeInTheDocument(); // Avatar initial
-  expect(screen.queryByLabelText('Menu')).not.toHaveClass('lucide-menu'); // No hamburger icon
+  expect(screen.getByText('SK')).toBeInTheDocument(); // Two initials
+});
+
+// Verified user with photo sees photo avatar
+it('shows photo avatar for user with avatarUrl', () => {
+  mockAuthState({ showUserMenu: true, user: { name: 'Slava', avatarUrl: 'https://example.com/photo.jpg' } });
+  render(<SimpleNavigation />);
+  expect(screen.getByAltText("Slava's avatar")).toBeInTheDocument();
 });
 
 // Signed out user sees hamburger
@@ -229,14 +223,15 @@ it('shows hamburger for signed out user', () => {
 
 ## Success Criteria
 
-- [ ] Verified users see avatar (with correct color) instead of hamburger
-- [ ] Clicking avatar opens same dropdown menu
-- [ ] Signed out/unverified users still see hamburger
-- [ ] Mobile menu works with avatar trigger
-- [ ] `/live` page shows avatar for verified users
-- [ ] No flicker during auth loading (hamburger shown until resolved)
-- [ ] All existing tests pass
-- [ ] New tests cover avatar states
+- [x] Verified users see avatar (initials or photo) instead of hamburger
+- [x] Clicking avatar opens same dropdown menu
+- [x] Signed out/unverified users still see hamburger
+- [x] Mobile menu works with avatar trigger (X icon when open)
+- [x] `/live` page shows avatar for verified users
+- [x] Photo avatars display correctly (P63 Google OAuth users)
+- [x] No flicker during auth loading (hamburger shown until resolved)
+- [x] All existing tests pass
+- [x] New tests cover avatar states
 
 ## Analytics
 
@@ -245,6 +240,6 @@ Track trigger type for menu opens:
 
 ## Out of Scope (Future)
 
-- Photo upload support (requires Supabase Storage)
+- Custom photo upload (requires Supabase Storage) — currently only Google OAuth photos supported
 - Tooltip on avatar hover
 - Avatar in other locations (footer, etc.)

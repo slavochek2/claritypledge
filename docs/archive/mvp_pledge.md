@@ -1,3 +1,9 @@
+> **Archived 2026-01-17:** This doc describes the original Pledge-centric product.
+> See Product Overview section in CLAUDE.md for current direction.
+> The Pledge is now a "graduation" feature (~1% of users), not the core product.
+
+---
+
 # Clarity Pledge - Functional Specifications
 
 ## Core Concept

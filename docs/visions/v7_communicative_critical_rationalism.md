@@ -23,7 +23,9 @@ We have many epistemologies: empiricism, pragmatism, constructivism, critical ra
 
 ### Definition: Communicative Critical Rationalism
 
-A procedural meta-epistemology based not on *what* is true, but on a *protocol of engagement* that allows truth to emerge through error correction and mutual understanding.
+A **methodological meta-epistemology** based not on *what* is true, but on a *protocol of engagement* that allows truth to emerge through error correction and mutual understanding.
+
+This is not a theory about the nature of knowledge — it's the "rules of the game" for how people with different epistemologies can resolve disputes without first agreeing on what constitutes evidence.
 
 ### The Central Hypothesis
 
@@ -59,6 +61,83 @@ Knowledge consists of two elements:
 | **Stories** | Experiences and explanations (the "why/how") | Cannot agree/disagree with directly; provide context for points |
 
 A story relates to points. People hold positions on points, and their stories explain *why* they hold those positions.
+
+---
+
+## The Asymmetric Conversion Hypothesis
+
+The core measurable claim of this framework:
+
+> In a network of calibrated active listeners, the Point closest to truth is the one that exhibits the highest **Asymmetric Conversion Rate**: the statistical likelihood that an opponent moves their position toward the Point after achieving verified understanding (≥8/10) of its supporting Stories, while the inverse does not occur.
+
+### Why Asymmetry Matters
+
+| Pattern | Interpretation |
+|---------|----------------|
+| **Asymmetric conversion** (one side moves more) | Signal toward truth |
+| **Symmetric conversion** (both sides move equally) | Genuine value conflict or both partially right |
+| **No conversion despite understanding** | Incommensurable axioms — the disagreement is about values, not facts |
+
+### What This Enables
+
+This hypothesis makes truth **measurable** without requiring anyone to be the arbiter. The network itself reveals which points survive contact with understanding.
+
+---
+
+## The Measurement Stack
+
+How to operationalize this framework:
+
+### 1. Point Quality (AI-Evaluated)
+
+AI assesses whether a Point meets the criteria for a good explanation:
+
+- **Falsifiable** — Can be proven wrong in principle
+- **Hard to vary** — Changing one detail breaks the explanation
+- **Counter-factual** — Explains what would be different if false
+- **Antifragile** — Strengthened by criticism
+
+### 2. Position Scale
+
+Track positions on Points using a 7-point Likert scale:
+
+| Score | Meaning |
+|-------|---------|
+| -3 | Strongly disagree |
+| -2 | Disagree |
+| -1 | Slightly disagree |
+| 0 | Unsure / No opinion |
+| +1 | Slightly agree |
+| +2 | Agree |
+| +3 | Strongly agree |
+
+### 3. Understanding Verification
+
+Partners verify understanding through the paraphrase-and-confirm cycle:
+- Partner A shares their Story
+- Partner B paraphrases back
+- Partner A scores: "How understood do I feel?" (0-10)
+- Threshold for "verified understanding": ≥8/10
+
+### 4. Conversion Analysis
+
+Compare position changes against **personal baseline**:
+- Track each user's typical conversion rate across all Points
+- If User X converts on 20% of Points generally, but 80% on Point A after understanding Story S, that's signal
+- No need for global baselines — each person is their own control
+
+### 5. Calibration (Emergent)
+
+No gatekeeping. Calibration emerges from the network:
+- Weight contributions by track record
+- "This understanding was verified by Person X, Y, Z. Here's their history."
+- Anyone can participate; data quality emerges from patterns
+
+### Story-Point Coherence
+
+A Story "supports" a Point if understanding the Story predictably leads to position change on that Point. This is **empirical coherence** — we measure it, not judge it.
+
+Future enhancement: AI could flag Stories that are emotionally compelling but logically disconnected from their claimed Points.
 
 ---
 
@@ -138,31 +217,30 @@ This creates a "market for understanding" rather than a "market for ideas" (who 
 
 ## Open Questions and Challenges
 
-### The Sophist Problem
+### Resolved in This Framework
 
-Some people master active listening as manipulation - making you feel understood to lower your guard.
+**The Expert Filter** — Solved by decentralized calibration. No gatekeeping needed; weight contributions by track record. The network self-calibrates.
 
-**Potential defense:** Recursive teachability. A manipulator can trick one person, but manipulated stories degrade through networks of expert active listeners.
+**Deep Pluralism** — The Asymmetric Conversion Hypothesis distinguishes fact-disagreements from value-disagreements. If two people understand each other perfectly but still disagree, and conversion is symmetric or absent, that's signal of incommensurable values — not a failure of the framework.
 
-### The Expert Filter
+### Partially Addressed
 
-How do we define "expert who is a good active listener" without falling into dogmatic traps?
+**The Sophist Problem** — Someone could manipulate through active listening. Defenses:
+1. Recursive teachability — manipulated stories degrade through networks
+2. Empirical Story-Point coherence — emotionally compelling but logically disconnected stories should show weaker conversion patterns
+3. Future: AI flagging of logical disconnects
 
-### The Cost of Scaling
+**Feeling vs. Fact** — Does "feeling understood" correlate with "being accurately represented"? Partially addressed by requiring both self-report (feeling) and partner confirmation (paraphrase accuracy). Could be strengthened with third-party verification.
 
-Active listening is expensive (time, cognitive energy). How do we scale globally?
+### Still Open
 
-### Deep Pluralism
+**The Cost of Scaling** — Active listening is expensive (time, cognitive energy). The measurement stack reduces this by making each exchange count as data, but we need more exchanges than traditional surveys. Can AI assistance reduce the cognitive load without biasing outcomes?
 
-If two people understand each other perfectly (10/10) but hold different core values (sanctity vs. harm-reduction), they'll still disagree. Does this theory allow for multiple "truths" based on different value-axioms?
+**AI Bias** — How do we ensure AI evaluates Point quality fairly? Current approach: AI only evaluates structural properties (falsifiable, hard to vary) not content truth. But training data bias could still affect what's considered "well-formed."
 
-### Feeling vs. Fact
+**Threshold Sensitivity** — Why 8/10 for verified understanding? Is this the right threshold? Different thresholds might produce different conversion patterns. Needs empirical validation.
 
-Does "feeling understood" actually correlate with "being accurately represented"?
-
-### AI Bias
-
-How do we ensure AI is a "good active listener" rather than a biased summarizer?
+**Time Horizon** — When do we measure conversion? Immediately after? A week later? People might "snap back" to original positions under social pressure. The measurement timing affects what we're actually measuring.
 
 ---
 
@@ -170,12 +248,23 @@ How do we ensure AI is a "good active listener" rather than a biased summarizer?
 
 The Clarity Pledge operationalizes this philosophy:
 
-1. **Active listening as commitment** - Signers pledge to practice the protocol
-2. **Verification through understanding** - The "Did I Get It?" flow implements the paraphrase-and-confirm cycle
-3. **Scaling through network** - Building a community of people who've agreed to the meta-epistemology
-4. **Visibility into understanding** - Future features could track understanding scores across conversations
+### Current Implementation
 
-The pledge isn't about being right - it's about agreeing to the *method* by which truth can emerge.
+1. **Active listening as commitment** — Signers pledge to practice the protocol
+2. **Verification through understanding** — The `/live` sessions implement the paraphrase-and-confirm cycle
+3. **Scaling through network** — Events bring people who've agreed to the meta-epistemology
+
+### Future Implementation (The Measurement Stack)
+
+4. **Points and Stories** — Events seed Points (claims) and Stories (experiences). Users take positions (-3 to +3) on Points.
+5. **Understanding verification** — Partners verify understanding (0-10 score) during live sessions
+6. **Conversion tracking** — System tracks position changes before/after verified understanding
+7. **Asymmetric conversion visualization** — Show which Points exhibit asymmetric conversion patterns
+8. **Calibration profiles** — Users build track records as listeners; contributions weighted by history
+
+### The Goal
+
+The pledge isn't about being right — it's about agreeing to the *method* by which truth can emerge. The platform doesn't tell you what's true; it shows you what happens when people truly understand each other.
 
 ---
 
@@ -183,10 +272,12 @@ The pledge isn't about being right - it's about agreeing to the *method* by whic
 
 > We don't need to agree on what is true. We need to agree on *how we will find out* what is true. Active listening is that agreement.
 
-The person who understands others better than they are understood is likely closer to truth - not because understanding makes you right, but because the ability to model diverse perspectives indicates a more robust, harder-to-vary explanation of reality.
+The person who understands others better than they are understood is likely closer to truth — not because understanding makes you right, but because the ability to model diverse perspectives indicates a more robust, harder-to-vary explanation of reality.
 
-Truth emerges through error correction. Active listening ensures we correct *actual* errors, not misunderstandings. Scale this through networks of skilled listeners, visualize the patterns, and let the recursively teachable ideas surface.
+**The key insight:** Truth can be measured by tracking what happens when people truly understand each other. If Point A converts opponents who understand it, while Point B doesn't convert opponents who understand it, Point A is closer to truth — and we can see this in the data without anyone being the arbiter.
+
+Truth emerges through error correction. Active listening ensures we correct *actual* errors, not misunderstandings. Scale this through networks of skilled listeners, track the patterns, and let the asymmetrically converting ideas surface.
 
 ---
 
-*This vision synthesizes ideas from Popper, Deutsch, Habermas, and communication science into a unique meta-epistemological framework centered on verifiable mutual understanding.*
+*This vision synthesizes ideas from Popper, Deutsch, Habermas, and communication science into a unique meta-epistemological framework centered on verifiable mutual understanding — with a measurable hypothesis (Asymmetric Conversion) and an operational measurement stack.*

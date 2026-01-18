@@ -135,7 +135,7 @@ describe('LiveModeView', () => {
       );
 
       // Should show the journey with prover context
-      // The text is now "journey to make you feel understood"
+      // The text is now "journey to understand you"
       expect(screen.getByText(/journey to/i)).toBeInTheDocument();
     });
 
@@ -168,8 +168,8 @@ describe('LiveModeView', () => {
 
       // Bob should see drawer with "Alice wants to know how well they understood you"
       expect(screen.getByText(/Alice wants to know/i)).toBeInTheDocument();
-      // And the rating question should ask how understood Bob feels
-      expect(screen.getByText(/How well do you feel understood by Alice/i)).toBeInTheDocument();
+      // And the rating question should ask how well Bob believes Alice understands him
+      expect(screen.getByText(/How well do you believe Alice understands you/i)).toBeInTheDocument();
     });
 
     it('shows correct rating question for prover (listener) when they initiate', () => {
@@ -249,7 +249,7 @@ describe('LiveModeView', () => {
       );
 
       // Alice (checker) should see the speaker question
-      expect(screen.getByText(/How well do you feel Bob understands you/i)).toBeInTheDocument();
+      expect(screen.getByText(/How well do you believe Bob understands you/i)).toBeInTheDocument();
     });
 
     it('handles undefined localFlowType with isLocallyRating=true (defaults to check flow)', () => {
@@ -274,7 +274,7 @@ describe('LiveModeView', () => {
       );
 
       // Should default to check flow behavior (speaker question)
-      expect(screen.getByText(/How well do you feel Bob understands you/i)).toBeInTheDocument();
+      expect(screen.getByText(/How well do you believe Bob understands you/i)).toBeInTheDocument();
     });
   });
 

@@ -60,7 +60,9 @@ if command -v gitleaks &> /dev/null; then
         GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
     fi
 
-    if echo "$GITLEAKS_OUTPUT" | grep -q "leaks found"; then
+    if echo "$GITLEAKS_OUTPUT" | grep -q "no leaks found"; then
+        echo -e "${GREEN}✓ No secrets detected (gitleaks)${NC}"
+    elif echo "$GITLEAKS_OUTPUT" | grep -q "leaks found"; then
         echo -e "${RED}✗ Secrets detected by gitleaks:${NC}"
         echo "$GITLEAKS_OUTPUT" | grep -A5 "Secret:" || echo "$GITLEAKS_OUTPUT"
         ERRORS=$((ERRORS + 1))
