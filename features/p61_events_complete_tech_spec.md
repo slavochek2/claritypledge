@@ -7,6 +7,28 @@
 
 ---
 
+## One-Sentence Goal
+
+Build a Luma-style events platform where every RSVP creates a Clarity Pledge user with a public profile, turning offline meetups into user acquisition.
+
+---
+
+## Jobs-to-be-Done
+
+### For Event Hosts
+1. **User acquisition:** Every event RSVP = verified email + authenticated user
+2. **Community building:** Recurring events with real humans while building product
+3. **Feature validation:** Workshop attendees test /live and give roadmap feedback
+4. **Authority:** Public event history builds credibility
+
+### For Attendees
+1. **Discover events:** Browse upcoming sensemaking/clarity workshops
+2. **RSVP easily:** Magic link auth (same as pledge signup)
+3. **See attendees:** Know who's coming before committing
+4. **Get calendar file:** Add event to Google Calendar, Apple Calendar, Outlook
+
+---
+
 ## Success Criteria (ALL must pass)
 
 | Criteria | Threshold | How to Verify |
@@ -38,6 +60,36 @@ pwd | xargs basename  # claritypledge-N → port 5N00
 # 3. Verify dev server
 curl -s http://localhost:${PORT} > /dev/null && echo "Server: OK"
 ```
+
+---
+
+## Design Decisions
+
+### Cancelled Events
+
+**Decision:** Cancelled events are shown to everyone with clear visual indicators.
+
+**Events List (`/events`):**
+- Cancelled events appear in the Upcoming tab
+- Card shows "Cancelled" badge (red) instead of "You're Going"/"You're Hosting"
+- Card has muted styling (opacity + grayscale header)
+- Clicking opens event detail page
+
+**Event Detail (`/events/:slug`):**
+- Shows full event details (title, description, date, location, attendees)
+- Red banner at top: "This event has been cancelled"
+- RSVP section hidden (no action available)
+- "Add to Calendar" hidden
+- Host controls hidden
+
+**Rationale:**
+- Users can see event history including cancelled events
+- Full details visible for context (who was going, what was planned)
+- Simpler than filtering based on user role
+
+**Test coverage (mock data):**
+- `evt-7` (maya-workshop-cancelled) — Cancelled by another host, user was registered
+- `evt-8` (my-cancelled-event) — Cancelled by user as host
 
 ---
 
@@ -362,6 +414,8 @@ When `auth.uid() === event.hostId`, show host controls section:
 2. On confirm → call `cancelEvent(eventId)`
 3. Redirect to `/events` with toast "Event cancelled"
 
+> See [Design Decisions: Cancelled Events](#cancelled-events-kiss) for visibility rules.
+
 ### Task 4.7: Edit Event Page
 
 **File:** `src/app/prototypes/events/components/EditEvent.tsx` (NEW)
@@ -460,52 +514,24 @@ export function getTimezoneLabel(ianaTimezone: string): string {
 - Show first 3 events
 - Empty state: "No upcoming events" or hide section
 
-### Task 4.11: Add timezone to CreateEvent form
+### Task 4.11: Use shared constants for timezone and duration
 
-**File:** `src/app/prototypes/events/components/CreateEvent.tsx`
+**File:** `src/app/prototypes/events/utils.ts` (single source of truth)
 
-Add timezone selector after time field with comprehensive list (24 zones):
+**Already implemented in mock.** Import shared constants in forms:
 
 ```tsx
-const timezones = [
-  // UTC-12 to UTC-8
-  { value: 'Pacific/Midway', label: '(UTC-11:00) Midway Island, Samoa' },
-  { value: 'Pacific/Honolulu', label: '(UTC-10:00) Hawaii - Honolulu' },
-  { value: 'America/Anchorage', label: '(UTC-09:00) Alaska - Anchorage' },
-  { value: 'America/Los_Angeles', label: '(UTC-08:00) Pacific Time - Los Angeles, Seattle, Vancouver' },
-  // UTC-7 to UTC-5
-  { value: 'America/Denver', label: '(UTC-07:00) Mountain Time - Denver, Phoenix, Calgary' },
-  { value: 'America/Chicago', label: '(UTC-06:00) Central Time - Chicago, Houston, Mexico City' },
-  { value: 'America/New_York', label: '(UTC-05:00) Eastern Time - New York, Toronto, Miami' },
-  // UTC-4 to UTC-2
-  { value: 'America/Halifax', label: '(UTC-04:00) Atlantic Time - Halifax, Puerto Rico' },
-  { value: 'America/Sao_Paulo', label: '(UTC-03:00) South America - São Paulo, Buenos Aires' },
-  // UTC±0
-  { value: 'UTC', label: '(UTC+00:00) UTC - Coordinated Universal Time' },
-  { value: 'Europe/London', label: '(UTC+00:00) UK & Ireland - London, Dublin' },
-  // UTC+1 to UTC+3
-  { value: 'Europe/Paris', label: '(UTC+01:00) Central Europe - Paris, Berlin, Amsterdam, Rome' },
-  { value: 'Europe/Helsinki', label: '(UTC+02:00) Eastern Europe - Helsinki, Kyiv, Athens, Cairo' },
-  { value: 'Europe/Moscow', label: '(UTC+03:00) Moscow, Istanbul, Riyadh, Nairobi' },
-  // UTC+4 to UTC+5:30
-  { value: 'Asia/Dubai', label: '(UTC+04:00) Gulf - Dubai, Abu Dhabi, Baku' },
-  { value: 'Asia/Karachi', label: '(UTC+05:00) Pakistan - Karachi, Islamabad' },
-  { value: 'Asia/Kolkata', label: '(UTC+05:30) India - Mumbai, Delhi, Bangalore, Kolkata' },
-  // UTC+6 to UTC+7
-  { value: 'Asia/Dhaka', label: '(UTC+06:00) Bangladesh - Dhaka' },
-  { value: 'Asia/Bangkok', label: '(UTC+07:00) Indochina - Bangkok, Ho Chi Minh, Jakarta' },
-  // UTC+8 to UTC+9
-  { value: 'Asia/Singapore', label: '(UTC+08:00) Singapore, Hong Kong, Kuala Lumpur, Perth' },
-  { value: 'Asia/Shanghai', label: '(UTC+08:00) China - Beijing, Shanghai, Taipei' },
-  { value: 'Asia/Tokyo', label: '(UTC+09:00) Japan & Korea - Tokyo, Seoul' },
-  // UTC+10 to UTC+12
-  { value: 'Australia/Sydney', label: '(UTC+10:00) Eastern Australia - Sydney, Melbourne' },
-  { value: 'Pacific/Auckland', label: '(UTC+12:00) New Zealand - Auckland, Wellington' },
-];
+import { DURATIONS, TIMEZONES } from '../utils';
+
+// TIMEZONES: 24 zones from UTC-11 to UTC+12
+// DURATIONS: 30min, 1hr, 1.5hr, 2hr, 3hr, 4hr, All day (stored as minutes)
 
 // Default to Bangkok (founder's current location)
 const [timezone, setTimezone] = useState('Asia/Bangkok');
+const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours
 ```
+
+**Note:** Both CreateEvent and EditEvent import from `utils.ts` to avoid timezone/duration list inconsistencies.
 
 ### Task 4.12: Delete mock-data.ts
 
@@ -797,3 +823,115 @@ src/app/prototypes/events/mock-data.ts
 - [ ] Pre-commit checks pass
 - [ ] Learnings documented
 - [ ] Ready for commit
+
+---
+
+## Email Integration (Brevo)
+
+### Email 1: Magic Link (for RSVP)
+
+**Trigger:** User clicks "Sign Up to RSVP", enters email
+
+**Subject:** Confirm your RSVP for {event_title}
+
+**Body:**
+```
+Hi {name},
+
+Click below to confirm your RSVP for:
+
+{event_title}
+{datetime}
+{location}
+
+[Confirm RSVP] → {magic_link}
+
+This link expires in 1 hour.
+
+— Clarity Pledge
+```
+
+**Magic link URL:**
+```
+https://claritypledge.com/auth/callback?token={token}&source=event&redirect=/events/{slug}
+```
+
+### Email 2: Confirmation (after RSVP)
+
+**Trigger:** User confirms email, RSVP'd to event
+
+**Subject:** You're registered for {event_title}!
+
+**Body:**
+```
+Hi {name},
+
+You're all set for:
+
+{event_title}
+{datetime}
+{location}
+
+[Add to Calendar] → {ics_download_link}
+[View Event Details] → {event_url}
+
+See you there!
+
+— Clarity Pledge
+```
+
+---
+
+## Success Metrics (Post-Launch)
+
+| Metric | Target | Why |
+|--------|--------|-----|
+| RSVP → Signup conversion | >80% | Do people complete magic link? |
+| Event attendee show-up rate | >60% | Are RSVPs real? |
+| Repeat attendance | >30% | Do people come back? |
+| Event page views | 5x RSVP count | Are people browsing? |
+
+---
+
+## What We're Copying From Luma
+
+✅ **Take:**
+- Event card grid layout
+- Simple create form
+- Clear RSVP button states
+- Attendee avatar display
+- Host profile card
+- Markdown description rendering
+
+❌ **Skip (for MVP):**
+- Cover image upload (use default gradients)
+- Ticket pricing (all free)
+- Event themes/customization
+- Host subscription
+- Social sharing buttons
+- Waitlist UI (unlimited capacity)
+- Filters/search (KISS)
+- Zoom integration (offline only)
+
+---
+
+## Key Decisions
+
+| Question | Decision |
+|----------|----------|
+| **Location** | Offline only (plain text address) |
+| **Email confirmation** | Required (magic link with `?source=event`) |
+| **Calendar integration** | .ics file download (Google, Apple, Outlook compatible) |
+| **Attendee visibility** | Public (anyone can see attendee list before RSVP) |
+| **Event creation** | Any authenticated user can create events |
+| **Capacity** | Unlimited for MVP (no waitlist) |
+| **Filters** | None (KISS - just Upcoming/Past tabs) |
+| **Zoom events** | Not MVP (offline only) |
+| **Communities** | Not MVP (events are standalone) |
+| **Reminder emails** | Not MVP (you handle manually via Brevo) |
+
+---
+
+## Related Documents
+
+- [P50: Profile & Pledge Separation](./done/p50_non_pledger_experience.md) - Required first
