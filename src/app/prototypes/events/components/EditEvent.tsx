@@ -1,38 +1,97 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { mockCurrentUser } from '../mock-data';
+import { getEventBySlug, mockCurrentUser } from '../mock-data';
 import { DURATIONS, TIMEZONES } from '../utils';
 
-export function CreateEvent() {
+export function EditEvent() {
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const event = slug ? getEventBySlug(slug) : undefined;
 
   // Form state
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
-  const [time, setTime] = useState('18:00');
-  const [timezone, setTimezone] = useState('Asia/Bangkok');
-  const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours default
+  const [time, setTime] = useState('');
+  const [timezone, setTimezone] = useState('');
+  const [durationMinutes, setDurationMinutes] = useState(120);
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Redirect if not logged in
+  // Pre-fill form with event data
+  useEffect(() => {
+    if (event) {
+      const eventDate = new Date(event.datetime);
+      setTitle(event.title);
+      setDate(eventDate.toISOString().split('T')[0]);
+      setTime(eventDate.toTimeString().slice(0, 5));
+      setTimezone(event.timezone);
+      setDurationMinutes(event.durationMinutes);
+      setLocation(event.location);
+      setDescription(event.description);
+      setIsLoading(false);
+    } else {
+      setIsLoading(false);
+    }
+  }, [event]);
+
+  // Event not found
+  if (!isLoading && !event) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Event Not Found</h1>
+          <p className="text-muted-foreground mb-4">This event doesn't exist or has been removed.</p>
+          <Link to="/events">
+            <Button variant="outline">Back to Events</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Not the host
+  if (!isLoading && event && event.hostId !== mockCurrentUser.id) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">Only the event host can edit this event.</p>
+          <Link to={`/events/${slug}`}>
+            <Button variant="outline">Back to Event</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in
   if (!mockCurrentUser.isLoggedIn) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Sign in to Create Events</h1>
-          <p className="text-muted-foreground mb-4">You need to be signed in to host events.</p>
+          <h1 className="text-2xl font-bold mb-2">Sign in Required</h1>
+          <p className="text-muted-foreground mb-4">You need to be signed in to edit events.</p>
           <Link to="/sign-pledge">
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up</Button>
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -45,11 +104,6 @@ export function CreateEvent() {
     }
     if (!date) {
       newErrors.date = 'Please select a date';
-    } else {
-      const selectedDate = new Date(date + 'T' + time);
-      if (selectedDate <= new Date()) {
-        newErrors.date = 'Event must be in the future';
-      }
     }
     if (!location.trim() || location.length < 3) {
       newErrors.location = 'Please enter a location';
@@ -72,38 +126,28 @@ export function CreateEvent() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Generate slug from title and date
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') + '-' + date;
-
     setIsSubmitting(false);
 
-    // Navigate to the new event (mock)
-    navigate(`/events/${slug}?created=true`);
+    // Navigate back to the event with success indicator
+    navigate(`/events/${slug}?updated=true`);
   };
-
-  // Get tomorrow's date for min date attribute
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().split('T')[0];
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6" data-testid="create-event-form">
+      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6">
         {/* Back link and title */}
         <div className="mb-6">
           <Link
-            to="/events"
+            to={`/events/${slug}`}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Events
+            Back to Event
           </Link>
-          <h1 className="text-2xl font-bold">Create Event</h1>
+          <h1 className="text-2xl font-bold">Edit Event</h1>
+          <p className="text-muted-foreground mt-1">Update your event details below.</p>
         </div>
+
         <div className="space-y-6">
           {/* Event Name */}
           <div>
@@ -134,7 +178,6 @@ export function CreateEvent() {
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
-                min={minDate}
                 className={errors.date ? 'border-red-500' : ''}
               />
               {errors.date && (
@@ -202,12 +245,15 @@ export function CreateEvent() {
               id="location"
               value={location}
               onChange={e => setLocation(e.target.value)}
-              placeholder="e.g., Golden Gate Park, Main Entrance"
+              placeholder="e.g., Golden Gate Park or Zoom: https://..."
               className={errors.location ? 'border-red-500' : ''}
             />
             {errors.location && (
               <p className="text-sm text-red-500 mt-1">{errors.location}</p>
             )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Physical address or virtual meeting link
+            </p>
           </div>
 
           {/* Description */}
@@ -232,15 +278,22 @@ export function CreateEvent() {
             </p>
           </div>
 
-          {/* Submit */}
-          <div className="pt-4">
+          {/* Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate(`/events/${slug}`)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
             <Button
               type="submit"
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-              size="lg"
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Creating Event...' : 'Create Event'}
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

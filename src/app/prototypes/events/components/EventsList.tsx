@@ -23,16 +23,16 @@ export function EventsList() {
   return (
     <div className="min-h-screen bg-background">
       {/* Prototype Toggle */}
-      <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
+      <div className="bg-muted border-b border-border px-4 py-2">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <span className="text-sm text-amber-800">
-            Prototype Mode: Viewing as <strong>{isLoggedIn ? 'logged-in user' : 'visitor'}</strong>
+          <span className="text-sm text-muted-foreground">
+            Prototype Mode: Viewing as <strong className="text-foreground">{isLoggedIn ? 'logged-in user' : 'visitor'}</strong>
           </span>
           <Button
             variant="outline"
             size="sm"
             onClick={toggleLoginState}
-            className="gap-2 text-amber-800 border-amber-300 hover:bg-amber-100"
+            className="gap-2"
           >
             {isLoggedIn ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {isLoggedIn ? 'View as Visitor' : 'View as Logged In'}
@@ -46,7 +46,7 @@ export function EventsList() {
           <h1 className="text-2xl font-bold">Events</h1>
           {isLoggedIn && (
             <Link to="/events/new">
-              <Button size="sm" className="gap-2">
+              <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
                 <Plus className="w-4 h-4" />
                 Create Event
               </Button>
@@ -106,7 +106,7 @@ export function EventsList() {
             </p>
             {activeTab === 'upcoming' && isLoggedIn && (
               <Link to="/events/new">
-                <Button className="gap-2">
+                <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
                   <Plus className="w-4 h-4" />
                   Create Event
                 </Button>
@@ -125,7 +125,7 @@ export function EventsList() {
               Sign up to create and host your own Clarity events.
             </p>
             <Link to="/sign-pledge">
-              <Button>Sign Up to Host</Button>
+              <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up to Host</Button>
             </Link>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   MapPin,
@@ -9,15 +10,18 @@ import {
   CalendarPlus,
   X,
   ChevronDown,
-  Download
+  Download,
+  Pencil,
+  Ban
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getEventBySlug, mockCurrentUser, isUserRsvpd } from '../mock-data';
-import { formatDate, formatTime, downloadICSFile, getGoogleCalendarUrl } from '../utils';
+import { getEventBySlug, mockCurrentUser, isUserRsvpd, isEventFull, cancelEvent, cancelRsvp } from '../mock-data';
+import { formatTime, downloadICSFile, getGoogleCalendarUrl, getTimezoneLabel } from '../utils';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const event = slug ? getEventBySlug(slug) : undefined;
 
   // Check if user is already RSVP'd (from mock data)
@@ -31,6 +35,9 @@ export function EventDetail() {
 
   const isRsvpd = alreadyRsvpd || justRsvpd;
 
+  // Check if current user is the host (mock: compare against mock user ID)
+  const isHost = mockCurrentUser.isLoggedIn && event?.hostId === mockCurrentUser.id;
+
   // Close calendar menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -41,6 +48,16 @@ export function EventDetail() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Show toast if user just signed up and was redirected here to RSVP
+  useEffect(() => {
+    if (searchParams.get('action') === 'rsvp' && mockCurrentUser.isLoggedIn) {
+      toast.success('Account created! Click RSVP to confirm your spot.');
+      // Clear the action param from URL
+      searchParams.delete('action');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   if (!event) {
     return (
@@ -56,13 +73,31 @@ export function EventDetail() {
     );
   }
 
+  // Show cancelled state
+  if (event.status === 'cancelled') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⛔</div>
+          <h1 className="text-2xl font-bold mb-2">Event Cancelled</h1>
+          <p className="text-muted-foreground mb-2">{event.title}</p>
+          <p className="text-sm text-muted-foreground mb-4">This event has been cancelled by the organizer.</p>
+          <Link to="/events">
+            <Button variant="outline">Back to Events</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const eventDate = new Date(event.datetime);
-  const endDate = new Date(eventDate.getTime() + event.durationHours * 60 * 60 * 1000);
+  const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
   const isPast = event.status === 'completed';
+  const isFull = isEventFull(event);
 
   const handleRsvp = async () => {
     if (!mockCurrentUser.isLoggedIn) {
-      navigate('/sign-pledge?redirect=/events/' + slug);
+      navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
 
@@ -74,11 +109,21 @@ export function EventDetail() {
   };
 
   const handleCancelRsvp = async () => {
+    if (!confirm('Cancel your RSVP for this event?')) return;
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
+    cancelRsvp(event.id);
     setJustRsvpd(false);
-    // In real app, would also update backend
     setIsLoading(false);
+  };
+
+  const handleCancelEvent = async () => {
+    if (!confirm('Cancel this event? All attendees will lose their RSVP.')) return;
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    cancelEvent(event.id);
+    setIsLoading(false);
+    navigate('/events');
   };
 
   // Event data for calendar utilities
@@ -96,23 +141,13 @@ export function EventDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Cover Image or Gradient */}
-      {event.coverImageUrl ? (
-        <div className="w-full h-48 md:h-64 overflow-hidden">
-          <img
-            src={event.coverImageUrl}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ) : (
-        <div
-          className="w-full h-32 md:h-48"
-          style={{
-            background: `linear-gradient(135deg, ${event.hostAvatarColor}40 0%, ${event.hostAvatarColor}20 100%)`,
-          }}
-        />
-      )}
+      {/* Header Gradient */}
+      <div
+        className="w-full h-32 md:h-48"
+        style={{
+          background: `linear-gradient(135deg, ${event.hostAvatarColor}40 0%, ${event.hostAvatarColor}20 100%)`,
+        }}
+      />
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
@@ -132,6 +167,36 @@ export function EventDetail() {
               {/* Title */}
               <h1 className="text-2xl md:text-3xl font-bold mb-4">{event.title}</h1>
 
+              {/* Host Controls - right after title for immediate visibility */}
+              {isHost && !isPast && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-blue-900">You're hosting this event</span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/events/${slug}/edit`)}
+                        className="gap-1.5 bg-white"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelEvent}
+                        disabled={isLoading}
+                        className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 bg-white"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                        Cancel Event
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Date & Time */}
               <div className="flex items-center gap-3 mb-3 text-muted-foreground">
                 <CalendarPlus className="w-5 h-5" />
@@ -140,7 +205,7 @@ export function EventDetail() {
                     {eventDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                   </span>
                   <span className="mx-2">·</span>
-                  <span>{formatTime(eventDate)} - {formatTime(endDate)}</span>
+                  <span>{formatTime(eventDate)} - {formatTime(endDate)} ({getTimezoneLabel(event.timezone || 'America/Los_Angeles')})</span>
                 </div>
               </div>
 
@@ -205,11 +270,16 @@ export function EventDetail() {
                 <ReactMarkdown>{event.description}</ReactMarkdown>
               </div>
 
-              {/* RSVP Section */}
+              {/* RSVP Section - Hidden for host (they're automatically attending) */}
+              {!isHost && (
               <div>
                 {isPast ? (
-                  <Button disabled className="w-full" size="lg">
+                  <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
                     Event Ended
+                  </Button>
+                ) : isFull && !isRsvpd ? (
+                  <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
+                    Event Full
                   </Button>
                 ) : isRsvpd ? (
                   /* Logged in + RSVP'd - show confirmation */
@@ -225,28 +295,30 @@ export function EventDetail() {
                       variant="ghost"
                       size="sm"
                       onClick={handleCancelRsvp}
-                      disabled={isLoading || alreadyRsvpd}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      disabled={isLoading}
+                      className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
                     >
                       <X className="w-4 h-4 mr-1" />
-                      Cancel
+                      Cancel RSVP
                     </Button>
                   </div>
                 ) : mockCurrentUser.isLoggedIn ? (
                   <Button
                     onClick={handleRsvp}
-                    className="w-full"
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
                     size="lg"
                     disabled={isLoading}
+                    data-testid="rsvp-button"
                   >
                     {isLoading ? 'Registering...' : 'RSVP'}
                   </Button>
                 ) : (
-                  <Button onClick={handleRsvp} className="w-full" size="lg">
-                    Sign Up to RSVP
+                  <Button onClick={handleRsvp} className="w-full bg-blue-500 hover:bg-blue-600 text-white" size="lg" data-testid="rsvp-button">
+                    Create Account to RSVP
                   </Button>
                 )}
               </div>
+              )}
             </div>
           </div>
 
@@ -256,8 +328,9 @@ export function EventDetail() {
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>
 
-              <div
-                className="flex flex-col items-center text-center w-full p-3 -m-3"
+              <Link
+                to={`/p/${event.hostSlug}`}
+                className="flex flex-col items-center text-center w-full p-3 -m-3 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div
                   className="w-16 h-16 rounded-full flex items-center justify-center text-white font-semibold text-xl mb-2"
@@ -267,19 +340,20 @@ export function EventDetail() {
                 </div>
                 <p className="font-semibold">{event.hostName}</p>
                 <p className="text-sm text-muted-foreground">{event.hostRole}</p>
-              </div>
+              </Link>
             </div>
 
             {/* Participants Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">
-                Participants ({event.attendees.length})
+                Participants ({event.attendees.length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
                 {event.attendees.map(attendee => (
-                  <div
+                  <Link
                     key={attendee.id}
-                    className="flex items-center gap-3 w-full p-2 rounded-lg text-left"
+                    to={`/p/${attendee.slug}`}
+                    className="flex items-center gap-3 w-full p-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
                   >
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
@@ -292,10 +366,10 @@ export function EventDetail() {
                         {attendee.name}
                       </p>
                     </div>
-                    <span className="text-xs text-green-600 font-medium">
+                    <span className="text-xs text-muted-foreground font-medium">
                       {isPast ? 'Attended' : 'Going'}
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>

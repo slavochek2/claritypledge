@@ -431,6 +431,26 @@ When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colo
 <div className="bg-blue-500 text-white">Content</div>
 ```
 
+#### ❌ Red on Green (Accessibility)
+
+**Problem:** Red-green colorblindness affects ~8% of men. Red text on green backgrounds is inaccessible and visually jarring.
+
+```tsx
+// ❌ WRONG: Red destructive button on green success banner
+<div className="bg-green-50 border-green-200">
+  <Button className="text-red-600">Cancel</Button>
+</div>
+
+// ✅ CORRECT: Muted text that turns red on hover
+<div className="bg-green-50 border-green-200">
+  <Button className="text-muted-foreground hover:text-red-600 hover:bg-white/50">
+    Cancel
+  </Button>
+</div>
+```
+
+**Rule:** Destructive actions inside success banners should use muted styling with red appearing only on hover.
+
 #### ❌ Backwards Compatibility Hacks
 
 **Problem:** Clutters code with unused exports, confusing for AI agents.
@@ -465,6 +485,32 @@ Use this checklist before creating wireframes, prototypes, or modifying frontend
 - [ ] Green only for success states, NOT action buttons
 - [ ] Blue for CTAs and interactive elements
 - [ ] Gray for non-interactive info banners
+
+### Auditing Existing UI (Systematic Check)
+
+When reviewing existing components for compliance, check **every button** against this matrix:
+
+| Button Purpose | Required Style | Check |
+|----------------|----------------|-------|
+| Primary CTA (Submit, Create, RSVP, Sign Up) | `bg-blue-500 hover:bg-blue-600 text-white` | [ ] |
+| Secondary action (Add to Calendar, Edit) | `variant="outline"` | [ ] |
+| Tertiary action (Cancel dialog, View Details) | `variant="ghost"` | [ ] |
+| Destructive (Delete, Cancel Event, Remove) | Red styling or `variant="destructive"` | [ ] |
+
+**State Coverage Matrix** - Test all user states visually:
+
+| State | What to Check |
+|-------|---------------|
+| Visitor (logged out) | CTAs say "Sign Up to..." and are blue |
+| Logged in (no action taken) | Primary action available and blue |
+| Logged in (action completed) | Success state shows green confirmation |
+| Owner/Host view | Owner controls visible, no redundant states |
+| Past/Completed state | Disabled states render correctly |
+
+**Common Misses:**
+- Default `<Button>` without blue override (renders dark gray, not blue)
+- Status text using green when it's not a success state
+- Missing user states in mock data (can't visually verify all scenarios)
 
 ---
 

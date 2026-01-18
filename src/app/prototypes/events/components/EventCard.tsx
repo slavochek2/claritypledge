@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Calendar, CheckCircle2 } from 'lucide-react';
+import { MapPin, Calendar, CheckCircle2, Crown } from 'lucide-react';
 import type { MockEvent } from '../mock-data';
-import { isUserRsvpd } from '../mock-data';
+import { isUserRsvpd, mockCurrentUser } from '../mock-data';
 import { formatDateShort, formatTime } from '../utils';
 
 interface EventCardProps {
@@ -11,12 +11,14 @@ interface EventCardProps {
 
 export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
   const eventDate = new Date(event.datetime);
-  const userIsGoing = isLoggedIn && isUserRsvpd(event.id);
+  const userIsHost = isLoggedIn && event.hostId === mockCurrentUser.id;
+  const userIsGoing = isLoggedIn && !userIsHost && isUserRsvpd(event.id);
 
   return (
     <Link
       to={`/events/${event.slug}`}
       className="group block border border-border rounded-xl overflow-hidden bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
+      data-testid="event-card"
     >
       {/* Cover gradient */}
       <div
@@ -25,9 +27,15 @@ export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
           background: `linear-gradient(135deg, ${event.hostAvatarColor}40 0%, ${event.hostAvatarColor}20 100%)`,
         }}
       >
-        {/* "You're Going" badge for logged-in RSVP'd user */}
-        {userIsGoing && event.status === 'upcoming' && (
-          <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 flex items-center gap-1">
+        {/* Status badge */}
+        {event.status === 'upcoming' && userIsHost && (
+          <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+            <Crown className="w-3 h-3" />
+            You're Hosting
+          </span>
+        )}
+        {event.status === 'upcoming' && userIsGoing && (
+          <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
             You're Going
           </span>
