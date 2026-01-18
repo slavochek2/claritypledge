@@ -658,3 +658,62 @@ export function ratingLabelToValue(label: LiveRatingLabel): number {
   return Math.floor((rating.range[0] + rating.range[1]) / 2);
 }
 
+// ============================================================================
+// EVENTS TYPES (P61)
+// ============================================================================
+
+export type EventStatus = 'upcoming' | 'completed' | 'cancelled';
+
+export interface Event {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  datetime: string;
+  durationMinutes: number;
+  timezone: string;
+  location: string;
+  hostId: string;
+  maxAttendees?: number;
+  createdAt: string;
+  status: EventStatus;
+}
+
+export interface EventWithHost extends Event {
+  hostName: string;
+  hostSlug: string;
+  hostRole?: string;
+  hostAvatarColor?: string;
+  hostAvatarUrl?: string;
+}
+
+export interface EventAttendee {
+  profileId: string;
+  name: string;
+  slug: string;
+  avatarColor?: string;
+  avatarUrl?: string;
+}
+
+export interface DbEvent {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  datetime: string;
+  duration_minutes: number;
+  timezone: string;
+  location: string;
+  host_id: string;
+  max_attendees?: number;
+  created_at: string;
+  status: EventStatus;
+}
+
+export interface DbEventRsvp {
+  id: string;
+  event_id: string;
+  profile_id: string;
+  rsvped_at: string;
+}
+

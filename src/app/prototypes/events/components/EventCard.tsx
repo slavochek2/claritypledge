@@ -1,40 +1,69 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Calendar, CheckCircle2, Crown } from 'lucide-react';
-import type { MockEvent } from '../mock-data';
-import { isUserRsvpd, mockCurrentUser } from '../mock-data';
+import { MapPin, Calendar, CheckCircle2, Crown, Ban } from 'lucide-react';
+import type { EventWithHost, EventAttendee } from '@/app/types';
+import { isUserRsvpd, getEventAttendees } from '@/app/data/api';
 import { formatDateShort, formatTime } from '../utils';
 
 interface EventCardProps {
-  event: MockEvent;
-  isLoggedIn?: boolean;
+  event: EventWithHost;
+  currentUserId?: string;
 }
 
-export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
+export function EventCard({ event, currentUserId }: EventCardProps) {
+  const [userIsGoing, setUserIsGoing] = useState(false);
+  const [attendees, setAttendees] = useState<EventAttendee[]>([]);
+
   const eventDate = new Date(event.datetime);
-  const userIsHost = isLoggedIn && event.hostId === mockCurrentUser.id;
-  const userIsGoing = isLoggedIn && !userIsHost && isUserRsvpd(event.id);
+  const userIsHost = currentUserId && event.hostId === currentUserId;
+  const isCancelled = event.status === 'cancelled';
+
+  useEffect(() => {
+    async function loadData() {
+      // Load attendees
+      const eventAttendees = await getEventAttendees(event.id);
+      setAttendees(eventAttendees);
+
+      // Check if current user is RSVP'd (only if logged in and not host)
+      if (currentUserId && !userIsHost) {
+        const isGoing = await isUserRsvpd(event.id, currentUserId);
+        setUserIsGoing(isGoing);
+      }
+    }
+    loadData();
+  }, [event.id, currentUserId, userIsHost]);
 
   return (
     <Link
       to={`/events/${event.slug}`}
-      className="group block border border-border rounded-xl overflow-hidden bg-card hover:shadow-lg hover:border-blue-500/50 transition-all duration-200"
+      className={`group block border border-border rounded-xl overflow-hidden bg-card transition-all duration-200 ${
+        isCancelled
+          ? 'opacity-60 hover:opacity-80'
+          : 'hover:shadow-lg hover:border-blue-500/50'
+      }`}
       data-testid="event-card"
     >
       {/* Cover gradient */}
       <div
-        className="h-24 relative"
+        className={`h-24 relative ${isCancelled ? 'grayscale' : ''}`}
         style={{
-          background: `linear-gradient(135deg, ${event.hostAvatarColor}40 0%, ${event.hostAvatarColor}20 100%)`,
+          background: `linear-gradient(135deg, ${event.hostAvatarColor || '#3B82F6'}40 0%, ${event.hostAvatarColor || '#3B82F6'}20 100%)`,
         }}
       >
         {/* Status badge */}
+        {isCancelled && (
+          <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
+            <Ban className="w-3 h-3" />
+            Cancelled
+          </span>
+        )}
         {event.status === 'upcoming' && userIsHost && (
           <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
             <Crown className="w-3 h-3" />
             You're Hosting
           </span>
         )}
-        {event.status === 'upcoming' && userIsGoing && (
+        {event.status === 'upcoming' && userIsGoing && !userIsHost && (
           <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
             You're Going
@@ -71,23 +100,23 @@ export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
           {/* Attendee avatars */}
           <div className="flex items-center gap-2">
             <div className="flex -space-x-2">
-              {event.attendees.slice(0, 4).map((attendee, i) => (
+              {attendees.slice(0, 4).map((attendee, i) => (
                 <div
-                  key={attendee.id}
+                  key={attendee.profileId}
                   className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
-                  style={{ backgroundColor: attendee.avatarColor, zIndex: 4 - i }}
+                  style={{ backgroundColor: attendee.avatarColor || '#3B82F6', zIndex: 4 - i }}
                 >
                   {attendee.name.charAt(0)}
                 </div>
               ))}
-              {event.attendees.length > 4 && (
+              {attendees.length > 4 && (
                 <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                  +{event.attendees.length - 4}
+                  +{attendees.length - 4}
                 </div>
               )}
             </div>
             <span className="text-sm text-muted-foreground">
-              {event.attendees.length} {event.status === 'completed' ? 'attended' : 'going'}
+              {attendees.length} {event.status === 'completed' ? 'attended' : 'going'}
             </span>
           </div>
         </div>

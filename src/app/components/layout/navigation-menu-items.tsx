@@ -26,6 +26,7 @@ import {
   UserIcon,
   FileTextIcon,
   CalendarDaysIcon,
+  UserPlusIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -67,16 +68,26 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Log In */}
+        {/* Public menu - Log In + Create Account */}
         {showPublicCTAs && (
-          <Link
-            to="/login"
-            className={mobileLinkClass}
-            onClick={handleItemClick}
-            data-testid={includeTestIds ? 'login-option' : undefined}
-          >
-            Log In
-          </Link>
+          <>
+            <Link
+              to="/login"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+              data-testid={includeTestIds ? 'login-option' : undefined}
+            >
+              Log In
+            </Link>
+            <Link
+              to="/signup"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+              data-testid={includeTestIds ? 'create-account-option' : undefined}
+            >
+              Create Account
+            </Link>
+          </>
         )}
 
         {/* Verified user menu */}
@@ -151,14 +162,22 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Log In */}
+      {/* Public menu - Log In + Create Account */}
       {showPublicCTAs && (
-        <DropdownMenuItem asChild data-testid={includeTestIds ? 'login-option' : undefined}>
-          <Link to="/login" className="cursor-pointer">
-            <LogIn className="w-4 h-4 mr-2" />
-            Log In
-          </Link>
-        </DropdownMenuItem>
+        <>
+          <DropdownMenuItem asChild data-testid={includeTestIds ? 'login-option' : undefined}>
+            <Link to="/login" className="cursor-pointer">
+              <LogIn className="w-4 h-4 mr-2" />
+              Log In
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild data-testid={includeTestIds ? 'create-account-option' : undefined}>
+            <Link to="/signup" className="cursor-pointer">
+              <UserPlusIcon className="w-4 h-4 mr-2" />
+              Create Account
+            </Link>
+          </DropdownMenuItem>
+        </>
       )}
 
       {/* Verified user menu */}

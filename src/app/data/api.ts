@@ -23,6 +23,12 @@ import type {
   DbDemoRound,
   ClarityIdea,
   DbClarityIdea,
+  Event,
+  EventWithHost,
+  EventAttendee,
+  DbEvent,
+  DbEventRsvp,
+  EventStatus,
 } from '@/app/types';
 
 // Re-export types for convenience
@@ -3082,4 +3088,406 @@ async function hashIP(): Promise<string> {
     // Fallback: use random identifier (still unique per request)
     return `browser_${crypto.randomUUID()}`;
   }
+}
+
+// ============================================================================
+// EVENTS API (P61)
+// ============================================================================
+
+// Re-export event types
+export type { Event, EventWithHost, EventAttendee, EventStatus } from '@/app/types';
+
+/**
+ * Maps a database event row to the Event type (snake_case → camelCase)
+ */
+function mapEventFromDb(dbEvent: DbEvent): Event {
+  return {
+    id: dbEvent.id,
+    slug: dbEvent.slug,
+    title: dbEvent.title,
+    description: dbEvent.description,
+    datetime: dbEvent.datetime,
+    durationMinutes: dbEvent.duration_minutes,
+    timezone: dbEvent.timezone,
+    location: dbEvent.location,
+    hostId: dbEvent.host_id,
+    maxAttendees: dbEvent.max_attendees ?? undefined,
+    createdAt: dbEvent.created_at,
+    status: dbEvent.status,
+  };
+}
+
+/**
+ * Maps a database event with joined host profile to EventWithHost
+ */
+function mapEventWithHostFromDb(
+  dbEvent: DbEvent & { profiles: { name?: string; slug?: string; role?: string; avatar_color?: string; avatar_url?: string } }
+): EventWithHost {
+  return {
+    ...mapEventFromDb(dbEvent),
+    hostName: dbEvent.profiles?.name || 'Unknown',
+    hostSlug: dbEvent.profiles?.slug || '',
+    hostRole: dbEvent.profiles?.role,
+    hostAvatarColor: dbEvent.profiles?.avatar_color,
+    hostAvatarUrl: dbEvent.profiles?.avatar_url,
+  };
+}
+
+/**
+ * Fetches upcoming events (status = 'upcoming' or 'cancelled')
+ * Includes host profile data for display
+ */
+export async function getUpcomingEvents(): Promise<EventWithHost[]> {
+  console.log('[Events API] Fetching upcoming events...');
+
+  const { data, error } = await supabase
+    .from('events')
+    .select(`
+      *,
+      profiles:host_id (name, slug, role, avatar_color, avatar_url)
+    `)
+    .in('status', ['upcoming', 'cancelled'])
+    .order('datetime', { ascending: true });
+
+  if (error) {
+    console.error('[Events API] Error fetching upcoming events:', error);
+    return [];
+  }
+
+  console.log(`[Events API] Found ${data?.length || 0} upcoming events`);
+  return (data || []).map(mapEventWithHostFromDb);
+}
+
+/**
+ * Fetches past events (status = 'completed')
+ * Sorted newest first
+ */
+export async function getPastEvents(): Promise<EventWithHost[]> {
+  console.log('[Events API] Fetching past events...');
+
+  const { data, error } = await supabase
+    .from('events')
+    .select(`
+      *,
+      profiles:host_id (name, slug, role, avatar_color, avatar_url)
+    `)
+    .eq('status', 'completed')
+    .order('datetime', { ascending: false });
+
+  if (error) {
+    console.error('[Events API] Error fetching past events:', error);
+    return [];
+  }
+
+  console.log(`[Events API] Found ${data?.length || 0} past events`);
+  return (data || []).map(mapEventWithHostFromDb);
+}
+
+/**
+ * Fetches a single event by its slug
+ * Returns null if not found
+ */
+export async function getEventBySlug(slug: string): Promise<EventWithHost | null> {
+  console.log('[Events API] Fetching event by slug:', slug);
+
+  const { data, error } = await supabase
+    .from('events')
+    .select(`
+      *,
+      profiles:host_id (name, slug, role, avatar_color, avatar_url)
+    `)
+    .eq('slug', slug)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      console.log('[Events API] Event not found:', slug);
+      return null;
+    }
+    console.error('[Events API] Error fetching event:', error);
+    return null;
+  }
+
+  return mapEventWithHostFromDb(data);
+}
+
+/**
+ * Fetches attendees for an event
+ * Returns profile data for display
+ */
+export async function getEventAttendees(eventId: string): Promise<EventAttendee[]> {
+  console.log('[Events API] Fetching attendees for event:', eventId);
+
+  const { data, error } = await supabase
+    .from('event_rsvps')
+    .select(`
+      profile_id,
+      profiles:profile_id (name, slug, avatar_color, avatar_url)
+    `)
+    .eq('event_id', eventId);
+
+  if (error) {
+    console.error('[Events API] Error fetching attendees:', error);
+    return [];
+  }
+
+  return (data || []).map((rsvp) => ({
+    profileId: rsvp.profile_id,
+    name: (rsvp.profiles as { name?: string })?.name || 'Unknown',
+    slug: (rsvp.profiles as { slug?: string })?.slug || '',
+    avatarColor: (rsvp.profiles as { avatar_color?: string })?.avatar_color,
+    avatarUrl: (rsvp.profiles as { avatar_url?: string })?.avatar_url,
+  }));
+}
+
+/**
+ * Gets the count of attendees for an event
+ */
+export async function getEventAttendeeCount(eventId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('event_rsvps')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', eventId);
+
+  if (error) {
+    console.error('[Events API] Error counting attendees:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+/**
+ * Checks if a user has RSVP'd to an event
+ */
+export async function isUserRsvpd(eventId: string, profileId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('event_rsvps')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('profile_id', profileId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('[Events API] Error checking RSVP:', error);
+  }
+
+  return !!data;
+}
+
+/**
+ * Generates a URL-safe slug from an event title
+ * Appends timestamp suffix to ensure uniqueness
+ */
+export function generateEventSlug(title: string): string {
+  const baseSlug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+
+  // Add date suffix for uniqueness
+  const dateSuffix = new Date().toISOString().split('T')[0];
+  return `${baseSlug}-${dateSuffix}`;
+}
+
+interface CreateEventInput {
+  title: string;
+  description: string;
+  datetime: string;
+  durationMinutes: number;
+  timezone: string;
+  location: string;
+  hostId: string;
+  maxAttendees?: number;
+}
+
+/**
+ * Creates a new event
+ * Generates slug automatically from title
+ * Retries with timestamp suffix on slug conflict
+ */
+export async function createEvent(input: CreateEventInput): Promise<Event | null> {
+  console.log('[Events API] Creating event:', input.title);
+
+  let slug = generateEventSlug(input.title);
+  let retries = 0;
+  const maxRetries = 3;
+
+  while (retries < maxRetries) {
+    const { data, error } = await supabase
+      .from('events')
+      .insert({
+        slug,
+        title: input.title,
+        description: input.description,
+        datetime: input.datetime,
+        duration_minutes: input.durationMinutes,
+        timezone: input.timezone,
+        location: input.location,
+        host_id: input.hostId,
+        max_attendees: input.maxAttendees,
+        status: 'upcoming',
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // Slug conflict - add timestamp and retry
+      if (error.code === '23505') {
+        retries++;
+        slug = `${generateEventSlug(input.title)}-${Date.now()}`;
+        console.log('[Events API] Slug conflict, retrying with:', slug);
+        continue;
+      }
+      console.error('[Events API] Error creating event:', error);
+      return null;
+    }
+
+    console.log('[Events API] Event created:', data.id);
+    return mapEventFromDb(data);
+  }
+
+  console.error('[Events API] Failed to create event after retries');
+  return null;
+}
+
+/**
+ * RSVPs a user to an event
+ * Checks capacity before inserting
+ * Returns false if event is full or already RSVP'd
+ */
+export async function rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
+  console.log('[Events API] RSVP to event:', eventId, 'by:', profileId);
+
+  // Check if already RSVP'd
+  const alreadyRsvpd = await isUserRsvpd(eventId, profileId);
+  if (alreadyRsvpd) {
+    console.log('[Events API] User already RSVP\'d');
+    return true;
+  }
+
+  // Check capacity
+  const { data: event, error: eventError } = await supabase
+    .from('events')
+    .select('max_attendees, status')
+    .eq('id', eventId)
+    .single();
+
+  if (eventError || !event) {
+    console.error('[Events API] Event not found:', eventError);
+    return false;
+  }
+
+  if (event.status !== 'upcoming') {
+    console.log('[Events API] Cannot RSVP to non-upcoming event');
+    return false;
+  }
+
+  if (event.max_attendees) {
+    const currentCount = await getEventAttendeeCount(eventId);
+    if (currentCount >= event.max_attendees) {
+      console.log('[Events API] Event is full');
+      return false;
+    }
+  }
+
+  // Insert RSVP
+  const { error } = await supabase
+    .from('event_rsvps')
+    .insert({
+      event_id: eventId,
+      profile_id: profileId,
+    });
+
+  if (error) {
+    console.error('[Events API] Error creating RSVP:', error);
+    return false;
+  }
+
+  console.log('[Events API] RSVP successful');
+  return true;
+}
+
+/**
+ * Cancels a user's RSVP to an event
+ */
+export async function cancelRsvp(eventId: string, profileId: string): Promise<boolean> {
+  console.log('[Events API] Cancel RSVP for event:', eventId, 'by:', profileId);
+
+  const { error } = await supabase
+    .from('event_rsvps')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('profile_id', profileId);
+
+  if (error) {
+    console.error('[Events API] Error canceling RSVP:', error);
+    return false;
+  }
+
+  console.log('[Events API] RSVP canceled');
+  return true;
+}
+
+interface UpdateEventInput {
+  title?: string;
+  description?: string;
+  datetime?: string;
+  durationMinutes?: number;
+  timezone?: string;
+  location?: string;
+  maxAttendees?: number | null;
+}
+
+/**
+ * Updates an event (host only - RLS enforced)
+ */
+export async function updateEvent(eventId: string, input: UpdateEventInput): Promise<Event | null> {
+  console.log('[Events API] Updating event:', eventId);
+
+  const updateData: Record<string, unknown> = {};
+  if (input.title !== undefined) updateData.title = input.title;
+  if (input.description !== undefined) updateData.description = input.description;
+  if (input.datetime !== undefined) updateData.datetime = input.datetime;
+  if (input.durationMinutes !== undefined) updateData.duration_minutes = input.durationMinutes;
+  if (input.timezone !== undefined) updateData.timezone = input.timezone;
+  if (input.location !== undefined) updateData.location = input.location;
+  if (input.maxAttendees !== undefined) updateData.max_attendees = input.maxAttendees;
+
+  const { data, error } = await supabase
+    .from('events')
+    .update(updateData)
+    .eq('id', eventId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[Events API] Error updating event:', error);
+    return null;
+  }
+
+  console.log('[Events API] Event updated');
+  return mapEventFromDb(data);
+}
+
+/**
+ * Cancels an event (sets status to 'cancelled')
+ * Host only - RLS enforced
+ */
+export async function cancelEvent(eventId: string): Promise<boolean> {
+  console.log('[Events API] Canceling event:', eventId);
+
+  const { error } = await supabase
+    .from('events')
+    .update({ status: 'cancelled' })
+    .eq('id', eventId);
+
+  if (error) {
+    console.error('[Events API] Error canceling event:', error);
+    return false;
+  }
+
+  console.log('[Events API] Event canceled');
+  return true;
 }

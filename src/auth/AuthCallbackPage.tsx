@@ -24,7 +24,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "./useAuth";
 import { LoaderIcon, AlertCircleIcon } from "lucide-react";
-import { generateSlug, getProfile } from "@/app/data/api";
+import { generateSlug, getProfile, getEventBySlug, rsvpToEvent } from "@/app/data/api";
 import { CURRENT_TERMS_VERSION } from "@/lib/constants";
 import * as Sentry from "@sentry/react";
 import { analytics } from "@/lib/mixpanel";
@@ -385,6 +385,46 @@ export function AuthCallbackPage() {
 
       // Clear pending verification email now that user is verified
       sessionStorage.removeItem('pendingVerificationEmail');
+
+      // P61: Handle event RSVP action - auto-RSVP after signup
+      const action = urlParams.get('action');
+      const redirectPath = urlParams.get('redirect');
+
+      if (action === 'rsvp' && redirectPath?.startsWith('/events/')) {
+        // Extract event slug from redirect path
+        const eventSlug = redirectPath.split('/')[2];
+        if (eventSlug) {
+          console.log('📅 Auto-RSVP flow detected for event:', eventSlug);
+          setStatus("Confirming your RSVP...");
+
+          try {
+            const event = await getEventBySlug(eventSlug);
+            if (event) {
+              const rsvpSuccess = await rsvpToEvent(event.id, authUser.id);
+              if (rsvpSuccess) {
+                console.log('✅ Auto-RSVP successful for event:', eventSlug);
+                analytics.track('event_rsvp_auto', {
+                  event_slug: eventSlug,
+                  event_id: event.id,
+                  registration_source: registrationSource,
+                });
+                navigate(`/events/${eventSlug}/confirm`, { replace: true });
+                return;
+              } else {
+                console.log('⚠️ Auto-RSVP failed (event may be full), redirecting to event page');
+                // Redirect to event page with action param so UI can show toast
+                navigate(`/events/${eventSlug}?action=rsvp`, { replace: true });
+                return;
+              }
+            } else {
+              console.log('⚠️ Event not found for auto-RSVP:', eventSlug);
+            }
+          } catch (error) {
+            console.error('❌ Error during auto-RSVP:', error);
+          }
+          // Fall through to normal redirect if auto-RSVP failed
+        }
+      }
 
       // P50: Redirect based on has_pledged status
       // - Pledgers → certificate page (/p/:slug/pledge)

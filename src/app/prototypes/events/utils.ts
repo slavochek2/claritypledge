@@ -183,6 +183,38 @@ export function getGoogleCalendarUrl(event: ICSEventData): string {
 }
 
 /**
+ * Generate Outlook.com (personal) calendar URL for an event
+ */
+export function getOutlookUrl(event: ICSEventData): string {
+  const params = new URLSearchParams({
+    path: '/calendar/action/compose',
+    rru: 'addevent',
+    subject: event.title,
+    startdt: event.startDate.toISOString(),
+    enddt: event.endDate.toISOString(),
+    body: event.description.substring(0, 500),
+    location: event.location,
+  });
+  return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
+/**
+ * Generate Office 365 (work/school) calendar URL for an event
+ */
+export function getOffice365Url(event: ICSEventData): string {
+  const params = new URLSearchParams({
+    path: '/calendar/action/compose',
+    rru: 'addevent',
+    subject: event.title,
+    startdt: event.startDate.toISOString(),
+    enddt: event.endDate.toISOString(),
+    body: event.description.substring(0, 500),
+    location: event.location,
+  });
+  return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
+/**
  * Get a human-readable timezone label from IANA timezone string
  * Shows UTC offset and major city for clarity
  */

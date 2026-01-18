@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CheckCircle2, Calendar, MapPin, ArrowRight, Download } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, ArrowRight, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getEventBySlug } from '../mock-data';
+import { getEventBySlug, type EventWithHost } from '@/app/data/api';
 import { formatDate, formatTime, downloadICSFile } from '../utils';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
@@ -10,16 +10,48 @@ const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 export function RsvpConfirm() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const event = slug ? getEventBySlug(slug) : undefined;
+
+  const [event, setEvent] = useState<EventWithHost | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch event data
+  useEffect(() => {
+    async function loadEvent() {
+      if (!slug) return;
+
+      setLoading(true);
+      try {
+        const eventData = await getEventBySlug(slug);
+        setEvent(eventData);
+      } catch (err) {
+        console.error('Error loading event:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEvent();
+  }, [slug]);
 
   // Auto-redirect to event page after confirmation
   useEffect(() => {
+    if (!event) return;
+
     const timer = setTimeout(() => {
       navigate(`/events/${slug}`);
     }, AUTO_REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [navigate, slug]);
+  }, [navigate, slug, event]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -36,7 +68,7 @@ export function RsvpConfirm() {
   }
 
   const eventDate = new Date(event.datetime);
-  const endDate = new Date(eventDate.getTime() + event.durationHours * 60 * 60 * 1000);
+  const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
 
   // Event data for calendar download
   const calendarEventData = {

@@ -12,31 +12,98 @@ import {
   ChevronDown,
   Download,
   Pencil,
-  Ban
+  Ban,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getEventBySlug, mockCurrentUser, isUserRsvpd, isEventFull, cancelEvent, cancelRsvp } from '../mock-data';
-import { formatTime, downloadICSFile, getGoogleCalendarUrl, getTimezoneLabel } from '../utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useAuth } from '@/auth';
+import {
+  getEventBySlug,
+  getEventAttendees,
+  getEventAttendeeCount,
+  isUserRsvpd,
+  rsvpToEvent,
+  cancelRsvp as cancelRsvpApi,
+  cancelEvent as cancelEventApi,
+  type EventWithHost,
+  type EventAttendee
+} from '@/app/data/api';
+import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const event = slug ? getEventBySlug(slug) : undefined;
+  const { user, profile } = useAuth();
 
-  // Check if user is already RSVP'd (from mock data)
-  const alreadyRsvpd = event ? isUserRsvpd(event.id) : false;
+  // Data states
+  const [event, setEvent] = useState<EventWithHost | null>(null);
+  const [attendees, setAttendees] = useState<EventAttendee[]>([]);
+  const [attendeeCount, setAttendeeCount] = useState(0);
+  const [isRsvpd, setIsRsvpd] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
 
-  // Local state for new RSVPs during this session
-  const [justRsvpd, setJustRsvpd] = useState(false);
+  // UI states
   const [isLoading, setIsLoading] = useState(false);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
-  const isRsvpd = alreadyRsvpd || justRsvpd;
+  // Confirmation dialog states
+  const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
+  const [showCancelEventDialog, setShowCancelEventDialog] = useState(false);
 
-  // Check if current user is the host (mock: compare against mock user ID)
-  const isHost = mockCurrentUser.isLoggedIn && event?.hostId === mockCurrentUser.id;
+  // Fetch event data
+  useEffect(() => {
+    async function loadEventData() {
+      if (!slug) return;
+
+      setDataLoading(true);
+      setDataError(null);
+
+      try {
+        const eventData = await getEventBySlug(slug);
+        if (!eventData) {
+          setDataError('Event not found');
+          setDataLoading(false);
+          return;
+        }
+        setEvent(eventData);
+
+        // Fetch attendees and count in parallel
+        const [attendeesList, count] = await Promise.all([
+          getEventAttendees(eventData.id),
+          getEventAttendeeCount(eventData.id),
+        ]);
+        setAttendees(attendeesList);
+        setAttendeeCount(count);
+
+        // Check if current user is RSVP'd
+        if (user) {
+          const rsvpStatus = await isUserRsvpd(eventData.id, user.id);
+          setIsRsvpd(rsvpStatus);
+        }
+      } catch (err) {
+        console.error('Error loading event:', err);
+        setDataError('Failed to load event');
+      } finally {
+        setDataLoading(false);
+      }
+    }
+
+    loadEventData();
+  }, [slug, user]);
+
+  // Check if current user is the host
+  const isHost = user && event?.hostId === user.id;
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -51,15 +118,25 @@ export function EventDetail() {
 
   // Show toast if user just signed up and was redirected here to RSVP
   useEffect(() => {
-    if (searchParams.get('action') === 'rsvp' && mockCurrentUser.isLoggedIn) {
+    if (searchParams.get('action') === 'rsvp' && user) {
       toast.success('Account created! Click RSVP to confirm your spot.');
       // Clear the action param from URL
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, user]);
 
-  if (!event) {
+  // Loading state
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Error or not found state
+  if (dataError || !event) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -73,57 +150,80 @@ export function EventDetail() {
     );
   }
 
-  // Show cancelled state
-  if (event.status === 'cancelled') {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">⛔</div>
-          <h1 className="text-2xl font-bold mb-2">Event Cancelled</h1>
-          <p className="text-muted-foreground mb-2">{event.title}</p>
-          <p className="text-sm text-muted-foreground mb-4">This event has been cancelled by the organizer.</p>
-          <Link to="/events">
-            <Button variant="outline">Back to Events</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+  const isCancelled = event.status === 'cancelled';
   const eventDate = new Date(event.datetime);
   const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
   const isPast = event.status === 'completed';
-  const isFull = isEventFull(event);
+  const isFull = event.maxAttendees ? attendeeCount >= event.maxAttendees : false;
 
   const handleRsvp = async () => {
-    if (!mockCurrentUser.isLoggedIn) {
+    if (!user) {
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
 
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setJustRsvpd(true);
-    setIsLoading(false);
-    navigate(`/events/${slug}/confirm`);
+    try {
+      await rsvpToEvent(event.id, user.id);
+      setIsRsvpd(true);
+      // Refresh attendee count
+      const newCount = await getEventAttendeeCount(event.id);
+      setAttendeeCount(newCount);
+      // Refresh attendees list
+      const newAttendees = await getEventAttendees(event.id);
+      setAttendees(newAttendees);
+      navigate(`/events/${slug}/confirm`);
+    } catch (err) {
+      console.error('Error RSVPing:', err);
+      toast.error('Failed to RSVP. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleCancelRsvp = async () => {
-    if (!confirm('Cancel your RSVP for this event?')) return;
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    cancelRsvp(event.id);
-    setJustRsvpd(false);
-    setIsLoading(false);
+  const handleCancelRsvp = () => {
+    setShowCancelRsvpDialog(true);
   };
 
-  const handleCancelEvent = async () => {
-    if (!confirm('Cancel this event? All attendees will lose their RSVP.')) return;
+  const confirmCancelRsvp = async () => {
+    if (!user) return;
+    setShowCancelRsvpDialog(false);
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    cancelEvent(event.id);
-    setIsLoading(false);
-    navigate('/events');
+    try {
+      await cancelRsvpApi(event.id, user.id);
+      setIsRsvpd(false);
+      // Refresh attendee count
+      const newCount = await getEventAttendeeCount(event.id);
+      setAttendeeCount(newCount);
+      // Refresh attendees list
+      const newAttendees = await getEventAttendees(event.id);
+      setAttendees(newAttendees);
+      toast.success('RSVP cancelled');
+    } catch (err) {
+      console.error('Error cancelling RSVP:', err);
+      toast.error('Failed to cancel RSVP. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelEvent = () => {
+    setShowCancelEventDialog(true);
+  };
+
+  const confirmCancelEvent = async () => {
+    setShowCancelEventDialog(false);
+    setIsLoading(true);
+    try {
+      await cancelEventApi(event.id);
+      toast.success('Event cancelled');
+      navigate('/events');
+    } catch (err) {
+      console.error('Error cancelling event:', err);
+      toast.error('Failed to cancel event. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Event data for calendar utilities
@@ -145,7 +245,7 @@ export function EventDetail() {
       <div
         className="w-full h-32 md:h-48"
         style={{
-          background: `linear-gradient(135deg, ${event.hostAvatarColor}40 0%, ${event.hostAvatarColor}20 100%)`,
+          background: `linear-gradient(135deg, ${event.hostAvatarColor || '#3B82F6'}40 0%, ${event.hostAvatarColor || '#3B82F6'}20 100%)`,
         }}
       />
 
@@ -167,8 +267,21 @@ export function EventDetail() {
               {/* Title */}
               <h1 className="text-2xl md:text-3xl font-bold mb-4">{event.title}</h1>
 
+              {/* Cancelled Banner */}
+              {isCancelled && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <Ban className="w-5 h-5 text-red-600" />
+                    <div>
+                      <p className="font-semibold text-red-800">This event has been cancelled</p>
+                      <p className="text-sm text-red-700">The organizer cancelled this event.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Host Controls - right after title for immediate visibility */}
-              {isHost && !isPast && (
+              {isHost && !isPast && !isCancelled && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-blue-900">You're hosting this event</span>
@@ -221,7 +334,7 @@ export function EventDetail() {
               </a>
 
               {/* Add to Calendar */}
-              {!isPast && (
+              {!isPast && !isCancelled && (
                 <div className="relative mb-6" ref={calendarMenuRef}>
                   <Button
                     variant="outline"
@@ -250,6 +363,30 @@ export function EventDetail() {
                         </svg>
                         Google Calendar
                       </a>
+                      <a
+                        href={getOutlookUrl(calendarEventData)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
+                        onClick={() => setCalendarMenuOpen(false)}
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                          <path fill="#0078D4" d="M24 7.387v10.478c0 .23-.08.424-.238.576-.158.154-.352.23-.578.23h-8.547v-6.959l1.6 1.229c.102.086.227.129.376.129.148 0 .273-.043.375-.129l6.774-5.186v-.368c0-.226-.077-.418-.232-.574-.155-.157-.35-.235-.587-.235h-.013l-7.093 5.423-1.2-.919V5.174h8.547c.226 0 .42.076.578.23.158.152.238.346.238.576v1.407zM14.637 5.174v12.155H.792c-.226 0-.42-.076-.578-.23-.158-.152-.237-.346-.237-.576V5.98c0-.23.08-.424.237-.576.159-.154.352-.23.578-.23h13.845zm-7.848 9.142c1.308 0 2.358-.382 3.15-1.145.792-.764 1.188-1.785 1.188-3.063 0-1.258-.393-2.263-1.178-3.016-.786-.752-1.848-1.129-3.188-1.129-1.308 0-2.358.382-3.15 1.145-.792.764-1.188 1.779-1.188 3.045 0 1.279.39 2.29 1.169 3.035.78.746 1.847 1.128 3.197 1.128zm.028-6.621c.706 0 1.257.228 1.654.684.396.456.594 1.099.594 1.929 0 .841-.201 1.496-.603 1.963-.403.468-.951.701-1.645.701-.706 0-1.26-.228-1.663-.684-.403-.456-.604-1.093-.604-1.91 0-.852.198-1.513.594-1.98.397-.469.954-.703 1.673-.703z"/>
+                        </svg>
+                        Outlook.com
+                      </a>
+                      <a
+                        href={getOffice365Url(calendarEventData)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
+                        onClick={() => setCalendarMenuOpen(false)}
+                      >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                          <path fill="#0078D4" d="M21.17 2.06A1.48 1.48 0 0 1 23 3.5v17a1.48 1.48 0 0 1-1.83 1.44l-8.35-2.15a1.49 1.49 0 0 1-1.11-1.44V5.65a1.49 1.49 0 0 1 1.11-1.44l8.35-2.15zM8.33 5.33v13.34H2.67A.67.67 0 0 1 2 18V6a.67.67 0 0 1 .67-.67h5.66zm2.5 1.17v11l7.5 1.93V4.57l-7.5 1.93z"/>
+                        </svg>
+                        Office 365
+                      </a>
                       <button
                         onClick={() => {
                           downloadICSFile(calendarEventData);
@@ -270,8 +407,8 @@ export function EventDetail() {
                 <ReactMarkdown>{event.description}</ReactMarkdown>
               </div>
 
-              {/* RSVP Section - Hidden for host (they're automatically attending) */}
-              {!isHost && (
+              {/* RSVP Section - Hidden for host and cancelled events */}
+              {!isHost && !isCancelled && (
               <div>
                 {isPast ? (
                   <Button disabled className="w-full" size="lg" data-testid="rsvp-button">
@@ -302,7 +439,7 @@ export function EventDetail() {
                       Cancel RSVP
                     </Button>
                   </div>
-                ) : mockCurrentUser.isLoggedIn ? (
+                ) : user ? (
                   <Button
                     onClick={handleRsvp}
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white"
@@ -334,30 +471,30 @@ export function EventDetail() {
               >
                 <div
                   className="w-16 h-16 rounded-full flex items-center justify-center text-white font-semibold text-xl mb-2"
-                  style={{ backgroundColor: event.hostAvatarColor }}
+                  style={{ backgroundColor: event.hostAvatarColor || '#3B82F6' }}
                 >
                   {event.hostName.charAt(0)}
                 </div>
                 <p className="font-semibold">{event.hostName}</p>
-                <p className="text-sm text-muted-foreground">{event.hostRole}</p>
+                {event.hostRole && <p className="text-sm text-muted-foreground">{event.hostRole}</p>}
               </Link>
             </div>
 
             {/* Participants Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">
-                Participants ({event.attendees.length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
+                Participants ({attendeeCount}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
-                {event.attendees.map(attendee => (
+                {attendees.map(attendee => (
                   <Link
-                    key={attendee.id}
+                    key={attendee.profileId}
                     to={`/p/${attendee.slug}`}
                     className="flex items-center gap-3 w-full p-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
                   >
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                      style={{ backgroundColor: attendee.avatarColor }}
+                      style={{ backgroundColor: attendee.avatarColor || '#3B82F6' }}
                     >
                       {attendee.name.charAt(0)}
                     </div>
@@ -371,6 +508,11 @@ export function EventDetail() {
                     </span>
                   </Link>
                 ))}
+                {attendees.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No one has RSVP'd yet. Be the first!
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -379,6 +521,46 @@ export function EventDetail() {
 
       {/* Bottom padding */}
       <div className="h-12" />
+
+      {/* Cancel RSVP Confirmation Dialog */}
+      <Dialog open={showCancelRsvpDialog} onOpenChange={setShowCancelRsvpDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel your RSVP?</DialogTitle>
+            <DialogDescription>
+              You'll be removed from the guest list for this event.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowCancelRsvpDialog(false)}>
+              Keep RSVP
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelRsvp}>
+              Cancel RSVP
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Event Confirmation Dialog */}
+      <Dialog open={showCancelEventDialog} onOpenChange={setShowCancelEventDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel this event?</DialogTitle>
+            <DialogDescription>
+              All attendees will lose their RSVP. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowCancelEventDialog(false)}>
+              Keep Event
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelEvent}>
+              Cancel Event
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
