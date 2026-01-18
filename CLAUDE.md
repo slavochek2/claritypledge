@@ -4,9 +4,45 @@ This file provides guidance for AI agents working with code in this repository.
 
 **For humans:** See [README.md](./README.md) for setup instructions and deployment guide.
 
-## Agent Behavior Rules
+## Agent Behavior Rules — Transparency Contract
 
-**Report broken tooling:** If a script, linter, or automated check produces incorrect results (false positives/negatives, misleading output, bugs in logic), do NOT silently work around it. Report the issue to the user before proceeding. Broken tooling should be fixed, not ignored.
+**Core principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
+
+### Always report these issues:
+
+**Broken tooling**
+- Scripts producing incorrect results (false positives/negatives)
+- Linters or checks with bugs in their logic
+- Misleading output that doesn't match reality
+
+**Test and type issues**
+- Tests that fail intermittently (flaky tests) — don't just retry until they pass
+- Type errors you're tempted to suppress with `@ts-ignore`, `@ts-expect-error`, or `as any`
+- Tests you want to modify to make them pass (fix the code, not the test)
+
+**Partial failures**
+- Multi-step operations where some steps failed (e.g., "8 of 10 files updated")
+- Commands that "succeeded" but with warnings or errors in output
+- Operations that work inconsistently across environments
+
+**Build and dependency health**
+- Deprecation warnings in build output
+- `npm audit` security vulnerabilities
+- Significant bundle size or build time increases
+- Missing dependencies worked around with hacks
+
+**Environment issues**
+- "Works locally but might not work in CI/production" situations
+- Missing configuration or environment variables
+- Version mismatches between tools
+
+### How to report:
+1. State what you observed
+2. Explain why it's concerning
+3. Ask how to proceed (fix it now, defer, or ignore)
+
+### When in doubt:
+If something feels "off" but technically works — report it. False alarms are better than silent failures.
 
 ## Product Overview
 
@@ -72,6 +108,7 @@ Load these docs when working on specific areas:
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
 | E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
+| /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |

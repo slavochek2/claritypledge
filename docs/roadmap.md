@@ -3,7 +3,7 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-01-17
+**Last Updated:** 2026-01-18
 **North Star:** First open-space Clarity Event
 
 > **Current Build Sequence (5 days):**
@@ -29,23 +29,57 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 | Type | Nature | User Action | Verification |
 |------|--------|-------------|--------------|
-| **Story** | Lived experience, the "why" behind a position | Can only be understood | /live explain-back |
-| **Point** | Logical claim, something debatable | Agree / Disagree / Unsure | Position staking |
+| **Story** | Lived experience, the "why" behind a position | Can only be understood | /live explain-back (≥8/10 = verified) |
+| **Point** | Logical claim, something debatable | Position on -3 to +3 scale | Position staking |
 
-**The relationship:**
+**Position Scale (7-point Likert):**
+| Score | Meaning |
+|-------|---------|
+| -3 | Strongly disagree |
+| -2 | Disagree |
+| -1 | Slightly disagree |
+| 0 | Unsure / No opinion |
+| +1 | Slightly agree |
+| +2 | Agree |
+| +3 | Strongly agree |
+
+**The relationship (bidirectional):**
 ```
 POINT: "Remote work is more productive"
-   ↑
-   │ linked to (explains position)
-   ↓
+   ↕
+   │ bidirectional linking
+   ↕
 STORY: "I burned out commuting 2 hours daily"
    ↑
    │ leads to
    ↓
-POSITION: "I AGREE with this Point"
+POSITION: "+2 (Agree) on this Point"
 ```
 
+- **Point → Story:** A Point can link to Stories that support or oppose it
+- **Story → Point:** A Story can link to Points it explains your position on
+
 **Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point.
+
+### Verification Threshold
+
+**≥8/10 = Verified Understanding**
+
+When both parties rate understanding ≥8/10 in a /live session, the understanding is "verified."
+
+| Score | Status | Display |
+|-------|--------|---------|
+| 10/10 | Perfect | Green badge |
+| 8-9/10 | Verified | Green badge |
+| <8/10 | In Progress | Amber/gray |
+
+### Calibration Badge (Public Reputation)
+
+Users earn a public "Calibrated" badge when:
+- **≥10 clarity sessions completed** AND
+- **avgGap within ±0.5** (self-assessment matches reality)
+
+This badge appears next to their name across the platform, rewarding epistemic humility while preserving privacy (exact calibration numbers stay private on their dashboard).
 
 ### The User Flow (Integrated)
 
@@ -132,14 +166,15 @@ See [p58_sifter_mvp.md](./p58_sifter_mvp.md) for full spec.
 
 ### Phase 1: Points + Positions Backend
 
-**Goal:** Points can be shared, positions can be staked.
+**Goal:** Points can be shared, positions can be staked on -3 to +3 scale.
 
 ```
 □ Points table (from sifted content or manual entry)
-□ Positions table (agree/disagree/unsure per user per point)
+□ Positions table (-3 to +3 per user per point)
+□ Position history table (track changes for conversion analysis)
 □ Link Position to Story (why user holds this position)
 □ API: createPoint(), stakePosition(), getPositions()
-□ Port IdeaCard + PositionButtons from prototype
+□ Port IdeaCard + PositionButtons from prototype (update to 7-point scale)
 □ Basic points feed page
 ```
 
@@ -163,15 +198,37 @@ stories (
   created_at timestamp
 )
 
--- Positions table
+-- Story-Point links (bidirectional)
+story_point_links (
+  id uuid primary key,
+  story_id uuid references stories(id),
+  point_id uuid references points(id),
+  link_type text,                   -- 'supports' | 'opposes' | 'explains'
+  created_at timestamp
+)
+
+-- Positions table (current position)
 positions (
   id uuid primary key,
   point_id uuid references points(id),
   user_id uuid references profiles(id),
-  position text,                    -- 'agree' | 'disagree' | 'unsure'
+  position integer,                 -- -3 to +3 scale
   story_id uuid references stories(id),  -- why they hold this position
   created_at timestamp,
+  updated_at timestamp,
   unique(point_id, user_id)
+)
+
+-- Position history (for conversion tracking)
+position_history (
+  id uuid primary key,
+  position_id uuid references positions(id),
+  old_position integer,
+  new_position integer,
+  changed_at timestamp,
+  -- Context: what triggered the change?
+  after_session_id uuid references clarity_sessions(id),  -- if changed after verification
+  after_session_score integer       -- the understanding score when changed
 )
 
 -- Link sessions to points
@@ -260,10 +317,13 @@ See [v7_context_portal_design.md](../docs/visions/v7_context_portal_design.md) f
 | Feature | Trigger | Description |
 |---------|---------|-------------|
 | **Definition branching** | Users disagree on word meaning | Create branches: "If X means A... If X means B..." |
-| **Enriched Point cards** | Verification data accumulates | Show linked Stories, verification count |
+| **Enriched Point cards** | Verification data accumulates | Show linked Stories, verification count, verified badges |
 | **Real-time updates** | Event friction | Supabase Realtime for live position changes |
 | **Point ownership model** | Points spread beyond creator | "Points belong to nobody" (World 3) |
 | **Story privacy controls** | Platform goes public | Granular sharing (event-only, public, private) |
+| **Conversion analytics** | Position history accumulates | Show asymmetric conversion patterns (H-Core validation) |
+| **Recursive teachability** | Stories spread through network | Track: does understanding Story X lead to position change on Point Y? |
+| **Understanding imbalance** | Verification data accumulates | Show who understands whom better on specific Points |
 
 ---
 
@@ -328,7 +388,7 @@ v5.1 suggests: "Can't disagree until you acknowledge their Story."
 One Story might explain positions on multiple Points.
 
 **For MVP:** One Story → One Position → One Point.
-**For V2:** Many-to-many relationships.
+**For V2:** Many-to-many relationships via `story_point_links` table.
 
 ### Q3: When do Stories need privacy controls?
 
@@ -340,6 +400,30 @@ One Story might explain positions on multiple Points.
 
 **For MVP:** Stories shared only in verification sessions.
 
+### Q4: Conversion tracking — public or private?
+
+When a user changes position after verified understanding, should this be visible?
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Public** | Social proof, demonstrates intellectual humility | Privacy concern, might discourage position changes |
+| **Private** | Encourages honest updates | Loses social signal value |
+| **Aggregate only** | "X people changed position after verification" | Less personal, still useful signal |
+
+**Decision needed:** Before building conversion display in profile.
+
+### Q5: Stories in profile — MVP scope?
+
+Stories + Points bidirectional linking is the full vision. For MVP mockup:
+
+| Option | Scope |
+|--------|-------|
+| **A: Stories list only** | Show Stories as separate tab, no linking UI yet |
+| **B: Stories + Point links** | Show which Points each Story explains (mockup the relationship) |
+| **C: Defer Stories** | Focus on Points + conversion tracking first |
+
+**Decision needed:** Before "Stories + Points in profile" build (Day 3-4).
+
 ---
 
 ## Related Documents
@@ -347,7 +431,9 @@ One Story might explain positions on multiple Points.
 - [p58_sifter_mvp.md](./p58_sifter_mvp.md) — AI Sifter + Hardener spec
 - [v0_theory-of-change.md](../docs/visions/v0_theory-of-change.md) — Philosophy
 - [v5_sensemaking_vision.md](../docs/visions/v5_1_sensemaking_platform_synthesis.md) — Story/Point framework
+- [v7_communicative_critical_rationalism.md](../docs/visions/v7_communicative_critical_rationalism.md) — Meta-epistemology, measurement stack, asymmetric conversion
 - [v7_context_portal_design.md](../docs/visions/v7_context_portal_design.md) — Catch-up feature
+- [hypotheses.md](../docs/hypotheses.md) — What we're testing (H-Core, H1-H5)
 - [P55: Understanding Verification Loop](./p55_Understanding%20Verification%20Loop.md) — Core mechanism
 - [P56: Event as Clarity Container](./p56_event_as_clarity_container.md) — Event mechanics
 
@@ -357,5 +443,6 @@ One Story might explain positions on multiple Points.
 
 | Date | Change |
 |------|--------|
+| 2026-01-18 | v7 alignment: -3 to +3 position scale, ≥8/10 verification threshold, calibration badge (≥10 sessions + ±0.5 gap), Story↔Point bidirectional linking, position_history table for conversion tracking, new open questions Q4/Q5 |
 | 2026-01-14 | Refactored from p57, integrated v6 Story/Point model, added Sifter as Phase 0 |
 | 2026-01-13 | Original p57 created |

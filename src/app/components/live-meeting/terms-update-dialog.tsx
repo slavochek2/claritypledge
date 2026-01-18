@@ -33,7 +33,7 @@ export function TermsUpdateDialog({
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            This session will be recorded. By continuing, you agree to the updated terms.
+            This session is recorded for AI Insights. By continuing, you agree to the updated terms.
           </p>
 
           <div className="flex gap-4 text-sm">

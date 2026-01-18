@@ -1,6 +1,6 @@
 # P70_1: AI Insights Reframe (Cosmetic)
 
-**Status:** Draft
+**Status:** Completed
 **Priority:** High (reduces anxiety before first event)
 **Est. Effort:** 1 hour
 **Created:** 2026-01-18
@@ -105,6 +105,15 @@ Qualitative only:
 ## Next Step
 
 After shipping P70_1, implement [P70_2: Consent Flow](./p70_2_consent_flow.md) for explicit opt-in.
+
+---
+
+## Files Changed
+
+- `src/app/components/partners/live-mode-view.tsx` — `RecordingIndicator` component: blue Sparkles icon + "Session recorded for AI Insights" text
+- `src/app/components/live-meeting/terms-update-dialog.tsx` — Updated consent copy to mention "AI Insights"
+- `src/tests/consent-dialogs.test.tsx` — Tests verify new wording
+- `src/tests/live-mode-view.test.tsx` — Tests verify "AI Insights" indicator text
 
 ---
 
