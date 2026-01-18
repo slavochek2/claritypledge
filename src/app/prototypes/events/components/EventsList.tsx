@@ -1,41 +1,45 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, CalendarDays, Loader2 } from 'lucide-react';
+import { Plus, CalendarDays, Eye, EyeOff } from 'lucide-react';
 import { EventCard } from './EventCard';
-import { getUpcomingEvents, getPastEvents } from '@/app/data/api';
-import type { EventWithHost } from '@/app/types';
-import { useAuth } from '@/auth';
+import { getUpcomingEvents, getPastEvents, mockCurrentUser, setMockLoggedIn } from '../mock-data';
 import { Button } from '@/components/ui/button';
 
 type Tab = 'upcoming' | 'past';
 
 export function EventsList() {
-  const { user } = useAuth();
-  const isLoggedIn = !!user;
-
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
-  const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
-  const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadEvents() {
-      setLoading(true);
-      const [upcoming, past] = await Promise.all([
-        getUpcomingEvents(),
-        getPastEvents(),
-      ]);
-      setUpcomingEvents(upcoming);
-      setPastEvents(past);
-      setLoading(false);
-    }
-    loadEvents();
-  }, []);
-
+  const [isLoggedIn, setIsLoggedIn] = useState(mockCurrentUser.isLoggedIn);
+  const upcomingEvents = getUpcomingEvents();
+  const pastEvents = getPastEvents();
   const events = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
+
+  const toggleLoginState = () => {
+    const newState = !isLoggedIn;
+    setIsLoggedIn(newState);
+    setMockLoggedIn(newState);
+  };
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Prototype Toggle */}
+      <div className="bg-muted border-b border-border px-4 py-2">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Prototype Mode: Viewing as <strong className="text-foreground">{isLoggedIn ? 'logged-in user' : 'visitor'}</strong>
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleLoginState}
+            className="gap-2"
+          >
+            {isLoggedIn ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {isLoggedIn ? 'View as Visitor' : 'View as Logged In'}
+          </Button>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-4">
@@ -81,14 +85,10 @@ export function EventsList() {
 
       {/* Events Grid */}
       <div className="max-w-5xl mx-auto px-4 pb-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : events.length > 0 ? (
+        {events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map(event => (
-              <EventCard key={event.id} event={event} currentUserId={user?.id} />
+              <EventCard key={event.id} event={event} isLoggedIn={isLoggedIn} />
             ))}
           </div>
         ) : (
@@ -118,13 +118,13 @@ export function EventsList() {
 
       {/* CTA Section */}
       {events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
-        <div className="max-w-5xl mx-auto px-4 pt-8 pb-12">
+        <div className="max-w-5xl mx-auto px-4 pb-12">
           <div className="bg-blue-50 rounded-xl p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Want to host an event?</h2>
             <p className="text-muted-foreground mb-4">
               Sign up to create and host your own Clarity events.
             </p>
-            <Link to="/signup">
+            <Link to="/sign-pledge">
               <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up to Host</Button>
             </Link>
           </div>

@@ -27,8 +27,6 @@ import type {
   EventWithHost,
   EventAttendee,
   DbEvent,
-  DbEventRsvp,
-  EventStatus,
 } from '@/app/types';
 
 // Re-export types for convenience

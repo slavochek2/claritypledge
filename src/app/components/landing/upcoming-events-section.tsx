@@ -1,52 +1,12 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Calendar, MapPin, Loader2 } from 'lucide-react';
-import { getUpcomingEvents, getEventAttendees, type EventWithHost, type EventAttendee } from '@/app/data/api';
+import { ArrowRight, Calendar, MapPin } from 'lucide-react';
+import { getUpcomingEvents } from '@/app/prototypes/events/mock-data';
 import { formatDateShort, formatTime } from '@/app/prototypes/events/utils';
 
-interface EventWithAttendees extends EventWithHost {
-  attendees: EventAttendee[];
-}
-
 export function UpcomingEventsSection() {
-  const [events, setEvents] = useState<EventWithAttendees[]>([]);
-  const [loading, setLoading] = useState(true);
+  const upcomingEvents = getUpcomingEvents().slice(0, 3);
 
-  useEffect(() => {
-    async function loadEvents() {
-      try {
-        const upcomingEvents = await getUpcomingEvents();
-        // Take first 3 events and load their attendees
-        const eventsSlice = upcomingEvents.slice(0, 3);
-        const eventsWithAttendees = await Promise.all(
-          eventsSlice.map(async (event) => {
-            const attendees = await getEventAttendees(event.id);
-            return { ...event, attendees };
-          })
-        );
-        setEvents(eventsWithAttendees);
-      } catch (err) {
-        console.error('Error loading events:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadEvents();
-  }, []);
-
-  // Don't show the section while loading or if no events
-  if (loading) {
-    return (
-      <section className="py-16 md:py-24 bg-muted/30">
-        <div className="container mx-auto px-4 flex justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      </section>
-    );
-  }
-
-  if (events.length === 0) {
+  if (upcomingEvents.length === 0) {
     return null;
   }
 
@@ -65,7 +25,7 @@ export function UpcomingEventsSection() {
 
         {/* Events Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto mb-8">
-          {events.map((event) => {
+          {upcomingEvents.map((event) => {
             const eventDate = new Date(event.datetime);
             return (
               <Link
@@ -77,7 +37,7 @@ export function UpcomingEventsSection() {
                 <div
                   className="h-20 relative"
                   style={{
-                    background: `linear-gradient(135deg, ${event.hostAvatarColor || '#3B82F6'}40 0%, ${event.hostAvatarColor || '#3B82F6'}20 100%)`,
+                    background: `linear-gradient(135deg, ${event.hostAvatarColor}40 0%, ${event.hostAvatarColor}20 100%)`,
                   }}
                 />
 
@@ -106,9 +66,9 @@ export function UpcomingEventsSection() {
                       <div className="flex -space-x-2">
                         {event.attendees.slice(0, 3).map((attendee, i) => (
                           <div
-                            key={attendee.profileId}
+                            key={attendee.id}
                             className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
-                            style={{ backgroundColor: attendee.avatarColor || '#3B82F6', zIndex: 3 - i }}
+                            style={{ backgroundColor: attendee.avatarColor, zIndex: 3 - i }}
                           >
                             {attendee.name.charAt(0)}
                           </div>

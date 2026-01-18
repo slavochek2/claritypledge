@@ -1,23 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/auth';
-import { getEventBySlug, updateEvent, type EventWithHost } from '@/app/data/api';
+import { getEventBySlug, mockCurrentUser } from '../mock-data';
 import { DURATIONS, TIMEZONES } from '../utils';
 
 export function EditEvent() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-
-  // Event data
-  const [event, setEvent] = useState<EventWithHost | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const event = slug ? getEventBySlug(slug) : undefined;
 
   // Form state
   const [title, setTitle] = useState('');
@@ -29,48 +23,27 @@ export function EditEvent() {
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch event data
+  // Pre-fill form with event data
   useEffect(() => {
-    async function loadEvent() {
-      if (!slug) return;
-
-      setIsLoading(true);
-      try {
-        const eventData = await getEventBySlug(slug);
-        if (eventData) {
-          setEvent(eventData);
-          // Pre-fill form with event data
-          const eventDate = new Date(eventData.datetime);
-          setTitle(eventData.title);
-          setDate(eventDate.toISOString().split('T')[0]);
-          setTime(eventDate.toTimeString().slice(0, 5));
-          setTimezone(eventData.timezone);
-          setDurationMinutes(eventData.durationMinutes);
-          setLocation(eventData.location);
-          setDescription(eventData.description);
-        }
-      } catch (err) {
-        console.error('Error loading event:', err);
-      } finally {
-        setIsLoading(false);
-      }
+    if (event) {
+      const eventDate = new Date(event.datetime);
+      setTitle(event.title);
+      setDate(eventDate.toISOString().split('T')[0]);
+      setTime(eventDate.toTimeString().slice(0, 5));
+      setTimezone(event.timezone);
+      setDurationMinutes(event.durationMinutes);
+      setLocation(event.location);
+      setDescription(event.description);
+      setIsLoading(false);
+    } else {
+      setIsLoading(false);
     }
-
-    loadEvent();
-  }, [slug]);
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  }, [event]);
 
   // Event not found
-  if (!event) {
+  if (!isLoading && !event) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -84,8 +57,23 @@ export function EditEvent() {
     );
   }
 
+  // Not the host
+  if (!isLoading && event && event.hostId !== mockCurrentUser.id) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">Only the event host can edit this event.</p>
+          <Link to={`/events/${slug}`}>
+            <Button variant="outline">Back to Event</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Not logged in
-  if (!user) {
+  if (!mockCurrentUser.isLoggedIn) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -99,17 +87,11 @@ export function EditEvent() {
     );
   }
 
-  // Not the host
-  if (event.hostId !== user.id) {
+  // Loading state
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-          <p className="text-muted-foreground mb-4">Only the event host can edit this event.</p>
-          <Link to={`/events/${slug}`}>
-            <Button variant="outline">Back to Event</Button>
-          </Link>
-        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -141,28 +123,13 @@ export function EditEvent() {
 
     setIsSubmitting(true);
 
-    try {
-      // Create datetime string in ISO format
-      const datetime = new Date(`${date}T${time}`).toISOString();
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Update event via API
-      await updateEvent(event.id, {
-        title: title.trim(),
-        description: description.trim(),
-        datetime,
-        durationMinutes,
-        timezone,
-        location: location.trim(),
-      });
+    setIsSubmitting(false);
 
-      toast.success('Event updated!');
-      navigate(`/events/${slug}`);
-    } catch (err) {
-      console.error('Error updating event:', err);
-      toast.error('Failed to update event. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Navigate back to the event with success indicator
+    navigate(`/events/${slug}?updated=true`);
   };
 
   return (

@@ -1,7 +1,7 @@
 # P61: Events — Complete Implementation Spec
 
 **Status:** Ready for Implementation
-**Approach:** TDD with embedded verification
+**Approach:** TDD with mock-as-specification
 **Run with:** `/loop`
 **Scope:** Everything needed to go from "disconnected mockup" → "fully working events in production"
 
@@ -10,6 +10,99 @@
 ## One-Sentence Goal
 
 Build a Luma-style events platform where every RSVP creates a Clarity Pledge user with a public profile, turning offline meetups into user acquisition.
+
+---
+
+## Architecture Principle: Mock as Source of Truth
+
+The working mockup defines correct behavior. The real implementation must match it exactly.
+
+### Why This Matters
+
+```
+❌ Old approach (risky):
+   Mock → Replace piece by piece → Hope nothing breaks
+   (mockup stops working during transition)
+
+✅ New approach (safe):
+   Mock ──────────────────────────────→ (stays working as fallback)
+        ↓
+   Real API → Tests pass → Switchover → Delete mock
+```
+
+### How It Works
+
+1. **Mock defines the spec** — If mock shows behavior X, real API must produce behavior X
+2. **Tests written against mock first** — Capture expected behavior in tests
+3. **Same tests run against real API** — Discrepancies = bugs (usually in backend)
+4. **Parallel operation** — Feature flag switches between mock/real
+5. **Switchover only when ready** — All E2E tests pass with real backend
+
+### When Mock vs Real Disagree
+
+| Situation | Action |
+|-----------|--------|
+| Real API returns different data shape | Fix real API to match mock shape |
+| Real API handles edge case differently | Usually fix real API; if mock was wrong, fix mock first then re-test |
+| Real API is slower/has loading states | Add loading states to match real experience (mock may need update) |
+| Real API has errors mock doesn't show | Add error states (this is expected — mock doesn't cover network failures) |
+
+### Data Abstraction Layer
+
+Components import from `eventsService` which has two implementations:
+
+```typescript
+// src/app/data/events-service.ts
+import { mockEventsService } from './events-service-mock';
+import { realEventsService } from './events-service-real';
+
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_EVENTS_API === 'true';
+
+export const eventsService = USE_REAL_API ? realEventsService : mockEventsService;
+```
+
+Both implementations must satisfy the same interface — components don't know which is active.
+
+---
+
+## Known Blindspots (Mock Doesn't Cover)
+
+Address these during implementation:
+
+| Blindspot | Mock Behavior | Real System Needs |
+|-----------|---------------|-------------------|
+| **Race conditions** | Instant, synchronous | Atomic DB operations (two people RSVP for last spot) |
+| **Data normalization** | `hostName`, `hostSlug` baked into event | `host_id` FK → join to profiles, transform in API |
+| **Auth integration** | `mockCurrentUser.id = 'host-1'` | Real auth from `useAuth()` + Supabase session |
+| **Slug collisions** | Hardcoded unique slugs | Generate unique slugs, handle conflicts |
+| **State transitions** | Direct status mutation | State machine (can't un-cancel an event) |
+| **Network errors** | Always succeeds | Loading, error, retry states |
+| **Pagination** | Returns all events | Limit results for scale (not MVP, but design for it) |
+| **Concurrent edits** | Single user, no conflicts | Last-write-wins or conflict detection |
+
+### Pre-Implementation: Align Mock Data Shape
+
+Before building, verify mock data shape matches planned DB/API response:
+
+```typescript
+// Mock has denormalized host data:
+interface MockEvent {
+  hostId: string;
+  hostName: string;      // ← denormalized
+  hostSlug: string;      // ← denormalized
+  hostAvatarColor: string; // ← denormalized
+}
+
+// Real API should return same shape (join + transform):
+interface EventWithHost {
+  hostId: string;
+  hostName: string;      // ← from profiles join
+  hostSlug: string;      // ← from profiles join
+  hostAvatarColor?: string; // ← from profiles join
+}
+```
+
+**Decision:** API layer transforms DB data to match mock shape. Components don't change.
 
 ---
 
@@ -90,6 +183,176 @@ curl -s http://localhost:${PORT} > /dev/null && echo "Server: OK"
 **Test coverage (mock data):**
 - `evt-7` (maya-workshop-cancelled) — Cancelled by another host, user was registered
 - `evt-8` (my-cancelled-event) — Cancelled by user as host
+
+---
+
+## Phase 0: Service Abstraction Layer
+
+**Goal:** Refactor mock to use a service interface, so components can switch between mock/real.
+
+### Task 0.1: Define EventsService interface
+
+**File:** `src/app/data/events-service.interface.ts`
+
+```typescript
+import { EventWithHost, EventAttendee } from '@/app/types';
+
+export interface EventsService {
+  // Queries
+  getUpcomingEvents(): Promise<EventWithHost[]>;
+  getPastEvents(): Promise<EventWithHost[]>;
+  getEventBySlug(slug: string): Promise<EventWithHost | null>;
+  getEventAttendees(eventId: string): Promise<EventAttendee[]>;
+  isUserRsvpd(eventId: string, profileId: string): Promise<boolean>;
+  isEventFull(event: EventWithHost): boolean;
+  getSpotsRemaining(event: EventWithHost): number | null;
+
+  // Mutations
+  createEvent(data: CreateEventInput): Promise<EventWithHost | null>;
+  updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean>;
+  cancelEvent(eventId: string): Promise<boolean>;
+  rsvpToEvent(eventId: string, profileId: string): Promise<boolean>;
+  cancelRsvp(eventId: string, profileId: string): Promise<boolean>;
+
+  // Current user (for mock toggle; real uses useAuth)
+  getCurrentUserId(): string | null;
+  isLoggedIn(): boolean;
+}
+
+export interface CreateEventInput {
+  title: string;
+  description: string;
+  datetime: string;
+  durationMinutes: number;
+  timezone: string;
+  location: string;
+  maxAttendees?: number;
+}
+
+export interface UpdateEventInput extends Partial<CreateEventInput> {}
+```
+
+### Task 0.2: Create mock service implementation
+
+**File:** `src/app/data/events-service-mock.ts`
+
+Wrap existing `mock-data.ts` functions in the service interface:
+
+```typescript
+import { EventsService } from './events-service.interface';
+import {
+  getUpcomingEvents as mockGetUpcoming,
+  getPastEvents as mockGetPast,
+  getEventBySlug as mockGetBySlug,
+  isUserRsvpd as mockIsRsvpd,
+  isEventFull as mockIsFull,
+  getSpotsRemaining as mockGetSpots,
+  cancelEvent as mockCancelEvent,
+  cancelRsvp as mockCancelRsvp,
+  mockCurrentUser,
+} from '@/app/prototypes/events/mock-data';
+
+export const mockEventsService: EventsService = {
+  // Wrap sync functions as async to match real API signature
+  async getUpcomingEvents() {
+    return mockGetUpcoming();
+  },
+  async getPastEvents() {
+    return mockGetPast();
+  },
+  async getEventBySlug(slug) {
+    return mockGetBySlug(slug) ?? null;
+  },
+  async getEventAttendees(eventId) {
+    const event = mockEvents.find(e => e.id === eventId);
+    return event?.attendees ?? [];
+  },
+  async isUserRsvpd(eventId, _profileId) {
+    return mockIsRsvpd(eventId);
+  },
+  isEventFull: mockIsFull,
+  getSpotsRemaining: mockGetSpots,
+
+  async createEvent(data) {
+    // Mock: generate slug and add to mockEvents (temporary)
+    // Real implementation will persist to DB
+    const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    // For mock, just return success shape
+    return { ...data, id: 'new-' + Date.now(), slug, hostId: mockCurrentUser.id, /* ... */ } as any;
+  },
+  async updateEvent(_eventId, _data) {
+    return true; // Mock always succeeds
+  },
+  async cancelEvent(eventId) {
+    return mockCancelEvent(eventId);
+  },
+  async rsvpToEvent(eventId, _profileId) {
+    mockCurrentUser.rsvpdEventIds.push(eventId);
+    return true;
+  },
+  async cancelRsvp(eventId, _profileId) {
+    return mockCancelRsvp(eventId);
+  },
+
+  getCurrentUserId() {
+    return mockCurrentUser.isLoggedIn ? mockCurrentUser.id : null;
+  },
+  isLoggedIn() {
+    return mockCurrentUser.isLoggedIn;
+  },
+};
+```
+
+### Task 0.3: Create service switch
+
+**File:** `src/app/data/events-service.ts`
+
+```typescript
+import { mockEventsService } from './events-service-mock';
+// import { realEventsService } from './events-service-real'; // Phase 3
+
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_EVENTS_API === 'true';
+
+// For now, only mock is available. Real added in Phase 3.
+export const eventsService = USE_REAL_API
+  ? mockEventsService // TODO: replace with realEventsService
+  : mockEventsService;
+
+// Re-export interface for type checking
+export type { EventsService } from './events-service.interface';
+```
+
+### Task 0.4: Update one component as proof-of-concept
+
+**File:** `src/app/prototypes/events/components/EventsList.tsx`
+
+Change imports to use service:
+
+```typescript
+// Before:
+import { getUpcomingEvents, getPastEvents, mockCurrentUser, setMockLoggedIn } from '../mock-data';
+
+// After:
+import { eventsService } from '@/app/data/events-service';
+import { useEffect, useState } from 'react';
+
+// Usage changes from sync to async:
+const [upcomingEvents, setUpcomingEvents] = useState([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  eventsService.getUpcomingEvents().then(events => {
+    setUpcomingEvents(events);
+    setLoading(false);
+  });
+}, []);
+```
+
+### Checkpoint 0
+- [ ] `npm run build` succeeds
+- [ ] EventsList still works with mock data
+- [ ] No behavior changes visible to user
+- [ ] Service interface compiles
 
 ---
 
@@ -184,7 +447,7 @@ CREATE POLICY "Users can cancel their own RSVP"
 
 ---
 
-## Phase 2: Types & API Layer
+## Phase 2: Types & Real API Implementation
 
 ### Task 2.1: Add Event types
 
@@ -225,42 +488,297 @@ export interface EventAttendee {
 }
 ```
 
-### Task 2.2: Add API functions
+### Task 2.2: Create real service implementation
 
-**File:** `src/app/data/api.ts`
+**File:** `src/app/data/events-service-real.ts`
 
-Add all functions from the original spec:
-- `mapEventFromDb()`
-- `getUpcomingEvents()`
-- `getPastEvents()`
-- `getEventBySlug()`
-- `getEventAttendees()`
-- `getEventAttendeeCount()`
-- `isUserRsvpd()`
-- `generateEventSlug()` — **Reuse slug generation pattern from `AuthCallbackPage.tsx:275-340`** (extract to shared util in `src/lib/slug.ts` if not already done)
-- `createEvent()`
-- `rsvpToEvent()` — includes capacity check
-- `cancelRsvp()`
-- `updateEvent()` — host can edit event details
-- `cancelEvent()` — host can cancel event (sets status to 'cancelled')
-- `formatEventTime()` — formats time with explicit timezone label
+Implement the `EventsService` interface using Supabase:
 
-### Task 2.3: Unit tests for API
+```typescript
+import { EventsService, CreateEventInput } from './events-service.interface';
+import { supabase } from '@/lib/supabase';
+import { EventWithHost, EventAttendee } from '@/app/types';
 
-**File:** `src/tests/events-api.test.ts`
+// Transform DB row to match mock data shape (components expect this)
+function mapEventFromDb(row: any): EventWithHost {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    datetime: row.datetime,
+    durationMinutes: row.duration_minutes,
+    timezone: row.timezone,
+    location: row.location,
+    hostId: row.host_id,
+    maxAttendees: row.max_attendees ?? undefined,
+    createdAt: row.created_at,
+    status: row.status,
+    // Joined from profiles
+    hostName: row.profiles?.full_name ?? 'Unknown',
+    hostSlug: row.profiles?.slug ?? '',
+    hostRole: row.profiles?.headline ?? undefined,
+    hostAvatarColor: row.profiles?.avatar_color ?? '#3B82F6',
+    hostAvatarUrl: row.profiles?.avatar_url ?? undefined,
+  };
+}
 
-Test cases:
-- `getUpcomingEvents` returns empty on error
-- `getUpcomingEvents` maps snake_case to camelCase
-- `createEvent` generates correct slug
-- `createEvent` retries on slug conflict
-- `rsvpToEvent` checks capacity
-- `rsvpToEvent` returns false when full
+export const realEventsService: EventsService = {
+  async getUpcomingEvents() {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('events')
+      .select('*, profiles!host_id(full_name, slug, headline, avatar_color, avatar_url)')
+      .or(`status.eq.upcoming,status.eq.cancelled`)
+      .gte('datetime', now)
+      .order('datetime', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching upcoming events:', error);
+      return [];
+    }
+    return (data ?? []).map(mapEventFromDb);
+  },
+
+  async getPastEvents() {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('events')
+      .select('*, profiles!host_id(full_name, slug, headline, avatar_color, avatar_url)')
+      .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${now})`)
+      .order('datetime', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching past events:', error);
+      return [];
+    }
+    return (data ?? []).map(mapEventFromDb);
+  },
+
+  async getEventBySlug(slug) {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*, profiles!host_id(full_name, slug, headline, avatar_color, avatar_url)')
+      .eq('slug', slug)
+      .single();
+
+    if (error || !data) return null;
+    return mapEventFromDb(data);
+  },
+
+  async getEventAttendees(eventId) {
+    const { data, error } = await supabase
+      .from('event_rsvps')
+      .select('profile_id, profiles(full_name, slug, avatar_color, avatar_url)')
+      .eq('event_id', eventId);
+
+    if (error) return [];
+    return (data ?? []).map((row: any) => ({
+      profileId: row.profile_id,
+      name: row.profiles?.full_name ?? 'Unknown',
+      slug: row.profiles?.slug ?? '',
+      avatarColor: row.profiles?.avatar_color,
+      avatarUrl: row.profiles?.avatar_url,
+    }));
+  },
+
+  async isUserRsvpd(eventId, profileId) {
+    const { data } = await supabase
+      .from('event_rsvps')
+      .select('id')
+      .eq('event_id', eventId)
+      .eq('profile_id', profileId)
+      .single();
+    return !!data;
+  },
+
+  isEventFull(event) {
+    // Note: This needs attendee count - may need to fetch separately
+    // For now, use a simple check
+    return false; // TODO: implement with attendee count
+  },
+
+  getSpotsRemaining(event) {
+    if (!event.maxAttendees) return null;
+    // TODO: fetch attendee count
+    return event.maxAttendees;
+  },
+
+  async createEvent(data) {
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) return null;
+
+    const slug = await generateUniqueSlug(data.title);
+
+    const { data: newEvent, error } = await supabase
+      .from('events')
+      .insert({
+        slug,
+        title: data.title,
+        description: data.description,
+        datetime: data.datetime,
+        duration_minutes: data.durationMinutes,
+        timezone: data.timezone,
+        location: data.location,
+        host_id: user.user.id,
+        max_attendees: data.maxAttendees ?? null,
+      })
+      .select('*, profiles!host_id(full_name, slug, headline, avatar_color)')
+      .single();
+
+    if (error) {
+      console.error('Error creating event:', error);
+      return null;
+    }
+    return mapEventFromDb(newEvent);
+  },
+
+  async updateEvent(eventId, data) {
+    const updateData: any = {};
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.datetime !== undefined) updateData.datetime = data.datetime;
+    if (data.durationMinutes !== undefined) updateData.duration_minutes = data.durationMinutes;
+    if (data.timezone !== undefined) updateData.timezone = data.timezone;
+    if (data.location !== undefined) updateData.location = data.location;
+    if (data.maxAttendees !== undefined) updateData.max_attendees = data.maxAttendees;
+
+    const { error } = await supabase
+      .from('events')
+      .update(updateData)
+      .eq('id', eventId);
+
+    return !error;
+  },
+
+  async cancelEvent(eventId) {
+    const { error } = await supabase
+      .from('events')
+      .update({ status: 'cancelled' })
+      .eq('id', eventId);
+    return !error;
+  },
+
+  async rsvpToEvent(eventId, profileId) {
+    // Check capacity first (atomic would be better, but simple for MVP)
+    const event = await this.getEventBySlug(eventId); // TODO: getById
+    if (event && this.isEventFull(event)) return false;
+
+    const { error } = await supabase
+      .from('event_rsvps')
+      .insert({ event_id: eventId, profile_id: profileId });
+
+    return !error;
+  },
+
+  async cancelRsvp(eventId, profileId) {
+    const { error } = await supabase
+      .from('event_rsvps')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('profile_id', profileId);
+    return !error;
+  },
+
+  getCurrentUserId() {
+    // Real implementation: this is sync, so can't call supabase here
+    // Components should use useAuth() instead
+    return null;
+  },
+
+  isLoggedIn() {
+    // Components should use useAuth() instead
+    return false;
+  },
+};
+
+// Helper: Generate unique slug with collision handling
+async function generateUniqueSlug(title: string): Promise<string> {
+  const baseSlug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  let slug = baseSlug;
+  let attempt = 0;
+
+  while (attempt < 10) {
+    const { data } = await supabase
+      .from('events')
+      .select('id')
+      .eq('slug', slug)
+      .single();
+
+    if (!data) return slug; // Unique!
+
+    attempt++;
+    slug = `${baseSlug}-${Date.now()}`;
+  }
+
+  return `${baseSlug}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+```
+
+### Task 2.3: Update service switch to include real implementation
+
+**File:** `src/app/data/events-service.ts`
+
+```typescript
+import { mockEventsService } from './events-service-mock';
+import { realEventsService } from './events-service-real';
+
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_EVENTS_API === 'true';
+
+export const eventsService = USE_REAL_API ? realEventsService : mockEventsService;
+
+export type { EventsService } from './events-service.interface';
+```
+
+### Task 2.4: Unit tests for both implementations
+
+**File:** `src/tests/events-service.test.ts`
+
+Test cases that should pass for BOTH mock and real:
+- `getUpcomingEvents` returns array (empty or with events)
+- `getUpcomingEvents` returns events with correct shape (all fields present)
+- `getEventBySlug` returns null for non-existent slug
+- `isEventFull` returns false for event without maxAttendees
+- `isEventFull` returns true when attendees >= maxAttendees
+
+```typescript
+import { mockEventsService } from '@/app/data/events-service-mock';
+// import { realEventsService } from '@/app/data/events-service-real'; // Test separately
+
+describe('EventsService (mock)', () => {
+  it('getUpcomingEvents returns array', async () => {
+    const events = await mockEventsService.getUpcomingEvents();
+    expect(Array.isArray(events)).toBe(true);
+  });
+
+  it('events have correct shape', async () => {
+    const events = await mockEventsService.getUpcomingEvents();
+    if (events.length > 0) {
+      const event = events[0];
+      expect(event).toHaveProperty('id');
+      expect(event).toHaveProperty('slug');
+      expect(event).toHaveProperty('title');
+      expect(event).toHaveProperty('hostName'); // Denormalized
+      expect(event).toHaveProperty('hostSlug'); // Denormalized
+    }
+  });
+
+  it('getEventBySlug returns null for non-existent', async () => {
+    const event = await mockEventsService.getEventBySlug('non-existent-slug');
+    expect(event).toBeNull();
+  });
+});
+```
 
 ### Checkpoint 2
-- [ ] `npm test -- events-api` passes
+- [ ] `npm test -- events-service` passes
 - [ ] `npm run build` succeeds
 - [ ] Types import correctly: `import { Event, EventWithHost } from '@/app/types'`
+- [ ] Mock service still works (no regressions)
 
 ---
 
@@ -327,17 +845,19 @@ const redirectUrl = `${window.location.origin}/auth/callback?source=signup${redi
 
 ---
 
-## Phase 4: Frontend Integration
+## Phase 4: Frontend Integration (Use Service Layer)
 
-### Task 4.1: EventsList — Real data
+**Key principle:** Components use `eventsService` from Phase 0. They don't know if it's mock or real.
+
+### Task 4.1: EventsList — Use service layer
 
 **File:** `src/app/prototypes/events/components/EventsList.tsx`
 
-- Remove mock data imports
-- Use `getUpcomingEvents()`, `getPastEvents()`
+- Import from `eventsService` (already done in Phase 0.4)
 - Use `useAuth()` for login state (not mock toggle)
-- Remove amber prototype banner
-- Loading state while fetching
+- Keep prototype toggle for now (useful for testing both states)
+- Add loading state while fetching
+- Add error state for network failures
 
 ### Task 4.2: EventDetail — Real data + RSVP
 
@@ -533,10 +1053,19 @@ const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours
 
 **Note:** Both CreateEvent and EditEvent import from `utils.ts` to avoid timezone/duration list inconsistencies.
 
-### Task 4.12: Delete mock-data.ts
+### Task 4.12: Verify mock fallback still works
 
-After all components use real API, delete:
-- `src/app/prototypes/events/mock-data.ts`
+**Do NOT delete mock-data.ts yet.** Verify both modes work:
+
+```bash
+# Test with mock (default)
+npm run dev
+# Verify: Events work, no errors
+
+# Test with real API
+VITE_USE_REAL_EVENTS_API=true npm run dev
+# Verify: Events work with real data
+```
 
 ### Checkpoint 4
 - [ ] `npm test` passes
@@ -714,15 +1243,81 @@ Verify these work:
 
 ---
 
-## Phase 7: Cleanup & Polish
+## Phase 7: Switchover
 
-### Task 7.1: Remove prototype artifacts
+**Goal:** Switch from mock to real API as default, with rollback capability.
+
+### Switchover Criteria (ALL must pass)
+
+| Criteria | How to Verify |
+|----------|---------------|
+| All E2E tests pass with real API | `VITE_USE_REAL_EVENTS_API=true npm run test:e2e -- --grep events` |
+| All unit tests pass | `npm test` |
+| Build succeeds | `npm run build` |
+| Manual smoke test passes | Create event → RSVP → Cancel → Reload |
+| No console errors | Check browser console during smoke test |
+| Data persists correctly | Create event, close browser, reopen → event still there |
+
+### Task 7.1: Enable real API by default
+
+**File:** `.env` (or `.env.local`)
+
+```bash
+VITE_USE_REAL_EVENTS_API=true
+```
+
+### Task 7.2: Run full test suite with real API
+
+```bash
+# Unit tests
+npm test
+
+# E2E tests
+npm run test:e2e -- --grep events
+
+# Manual smoke test
+npm run dev
+# → Create event
+# → RSVP as different user (use incognito)
+# → Cancel RSVP
+# → Reload page
+# → Verify all changes persisted
+```
+
+### Task 7.3: Monitor for 24-48 hours
+
+Keep mock available as fallback. If issues arise:
+
+```bash
+# Rollback to mock
+VITE_USE_REAL_EVENTS_API=false npm run dev
+```
+
+### Checkpoint 7 (Switchover Complete)
+- [ ] Real API is default
+- [ ] No regressions reported
+- [ ] Ready to delete mock
+
+---
+
+## Phase 8: Cleanup & Polish
+
+**Only proceed after Phase 7 switchover is stable.**
+
+### Task 8.1: Remove mock implementation
 
 - Delete `src/app/prototypes/events/mock-data.ts`
-- Remove prototype toggle code
-- Remove amber banner CSS
+- Delete `src/app/data/events-service-mock.ts`
+- Update `events-service.ts` to only export real service
+- Remove `VITE_USE_REAL_EVENTS_API` env var (no longer needed)
 
-### Task 7.2: Consider moving from prototypes/
+### Task 8.2: Remove prototype toggle UI
+
+- Remove "View as Visitor / View as Logged In" toggle from EventsList
+- Remove toggle from EventDetail
+- Use real auth state everywhere
+
+### Task 8.3: Consider moving from prototypes/
 
 Options:
 1. Keep in `prototypes/events/` (simpler, already wired)
@@ -755,28 +1350,41 @@ Stop and ask user if:
 ## Files Changed (Complete List)
 
 ```
-# NEW
+# NEW (Phase 0: Service Abstraction)
+src/app/data/events-service.interface.ts            # Service interface (shared contract)
+src/app/data/events-service-mock.ts                 # Mock implementation (wraps mock-data.ts)
+src/app/data/events-service-real.ts                 # Real Supabase implementation
+src/app/data/events-service.ts                      # Service switch (feature flag)
+
+# NEW (Phase 1: Database)
 supabase/migrations/20260118_create_events.sql
-src/tests/events-api.test.ts
+
+# NEW (Phase 2: Types & Tests)
+src/tests/events-service.test.ts                    # Tests for both implementations
 e2e/events.spec.ts
+
+# NEW (Phase 6: Verification)
 docs/events-implementation-learnings.md
-src/app/prototypes/events/components/EditEvent.tsx  # Host edit event form
 
 # MODIFY
 src/app/types/index.ts                              # Add Event types (no type field, incl. timezone)
-src/app/data/api.ts                                 # Add 13 Event functions + reuse slug util
 src/auth/AuthCallbackPage.tsx                       # Handle action=rsvp
 src/app/pages/signup-page.tsx                       # Preserve redirect params
-src/app/prototypes/events/components/EventsList.tsx
-src/app/prototypes/events/components/EventDetail.tsx # Host controls, cancel RSVP fix, timezone
-src/app/prototypes/events/components/EventCard.tsx
-src/app/prototypes/events/components/CreateEvent.tsx # Add timezone selector
-src/app/prototypes/events/components/RsvpConfirm.tsx
+src/app/prototypes/events/components/EventsList.tsx # Use eventsService + loading states
+src/app/prototypes/events/components/EventDetail.tsx # Use eventsService, host controls, timezone
+src/app/prototypes/events/components/EventCard.tsx  # Profile links
+src/app/prototypes/events/components/CreateEvent.tsx # Use eventsService
+src/app/prototypes/events/components/EditEvent.tsx  # Use eventsService
+src/app/prototypes/events/components/RsvpConfirm.tsx # Use eventsService
 src/app/prototypes/events/utils.ts                  # Add getTimezoneLabel()
-src/app/components/landing/upcoming-events-section.tsx
+src/app/components/landing/upcoming-events-section.tsx # Use eventsService
 
-# DELETE
-src/app/prototypes/events/mock-data.ts
+# KEEP UNTIL PHASE 8 (mock fallback)
+src/app/prototypes/events/mock-data.ts              # Kept as fallback until switchover complete
+
+# DELETE (Phase 8: After Switchover)
+src/app/prototypes/events/mock-data.ts              # Only after 24-48h stable
+src/app/data/events-service-mock.ts                 # Only after 24-48h stable
 ```
 
 ---

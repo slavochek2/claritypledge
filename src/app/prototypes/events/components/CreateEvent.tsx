@@ -1,18 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { toast } from 'sonner';
 import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/auth';
-import { createEvent, generateEventSlug } from '@/app/data/api';
+import { mockCurrentUser } from '../mock-data';
 import { DURATIONS, TIMEZONES } from '../utils';
 
 export function CreateEvent() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -26,7 +23,7 @@ export function CreateEvent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Redirect if not logged in
-  if (!user) {
+  if (!mockCurrentUser.isLoggedIn) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -72,33 +69,19 @@ export function CreateEvent() {
 
     setIsSubmitting(true);
 
-    try {
-      // Create datetime string in ISO format
-      const datetime = new Date(`${date}T${time}`).toISOString();
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Generate slug from title
-      const slug = generateEventSlug(title);
+    // Generate slug from title and date
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') + '-' + date;
 
-      // Create event via API
-      const newEvent = await createEvent({
-        slug,
-        title: title.trim(),
-        description: description.trim(),
-        datetime,
-        durationMinutes,
-        timezone,
-        location: location.trim(),
-        hostId: user.id,
-      });
+    setIsSubmitting(false);
 
-      toast.success('Event created!');
-      navigate(`/events/${newEvent.slug}`);
-    } catch (err) {
-      console.error('Error creating event:', err);
-      toast.error('Failed to create event. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Navigate to the new event (mock)
+    navigate(`/events/${slug}?created=true`);
   };
 
   // Get tomorrow's date for min date attribute
