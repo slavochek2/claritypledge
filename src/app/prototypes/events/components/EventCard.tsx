@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Calendar, CheckCircle2, Crown, Ban } from 'lucide-react';
-import type { MockEvent } from '../mock-data';
+import type { EventWithHost } from '@/app/types';
+// TODO Phase 4: Replace mockCurrentUser with useAuth() hook
+// TODO Phase 4: isUserRsvpd check should be lifted to EventsList (async via eventsService)
+//               and passed as isUserGoing prop to EventCard
 import { isUserRsvpd, mockCurrentUser } from '../mock-data';
 import { formatDateShort, formatTime } from '../utils';
 
 interface EventCardProps {
-  event: MockEvent;
+  event: EventWithHost;
   isLoggedIn?: boolean;
 }
 
@@ -95,24 +98,26 @@ export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
         <div className="flex items-center justify-between pt-3 border-t border-border">
           {/* Attendee avatars */}
           <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {event.attendees.slice(0, 4).map((attendee, i) => (
-                <div
-                  key={attendee.id}
-                  className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
-                  style={{ backgroundColor: attendee.avatarColor, zIndex: 4 - i }}
-                >
-                  {attendee.name.charAt(0)}
-                </div>
-              ))}
-              {event.attendees.length > 4 && (
-                <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
-                  +{event.attendees.length - 4}
-                </div>
-              )}
-            </div>
+            {event.attendees && event.attendees.length > 0 && (
+              <div className="flex -space-x-2">
+                {event.attendees.slice(0, 4).map((attendee, i) => (
+                  <div
+                    key={attendee.profileId}
+                    className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
+                    style={{ backgroundColor: attendee.avatarColor, zIndex: 4 - i }}
+                  >
+                    {attendee.name.charAt(0)}
+                  </div>
+                ))}
+                {event.attendees.length > 4 && (
+                  <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600">
+                    +{event.attendees.length - 4}
+                  </div>
+                )}
+              </div>
+            )}
             <span className="text-sm text-muted-foreground">
-              {event.attendees.length} {
+              {event.attendeeCount ?? event.attendees?.length ?? 0} {
                 event.status === 'completed' ? 'attended' :
                 event.status === 'cancelled' ? 'were going' : 'going'
               }

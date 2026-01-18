@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, CalendarDays, Eye, EyeOff } from 'lucide-react';
 import { EventCard } from './EventCard';
-import { getUpcomingEvents, getPastEvents, mockCurrentUser, setMockLoggedIn } from '../mock-data';
+import { eventsService } from '@/app/data/events-service';
+// TODO Phase 4: Replace mock login state with useAuth() hook:
+//   import { useAuth } from '@/auth';
+//   const { user, isLoading } = useAuth();
+//   const isLoggedIn = !!user;
+// Then remove prototype toggle UI and mockCurrentUser/setMockLoggedIn imports
+import { mockCurrentUser, setMockLoggedIn } from '../mock-data';
+import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
 
 type Tab = 'upcoming' | 'past';
@@ -10,8 +17,23 @@ type Tab = 'upcoming' | 'past';
 export function EventsList() {
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
   const [isLoggedIn, setIsLoggedIn] = useState(mockCurrentUser.isLoggedIn);
-  const upcomingEvents = getUpcomingEvents();
-  const pastEvents = getPastEvents();
+  const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
+  const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchEvents() {
+      const [upcoming, past] = await Promise.all([
+        eventsService.getUpcomingEvents(),
+        eventsService.getPastEvents(),
+      ]);
+      setUpcomingEvents(upcoming);
+      setPastEvents(past);
+      setLoading(false);
+    }
+    fetchEvents();
+  }, []);
+
   const events = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
 
   const toggleLoginState = () => {
@@ -85,7 +107,11 @@ export function EventsList() {
 
       {/* Events Grid */}
       <div className="max-w-5xl mx-auto px-4 pb-6">
-        {events.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="text-muted-foreground">Loading events...</div>
+          </div>
+        ) : events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map(event => (
               <EventCard key={event.id} event={event} isLoggedIn={isLoggedIn} />

@@ -1,6 +1,6 @@
 // Mock data for events prototype
 
-export type EventStatus = 'upcoming' | 'completed' | 'cancelled';
+import type { EventStatus } from '@/app/types';
 
 export interface MockEvent {
   id: string;
@@ -360,6 +360,7 @@ export function getEventBySlug(slug: string): MockEvent | undefined {
 export const mockCurrentUser = {
   id: 'host-1',
   name: 'Slava Solonitsyn',
+  slug: 'slava-solonitsyn',
   avatarColor: '#3B82F6',
   isLoggedIn: true,
   // Events the user has RSVP'd to (for prototype demo)

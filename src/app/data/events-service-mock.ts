@@ -1,0 +1,165 @@
+import type { EventsService, CreateEventInput } from './events-service.interface';
+import type { EventWithHost, EventAttendee } from '@/app/types';
+import {
+  getUpcomingEvents as mockGetUpcoming,
+  getPastEvents as mockGetPast,
+  getEventBySlug as mockGetBySlug,
+  isUserRsvpd as mockIsRsvpd,
+  isEventFull as mockIsFull,
+  getSpotsRemaining as mockGetSpots,
+  cancelEvent as mockCancelEvent,
+  cancelRsvp as mockCancelRsvp,
+  mockCurrentUser,
+  mockEvents,
+  type MockEvent,
+} from '@/app/prototypes/events/mock-data';
+
+// Transform MockEvent to EventWithHost (same shape, just type alignment)
+function toEventWithHost(mock: MockEvent): EventWithHost {
+  return {
+    id: mock.id,
+    slug: mock.slug,
+    title: mock.title,
+    description: mock.description,
+    datetime: mock.datetime,
+    durationMinutes: mock.durationMinutes,
+    timezone: mock.timezone,
+    location: mock.location,
+    hostId: mock.hostId,
+    hostName: mock.hostName,
+    hostSlug: mock.hostSlug,
+    hostRole: mock.hostRole,
+    hostAvatarColor: mock.hostAvatarColor,
+    maxAttendees: mock.maxAttendees,
+    createdAt: mock.createdAt,
+    status: mock.status,
+    // Include attendees for display (mock-specific - real service would fetch separately)
+    attendees: mock.attendees.map(a => ({
+      profileId: a.id,
+      name: a.name,
+      slug: a.slug,
+      avatarColor: a.avatarColor,
+    })),
+    attendeeCount: mock.attendees.length,
+  };
+}
+
+export const mockEventsService: EventsService = {
+  // Wrap sync as async to match interface
+  async getUpcomingEvents(): Promise<EventWithHost[]> {
+    return mockGetUpcoming().map(toEventWithHost);
+  },
+
+  async getPastEvents(): Promise<EventWithHost[]> {
+    return mockGetPast().map(toEventWithHost);
+  },
+
+  async getEventBySlug(slug: string): Promise<EventWithHost | null> {
+    const event = mockGetBySlug(slug);
+    return event ? toEventWithHost(event) : null;
+  },
+
+  async getEventAttendees(eventId: string): Promise<EventAttendee[]> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event) return [];
+    return event.attendees.map(a => ({
+      profileId: a.id,
+      name: a.name,
+      slug: a.slug,
+      avatarColor: a.avatarColor,
+    }));
+  },
+
+  async isUserRsvpd(eventId: string, _profileId: string): Promise<boolean> {
+    // Mock ignores profileId, uses mockCurrentUser
+    return mockIsRsvpd(eventId);
+  },
+
+  isEventFull(event: EventWithHost): boolean {
+    // Need to get the mock event to check attendees
+    const mockEvent = mockEvents.find(e => e.id === event.id);
+    if (!mockEvent) return false;
+    return mockIsFull(mockEvent);
+  },
+
+  getSpotsRemaining(event: EventWithHost): number | null {
+    const mockEvent = mockEvents.find(e => e.id === event.id);
+    if (!mockEvent) return null;
+    return mockGetSpots(mockEvent);
+  },
+
+  async createEvent(data: CreateEventInput): Promise<EventWithHost | null> {
+    // Mock implementation - create temporary event
+    const slug = data.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    // Use timestamp + random suffix for unique IDs (avoids collisions in parallel tests)
+    const uniqueId = `evt-new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const newEvent: MockEvent = {
+      id: uniqueId,
+      slug: `${slug}-${new Date().toISOString().split('T')[0]}-${Math.random().toString(36).slice(2, 6)}`,
+      title: data.title,
+      description: data.description,
+      datetime: data.datetime,
+      durationMinutes: data.durationMinutes,
+      timezone: data.timezone,
+      location: data.location,
+      hostId: mockCurrentUser.id,
+      hostName: mockCurrentUser.name,
+      hostSlug: mockCurrentUser.slug,
+      hostRole: 'Clarity Pledge Founder',
+      hostAvatarColor: mockCurrentUser.avatarColor,
+      maxAttendees: data.maxAttendees,
+      attendees: [],
+      status: 'upcoming',
+      createdAt: new Date().toISOString(),
+    };
+
+    mockEvents.push(newEvent);
+    return toEventWithHost(newEvent);
+  },
+
+  async updateEvent(eventId: string, data: Partial<CreateEventInput>): Promise<boolean> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event || event.hostId !== mockCurrentUser.id) return false;
+
+    if (data.title) event.title = data.title;
+    if (data.description) event.description = data.description;
+    if (data.datetime) event.datetime = data.datetime;
+    if (data.durationMinutes) event.durationMinutes = data.durationMinutes;
+    if (data.timezone) event.timezone = data.timezone;
+    if (data.location) event.location = data.location;
+    if (data.maxAttendees !== undefined) event.maxAttendees = data.maxAttendees;
+
+    return true;
+  },
+
+  async cancelEvent(eventId: string): Promise<boolean> {
+    return mockCancelEvent(eventId);
+  },
+
+  async rsvpToEvent(eventId: string, _profileId: string): Promise<boolean> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event) return false;
+    if (event.status === 'cancelled') return false;
+    if (mockIsFull(event)) return false;
+    if (mockIsRsvpd(eventId)) return false;
+
+    mockCurrentUser.rsvpdEventIds.push(eventId);
+    // Also add to attendees list
+    event.attendees.push({
+      id: mockCurrentUser.id,
+      name: mockCurrentUser.name,
+      slug: mockCurrentUser.slug,
+      avatarColor: mockCurrentUser.avatarColor,
+    });
+    return true;
+  },
+
+  async cancelRsvp(eventId: string, _profileId: string): Promise<boolean> {
+    return mockCancelRsvp(eventId);
+  },
+};

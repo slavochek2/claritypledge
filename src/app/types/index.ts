@@ -685,6 +685,11 @@ export interface EventWithHost extends Event {
   hostRole?: string;
   hostAvatarColor?: string;
   hostAvatarUrl?: string;
+  // Optional display fields - mock service populates these inline for convenience.
+  // Real service fetches attendees separately via getEventAttendees().
+  // Components should handle these being undefined when using real API.
+  attendees?: EventAttendee[];
+  attendeeCount?: number;
 }
 
 export interface EventAttendee {
