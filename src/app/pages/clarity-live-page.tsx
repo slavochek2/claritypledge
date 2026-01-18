@@ -1815,7 +1815,7 @@ export function ClarityLivePage() {
                     className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <label htmlFor="consent-join" className="text-sm text-muted-foreground leading-relaxed">
-                    I agree that this session will be recorded, and I accept the{' '}
+                    I agree this session is recorded for AI Insights, and I accept the{' '}
                     <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                       Terms
                     </a>{' '}
@@ -1985,7 +1985,7 @@ export function ClarityLivePage() {
                           className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
-                          I agree that this session will be recorded, and I accept the{' '}
+                          I agree this session is recorded for AI Insights, and I accept the{' '}
                           <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                             Terms
                           </a>{' '}
@@ -2090,7 +2090,7 @@ export function ClarityLivePage() {
                 {isLoggedIn && (
                   <div className="text-center pt-4">
                     <p className="text-sm text-muted-foreground">
-                      This session will be recorded.{' '}
+                      This session is recorded for AI Insights.{' '}
                       By starting or joining, you agree to our{' '}
                       <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         Terms
@@ -2193,7 +2193,7 @@ export function ClarityLivePage() {
               <Button
                 onClick={handleShare}
                 size="sm"
-                className="flex-shrink-0"
+                className="flex-shrink-0 bg-blue-500 hover:bg-blue-600"
               >
                 {copied ? (
                   <Check className="h-4 w-4 mr-1" />

@@ -35,7 +35,7 @@ describe('TermsUpdateDialog', () => {
     );
     render(<TermsUpdateDialog {...defaultProps} />);
 
-    expect(screen.getByText(/this session will be recorded/i)).toBeInTheDocument();
+    expect(screen.getByText(/this session is recorded for AI Insights/i)).toBeInTheDocument();
   });
 
   it('has links to view Terms and Privacy Policy', async () => {

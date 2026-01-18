@@ -39,14 +39,13 @@ export function ClarityLogo({
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
-        <rect width="128" height="128" rx="16" fill="currentColor" className="text-foreground" />
+        <rect width="128" height="128" rx="16" fill="#3b82f6" />
         <path
           d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
-          stroke="currentColor"
+          stroke="white"
           strokeWidth="14"
           strokeLinecap="round"
           fill="none"
-          className="text-background"
         />
       </svg>
 
@@ -82,14 +81,13 @@ export function ClarityLogoMark({
       aria-hidden="true"
     >
       {/* Circle background to fill circular seal container */}
-      <circle cx="64" cy="64" r="64" fill="currentColor" className="text-foreground" />
+      <circle cx="64" cy="64" r="64" fill="#3b82f6" />
       <path
         d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
-        stroke="currentColor"
+        stroke="white"
         strokeWidth="14"
         strokeLinecap="round"
         fill="none"
-        className="text-background"
       />
     </svg>
   );

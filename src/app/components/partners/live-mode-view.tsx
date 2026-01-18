@@ -15,7 +15,7 @@
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
 import { useEffect, useRef, useState } from 'react';
-import { DoorOpen } from 'lucide-react';
+import { DoorOpen, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -48,9 +48,9 @@ import { playCelebrationSound } from '@/hooks/use-sound';
  */
 function RecordingIndicator() {
   return (
-    <div className="flex items-center justify-center gap-2 py-1.5 bg-red-50 border-b border-red-200">
-      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-      <span className="text-xs text-red-700">Recording session</span>
+    <div className="flex items-center justify-center gap-2 py-1.5 bg-blue-50 border-b border-blue-200">
+      <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+      <span className="text-xs text-blue-700">Session recorded for AI Insights</span>
     </div>
   );
 }
@@ -271,7 +271,7 @@ export function LiveModeView({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button onClick={handleSkipDialogOk} className="w-full sm:w-auto">
+          <Button onClick={handleSkipDialogOk} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600">
             OK
           </Button>
         </DialogFooter>
@@ -322,9 +322,14 @@ export function LiveModeView({
     </Dialog>
   );
 
-  // User clicked "Continue" but partner hasn't yet - show idle with disabled buttons
-  // This prevents starting a new round before partner acknowledges the celebration
-  if (waitingForPartner) {
+  // Check if we're in a celebration state (perfect rating achieved)
+  // Used to determine whether to show celebration waiting vs idle waiting
+  const inCelebrationState = bothSubmitted && checkerRating === 10;
+
+  // User clicked "Continue" but partner hasn't yet
+  // If in celebration state, let UnderstandingScreen handle the waiting UI
+  // If NOT in celebration state, show idle with disabled buttons
+  if (waitingForPartner && !inCelebrationState) {
     return (
       <>
         <IdleScreen
@@ -1425,9 +1430,6 @@ function UnderstandingScreen({
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
 
-  // Local state: listener is explaining why it's a 10 (speaking mode)
-  const [isExplainingWhy, setIsExplainingWhy] = useState(false);
-
   // Clarification phase - single enum replaces three booleans
   const clarificationPhase = liveState.clarificationPhase;
   // Check if explain-back has happened (required for clarification flow)
@@ -1464,15 +1466,15 @@ function UnderstandingScreen({
     phase = 'explain-back';
   } else if (liveState.ratingPhase === 'results') {
     // Explicit results phase (set after explain-back rating) - this takes priority
-    // Check for perfect understanding first
-    if (reachedPerfect && !userHasAcknowledged) {
+    // Check for perfect understanding first - show celebration even if user acknowledged (waiting for partner)
+    if (reachedPerfect) {
       phase = 'perfect';
     } else {
       phase = 'results';
     }
-  } else if (reachedPerfect && !userHasAcknowledged) {
+  } else if (reachedPerfect) {
     // Perfect understanding achieved - show celebration (takes priority over 'results')
-    // But if user already acknowledged, skip to results (which will show idle)
+    // Keep showing celebration even if user acknowledged - let celebration UI handle waiting state
     phase = 'perfect';
   } else if (!bothSubmitted) {
     phase = 'waiting';
@@ -1556,7 +1558,7 @@ function UnderstandingScreen({
                   <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
                 </DialogHeader>
                 <DialogFooter className="flex-col gap-2 sm:flex-col">
-                  <Button onClick={onLetThemSpeak} className="w-full">
+                  <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                     Accept
                   </Button>
                   <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
@@ -1576,7 +1578,7 @@ function UnderstandingScreen({
                   </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
-                  <Button onClick={onLetThemSpeak} className="w-full">
+                  <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                     Let them speak
                   </Button>
                 </DialogFooter>
@@ -1632,7 +1634,7 @@ function UnderstandingScreen({
                 <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
               </DialogHeader>
               <DialogFooter className="flex-col gap-2 sm:flex-col">
-                <Button onClick={onLetThemSpeak} className="w-full">
+                <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                   Accept
                 </Button>
                 <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
@@ -1652,7 +1654,7 @@ function UnderstandingScreen({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button onClick={onLetThemSpeak} className="w-full">
+                <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                   Let them speak
                 </Button>
               </DialogFooter>
@@ -1709,7 +1711,7 @@ function UnderstandingScreen({
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="flex-col gap-2 sm:flex-col">
-                <Button onClick={onContinueAsListener} className="w-full">
+                <Button onClick={onContinueAsListener} className="w-full bg-blue-500 hover:bg-blue-600">
                   Continue as listener
                 </Button>
                 <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
@@ -1774,7 +1776,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onContinueAsListener} className="w-full">
+              <Button onClick={onContinueAsListener} className="w-full bg-blue-500 hover:bg-blue-600">
                 Continue as listener
               </Button>
               <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
@@ -1874,44 +1876,17 @@ function UnderstandingScreen({
             variant="success"
             className="w-full max-w-sm"
           />
-          <ActionArea
-            icon={isChecker && isExplainingWhy ? "🎤" : undefined}
-            title={isChecker && isExplainingWhy ? `Share with ${displayPartnerName} what clicked for you` : undefined}
-            subtitle={isChecker && !isExplainingWhy ? `Help ${displayPartnerName} learn what clicked for you?` : undefined}
-          >
-            {isChecker ? (
-              isExplainingWhy ? (
-                // Speaking mode: speaker is verbally explaining what clicked
-                <Button
-                  size="lg"
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                  onClick={onCelebrationContinue}
-                >
-                  I'm done
-                </Button>
-              ) : (
-                // Initial state: offer to explain or skip
-                <>
-                  <Button
-                    size="lg"
-                    className="bg-blue-500 hover:bg-blue-600 w-full"
-                    onClick={() => setIsExplainingWhy(true)}
-                  >
-                    Share what worked
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={onCelebrationContinue} className="text-muted-foreground">
-                    Continue
-                  </Button>
-                </>
-              )
-            ) : (
-              <Button
-                size="lg"
-                className="bg-blue-500 hover:bg-blue-600 w-full"
-                onClick={onCelebrationContinue}
-              >
-                Continue
-              </Button>
+          <ActionArea>
+            <Button
+              size="lg"
+              className="bg-blue-500 hover:bg-blue-600 w-full"
+              onClick={onCelebrationContinue}
+              disabled={userHasAcknowledged}
+            >
+              Continue
+            </Button>
+            {userHasAcknowledged && (
+              <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
             )}
           </ActionArea>
         </div>
@@ -1997,7 +1972,7 @@ function UnderstandingScreen({
               <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onLetThemSpeak} className="w-full">
+              <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                 Accept
               </Button>
               <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
@@ -2017,7 +1992,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onContinueAsListener} className="w-full">
+              <Button onClick={onContinueAsListener} className="w-full bg-blue-500 hover:bg-blue-600">
                 Continue as listener
               </Button>
               <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
@@ -2037,7 +2012,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button onClick={onLetThemSpeak} className="w-full">
+              <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                 Let them speak
               </Button>
             </DialogFooter>
@@ -2119,7 +2094,7 @@ function UnderstandingScreen({
               <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onLetThemSpeak} className="w-full">
+              <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                 Accept
               </Button>
               <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
@@ -2139,7 +2114,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onContinueAsListener} className="w-full">
+              <Button onClick={onContinueAsListener} className="w-full bg-blue-500 hover:bg-blue-600">
                 Continue as listener
               </Button>
               <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
@@ -2159,7 +2134,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button onClick={onLetThemSpeak} className="w-full">
+              <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                 Let them speak
               </Button>
             </DialogFooter>
@@ -2240,7 +2215,7 @@ function UnderstandingScreen({
               <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onLetThemSpeak} className="w-full">
+              <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                 Accept
               </Button>
               <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
@@ -2260,7 +2235,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onContinueAsListener} className="w-full">
+              <Button onClick={onContinueAsListener} className="w-full bg-blue-500 hover:bg-blue-600">
                 Continue as listener
               </Button>
               <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
@@ -2280,7 +2255,7 @@ function UnderstandingScreen({
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-col gap-2 sm:flex-col">
-              <Button onClick={onLetThemSpeak} className="w-full">
+              <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
                 Let them speak
               </Button>
             </DialogFooter>
@@ -2389,7 +2364,7 @@ function UnderstandingScreen({
             <DialogTitle>Allow {negotiationRequester} to skip active listening?</DialogTitle>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button onClick={onLetThemSpeak} className="w-full">
+            <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
               Accept
             </Button>
             <Button variant="outline" onClick={onAskToExplainFirst} className="w-full">
@@ -2409,7 +2384,7 @@ function UnderstandingScreen({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button onClick={onContinueAsListener} className="w-full">
+            <Button onClick={onContinueAsListener} className="w-full bg-blue-500 hover:bg-blue-600">
               Continue as listener
             </Button>
             <Button variant="outline" onClick={onInsistToSpeak} className="w-full">
@@ -2429,7 +2404,7 @@ function UnderstandingScreen({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={onLetThemSpeak} className="w-full">
+            <Button onClick={onLetThemSpeak} className="w-full bg-blue-500 hover:bg-blue-600">
               Let them speak
             </Button>
           </DialogFooter>

@@ -274,7 +274,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                   boxShadow: "0 4px 12px rgba(26, 26, 26, 0.2)",
                 }}
               >
-                {/* Logo mark as seal */}
+                {/* Logo mark as seal - blue "C" logo */}
                 <svg
                   width="48"
                   height="48"
@@ -282,10 +282,10 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
                 >
-                  <rect width="128" height="128" rx="24" fill="#1A1A1A" />
+                  <circle cx="64" cy="64" r="64" fill="#3b82f6" />
                   <path
-                    d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
-                    stroke="#FDFBF7"
+                    d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
+                    stroke="white"
                     strokeWidth="14"
                     strokeLinecap="round"
                     fill="none"
@@ -339,7 +339,7 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 gap: "8px",
               }}
             >
-              {/* Inline logo mark for html-to-image compatibility */}
+              {/* Inline logo mark for html-to-image compatibility - blue "C" logo */}
               <svg
                 width="20"
                 height="20"
@@ -347,10 +347,10 @@ export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificatePro
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <rect width="128" height="128" rx="24" fill="#1A1A1A" />
+                <circle cx="64" cy="64" r="64" fill="#3b82f6" />
                 <path
-                  d="M40 32 L40 72 C40 88 50 96 64 96 C78 96 88 88 88 72 L88 32"
-                  stroke="#FDFBF7"
+                  d="M88 40.5 C 82 35 73 32 64 32 C 44 32 32 48 32 64 C 32 80 44 96 64 96 C 73 96 82 93 88 87.5"
+                  stroke="white"
                   strokeWidth="14"
                   strokeLinecap="round"
                   fill="none"

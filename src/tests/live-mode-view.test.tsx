@@ -358,6 +358,132 @@ describe('LiveModeView', () => {
       // Should show celebration
       expect(screen.getByText(/perfectly/i)).toBeInTheDocument();
     });
+
+    it('P71: both checker and responder see identical Continue button (no "Share what worked")', () => {
+      const perfectState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'revealed',
+        checkerName: 'alice',
+        checkerRating: 10,
+        responderRating: 10,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+      };
+
+      // Test as checker (currentUserName matches checkerName)
+      const { unmount } = renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          liveState={perfectState}
+        />
+      );
+
+      // Checker should see Continue button
+      expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
+      // Should NOT see "Share what worked" button (P71 removed it)
+      expect(screen.queryByRole('button', { name: /share what worked/i })).not.toBeInTheDocument();
+      // Should NOT see "I'm done" button (P71 removed it)
+      expect(screen.queryByRole('button', { name: /i'm done/i })).not.toBeInTheDocument();
+
+      unmount();
+
+      // Test as responder (currentUserName does NOT match checkerName)
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="bob"
+          liveState={perfectState}
+        />
+      );
+
+      // Responder should also see Continue button (same as checker now)
+      expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
+      // Should NOT see any checker-specific buttons
+      expect(screen.queryByRole('button', { name: /share what worked/i })).not.toBeInTheDocument();
+    });
+
+    it('P71: shows waiting state when user has acknowledged but partner has not', () => {
+      // Alice (checker) has clicked Continue, Bob (responder) has not
+      const aliceAcknowledgedState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'revealed',
+        checkerName: 'alice',
+        checkerRating: 10,
+        responderRating: 10,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+        celebrationAcknowledgedBy: ['alice'], // Alice clicked Continue
+      };
+
+      // Render as Alice (who has acknowledged)
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          partnerName="bob"
+          liveState={aliceAcknowledgedState}
+        />
+      );
+
+      // Alice should see waiting indicator (disabled button + waiting message)
+      const continueButton = screen.getByRole('button', { name: /continue/i });
+      expect(continueButton).toBeDisabled();
+      expect(screen.getByText(/waiting for bob/i)).toBeInTheDocument();
+    });
+
+    it('P71: partner who has not acknowledged sees enabled Continue button', () => {
+      // Alice has clicked Continue, Bob has not
+      const aliceAcknowledgedState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'revealed',
+        checkerName: 'alice',
+        checkerRating: 10,
+        responderRating: 10,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+        celebrationAcknowledgedBy: ['alice'], // Alice clicked Continue
+      };
+
+      // Render as Bob (who has NOT acknowledged)
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="bob"
+          partnerName="alice"
+          liveState={aliceAcknowledgedState}
+        />
+      );
+
+      // Bob should see enabled Continue button (he hasn't clicked yet)
+      const continueButton = screen.getByRole('button', { name: /continue/i });
+      expect(continueButton).toBeEnabled();
+      // Should NOT see waiting message
+      expect(screen.queryByText(/waiting for/i)).not.toBeInTheDocument();
+    });
+
+    it('P71: clicking Continue calls onCelebrationComplete', () => {
+      const perfectState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        ratingPhase: 'revealed',
+        checkerName: 'alice',
+        checkerRating: 10,
+        responderRating: 10,
+        checkerSubmitted: true,
+        responderSubmitted: true,
+      };
+
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          currentUserName="alice"
+          liveState={perfectState}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+      expect(mockHandlers.onCelebrationComplete).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Recording indicator (P28 KISS fix)', () => {
@@ -373,7 +499,7 @@ describe('LiveModeView', () => {
       );
 
       // The recording indicator should be visible
-      expect(screen.getByText(/Recording session/i)).toBeInTheDocument();
+      expect(screen.getByText(/Session recorded for AI Insights/i)).toBeInTheDocument();
     });
 
     it('shows recording indicator in different session states', () => {
@@ -391,7 +517,7 @@ describe('LiveModeView', () => {
         />
       );
 
-      expect(screen.getByText(/Recording session/i)).toBeInTheDocument();
+      expect(screen.getByText(/Session recorded for AI Insights/i)).toBeInTheDocument();
     });
   });
 

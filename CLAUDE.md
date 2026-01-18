@@ -108,6 +108,7 @@ Load these docs when working on specific areas:
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
 | E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
+| /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |

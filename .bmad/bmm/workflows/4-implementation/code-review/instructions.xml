@@ -173,4 +173,13 @@
     </output>
   </step>
 
+  <step n="6" goal="Final reminders">
+    <output>
+      ---
+      **💡 Reminders:**
+      - Run `/security-review` if this work touched auth, user input, or data handling
+      - Run `/kdd` if there were interesting trade-offs or architectural decisions worth remembering
+    </output>
+  </step>
+
 </workflow>
