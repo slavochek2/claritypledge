@@ -1,9 +1,10 @@
 # P61: Events — Complete Implementation Spec
 
 **Status:** Ready for Implementation
+**Prerequisite:** [P61.0: Events Service Abstraction](./p61.0_events_service_abstraction.md) — Must complete first
 **Approach:** TDD with mock-as-specification
 **Run with:** `/loop`
-**Scope:** Everything needed to go from "disconnected mockup" → "fully working events in production"
+**Scope:** Everything needed to go from "service abstraction" → "fully working events in production"
 
 ---
 
