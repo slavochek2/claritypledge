@@ -1,16 +1,18 @@
 ---
-status: prepped
+status: done
+completed_date: 2026-01-19
 prepped_date: 2026-01-19
 prepped_by: /prep-spec
 reviews:
   ux: skipped  # No visible UI
   architect: passed
   tea: skipped
-execution: blocked  # Spec outdated - feature 80% implemented
 notes: |
-  Core feature already exists. Remaining work:
-  - Add SEO to sign-pledge, privacy-policy, terms-of-service pages
-  - Create 1200x630 og-default.png
+  Feature complete. Implementation differs from spec in minor ways:
+  - HelmetProvider in App.tsx (not main.tsx) - works the same
+  - SEO component at src/app/components/seo.tsx (not seo/seo-head.tsx)
+  - Includes JSON-LD structured data (was listed as "out of scope")
+  - Uses 512x512 icon as default OG image (1200x630 og-default.png deferred)
 ---
 
 # P62: React Helmet SEO Meta Tags
@@ -53,11 +55,11 @@ npm install react-helmet-async
 ### 2. Add HelmetProvider to app root
 
 ```tsx
-// src/main.tsx
+// src/App.tsx (actual location, not main.tsx as originally planned)
 import { HelmetProvider } from 'react-helmet-async';
 
 <HelmetProvider>
-  <App />
+  {/* app content */}
 </HelmetProvider>
 ```
 
@@ -141,41 +143,45 @@ Create a default sharing image at `public/og-default.png`:
 - Content: Clarity Pledge logo + tagline
 - Can be a simple branded image for v1
 
-## Files to Modify
+## Files Modified (Actual)
 
-1. `package.json` — add dependency
-2. `src/main.tsx` — wrap with HelmetProvider
-3. `src/app/components/seo/seo-head.tsx` — new component
-4. `src/app/pages/landing-page.tsx` — add SEOHead
-5. `src/app/pages/about-page.tsx` — add SEOHead
-6. `src/app/pages/pledgers-page.tsx` — add SEOHead
-7. `src/app/pages/profile-page.tsx` — add SEOHead with dynamic data
-8. `src/app/pages/sign-pledge-page.tsx` — add SEOHead
-9. `src/app/pages/settings-page.tsx` — add SEOHead (noindex?)
-10. `public/og-default.png` — default share image
+1. `package.json` — added react-helmet-async
+2. `src/App.tsx` — wrapped with HelmetProvider
+3. `src/app/components/seo.tsx` — SEO component with JSON-LD
+4. `src/app/pages/clarity-pledge-landing.tsx` — SEO added
+5. `src/app/pages/about-page.tsx` — SEO added
+6. `src/app/pages/clarity-pledgers-page.tsx` — SEO added
+7. `src/app/pages/profile-page.tsx` — SEO with dynamic data
+8. `src/app/pages/sign-pledge-page.tsx` — SEO added
+9. `src/app/pages/privacy-policy-page.tsx` — SEO added (bonus)
+10. `src/app/pages/terms-of-service-page.tsx` — SEO added (bonus)
+11. `src/app/pages/me-page.tsx` — SEO added (bonus)
+12. `src/app/pages/full-article-page.tsx` — SEO with Article schema (bonus)
+13. `public/og-default.png` — *deferred, using clarity-pledge-icon.png*
 
 ## Out of Scope
 
 - Dynamic OG image generation (profile cards, event banners) — future enhancement
-- Structured data / JSON-LD — future enhancement
+- ~~Structured data / JSON-LD~~ — *Actually implemented! Includes Organization, ProfilePage, Article, WebSite schemas*
 - Event pages SEO — events feature not yet built
 - Stories/Ideas SEO — features not yet built
+- 1200x630 og-default.png — deferred, using 512x512 icon for now
 
 ## Acceptance Criteria
 
-- [ ] `npm install react-helmet-async` added to dependencies
-- [ ] HelmetProvider wraps app in main.tsx
-- [ ] SEOHead component created with TypeScript types
-- [ ] Landing page has unique title and meta tags
-- [ ] About page has unique title and meta tags
-- [ ] Pledgers page has unique title and meta tags
-- [ ] Profile pages have dynamic title/description from profile data
-- [ ] Sign pledge page has unique title and meta tags
-- [ ] Default OG image exists at `/og-default.png`
-- [ ] All pages pass [Twitter Card Validator](https://cards-dev.twitter.com/validator)
-- [ ] All pages pass [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/)
-- [ ] Build passes with no TypeScript errors
-- [ ] Pre-commit checks pass
+- [x] `npm install react-helmet-async` added to dependencies
+- [x] HelmetProvider wraps app *(in App.tsx, not main.tsx)*
+- [x] SEO component created with TypeScript types *(at src/app/components/seo.tsx)*
+- [x] Landing page has unique title and meta tags
+- [x] About page has unique title and meta tags
+- [x] Pledgers page has unique title and meta tags
+- [x] Profile pages have dynamic title/description from profile data
+- [x] Sign pledge page has unique title and meta tags
+- [ ] ~~Default OG image exists at `/og-default.png`~~ *DEFERRED - using 512x512 icon*
+- [ ] All pages pass [Twitter Card Validator](https://cards-dev.twitter.com/validator) *(manual test)*
+- [ ] All pages pass [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) *(manual test)*
+- [x] Build passes with no TypeScript errors
+- [x] Pre-commit checks pass
 
 ## Testing
 

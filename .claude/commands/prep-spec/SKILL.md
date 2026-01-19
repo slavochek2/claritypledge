@@ -69,6 +69,7 @@ Run agents in sequence: UX → Architect → TEA (if `--include-tea`).
 - Architectural fit
 - Dependencies
 - Context pressure (single session fit?)
+- **Integration depth** — For features modifying existing flows, trace the full pipeline: what triggers it, what it triggers, what data flows where. Flag any ungated paths that contradict the spec's intent as **BLOCKERS**, not warnings.
 
 **TEA** (only if `--include-tea`):
 - Testability
@@ -230,6 +231,18 @@ If recommendation is `ralph-loop`:
 
 {next step: command to run or blockers to resolve}
 ```
+
+---
+
+## Blocker Criteria
+
+A finding is a **BLOCKER** (not a warning) if:
+- The spec's core intent cannot be achieved without addressing it
+- Existing code contradicts the spec (e.g., unconditional recording when spec requires consent gating)
+- Identity, terminology, or schema is undefined/wrong
+- A race condition or data loss could occur
+
+When in doubt: if the feature would be **broken** without fixing it, it's a blocker.
 
 ---
 

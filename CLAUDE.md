@@ -177,7 +177,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 │
 ├── features/                 # Feature planning
 │   ├── done/                 # Completed feature docs
-│   ├── *_acceptance_tests.md # UAT files for ralph-loop
+│   ├── p{N}_uat.md           # UAT files for ralph-loop
 │   └── *.md                  # Active features (p{N}_{name}.md)
 │
 ├── e2e/                      # Playwright E2E tests
@@ -209,7 +209,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ### Conventions
 
 - **docs/technical/** - How things work (for developers)
-- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `{name}_acceptance_tests.md`)
+- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `p{N}_uat.md`)
 - **src/app/** - All application code lives here
 - **src/app/content/** - All app content (articles, copy)
 
@@ -433,7 +433,7 @@ Before creating a new function, hook, or component:
 | Technical docs | `docs/technical/` |
 | Product docs (learnings, plans) | `docs/` |
 | Feature planning (specs) | `features/p{N}_{name}.md` |
-| UAT files (ralph-loop) | `features/{name}_acceptance_tests.md` |
+| UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
 | Source code | `src/app/` |
@@ -457,7 +457,7 @@ bmad/
 
 features/               # Feature planning docs
 ├── p{N}_{name}.md      # Tech specs
-├── {name}_acceptance_tests.md  # UAT files for ralph-loop
+├── p{N}_uat.md                 # UAT files for ralph-loop
 └── done/               # Completed features
 ```
 
