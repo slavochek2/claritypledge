@@ -23,14 +23,20 @@ if (sentryDsn && import.meta.env.PROD) {
     // Privacy: Do NOT send PII without explicit user consent
     sendDefaultPii: false,
 
-    // Filter out noise from browser/extension issues we can't fix
+    // Filter out noise from browser/extension issues we can't fix.
+    // NOTE: These patterns are intentionally broad because the errors originate from
+    // third-party code (Supabase SDK, LogRocket, browser extensions) not our app code.
+    // If you see false positives in Sentry, consider using beforeSend to check stack traces.
     ignoreErrors: [
-      // IndexedDB errors from Supabase/LogRocket (Safari, private mode, disk issues)
+      // IndexedDB errors from Supabase/LogRocket SDKs (Safari private mode, disk quota, iOS)
+      // These are storage fallback errors in third-party SDKs, not bugs in our code
       /indexedDB\.open/i,
       /Internal error opening backing store/i,
-      // Browser extensions parsing JSON-LD that doesn't exist
+      // Browser extensions (like JSON-LD parsers) that fail on pages without structured data
+      // Stack traces show extension:// origins, not our code
       /@context.*toLowerCase/i,
-      // Service worker registration in unsupported browsers/private mode
+      // Service worker registration failures in unsupported browsers or private browsing
+      // PWA is progressive enhancement; these failures are expected and harmless
       /Rejected.*serviceWorker/i,
       /serviceWorker.*register/i,
     ],

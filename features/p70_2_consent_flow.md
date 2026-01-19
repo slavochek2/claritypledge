@@ -1,6 +1,20 @@
+---
+status: prepped
+prepped_date: 2026-01-19
+prepped_by: /prep-spec
+reviews:
+  ux: passed-with-warnings
+  architect: passed
+  tea: skipped
+execution: /loop
+notes: |
+  All 5 blockers from review resolved (see Changelog 2026-01-19).
+  12 warnings remain - see bmad/artifacts/p70_2_consent_flow-review.md
+---
+
 # P70_2: Opt-in AI Insights (Consent Flow)
 
-**Status:** Draft
+**Status:** Prepped (ready for /loop)
 **Priority:** High (blocks first event with proper consent)
 **Est. Effort:** 4-6 hours
 **Created:** 2026-01-18
@@ -42,18 +56,20 @@ Users report behavior changes when recording is active. The red recording indica
 ## User Flow
 
 ```
-Partner joins (WebRTC connection established)
+Partner joins session (Supabase Realtime subscription active)
     ↓
-Host sees consent prompt
+Creator sees consent prompt
     ↓
-Host responds → stored
+Creator responds → stored in live_state
     ↓
-Guest sees consent prompt (identical, no "your partner enabled" framing)
+Joiner sees consent prompt (identical, no "your partner enabled" framing)
     ↓
-Guest responds → stored
+Joiner responds → stored in live_state
     ↓
-If BOTH yes → "AI Insights enabled ✨" confirmation
-If not both → No message, proceed silently
+"Partner joined" notification shown to creator (delayed until consent resolved)
+    ↓
+If BOTH yes → "AI Insights enabled" toast to both
+If not both → "Session starting" toast (neutral, no blame)
     ↓
 Mic permission (browser prompt)
     ↓
@@ -61,6 +77,8 @@ Session starts
     → Blue sparkle icon if both consented
     → No indicator if not
 ```
+
+**Note:** "Partner joined" is shown to creator AFTER joiner answers consent (not immediately on join). This prevents the awkward case where creator sees "Partner joined!" then joiner declines.
 
 ### Consent Prompt (Same for Both)
 
@@ -90,7 +108,7 @@ Session starts
 └──────────────────────────────────────────────┘
 ```
 
-**If not both yes:** No message. Session proceeds. Users who declined already know.
+**If not both yes:** Show neutral "Session starting" toast. Provides closure to user who enabled without revealing who declined.
 
 ---
 
@@ -107,40 +125,45 @@ ALTER TABLE clarity_sessions ADD COLUMN ai_insights_enabled boolean DEFAULT fals
 
 ### Session State
 
+Consent state stored in `live_state` JSONB (synced via Supabase Realtime):
+
 ```typescript
-interface SessionConsent {
-  hostConsent: boolean | null;   // null = not yet asked
-  guestConsent: boolean | null;
-  aiInsightsEnabled: boolean;    // computed: both true
+// Added to LiveSessionState in src/app/types/index.ts
+interface LiveSessionState {
+  // ... existing fields ...
+
+  // Consent state (P70_2)
+  creatorConsentSubmitted?: boolean;  // true when creator answered
+  joinerConsentSubmitted?: boolean;   // true when joiner answered
+  creatorConsent?: boolean;           // true = enabled, false = skipped
+  joinerConsent?: boolean;            // true = enabled, false = skipped
 }
 ```
 
 ### Consent Flow Timing
 
 ```
-1. Partner joins (WebRTC connection established)
-2. Show consent UI to host (host = session creator, stored on session)
-3. Host responds → store in session state
-4. Show consent UI to guest
-5. Guest responds → store in session state
-6. Calculate aiInsightsEnabled = hostConsent && guestConsent
-7. If enabled, show confirmation to both
-8. Proceed to mic permission
-9. Start session with/without indicator
-10. Persist aiInsightsEnabled to database
+1. Joiner joins session (Supabase Realtime subscription active)
+2. Show consent UI to creator (creator = session creator, already in creator_name)
+3. Creator responds → store in live_state.creatorConsent
+4. Show consent UI to joiner
+5. Joiner responds → store in live_state.joinerConsent
+6. Calculate aiInsightsEnabled = creatorConsent && joinerConsent
+7. Show "Partner joined" to creator (delayed until now)
+8. Show result toast to both
+9. Proceed to mic permission
+10. Start session with/without indicator
+11. Persist aiInsightsEnabled boolean to clarity_sessions table
 ```
 
-### Host Identity
+### Creator/Joiner Identity
 
-**Important:** "Host" must be determined at session creation, not runtime.
+**Terminology:** Use "creator" and "joiner" to match existing codebase (not "host/guest").
 
-```sql
--- Ensure clarity_sessions has host_user_id
--- (May already exist — verify schema)
-ALTER TABLE clarity_sessions ADD COLUMN host_user_id uuid REFERENCES profiles(id);
-```
+- **Creator** = `creator_name` (already in schema, set at session creation)
+- **Joiner** = `joiner_name` (already in schema, set when joining)
 
-Set `host_user_id` when the `/live` link is generated.
+No new identity columns needed. The `isCreator` boolean in the UI already distinguishes roles.
 
 ---
 
@@ -148,14 +171,16 @@ Set `host_user_id` when the `/live` link is generated.
 
 | Scenario | Behavior |
 |----------|----------|
-| Host declines | Guest still asked (neutral prompt), but result is no AI Insights |
-| Guest declines | No AI Insights, no message to host about who declined |
-| Both decline | No message, session proceeds |
-| Both enable | "AI Insights enabled" shown to both |
-| User closes modal without choosing | Treat as "Skip" (decline) |
-| Solo testing (no guest joins) | Skip consent entirely — no partner = no AI Insights possible |
-| Host leaves before guest answers | Guest consent becomes moot; no AI Insights |
-| Connection drops during consent | Consent persists in session state; skip prompt on reconnect for users who already answered |
+| Creator declines | Joiner still asked (neutral prompt), but result is no AI Insights |
+| Joiner declines | No AI Insights, no message to creator about who declined |
+| Both decline | "Session starting" toast, session proceeds |
+| Both enable | "AI Insights enabled" toast shown to both |
+| User closes modal without choosing | Treat as "Skip" (decline). Use Dialog without close button to prevent accidental dismiss. |
+| Solo testing (no joiner joins) | Skip consent entirely — no partner = no AI Insights possible |
+| Creator leaves before joiner answers | Joiner sees "Partner left" screen; consent dialog auto-dismissed |
+| Joiner leaves during consent | Creator sees "Partner left" screen; consent flow ends, no AI Insights |
+| Connection drops during consent | Consent persists in live_state; skip prompt on reconnect for users who already answered |
+| Consent timeout (60s) | If joiner hasn't responded after 60s, show creator prompt: "Partner hasn't responded. Start without AI Insights?" with [Wait] [Start Now] buttons |
 
 ---
 
@@ -232,4 +257,5 @@ P70_1 (cosmetic) → P70_2 (consent) → P41 (coaching teaser)
 
 | Date | Change |
 |------|--------|
+| 2026-01-19 | /prep-spec review fixes: WebRTC→Realtime terminology, host→creator/joiner terminology, removed host_user_id FK (use creator_name), added timeout handling, added creator/joiner-leaves edge cases, changed silent failure to neutral toast |
 | 2026-01-18 | Split from P70 into staged approach; simplified flow (removed "help your partner" framing, removed individual consent columns, removed mismatch message) |

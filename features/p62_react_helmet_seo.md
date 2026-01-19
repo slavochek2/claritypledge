@@ -1,3 +1,18 @@
+---
+status: prepped
+prepped_date: 2026-01-19
+prepped_by: /prep-spec
+reviews:
+  ux: skipped  # No visible UI
+  architect: passed
+  tea: skipped
+execution: blocked  # Spec outdated - feature 80% implemented
+notes: |
+  Core feature already exists. Remaining work:
+  - Add SEO to sign-pledge, privacy-policy, terms-of-service pages
+  - Create 1200x630 og-default.png
+---
+
 # P62: React Helmet SEO Meta Tags
 
 ## Summary

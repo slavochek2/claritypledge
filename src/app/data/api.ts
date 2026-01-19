@@ -2524,6 +2524,8 @@ async function withRetry<T>(
     }
   }
 
+  // Log final failure for debugging mobile network issues
+  console.error(`[ML Upload] ${operation} failed after ${maxAttempts} attempts:`, lastError?.message);
   throw lastError;
 }
 
