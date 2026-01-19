@@ -45,8 +45,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
             avatarColor={profile.avatarColor}
             photoUrl={profile.avatarUrl}
             isPledger={hasPledged}
-            showPledgeBadge={hasPledged}
-          />
+                      />
         </div>
 
         {/* Name and Role */}

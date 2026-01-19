@@ -896,11 +896,11 @@ describe('KISS Navigation', () => {
   });
 
   // ============================================================================
-  // P76: Pledger Avatar Distinction
+  // P76: Pledger Avatar Distinction (ring only, no badge)
   // ============================================================================
   describe('P76: Pledger Avatar Distinction', () => {
-    describe('SimpleNavigation - pledger avatar shows ring and badge', () => {
-      it('shows ring and badge for pledger avatar', () => {
+    describe('SimpleNavigation - pledger avatar shows ring', () => {
+      it('shows ring for pledger avatar', () => {
         mockUseAuth.mockReturnValue({
           session: { user: { id: 'test-user-id' } },
           user: createMockUser({ name: 'Pledger User', hasPledged: true }),
@@ -911,12 +911,13 @@ describe('KISS Navigation', () => {
         });
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
 
-        // Should show verified pledger badge (there are 2: desktop and mobile)
-        const badges = screen.getAllByLabelText('Verified pledger');
-        expect(badges.length).toBeGreaterThanOrEqual(1);
+        // Should show blue ring around avatar (there are 2: desktop and mobile)
+        const avatars = screen.getAllByTestId('gravatar-avatar');
+        expect(avatars.length).toBeGreaterThanOrEqual(1);
+        expect(avatars[0].className).toMatch(/ring-(blue-500|2)/);
       });
 
-      it('shows no ring or badge for non-pledger avatar', () => {
+      it('shows no ring for non-pledger avatar', () => {
         mockUseAuth.mockReturnValue({
           session: { user: { id: 'test-user-id' } },
           user: createMockUser({ name: 'Regular User', hasPledged: false }),
@@ -927,8 +928,9 @@ describe('KISS Navigation', () => {
         });
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
 
-        // Should NOT show verified pledger badge
-        expect(screen.queryByLabelText('Verified pledger')).not.toBeInTheDocument();
+        // Should NOT show blue ring
+        const avatars = screen.getAllByTestId('gravatar-avatar');
+        expect(avatars[0].className).not.toMatch(/ring-blue-500/);
       });
     });
   });

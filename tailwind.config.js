@@ -139,10 +139,10 @@ export default {
             },
             "glow-pulse": {
                 "0%, 100%": {
-                    "box-shadow": "0 0 0 0 rgba(59, 130, 246, 0)"
+                    "box-shadow": "0 0 0 3px rgb(59, 130, 246)"
                 },
                 "50%": {
-                    "box-shadow": "0 0 8px 2px rgba(59, 130, 246, 0.3)"
+                    "box-shadow": "0 0 0 3px rgb(59, 130, 246), 0 0 12px 4px rgba(59, 130, 246, 0.4)"
                 }
             }
         },

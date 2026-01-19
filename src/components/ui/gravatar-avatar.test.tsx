@@ -50,7 +50,7 @@ describe("GravatarAvatar", () => {
       const badge = screen.getByLabelText("Verified pledger");
       expect(badge).toBeInTheDocument();
       expect(badge).toHaveAttribute("aria-label", "Verified pledger");
-    });
+      expect(badge).toHaveAttribute("role", "img");    });
 
     // UAT-1.6: Badge hidden by default
     it("does not render badge when showPledgeBadge is false", () => {
@@ -90,13 +90,14 @@ describe("GravatarAvatar", () => {
       expect(avatar.className).toContain("ring-blue-500");
     });
 
-    it("renders ring-3 for lg size with isPledger", () => {
+    it("renders thicker ring for lg size with isPledger", () => {
       const { container } = render(
         <GravatarAvatar name="Test User" size="lg" isPledger={true} />
       );
       const avatar = getAvatarDiv(container);
 
-      expect(avatar.className).toContain("ring-3");
+      // lg size uses a thicker ring (ring-3 or ring-[3px])
+      expect(avatar.className).toMatch(/ring-3|ring-\[3px\]/);
       expect(avatar.className).toContain("ring-blue-500");
     });
   });

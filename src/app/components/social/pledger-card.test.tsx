@@ -187,12 +187,12 @@ describe('PledgerCard', () => {
 
   // P76: Pledger Avatar Distinction
   describe('P76: Pledger avatar distinction', () => {
-    it('renders pledger badge with accessibility label', () => {
+    it('renders pledger ring around avatar', () => {
       render(<PledgerCard {...mockPledger} />, { wrapper });
 
-      // PledgerCard always shows pledger distinction (isPledger=true, showPledgeBadge=true)
-      const badge = screen.getByLabelText('Verified pledger');
-      expect(badge).toBeInTheDocument();
+      // PledgerCard always shows pledger distinction with blue ring (isPledger=true)
+      const avatar = screen.getByTestId('gravatar-avatar');
+      expect(avatar.className).toMatch(/ring-(blue-500|\[3px\]|3)/);
     });
   });
 });

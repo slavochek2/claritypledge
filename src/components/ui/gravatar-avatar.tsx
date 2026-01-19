@@ -26,7 +26,7 @@ const sizeClasses = {
 const ringClasses = {
   sm: "ring-2 ring-blue-500 animate-glow-pulse",
   md: "ring-2 ring-blue-500 animate-glow-pulse",
-  lg: "ring-3 ring-blue-500 animate-glow-pulse",
+  lg: "ring-[3px] ring-blue-500 animate-glow-pulse",
 };
 
 // Badge sizes relative to avatar
@@ -59,8 +59,9 @@ export function GravatarAvatar({
   const pledgerRingClass = isPledger ? ringClasses[size] : "";
 
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block" data-testid="gravatar-avatar-wrapper">
       <div
+        data-testid="gravatar-avatar"
         className={`rounded-full flex-shrink-0 overflow-hidden ${sizeClasses[size]} ${pledgerRingClass} ${className} ${!showImage ? "flex items-center justify-center text-white font-bold" : ""}`}
         style={{ backgroundColor: showImage ? "transparent" : avatarColor }}
       >
@@ -78,10 +79,11 @@ export function GravatarAvatar({
       </div>
       {showPledgeBadge && (
         <div
+          role="img"
           className={`absolute ${badgeClasses[size]} bg-blue-500 rounded-full flex items-center justify-center border-2 border-white`}
           aria-label="Verified pledger"
         >
-          <Check className={`${badgeIconClasses[size]} text-white`} />
+          <Check aria-hidden="true" className={`${badgeIconClasses[size]} text-white`} />
         </div>
       )}
     </div>

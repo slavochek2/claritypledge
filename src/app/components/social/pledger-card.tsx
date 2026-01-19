@@ -62,8 +62,7 @@ export function PledgerCard({
           avatarColor={avatarColor}
           photoUrl={avatarUrl}
           isPledger={true}
-          showPledgeBadge={true}
-        />
+                  />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-lg font-bold truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">

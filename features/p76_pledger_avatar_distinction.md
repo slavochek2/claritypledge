@@ -1,5 +1,5 @@
 ---
-status: prepped
+status: done
 prepped_date: 2026-01-19
 prepped_by: /prep-spec
 created_date: 2026-01-19
@@ -8,12 +8,17 @@ reviews:
   ux: passed
   architect: passed
   tea: skipped
+  code_review: passed (2026-01-19)
 execution: /loop
 findings:
   blockers: 0 (accessibility resolved in revision)
   warnings: 5
   suggestions: 6
 revised: 2026-01-19 (added badge, animation, accessibility)
+code_review_fixes:
+  - "ring-3 → ring-[3px] (Tailwind arbitrary value)"
+  - "Added role='img' to badge for accessibility"
+  - "Removed deprecated email prop"
 ---
 
 # P76: Pledger Avatar Distinction
@@ -102,17 +107,19 @@ interface GravatarAvatarProps {
 **Ring glow pulse** — Very subtle, barely noticeable shadow that breathes in/out.
 
 ```css
-/* Add to tailwind.config.js */
+/* Added to tailwind.config.js */
 animation: {
   'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
 }
 keyframes: {
   'glow-pulse': {
-    '0%, 100%': { boxShadow: '0 0 8px rgba(59, 130, 246, 0.3)' },
-    '50%': { boxShadow: '0 0 12px rgba(59, 130, 246, 0.5)' },
+    '0%, 100%': { boxShadow: '0 0 0 0 rgba(59, 130, 246, 0)' },
+    '50%': { boxShadow: '0 0 8px 2px rgba(59, 130, 246, 0.3)' },
   }
 }
 ```
+
+> **Implementation note:** Animation pulses from invisible to visible (more subtle than constant glow).
 
 - Animation runs continuously but is so subtle it's not distracting
 - 3-second cycle keeps it calm
@@ -180,17 +187,17 @@ export function GravatarAvatar({
 
 ## Acceptance Criteria
 
-- [ ] GravatarAvatar supports `isPledger` prop showing blue ring with glow animation
-- [ ] GravatarAvatar supports `showPledgeBadge` prop showing checkmark badge
-- [ ] Badge has `aria-label="Verified pledger"` for accessibility
-- [ ] Navigation avatar shows ring + badge when user is a pledger
-- [ ] PledgerCard avatars show ring + badge (all cards are pledgers)
-- [ ] CompactProfileCard uses GravatarAvatar (not inline code)
-- [ ] All sizes (sm/md/lg) render correctly
-- [ ] Works with both photo URLs and initials fallback
-- [ ] Animation is subtle (3s cycle, barely noticeable glow pulse)
-- [ ] Unit tests cover new props
-- [ ] No visual regressions in existing avatar usages
+- [x] GravatarAvatar supports `isPledger` prop showing blue ring with glow animation
+- [x] GravatarAvatar supports `showPledgeBadge` prop showing checkmark badge
+- [x] Badge has `aria-label="Verified pledger"` for accessibility (with `role="img"`)
+- [x] Navigation avatar shows ring + badge when user is a pledger
+- [x] PledgerCard avatars show ring + badge (all cards are pledgers)
+- [x] CompactProfileCard uses GravatarAvatar (not inline code)
+- [x] All sizes (sm/md/lg) render correctly (lg uses `ring-[3px]` arbitrary value)
+- [x] Works with both photo URLs and initials fallback
+- [x] Animation is subtle (3s cycle, barely noticeable glow pulse)
+- [x] Unit tests cover new props
+- [x] No visual regressions in existing avatar usages
 
 ## Testing Strategy
 

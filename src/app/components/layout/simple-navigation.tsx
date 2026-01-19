@@ -140,8 +140,7 @@ export function SimpleNavigation() {
                       photoUrl={user.avatarUrl}
                       size="sm"
                       isPledger={hasPledged}
-                      showPledgeBadge={hasPledged}
-                    />
+                                          />
                   ) : (
                     <MenuIcon className="w-5 h-5" />
                   )}
@@ -182,8 +181,7 @@ export function SimpleNavigation() {
                 photoUrl={user.avatarUrl}
                 size="sm"
                 isPledger={hasPledged}
-                showPledgeBadge={hasPledged}
-              />
+                              />
             ) : (
               <MenuIcon className="w-6 h-6" />
             )}
