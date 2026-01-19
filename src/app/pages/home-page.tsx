@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
-import { Loader2Icon, ScrollTextIcon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { eventsService } from "@/app/data/events-service";
@@ -28,7 +28,6 @@ export function HomePage() {
   const [upcomingPublicEvents, setUpcomingPublicEvents] = useState<EventWithHost[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
-
 
   // Track page view (once per mount, after auth loaded)
   useEffect(() => {
@@ -322,26 +321,6 @@ export function HomePage() {
         </section>
       </div>
 
-      {/* Take the Pledge Banner - Only shown if user hasn't pledged */}
-      {!user.hasPledged && (
-        <section>
-          <Link
-            to="/sign-pledge?prefill=true"
-            onClick={() => analytics.track('pledge_banner_clicked', { source: 'dashboard' })}
-            className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <ScrollTextIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              <span className="font-medium text-blue-900 dark:text-blue-100">
-                Take the Pledge — commit to clarity
-              </span>
-            </div>
-            <span className="text-blue-600 dark:text-blue-400 font-medium group-hover:underline">
-              Take Pledge &rarr;
-            </span>
-          </Link>
-        </section>
-      )}
     </div>
   );
 }

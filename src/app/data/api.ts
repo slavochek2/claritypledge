@@ -411,15 +411,27 @@ export async function addWitness(
  * @param email - The email address to send the magic link to.
  * @returns A promise that resolves with an error object if the sign-in failed.
  */
-export async function signInWithEmail(email: string, source?: 'signup' | 'pledge' | 'login'): Promise<{ error: AuthError | null }> {
-  const redirectUrl = source
-    ? `${window.location.origin}/auth/callback?source=${source}`
+export async function signInWithEmail(
+  email: string,
+  source?: 'signup' | 'pledge' | 'login',
+  options?: { redirect?: string; action?: string; name?: string }
+): Promise<{ error: AuthError | null }> {
+  const params = new URLSearchParams();
+  if (source) params.set('source', source);
+  if (options?.redirect) params.set('redirect', options.redirect);
+  if (options?.action) params.set('action', options.action);
+
+  const queryString = params.toString();
+  const redirectUrl = queryString
+    ? `${window.location.origin}/auth/callback?${queryString}`
     : `${window.location.origin}/auth/callback`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: redirectUrl,
+      // Pass user metadata for signup flow (name for profile creation)
+      data: options?.name ? { name: options.name, avatar_color: getRandomColor() } : undefined,
     },
   });
   return { error };
@@ -447,9 +459,18 @@ export async function checkEmailExists(email: string): Promise<boolean> {
  * @param source - The source of the auth request: 'login', 'signup', or 'pledge'
  * @returns A promise that resolves when the OAuth redirect is initiated.
  */
-export async function signInWithGoogle(source?: 'login' | 'signup' | 'pledge'): Promise<{ error: AuthError | null }> {
-  const redirectUrl = source
-    ? `${window.location.origin}/auth/callback?source=${source}`
+export async function signInWithGoogle(
+  source?: 'login' | 'signup' | 'pledge',
+  options?: { redirect?: string; action?: string }
+): Promise<{ error: AuthError | null }> {
+  const params = new URLSearchParams();
+  if (source) params.set('source', source);
+  if (options?.redirect) params.set('redirect', options.redirect);
+  if (options?.action) params.set('action', options.action);
+
+  const queryString = params.toString();
+  const redirectUrl = queryString
+    ? `${window.location.origin}/auth/callback?${queryString}`
     : `${window.location.origin}/auth/callback`;
 
   const { error } = await supabase.auth.signInWithOAuth({
@@ -2494,6 +2515,41 @@ export type { MLEvent, MLTrainingEvents } from '@/lib/session-events-collector';
 /** Cloud Function URL for getting signed upload URLs */
 const GCS_SIGNED_URL_FUNCTION = 'https://us-central1-gen-lang-client-0869694595.cloudfunctions.net/gcs-signed-url';
 
+/**
+ * Retry helper with exponential backoff for network requests.
+ * Used for GCS uploads which can fail on mobile networks.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxAttempts?: number; baseDelayMs?: number; operation?: string } = {}
+): Promise<T> {
+  const { maxAttempts = 3, baseDelayMs = 1000, operation = 'operation' } = options;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Don't retry on non-network errors (4xx responses, etc.)
+      if (lastError.message.includes('Failed to get signed URL:')) {
+        throw lastError;
+      }
+
+      if (attempt < maxAttempts) {
+        const delayMs = baseDelayMs * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+        console.log(`[ML Upload] ${operation} attempt ${attempt} failed, retrying in ${delayMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  // Log final failure for debugging mobile network issues
+  console.error(`[ML Upload] ${operation} failed after ${maxAttempts} attempts:`, lastError?.message);
+  throw lastError;
+}
+
 /** Metadata for a session recording */
 export interface SessionMetadata {
   sessionStartedAt: number; // Unix ms from collector.getStartTime()
@@ -2506,39 +2562,45 @@ export interface SessionMetadata {
 
 /**
  * Gets a signed URL for uploading to GCS.
+ * Includes retry logic for network failures on mobile.
  */
 async function getSignedUploadUrl(
   sessionCode: string,
   fileName: string,
   contentType: string
 ): Promise<{ uploadUrl: string; filePath: string }> {
-  const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionCode, fileName, contentType }),
-  });
+  return withRetry(async () => {
+    const response = await fetch(GCS_SIGNED_URL_FUNCTION, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionCode, fileName, contentType }),
+    });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(`Failed to get signed URL: ${error.error}`);
-  }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(`Failed to get signed URL: ${error.error}`);
+    }
 
-  return response.json();
+    return response.json();
+  }, { operation: 'getSignedUploadUrl' });
 }
 
 /**
  * Uploads a file to GCS using a signed URL.
+ * Includes retry logic for network failures on mobile.
  */
 async function uploadToGCS(uploadUrl: string, blob: Blob, contentType: string): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': contentType },
-    body: blob,
-  });
+  return withRetry(async () => {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: blob,
+    });
 
-  if (!response.ok) {
-    throw new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
-  }
+    if (!response.ok) {
+      throw new Error(`GCS upload failed: ${response.status} ${response.statusText}`);
+    }
+  }, { operation: 'uploadToGCS' });
 }
 
 /**

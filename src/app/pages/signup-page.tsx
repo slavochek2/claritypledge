@@ -17,6 +17,7 @@ import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
 export function SignupPage() {
   const location = useLocation();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,6 +27,9 @@ export function SignupPage() {
   // Check for message param (e.g., redirected from login with no account)
   const searchParams = new URLSearchParams(location.search);
   const message = searchParams.get('message');
+  // P76: Read redirect and action params for post-auth navigation
+  const redirectParam = searchParams.get('redirect');
+  const actionParam = searchParams.get('action');
 
   useEffect(() => {
     analytics.track('signup_page_viewed', {
@@ -39,6 +43,7 @@ export function SignupPage() {
   useEffect(() => {
     setIsSubmitted(false);
     setIsSubmitting(false);
+    setName("");
     setEmail("");
     setError("");
     setTermsAccepted(false);
@@ -46,7 +51,13 @@ export function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!name.trim() || !email.trim()) return;
+
+    // Validate name (at least 2 characters)
+    if (name.trim().length < 2) {
+      setError("Please enter your name");
+      return;
+    }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,7 +71,13 @@ export function SignupPage() {
 
     try {
       // Send magic link with source=signup so callback knows to set has_pledged=false
-      const { error } = await signInWithEmail(email, 'signup');
+      // P76: Include redirect and action params for post-auth navigation
+      // Pass name for profile creation
+      const { error } = await signInWithEmail(email, 'signup', {
+        redirect: redirectParam || undefined,
+        action: actionParam || undefined,
+        name: name.trim(),
+      });
 
       if (error) {
         analytics.track('signup_magic_link_error', {
@@ -127,7 +144,12 @@ export function SignupPage() {
 
         <div className="space-y-6">
           {/* Google OAuth button */}
-          <GoogleAuthButton context="signup" source="signup" />
+          <GoogleAuthButton
+            context="signup"
+            source="signup"
+            redirect={redirectParam || undefined}
+            action={actionParam || undefined}
+          />
 
           {/* Divider */}
           <div className="relative">
@@ -142,6 +164,24 @@ export function SignupPage() {
           {/* Email form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signup-name" className="text-sm font-medium">
+                  Full Name
+                </Label>
+                <Input
+                  id="signup-name"
+                  type="text"
+                  placeholder="John Smith"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setError("");
+                  }}
+                  required
+                  className="w-full"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="signup-email" className="text-sm font-medium">
                   Email Address
@@ -158,13 +198,13 @@ export function SignupPage() {
                   required
                   className="w-full"
                 />
-
-                {error && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-md mt-2">
-                    <p className="text-sm text-red-600">{error}</p>
-                  </div>
-                )}
               </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md mt-2">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
             </div>
 
             {/* Terms & Privacy checkbox */}
@@ -196,14 +236,14 @@ export function SignupPage() {
               type="submit"
               className="w-full bg-[#0044CC] hover:bg-[#0033AA] text-white"
               size="lg"
-              disabled={isSubmitting || !termsAccepted}
+              disabled={isSubmitting || !termsAccepted || !name.trim() || !email.trim()}
             >
               {isSubmitting ? "Sending..." : "Create Account"}
             </Button>
 
             <div className="text-center">
               <Link
-                to="/login"
+                to={`/login${location.search}`}
                 className="text-sm text-muted-foreground hover:text-foreground underline"
               >
                 Already have an account? Log in
