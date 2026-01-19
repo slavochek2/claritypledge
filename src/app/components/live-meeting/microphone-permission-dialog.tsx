@@ -51,7 +51,7 @@ export function MicrophonePermissionDialog({
             Microphone Access Required
           </DialogTitle>
           <DialogDescription>
-            Clarity Meetings need microphone access to work.
+            Clarity Sessions need microphone access to work.
           </DialogDescription>
         </DialogHeader>
 

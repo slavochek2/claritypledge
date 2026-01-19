@@ -4,7 +4,7 @@
  * Public page where anyone can express interest in contributing.
  * Uses Web3Forms for form submission (same pattern as About page).
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,8 @@ const INTEREST_OPTIONS = [
 type InterestId = typeof INTEREST_OPTIONS[number]["id"];
 
 export function CollaboratePage() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const hasTrackedPageView = useRef(false);
 
   const [selectedInterests, setSelectedInterests] = useState<Set<InterestId>>(new Set());
   const [email, setEmail] = useState("");
@@ -40,13 +41,16 @@ export function CollaboratePage() {
     }
   }, [user, email]);
 
-  // Track page view
+  // Track page view (once, after auth loads)
   useEffect(() => {
-    analytics.track('collaborate_page_viewed', {
-      referrer: document.referrer || 'direct',
-      is_logged_in: !!user,
-    });
-  }, [user]);
+    if (!authLoading && !hasTrackedPageView.current) {
+      hasTrackedPageView.current = true;
+      analytics.track('collaborate_page_viewed', {
+        referrer: document.referrer || 'direct',
+        is_logged_in: !!user,
+      });
+    }
+  }, [authLoading, user]);
 
   const handleInterestChange = (interestId: InterestId, checked: boolean) => {
     const newInterests = new Set(selectedInterests);

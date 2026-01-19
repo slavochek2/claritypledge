@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
 import { getInitials, getAvatarColor } from "@/lib/utils";
-import { MailIcon } from "lucide-react";
+import { MailIcon, ArrowLeftIcon } from "lucide-react";
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -249,6 +249,15 @@ export function ProfilePage() {
       />
       <div className="min-h-screen bg-background py-12 px-4">
         <div className="container mx-auto max-w-3xl">
+          {/* P76: Back button - conditional based on auth state */}
+          <Link
+            to={session ? "/home" : "/"}
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-1" />
+            {session ? "Back to Dashboard" : "Back to Home"}
+          </Link>
+
           {/* Profile Card */}
           <div className="bg-card border rounded-lg shadow-sm p-8">
             <div className="flex flex-col items-center text-center space-y-6">

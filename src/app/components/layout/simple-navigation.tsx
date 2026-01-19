@@ -108,14 +108,14 @@ export function SimpleNavigation() {
             >
               About
             </Link>
-            {/* Start a Clarity Meeting CTA */}
+            {/* Start a Clarity Session CTA */}
             {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
             <Link
               to="/live"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
               onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
             >
-              Start a Clarity Meeting
+              Start a Clarity Session
             </Link>
             {/* Menu Trigger - P67: Avatar for verified users, hamburger for everyone else */}
             <DropdownMenu modal={false} onOpenChange={(open) => {
@@ -201,13 +201,13 @@ export function SimpleNavigation() {
                   closeMobileMenu();
                 }}
               >
-                Start a Clarity Meeting
+                Start a Clarity Session
               </Link>
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Navigation Links - P62: Filter out Collaborate for logged-in users */}
-              {NAV_LINKS.filter(link => !(showUserMenu && link.to === '/collaborate')).map((link) => (
+              {/* Navigation Links - Co-create is in menu items, not here */}
+              {NAV_LINKS.filter(link => link.to !== '/collaborate').map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}

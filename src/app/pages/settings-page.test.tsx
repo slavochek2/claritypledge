@@ -516,7 +516,7 @@ describe("SettingsPage", () => {
   });
 
   describe("Navigation", () => {
-    it("should have back to profile link", async () => {
+    it("should have back to dashboard link", async () => {
       vi.spyOn(auth, "useAuth").mockReturnValue(
         createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
       );
@@ -524,8 +524,8 @@ describe("SettingsPage", () => {
       renderSettingsPage();
 
       await waitFor(() => {
-        const backLink = screen.getByRole("link", { name: /back to profile/i });
-        expect(backLink).toHaveAttribute("href", `/p/${mockProfile.slug}`);
+        const backLink = screen.getByRole("link", { name: /back to dashboard/i });
+        expect(backLink).toHaveAttribute("href", "/home");
       });
     });
   });

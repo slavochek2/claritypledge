@@ -342,19 +342,19 @@ describe('LiveSessionBanner', () => {
   });
 
   // ============================================================================
-  // Leave Meeting - conditional on isLiveMeeting and onExit
+  // Leave Session - conditional on isLiveMeeting and onExit
   // ============================================================================
-  describe('Leave Meeting option', () => {
-    it('shows Leave Meeting when isLiveMeeting=true and onExit provided', async () => {
+  describe('Leave Session option', () => {
+    it('shows Leave Session when isLiveMeeting=true and onExit provided', async () => {
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} onExit={onExit} />);
       await openMenu();
 
       expect(screen.getByTestId('leave-meeting')).toBeInTheDocument();
-      expect(screen.getByText('Leave Meeting')).toBeInTheDocument();
+      expect(screen.getByText('Leave Session')).toBeInTheDocument();
     });
 
-    it('calls onExit when Leave Meeting clicked', async () => {
+    it('calls onExit when Leave Session clicked', async () => {
       const user = userEvent.setup();
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} onExit={onExit} />);
@@ -364,7 +364,7 @@ describe('LiveSessionBanner', () => {
       expect(onExit).toHaveBeenCalledTimes(1);
     });
 
-    it('does NOT show Leave Meeting when isLiveMeeting=false', async () => {
+    it('does NOT show Leave Session when isLiveMeeting=false', async () => {
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner isLiveMeeting={false} onExit={onExit} />);
       await openMenu();
@@ -372,7 +372,7 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('leave-meeting')).not.toBeInTheDocument();
     });
 
-    it('does NOT show Leave Meeting when onExit not provided', async () => {
+    it('does NOT show Leave Session when onExit not provided', async () => {
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} />);
       await openMenu();
 
@@ -384,7 +384,7 @@ describe('LiveSessionBanner', () => {
       renderWithRouter(<LiveSessionBanner onExit={onExit} />);
       await openMenu();
 
-      // Should show Leave Meeting by default when onExit provided
+      // Should show Leave Session by default when onExit provided
       expect(screen.getByTestId('leave-meeting')).toBeInTheDocument();
     });
   });
@@ -403,13 +403,13 @@ describe('LiveSessionBanner', () => {
       renderWithRouter(<LiveSessionBanner partnerName="Alice Johnson" />);
 
       // Should show first name only
-      expect(screen.getByText('Clarity Meeting with Alice')).toBeInTheDocument();
+      expect(screen.getByText('Clarity Session with Alice')).toBeInTheDocument();
     });
 
     it('shows default title when no partner or custom title', () => {
       renderWithRouter(<LiveSessionBanner />);
 
-      expect(screen.getByText('Live Clarity Meeting')).toBeInTheDocument();
+      expect(screen.getByText('Live Clarity Session')).toBeInTheDocument();
     });
 
     it('custom title takes precedence over partnerName', () => {
@@ -423,8 +423,8 @@ describe('LiveSessionBanner', () => {
       renderWithRouter(<LiveSessionBanner title="" />);
 
       // Should not show any title text in the center
-      expect(screen.queryByText('Clarity Meeting')).not.toBeInTheDocument();
-      expect(screen.queryByText('Live Clarity Meeting')).not.toBeInTheDocument();
+      expect(screen.queryByText('Clarity Session')).not.toBeInTheDocument();
+      expect(screen.queryByText('Live Clarity Session')).not.toBeInTheDocument();
     });
   });
 

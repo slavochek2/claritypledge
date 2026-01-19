@@ -36,7 +36,7 @@ export function PersonRow({
           name={name}
           avatarColor={avatarColor}
           photoUrl={avatarUrl}
-          size="md"
+          size="sm"
         />
       </Link>
       <Link
@@ -51,9 +51,9 @@ export function PersonRow({
           onClick={() =>
             analytics.track("meeting_invite_clicked", { source: inviteSource })
           }
-          className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+          className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors whitespace-nowrap flex-shrink-0"
         >
-          Start Meeting
+          Start Session
         </Link>
       )}
       {action === "going" && (

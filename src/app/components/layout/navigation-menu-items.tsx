@@ -69,7 +69,7 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Collaborate, Take the Pledge, Log In, Create Account */}
+        {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
         {showPublicCTAs && (
           <>
             <Link
@@ -192,7 +192,7 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Collaborate, Take the Pledge, Log In, Create Account */}
+      {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
       {showPublicCTAs && (
         <>
           <DropdownMenuItem asChild>
@@ -258,7 +258,7 @@ export function NavigationMenuItems({
             </DropdownMenuItem>
           )}
 
-          {/* Collaborate */}
+          {/* Co-create */}
           <DropdownMenuItem asChild>
             <Link to="/collaborate" className="cursor-pointer">
               <UsersIcon className="w-4 h-4 mr-2" />

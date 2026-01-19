@@ -194,13 +194,13 @@ export function EventDetail() {
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Back link */}
+        {/* P76: Back link - conditional based on auth state */}
         <Link
-          to="/events"
+          to={isLoggedIn ? "/home" : "/events"}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Events
+          {isLoggedIn ? "Back to Dashboard" : "Back to Events"}
         </Link>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -416,7 +416,7 @@ export function EventDetail() {
           </div>
 
           {/* Right Column - Organizer & Participants */}
-          <div className="lg:w-80 lg:flex-shrink-0 space-y-6">
+          <div className="lg:w-96 lg:flex-shrink-0 space-y-6">
             {/* Organizer Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>

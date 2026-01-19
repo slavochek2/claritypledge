@@ -2,6 +2,10 @@
  * @file google-auth-button.tsx
  * @description P63: Reusable Google OAuth sign-in button component.
  * Follows the UX spec design with branded Google styling.
+ *
+ * Note: Unlike magic link signup (which collects name first), Google OAuth
+ * gets the user's name from their Google profile. This is intentional -
+ * Google users get their Google name, while magic link users can customize.
  */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +17,10 @@ interface GoogleAuthButtonProps {
   context: string;
   /** P64: Source for auth callback routing ('login', 'signup', or 'pledge') */
   source?: 'login' | 'signup' | 'pledge';
+  /** P76: Redirect URL after auth completes */
+  redirect?: string;
+  /** P76: Action to perform after auth (e.g., 'rsvp') */
+  action?: string;
   /** Additional class names */
   className?: string;
   /** Whether button is disabled */
@@ -60,16 +68,16 @@ function GoogleLogo({ className = "" }: { className?: string }) {
   );
 }
 
-export function GoogleAuthButton({ context, source, className = "", disabled = false }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({ context, source, redirect, action, className = "", disabled = false }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleClick = async () => {
     setIsLoading(true);
     setError(null);
-    analytics.track('google_auth_initiated', { context, source });
+    analytics.track('google_auth_initiated', { context, source, redirect, action });
 
-    const { error: authError } = await signInWithGoogle(source);
+    const { error: authError } = await signInWithGoogle(source, { redirect, action });
 
     if (authError) {
       console.error('Google auth error:', authError);

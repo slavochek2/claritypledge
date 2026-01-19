@@ -8,15 +8,28 @@
  * It's a straightforward, single-purpose page designed to get users authenticated quickly.
  */
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { LoginForm } from "@/app/components/pledge/login-form";
 import { analytics } from "@/lib/mixpanel";
 
 export function LoginPage() {
+  const location = useLocation();
+
+  // P76: Read redirect and action params for post-auth navigation
+  const searchParams = new URLSearchParams(location.search);
+  const redirectParam = searchParams.get('redirect');
+  const actionParam = searchParams.get('action');
+
   useEffect(() => {
     analytics.track('login_page_viewed', {
       referrer: document.referrer || 'direct',
     });
   }, []);
+
+  // P76: Preserve URL params when switching to signup
+  const handleSwitchToSignup = () => {
+    window.location.href = `/signup${location.search}`;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-lg">
@@ -25,7 +38,11 @@ export function LoginPage() {
         <p className="text-muted-foreground text-center mb-8">
           Enter your email to access your pledge profile
         </p>
-        <LoginForm onSwitchToSign={() => window.location.href = '/signup'} />
+        <LoginForm
+          onSwitchToSign={handleSwitchToSignup}
+          redirect={redirectParam || undefined}
+          action={actionParam || undefined}
+        />
       </div>
     </div>
   );

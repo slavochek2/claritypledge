@@ -351,7 +351,7 @@ This approach makes the core benefits tangible for participants:
 Participants are then presented with the agreement:
 
 - **Before joining an online meeting:** A screen displays the Agreement with "I Commit" and "Proceed without commitment" buttons
-- **When registering for an event:** The Clarity Agreement appears as the "Meeting Terms"
+- **When registering for an event:** The Clarity Agreement appears as the "Session Terms"
 - **Transparency:** Participants can see who has opted in and who has opted out
 
 This mechanism works because:

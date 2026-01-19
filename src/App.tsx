@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, Component, ReactNode } from "react";
 import * as Sentry from "@sentry/react";
 import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
@@ -44,6 +44,68 @@ function PageLoader() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>
+  );
+}
+
+// Error boundary for chunk loading failures (after deployments, users with stale cache)
+
+interface ChunkErrorBoundaryState {
+  hasError: boolean;
+  isChunkError: boolean;
+}
+
+class ChunkErrorBoundary extends Component<{ children: ReactNode }, ChunkErrorBoundaryState> {
+  state: ChunkErrorBoundaryState = { hasError: false, isChunkError: false };
+  private originalError: Error | null = null;
+
+  static getDerivedStateFromError(error: Error): ChunkErrorBoundaryState {
+    // Detect chunk loading errors (happen after deployments with stale cache)
+    const isChunkError = error.message.includes('Failed to fetch dynamically imported module') ||
+                         error.message.includes('Loading chunk') ||
+                         error.message.includes('Loading CSS chunk');
+    return { hasError: true, isChunkError };
+  }
+
+  componentDidCatch(error: Error) {
+    // Store original error for re-throwing to preserve stack trace for Sentry
+    this.originalError = error;
+  }
+
+  render() {
+    if (this.state.hasError && this.state.isChunkError) {
+      return (
+        <div className="min-h-[50vh] flex flex-col items-center justify-center px-4 text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            New version available
+          </h2>
+          <p className="text-gray-600 mb-4">
+            Please refresh to get the latest version.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      );
+    }
+    // Re-throw original error to parent boundary, preserving stack trace for Sentry
+    if (this.state.hasError && this.originalError) {
+      throw this.originalError;
+    }
+    return this.props.children;
+  }
+}
+
+// Helper component for lazy routes with chunk error handling
+function LazyRoute({ children }: { children: ReactNode }) {
+  return (
+    <ChunkErrorBoundary>
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
+    </ChunkErrorBoundary>
   );
 }
 
@@ -173,9 +235,9 @@ export default function ClarityPledgeApp() {
           path="/about"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <AboutPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -193,9 +255,9 @@ export default function ClarityPledgeApp() {
           path="/manifesto"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <FullArticlePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -204,9 +266,9 @@ export default function ClarityPledgeApp() {
           path="/article"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <FullArticlePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -215,9 +277,9 @@ export default function ClarityPledgeApp() {
           path="/privacy-policy"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <PrivacyPolicyPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -226,9 +288,9 @@ export default function ClarityPledgeApp() {
           path="/terms-of-service"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <TermsOfServicePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -237,9 +299,9 @@ export default function ClarityPledgeApp() {
           path="/settings"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <SettingsPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -249,9 +311,9 @@ export default function ClarityPledgeApp() {
           path="/home"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <HomePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -261,9 +323,9 @@ export default function ClarityPledgeApp() {
           path="/collaborate"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <CollaboratePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -272,9 +334,9 @@ export default function ClarityPledgeApp() {
           path="/demo"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <ClarityDemoPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -288,9 +350,9 @@ export default function ClarityPledgeApp() {
           path="/chat"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <ClarityChatPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -304,9 +366,9 @@ export default function ClarityPledgeApp() {
           path="/feed"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <IdeaFeedPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -315,9 +377,9 @@ export default function ClarityPledgeApp() {
           path="/idea/:id"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <IdeaDetailPage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -326,9 +388,9 @@ export default function ClarityPledgeApp() {
           path="/live"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <ClarityLivePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -338,9 +400,9 @@ export default function ClarityPledgeApp() {
           path="/live/:code"
           element={
             <ClarityLandingLayout>
-              <Suspense fallback={<PageLoader />}>
+              <LazyRoute>
                 <ClarityLivePage />
-              </Suspense>
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
@@ -350,11 +412,11 @@ export default function ClarityPledgeApp() {
             These are completely self-contained with their own mock data.
             They do NOT import from main app code (api.ts, auth, etc.)
             ============================================================ */}
-        <Route path="/tree" element={<Suspense fallback={<PageLoader />}><TreePage /></Suspense>} />
-        <Route path="/prototype/premium/*" element={<Suspense fallback={<PageLoader />}><PremiumPrototype /></Suspense>} />
-        <Route path="/prototype/converged/*" element={<Suspense fallback={<PageLoader />}><ConvergedPrototype /></Suspense>} />
-        <Route path="/prototype/linkedin-like/*" element={<Suspense fallback={<PageLoader />}><LinkedInLikePrototype /></Suspense>} />
-        <Route path="/events/*" element={<ClarityLandingLayout><Suspense fallback={<PageLoader />}><EventsPrototype /></Suspense></ClarityLandingLayout>} />
+        <Route path="/tree" element={<LazyRoute><TreePage /></LazyRoute>} />
+        <Route path="/prototype/premium/*" element={<LazyRoute><PremiumPrototype /></LazyRoute>} />
+        <Route path="/prototype/converged/*" element={<LazyRoute><ConvergedPrototype /></LazyRoute>} />
+        <Route path="/prototype/linkedin-like/*" element={<LazyRoute><LinkedInLikePrototype /></LazyRoute>} />
+        <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>
     </Router>
