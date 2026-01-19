@@ -83,7 +83,7 @@ export function SimpleNavigation() {
 
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Visible nav links - order: Events, Pledgers, Manifesto, About */}
+            {/* Visible nav links - order: Events, Pledgers, Manifesto, About, Collaborate (non-logged-in) */}
             <Link
               to="/events"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -108,6 +108,15 @@ export function SimpleNavigation() {
             >
               About
             </Link>
+            {/* P62: Collaborate link for non-logged-in users */}
+            {!showUserMenu && (
+              <Link
+                to="/collaborate"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Collaborate
+              </Link>
+            )}
             {/* Start a Clarity Meeting CTA */}
             {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
             <Link
@@ -206,8 +215,8 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Navigation Links */}
-              {NAV_LINKS.map((link) => (
+              {/* Navigation Links - P62: Filter out Collaborate for logged-in users */}
+              {NAV_LINKS.filter(link => !(showUserMenu && link.to === '/collaborate')).map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}

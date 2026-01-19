@@ -1,3 +1,14 @@
+---
+status: prepped
+prepped_date: 2026-01-19
+prepped_by: /prep-spec
+reviews:
+  ux: passed
+  architect: passed
+  tea: skipped
+execution: /loop
+---
+
 # P62: Logged-In Dashboard Experience
 
 ## Problem

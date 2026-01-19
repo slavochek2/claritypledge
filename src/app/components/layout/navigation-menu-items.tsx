@@ -26,6 +26,7 @@ import {
   UserIcon,
   FileTextIcon,
   UserPlusIcon,
+  LayoutDashboardIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -103,6 +104,17 @@ export function NavigationMenuItems({
         {/* Verified user menu */}
         {showUserMenu && (
           <>
+            {/* P62: Dashboard link */}
+            <Link
+              to="/home"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+              data-testid={includeTestIds ? 'dashboard' : undefined}
+            >
+              <LayoutDashboardIcon className="w-4 h-4 inline mr-2" />
+              Dashboard
+            </Link>
+
             <Link
               to="/me"
               className={mobileLinkClass}
@@ -189,6 +201,14 @@ export function NavigationMenuItems({
       {/* Verified user menu */}
       {showUserMenu && (
         <>
+          {/* P62: Dashboard link */}
+          <DropdownMenuItem asChild data-testid={includeTestIds ? 'dashboard' : undefined}>
+            <Link to="/home" className="cursor-pointer">
+              <LayoutDashboardIcon className="w-4 h-4 mr-2" />
+              Dashboard
+            </Link>
+          </DropdownMenuItem>
+
           {/* View My Profile */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'view-profile' : undefined}>
             <Link to="/me" className="cursor-pointer">
