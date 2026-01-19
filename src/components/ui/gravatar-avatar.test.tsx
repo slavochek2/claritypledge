@@ -11,7 +11,7 @@ describe("GravatarAvatar", () => {
 
   // UAT-1.1: isPledger prop adds static blue ring (Instagram/Telegram-style)
   describe("isPledger prop", () => {
-    it("adds blue ring when isPledger is true", () => {
+    it("adds blue ring with white gap when isPledger is true", () => {
       const { container } = render(
         <GravatarAvatar name="Test User" isPledger={true} />
       );
@@ -19,6 +19,9 @@ describe("GravatarAvatar", () => {
 
       // Should have ring-blue-500 class (static ring, no animation)
       expect(avatar.className).toContain("ring-blue-500");
+      // Should have ring-offset for white gap (Instagram/Telegram-style)
+      expect(avatar.className).toContain("ring-offset-2");
+      expect(avatar.className).toContain("ring-offset-background");
     });
 
     // UAT-1.2: isPledger=false has no ring

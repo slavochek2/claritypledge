@@ -137,14 +137,6 @@ export default {
                     "box-shadow": "0 0 0 12px rgba(34, 197, 94, 0.2)"
                 }
             },
-            "glow-pulse": {
-                "0%, 100%": {
-                    "box-shadow": "0 0 0 3px rgb(59, 130, 246), 0 0 8px 2px rgba(255, 255, 255, 0.3)"
-                },
-                "50%": {
-                    "box-shadow": "0 0 0 3px rgb(59, 130, 246), 0 0 16px 6px rgba(255, 255, 255, 0.5)"
-                }
-            }
         },
         "animation": {
             "slide-from-left": "slide-from-left 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
@@ -152,8 +144,7 @@ export default {
             "accordion-down": "accordion-down 0.2s ease-out",
             "accordion-up": "accordion-up 0.2s ease-out",
             "pulse-subtle-green": "pulse-subtle-green 1.5s ease-in-out 3",
-            "glow-pulse": "glow-pulse 3s ease-in-out infinite"
-        }
+                    }
     }
 },
   plugins: [

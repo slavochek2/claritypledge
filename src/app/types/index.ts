@@ -27,16 +27,6 @@ export interface Profile {
   avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
-  upcomingEvents?: ProfileEvent[]; // Events hosted by this profile
-}
-
-/** Minimal event data for profile display */
-export interface ProfileEvent {
-  id: string;
-  slug: string;
-  title: string;
-  datetime: string;
-  hostId: string;
 }
 
 /**

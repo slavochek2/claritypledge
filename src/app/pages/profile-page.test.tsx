@@ -489,9 +489,10 @@ describe("ProfilePage", () => {
       );
 
       await waitFor(() => {
-        // P76: GravatarAvatar shows blue ring for pledgers
+        // P76: GravatarAvatar shows blue ring with white gap for pledgers
         const avatar = screen.getByTestId("gravatar-avatar");
-        expect(avatar.className).toMatch(/ring-(blue-500|\[3px\]|3)/);
+        expect(avatar.className).toContain("ring-blue-500");
+        expect(avatar.className).toContain("ring-offset-background");
       }, { timeout: 3000 });
     });
 
