@@ -3,26 +3,24 @@
 ## Problem
 
 Logged-in users currently land on the marketing landing page, which provides no value to them. There's no central hub showing:
-- Events they're registered for
-- Events they're hosting
+- People they can have Clarity Meetings with
+- Events they're registered for or hosting
 - Quick actions relevant to their state
-
-The navigation CTA ("Start a Clarity Meeting") is the same for everyone, missing the opportunity to guide users based on their journey stage.
 
 ## Solution
 
-Create a personalized dashboard at `/home` that becomes the hub for logged-in users, with event-centric content and contextual quick actions.
+Create a personalized dashboard at `/home` that becomes the hub for logged-in users, with **people first** (primary action) and event-centric content.
 
 ## User Stories
 
 ### As a logged-in user
+- I want to see people from my next event so I can start Clarity Meetings
 - I want to see my upcoming events (attending and hosting) in one place
-- I want quick access to start a meeting, view/take the pledge, and collaborate
-- I want the logo to take me to my dashboard, not the marketing page
+- I want quick access to start a meeting, host events, and collaborate
 
 ### As a potential event host
 - I want a clear path to host my first event
-- I want to see my draft/published events
+- I want to see my draft and published events
 
 ### As a contributor
 - I want to understand how I can help (events, code, ideas)
@@ -33,140 +31,194 @@ Create a personalized dashboard at `/home` that becomes the hub for logged-in us
 ### Navigation Changes
 
 ```
-CURRENT:
-Logo → / (landing for everyone)
-CTA  → "Start a Clarity Meeting" (always)
+CHANGES:
+1. Add "Dashboard" to logged-in user's dropdown menu
+2. Add "Collaborate" link to nav for non-logged-in users
 
-AFTER:
-Logo → / (logged-out) | /home (logged-in)
-CTA  → "Start a Clarity Meeting" (logged-out) | "Home" (logged-in)
+NO CHANGES:
+- Logo always → / (don't change)
+- CTA "Start a Clarity Meeting" stays the same
+```
+
+**Desktop nav (not logged in):**
+```
+[Events] [Pledgers] [Manifesto] [About] [Collaborate] [Start a Clarity Meeting] [Menu]
+```
+
+**Footer (add Collaborate):**
+```
+Events | Pledgers | Manifesto | About | Collaborate
 ```
 
 ### Dashboard Layout (`/home`)
 
+**Desktop (People left, Events right, Actions bottom):**
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  Welcome back, {name}                                           │
-│                                                                 │
-│  ═══════════════════════════════════════════════════════════    │
-│  YOUR EVENTS                                                    │
-│  ═══════════════════════════════════════════════════════════    │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 📅 Attending                                            │    │
-│  │                                                         │    │
-│  │ [Event Card] Communication Workshop — Jan 25    [View]  │    │
-│  │ [Event Card] Clarity Meetup SF — Feb 2          [View]  │    │
-│  │                                                         │    │
-│  │ Empty state: "No upcoming events" [Discover Events →]   │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 🎤 Hosting                                              │    │
-│  │                                                         │    │
-│  │ [Event Card] My First Event — Jan 30            [Edit]  │    │
-│  │                                                         │    │
-│  │ Empty state: "Not hosting yet" [Host an Event →]        │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  ═══════════════════════════════════════════════════════════    │
-│  PEOPLE FROM YOUR EVENTS                                        │
-│  ═══════════════════════════════════════════════════════════    │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 👤 Sarah Chen        Clarity Hike (Jan 25)              │    │
-│  │                                      [Start Meeting]    │    │
-│  ├─────────────────────────────────────────────────────────┤    │
-│  │ 👤 Marcus Johnson    Clarity Hike (Jan 25)              │    │
-│  │                                      [Start Meeting]    │    │
-│  ├─────────────────────────────────────────────────────────┤    │
-│  │ 👤 Elena Rodriguez   Live Session Lab (Jan 20)          │    │
-│  │                                      [Start Meeting]    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│                                                                 │
-│  Empty state: "RSVP to events to connect with people"           │
-│  [Discover Events →]                                            │
-│                                                                 │
-│  ═══════════════════════════════════════════════════════════    │
-│  QUICK ACTIONS                                                  │
-│  ═══════════════════════════════════════════════════════════    │
-│                                                                 │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │ 📅 Discover   │  │ 🤝 Collaborate│  │ 🎤 Host an    │       │
-│  │    Events     │  │    With Us    │  │    Event      │       │
-│  └───────────────┘  └───────────────┘  └───────────────┘       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  Welcome back, {name}                                                        │
+│                                                                              │
+│  ═══════════════════════════════════════╦════════════════════════════════════│
+│  PEOPLE FROM YOUR NEXT EVENT            ║  YOUR EVENTS                       │
+│  ═══════════════════════════════════════╬════════════════════════════════════│
+│  Clarity Hike — Jan 25                  ║                                    │
+│                                         ║  ATTENDING                         │
+│  ┌─────────────────────────────────┐    ║  ┌────────────────────────────┐    │
+│  │ [Avatar] Sarah Chen             │    ║  │ 📅 Communication Workshop  │    │
+│  │ [Invite to a Clarity Meeting]   │    ║  │    Jan 25 · 3pm PT  [View] │    │
+│  └─────────────────────────────────┘    ║  └────────────────────────────┘    │
+│  ┌─────────────────────────────────┐    ║                                    │
+│  │ [Avatar] Marcus Johnson         │    ║  HOSTING                           │
+│  │ [Invite to a Clarity Meeting]   │    ║  ┌────────────────────────────┐    │
+│  └─────────────────────────────────┘    ║  │ 🎤 My First Event  [Draft] │    │
+│  ┌─────────────────────────────────┐    ║  │    Jan 30 · 2pm PT  [Edit] │    │
+│  │ [Avatar] Elena Rodriguez        │    ║  └────────────────────────────┘    │
+│  │ [Invite to a Clarity Meeting]   │    ║                                    │
+│  └─────────────────────────────────┘    ║  UPCOMING EVENTS                   │
+│                                         ║  ┌────────────────────────────┐    │
+│  Empty: "Join events to meet people"    ║  │ 📅 Bay Area Clarity Meetup │    │
+│  [See events →]                         ║  │    Feb 10          [RSVP]  │    │
+│                                         ║  └────────────────────────────┘    │
+│                                         ║  [See all events →]                │
+│                                         ║                                    │
+│  ═══════════════════════════════════════╩════════════════════════════════════│
+│  QUICK ACTIONS                                                               │
+│  ════════════════════════════════════════════════════════════════════════════│
+│  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐     │
+│  │ 🎯 Start a Clarity │  │ 🎤 Host an         │  │ 🤝 Collaborate     │     │
+│  │    Meeting         │  │    Event           │  │    With Us         │     │
+│  └────────────────────┘  └────────────────────┘  └────────────────────┘     │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │ 📜 Take the Pledge — Join 200+ committed to clarity   [Take Pledge →]  │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│  (only shown if hasPledged === false)                                        │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### People From Your Events (Meeting Initiation)
+**Mobile (People first, Events collapsible):**
 
-This section replaces the separate P61.1 meeting initiation feature. One place, one action.
+```
+┌─────────────────────────────┐
+│ Welcome back, {name}        │
+│                             │
+│ ─── PEOPLE ─────────────── │
+│ From: Clarity Hike (Jan 25) │
+│                             │
+│ [Avatar] Sarah Chen         │
+│ [Invite to a Clarity Mtg]   │
+│                             │
+│ [Avatar] Marcus Johnson     │
+│ [Invite to a Clarity Mtg]   │
+│                             │
+│ [Avatar] Elena Rodriguez    │
+│ [Invite to a Clarity Mtg]   │
+│                             │
+│ ─── YOUR EVENTS ─────────  │
+│ ▶ Attending (2)             │
+│ ▶ Hosting (1)               │
+│                             │
+│ ─── UPCOMING EVENTS ─────  │
+│ Bay Area Clarity Meetup     │
+│ Feb 10           [RSVP]     │
+│ [See all events →]          │
+│                             │
+│ ─── QUICK ACTIONS ──────── │
+│ [Start a Clarity Meeting]   │
+│ [Host an Event]             │
+│ [Collaborate With Us]       │
+│                             │
+│ ┌─────────────────────────┐ │
+│ │ 📜 Take the Pledge      │ │
+│ │ [Take Pledge →]         │ │
+│ └─────────────────────────┘ │
+└─────────────────────────────┘
+```
 
-**Shows:** All attendees from user's upcoming events (attending + hosting)
+### People Section (Primary Feature)
 
-**Click "Start Meeting":** Navigate to `/live?partner={slug}` — partner joins via existing QR code
+**Scope:** People from user's **next upcoming event** only (simpler query, clearer context).
 
-**Logic:**
-- Fetch attendees from all user's registered + hosted events
-- Filter out current user (no self-meetings)
-- Dedupe by person (if same person in multiple events, show most recent event)
-- No search/filter for MVP (events are small, 5-15 people)
+**Person card:** Avatar + Name + Button. No dates, no event context on card (event shown as section header).
 
-**Empty state:** "RSVP to events to connect with people" with link to `/events`
+**Click behavior:**
+- Click **avatar/name** → Profile page (`/p/{slug}`)
+- Click **button** → `/live` (sync meeting flow with QR/link)
 
-### Quick Action Cards
+**Edge cases:**
+| Scenario | Behavior |
+|----------|----------|
+| User is host of next event | Show all attendees |
+| Event is TODAY | Show until event end time |
+| 0 other attendees | "No one else registered yet" |
+| No upcoming events | "Join events to meet people" [See events →] |
 
-**Note:** "Start a Meeting" moved to "People From Your Events" section above — more discoverable with partner context.
+**Button flow:** Click "Invite to a Clarity Meeting" → `/live` → User gets link/QR → Shares manually (text/email/etc) → Partner joins
 
-| Card | Icon | Label | Destination | Notes |
-|------|------|-------|-------------|-------|
-| Discover Events | 📅 | "Discover Events" | `/events` | Find events to attend |
-| Collaborate | 🤝 | "Collaborate With Us" | `/collaborate` | Open source + ideas |
-| Host an Event | 🎤 | "Host an Event" | `/events/create` | For potential hosts |
+### Events Section
 
-**Removed:**
-- ~~Start a Meeting~~ — Now in "People From Your Events" section (with partner context)
-- ~~View/Take Pledge~~ — Already in menu + profile
-- ~~Settings~~ — Not a primary action, lives in menu
-- ~~My Profile~~ — Accessible from avatar menu
+**Attending:** Events user RSVP'd to (upcoming only)
+- Click → Event detail page
+
+**Hosting:** Events user created (drafts + published)
+- Shows [Draft] or [Published] badge
+- Click → Event edit page
+
+**Upcoming Events:** Discovery section
+- Shows a few upcoming public events user hasn't RSVP'd to
+- [See all events →] links to `/events`
+
+**Empty states:**
+- Attending: "No upcoming events" [See events →]
+- Hosting: "Not hosting yet" [Host an Event →]
+
+### Quick Actions
+
+| Card | Icon | Label | Destination |
+|------|------|-------|-------------|
+| Start a Clarity Meeting | 🎯 | "Start a Clarity Meeting" | `/live` |
+| Host an Event | 🎤 | "Host an Event" | `/events/create` |
+| Collaborate | 🤝 | "Collaborate With Us" | `/collaborate` |
+
+**Conditional:**
+- "Take the Pledge" banner — Only shown if `hasPledged === false`
 
 ### Collaborate Page (`/collaborate`)
 
-New page with interest form (reuses Web3Forms pattern from About page):
+Public page (no auth required). Reuses Web3Forms pattern from About page.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
 │  🤝 Collaborate With Us                                         │
 │                                                                 │
-│  Clarity Pledge is open source (AGPL-3.0). We're building       │
-│  this together. Tell us how you'd like to be involved.          │
+│  Clarity Pledge is open source. We're building this together.   │
 │                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ What interests you? (select all that apply)             │    │
-│  │ ☐ Host an event                                         │    │
-│  │ ☐ Contribute code or design                             │    │
-│  │ ☐ Suggest a feature or improvement                      │    │
-│  │ ☐ Something else                                        │    │
-│  └─────────────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ I'm interested in...                                    │   │
+│  │ ☐ Hosting an event                                      │   │
+│  │ ☐ Contributing code or design                           │   │
+│  │ ☐ Sharing feedback or ideas                             │   │
+│  │ ☐ Something else                                        │   │
+│  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│  Email: [________________________]                              │
+│  Email [____________________] (pre-filled if logged in)         │
 │                                                                 │
-│  Tell us more:                                                  │
-│  [                                                           ]  │
+│  Message (optional)                                             │
 │  [                                                           ]  │
 │                                                                 │
-│  [Send Message]                                                 │
+│  [Send]                                                         │
 │                                                                 │
 │  ─────────────────────────────────────────────────────────────  │
-│                                                                 │
-│  Or dive into the code:                                         │
-│  [View on GitHub →] github.com/slavochek2/claritypledge         │
+│  Or dive into the code: [GitHub →]                              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Event Page Addition
+
+Add "Invite to a Clarity Meeting" button next to each attendee on event detail page.
+Same flow: Click → `/live` → Share link.
 
 ## Technical Notes
 
@@ -174,55 +226,39 @@ New page with interest form (reuses Web3Forms pattern from About page):
 
 | Dependency | Status | Impact |
 |------------|--------|--------|
-| Events service: user's registered events | **Missing — need to add** | Dashboard "Attending" section |
-| Events service: user's hosted events | **Missing — need to add** | Dashboard "Hosting" section |
-| Events service: people from user's events | **Missing — need to add** | Dashboard "People" section |
-| User's pledge status | Exists | Quick action card conditional |
-| User's profile slug | Exists | Pledge card link |
-| `/live` page with QR code | Exists | Meeting initiation destination |
+| Events service: user's next event | **Need to add** | Dashboard "People" section |
+| Events service: people from event | **Need to add** | Dashboard "People" section |
+| Events service: user's registered events | **Need to add** | Dashboard "Attending" section |
+| Events service: user's hosted events | **Need to add** | Dashboard "Hosting" section |
+| User's pledge status | Exists | "Take Pledge" banner conditional |
+| `/live` page | Exists | Meeting initiation destination |
+| `/events` page | Exists (P61) | "See all events" link |
+| `/events/create` page | Exists (P61) | "Host an Event" link |
 
 ### Events Service Changes Required
-
-The current `EventsService` interface (from p61) lacks user-specific queries. Add these:
 
 ```typescript
 // Add to events-service.interface.ts
 interface EventsService {
   // ... existing methods ...
 
-  // NEW: User-specific queries for dashboard
+  // NEW: Dashboard queries
+  getUserNextEvent(profileId: string): Promise<EventWithHost | null>;
+  getPeopleFromEvent(eventId: string, excludeProfileId: string): Promise<EventAttendee[]>;
   getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]>;
   getUserHostedEvents(profileId: string): Promise<EventWithHost[]>;
-
-  // NEW: Meeting initiation (people from user's events)
-  getPeopleFromUserEvents(profileId: string): Promise<EventAttendeeWithEvent[]>;
+  getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]>;
 }
 
-// New type for meeting initiation
-interface EventAttendeeWithEvent {
+// Simplified type for people list
+interface EventAttendee {
   profileId: string;
   name: string;
   slug: string;
   avatarColor?: string;
   avatarUrl?: string;
-  eventTitle: string;      // Most recent shared event
-  eventDate: string;       // For display context
 }
 ```
-
-**Implementation notes:**
-- `getUserRegisteredEvents`: Query `event_rsvps` WHERE `profile_id = ?`, join to `events`
-- `getUserHostedEvents`: Query `events` WHERE `host_id = ?`
-- `getPeopleFromUserEvents`:
-  1. Get user's registered + hosted event IDs
-  2. Get all attendees from those events
-  3. Filter out current user
-  4. Dedupe by profileId (keep most recent event)
-- All filter to upcoming events only
-
-Data already exists in DB:
-- `event_rsvps.profile_id` — tracks who RSVP'd
-- `events.host_id` — tracks who created the event
 
 ### New Files
 
@@ -236,82 +272,99 @@ Data already exists in DB:
 | File | Change |
 |------|--------|
 | `src/App.tsx` | Add routes: `/home`, `/collaborate` |
-| `src/app/components/layout/simple-navigation.tsx` | Logo destination logic, CTA logic |
+| `src/app/components/layout/simple-navigation.tsx` | Add "Collaborate" link (non-logged-in), add "Dashboard" to menu |
+| `src/app/components/layout/nav-links.ts` | Add Collaborate to NAV_LINKS |
+| `src/app/components/layout/navigation-menu-items.tsx` | Add "Dashboard" menu item for logged-in users |
+| Event detail page | Add "Invite to a Clarity Meeting" buttons |
 
 ### Route Protection
 
-- `/home` — Requires authentication (redirect to `/login` if not logged in)
+- `/home` — Requires authentication (redirect to `/` if not logged in)
 - `/collaborate` — Public (anyone can express interest)
+
+### Loading & Error States
+
+| Section | Loading | Error |
+|---------|---------|-------|
+| People | Skeleton cards (3) | "Couldn't load people" [Retry] |
+| Events | Skeleton cards (2) | "Couldn't load events" [Retry] |
+
+### Analytics Events
+
+| Event | When | Properties |
+|-------|------|------------|
+| `dashboard_viewed` | Page load | — |
+| `meeting_invite_clicked` | Click "Invite to a Clarity Meeting" | `source: 'dashboard' \| 'event_page'` |
+| `collaborate_form_submitted` | Form submit | `interests: string[]` |
+| `quick_action_clicked` | Click quick action | `action: 'start_meeting' \| 'host_event' \| 'collaborate'` |
 
 ## Phases
 
-### Phase 1: Nav Changes + Dashboard Shell
-- [ ] Update logo destination (logged-in → `/home`)
-- [ ] Update nav CTA (logged-in → "Home" button)
+### Phase 1: Nav + Dashboard Shell + Collaborate Page
+- [ ] Add "Collaborate" link to nav (non-logged-in users)
+- [ ] Add "Collaborate" to footer
+- [ ] Add "Dashboard" to logged-in user's dropdown menu
 - [ ] Create `/home` route (auth-protected)
-- [ ] Create `HomePage` with welcome message + empty sections
-
-**No blockers. Can start immediately.**
-
-### Phase 2: Quick Actions + Collaborate Page
-- [ ] Add quick action cards (Meeting, Discover Events, Host, Collaborate)
-- [ ] Create `/collaborate` page with interest form (Web3Forms)
+- [ ] Create `HomePage` with welcome message + placeholder sections
+- [ ] Create `/collaborate` route (public)
+- [ ] Create `CollaboratePage` with form (Web3Forms)
 - [ ] Add GitHub link
-- [ ] Track analytics (collaborate_form_submitted, collaborate_interest_type)
 
 **No blockers. Can start immediately.**
 
-### Phase 3: Events Integration (requires p61 extension)
-- [ ] Add `getUserRegisteredEvents(profileId)` to EventsService interface
-- [ ] Add `getUserHostedEvents(profileId)` to EventsService interface
-- [ ] Implement in mock service
-- [ ] Implement in real service
-- [ ] Fetch and display user's registered events on dashboard
-- [ ] Fetch and display user's hosted events on dashboard
+### Phase 2: Quick Actions + Take Pledge Banner
+- [ ] Add quick action cards (Start Meeting, Host Event, Collaborate)
+- [ ] Add conditional "Take the Pledge" banner
+- [ ] Track analytics
+
+**No blockers. Can start immediately.**
+
+### Phase 3: Events Integration
+- [ ] Add `getUserRegisteredEvents(profileId)` to EventsService
+- [ ] Add `getUserHostedEvents(profileId)` to EventsService
+- [ ] Add `getUpcomingPublicEvents()` to EventsService
+- [ ] Implement in mock + real services
+- [ ] Display Attending, Hosting, Upcoming Events sections
+- [ ] Add collapsible behavior for mobile
 - [ ] Link to event detail/edit pages
 
-**Blocked by:** Events service interface changes (small addition to p61)
+**Blocked by:** Events service interface changes (small addition)
 
-### Phase 4: People From Your Events (Meeting Initiation)
-- [ ] Add `getPeopleFromUserEvents(profileId)` to EventsService interface
-- [ ] Add `EventAttendeeWithEvent` type
-- [ ] Implement in mock service (reuse existing mock attendees)
-- [ ] Implement in real service
-- [ ] Display people list on dashboard with "Start Meeting" button
-- [ ] "Start Meeting" → `/live?partner={slug}`
-- [ ] Empty state: "RSVP to events to connect with people"
+### Phase 4: People Section
+- [ ] Add `getUserNextEvent(profileId)` to EventsService
+- [ ] Add `getPeopleFromEvent(eventId, excludeProfileId)` to EventsService
+- [ ] Implement in mock + real services
+- [ ] Display people list with avatar + name + button
+- [ ] Click avatar/name → profile page
+- [ ] Click button → `/live`
+- [ ] Empty states for edge cases
 
-**Depends on:** Phase 3 (uses same event queries)
+**Depends on:** Phase 3
 
-**Replaces:** Separate P61.1/P63 meeting initiation feature — simpler, one place.
+### Phase 5: Event Page Integration
+- [ ] Add "Invite to a Clarity Meeting" button to event detail attendee list
+- [ ] Same flow as dashboard (→ `/live`)
+
+**Can be done in parallel with Phase 4.**
 
 ## Out of Scope
 
-- Activity feed (future feature)
-- Notification center (future feature)
-- Collaboration event calendar (future feature, Slava considering hybrid events)
-- AI chatbot for orientation (deferred to p67/p68)
-
-## Open Questions (Resolved)
-
-1. ~~**Events data availability**~~: ✅ **Resolved** — P61 has `event_rsvps.profile_id` + `events.host_id`. Need to add 3 methods to interface (Phase 3-4).
-
-2. ~~**Collaborate form routing**~~: ✅ **Resolved** — All to one inbox (simpler). Revisit if volume warrants separate routing.
-
-3. ~~**Hybrid collaboration events**~~: ✅ **Deferred** — Future feature. Not blocking.
-
-4. ~~**Meeting initiation approach**~~: ✅ **Resolved** — Merged into dashboard as "People From Your Events" section. Replaces separate P61.1/P63 feature. Simpler: one place, one action, no profile-page banners or URL-param notifications.
+- Async meeting requests (see P64)
+- Email notifications for events (see P63)
+- Activity feed
+- Notification center
+- Profile page meeting button
+- Past events in people list (MVP: next event only)
 
 ## Success Metrics
 
-- Logged-in users spend more time in app (not bouncing from landing)
-- Increase in event registrations (clear path from dashboard)
+- Logged-in users spend more time in app
+- Increase in Clarity Meetings started from dashboard
+- Increase in event RSVPs
 - Collaborate form submissions (new contributor pipeline)
-- Reduction in "where do I go?" confusion (qualitative feedback)
 
 ## References
 
-- UX discussion: Sally (UX Designer agent) session, Jan 2025
 - Events service: `features/p61_events_complete_tech_spec.md`
 - Navigation: `src/app/components/layout/simple-navigation.tsx`
 - Web3Forms pattern: `src/app/pages/about-page.tsx`
@@ -319,4 +372,14 @@ Data already exists in DB:
 
 ## Changelog
 
-- **2025-01-19**: Merged meeting initiation (formerly P61.1/P63) into Phase 4. Added "People From Your Events" section. Resolved all open questions.
+- **2025-01-19 (v2)**: Major revision based on UX review:
+  - Navigation: Keep logo → /, add "Collaborate" to nav, add "Dashboard" to menu
+  - Layout: People LEFT (mobile first), Events RIGHT, Quick Actions BOTTOM
+  - People scope: Next upcoming event only (simpler)
+  - Person card: Avatar + Name + Button only (no dates)
+  - Removed "Discover Events" quick action (redundant)
+  - Added "Start a Clarity Meeting" quick action
+  - Added "Take the Pledge" conditional banner
+  - Added event page integration (Phase 5)
+  - Clarified mobile layout with collapsible sections
+- **2025-01-19 (v1)**: Initial spec with meeting initiation merged from P61.1/P63.
