@@ -257,36 +257,6 @@ export function ProfilePage() {
 
           {/* P75: Compact Profile Card */}
           <CompactProfileCard profile={profile} isOwner={isOwner} />
-
-          {/* Events Section */}
-          <section className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Events</h2>
-            {profile.upcomingEvents && profile.upcomingEvents.length > 0 ? (
-              <ul className="space-y-2">
-                {profile.upcomingEvents.map((event) => (
-                  <li key={event.id}>
-                    <Link
-                      to={`/events/${event.slug}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {event.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground">
-                No upcoming events.{isOwner && (
-                  <>
-                    {' '}
-                    <Link to="/events/new" className="text-blue-600 hover:underline">
-                      Host an event
-                    </Link>
-                  </>
-                )}
-              </p>
-            )}
-          </section>
         </div>
       </div>
     </>

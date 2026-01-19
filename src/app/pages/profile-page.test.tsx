@@ -489,9 +489,10 @@ describe("ProfilePage", () => {
       );
 
       await waitFor(() => {
-        // P76: GravatarAvatar shows blue ring for pledgers
+        // P76: GravatarAvatar shows blue ring with white gap for pledgers
         const avatar = screen.getByTestId("gravatar-avatar");
-        expect(avatar.className).toMatch(/ring-(blue-500|\[3px\]|3)/);
+        expect(avatar.className).toContain("ring-blue-500");
+        expect(avatar.className).toContain("ring-offset-background");
       }, { timeout: 3000 });
     });
 
@@ -656,89 +657,6 @@ describe("ProfilePage", () => {
       expect(screen.getByText("TU")).toBeInTheDocument();
       // Should NOT have an img element with the user's name
       expect(screen.queryByRole("img", { name: /test user/i })).not.toBeInTheDocument();
-    });
-  });
-
-  describe("Events Section", () => {
-    it("should show events section with upcoming events when profile hosts events", async () => {
-      const profileWithEvents = {
-        ...mockProfile,
-        upcomingEvents: [
-          {
-            id: "event-1",
-            slug: "test-event",
-            title: "Test Event",
-            datetime: new Date(Date.now() + 86400000).toISOString(), // tomorrow
-            hostId: mockProfile.id,
-          },
-        ],
-      };
-
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(profileWithEvents);
-      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /events/i })).toBeInTheDocument();
-        expect(screen.getByText("Test Event")).toBeInTheDocument();
-      }, { timeout: 3000 });
-    });
-
-    it("should show 'No upcoming events' with 'Host an event' link for owner with no events", async () => {
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue(
-        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
-      );
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /events/i })).toBeInTheDocument();
-        expect(screen.getByText(/no upcoming events/i)).toBeInTheDocument();
-        expect(screen.getByRole("link", { name: /host an event/i })).toBeInTheDocument();
-      }, { timeout: 3000 });
-    });
-
-    it("should show 'No upcoming events' WITHOUT 'Host an event' link for visitors", async () => {
-      const otherUser: Profile = {
-        ...mockProfile,
-        id: "other-user-id",
-        slug: "other-user",
-      };
-
-      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
-      vi.spyOn(auth, "useAuth").mockReturnValue(
-        createAuthMock({ user: otherUser, sessionUserId: otherUser.id })
-      );
-
-      render(
-        <MemoryRouter initialEntries={["/p/test-user"]}>
-          <Routes>
-            <Route path="/p/:id" element={<ProfilePage />} />
-          </Routes>
-        </MemoryRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /events/i })).toBeInTheDocument();
-        expect(screen.getByText(/no upcoming events/i)).toBeInTheDocument();
-      }, { timeout: 3000 });
-
-      // Visitor should NOT see the "Host an event" link
-      expect(screen.queryByRole("link", { name: /host an event/i })).not.toBeInTheDocument();
     });
   });
 
