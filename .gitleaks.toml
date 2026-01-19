@@ -1,0 +1,56 @@
+# Gitleaks configuration - ignore known false positives
+# See: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+# Allowlist for known false positives
+[allowlist]
+  description = "Known safe patterns in this codebase"
+
+  # React state setter functions that match LinkedIn patterns
+  regexTarget = "match"
+  regexes = [
+    '''setLinkedin\w+''',           # setLinkedinUrl, setLinkedinError, etc.
+    '''linkedinUrl''',              # LinkedIn URL field (user input, not API key)
+    '''linkedinError''',            # Error state variable
+    '''5c88ffaa-4e5a-4c82-9c73-e7fb0ad3ad01''',  # Web3Forms access key (intentionally public)
+  ]
+
+  # Paths that contain intentionally public keys or example values
+  paths = [
+    '''dist/''',                    # Build output (contains minified code with variable names)
+    '''\.map$''',                   # Source maps
+    '''\.env\.local$''',            # Local env files (gitignored)
+    '''\.env\.test\.local$''',      # Test env files (gitignored)
+    '''\.mcp\.json$''',             # MCP config (gitignored, local only)
+    '''\.bmad/''',                  # BMAD config (contains file hashes, not secrets)
+    '''features/drafts/''',         # Draft docs with example values
+    '''features/done/''',           # Archived docs with example values
+  ]
+
+# Specific rules to ignore entirely
+# These trigger on patterns that are safe in frontend apps
+[[rules]]
+  id = "linkedin-client-id"
+  description = "LinkedIn Client ID - disabled (false positives on variable names)"
+  regex = '''(?i)linkedin.{0,20}client.{0,20}id'''
+  keywords = ["linkedin"]
+  [rules.allowlist]
+    regexTarget = "match"
+    regexes = ['''.*''']  # Allow all matches (effectively disables this rule)
+
+[[rules]]
+  id = "linkedin-client-secret"
+  description = "LinkedIn Client Secret - disabled (false positives on variable names)"
+  regex = '''(?i)linkedin.{0,20}client.{0,20}secret'''
+  keywords = ["linkedin"]
+  [rules.allowlist]
+    regexTarget = "match"
+    regexes = ['''.*''']
+
+# Note: The following are intentionally public (client-side keys by design):
+# - Supabase anon key (RLS policies protect data)
+# - Mixpanel token (analytics, client-side by design)
+# - Web3Forms access key (designed to be public, like Stripe publishable keys)
+# These are documented in CLAUDE.md under "Technical Debt / Intentional Decisions"
