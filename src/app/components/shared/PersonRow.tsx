@@ -4,8 +4,8 @@
  * Used in Dashboard (people from events) and EventDetail (participants list).
  */
 import { Link } from "react-router-dom";
+import { CheckCircle2 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
-import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { analytics } from "@/lib/mixpanel";
 
 export interface PersonRowProps {
@@ -21,6 +21,7 @@ export interface PersonRowProps {
 }
 
 export function PersonRow({
+  profileId: _profileId, // Used by parent as React key
   slug,
   name,
   avatarColor,
@@ -50,17 +51,20 @@ export function PersonRow({
           onClick={() =>
             analytics.track("meeting_invite_clicked", { source: inviteSource })
           }
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+          className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
         >
-          <ClarityLogo size="xs" iconOnly className="[&_svg]:w-4 [&_svg]:h-4" />
-          <span className="hidden sm:inline">Start Meeting</span>
+          Start Meeting
         </Link>
       )}
       {action === "going" && (
-        <span className="text-xs text-muted-foreground font-medium">Going</span>
+        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">
+          <CheckCircle2 className="w-3 h-3" />
+          Going
+        </span>
       )}
       {action === "attended" && (
-        <span className="text-xs text-muted-foreground font-medium">
+        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">
+          <CheckCircle2 className="w-3 h-3" />
           Attended
         </span>
       )}

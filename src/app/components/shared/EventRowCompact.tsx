@@ -62,7 +62,7 @@ export function EventRowCompact({ event, role }: EventRowCompactProps) {
           Hosting
         </span>
       ) : role === "attending" ? (
-        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">
           <CheckCircle2 className="w-3 h-3" />
           Going
         </span>
