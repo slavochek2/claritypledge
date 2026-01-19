@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, CalendarIcon, PlusIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { eventsService } from "@/app/data/events-service";
@@ -137,9 +137,27 @@ export function HomePage() {
 
       {/* Welcome Header */}
       <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold">
+        <h1 className="text-2xl md:text-3xl font-bold mb-4">
           Welcome back, {firstName}
         </h1>
+
+        {/* Quick Actions */}
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/events"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-card hover:bg-accent transition-colors"
+          >
+            <CalendarIcon className="w-4 h-4" />
+            Browse Events
+          </Link>
+          <Link
+            to="/events/new"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Host an Event
+          </Link>
+        </div>
       </div>
 
       {/* Main Content Grid - People left, Events right on desktop */}
@@ -195,6 +213,7 @@ export function HomePage() {
                     name={person.name}
                     avatarColor={person.avatarColor}
                     avatarUrl={person.avatarUrl}
+                    isPledger={person.hasPledged}
                     action="invite"
                     inviteSource="dashboard"
                   />

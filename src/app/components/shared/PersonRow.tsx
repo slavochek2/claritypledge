@@ -14,6 +14,8 @@ export interface PersonRowProps {
   name: string;
   avatarColor: string;
   avatarUrl?: string | null;
+  /** Whether this person has signed the pledge (shows blue ring around avatar) */
+  isPledger?: boolean;
   /** Show invite button, status label, or nothing */
   action?: "invite" | "going" | "attended" | "none";
   /** Analytics source for invite clicks */
@@ -26,6 +28,7 @@ export function PersonRow({
   name,
   avatarColor,
   avatarUrl,
+  isPledger,
   action = "none",
   inviteSource = "person_row",
 }: PersonRowProps) {
@@ -37,6 +40,7 @@ export function PersonRow({
           avatarColor={avatarColor}
           photoUrl={avatarUrl}
           size="sm"
+          isPledger={isPledger}
         />
       </Link>
       <Link

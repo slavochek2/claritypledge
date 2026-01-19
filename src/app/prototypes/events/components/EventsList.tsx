@@ -58,7 +58,7 @@ export function EventsList() {
             <Link to="/events/new">
               <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
                 <Plus className="w-4 h-4" />
-                Create Event
+                Host Event
               </Button>
             </Link>
           )}
@@ -128,7 +128,7 @@ export function EventsList() {
               <Link to="/events/new">
                 <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
                   <Plus className="w-4 h-4" />
-                  Create Event
+                  Host Event
                 </Button>
               </Link>
             )}

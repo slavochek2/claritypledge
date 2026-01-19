@@ -39,6 +39,7 @@ interface DbRsvpWithProfile {
     slug: string | null;
     avatar_color: string | null;
     avatar_url: string | null;
+    has_pledged: boolean | null;
   } | null;
 }
 
@@ -213,7 +214,8 @@ export const realEventsService: EventsService = {
           full_name:name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .eq('event_id', eventId);
@@ -229,6 +231,7 @@ export const realEventsService: EventsService = {
       slug: rsvp.profile?.slug ?? '',
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
+      hasPledged: rsvp.profile?.has_pledged ?? false,
     }));
   },
 
@@ -527,7 +530,8 @@ export const realEventsService: EventsService = {
           full_name:name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .eq('id', eventId)
@@ -548,7 +552,8 @@ export const realEventsService: EventsService = {
           full_name:name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .eq('event_id', eventId)
@@ -565,10 +570,11 @@ export const realEventsService: EventsService = {
       slug: rsvp.profile?.slug ?? '',
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
+      hasPledged: rsvp.profile?.has_pledged ?? false,
     }));
 
     // Include host if they're not the excluded user
-    const eventWithHost = event as { host_id: string; host: { id: string; full_name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null };
+    const eventWithHost = event as { host_id: string; host: { id: string; full_name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null; has_pledged: boolean | null } | null };
     if (eventWithHost.host_id !== excludeProfileId && eventWithHost.host) {
       attendees.unshift({
         profileId: eventWithHost.host_id,
@@ -576,6 +582,7 @@ export const realEventsService: EventsService = {
         slug: eventWithHost.host.slug ?? '',
         avatarColor: eventWithHost.host.avatar_color ?? '#3B82F6',
         avatarUrl: eventWithHost.host.avatar_url ?? undefined,
+        hasPledged: eventWithHost.host.has_pledged ?? false,
       });
     }
 

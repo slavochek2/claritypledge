@@ -43,7 +43,7 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
 
   // P52: Use shared navigation auth state hook for consistency with SimpleNavigation
   // P67: user and showUserMenu needed for avatar display
-  const { signOut, user, showUserMenu } = useNavAuthState();
+  const { signOut, user, showUserMenu, hasPledged } = useNavAuthState();
 
   // Determine display title
   const displayTitle = title ?? (partnerName ? `Clarity Session with ${displayPartnerName}` : 'Live Clarity Session');
@@ -84,6 +84,7 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
                 avatarColor={user.avatarColor}
                 photoUrl={user.avatarUrl}
                 size="sm"
+                isPledger={hasPledged}
               />
             ) : (
               <MenuIcon className="w-5 h-5" />
