@@ -123,7 +123,7 @@ export function CollaboratePage() {
       <SEO
         title="Co-create"
         description="Join the Clarity Pledge community. Host events, contribute code, share ideas, or help us build better communication tools."
-        url="/collaborate"
+        url="/co-create"
       />
       <div className="container mx-auto max-w-2xl">
         {/* Hero Section */}

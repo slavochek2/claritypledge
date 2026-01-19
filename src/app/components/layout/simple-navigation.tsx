@@ -211,7 +211,7 @@ export function SimpleNavigation() {
               <div className="border-t border-border my-2"></div>
 
               {/* Navigation Links - Co-create is in menu items, not here */}
-              {NAV_LINKS.filter(link => link.to !== '/collaborate').map((link) => (
+              {NAV_LINKS.filter(link => link.to !== '/co-create').map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}

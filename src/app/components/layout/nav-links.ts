@@ -4,6 +4,6 @@ export const NAV_LINKS = [
   { to: "/events", label: "Events" },
   { to: "/pledgers", label: "Pledgers" },
   { to: "/article", label: "Manifesto" },
-  { to: "/collaborate", label: "Co-create" },
+  { to: "/co-create", label: "Co-create" },
   { to: "/about", label: "About" },
 ] as const;

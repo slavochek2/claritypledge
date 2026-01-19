@@ -73,7 +73,7 @@ export function NavigationMenuItems({
         {showPublicCTAs && (
           <>
             <Link
-              to="/collaborate"
+              to="/co-create"
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
@@ -157,7 +157,7 @@ export function NavigationMenuItems({
             )}
 
             <Link
-              to="/collaborate"
+              to="/co-create"
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
@@ -196,7 +196,7 @@ export function NavigationMenuItems({
       {showPublicCTAs && (
         <>
           <DropdownMenuItem asChild>
-            <Link to="/collaborate" className="cursor-pointer">
+            <Link to="/co-create" className="cursor-pointer">
               <UsersIcon className="w-4 h-4 mr-2" />
               Co-create
             </Link>
@@ -260,7 +260,7 @@ export function NavigationMenuItems({
 
           {/* Co-create */}
           <DropdownMenuItem asChild>
-            <Link to="/collaborate" className="cursor-pointer">
+            <Link to="/co-create" className="cursor-pointer">
               <UsersIcon className="w-4 h-4 mr-2" />
               Co-create
             </Link>

@@ -318,9 +318,9 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P62: Collaborate page (public) */}
+        {/* P62: Co-create page (public) */}
         <Route
-          path="/collaborate"
+          path="/co-create"
           element={
             <ClarityLandingLayout>
               <LazyRoute>
