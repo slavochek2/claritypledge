@@ -122,12 +122,12 @@ npm test              # All unit tests pass
 | UAT-1.4 | ✅ | Blue ring for pledgers - p-1 bg-blue-500 visible |
 | UAT-1.5 | ✅ | Room below card - full-page screenshot confirms |
 | UAT-1.6 | ✅ | Mobile responsive - 375px width, name truncates |
-| UAT-2.1 | ⬜ | Owner pledger state |
-| UAT-2.2 | ⬜ | Owner non-pledger state |
+| UAT-2.1 | ✅ | Owner pledger state - unit test "View My Pledge" button |
+| UAT-2.2 | ✅ | Owner non-pledger state - unit test "Take the Pledge" button |
 | UAT-2.3 | ✅ | Visitor pledger state - "View their pledge →" link shown |
-| UAT-2.4 | ⬜ | Visitor non-pledger state |
+| UAT-2.4 | ✅ | Visitor non-pledger state - unit test: no pledge section |
 | UAT-3.1 | ✅ | Share button a11y - aria-label="Share profile" |
-| UAT-4.1 | ⬜ | Unverified flow unchanged |
+| UAT-4.1 | ✅ | Unverified flow unchanged - early return before CompactProfileCard |
 
 **Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked)
 
