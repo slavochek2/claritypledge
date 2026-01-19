@@ -534,6 +534,56 @@ describe("ProfilePage", () => {
       expect(screen.queryByRole("link", { name: /view their pledge/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /take the pledge/i })).not.toBeInTheDocument();
     });
+
+    it("should show profile image when avatarUrl is provided", async () => {
+      const profileWithPhoto = {
+        ...mockProfile,
+        avatarUrl: "https://example.com/photo.jpg",
+      };
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(profileWithPhoto);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Should show img element with the avatarUrl
+      const avatarImg = screen.getByRole("img", { name: /test user/i });
+      expect(avatarImg).toBeInTheDocument();
+      expect(avatarImg).toHaveAttribute("src", "https://example.com/photo.jpg");
+    });
+
+    it("should show initials fallback when avatarUrl is NOT provided", async () => {
+      // mockProfile doesn't have avatarUrl
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Should show initials "TU" for "Test User"
+      const avatar = screen.getByTestId("profile-avatar");
+      expect(avatar).toHaveTextContent("TU");
+      // Should NOT have an img element
+      expect(screen.queryByRole("img", { name: /test user/i })).not.toBeInTheDocument();
+    });
   });
 
   describe("Resend Verification Email", () => {

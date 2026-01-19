@@ -44,12 +44,21 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
             hasPledged ? "p-1 bg-blue-500 ring-blue-500" : ""
           }`}
         >
-          <div
-            data-testid="profile-avatar"
-            className={`w-16 h-16 rounded-full ${avatarColor} flex items-center justify-center text-white text-xl font-bold`}
-          >
-            {getInitials(profile.name)}
-          </div>
+          {profile.avatarUrl ? (
+            <img
+              src={profile.avatarUrl}
+              alt={profile.name}
+              data-testid="profile-avatar"
+              className="w-16 h-16 rounded-full object-cover"
+            />
+          ) : (
+            <div
+              data-testid="profile-avatar"
+              className={`w-16 h-16 rounded-full ${avatarColor} flex items-center justify-center text-white text-xl font-bold`}
+            >
+              {getInitials(profile.name)}
+            </div>
+          )}
         </div>
 
         {/* Name and Role */}
