@@ -366,6 +366,176 @@ describe("ProfilePage", () => {
     });
   });
 
+  describe("P75: Compact Profile Card Layout", () => {
+    it("should display profile in compact horizontal layout with avatar on left", async () => {
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        // Should have the profile card with data-testid
+        expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Avatar should be 64px (w-16 h-16 in Tailwind)
+      const avatar = screen.getByTestId("profile-avatar");
+      expect(avatar).toHaveClass("w-16", "h-16");
+    });
+
+    it("should show share button with accessible label", async () => {
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /share profile/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it("should show blue ring around avatar for pledgers", async () => {
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        const avatarContainer = screen.getByTestId("avatar-container");
+        expect(avatarContainer).toHaveClass("ring-blue-500");
+      }, { timeout: 3000 });
+    });
+
+    it("should NOT show blue ring for non-pledgers", async () => {
+      const nonPledgerProfile = { ...mockProfile, hasPledged: false };
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(nonPledgerProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        const avatarContainer = screen.getByTestId("avatar-container");
+        expect(avatarContainer).not.toHaveClass("ring-blue-500");
+      }, { timeout: 3000 });
+    });
+
+    it("should show 'View My Pledge' button for owner who has pledged", async () => {
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
+      );
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: /view my pledge/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it("should show 'Take the Pledge' button for owner who has NOT pledged", async () => {
+      const nonPledgerProfile = { ...mockProfile, hasPledged: false };
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(nonPledgerProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: nonPledgerProfile, sessionUserId: nonPledgerProfile.id })
+      );
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: /take the pledge/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it("should show 'View their pledge' link for visitor viewing pledger", async () => {
+      const otherUser: Profile = {
+        ...mockProfile,
+        id: "other-user-id",
+        slug: "other-user",
+      };
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: otherUser, sessionUserId: otherUser.id })
+      );
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("link", { name: /view their pledge/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it("should NOT show pledge section for visitor viewing non-pledger", async () => {
+      const nonPledgerProfile = { ...mockProfile, hasPledged: false };
+      const otherUser: Profile = {
+        ...mockProfile,
+        id: "other-user-id",
+        slug: "other-user",
+      };
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(nonPledgerProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(
+        createAuthMock({ user: otherUser, sessionUserId: otherUser.id })
+      );
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Should NOT show any pledge-related content
+      expect(screen.queryByRole("link", { name: /view their pledge/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /take the pledge/i })).not.toBeInTheDocument();
+    });
+  });
+
   describe("Resend Verification Email", () => {
     it("should call createProfile with correct parameters when resending verification", async () => {
       // P50: Unverified owner viewing their profile sees resend button
