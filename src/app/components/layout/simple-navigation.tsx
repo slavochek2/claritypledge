@@ -31,9 +31,11 @@ export function SimpleNavigation() {
   // KISS: Only two states - verified user or everyone else
   // Note: showPublicCTAs, slug, hasPledged handled by NavigationMenuItems (shared component)
   // P67: user is needed for avatar display
+  // P76: hasPledged is needed for pledger distinction on avatars
   const {
     showUserMenu,
     user,
+    hasPledged,
     signOut,
   } = useNavAuthState();
 
@@ -137,6 +139,8 @@ export function SimpleNavigation() {
                       avatarColor={user.avatarColor}
                       photoUrl={user.avatarUrl}
                       size="sm"
+                      isPledger={hasPledged}
+                      showPledgeBadge={hasPledged}
                     />
                   ) : (
                     <MenuIcon className="w-5 h-5" />
@@ -177,6 +181,8 @@ export function SimpleNavigation() {
                 avatarColor={user.avatarColor}
                 photoUrl={user.avatarUrl}
                 size="sm"
+                isPledger={hasPledged}
+                showPledgeBadge={hasPledged}
               />
             ) : (
               <MenuIcon className="w-6 h-6" />

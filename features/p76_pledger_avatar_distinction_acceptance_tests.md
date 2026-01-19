@@ -117,8 +117,8 @@ npm test              # All unit tests pass
 | UAT-1.4 | ✅ | Unit test: ring-2 for sm/md, ring-3 for lg |
 | UAT-1.5 | ✅ | glow-pulse keyframes in tailwind.config.js with 3s duration |
 | UAT-1.6 | ✅ | Unit test: badge not rendered when showPledgeBadge omitted/false |
-| UAT-2.1 | ⬜ | |
-| UAT-2.2 | ⬜ | |
+| UAT-2.1 | ✅ | Unit test: pledger avatar shows badge (getAllByLabelText) |
+| UAT-2.2 | ✅ | Unit test: non-pledger avatar has no badge (queryByLabelText) |
 | UAT-3.1 | ⬜ | |
 | UAT-3.2 | ⬜ | |
 | UAT-4.1 | ⬜ | |

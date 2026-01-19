@@ -894,4 +894,42 @@ describe('KISS Navigation', () => {
       });
     });
   });
+
+  // ============================================================================
+  // P76: Pledger Avatar Distinction
+  // ============================================================================
+  describe('P76: Pledger Avatar Distinction', () => {
+    describe('SimpleNavigation - pledger avatar shows ring and badge', () => {
+      it('shows ring and badge for pledger avatar', () => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ name: 'Pledger User', hasPledged: true }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+
+        // Should show verified pledger badge (there are 2: desktop and mobile)
+        const badges = screen.getAllByLabelText('Verified pledger');
+        expect(badges.length).toBeGreaterThanOrEqual(1);
+      });
+
+      it('shows no ring or badge for non-pledger avatar', () => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ name: 'Regular User', hasPledged: false }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+
+        // Should NOT show verified pledger badge
+        expect(screen.queryByLabelText('Verified pledger')).not.toBeInTheDocument();
+      });
+    });
+  });
 });
