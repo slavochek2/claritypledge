@@ -44,19 +44,6 @@ This file provides guidance for AI agents working with code in this repository.
 ### When in doubt:
 If something feels "off" but technically works — report it. False alarms are better than silent failures.
 
-### Proactive improvement:
-When you encounter friction, inefficiency, or repeated issues in workflows, skills, or processes:
-1. **Identify the problem** — What went wrong or felt awkward?
-2. **Propose a concrete fix** — Draft the actual change (not vague suggestions)
-3. **Ask before applying** — Present options, let the user decide
-
-Examples:
-- Skill asks too many questions → draft a more decisive version, show diff
-- Same manual step repeated → propose automation, explain trade-offs
-- Confusing instructions → write clearer version, ask if it captures intent
-
-The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
-
 ## Product Overview
 
 A **Sensemaking Platform** that reveals calibration gaps in how well people understand each other — and motivates them to close those gaps.
@@ -156,8 +143,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 │
 ├── features/                 # Feature planning
 │   ├── done/                 # Completed feature docs
-│   ├── *_acceptance_tests.md # UAT files for ralph-loop
-│   └── *.md                  # Active features (p{N}_{name}.md)
+│   └── *.md                  # Active features (p4_*, p5_*, etc.)
 │
 ├── e2e/                      # Playwright E2E tests
 │   └── helpers/              # Test utilities
@@ -188,7 +174,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ### Conventions
 
 - **docs/technical/** - How things work (for developers)
-- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `{name}_acceptance_tests.md`)
+- **features/** - What we're building (planning docs, prefix: `p{N}_{name}.md`)
 - **src/app/** - All application code lives here
 - **src/app/content/** - All app content (articles, copy)
 
@@ -411,8 +397,7 @@ Before creating a new function, hook, or component:
 |------|----------|
 | Technical docs | `docs/technical/` |
 | Product docs (learnings, plans) | `docs/` |
-| Feature planning (specs) | `features/p{N}_{name}.md` |
-| UAT files (ralph-loop) | `features/{name}_acceptance_tests.md` |
+| Feature planning | `features/` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
 | Source code | `src/app/` |
@@ -434,9 +419,7 @@ docs/
 bmad/
 └── artifacts/          # Tech-specs and sprint artifacts
 
-features/               # Feature planning docs
-├── p{N}_{name}.md      # Tech specs
-├── {name}_acceptance_tests.md  # UAT files for ralph-loop
+features/               # Feature planning docs (p{N}_{name}.md)
 └── done/               # Completed features
 ```
 
