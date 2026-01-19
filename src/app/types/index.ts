@@ -699,7 +699,7 @@ export interface EventAttendee {
   avatarColor?: string;
   avatarUrl?: string;
   /** Whether this attendee has signed the pledge */
-  hasPledged?: boolean;
+  hasPledged: boolean;
 }
 
 export interface DbEvent {

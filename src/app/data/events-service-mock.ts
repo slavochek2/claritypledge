@@ -40,6 +40,7 @@ function toEventWithHost(mock: MockEvent): EventWithHost {
       name: a.name,
       slug: a.slug,
       avatarColor: a.avatarColor,
+      hasPledged: false, // Mock data doesn't track pledge status
     })),
     attendeeCount: mock.attendees.length,
   };
@@ -68,6 +69,7 @@ export const mockEventsService: EventsService = {
       name: a.name,
       slug: a.slug,
       avatarColor: a.avatarColor,
+      hasPledged: false, // Mock data doesn't track pledge status
     }));
   },
 
@@ -206,6 +208,7 @@ export const mockEventsService: EventsService = {
         name: a.name,
         slug: a.slug,
         avatarColor: a.avatarColor,
+        hasPledged: false, // Mock data doesn't track pledge status
       }));
 
     // Also include host if they're not the excluded user
@@ -215,6 +218,7 @@ export const mockEventsService: EventsService = {
         name: event.hostName,
         slug: event.hostSlug,
         avatarColor: event.hostAvatarColor,
+        hasPledged: false, // Mock data doesn't track pledge status
       });
     }
 

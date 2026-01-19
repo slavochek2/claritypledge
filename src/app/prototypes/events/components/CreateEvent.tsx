@@ -18,7 +18,14 @@ export function CreateEvent() {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('18:00');
-  const [timezone, setTimezone] = useState('Asia/Bangkok');
+  // Default to user's timezone, fallback to America/Los_Angeles
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return 'America/Los_Angeles';
+    }
+  });
   const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours default
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');

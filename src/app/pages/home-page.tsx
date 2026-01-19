@@ -302,7 +302,7 @@ export function HomePage() {
                       </Link>
                       <span className="hidden sm:inline text-muted-foreground">or</span>
                       <Link
-                        to="/events/create"
+                        to="/events/new"
                         className="text-sm text-blue-500 hover:text-blue-600 font-medium"
                       >
                         Host your own &rarr;

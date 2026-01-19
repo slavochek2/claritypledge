@@ -55,7 +55,7 @@ export function EventDetail() {
       setLoading(false);
     }
     fetchEvent();
-  }, [slug, isLoggedIn, user]);
+  }, [slug, isLoggedIn, user?.id]);
 
   // Local action states
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -133,6 +133,8 @@ export function EventDetail() {
     if (success) {
       setIsRsvpd(true);
       navigate(`/events/${slug}/confirm`);
+    } else {
+      toast.error('Could not complete RSVP. The event may be full or no longer available.');
     }
   };
 
@@ -455,6 +457,7 @@ export function EventDetail() {
                       name={attendee.name}
                       avatarColor={attendee.avatarColor}
                       avatarUrl={attendee.avatarUrl}
+                      isPledger={attendee.hasPledged}
                       action={action}
                       inviteSource="event_page"
                     />
