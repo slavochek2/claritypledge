@@ -121,16 +121,24 @@ export function EventsList() {
             </h3>
             <p className="text-muted-foreground mb-6">
               {activeTab === 'upcoming'
-                ? 'Check back later for new events or create your own!'
+                ? 'Check back later or host your own!'
                 : 'Past events will appear here after they conclude.'}
             </p>
-            {activeTab === 'upcoming' && isLoggedIn && (
-              <Link to="/events/new">
-                <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
-                  <Plus className="w-4 h-4" />
-                  Host Event
-                </Button>
-              </Link>
+            {activeTab === 'upcoming' && (
+              isLoggedIn ? (
+                <Link to="/events/new">
+                  <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
+                    <Plus className="w-4 h-4" />
+                    Host Event
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/signup">
+                  <Button className="bg-blue-500 hover:bg-blue-600 text-white">
+                    Sign Up to Host
+                  </Button>
+                </Link>
+              )
             )}
           </div>
         )}
