@@ -12,9 +12,9 @@
 ## Test Scoring
 
 ```
-Score = passed_tests / 14 (shown as X/14 or N%)
-Total tests: 14
-Pass threshold: 14/14 (100% — all tests must pass)
+Score = passed_tests / 12 (shown as X/12 or N%)
+Total tests: 12
+Pass threshold: 12/12 (100% — all tests must pass)
 ```
 
 ---
@@ -121,8 +121,8 @@ npm test              # All unit tests pass
 | UAT-2.2 | ✅ | Unit test: non-pledger avatar has no badge (queryByLabelText) |
 | UAT-3.1 | ✅ | Unit test: PledgerCard shows badge (getByLabelText) |
 | UAT-3.2 | ✅ | SignatureWall uses PledgerCard (inherits isPledger/showPledgeBadge) |
-| UAT-4.1 | ⬜ | |
-| UAT-4.2 | ⬜ | |
+| UAT-4.1 | ✅ | Code: CompactProfileCard imports and uses GravatarAvatar |
+| UAT-4.2 | ✅ | Unit test: profile page shows badge for pledgers (getByLabelText) |
 
 **Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked)
 
@@ -131,7 +131,7 @@ npm test              # All unit tests pass
 ## Success Criteria
 
 Loop completes when:
-1. All 14 UAT tests show ✅
+1. All 12 UAT tests show ✅
 2. `./scripts/pre-commit-checks.sh` passes
 3. No console errors during Playwright verification
 

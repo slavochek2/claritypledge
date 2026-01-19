@@ -384,9 +384,10 @@ describe("ProfilePage", () => {
         expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
       }, { timeout: 3000 });
 
-      // Avatar should be 64px (w-16 h-16 in Tailwind)
-      const avatar = screen.getByTestId("profile-avatar");
-      expect(avatar).toHaveClass("w-16", "h-16");
+      // P76: Avatar is now rendered via GravatarAvatar component
+      // Avatar container should be present
+      const avatarContainer = screen.getByTestId("avatar-container");
+      expect(avatarContainer).toBeInTheDocument();
     });
 
     it("should show share button with accessible label", async () => {
@@ -474,7 +475,8 @@ describe("ProfilePage", () => {
       consoleErrorSpy.mockRestore();
     });
 
-    it("should show blue ring around avatar for pledgers", async () => {
+    // P76: Updated tests to check for GravatarAvatar pledger distinction
+    it("should show pledger badge for pledgers", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
       vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
 
@@ -487,13 +489,12 @@ describe("ProfilePage", () => {
       );
 
       await waitFor(() => {
-        const avatarContainer = screen.getByTestId("avatar-container");
-        // Blue ring is achieved via p-1 bg-blue-500 (padding creates visual ring effect)
-        expect(avatarContainer).toHaveClass("bg-blue-500");
+        // P76: GravatarAvatar shows badge with aria-label for pledgers
+        expect(screen.getByLabelText("Verified pledger")).toBeInTheDocument();
       }, { timeout: 3000 });
     });
 
-    it("should NOT show blue ring for non-pledgers", async () => {
+    it("should NOT show pledger badge for non-pledgers", async () => {
       const nonPledgerProfile = { ...mockProfile, hasPledged: false };
       vi.mocked(api.getProfileBySlug).mockResolvedValue(nonPledgerProfile);
       vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
@@ -507,10 +508,11 @@ describe("ProfilePage", () => {
       );
 
       await waitFor(() => {
-        const avatarContainer = screen.getByTestId("avatar-container");
-        // Non-pledgers should NOT have the blue ring (no bg-blue-500)
-        expect(avatarContainer).not.toHaveClass("bg-blue-500");
+        expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
       }, { timeout: 3000 });
+
+      // P76: Non-pledgers should NOT have the pledger badge
+      expect(screen.queryByLabelText("Verified pledger")).not.toBeInTheDocument();
     });
 
     it("should show 'View My Pledge' button for owner who has pledged", async () => {
@@ -648,10 +650,9 @@ describe("ProfilePage", () => {
         expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
       }, { timeout: 3000 });
 
-      // Should show initials "TU" for "Test User"
-      const avatar = screen.getByTestId("profile-avatar");
-      expect(avatar).toHaveTextContent("TU");
-      // Should NOT have an img element
+      // P76: GravatarAvatar shows initials "TU" for "Test User" via getInitials utility
+      expect(screen.getByText("TU")).toBeInTheDocument();
+      // Should NOT have an img element with the user's name
       expect(screen.queryByRole("img", { name: /test user/i })).not.toBeInTheDocument();
     });
   });

@@ -1,13 +1,14 @@
 /**
  * @file compact-profile-card.tsx
  * @description P75: Compact horizontal profile card with avatar on left, name/role on right
- * Features: 64px avatar, blue ring for pledgers, share button, pledge CTAs
+ * P76: Refactored to use GravatarAvatar for consistent pledger distinction
+ * Features: 64px avatar, blue ring + badge for pledgers, share button, pledge CTAs
  */
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Share2 } from "lucide-react";
-import { getInitials, getAvatarColor } from "@/lib/utils";
+import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { toast } from "sonner";
 import type { Profile } from "@/app/types";
 
@@ -18,7 +19,6 @@ interface CompactProfileCardProps {
 
 export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps) {
   const hasPledged = profile.hasPledged;
-  const avatarColor = getAvatarColor(profile.name, profile.avatarColor);
 
   const handleShare = async () => {
     const profileUrl = `${window.location.origin}/p/${profile.slug}`;
@@ -37,28 +37,16 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
     >
       {/* Top row: Avatar + Name/Role + Share button */}
       <div className="flex items-center gap-4">
-        {/* Avatar with optional blue ring for pledgers */}
-        <div
-          data-testid="avatar-container"
-          className={`flex-shrink-0 rounded-full ${
-            hasPledged ? "p-1 bg-blue-500" : ""
-          }`}
-        >
-          {profile.avatarUrl ? (
-            <img
-              src={profile.avatarUrl}
-              alt={profile.name}
-              data-testid="profile-avatar"
-              className="w-16 h-16 rounded-full object-cover"
-            />
-          ) : (
-            <div
-              data-testid="profile-avatar"
-              className={`w-16 h-16 rounded-full ${avatarColor} flex items-center justify-center text-white text-xl font-bold`}
-            >
-              {getInitials(profile.name)}
-            </div>
-          )}
+        {/* P76: Use GravatarAvatar for consistent pledger distinction */}
+        <div data-testid="avatar-container" className="flex-shrink-0">
+          <GravatarAvatar
+            name={profile.name}
+            size="lg"
+            avatarColor={profile.avatarColor}
+            photoUrl={profile.avatarUrl}
+            isPledger={hasPledged}
+            showPledgeBadge={hasPledged}
+          />
         </div>
 
         {/* Name and Role */}
