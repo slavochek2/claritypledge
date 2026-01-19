@@ -71,33 +71,63 @@ CTA  → "Start a Clarity Meeting" (logged-out) | "Home" (logged-in)
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
 │  ═══════════════════════════════════════════════════════════    │
+│  PEOPLE FROM YOUR EVENTS                                        │
+│  ═══════════════════════════════════════════════════════════    │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │ 👤 Sarah Chen        Clarity Hike (Jan 25)              │    │
+│  │                                      [Start Meeting]    │    │
+│  ├─────────────────────────────────────────────────────────┤    │
+│  │ 👤 Marcus Johnson    Clarity Hike (Jan 25)              │    │
+│  │                                      [Start Meeting]    │    │
+│  ├─────────────────────────────────────────────────────────┤    │
+│  │ 👤 Elena Rodriguez   Live Session Lab (Jan 20)          │    │
+│  │                                      [Start Meeting]    │    │
+│  └─────────────────────────────────────────────────────────┘    │
+│                                                                 │
+│  Empty state: "RSVP to events to connect with people"           │
+│  [Discover Events →]                                            │
+│                                                                 │
+│  ═══════════════════════════════════════════════════════════    │
 │  QUICK ACTIONS                                                  │
 │  ═══════════════════════════════════════════════════════════    │
 │                                                                 │
 │  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐       │
-│  │ 🎯 Start a    │  │ 📅 Discover   │  │ 🤝 Collaborate│       │
-│  │    Meeting    │  │    Events     │  │    With Us   │       │
+│  │ 📅 Discover   │  │ 🤝 Collaborate│  │ 🎤 Host an    │       │
+│  │    Events     │  │    With Us    │  │    Event      │       │
 │  └───────────────┘  └───────────────┘  └───────────────┘       │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │ 🎤 Want to host? [Host an Event →]                      │    │
-│  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### People From Your Events (Meeting Initiation)
+
+This section replaces the separate P61.1 meeting initiation feature. One place, one action.
+
+**Shows:** All attendees from user's upcoming events (attending + hosting)
+
+**Click "Start Meeting":** Navigate to `/live?partner={slug}` — partner joins via existing QR code
+
+**Logic:**
+- Fetch attendees from all user's registered + hosted events
+- Filter out current user (no self-meetings)
+- Dedupe by person (if same person in multiple events, show most recent event)
+- No search/filter for MVP (events are small, 5-15 people)
+
+**Empty state:** "RSVP to events to connect with people" with link to `/events`
+
 ### Quick Action Cards
 
-**Note:** "Take the Pledge" is already in the menu and on profile page, so not duplicated here.
+**Note:** "Start a Meeting" moved to "People From Your Events" section above — more discoverable with partner context.
 
 | Card | Icon | Label | Destination | Notes |
 |------|------|-------|-------------|-------|
-| Start a Meeting | 🎯 | "Start a Clarity Meeting" | `/live` | Primary action |
 | Discover Events | 📅 | "Discover Events" | `/events` | Find events to attend |
-| Host an Event | 🎤 | "Host an Event" | `/events/create` | For potential hosts |
 | Collaborate | 🤝 | "Collaborate With Us" | `/collaborate` | Open source + ideas |
+| Host an Event | 🎤 | "Host an Event" | `/events/create` | For potential hosts |
 
 **Removed:**
+- ~~Start a Meeting~~ — Now in "People From Your Events" section (with partner context)
 - ~~View/Take Pledge~~ — Already in menu + profile
 - ~~Settings~~ — Not a primary action, lives in menu
 - ~~My Profile~~ — Accessible from avatar menu
@@ -146,8 +176,10 @@ New page with interest form (reuses Web3Forms pattern from About page):
 |------------|--------|--------|
 | Events service: user's registered events | **Missing — need to add** | Dashboard "Attending" section |
 | Events service: user's hosted events | **Missing — need to add** | Dashboard "Hosting" section |
+| Events service: people from user's events | **Missing — need to add** | Dashboard "People" section |
 | User's pledge status | Exists | Quick action card conditional |
 | User's profile slug | Exists | Pledge card link |
+| `/live` page with QR code | Exists | Meeting initiation destination |
 
 ### Events Service Changes Required
 
@@ -161,13 +193,32 @@ interface EventsService {
   // NEW: User-specific queries for dashboard
   getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]>;
   getUserHostedEvents(profileId: string): Promise<EventWithHost[]>;
+
+  // NEW: Meeting initiation (people from user's events)
+  getPeopleFromUserEvents(profileId: string): Promise<EventAttendeeWithEvent[]>;
+}
+
+// New type for meeting initiation
+interface EventAttendeeWithEvent {
+  profileId: string;
+  name: string;
+  slug: string;
+  avatarColor?: string;
+  avatarUrl?: string;
+  eventTitle: string;      // Most recent shared event
+  eventDate: string;       // For display context
 }
 ```
 
 **Implementation notes:**
 - `getUserRegisteredEvents`: Query `event_rsvps` WHERE `profile_id = ?`, join to `events`
 - `getUserHostedEvents`: Query `events` WHERE `host_id = ?`
-- Both filter to upcoming events only (or separate past/upcoming)
+- `getPeopleFromUserEvents`:
+  1. Get user's registered + hosted event IDs
+  2. Get all attendees from those events
+  3. Filter out current user
+  4. Dedupe by profileId (keep most recent event)
+- All filter to upcoming events only
 
 Data already exists in DB:
 - `event_rsvps.profile_id` — tracks who RSVP'd
@@ -221,6 +272,19 @@ Data already exists in DB:
 
 **Blocked by:** Events service interface changes (small addition to p61)
 
+### Phase 4: People From Your Events (Meeting Initiation)
+- [ ] Add `getPeopleFromUserEvents(profileId)` to EventsService interface
+- [ ] Add `EventAttendeeWithEvent` type
+- [ ] Implement in mock service (reuse existing mock attendees)
+- [ ] Implement in real service
+- [ ] Display people list on dashboard with "Start Meeting" button
+- [ ] "Start Meeting" → `/live?partner={slug}`
+- [ ] Empty state: "RSVP to events to connect with people"
+
+**Depends on:** Phase 3 (uses same event queries)
+
+**Replaces:** Separate P61.1/P63 meeting initiation feature — simpler, one place.
+
 ## Out of Scope
 
 - Activity feed (future feature)
@@ -228,13 +292,15 @@ Data already exists in DB:
 - Collaboration event calendar (future feature, Slava considering hybrid events)
 - AI chatbot for orientation (deferred to p67/p68)
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Events data availability**: Does p61 events service track user registrations and host relationships? If not, Phase 2 is blocked.
+1. ~~**Events data availability**~~: ✅ **Resolved** — P61 has `event_rsvps.profile_id` + `events.host_id`. Need to add 3 methods to interface (Phase 3-4).
 
-2. **Collaborate form routing**: Should different interest types route to different recipients or all go to one inbox?
+2. ~~**Collaborate form routing**~~: ✅ **Resolved** — All to one inbox (simpler). Revisit if volume warrants separate routing.
 
-3. **Hybrid collaboration events**: Slava mentioned potentially hosting collaborator events (online + offline). Should we add an "Upcoming Collaboration Events" section to `/collaborate`? (Defer to future)
+3. ~~**Hybrid collaboration events**~~: ✅ **Deferred** — Future feature. Not blocking.
+
+4. ~~**Meeting initiation approach**~~: ✅ **Resolved** — Merged into dashboard as "People From Your Events" section. Replaces separate P61.1/P63 feature. Simpler: one place, one action, no profile-page banners or URL-param notifications.
 
 ## Success Metrics
 
@@ -249,3 +315,8 @@ Data already exists in DB:
 - Events service: `features/p61_events_complete_tech_spec.md`
 - Navigation: `src/app/components/layout/simple-navigation.tsx`
 - Web3Forms pattern: `src/app/pages/about-page.tsx`
+- `/live` page: Existing meeting page with QR code for partner to join
+
+## Changelog
+
+- **2025-01-19**: Merged meeting initiation (formerly P61.1/P63) into Phase 4. Added "People From Your Events" section. Resolved all open questions.
