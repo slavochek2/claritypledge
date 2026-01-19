@@ -116,18 +116,18 @@ npm test              # All unit tests pass
 
 | Test | Status | Notes |
 |------|--------|-------|
-| UAT-1.1 | ⬜ | Compact horizontal layout |
-| UAT-1.2 | ⬜ | Avatar 64px |
-| UAT-1.3 | ⬜ | Share button functional |
-| UAT-1.4 | ⬜ | Blue ring for pledgers |
-| UAT-1.5 | ⬜ | Room below card |
-| UAT-1.6 | ⬜ | Mobile responsive |
-| UAT-2.1 | ⬜ | Owner pledger state |
-| UAT-2.2 | ⬜ | Owner non-pledger state |
-| UAT-2.3 | ⬜ | Visitor pledger state |
-| UAT-2.4 | ⬜ | Visitor non-pledger state |
-| UAT-3.1 | ⬜ | Share button a11y |
-| UAT-4.1 | ⬜ | Unverified flow unchanged |
+| UAT-1.1 | ✅ | Compact horizontal layout - verified via Playwright screenshot |
+| UAT-1.2 | ✅ | Avatar 64px (w-16 h-16) - unit test + visual |
+| UAT-1.3 | ✅ | Share button functional - toast "Profile URL copied" |
+| UAT-1.4 | ✅ | Blue ring for pledgers - p-1 bg-blue-500 visible |
+| UAT-1.5 | ✅ | Room below card - full-page screenshot confirms |
+| UAT-1.6 | ✅ | Mobile responsive - 375px width, name truncates |
+| UAT-2.1 | ✅ | Owner pledger state - unit test "View My Pledge" button |
+| UAT-2.2 | ✅ | Owner non-pledger state - unit test "Take the Pledge" button |
+| UAT-2.3 | ✅ | Visitor pledger state - "View their pledge →" link shown |
+| UAT-2.4 | ✅ | Visitor non-pledger state - unit test: no pledge section |
+| UAT-3.1 | ✅ | Share button a11y - aria-label="Share profile" |
+| UAT-4.1 | ✅ | Unverified flow unchanged - early return before CompactProfileCard |
 
 **Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked)
 

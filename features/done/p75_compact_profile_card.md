@@ -103,14 +103,14 @@ The current profile page (`/p/:slug` and `/me`) is a large, vertically-centered 
 
 ## Acceptance Criteria
 
-- [ ] Profile card is compact (horizontal layout, ~150px height max)
-- [ ] Avatar on left (64px), name/role on right
-- [ ] Share button visible and functional
-- [ ] Pledge CTAs still work for all user states
-- [ ] Blue ring shows for pledgers
-- [ ] Responsive on mobile
-- [ ] Page has room for future content below card
-- [ ] Works on both /me and /p/:slug routes
+- [x] Profile card is compact (horizontal layout, ~150px height max)
+- [x] Avatar on left (64px), name/role on right
+- [x] Share button visible and functional
+- [x] Pledge CTAs still work for all user states
+- [x] Blue ring shows for pledgers
+- [x] Responsive on mobile
+- [x] Page has room for future content below card
+- [x] Works on both /me and /p/:slug routes
 
 ## Future Enhancements (separate features)
 
