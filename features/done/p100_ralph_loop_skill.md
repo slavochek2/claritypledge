@@ -1,6 +1,6 @@
 # P100: /ralph-loop Skill Generator
 
-**Status:** Idea — Validate with P61 first
+**Status:** Implemented — `.claude/commands/generate-ralph-loop/SKILL.md`
 **Priority:** Low (workflow optimization)
 **Origin:** Reflection during P61 planning session
 **Related:** P99 (/prep-spec skill)
@@ -43,24 +43,26 @@ Creating the PROMPT manually is tedious. Need to include:
 /generate-ralph-loop <path-to-uat-file> [options]
 ```
 
-Generates a ready-to-paste `/ralph-loop:ralph-loop` command.
+**Purpose:** Generates a ready-to-paste `/ralph-loop:ralph-loop` command. Does NOT run the loop — outputs the prompt for you to run manually.
 
 ### What It Does
 
-1. **Read UAT file** — Extract test count, current score
-2. **Find related spec** — Convention: `foo_acceptance_tests.md` → `foo.md` or `foo_tech_spec.md`
-3. **Generate loop instructions** — Inject into context
-4. **Run loop** with:
+1. **Validate UAT file exists** — If missing: "No UAT file found at `{path}`. Run `/prep-spec` first to generate one."
+2. **Read UAT file** — Extract test count, current score, categories
+3. **Find related spec** — Convention: `foo_acceptance_tests.md` → `foo.md` or `foo_tech_spec.md`
+4. **Generate prompt** — Assemble the ralph-loop prompt with:
+   - Spec + UAT paths
+   - Test count and current score
    - TDD approach (test first)
-   - Playwright MCP for visual verification
-   - Chrome DevTools MCP for network/console
-   - Scorecard updates after each test
-   - Commits after each category
-5. **Exit when:**
-   - Score = 100%
-   - Max iterations reached
-   - Blocked (ask user)
-   - Context pressure (suggest fresh context)
+   - Tools: Playwright MCP + Chrome DevTools MCP
+   - Scorecard update instructions
+   - Commit strategy (after each category)
+5. **Output** — Ready-to-paste command:
+   ```
+   /ralph-loop:ralph-loop "..." --max-iterations 30 --completion-promise "<promise>...</promise>"
+   ```
+
+**You then copy and run the command yourself.**
 
 ### Options
 
@@ -68,6 +70,7 @@ Generates a ready-to-paste `/ralph-loop:ralph-loop` command.
 |------|---------|-------------|
 | `--spec` | auto-detect | Path to tech spec |
 | `--max-iterations` | 30 | Safety limit |
+| `--completion-promise` | auto | Defaults to `<promise>{FEATURE} UAT COMPLETE</promise>` |
 | `--pause-on-category` | true | Pause after each category completes |
 | `--fresh-context` | ask | When to suggest fresh context |
 
@@ -98,15 +101,26 @@ Generates a ready-to-paste `/ralph-loop:ralph-loop` command.
 
 ---
 
-## Integration with /prep-spec
+## Integration with /prep-spec (P99)
+
+**Workflow:**
 
 ```
-/prep-spec features/p61.md
-  → Reviews spec
-  → Recommends ralph-loop
-  → Generates p61_acceptance_tests.md
-  → Suggests: "Run /ralph-loop features/p61_acceptance_tests.md"
+1. /prep-spec features/p61.md
+     → Reviews spec with agents
+     → Recommends ralph-loop (based on size/complexity)
+     → Generates features/p61_acceptance_tests.md
+     → Output: "UAT generated. Run `/generate-ralph-loop features/p61_acceptance_tests.md`"
+
+2. /generate-ralph-loop features/p61_acceptance_tests.md
+     → Reads UAT, finds spec
+     → Outputs ready-to-paste command
+
+3. User copies and runs the command:
+   /ralph-loop:ralph-loop "..." --max-iterations 30 --completion-promise "..."
 ```
+
+**If UAT missing:** `/generate-ralph-loop` will tell you to run `/prep-spec` first.
 
 ---
 
@@ -305,15 +319,77 @@ Run pre-flight checks. If all pass, read `features/p61_acceptance_tests.md` and 
 
 ## Validation Plan
 
-1. Run P61 with manual ralph-loop (using template above)
-2. Note friction points
-3. Extract pattern into skill
-4. Test on P100+ features
+1. ~~Run P61 with manual ralph-loop (using template above)~~ ✅ Done
+2. ~~Note friction points~~ ✅ Done
+3. ~~Extract pattern into skill~~ ✅ Done — `.claude/commands/generate-ralph-loop/SKILL.md`
+4. Test on next feature (P70+)
+
+---
+
+## Skill Registration
+
+```yaml
+# Location: {project-root}/.claude/skills/generate-ralph-loop.md (or BMAD skills folder)
+
+name: generate-ralph-loop
+description: "Generate a ready-to-paste ralph-loop command from a UAT file"
+triggers:
+  - /generate-ralph-loop
+  - /generate-ralph-loop <path>
+
+parameters:
+  - name: uat_path
+    required: true
+    description: "Path to the UAT file"
+  - name: --spec
+    required: false
+    description: "Path to tech spec (auto-detected by default)"
+  - name: --max-iterations
+    required: false
+    default: 30
+    description: "Safety limit for iterations"
+  - name: --completion-promise
+    required: false
+    default: "<promise>{FEATURE} UAT COMPLETE</promise>"
+    description: "Output when 100% complete"
+  - name: --pause-on-category
+    required: false
+    default: true
+    description: "Pause after each category completes"
+
+dependencies:
+  skills: []
+  agents: []
+
+outputs:
+  - Ready-to-paste /ralph-loop:ralph-loop command (to terminal)
+
+validation:
+  - UAT file must exist at specified path
+  - UAT file must have scorecard table
+  - Spec file must be findable (by convention or --spec flag)
+  - If spec modified after UAT: warn "Spec changed since UAT generated — regenerate?"
+```
+
+---
+
+## Edge Cases and Error Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| UAT file not found | Error: "No UAT file at `{path}`. Run `/prep-spec` first." |
+| UAT file wrong format | Error: "UAT file doesn't match expected format. See template at..." |
+| Spec not found (neither `foo.md` nor `foo_tech_spec.md`) | Error: "Can't find spec. Use `--spec` flag to specify path." |
+| Both `foo.md` and `foo_tech_spec.md` exist | Use `foo_tech_spec.md` (more specific), log which was chosen |
+| Spec modified after UAT created | Warning: "Spec modified after UAT was generated. Consider running `/prep-spec` again to regenerate UAT." |
+| UAT has 0 tests | Error: "UAT has no tests. Check file format." |
+| UAT already at 100% | Info: "UAT already complete (100%). Nothing to do." |
 
 ---
 
 ## Related
 
-- P99: /prep-spec skill (generates UAT files)
+- P99: /prep-spec skill (reviews spec, generates UAT files)
+- P101: /generate-uat skill (creates UAT from spec)
 - `/loop`: Single-session dev loop
 - `/simplify`: Decision surfacing

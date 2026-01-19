@@ -26,17 +26,55 @@ memories: []
 
 # Add custom menu items (appended to base menu)
 # Don't include * prefix or help/exit - auto-injected
-menu: []
-# Example:
-# menu:
-#   - trigger: my-workflow
-#     workflow: "{project-root}/custom/my.yaml"
-#     description: My custom workflow
+menu:
+  - trigger: browser-session
+    action: "#browser-session-prompt"
+    description: "Start interactive browser testing session (MCP tools)"
 
 # Add custom prompts (for action="#id" handlers)
-prompts: []
-# Example:
-# prompts:
-# - id: my-prompt
-#   content: |
-#     Prompt instructions here
+prompts:
+  - id: browser-session-prompt
+    content: |
+      # Browser Testing Session
+
+      You have access to two MCP browser tools. Load knowledge fragment `browser-mcp-tools` for full documentation.
+
+      ## Ask user for preferences:
+
+      1. **Tool**: Which browser tool?
+         - `playwright` — Better for multi-tab, form automation, cross-browser
+         - `chrome-devtools` — Better for debugging, performance, console inspection
+
+      2. **Display mode**:
+         - `headless` (default) — No visible browser, faster
+         - `headed` — Visible browser for debugging
+
+      3. **Session mode**:
+         - `isolated` (default) — Fresh browser context, no state carried over
+         - `persistent` — Reuse cookies/storage from previous session
+
+      4. **Starting URL** (optional): Where to navigate first?
+
+      ## After collecting preferences:
+
+      ### For Playwright (`mcp__playwright__*`):
+      - Use `browser_navigate` to open the URL
+      - Use `browser_snapshot` to see elements (returns refs for interaction)
+      - Interact using refs from snapshot
+
+      ### For Chrome DevTools (`mcp__chrome-devtools__*`):
+      - Remind user to start Chrome with `--remote-debugging-port=9222` if not running
+      - Use `navigate_page` to open the URL
+      - Use `take_snapshot` to see elements (returns uids for interaction)
+      - Interact using uids from snapshot
+
+      ## Session workflow:
+      1. Open requested URL
+      2. Take initial snapshot
+      3. Present element tree to user
+      4. Accept commands: click, fill, screenshot, check console, check network, etc.
+      5. After each action, offer to take new snapshot or continue
+
+      ## Ending session:
+      - Offer to generate test code from recorded actions
+      - Offer to save session notes for test design
