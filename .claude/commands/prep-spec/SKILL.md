@@ -1,8 +1,8 @@
 ---
 name: prep-spec
-description: Prepare a spec for implementation with agent reviews and execution recommendation. Orchestrates UX Designer, Architect, and optionally TEA agents for comprehensive review, then recommends /loop vs ralph-loop.
+description: Prepare a spec for implementation with agent reviews and execution recommendation. Orchestrates UX Designer, Architect, and optionally TEA agents for comprehensive review, then recommends /loop, /loop --with-checkpoints, or ralph-loop based on requirements count, integration points, and risk keywords.
 when_to_use: before implementing a feature spec, to catch blindspots and choose the right execution strategy
-version: 1.1.0
+version: 1.2.0
 ---
 
 # /prep-spec
@@ -38,7 +38,20 @@ Prepare a feature specification for implementation with multi-agent review and e
 
 ### Step 1: Quick Analysis
 
-Extract metrics: line count, phases, has UI, has DB, dependencies.
+Extract key metrics:
+
+| Metric | How to Calculate |
+|--------|------------------|
+| Requirements | Count `- [ ]` checkboxes, "must", "should", "will" statements |
+| Phases | Count `## Phase` or `### Checkpoint` headings |
+| Integration points | External APIs, DB schema changes, auth changes, third-party services |
+| Risk keywords | `auth`, `payment`, `migration`, `security`, `breaking change`, `RLS` |
+| Has UI | "UI", "component", "page", "screen", "wireframe" |
+
+Output:
+```
+Requirements: {N} | Phases: {N} | Integrations: {N} | Risk: {keywords or "none"} | UI: {yes/no}
+```
 
 ### Step 2: Agent Reviews (Sequential)
 
@@ -103,25 +116,43 @@ If no decisions needed: "No decisions needed — spec is clear."
 
 ### Step 5: Recommend Execution Path
 
-Apply thresholds:
+**Decision logic:**
 
-| Metric | /loop | ralph-loop |
-|--------|-------|------------|
-| Lines | < 500 | >= 500 |
-| Phases | 1-2 | 3+ |
-| Blockers | 0 | 1+ (blocked) |
-| Est. tests | < 15 | >= 15 |
+```
+IF blockers > 0:
+  → BLOCKED (resolve first)
+ELSE IF risk_keywords_found OR integration_points >= 3:
+  → ralph-loop (high risk/complexity)
+ELSE IF requirements >= 12 OR phases >= 3:
+  → /loop --with-checkpoints (medium complexity)
+ELSE:
+  → /loop (simple)
+```
+
+**Thresholds:**
+
+| Signal | /loop | /loop --with-checkpoints | ralph-loop |
+|--------|-------|--------------------------|------------|
+| Requirements | < 12 | 12+ | any (if risk) |
+| Phases | 1-2 | 3+ | any (if risk) |
+| Integration points | 0-2 | 0-2 | 3+ |
+| Risk keywords | none | none | any match |
+
+**Risk keywords:** `auth`, `payment`, `migration`, `security`, `breaking change`, `RLS`
 
 Output recommendation:
 
 ```
 ## Execution
 
-**Recommendation:** {/loop | ralph-loop | BLOCKED}
+**Recommendation:** {/loop | /loop --with-checkpoints | ralph-loop | BLOCKED}
 **Reason:** {brief explanation}
 
 {If /loop}
 Ready to implement. Run `/loop` and describe the task.
+
+{If /loop --with-checkpoints}
+Medium complexity. Use `/loop` but pause after each phase for review.
 
 {If ralph-loop}
 Run: `/generate-ralph-loop features/{spec-name}_acceptance_tests.md`
@@ -143,7 +174,7 @@ reviews:
   ux: {passed|failed|skipped}
   architect: {passed|failed|skipped}
   tea: {passed|failed|skipped}
-execution: {/loop|ralph-loop|blocked}
+execution: {/loop|/loop --with-checkpoints|ralph-loop|blocked}
 ---
 ```
 
@@ -170,7 +201,7 @@ If recommendation is `ralph-loop`:
 ```
 ## {Spec Name} — Review
 
-**Lines:** {N} | **Phases:** {N} | **UI:** {yes/no} | **DB:** {yes/no}
+**Requirements:** {N} | **Phases:** {N} | **Integrations:** {N} | **Risk:** {keywords or "none"} | **UI:** {yes/no}
 
 ---
 
@@ -195,7 +226,7 @@ If recommendation is `ralph-loop`:
 
 ### Execution
 
-**{/loop | ralph-loop | BLOCKED}** — {brief reason}
+**{/loop | /loop --with-checkpoints | ralph-loop | BLOCKED}** — {brief reason}
 
 {next step: command to run or blockers to resolve}
 ```
