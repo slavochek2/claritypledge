@@ -18,7 +18,7 @@ import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
-import { MailIcon, CalendarDays, Plus } from "lucide-react";
+import { MailIcon } from "lucide-react";
 import { CompactProfileCard } from "@/app/components/profile/compact-profile-card";
 
 export function ProfilePage() {
@@ -248,43 +248,6 @@ export function ProfilePage() {
         <div className="container mx-auto max-w-2xl">
           {/* P75: Compact Profile Card */}
           <CompactProfileCard profile={profile} isOwner={isOwner} />
-
-          {/* Events Section - only show if has events OR is owner */}
-          {(profile.upcomingEvents && profile.upcomingEvents.length > 0) || isOwner ? (
-            <section className="mt-8">
-              <h2 className="text-xl font-semibold mb-4">Events</h2>
-              {profile.upcomingEvents && profile.upcomingEvents.length > 0 ? (
-                <ul className="space-y-2">
-                  {profile.upcomingEvents.map((event) => (
-                    <li key={event.id}>
-                      <Link
-                        to={`/events/${event.slug}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {event.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                /* Owner empty state - styled like EventsList */
-                <div className="text-center py-8 border border-dashed border-border rounded-lg">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
-                    <CalendarDays className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-muted-foreground mb-4">
-                    You haven't hosted any events yet.
-                  </p>
-                  <Link to="/events/new">
-                    <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
-                      <Plus className="w-4 h-4" />
-                      Create Event
-                    </Button>
-                  </Link>
-                </div>
-              )}
-            </section>
-          ) : null}
         </div>
       </div>
     </>
