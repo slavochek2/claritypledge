@@ -44,6 +44,19 @@ This file provides guidance for AI agents working with code in this repository.
 ### When in doubt:
 If something feels "off" but technically works — report it. False alarms are better than silent failures.
 
+### Proactive improvement:
+When you encounter friction, inefficiency, or repeated issues in workflows, skills, or processes:
+1. **Identify the problem** — What went wrong or felt awkward?
+2. **Propose a concrete fix** — Draft the actual change (not vague suggestions)
+3. **Ask before applying** — Present options, let the user decide
+
+Examples:
+- Skill asks too many questions → draft a more decisive version, show diff
+- Same manual step repeated → propose automation, explain trade-offs
+- Confusing instructions → write clearer version, ask if it captures intent
+
+The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
+
 ## Product Overview
 
 A **Sensemaking Platform** that reveals calibration gaps in how well people understand each other — and motivates them to close those gaps.
@@ -111,6 +124,27 @@ Load these docs when working on specific areas:
 | /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+
+## Worktree Branch Naming
+
+**Standard naming:** `w1`, `w2`, `w3`, `w4`, etc.
+
+**Rules:**
+1. **When syncing to main:** If user asks to "bring worktree up to date" or "sync with main", automatically reset the branch name to generic (`w1`, `w2`, etc.) after merging
+2. **When starting feature work:** Before the first commit on a worktree, rename the branch to match the feature (e.g., `p62-dashboard-w1`)
+3. **Branch rename command:** `git branch -m <new-name>`
+
+**Example workflow:**
+```bash
+# User: "bring w1 up to date with main"
+cd ~/Documents/claritypledge-1
+git fetch origin main
+git merge origin/main
+git branch -m w1  # Reset to generic name
+
+# Later, starting feature p62:
+git branch -m p62-dashboard-w1  # Rename before first commit
+```
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
 | Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
 | Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
@@ -143,7 +177,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 │
 ├── features/                 # Feature planning
 │   ├── done/                 # Completed feature docs
-│   └── *.md                  # Active features (p4_*, p5_*, etc.)
+│   ├── p{N}_uat.md           # UAT files for ralph-loop
+│   └── *.md                  # Active features (p{N}_{name}.md)
 │
 ├── e2e/                      # Playwright E2E tests
 │   └── helpers/              # Test utilities
@@ -174,7 +209,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ### Conventions
 
 - **docs/technical/** - How things work (for developers)
-- **features/** - What we're building (planning docs, prefix: `p{N}_{name}.md`)
+- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `p{N}_uat.md`)
 - **src/app/** - All application code lives here
 - **src/app/content/** - All app content (articles, copy)
 
@@ -397,7 +432,8 @@ Before creating a new function, hook, or component:
 |------|----------|
 | Technical docs | `docs/technical/` |
 | Product docs (learnings, plans) | `docs/` |
-| Feature planning | `features/` |
+| Feature planning (specs) | `features/p{N}_{name}.md` |
+| UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
 | Source code | `src/app/` |
@@ -419,7 +455,9 @@ docs/
 bmad/
 └── artifacts/          # Tech-specs and sprint artifacts
 
-features/               # Feature planning docs (p{N}_{name}.md)
+features/               # Feature planning docs
+├── p{N}_{name}.md      # Tech specs
+├── p{N}_uat.md                 # UAT files for ralph-loop
 └── done/               # Completed features
 ```
 

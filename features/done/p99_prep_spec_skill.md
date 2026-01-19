@@ -75,30 +75,40 @@ This is the most time-consuming part of manual prep.
 
 ---
 
-## Thresholds (to validate)
+## Thresholds (v1.2.0)
 
-| Metric | /loop | ralph-loop |
-|--------|-------|------------|
-| Spec lines | < 500 | > 500 |
-| Phases | 1-2 | 3+ |
-| Estimated context usage | < 50% | > 50% |
+**Decision logic:**
+```
+IF blockers > 0:
+  → BLOCKED
+ELSE IF risk_keywords_found OR integration_points >= 3:
+  → ralph-loop
+ELSE IF requirements >= 12 OR phases >= 3:
+  → /loop --with-checkpoints
+ELSE:
+  → /loop
+```
+
+| Signal | /loop | /loop --with-checkpoints | ralph-loop |
+|--------|-------|--------------------------|------------|
+| Requirements | < 12 | 12+ | any (if risk) |
+| Phases | 1-2 | 3+ | any (if risk) |
+| Integration points | 0-2 | 0-2 | 3+ |
+| Risk keywords | none | none | any match |
+
+**Risk keywords:** `auth`, `payment`, `migration`, `security`, `breaking change`, `RLS`
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Should agents run in parallel or sequential?**
-   - Parallel: faster
-   - Sequential: can build on each other's findings
-
-2. **What if agents disagree?**
-   - Surface both views, let user decide
-
-3. **How to estimate context usage?**
-   - Line count + expected code reads + expected code writes
-
-4. **Should it auto-run or just recommend?**
-   - Probably recommend, user confirms
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| Sequential vs parallel agents? | Sequential (UX → Architect → TEA) | Allows each agent to build on previous findings |
+| What if agents disagree? | Surface both views with recommendations | User decides final resolution |
+| How to estimate context usage? | Replaced with requirement count + integration points | Line count was noise; requirement density matters more |
+| Auto-run or recommend? | Recommend, user confirms | User stays in control |
+| Binary /loop vs ralph-loop? | Added `/loop --with-checkpoints` middle option | Binary choice forced bad fits for medium complexity |
 
 ---
 

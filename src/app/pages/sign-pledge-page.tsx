@@ -14,6 +14,7 @@ import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, 
 import { getInitials } from "@/lib/utils";
 import type { ProfileSummary } from "@/app/types";
 import { analytics } from "@/lib/mixpanel";
+import { SEO } from "@/app/components/seo";
 
 export function SignPledgePage() {
   const navigate = useNavigate();
@@ -86,7 +87,13 @@ export function SignPledgePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
+    <>
+      <SEO
+        title="Sign the Pledge"
+        description="Join professionals worldwide in a public commitment to clear, honest communication. Sign the Clarity Pledge and get your shareable certificate."
+        url="/sign-pledge"
+      />
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
       <div className="mb-8 text-center">
         <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4">Take the Pledge</h1>
 
@@ -161,7 +168,8 @@ export function SignPledgePage() {
         onSuccess={handleSuccess}
         onSwitchToLogin={() => navigate('/login')}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

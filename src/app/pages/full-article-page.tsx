@@ -26,7 +26,6 @@ export function FullArticlePage() {
   const [isMobileTocOpen, setIsMobileTocOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showFloatingCTA, setShowFloatingCTA] = useState(false);
-  const [expandedAppendices, setExpandedAppendices] = useState(false);
 
   const isLoadingUser = !sessionChecked || isLoading;
 
@@ -46,8 +45,24 @@ export function FullArticlePage() {
       foundHeaders.push({ id, text, level });
     }
 
-    return foundHeaders.filter(h => h.level <= 2); // Only show h1 and h2 in TOC
+    // Return all h2 headers
+    return foundHeaders.filter(h => h.level === 2);
   }, []);
+
+  // Split into main sections (I-VII) and supplementary (Appendices, References)
+  const mainSections = useMemo(() => {
+    return headers.filter(h => {
+      const lowerText = h.text.toLowerCase();
+      return !lowerText.startsWith('appendix') && lowerText !== 'references';
+    });
+  }, [headers]);
+
+  const supplementarySections = useMemo(() => {
+    return headers.filter(h => {
+      const lowerText = h.text.toLowerCase();
+      return lowerText.startsWith('appendix') || lowerText === 'references';
+    });
+  }, [headers]);
 
   useEffect(() => {
     // Track page view
@@ -145,17 +160,16 @@ export function FullArticlePage() {
         size="sm"
         className="lg:hidden fixed top-20 left-4 z-40 shadow-md bg-background"
         onClick={() => setIsMobileTocOpen(!isMobileTocOpen)}
-        aria-label="Contents"
+        aria-label="Table of contents"
       >
-        <BookOpenIcon className="w-4 h-4 mr-2" />
-        Contents
+        <BookOpenIcon className="w-4 h-4" />
       </Button>
 
       {/* Mobile TOC Dropdown */}
       {isMobileTocOpen && (
         <div className="lg:hidden fixed top-32 left-4 right-4 z-40 bg-background border rounded-lg shadow-lg max-h-[60vh] overflow-y-auto">
           <nav className="p-4 space-y-1">
-            {headers.map((header) => (
+            {mainSections.map((header) => (
               <a
                 key={header.id}
                 href={`#${header.id}`}
@@ -163,7 +177,7 @@ export function FullArticlePage() {
                   activeId === header.id
                     ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                } ${header.level === 2 ? "pl-6" : ""}`}
+                }`}
                 onClick={(e) => {
                   e.preventDefault();
                   setIsMobileTocOpen(false);
@@ -173,29 +187,48 @@ export function FullArticlePage() {
                 {header.text}
               </a>
             ))}
+            {supplementarySections.length > 0 && (
+              <>
+                <div className="border-t border-border my-2" />
+                {supplementarySections.map((header) => (
+                  <a
+                    key={header.id}
+                    href={`#${header.id}`}
+                    className={`block py-1.5 px-3 text-xs rounded-md transition-colors ${
+                      activeId === header.id
+                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium"
+                        : "text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsMobileTocOpen(false);
+                      document.getElementById(header.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                  >
+                    {header.text}
+                  </a>
+                ))}
+              </>
+            )}
           </nav>
         </div>
       )}
 
       <div className="container mx-auto px-4 py-12 max-w-7xl">
-        <div className="flex gap-6 lg:gap-12">
+        <div className="flex gap-6 lg:gap-8">
           {/* TOC Sidebar - Desktop */}
-          <aside className="hidden lg:block w-72 flex-shrink-0">
+          <aside className="hidden lg:block w-56 flex-shrink-0">
             <div className="sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto">
-              <div className="flex items-center gap-2 text-sm font-bold mb-6 text-foreground">
-                <BookOpenIcon className="w-5 h-5" />
-                <span className="text-base">Contents</span>
-              </div>
-              <nav className="space-y-0.5 pb-8">
-                {headers.map((header) => (
+              <nav className="space-y-1 border-l border-border pl-3">
+                {mainSections.map((header) => (
                   <a
                     key={header.id}
                     href={`#${header.id}`}
-                    className={`block py-2.5 px-4 text-sm rounded-lg transition-all ${
+                    className={`block py-1.5 text-sm transition-all ${
                       activeId === header.id
-                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold border-l-2 border-blue-600"
-                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:translate-x-0.5"
-                    } ${header.level === 2 ? "pl-8 text-xs" : "font-medium"}`}
+                        ? "text-blue-600 dark:text-blue-400 font-medium -ml-[1px] border-l-2 border-blue-600 pl-[15px]"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
                     onClick={(e) => {
                       e.preventDefault();
                       document.getElementById(header.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -204,6 +237,28 @@ export function FullArticlePage() {
                     {header.text}
                   </a>
                 ))}
+                {supplementarySections.length > 0 && (
+                  <>
+                    <div className="my-3" />
+                    {supplementarySections.map((header) => (
+                      <a
+                        key={header.id}
+                        href={`#${header.id}`}
+                        className={`block py-1 text-xs transition-all ${
+                          activeId === header.id
+                            ? "text-blue-600 dark:text-blue-400 font-medium -ml-[1px] border-l-2 border-blue-600 pl-[15px]"
+                            : "text-muted-foreground/60 hover:text-foreground"
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById(header.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                      >
+                        {header.text}
+                      </a>
+                    ))}
+                  </>
+                )}
               </nav>
             </div>
           </aside>
@@ -229,7 +284,7 @@ export function FullArticlePage() {
                   We assume we understand each other, but often we're just guessing. When those guesses are wrong, we pay the price—in rework, in mistakes, in conflicts, in broken trust.
                 </p>
                 <p className="text-lg leading-relaxed">
-                  This is the <strong className="text-amber-500">Clarity Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S.
+                  This is the <strong className="text-amber-500">Clarity Tax</strong>: the hidden cost of unverified understanding. In organizations alone, it costs <strong>$1.2 trillion annually</strong> in the U.S. (<a href="https://www.businesswire.com/news/home/20220125005525/en/Grammarly-and-Harris-Poll-Research-Estimates-U.S.-Businesses-Lose-%241.2-Trillion-Annually-to-Poor-Communication" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">source</a>).
                 </p>
                 <p className="text-lg leading-relaxed">
                   The problem isn't that we're careless—it's that we're human. Cognitive biases make us overestimate how clearly we communicate and how well we understand others. We operate under an <em>illusion of shared reality</em>.
@@ -265,7 +320,7 @@ export function FullArticlePage() {
 
             <article className="prose prose-lg dark:prose-invert mx-auto text-justify
               prose-headings:scroll-mt-24 prose-headings:font-serif prose-headings:text-left
-              prose-h1:text-4xl prose-h1:font-bold prose-h1:mb-8 prose-h1:mt-8
+              prose-h1:text-4xl prose-h1:font-bold prose-h1:mb-8 prose-h1:mt-0
               prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-16 prose-h2:mb-6 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border
               prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-10 prose-h3:mb-4
               prose-h4:text-xl prose-h4:font-semibold prose-h4:mt-8 prose-h4:mb-3
@@ -279,7 +334,7 @@ export function FullArticlePage() {
               prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:pl-6 prose-blockquote:py-2 prose-blockquote:my-6 prose-blockquote:italic prose-blockquote:text-foreground/80
               prose-code:text-sm prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
               prose-pre:bg-muted prose-pre:border prose-pre:border-border
-              prose-hr:my-12 prose-hr:border-border
+              prose-hr:my-6 prose-hr:border-border
             ">
               <ReactMarkdown
                 remarkPlugins={[remarkMath]}
@@ -330,42 +385,6 @@ export function FullArticlePage() {
                 {articleContent}
               </ReactMarkdown>
             </article>
-
-            {/* Collapsible Appendices Section */}
-            <div className="mt-16 border-t border-border pt-8">
-              <button
-                onClick={() => setExpandedAppendices(!expandedAppendices)}
-                className="flex items-center justify-between w-full p-6 bg-muted/50 hover:bg-muted rounded-lg transition-colors group"
-              >
-                <div className="text-left">
-                  <h2 className="text-2xl font-bold mb-2">Appendices</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Formal definitions, implementation guide, and research references
-                  </p>
-                </div>
-                <ChevronDownIcon
-                  className={`w-6 h-6 text-muted-foreground group-hover:text-foreground transition-transform ${expandedAppendices ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {expandedAppendices && (
-                <article className="prose prose-lg dark:prose-invert mx-auto mt-8
-                  prose-headings:scroll-mt-24 prose-headings:font-serif
-                  prose-h2:text-3xl prose-h2:font-bold prose-h2:mt-12 prose-h2:mb-6
-                  prose-h3:text-2xl prose-h3:font-semibold prose-h3:mt-8 prose-h3:mb-4
-                  prose-p:text-lg prose-p:leading-[1.75] prose-p:mb-6
-                ">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                  >
-                    {articleContent.split('## Appendix')[0].includes('## Appendix')
-                      ? ''
-                      : articleContent.substring(articleContent.indexOf('## Appendix') || articleContent.length)}
-                  </ReactMarkdown>
-                </article>
-              )}
-            </div>
 
             {/* Bottom CTA */}
             {!isLoadingUser && !currentUser && (

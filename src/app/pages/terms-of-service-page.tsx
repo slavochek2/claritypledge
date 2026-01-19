@@ -6,10 +6,17 @@
 import { Link } from "react-router-dom";
 import { ScrollTextIcon } from "lucide-react";
 import { COPY } from "@/app/content/copy";
+import { SEO } from "@/app/components/seo";
 
 export function TermsOfServicePage() {
   return (
-    <div className="min-h-screen py-20 px-4">
+    <>
+      <SEO
+        title="Terms of Service"
+        description="Terms and conditions for using Clarity Pledge. Understand your rights and responsibilities when signing the pledge."
+        url="/terms-of-service"
+      />
+      <div className="min-h-screen py-20 px-4">
       <div className="container mx-auto max-w-3xl">
         {/* Header */}
         <div className="text-center mb-12 space-y-4">
@@ -241,6 +248,7 @@ export function TermsOfServicePage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

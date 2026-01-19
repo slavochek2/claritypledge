@@ -72,8 +72,10 @@ describe("ProfilePage", () => {
       );
 
       // Should show loading state, NOT "Profile Not Found"
-      expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
-      expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/Loading profile.../i)).toBeInTheDocument();
+        expect(screen.queryByText(/Profile Not Found/i)).not.toBeInTheDocument();
+      });
     });
 
     it("should show profile when user loads after initial public profile fetch fails", async () => {

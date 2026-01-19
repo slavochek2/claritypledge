@@ -6,10 +6,17 @@
 import { Link } from "react-router-dom";
 import { ShieldCheckIcon } from "lucide-react";
 import { COPY } from "@/app/content/copy";
+import { SEO } from "@/app/components/seo";
 
 export function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen py-20 px-4">
+    <>
+      <SEO
+        title="Privacy Policy"
+        description="Learn how Clarity Pledge protects your data. We explain what information we collect, how we use it, and your GDPR rights."
+        url="/privacy-policy"
+      />
+      <div className="min-h-screen py-20 px-4">
       <div className="container mx-auto max-w-3xl">
         {/* Header */}
         <div className="text-center mb-12 space-y-4">
@@ -373,6 +380,7 @@ export function PrivacyPolicyPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

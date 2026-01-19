@@ -405,8 +405,31 @@ const subscription = supabase
 
 ## Dependencies
 
-- P62 (Dashboard) — Provides the UI context for "Request meeting" buttons
+- P62 (Dashboard) — Provides the UI context for meeting buttons
 - P61 (Events) — Provides event context for requests
+
+## Prep Notes (for future /prep-spec)
+
+Notes from initial review (2025-01-19):
+
+### Button Design Decision
+"Request meeting" = "Invite to a Clarity Meeting" = same concept. Consider unified button:
+- **Option:** Single "[C] Start Meeting" button with dropdown:
+  - "Start now (share link)" — sync, P62
+  - "Send request (they accept later)" — async, P64
+
+### Event Page Attendee Cards
+- Only show meeting button to users who are ALSO attending the event
+- Non-attendees viewing the event page should NOT see meeting buttons on attendee cards
+- This prevents strangers from requesting meetings with event attendees
+
+### Review Findings to Address
+- **Bidirectional requests:** Block if any pending request exists between the pair (decided)
+- **"Not now" button:** Keeps request pending, soft dismiss (decided)
+- **Mobile bell:** Always visible next to hamburger menu (decided)
+- **Cron job:** Use DB trigger/view instead of pg_cron (architect recommendation)
+- **Empty states:** Need for notifications dropdown and /notifications page
+- **Accessibility:** Keyboard nav for dropdown, ARIA live region for badge updates
 
 ## References
 
@@ -416,3 +439,4 @@ const subscription = supabase
 ## Changelog
 
 - **2025-01-19**: Initial spec created based on P62 UX review discussion.
+- **2025-01-19**: Added prep notes from UX + Architect review. Deferred full prep until P62 is complete.

@@ -28,6 +28,7 @@ export default defineConfig({
   },
   build: {
     sourcemap: true, // Required for Sentry source maps
+    chunkSizeWarningLimit: 1000, // Increase from 500KB to 1MB (main bundle is ~920KB)
   },
   plugins: [
     react(),
