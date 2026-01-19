@@ -22,11 +22,11 @@ const sizeClasses = {
   lg: "w-16 h-16 text-xl",
 };
 
-// Ring sizes: 2px for sm/md, 3px for lg
+// Ring with white gap (Instagram-style) - ring-offset creates visual separation
 const ringClasses = {
-  sm: "ring-2 ring-blue-500 animate-glow-pulse",
-  md: "ring-2 ring-blue-500 animate-glow-pulse",
-  lg: "ring-[3px] ring-blue-500 animate-glow-pulse",
+  sm: "ring-2 ring-blue-500 ring-offset-2 ring-offset-background animate-glow-pulse",
+  md: "ring-2 ring-blue-500 ring-offset-2 ring-offset-background animate-glow-pulse",
+  lg: "ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-background animate-glow-pulse",
 };
 
 // Badge sizes relative to avatar
