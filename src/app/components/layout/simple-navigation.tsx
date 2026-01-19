@@ -10,8 +10,6 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MenuIcon, XIcon } from "lucide-react";
@@ -31,13 +29,11 @@ export function SimpleNavigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // KISS: Only two states - verified user or everyone else
-  // Note: showPublicCTAs and slug are handled by NavigationMenuItems (shared component)
+  // Note: showPublicCTAs, slug, hasPledged handled by NavigationMenuItems (shared component)
   // P67: user is needed for avatar display
   const {
     showUserMenu,
     user,
-    hasPledged,
-    sessionChecked,
     signOut,
   } = useNavAuthState();
 
@@ -85,18 +81,33 @@ export function SimpleNavigation() {
             <ClarityLogo size="sm" />
           </Link>
 
-          {/* Desktop: CTAs + Menu */}
+          {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Take the Pledge CTA - hide for verified pledgers */}
-            {sessionChecked && (!showUserMenu || !hasPledged) && (
-              <Link
-                to="/sign-pledge"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-10 rounded-md px-6 border border-input bg-background hover:bg-accent font-medium"
-                onClick={() => analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'desktop' })}
-              >
-                Take the Pledge
-              </Link>
-            )}
+            {/* Visible nav links - order: Events, Pledgers, Manifesto, About */}
+            <Link
+              to="/events"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Events
+            </Link>
+            <Link
+              to="/pledgers"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Pledgers
+            </Link>
+            <Link
+              to="/article"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Manifesto
+            </Link>
+            <Link
+              to="/about"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              About
+            </Link>
             {/* Start a Clarity Meeting CTA */}
             {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
             <Link
@@ -133,16 +144,8 @@ export function SimpleNavigation() {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={8} className="w-48">
-                {/* Nav Links */}
-                {NAV_LINKS.map((link) => (
-                  <DropdownMenuItem key={link.to} asChild>
-                    <Link to={link.to} className="cursor-pointer">
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
                 {/* Auth Menu Items - KISS: Uses shared component */}
+                {/* Nav links are now visible in the nav bar, not in dropdown */}
                 <NavigationMenuItems onSignOut={handleSignOut} />
               </DropdownMenuContent>
             </DropdownMenu>
@@ -188,7 +191,7 @@ export function SimpleNavigation() {
             className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
-              {/* CTAs */}
+              {/* Primary CTA */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
               <Link
                 to="/live"
@@ -200,18 +203,6 @@ export function SimpleNavigation() {
               >
                 Start a Clarity Meeting
               </Link>
-              {sessionChecked && (!showUserMenu || !hasPledged) && (
-                <Link
-                  to="/sign-pledge"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring h-11 rounded-md px-8 bg-muted hover:bg-accent font-medium w-full"
-                  onClick={() => {
-                    analytics.track('nav_cta_clicked', { cta: 'take_pledge', device: 'mobile' });
-                    closeMobileMenu();
-                  }}
-                >
-                  Take the Pledge
-                </Link>
-              )}
 
               <div className="border-t border-border my-2"></div>
 

@@ -120,7 +120,7 @@ export function ClarityTaxSection() {
             <span className="hidden sm:inline text-muted-foreground/50">•</span>
             <span className="inline-flex items-center gap-1">
               <CheckCircle className="w-4 h-4 text-blue-500" />
-              Less than 30 seconds
+              Open source
             </span>
           </p>
 

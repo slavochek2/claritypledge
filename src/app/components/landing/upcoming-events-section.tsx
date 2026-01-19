@@ -1,12 +1,25 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Calendar, MapPin } from 'lucide-react';
-import { getUpcomingEvents } from '@/app/prototypes/events/mock-data';
+import { eventsService } from '@/app/data/events-service';
+import type { EventWithHost } from '@/app/types';
 import { formatDateShort, formatTime } from '@/app/prototypes/events/utils';
 
 export function UpcomingEventsSection() {
-  const upcomingEvents = getUpcomingEvents().slice(0, 3);
+  const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (upcomingEvents.length === 0) {
+  useEffect(() => {
+    async function fetchEvents() {
+      const events = await eventsService.getUpcomingEvents();
+      setUpcomingEvents(events.slice(0, 3));
+      setLoading(false);
+    }
+    fetchEvents();
+  }, []);
+
+  // Don't render section while loading or if no events
+  if (loading || upcomingEvents.length === 0) {
     return null;
   }
 
@@ -63,19 +76,21 @@ export function UpcomingEventsSection() {
                   {/* Attendees count */}
                   <div className="mt-3 pt-3 border-t border-border">
                     <div className="flex items-center gap-2">
-                      <div className="flex -space-x-2">
-                        {event.attendees.slice(0, 3).map((attendee, i) => (
-                          <div
-                            key={attendee.id}
-                            className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
-                            style={{ backgroundColor: attendee.avatarColor, zIndex: 3 - i }}
-                          >
-                            {attendee.name.charAt(0)}
-                          </div>
-                        ))}
-                      </div>
+                      {event.attendees && event.attendees.length > 0 && (
+                        <div className="flex -space-x-2">
+                          {event.attendees.slice(0, 3).map((attendee, i) => (
+                            <div
+                              key={attendee.profileId}
+                              className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
+                              style={{ backgroundColor: attendee.avatarColor, zIndex: 3 - i }}
+                            >
+                              {attendee.name.charAt(0)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <span className="text-sm text-muted-foreground">
-                        {event.attendees.length} going
+                        {event.attendeeCount ?? event.attendees?.length ?? 0} going
                       </span>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import type { EventsService, CreateEventInput } from './events-service.interface';
 import type { EventWithHost, EventAttendee } from '@/app/types';
+// Mock data archived after P61.1 production backend implementation
 import {
   getUpcomingEvents as mockGetUpcoming,
   getPastEvents as mockGetPast,
@@ -12,7 +13,7 @@ import {
   mockCurrentUser,
   mockEvents,
   type MockEvent,
-} from '@/app/prototypes/events/mock-data';
+} from '@/app/prototypes/events/_archive/mock-data';
 
 // Transform MockEvent to EventWithHost (same shape, just type alignment)
 function toEventWithHost(mock: MockEvent): EventWithHost {
@@ -160,6 +161,17 @@ export const mockEventsService: EventsService = {
   },
 
   async cancelRsvp(eventId: string, _profileId: string): Promise<boolean> {
-    return mockCancelRsvp(eventId);
+    const success = mockCancelRsvp(eventId);
+    if (success) {
+      // Also remove from event's attendees list
+      const event = mockEvents.find(e => e.id === eventId);
+      if (event) {
+        const attendeeIndex = event.attendees.findIndex(a => a.id === mockCurrentUser.id);
+        if (attendeeIndex > -1) {
+          event.attendees.splice(attendeeIndex, 1);
+        }
+      }
+    }
+    return success;
   },
 };

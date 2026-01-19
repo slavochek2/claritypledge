@@ -44,6 +44,19 @@ This file provides guidance for AI agents working with code in this repository.
 ### When in doubt:
 If something feels "off" but technically works — report it. False alarms are better than silent failures.
 
+### Proactive improvement:
+When you encounter friction, inefficiency, or repeated issues in workflows, skills, or processes:
+1. **Identify the problem** — What went wrong or felt awkward?
+2. **Propose a concrete fix** — Draft the actual change (not vague suggestions)
+3. **Ask before applying** — Present options, let the user decide
+
+Examples:
+- Skill asks too many questions → draft a more decisive version, show diff
+- Same manual step repeated → propose automation, explain trade-offs
+- Confusing instructions → write clearer version, ask if it captures intent
+
+The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
+
 ## Product Overview
 
 A **Sensemaking Platform** that reveals calibration gaps in how well people understand each other — and motivates them to close those gaps.

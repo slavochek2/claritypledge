@@ -28,9 +28,13 @@ Record decisions that **affect code, architecture, or product behavior**:
    git log --oneline -10
    ```
 
-2. Ask: "Any decisions worth recording? [Enter to skip]"
+2. **Analyze and propose** (don't just ask):
+   - Review commits and identify architectural/product decisions
+   - If decisions found: state what you'll record and why, then proceed (or ask once if genuinely ambiguous)
+   - If no decisions: say "No significant decisions to record" and move to step 5
+   - Don't repeatedly ask for confirmation - be decisive
 
-3. If user provides context, append to `docs/decisions.md` using this format:
+3. Append to `docs/decisions.md` using this format:
 
 ```markdown
 ## YYYY-MM-DD: Decision Title
@@ -51,20 +55,19 @@ Use markdown links with relative paths from repo root. Link to specific sections
    ls features/*.md
    ```
 
-   For each feature file, briefly assess:
-   - Is the feature fully implemented and shipped?
-   - Are there remaining TODOs or future phases?
+   Assess which features are complete based on the commits/work just done. If any are complete:
+   - State which file(s) you're moving and why
+   - Move them (use `mv` if untracked, `git mv` if tracked):
+     ```bash
+     mv features/pNN_feature.md features/done/
+     ```
 
-   Ask: "Any completed features to move to `features/done/`? [List files or Enter to skip]"
-
-   If user confirms, move the file(s):
-   ```bash
-   git mv features/pNN_feature.md features/done/
-   ```
+   If none are complete, skip silently.
 
 ## Rules
 
+- **Be decisive** - analyze and propose, don't repeatedly ask for permission
 - Append at TOP of file (after the header section, before existing entries)
 - Never edit old entries - append-only
-- If user skips, just acknowledge and exit
+- If user says skip, acknowledge and exit
 - Keep entries concise but complete

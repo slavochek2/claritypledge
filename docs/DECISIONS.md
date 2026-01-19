@@ -14,6 +14,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-19: Service abstraction pattern with feature flag for backend rollout
+
+**Context:** P61 Events feature needed to transition from mock data to real Supabase backend without breaking existing UI or requiring big-bang deployment.
+
+**Decision:**
+1. **Interface-based service abstraction** — Both `events-service-mock.ts` and `events-service-real.ts` implement same `EventsService` interface
+2. **Feature flag switch** — `VITE_USE_REAL_EVENTS_API` env var selects which implementation to use
+3. **Archive mock data** — Move to `_archive/` folder rather than delete, keeping tests working and reference available
+
+**Alternatives rejected:**
+- Direct replacement (delete mock, add real) — too risky, no rollback path
+- Branch-based deployment — harder to test real API locally while keeping prod stable
+- Runtime feature flag in UI — unnecessary complexity, env var is simpler
+
+**Consequences:**
+- Can test real API locally while prod stays on mock
+- Pattern reusable for future features (Stories, Points) needing gradual backend rollout
+- Tests import mock service directly, unaffected by env var
+
+**References:** [events-service.interface.ts](../src/app/data/events-service.interface.ts) | [events-service.ts](../src/app/data/events-service.ts) | [p61.1_events_production.md](../features/p61.1_events_production.md)
+
+---
+
 ## 2026-01-18: Position scale and calibration approach for Points
 
 **Context:** Needed to define how users track positions on Points and how the system identifies "good listeners" without gatekeeping.

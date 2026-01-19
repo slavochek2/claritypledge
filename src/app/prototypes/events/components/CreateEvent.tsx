@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { mockCurrentUser } from '../mock-data';
+import { useAuth } from '@/auth';
+import { eventsService } from '@/app/data/events-service';
 import { DURATIONS, TIMEZONES } from '../utils';
 
 export function CreateEvent() {
   const navigate = useNavigate();
+  const { session, isLoading } = useAuth();
+  const isAuthenticated = !!session;
 
   // Form state
   const [title, setTitle] = useState('');
@@ -22,14 +25,23 @@ export function CreateEvent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   // Redirect if not logged in
-  if (!mockCurrentUser.isLoggedIn) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Sign in to Create Events</h1>
-          <p className="text-muted-foreground mb-4">You need to be signed in to host events.</p>
-          <Link to="/sign-pledge">
+          <h1 className="text-2xl font-bold mb-2">Sign Up to Create Events</h1>
+          <p className="text-muted-foreground mb-4">You need an account to host events.</p>
+          <Link to="/signup">
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up</Button>
           </Link>
         </div>
@@ -69,19 +81,28 @@ export function CreateEvent() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Combine date and time into ISO datetime string
+    const datetime = new Date(`${date}T${time}:00`).toISOString();
 
-    // Generate slug from title and date
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') + '-' + date;
+    // Create event via service
+    const newEvent = await eventsService.createEvent({
+      title,
+      description,
+      datetime,
+      durationMinutes,
+      timezone,
+      location,
+    });
 
     setIsSubmitting(false);
 
-    // Navigate to the new event (mock)
-    navigate(`/events/${slug}?created=true`);
+    if (newEvent) {
+      // Navigate to the new event
+      navigate(`/events/${newEvent.slug}?created=true`);
+    } else {
+      // Handle error (shouldn't happen with mock, but good practice)
+      setErrors({ submit: 'Failed to create event. Please try again.' });
+    }
   };
 
   // Get tomorrow's date for min date attribute
@@ -231,6 +252,13 @@ export function CreateEvent() {
               Markdown formatting is supported
             </p>
           </div>
+
+          {/* Submit Error */}
+          {errors.submit && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{errors.submit}</p>
+            </div>
+          )}
 
           {/* Submit */}
           <div className="pt-4">

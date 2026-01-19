@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { getEventBySlug, mockCurrentUser } from '../mock-data';
+import { useAuth } from '@/auth';
+import { eventsService } from '@/app/data/events-service';
+import type { EventWithHost } from '@/app/types';
 import { DURATIONS, TIMEZONES } from '../utils';
 
 export function EditEvent() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const event = slug ? getEventBySlug(slug) : undefined;
+  const { user, session, isLoading: authLoading } = useAuth();
+  const isAuthenticated = !!session;
+  const [event, setEvent] = useState<EventWithHost | null>(null);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -25,22 +30,30 @@ export function EditEvent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Pre-fill form with event data
+  // Fetch event data
   useEffect(() => {
-    if (event) {
-      const eventDate = new Date(event.datetime);
-      setTitle(event.title);
-      setDate(eventDate.toISOString().split('T')[0]);
-      setTime(eventDate.toTimeString().slice(0, 5));
-      setTimezone(event.timezone);
-      setDurationMinutes(event.durationMinutes);
-      setLocation(event.location);
-      setDescription(event.description);
-      setIsLoading(false);
-    } else {
+    async function fetchEvent() {
+      if (!slug) {
+        setIsLoading(false);
+        return;
+      }
+      const eventData = await eventsService.getEventBySlug(slug);
+      setEvent(eventData);
+
+      if (eventData) {
+        const eventDate = new Date(eventData.datetime);
+        setTitle(eventData.title);
+        setDate(eventDate.toISOString().split('T')[0]);
+        setTime(eventDate.toTimeString().slice(0, 5));
+        setTimezone(eventData.timezone);
+        setDurationMinutes(eventData.durationMinutes);
+        setLocation(eventData.location);
+        setDescription(eventData.description);
+      }
       setIsLoading(false);
     }
-  }, [event]);
+    fetchEvent();
+  }, [slug]);
 
   // Event not found
   if (!isLoading && !event) {
@@ -58,7 +71,7 @@ export function EditEvent() {
   }
 
   // Not the host
-  if (!isLoading && event && event.hostId !== mockCurrentUser.id) {
+  if (!isLoading && !authLoading && event && user && event.hostId !== user.id) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -73,13 +86,13 @@ export function EditEvent() {
   }
 
   // Not logged in
-  if (!mockCurrentUser.isLoggedIn) {
+  if (!authLoading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Sign in Required</h1>
-          <p className="text-muted-foreground mb-4">You need to be signed in to edit events.</p>
-          <Link to="/sign-pledge">
+          <h1 className="text-2xl font-bold mb-2">Sign Up Required</h1>
+          <p className="text-muted-foreground mb-4">You need an account to edit events.</p>
+          <Link to="/signup">
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up</Button>
           </Link>
         </div>
@@ -88,13 +101,18 @@ export function EditEvent() {
   }
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  // Get tomorrow's date for min date attribute
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -104,6 +122,11 @@ export function EditEvent() {
     }
     if (!date) {
       newErrors.date = 'Please select a date';
+    } else {
+      const selectedDate = new Date(date + 'T' + time);
+      if (selectedDate <= new Date()) {
+        newErrors.date = 'Event must be in the future';
+      }
     }
     if (!location.trim() || location.length < 3) {
       newErrors.location = 'Please enter a location';
@@ -119,17 +142,30 @@ export function EditEvent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    if (!validate() || !event) return;
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Combine date and time into ISO datetime string
+    const datetime = new Date(`${date}T${time}:00`).toISOString();
+
+    const success = await eventsService.updateEvent(event.id, {
+      title,
+      description,
+      datetime,
+      durationMinutes,
+      timezone,
+      location,
+    });
 
     setIsSubmitting(false);
 
-    // Navigate back to the event with success indicator
-    navigate(`/events/${slug}?updated=true`);
+    if (success) {
+      toast.success('Event updated successfully');
+      navigate(`/events/${slug}`);
+    } else {
+      setErrors({ submit: 'Failed to update event. Please try again.' });
+    }
   };
 
   return (
@@ -178,6 +214,7 @@ export function EditEvent() {
                 type="date"
                 value={date}
                 onChange={e => setDate(e.target.value)}
+                min={minDate}
                 className={errors.date ? 'border-red-500' : ''}
               />
               {errors.date && (
@@ -277,6 +314,13 @@ export function EditEvent() {
               Markdown formatting is supported
             </p>
           </div>
+
+          {/* Submit Error */}
+          {errors.submit && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{errors.submit}</p>
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="flex gap-3 pt-4">

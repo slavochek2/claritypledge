@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { CheckCircle2, Calendar, MapPin, ArrowRight, Download, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, ArrowRight, Download, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getEventBySlug } from '../mock-data';
+import { eventsService } from '@/app/data/events-service';
+import type { EventWithHost } from '@/app/types';
 import { formatDate, formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url } from '../utils';
 
 const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
@@ -10,18 +11,35 @@ const AUTO_REDIRECT_DELAY_MS = 10000; // 10 seconds
 export function RsvpConfirm() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const event = slug ? getEventBySlug(slug) : undefined;
+  const [event, setEvent] = useState<EventWithHost | null>(null);
+  const [loading, setLoading] = useState(true);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
-  // Auto-redirect to event page after confirmation
+  // Fetch event data
   useEffect(() => {
+    async function fetchEvent() {
+      if (!slug) {
+        setLoading(false);
+        return;
+      }
+      const eventData = await eventsService.getEventBySlug(slug);
+      setEvent(eventData);
+      setLoading(false);
+    }
+    fetchEvent();
+  }, [slug]);
+
+  // Auto-redirect to event page after confirmation (only if event exists)
+  useEffect(() => {
+    if (!event) return; // Don't redirect if event not loaded or doesn't exist
+
     const timer = setTimeout(() => {
       navigate(`/events/${slug}`);
     }, AUTO_REDIRECT_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [navigate, slug]);
+  }, [navigate, slug, event]);
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -33,6 +51,15 @@ export function RsvpConfirm() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!event) {
     return (

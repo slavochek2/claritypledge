@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, CalendarDays, Eye, EyeOff } from 'lucide-react';
+import { Plus, CalendarDays } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { eventsService } from '@/app/data/events-service';
-// TODO Phase 4: Replace mock login state with useAuth() hook:
-//   import { useAuth } from '@/auth';
-//   const { user, isLoading } = useAuth();
-//   const isLoggedIn = !!user;
-// Then remove prototype toggle UI and mockCurrentUser/setMockLoggedIn imports
-import { mockCurrentUser, setMockLoggedIn } from '../mock-data';
+import { useAuth } from '@/auth';
 import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
 
 type Tab = 'upcoming' | 'past';
 
 export function EventsList() {
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+
   const [activeTab, setActiveTab] = useState<Tab>('upcoming');
-  const [isLoggedIn, setIsLoggedIn] = useState(mockCurrentUser.isLoggedIn);
   const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
   const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
+  const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,39 +27,29 @@ export function EventsList() {
       ]);
       setUpcomingEvents(upcoming);
       setPastEvents(past);
+
+      // Fetch RSVP status for logged-in user
+      if (user) {
+        const allEvents = [...upcoming, ...past];
+        const rsvpChecks = await Promise.all(
+          allEvents.map(event => eventsService.isUserRsvpd(event.id, user.id))
+        );
+        const rsvpSet = new Set<string>();
+        allEvents.forEach((event, i) => {
+          if (rsvpChecks[i]) rsvpSet.add(event.id);
+        });
+        setUserRsvps(rsvpSet);
+      }
+
       setLoading(false);
     }
     fetchEvents();
-  }, []);
+  }, [user]);
 
   const events = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
 
-  const toggleLoginState = () => {
-    const newState = !isLoggedIn;
-    setIsLoggedIn(newState);
-    setMockLoggedIn(newState);
-  };
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Prototype Toggle */}
-      <div className="bg-muted border-b border-border px-4 py-2">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Prototype Mode: Viewing as <strong className="text-foreground">{isLoggedIn ? 'logged-in user' : 'visitor'}</strong>
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleLoginState}
-            className="gap-2"
-          >
-            {isLoggedIn ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {isLoggedIn ? 'View as Visitor' : 'View as Logged In'}
-          </Button>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
         <div className="flex items-center justify-between mb-4">
@@ -114,7 +102,13 @@ export function EventsList() {
         ) : events.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {events.map(event => (
-              <EventCard key={event.id} event={event} isLoggedIn={isLoggedIn} />
+              <EventCard
+                key={event.id}
+                event={event}
+                isLoggedIn={isLoggedIn}
+                userId={user?.id}
+                isUserGoing={userRsvps.has(event.id)}
+              />
             ))}
           </div>
         ) : (
@@ -150,7 +144,7 @@ export function EventsList() {
             <p className="text-muted-foreground mb-4">
               Sign up to create and host your own Clarity events.
             </p>
-            <Link to="/sign-pledge">
+            <Link to="/signup">
               <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up to Host</Button>
             </Link>
           </div>

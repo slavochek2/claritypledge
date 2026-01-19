@@ -1,21 +1,18 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Calendar, CheckCircle2, Crown, Ban } from 'lucide-react';
 import type { EventWithHost } from '@/app/types';
-// TODO Phase 4: Replace mockCurrentUser with useAuth() hook
-// TODO Phase 4: isUserRsvpd check should be lifted to EventsList (async via eventsService)
-//               and passed as isUserGoing prop to EventCard
-import { isUserRsvpd, mockCurrentUser } from '../mock-data';
 import { formatDateShort, formatTime } from '../utils';
 
 interface EventCardProps {
   event: EventWithHost;
   isLoggedIn?: boolean;
+  userId?: string;  // Pass from parent (EventsList uses useAuth)
+  isUserGoing?: boolean;  // RSVP status checked by parent
 }
 
-export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
+export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = false }: EventCardProps) {
   const eventDate = new Date(event.datetime);
-  const userIsHost = isLoggedIn && event.hostId === mockCurrentUser.id;
-  const userIsGoing = isLoggedIn && !userIsHost && isUserRsvpd(event.id);
+  const userIsHost = isLoggedIn && !!userId && event.hostId === userId;
   const isCancelled = event.status === 'cancelled';
 
   return (
@@ -50,7 +47,7 @@ export function EventCard({ event, isLoggedIn = true }: EventCardProps) {
               {isCancelled ? 'You Were Hosting' : "You're Hosting"}
             </span>
           )}
-          {userIsGoing && (
+          {isUserGoing && (
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
               isCancelled
                 ? 'bg-gray-100 text-gray-600 border border-gray-200'

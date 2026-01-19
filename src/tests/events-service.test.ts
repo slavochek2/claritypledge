@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
-// Test through the service abstraction layer
-import { eventsService } from '@/app/data/events-service';
+// Test mock service directly (not affected by VITE_USE_REAL_EVENTS_API env var)
+import { mockEventsService as eventsService } from '@/app/data/events-service-mock';
 // Still need mockCurrentUser for host detection tests (mock-specific)
-import { mockCurrentUser } from '@/app/prototypes/events/mock-data';
+// Archived after P61.1 production backend implementation
+import { mockCurrentUser } from '@/app/prototypes/events/_archive/mock-data';
 
 describe('Events Service - Queries', () => {
   describe('getUpcomingEvents', () => {

@@ -25,7 +25,6 @@ import {
   SettingsIcon,
   UserIcon,
   FileTextIcon,
-  CalendarDaysIcon,
   UserPlusIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
@@ -68,15 +67,25 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Log In + Create Account */}
+        {/* Public menu - Take the Pledge + Log In + Create Account */}
         {showPublicCTAs && (
           <>
+            <Link
+              to="/sign-pledge"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+              data-testid={includeTestIds ? 'take-pledge' : undefined}
+            >
+              <FileTextIcon className="w-4 h-4 inline mr-2" />
+              Take the Pledge
+            </Link>
             <Link
               to="/login"
               className={mobileLinkClass}
               onClick={handleItemClick}
               data-testid={includeTestIds ? 'login-option' : undefined}
             >
+              <LogIn className="w-4 h-4 inline mr-2" />
               Log In
             </Link>
             <Link
@@ -85,6 +94,7 @@ export function NavigationMenuItems({
               onClick={handleItemClick}
               data-testid={includeTestIds ? 'create-account-option' : undefined}
             >
+              <UserPlusIcon className="w-4 h-4 inline mr-2" />
               Create Account
             </Link>
           </>
@@ -126,16 +136,6 @@ export function NavigationMenuItems({
             )}
 
             <Link
-              to="/events"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              data-testid={includeTestIds ? 'my-events' : undefined}
-            >
-              <CalendarDaysIcon className="w-4 h-4 inline mr-2" />
-              My Events
-            </Link>
-
-            <Link
               to="/settings"
               className={mobileLinkClass}
               onClick={handleItemClick}
@@ -162,9 +162,15 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Log In + Create Account */}
+      {/* Public menu - Take the Pledge + Log In + Create Account */}
       {showPublicCTAs && (
         <>
+          <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
+            <Link to="/sign-pledge" className="cursor-pointer">
+              <FileTextIcon className="w-4 h-4 mr-2" />
+              Take the Pledge
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'login-option' : undefined}>
             <Link to="/login" className="cursor-pointer">
               <LogIn className="w-4 h-4 mr-2" />
@@ -207,14 +213,6 @@ export function NavigationMenuItems({
               </Link>
             </DropdownMenuItem>
           )}
-
-          {/* My Events */}
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'my-events' : undefined}>
-            <Link to="/events" className="cursor-pointer">
-              <CalendarDaysIcon className="w-4 h-4 mr-2" />
-              My Events
-            </Link>
-          </DropdownMenuItem>
 
           {/* Settings */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>

@@ -116,9 +116,30 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      it('shows Take the Pledge CTA button', () => {
+      it('shows visible nav links: Events, Pledgers, Manifesto, About', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        expect(screen.getByRole('link', { name: /take the pledge/i })).toBeInTheDocument();
+        // These should be visible text links, not hidden in menu
+        expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Pledgers' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Manifesto' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'About' })).toBeInTheDocument();
+      });
+
+      it('shows Start a Clarity Meeting CTA', () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        expect(screen.getByRole('link', { name: /start a clarity meeting/i })).toBeInTheDocument();
+      });
+
+      it('does NOT show Take the Pledge as visible CTA (moved to menu)', () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        // Take the Pledge should be in menu, not as a visible button
+        // Before opening menu, it should not be visible
+        const pledgeLinks = screen.queryAllByRole('link', { name: /take the pledge/i });
+        // Filter out any that might be in the mobile menu (hidden by CSS)
+        const visiblePledgeButtons = pledgeLinks.filter(link =>
+          !link.closest('[id="mobile-navigation-menu"]')
+        );
+        expect(visiblePledgeButtons.length).toBe(0);
       });
     });
 
@@ -296,6 +317,161 @@ describe('KISS Navigation', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openMobileMenu();
         expect(screen.getByRole('button', { name: /log out/i })).toBeInTheDocument();
+      });
+    });
+  });
+
+  // ============================================================================
+  // Desktop/Mobile Menu Consistency Tests
+  // ============================================================================
+  describe('Desktop/Mobile Menu Consistency', () => {
+    describe('Anonymous User - menus should be consistent', () => {
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({
+          session: null,
+          user: null,
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+      });
+
+      it('shows Take the Pledge in desktop menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+        expect(screen.getByRole('menuitem', { name: /take the pledge/i })).toBeInTheDocument();
+      });
+
+      it('shows Take the Pledge in mobile menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openMobileMenu();
+        expect(screen.getByRole('link', { name: /take the pledge/i })).toBeInTheDocument();
+      });
+    });
+
+    describe('Verified Non-Pledger - menus should be consistent', () => {
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ hasPledged: false }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+      });
+
+      it('shows Take the Pledge in desktop menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+        expect(screen.getByRole('menuitem', { name: /take the pledge/i })).toBeInTheDocument();
+      });
+
+      it('shows Take the Pledge in mobile menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openMobileMenu();
+        expect(screen.getByRole('link', { name: /take the pledge/i })).toBeInTheDocument();
+      });
+    });
+
+    describe('Verified Pledger - menus should be consistent', () => {
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ hasPledged: true }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+      });
+
+      it('shows View My Pledge in desktop menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+        expect(screen.getByRole('menuitem', { name: /view my pledge/i })).toBeInTheDocument();
+      });
+
+      it('shows View My Pledge in mobile menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openMobileMenu();
+        expect(screen.getByRole('link', { name: /view my pledge/i })).toBeInTheDocument();
+      });
+    });
+
+    // Guard against duplicate menu items
+    describe('No duplicate menu items', () => {
+      it('verified user desktop menu has no duplicate items', async () => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ hasPledged: false }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+
+        // Each of these should appear exactly once
+        expect(screen.getAllByRole('menuitem', { name: /view my profile/i })).toHaveLength(1);
+        expect(screen.getAllByRole('menuitem', { name: /take the pledge/i })).toHaveLength(1);
+        expect(screen.getAllByRole('menuitem', { name: /settings/i })).toHaveLength(1);
+        expect(screen.getAllByRole('menuitem', { name: /log out/i })).toHaveLength(1);
+      });
+
+      it('verified user mobile menu has no duplicate items', async () => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ hasPledged: false }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openMobileMenu();
+
+        // Each of these should appear exactly once
+        expect(screen.getAllByRole('link', { name: /view my profile/i })).toHaveLength(1);
+        expect(screen.getAllByRole('link', { name: /take the pledge/i })).toHaveLength(1);
+        expect(screen.getAllByRole('link', { name: /settings/i })).toHaveLength(1);
+        expect(screen.getAllByRole('button', { name: /log out/i })).toHaveLength(1);
+      });
+
+      it('anonymous user desktop menu has no duplicate items', async () => {
+        mockUseAuth.mockReturnValue({
+          session: null,
+          user: null,
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+
+        expect(screen.getAllByRole('menuitem', { name: /take the pledge/i })).toHaveLength(1);
+        expect(screen.getAllByRole('menuitem', { name: /log in/i })).toHaveLength(1);
+        expect(screen.getAllByRole('menuitem', { name: /create account/i })).toHaveLength(1);
+      });
+
+      it('anonymous user mobile menu has no duplicate items', async () => {
+        mockUseAuth.mockReturnValue({
+          session: null,
+          user: null,
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openMobileMenu();
+
+        expect(screen.getAllByRole('link', { name: /take the pledge/i })).toHaveLength(1);
+        expect(screen.getAllByRole('link', { name: /log in/i })).toHaveLength(1);
+        expect(screen.getAllByRole('link', { name: /create account/i })).toHaveLength(1);
       });
     });
   });

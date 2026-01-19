@@ -94,7 +94,7 @@ export function WitnessCard({
           </Button>
         </Link>
         <p className="text-xs text-center text-muted-foreground">
-          Less than 30 seconds
+          Open source
         </p>
       </div>
     );

@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import {
   ArrowLeft,
   MapPin,
-  Users,
   CheckCircle2,
   CalendarPlus,
   X,
@@ -13,36 +12,52 @@ import {
   Download,
   Pencil,
   Ban,
-  Eye,
-  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getEventBySlug, mockCurrentUser, isUserRsvpd, isEventFull, cancelEvent, cancelRsvp, setMockLoggedIn } from '../mock-data';
+import { eventsService } from '@/app/data/events-service';
+import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
+import type { EventWithHost } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const event = slug ? getEventBySlug(slug) : undefined;
 
-  // Prototype login toggle
-  const [isLoggedIn, setIsLoggedIn] = useState(mockCurrentUser.isLoggedIn);
+  // Real auth state
+  const { user, session } = useAuth();
+  const isLoggedIn = !!session;
 
-  const toggleLoginState = () => {
-    const newState = !isLoggedIn;
-    setIsLoggedIn(newState);
-    setMockLoggedIn(newState);
-  };
+  // Async event loading
+  const [event, setEvent] = useState<EventWithHost | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isRsvpd, setIsRsvpd] = useState(false);
 
-  // Check if user is already RSVP'd (from mock data)
-  // Note: Only logged-in users can be registered
-  const alreadyRsvpd = isLoggedIn && event ? isUserRsvpd(event.id) : false;
+  // Fetch event and RSVP status
+  useEffect(() => {
+    async function fetchEvent() {
+      if (!slug) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const eventData = await eventsService.getEventBySlug(slug);
+        setEvent(eventData);
+        if (eventData && isLoggedIn && user) {
+          const rsvpd = await eventsService.isUserRsvpd(eventData.id, user.id);
+          setIsRsvpd(rsvpd);
+        }
+      } catch (error) {
+        console.error('[EventDetail] Failed to fetch event:', error);
+      }
+      setLoading(false);
+    }
+    fetchEvent();
+  }, [slug, isLoggedIn, user]);
 
-  // Local state for new RSVPs during this session
-  const [justRsvpd, setJustRsvpd] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // Local action states
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
 
@@ -50,10 +65,8 @@ export function EventDetail() {
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
   const [showCancelEventDialog, setShowCancelEventDialog] = useState(false);
 
-  const isRsvpd = alreadyRsvpd || justRsvpd;
-
-  // Check if current user is the host (mock: compare against mock user ID)
-  const isHost = isLoggedIn && event?.hostId === mockCurrentUser.id;
+  // Check if current user is the host
+  const isHost = isLoggedIn && user && event?.hostId === user.id;
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -74,7 +87,16 @@ export function EventDetail() {
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, isLoggedIn]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   if (!event) {
     return (
@@ -94,19 +116,23 @@ export function EventDetail() {
   const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
   const isPast = event.status === 'completed';
   const isCancelled = event.status === 'cancelled';
-  const isFull = isEventFull(event);
+  const isFull = eventsService.isEventFull(event);
 
   const handleRsvp = async () => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !user) {
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
 
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setJustRsvpd(true);
-    setIsLoading(false);
-    navigate(`/events/${slug}/confirm`);
+    if (!event) return;
+
+    setIsActionLoading(true);
+    const success = await eventsService.rsvpToEvent(event.id, user.id);
+    setIsActionLoading(false);
+    if (success) {
+      setIsRsvpd(true);
+      navigate(`/events/${slug}/confirm`);
+    }
   };
 
   const handleCancelRsvp = () => {
@@ -114,11 +140,13 @@ export function EventDetail() {
   };
 
   const confirmCancelRsvp = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    cancelRsvp(event.id);
-    setJustRsvpd(false);
-    setIsLoading(false);
+    if (!event || !user) return;
+    setIsActionLoading(true);
+    const success = await eventsService.cancelRsvp(event.id, user.id);
+    setIsActionLoading(false);
+    if (success) {
+      setIsRsvpd(false);
+    }
     setShowCancelRsvpDialog(false);
   };
 
@@ -127,12 +155,15 @@ export function EventDetail() {
   };
 
   const confirmCancelEvent = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    cancelEvent(event.id);
-    setIsLoading(false);
+    if (!event) return;
+    setIsActionLoading(true);
+    const success = await eventsService.cancelEvent(event.id);
+    setIsActionLoading(false);
     setShowCancelEventDialog(false);
-    navigate('/events');
+    if (success) {
+      toast.success('Event cancelled');
+      navigate('/events');
+    }
   };
 
   // Event data for calendar utilities
@@ -150,24 +181,6 @@ export function EventDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Prototype Toggle */}
-      <div className="bg-muted border-b border-border px-4 py-2">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Prototype Mode: Viewing as <strong className="text-foreground">{isLoggedIn ? 'logged-in user' : 'visitor'}</strong>
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleLoginState}
-            className="gap-2"
-          >
-            {isLoggedIn ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            {isLoggedIn ? 'View as Visitor' : 'View as Logged In'}
-          </Button>
-        </div>
-      </div>
-
       {/* Header Gradient - Mesh style */}
       <div
         className="w-full h-32 md:h-48"
@@ -232,7 +245,7 @@ export function EventDetail() {
                         variant="outline"
                         size="sm"
                         onClick={handleCancelEvent}
-                        disabled={isLoading}
+                        disabled={isActionLoading}
                         className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 bg-white"
                       >
                         <Ban className="w-3.5 h-3.5" />
@@ -374,7 +387,7 @@ export function EventDetail() {
                       variant="ghost"
                       size="sm"
                       onClick={handleCancelRsvp}
-                      disabled={isLoading}
+                      disabled={isActionLoading}
                       className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
                     >
                       <X className="w-4 h-4 mr-1" />
@@ -386,10 +399,10 @@ export function EventDetail() {
                     onClick={handleRsvp}
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white"
                     size="lg"
-                    disabled={isLoading}
+                    disabled={isActionLoading}
                     data-testid="rsvp-button"
                   >
-                    {isLoading ? 'Registering...' : 'RSVP'}
+                    {isActionLoading ? 'Registering...' : 'RSVP'}
                   </Button>
                 ) : (
                   <Button onClick={handleRsvp} className="w-full bg-blue-500 hover:bg-blue-600 text-white" size="lg" data-testid="rsvp-button">
@@ -425,12 +438,12 @@ export function EventDetail() {
             {/* Participants Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">
-                Participants ({event.attendees.length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
+                Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
-                {event.attendees.map(attendee => (
+                {(event.attendees ?? []).map(attendee => (
                   <Link
-                    key={attendee.id}
+                    key={attendee.profileId}
                     to={`/p/${attendee.slug}`}
                     className="flex items-center gap-3 w-full p-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
                   >
@@ -469,7 +482,7 @@ export function EventDetail() {
         cancelLabel="Keep RSVP"
         variant="destructive"
         onConfirm={confirmCancelRsvp}
-        isLoading={isLoading}
+        isLoading={isActionLoading}
       />
 
       {/* Cancel Event Confirmation Dialog */}
@@ -482,7 +495,7 @@ export function EventDetail() {
         cancelLabel="Keep Event"
         variant="destructive"
         onConfirm={confirmCancelEvent}
-        isLoading={isLoading}
+        isLoading={isActionLoading}
       />
     </div>
   );

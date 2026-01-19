@@ -303,7 +303,7 @@ export function ProfilePage() {
                 ) : (
                   // Visitor viewing someone else's profile
                   <div className="space-y-3">
-                    {hasPledged ? (
+                    {hasPledged && (
                       <>
                         <p className="text-sm text-muted-foreground">
                           {profile.name.split(' ')[0]} has signed the Clarity Pledge
@@ -315,10 +315,6 @@ export function ProfilePage() {
                           View their pledge →
                         </Link>
                       </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        Member of the Clarity community
-                      </p>
                     )}
                   </div>
                 )}
