@@ -91,7 +91,7 @@ Session starts
 │                                              │
 │  Requires both participants to consent.      │
 │                                              │
-│  [Enable AI Insights]  [Skip]                │
+│  [No thanks]  [Enable AI Insights]           │
 └──────────────────────────────────────────────┘
 ```
 
@@ -202,6 +202,40 @@ When `ai_insights_enabled = false`:
 
 ---
 
+## Implementation: Recording Pipeline Gating
+
+**CRITICAL:** The following calls in `clarity-live-page.tsx` (~line 286-299) must ALL be gated on `aiInsightsEnabled`:
+
+| Call | What it does | If ungated |
+|------|--------------|------------|
+| `startRecording()` | Starts MediaRecorder, captures audio chunks | Audio recorded without consent |
+| `eventsCollectorRef.current.start()` | Starts ML event capture | User actions captured without consent |
+| `analytics.registerMLCollector()` | Routes all analytics to ML training | Analytics leaked to training data |
+
+**Before (unconditional):**
+```typescript
+if (view === 'live' && session && micStatus === 'granted') {
+  eventsCollectorRef.current.start();
+  analytics.registerMLCollector(eventsCollectorRef.current);
+  startRecording();
+}
+```
+
+**After (consent-gated):**
+```typescript
+if (view === 'live' && session && micStatus === 'granted') {
+  if (liveState.aiInsightsEnabled) {
+    eventsCollectorRef.current.start();
+    analytics.registerMLCollector(eventsCollectorRef.current);
+    startRecording();
+  }
+}
+```
+
+**Also gate:** Chunked uploads during session (same condition check before `uploadMLEventsChunk()` calls).
+
+---
+
 ## P41 Dependency
 
 **This consent flow enables [P41: AI Coaching Teaser](./p41_coaching_teaser.md).**
@@ -257,5 +291,5 @@ P70_1 (cosmetic) → P70_2 (consent) → P41 (coaching teaser)
 
 | Date | Change |
 |------|--------|
-| 2026-01-19 | /prep-spec review fixes: WebRTC→Realtime terminology, host→creator/joiner terminology, removed host_user_id FK (use creator_name), added timeout handling, added creator/joiner-leaves edge cases, changed silent failure to neutral toast |
+| 2026-01-19 | Added "Implementation: Recording Pipeline Gating" section; button order fixed to [No thanks] [Enable]; /prep-spec review fixes: WebRTC→Realtime terminology, host→creator/joiner terminology, removed host_user_id FK (use creator_name), added timeout handling, added creator/joiner-leaves edge cases, changed silent failure to neutral toast |
 | 2026-01-18 | Split from P70 into staged approach; simplified flow (removed "help your partner" framing, removed individual consent columns, removed mismatch message) |
