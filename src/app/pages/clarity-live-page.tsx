@@ -1,6 +1,6 @@
 /**
  * @file clarity-live-page.tsx
- * @description P23: Live Clarity Meetings - Two people join, talk naturally,
+ * @description P23: Live Clarity Sessions - Two people join, talk naturally,
  * the app acts as a quiet referee enforcing the understanding protocol.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -404,7 +404,7 @@ export function ClarityLivePage() {
     restoreSession();
   }, [isJoinViaLink]);
 
-  // Fetch host name when joining via link (for personalized "Join X's Meeting" title)
+  // Fetch host name when joining via link (for personalized "Join X's Session" title)
   useEffect(() => {
     if (!isJoinViaLink || !urlCode) return;
 
@@ -1400,7 +1400,7 @@ export function ClarityLivePage() {
     // Extract code from URL or direct input
     const extractedCode = extractCodeFromInput(roomCode);
     if (!extractedCode) {
-      setError('Enter a 6-character code or a meeting link');
+      setError('Enter a 6-character code or a session link');
       return;
     }
     const normalizedCode = extractedCode;
@@ -1653,7 +1653,7 @@ export function ClarityLivePage() {
     resetMic();
     pendingJoinRef.current = null; // Clear any pending join info
     setView('start');
-    toast.error('Microphone access is required to join Clarity Meetings');
+    toast.error('Microphone access is required to join Clarity Sessions');
   }, [resetMic]);
 
   // B48: Gate transition to live view behind mic permission check
@@ -1733,7 +1733,7 @@ export function ClarityLivePage() {
   if (view === 'start') {
     // B50: Join via link - single screen with name + email + terms (no dialog)
     if (isJoinViaLink) {
-      const joinTitle = hostName ? `Join ${hostName}'s Meeting` : 'Join Clarity Meeting';
+      const joinTitle = hostName ? `Join ${hostName}'s Session` : 'Join Clarity Session';
       const canJoinViaLink = !validateName(name) && !validateEmail(email);
 
       return (
@@ -1832,7 +1832,7 @@ export function ClarityLivePage() {
                   className="w-full bg-blue-500 hover:bg-blue-600"
                   size="lg"
                 >
-                  {isLoading || consentLoading ? 'Joining...' : 'Join Meeting'}
+                  {isLoading || consentLoading ? 'Joining...' : 'Join Session'}
                 </Button>
 
                 <Link
@@ -1886,7 +1886,7 @@ export function ClarityLivePage() {
           <LiveSessionBanner title="" isLiveMeeting={false} />
           <div className="flex-1 flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">
-              {isLoading ? 'Creating meeting...' : 'Loading...'}
+              {isLoading ? 'Creating session...' : 'Loading...'}
             </div>
           </div>
         </div>
@@ -1902,10 +1902,10 @@ export function ClarityLivePage() {
         <LiveSessionBanner title="" isLiveMeeting={false} />
         <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
           <div className="space-y-6">
-            {/* Page title - always shows "Clarity Meeting" */}
+            {/* Page title - always shows "Clarity Session" */}
             <div className="text-center space-y-1">
               <h1 className="text-2xl font-semibold">
-                Clarity Meeting
+                Clarity Session
               </h1>
               <p className="text-muted-foreground">
                 Verify understanding in real-time
@@ -2006,7 +2006,7 @@ export function ClarityLivePage() {
                         className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 rounded-full h-11 px-5"
                       >
                         <Mic className="h-[18px] w-[18px]" />
-                        <span className="text-sm">{isLoading ? 'Creating...' : 'New meeting'}</span>
+                        <span className="text-sm">{isLoading ? 'Creating...' : 'New session'}</span>
                       </Button>
 
                       {/* Code input + Join - with real-time validation */}
@@ -2022,7 +2022,7 @@ export function ClarityLivePage() {
                         let inputError: string | null = null;
                         if (hasInput && !isValidInput) {
                           if (roomCode.includes('/') || roomCode.includes('.')) {
-                            inputError = 'Invalid meeting link';
+                            inputError = 'Invalid session link';
                           } else {
                             inputError = 'Code must be 6 characters';
                           }
@@ -2147,8 +2147,8 @@ export function ClarityLivePage() {
     if (isMobile && navigator.share) {
       try {
         await navigator.share({
-          title: 'Join my Clarity Meeting',
-          text: `Join my Clarity Meeting`,
+          title: 'Join my Clarity Session',
+          text: `Join my Clarity Session`,
           url: shareLink,
         });
         return;
@@ -2289,9 +2289,9 @@ export function ClarityLivePage() {
         <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Leave meeting?</DialogTitle>
+              <DialogTitle>Leave session?</DialogTitle>
               <DialogDescription>
-                Are you sure you want to leave this meeting? Your session progress will be lost.
+                Are you sure you want to leave this session? Your progress will be lost.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-row gap-2 sm:justify-end">

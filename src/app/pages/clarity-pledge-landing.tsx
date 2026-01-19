@@ -19,7 +19,6 @@ import { FAQSection } from "@/app/components/landing/faq-section";
 import { CTASection } from "@/app/components/landing/cta-section";
 import { SignatureWall } from "@/app/components/social/signature-wall";
 import { ProfileCertificate } from "@/app/components/profile/profile-certificate";
-import { UpcomingEventsSection } from "@/app/components/landing/upcoming-events-section";
 
 export function ClarityPledgeLanding() {
   const [searchParams] = useSearchParams();
@@ -137,18 +136,13 @@ export function ClarityPledgeLanding() {
         <SignatureWall />
       </div>
 
-      {/* 8. Upcoming Events */}
+      {/* 8. Final CTA */}
       <div data-section-index="7" className={getSectionClassName(7)}>
-        <UpcomingEventsSection />
-      </div>
-
-      {/* 9. Final CTA */}
-      <div data-section-index="8" className={getSectionClassName(8)}>
         <CTASection />
       </div>
 
-      {/* 10. FAQ */}
-      <div data-section-index="9" className={getSectionClassName(9)}>
+      {/* 9. FAQ */}
+      <div data-section-index="8" className={getSectionClassName(8)}>
         <FAQSection />
       </div>
 

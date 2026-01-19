@@ -110,7 +110,7 @@ describe('LiveModeView', () => {
       );
 
       // Partner name "bob" should be capitalized to "Bob" and appear in the header
-      expect(screen.getByText(/Clarity Meeting with/)).toBeInTheDocument();
+      expect(screen.getByText(/Clarity Session with/)).toBeInTheDocument();
     });
   });
 

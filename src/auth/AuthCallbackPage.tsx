@@ -426,15 +426,10 @@ export function AuthCallbackPage() {
         }
       }
 
-      // P50: Redirect based on has_pledged status
-      // - Pledgers → certificate page (/p/:slug/pledge)
-      // - Non-pledgers → profile page (/p/:slug)
+      // P62: Redirect to dashboard after auth
+      // Dashboard is the central hub for logged-in users
       setStatus("Redirecting...");
-      if (hasPledged) {
-        navigate(`/p/${slug}/pledge`, { replace: true });
-      } else {
-        navigate(`/p/${slug}`, { replace: true });
-      }
+      navigate('/home', { replace: true });
     };
 
     processAuth();

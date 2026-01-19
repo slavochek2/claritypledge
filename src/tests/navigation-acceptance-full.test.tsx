@@ -125,9 +125,9 @@ describe('KISS Navigation', () => {
         expect(screen.getByRole('link', { name: 'About' })).toBeInTheDocument();
       });
 
-      it('shows Start a Clarity Meeting CTA', () => {
+      it('shows Start a Clarity Session CTA', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        expect(screen.getByRole('link', { name: /start a clarity meeting/i })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /start a clarity session/i })).toBeInTheDocument();
       });
 
       it('does NOT show Take the Pledge as visible CTA (moved to menu)', () => {

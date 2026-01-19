@@ -19,6 +19,7 @@ import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
+import { PersonRow } from '@/app/components/shared/PersonRow';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -193,13 +194,13 @@ export function EventDetail() {
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Back link */}
+        {/* P76: Back link - conditional based on auth state */}
         <Link
-          to="/events"
+          to={isLoggedIn ? "/home" : "/events"}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Events
+          {isLoggedIn ? "Back to Dashboard" : "Back to Events"}
         </Link>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -415,7 +416,7 @@ export function EventDetail() {
           </div>
 
           {/* Right Column - Organizer & Participants */}
-          <div className="lg:w-80 lg:flex-shrink-0 space-y-6">
+          <div className="lg:w-96 lg:flex-shrink-0 space-y-6">
             {/* Organizer Card */}
             <div className="bg-card rounded-xl border border-border shadow-sm p-6">
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>
@@ -441,28 +442,24 @@ export function EventDetail() {
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
-                {(event.attendees ?? []).map(attendee => (
-                  <Link
-                    key={attendee.profileId}
-                    to={`/p/${attendee.slug}`}
-                    className="flex items-center gap-3 w-full p-2 rounded-lg text-left hover:bg-muted/50 transition-colors"
-                  >
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                      style={{ backgroundColor: attendee.avatarColor }}
-                    >
-                      {attendee.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {attendee.name}
-                      </p>
-                    </div>
-                    <span className="text-xs text-muted-foreground font-medium">
-                      {isPast ? 'Attended' : 'Going'}
-                    </span>
-                  </Link>
-                ))}
+                {(event.attendees ?? []).map(attendee => {
+                  // Determine action: invite (logged in, not self, active event) or status label
+                  const canInvite = isLoggedIn && user && attendee.profileId !== user.id && !isPast && !isCancelled;
+                  const action = canInvite ? "invite" : isPast ? "attended" : "going";
+
+                  return (
+                    <PersonRow
+                      key={attendee.profileId}
+                      profileId={attendee.profileId}
+                      slug={attendee.slug}
+                      name={attendee.name}
+                      avatarColor={attendee.avatarColor}
+                      avatarUrl={attendee.avatarUrl}
+                      action={action}
+                      inviteSource="event_page"
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>

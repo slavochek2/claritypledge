@@ -411,15 +411,27 @@ export async function addWitness(
  * @param email - The email address to send the magic link to.
  * @returns A promise that resolves with an error object if the sign-in failed.
  */
-export async function signInWithEmail(email: string, source?: 'signup' | 'pledge' | 'login'): Promise<{ error: AuthError | null }> {
-  const redirectUrl = source
-    ? `${window.location.origin}/auth/callback?source=${source}`
+export async function signInWithEmail(
+  email: string,
+  source?: 'signup' | 'pledge' | 'login',
+  options?: { redirect?: string; action?: string; name?: string }
+): Promise<{ error: AuthError | null }> {
+  const params = new URLSearchParams();
+  if (source) params.set('source', source);
+  if (options?.redirect) params.set('redirect', options.redirect);
+  if (options?.action) params.set('action', options.action);
+
+  const queryString = params.toString();
+  const redirectUrl = queryString
+    ? `${window.location.origin}/auth/callback?${queryString}`
     : `${window.location.origin}/auth/callback`;
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: redirectUrl,
+      // Pass user metadata for signup flow (name for profile creation)
+      data: options?.name ? { name: options.name, avatar_color: getRandomColor() } : undefined,
     },
   });
   return { error };
@@ -447,9 +459,18 @@ export async function checkEmailExists(email: string): Promise<boolean> {
  * @param source - The source of the auth request: 'login', 'signup', or 'pledge'
  * @returns A promise that resolves when the OAuth redirect is initiated.
  */
-export async function signInWithGoogle(source?: 'login' | 'signup' | 'pledge'): Promise<{ error: AuthError | null }> {
-  const redirectUrl = source
-    ? `${window.location.origin}/auth/callback?source=${source}`
+export async function signInWithGoogle(
+  source?: 'login' | 'signup' | 'pledge',
+  options?: { redirect?: string; action?: string }
+): Promise<{ error: AuthError | null }> {
+  const params = new URLSearchParams();
+  if (source) params.set('source', source);
+  if (options?.redirect) params.set('redirect', options.redirect);
+  if (options?.action) params.set('action', options.action);
+
+  const queryString = params.toString();
+  const redirectUrl = queryString
+    ? `${window.location.origin}/auth/callback?${queryString}`
     : `${window.location.origin}/auth/callback`;
 
   const { error } = await supabase.auth.signInWithOAuth({

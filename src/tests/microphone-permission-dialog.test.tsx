@@ -35,7 +35,7 @@ describe('MicrophonePermissionDialog', () => {
       render(<MicrophonePermissionDialog {...defaultProps} />);
 
       expect(
-        screen.getByText('Clarity Meetings need microphone access to work.')
+        screen.getByText('Clarity Sessions need microphone access to work.')
       ).toBeInTheDocument();
     });
 

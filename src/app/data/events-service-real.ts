@@ -457,4 +457,249 @@ export const realEventsService: EventsService = {
 
     return true;
   },
+
+  // P62: Dashboard queries
+
+  async getUserNextEvent(profileId: string): Promise<EventWithHost | null> {
+    log(' getUserNextEvent:', profileId);
+
+    const now = new Date().toISOString();
+
+    // First, get event IDs where user is RSVP'd
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from('event_rsvps')
+      .select('event_id')
+      .eq('profile_id', profileId);
+
+    if (rsvpError) {
+      log('ERROR: getUserNextEvent rsvp error:', rsvpError);
+      return null;
+    }
+
+    const rsvpEventIds = rsvps?.map(r => r.event_id) || [];
+
+    // Get the next upcoming event where user is attending or hosting
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        host:profiles!events_host_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          headline:role,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .gte('datetime', now)
+      .eq('status', 'upcoming')
+      .or(`host_id.eq.${profileId}${rsvpEventIds.length > 0 ? `,id.in.(${rsvpEventIds.join(',')})` : ''}`)
+      .order('datetime', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      log(' getUserNextEvent: No upcoming event found');
+      return null;
+    }
+
+    const event = mapEventFromDb(data as DbEventWithHost);
+
+    // Fetch attendees
+    const attendees = await this.getEventAttendees(event.id);
+    event.attendees = attendees;
+    event.attendeeCount = attendees.length;
+
+    return event;
+  },
+
+  async getPeopleFromEvent(eventId: string, excludeProfileId: string): Promise<EventAttendee[]> {
+    log(' getPeopleFromEvent:', { eventId, excludeProfileId });
+
+    // Get event to include host
+    const { data: event, error: eventError } = await supabase
+      .from('events')
+      .select(`
+        host_id,
+        host:profiles!events_host_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .eq('id', eventId)
+      .single();
+
+    if (eventError || !event) {
+      log('ERROR: getPeopleFromEvent event error:', eventError);
+      return [];
+    }
+
+    // Get attendees excluding the current user
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from('event_rsvps')
+      .select(`
+        profile_id,
+        profile:profiles!event_rsvps_profile_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .eq('event_id', eventId)
+      .neq('profile_id', excludeProfileId);
+
+    if (rsvpError) {
+      log('ERROR: getPeopleFromEvent rsvp error:', rsvpError);
+      return [];
+    }
+
+    const attendees: EventAttendee[] = (rsvps as DbRsvpWithProfile[]).map(rsvp => ({
+      profileId: rsvp.profile_id,
+      name: rsvp.profile?.full_name ?? 'Unknown',
+      slug: rsvp.profile?.slug ?? '',
+      avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
+      avatarUrl: rsvp.profile?.avatar_url ?? undefined,
+    }));
+
+    // Include host if they're not the excluded user
+    const eventWithHost = event as { host_id: string; host: { id: string; full_name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null };
+    if (eventWithHost.host_id !== excludeProfileId && eventWithHost.host) {
+      attendees.unshift({
+        profileId: eventWithHost.host_id,
+        name: eventWithHost.host.full_name ?? 'Unknown',
+        slug: eventWithHost.host.slug ?? '',
+        avatarColor: eventWithHost.host.avatar_color ?? '#3B82F6',
+        avatarUrl: eventWithHost.host.avatar_url ?? undefined,
+      });
+    }
+
+    return attendees;
+  },
+
+  async getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]> {
+    log(' getUserRegisteredEvents:', profileId);
+
+    const now = new Date().toISOString();
+
+    // Get event IDs where user is RSVP'd
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from('event_rsvps')
+      .select('event_id')
+      .eq('profile_id', profileId);
+
+    if (rsvpError || !rsvps || rsvps.length === 0) {
+      log(' getUserRegisteredEvents: No RSVPs found');
+      return [];
+    }
+
+    const eventIds = rsvps.map(r => r.event_id);
+
+    // Get upcoming events user is attending (not hosting)
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        host:profiles!events_host_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          headline:role,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .in('id', eventIds)
+      .neq('host_id', profileId)
+      .gte('datetime', now)
+      .eq('status', 'upcoming')
+      .order('datetime', { ascending: true });
+
+    if (error) {
+      log('ERROR: getUserRegisteredEvents error:', error);
+      return [];
+    }
+
+    return (data as DbEventWithHost[]).map(mapEventFromDb);
+  },
+
+  async getUserHostedEvents(profileId: string): Promise<EventWithHost[]> {
+    log(' getUserHostedEvents:', profileId);
+
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        host:profiles!events_host_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          headline:role,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .eq('host_id', profileId)
+      .order('datetime', { ascending: false });
+
+    if (error) {
+      log('ERROR: getUserHostedEvents error:', error);
+      return [];
+    }
+
+    return (data as DbEventWithHost[]).map(mapEventFromDb);
+  },
+
+  async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {
+    log(' getUpcomingPublicEvents:', { excludeProfileId, limit });
+
+    const now = new Date().toISOString();
+
+    // Get event IDs user is already RSVP'd to
+    const { data: rsvps } = await supabase
+      .from('event_rsvps')
+      .select('event_id')
+      .eq('profile_id', excludeProfileId);
+
+    const rsvpEventIds = rsvps?.map(r => r.event_id) || [];
+
+    // Get upcoming events user is NOT hosting and NOT RSVP'd to
+    let query = supabase
+      .from('events')
+      .select(`
+        *,
+        host:profiles!events_host_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          headline:role,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .gte('datetime', now)
+      .eq('status', 'upcoming')
+      .neq('host_id', excludeProfileId)
+      .order('datetime', { ascending: true })
+      .limit(limit);
+
+    // Exclude RSVP'd events if any
+    if (rsvpEventIds.length > 0) {
+      query = query.not('id', 'in', `(${rsvpEventIds.join(',')})`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      log('ERROR: getUpcomingPublicEvents error:', error);
+      return [];
+    }
+
+    return (data as DbEventWithHost[]).map(mapEventFromDb);
+  },
 };

@@ -10,9 +10,13 @@ import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 
 interface LoginFormProps {
   onSwitchToSign: () => void;
+  /** P76: Redirect URL after auth completes */
+  redirect?: string;
+  /** P76: Action to perform after auth (e.g., 'rsvp') */
+  action?: string;
 }
 
-export function LoginForm({ onSwitchToSign }: LoginFormProps) {
+export function LoginForm({ onSwitchToSign, redirect, action }: LoginFormProps) {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -52,7 +56,8 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
         return;
       }
 
-      const { error } = await signInWithEmail(email);
+      // P76: Include redirect and action params for post-auth navigation
+      const { error } = await signInWithEmail(email, 'login', { redirect, action });
 
       if (error) {
         analytics.track('login_magic_link_error', {
@@ -102,7 +107,7 @@ export function LoginForm({ onSwitchToSign }: LoginFormProps) {
   return (
     <div className="space-y-6">
       {/* P63/P64: Google OAuth button - primary option */}
-      <GoogleAuthButton context="login" source="login" />
+      <GoogleAuthButton context="login" source="login" redirect={redirect} action={action} />
 
       {/* P63: Divider */}
       <div className="relative">

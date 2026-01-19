@@ -74,6 +74,55 @@ For each state, verify:
 - [ ] Destructive buttons in success contexts use muted → red-on-hover pattern
 - [ ] All buttons have visible focus states (shadcn/ui handles this)
 
+## Step 5.5: Cross-Page Consistency Check
+
+**Purpose:** Ensure the same semantic concept looks identical across all pages. When introducing new UI patterns, verify they match existing implementations.
+
+### Pattern Categories to Check:
+
+| Pattern | What to Search | Consistency Rule |
+|---------|----------------|------------------|
+| **RSVP/Attendance Status** | "going", "attending", "registered" | Same color, badge style, text |
+| **Empty States** | "No .* found", "empty", "nothing here" | Same layout (icon + text + optional CTA) |
+| **Loading States** | "loading", "Skeleton", "Spinner" | Same component, same placement |
+| **User Status Badges** | `<Badge`, status indicators | Same semantic meaning = same styling |
+| **Card Layouts** | Event cards, person cards | Same info hierarchy, spacing |
+| **Action Buttons** | RSVP, Join, Cancel | Same styling for same action type |
+
+### How to Check:
+
+```bash
+# 1. Find all instances of a semantic pattern (e.g., attendance status)
+grep -rn "going\|Going\|attending" src/app/components/ src/app/pages/
+
+# 2. For each match, note: file, line, text shown, color/styling used
+
+# 3. Compare - flag any differences in:
+#    - Text (e.g., "Going" vs "You are going")
+#    - Color (e.g., green vs blue for same meaning)
+#    - Component (e.g., Badge vs plain text)
+#    - Placement (e.g., left vs right aligned)
+```
+
+### Cross-Page Consistency Report Format:
+
+```markdown
+### Cross-Page Consistency
+
+| Concept | Location A | Location B | Issue |
+|---------|------------|------------|-------|
+| Attending status | EventRow: green Badge "Going" | Dashboard: blue text "Going" | ❌ Color mismatch |
+| Empty events | EventList: illustration + "No events" | Dashboard: "Nothing here" | ❌ Different treatment |
+| Event card | events-page: full EventRowCompact | home-page: custom card | ⚠️ Should reuse component |
+```
+
+### Component Reuse Check:
+
+When auditing new code, verify:
+1. **Does a shared component exist?** Check `src/app/components/shared/` first
+2. **If similar code exists in 2+ places**, flag for extraction to shared component
+3. **New patterns should be discussed** before implementing differently than existing
+
 ## Step 6: Generate Report
 
 ```markdown

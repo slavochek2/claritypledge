@@ -10,6 +10,13 @@ export interface EventsService {
   isEventFull(event: EventWithHost): boolean;
   getSpotsRemaining(event: EventWithHost): number | null;
 
+  // P62: Dashboard queries
+  getUserNextEvent(profileId: string): Promise<EventWithHost | null>;
+  getPeopleFromEvent(eventId: string, excludeProfileId: string): Promise<EventAttendee[]>;
+  getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]>;
+  getUserHostedEvents(profileId: string): Promise<EventWithHost[]>;
+  getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]>;
+
   // Mutations
   createEvent(data: CreateEventInput): Promise<EventWithHost | null>;
   updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean>;

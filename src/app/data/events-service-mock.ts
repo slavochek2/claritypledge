@@ -174,4 +174,89 @@ export const mockEventsService: EventsService = {
     }
     return success;
   },
+
+  // P62: Dashboard queries
+
+  async getUserNextEvent(profileId: string): Promise<EventWithHost | null> {
+    const now = new Date();
+    // Find upcoming events where user is RSVP'd or is host
+    const upcomingEvents = mockEvents
+      .filter(e => {
+        if (e.status !== 'upcoming') return false;
+        if (new Date(e.datetime) <= now) return false;
+        // User is attending or hosting
+        const isAttending = e.attendees.some(a => a.id === profileId) || mockCurrentUser.rsvpdEventIds.includes(e.id);
+        const isHosting = e.hostId === profileId;
+        return isAttending || isHosting;
+      })
+      .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+
+    return upcomingEvents.length > 0 ? toEventWithHost(upcomingEvents[0]) : null;
+  },
+
+  async getPeopleFromEvent(eventId: string, excludeProfileId: string): Promise<EventAttendee[]> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event) return [];
+
+    // Get attendees excluding the current user
+    const attendees = event.attendees
+      .filter(a => a.id !== excludeProfileId)
+      .map(a => ({
+        profileId: a.id,
+        name: a.name,
+        slug: a.slug,
+        avatarColor: a.avatarColor,
+      }));
+
+    // Also include host if they're not the excluded user
+    if (event.hostId !== excludeProfileId) {
+      attendees.unshift({
+        profileId: event.hostId,
+        name: event.hostName,
+        slug: event.hostSlug,
+        avatarColor: event.hostAvatarColor,
+      });
+    }
+
+    return attendees;
+  },
+
+  async getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]> {
+    const now = new Date();
+    // Events user is attending (not hosting) - upcoming only
+    return mockEvents
+      .filter(e => {
+        if (e.status !== 'upcoming') return false;
+        if (new Date(e.datetime) <= now) return false;
+        if (e.hostId === profileId) return false; // Exclude hosted events
+        return e.attendees.some(a => a.id === profileId) || mockCurrentUser.rsvpdEventIds.includes(e.id);
+      })
+      .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
+      .map(toEventWithHost);
+  },
+
+  async getUserHostedEvents(profileId: string): Promise<EventWithHost[]> {
+    // Events user is hosting (all statuses)
+    return mockEvents
+      .filter(e => e.hostId === profileId)
+      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
+      .map(toEventWithHost);
+  },
+
+  async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {
+    const now = new Date();
+    // Upcoming events user is NOT already registered for
+    return mockEvents
+      .filter(e => {
+        if (e.status !== 'upcoming') return false;
+        if (new Date(e.datetime) <= now) return false;
+        // Exclude if user is already attending or hosting
+        const isAttending = e.attendees.some(a => a.id === excludeProfileId) || mockCurrentUser.rsvpdEventIds.includes(e.id);
+        const isHosting = e.hostId === excludeProfileId;
+        return !isAttending && !isHosting;
+      })
+      .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
+      .slice(0, limit)
+      .map(toEventWithHost);
+  },
 };

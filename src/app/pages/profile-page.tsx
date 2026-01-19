@@ -18,7 +18,7 @@ import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
-import { MailIcon } from "lucide-react";
+import { MailIcon, ArrowLeftIcon } from "lucide-react";
 import { CompactProfileCard } from "@/app/components/profile/compact-profile-card";
 
 export function ProfilePage() {
@@ -246,6 +246,15 @@ export function ProfilePage() {
       />
       <div className="min-h-screen bg-background py-8 px-4">
         <div className="container mx-auto max-w-2xl">
+          {/* P76: Back button - conditional based on auth state */}
+          <Link
+            to={session ? "/home" : "/"}
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-1" />
+            {session ? "Back to Dashboard" : "Back to Home"}
+          </Link>
+
           {/* P75: Compact Profile Card */}
           <CompactProfileCard profile={profile} isOwner={isOwner} />
 

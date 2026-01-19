@@ -28,6 +28,8 @@ const ClarityChatPage = lazy(() => import("@/app/pages/clarity-chat-page").then(
 const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
 const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
+const HomePage = lazy(() => import("@/app/pages/home-page").then(m => ({ default: m.HomePage })));
+const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m => ({ default: m.CollaboratePage })));
 
 // Isolated prototypes - completely self-contained, no dependencies on main app
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -299,6 +301,30 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <SettingsPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P62: Dashboard for logged-in users */}
+        <Route
+          path="/home"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <HomePage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        {/* P62: Collaborate page (public) */}
+        <Route
+          path="/collaborate"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <CollaboratePage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
