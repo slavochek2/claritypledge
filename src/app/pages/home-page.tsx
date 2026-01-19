@@ -4,14 +4,15 @@
  * Shows people from events, upcoming events, and quick actions.
  * Redirects unauthenticated users to landing page.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/auth";
-import { Loader2Icon, TargetIcon, MicIcon, HandshakeIcon, ScrollTextIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import { Loader2Icon, ScrollTextIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
 import { eventsService } from "@/app/data/events-service";
-import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { PersonRow } from "@/app/components/shared/PersonRow";
+import { EventRowCompact } from "@/app/components/shared/EventRowCompact";
 import type { EventWithHost, EventAttendee } from "@/app/types";
 
 export function HomePage() {
@@ -28,9 +29,6 @@ export function HomePage() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
 
-  // Mobile collapsible state
-  const [attendingExpanded, setAttendingExpanded] = useState(false);
-  const [hostingExpanded, setHostingExpanded] = useState(false);
 
   // Track page view (once per mount, after auth loaded)
   useEffect(() => {
@@ -95,6 +93,22 @@ export function HomePage() {
     fetchDashboardData();
   }, [user?.id]);
 
+  // Merge and dedupe attending + hosting events, sorted by date
+  // Must be before early returns (React hooks rules)
+  const { yourEvents, hostedEventIds } = useMemo(() => {
+    const hostedIds = new Set(hostedEvents.map(e => e.id));
+    // Combine: hosted events + attending events (excluding ones user is also hosting)
+    const combined = [
+      ...hostedEvents,
+      ...registeredEvents.filter(e => !hostedIds.has(e.id)),
+    ];
+    // Sort by date ascending
+    const sorted = combined.sort((a, b) =>
+      new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+    );
+    return { yourEvents: sorted, hostedEventIds: hostedIds };
+  }, [hostedEvents, registeredEvents]);
+
   // Show loading state while checking auth
   if (authLoading) {
     return (
@@ -113,19 +127,6 @@ export function HomePage() {
 
   // Get first name for welcome message
   const firstName = user.name?.split(' ')[0] || 'there';
-
-  // Helper to format event date
-  const formatEventDate = (datetime: string, timezone: string) => {
-    const date = new Date(datetime);
-    const options: Intl.DateTimeFormatOptions = {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: timezone,
-    };
-    return date.toLocaleString('en-US', options);
-  };
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-6xl">
@@ -147,7 +148,7 @@ export function HomePage() {
         {/* People Section - Primary (left on desktop, top on mobile) */}
         <section>
           <h2 className="text-lg font-semibold mb-4 border-b pb-2">
-            People From Your Next Event
+            Participants of Your Next Event
           </h2>
 
           {isLoadingEvents ? (
@@ -175,33 +176,29 @@ export function HomePage() {
               </button>
             </div>
           ) : nextEvent && peopleFromNextEvent.length > 0 ? (
-            // People list
+            // People list using shared PersonRow component
             <div>
               <p className="text-sm text-muted-foreground mb-3">
-                {nextEvent.title} — {formatEventDate(nextEvent.datetime, nextEvent.timezone)}
+                {nextEvent.title} — {new Date(nextEvent.datetime).toLocaleString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZone: nextEvent.timezone,
+                })}
               </p>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {peopleFromNextEvent.map(person => (
-                  <div key={person.profileId} className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg">
-                    <Link to={`/p/${person.slug}`}>
-                      <GravatarAvatar
-                        name={person.name}
-                        avatarColor={person.avatarColor}
-                        photoUrl={person.avatarUrl}
-                        size="md"
-                      />
-                    </Link>
-                    <Link to={`/p/${person.slug}`} className="flex-1 font-medium hover:text-blue-500 transition-colors">
-                      {person.name}
-                    </Link>
-                    <Link
-                      to="/live"
-                      onClick={() => analytics.track('meeting_invite_clicked', { source: 'dashboard' })}
-                      className="px-3 py-1.5 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
-                    >
-                      Invite to a Clarity Meeting
-                    </Link>
-                  </div>
+                  <PersonRow
+                    key={person.profileId}
+                    profileId={person.profileId}
+                    slug={person.slug}
+                    name={person.name}
+                    avatarColor={person.avatarColor}
+                    avatarUrl={person.avatarUrl}
+                    action="invite"
+                    inviteSource="dashboard"
+                  />
                 ))}
               </div>
             </div>
@@ -262,197 +259,89 @@ export function HomePage() {
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Attending */}
+            <div className="space-y-6">
+              {/* Your Events - merged Attending + Hosting */}
               <div>
-                <button
-                  onClick={() => setAttendingExpanded(!attendingExpanded)}
-                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2 lg:cursor-default"
-                >
-                  <span className="lg:hidden">{attendingExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}</span>
-                  ATTENDING ({registeredEvents.length})
-                </button>
-                <div className={`lg:block ${attendingExpanded ? 'block' : 'hidden lg:block'}`}>
-                  {registeredEvents.length > 0 ? (
-                    <div className="space-y-2">
-                      {registeredEvents.map(event => (
-                        <Link
-                          key={event.id}
-                          to={`/events/${event.slug}`}
-                          className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:border-blue-500 transition-colors"
-                        >
-                          <CalendarIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{event.title}</div>
-                            <div className="text-sm text-muted-foreground">{formatEventDate(event.datetime, event.timezone)}</div>
-                          </div>
-                          <span className="text-blue-500 text-sm">View</span>
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg p-4 text-center">
-                      <p className="text-sm text-muted-foreground">No upcoming events</p>
-                      <Link
-                        to="/events"
-                        className="inline-block mt-2 text-sm text-blue-500 hover:text-blue-600"
-                      >
-                        See events &rarr;
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Hosting */}
-              <div>
-                <button
-                  onClick={() => setHostingExpanded(!hostingExpanded)}
-                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-2 lg:cursor-default"
-                >
-                  <span className="lg:hidden">{hostingExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}</span>
-                  HOSTING ({hostedEvents.length})
-                </button>
-                <div className={`lg:block ${hostingExpanded ? 'block' : 'hidden lg:block'}`}>
-                  {hostedEvents.length > 0 ? (
-                    <div className="space-y-2">
-                      {hostedEvents.map(event => (
-                        <Link
-                          key={event.id}
-                          to={`/events/${event.slug}/edit`}
-                          className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:border-blue-500 transition-colors"
-                        >
-                          <MicIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{event.title}</div>
-                            <div className="text-sm text-muted-foreground">{formatEventDate(event.datetime, event.timezone)}</div>
-                          </div>
-                          <span className={`text-xs px-2 py-0.5 rounded ${event.status === 'upcoming' ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                            {event.status === 'upcoming' ? 'Published' : event.status === 'cancelled' ? 'Cancelled' : 'Completed'}
-                          </span>
-                          <span className="text-blue-500 text-sm">Edit</span>
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg p-4 text-center">
-                      <p className="text-sm text-muted-foreground">Not hosting yet</p>
-                      <Link
-                        to="/events/create"
-                        className="inline-block mt-2 text-sm text-blue-500 hover:text-blue-600"
-                      >
-                        Host an Event &rarr;
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Upcoming Events (Discovery) */}
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">UPCOMING EVENTS</h3>
-                {upcomingPublicEvents.length > 0 ? (
+                {yourEvents.length > 0 ? (
                   <div className="space-y-2">
-                    {upcomingPublicEvents.map(event => (
-                      <Link
+                    {yourEvents.map(event => (
+                      <EventRowCompact
                         key={event.id}
-                        to={`/events/${event.slug}`}
-                        className="flex items-center gap-3 p-3 bg-card border border-border rounded-lg hover:border-blue-500 transition-colors"
-                      >
-                        <CalendarIcon className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{event.title}</div>
-                          <div className="text-sm text-muted-foreground">{formatEventDate(event.datetime, event.timezone)}</div>
-                        </div>
-                        <span className="text-blue-500 text-sm">RSVP</span>
-                      </Link>
+                        event={event}
+                        role={hostedEventIds.has(event.id) ? "hosting" : "attending"}
+                      />
                     ))}
-                    <Link
-                      to="/events"
-                      className="block text-center text-sm text-blue-500 hover:text-blue-600 mt-2"
-                    >
-                      See all events &rarr;
-                    </Link>
                   </div>
                 ) : (
-                  <div className="bg-muted/30 rounded-lg p-4 text-center">
-                    <p className="text-sm text-muted-foreground">No upcoming events</p>
-                    <Link
-                      to="/events"
-                      className="inline-block mt-2 text-sm text-blue-500 hover:text-blue-600"
-                    >
-                      See all events &rarr;
-                    </Link>
+                  <div className="bg-card border border-border rounded-xl p-6 text-center shadow-sm">
+                    <p className="text-muted-foreground mb-3">No upcoming events yet</p>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                      <Link
+                        to="/events"
+                        className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                      >
+                        Browse events &rarr;
+                      </Link>
+                      <span className="hidden sm:inline text-muted-foreground">or</span>
+                      <Link
+                        to="/events/create"
+                        className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                      >
+                        Host your own &rarr;
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>
+
+              {/* Discover Events */}
+              {upcomingPublicEvents.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    DISCOVER EVENTS
+                  </h3>
+                  <div className="space-y-2">
+                    {upcomingPublicEvents.map(event => (
+                      <EventRowCompact
+                        key={event.id}
+                        event={event}
+                        role="none"
+                      />
+                    ))}
+                    <Link
+                      to="/events"
+                      className="block text-center text-sm text-blue-500 hover:text-blue-600 mt-3"
+                    >
+                      See all events &rarr;
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </section>
       </div>
 
-      {/* Quick Actions Section - Bottom */}
-      <section>
-        <h2 className="text-lg font-semibold mb-4 border-b pb-2">
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Start a Clarity Meeting */}
-          <Link
-            to="/live"
-            onClick={() => analytics.track('quick_action_clicked', { action: 'start_meeting' })}
-            className="flex flex-col items-center gap-3 p-6 bg-card border border-border rounded-lg hover:border-blue-500 hover:shadow-md transition-all group"
-          >
-            <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-              <TargetIcon className="w-6 h-6 text-blue-500" />
-            </div>
-            <span className="font-medium text-center">Start a Clarity Meeting</span>
-          </Link>
-
-          {/* Host an Event */}
-          <Link
-            to="/events/create"
-            onClick={() => analytics.track('quick_action_clicked', { action: 'host_event' })}
-            className="flex flex-col items-center gap-3 p-6 bg-card border border-border rounded-lg hover:border-blue-500 hover:shadow-md transition-all group"
-          >
-            <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-              <MicIcon className="w-6 h-6 text-blue-500" />
-            </div>
-            <span className="font-medium text-center">Host an Event</span>
-          </Link>
-
-          {/* Collaborate With Us */}
-          <Link
-            to="/collaborate"
-            onClick={() => analytics.track('quick_action_clicked', { action: 'collaborate' })}
-            className="flex flex-col items-center gap-3 p-6 bg-card border border-border rounded-lg hover:border-blue-500 hover:shadow-md transition-all group"
-          >
-            <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-              <HandshakeIcon className="w-6 h-6 text-blue-500" />
-            </div>
-            <span className="font-medium text-center">Collaborate With Us</span>
-          </Link>
-        </div>
-
-        {/* Take the Pledge Banner - Only shown if user hasn't pledged */}
-        {!user.hasPledged && (
+      {/* Take the Pledge Banner - Only shown if user hasn't pledged */}
+      {!user.hasPledged && (
+        <section>
           <Link
             to="/sign-pledge?prefill=true"
-            onClick={() => analytics.track('quick_action_clicked', { action: 'take_pledge' })}
-            className="mt-6 flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors group"
+            onClick={() => analytics.track('pledge_banner_clicked', { source: 'dashboard' })}
+            className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors group"
           >
             <div className="flex items-center gap-3">
               <ScrollTextIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <span className="font-medium text-blue-900 dark:text-blue-100">
-                Take the Pledge — Join 200+ committed to clarity
+                Take the Pledge — commit to clarity
               </span>
             </div>
             <span className="text-blue-600 dark:text-blue-400 font-medium group-hover:underline">
               Take Pledge &rarr;
             </span>
           </Link>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

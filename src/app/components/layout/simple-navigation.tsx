@@ -108,15 +108,6 @@ export function SimpleNavigation() {
             >
               About
             </Link>
-            {/* P62: Collaborate link for non-logged-in users */}
-            {!showUserMenu && (
-              <Link
-                to="/collaborate"
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Collaborate
-              </Link>
-            )}
             {/* Start a Clarity Meeting CTA */}
             {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
             <Link

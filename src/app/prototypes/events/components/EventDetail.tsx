@@ -12,15 +12,14 @@ import {
   Download,
   Pencil,
   Ban,
-  MessageCircle,
 } from 'lucide-react';
-import { analytics } from '@/lib/mixpanel';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
+import { PersonRow } from '@/app/components/shared/PersonRow';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -443,41 +442,24 @@ export function EventDetail() {
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
-                {(event.attendees ?? []).map(attendee => (
-                  <div
-                    key={attendee.profileId}
-                    className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <Link to={`/p/${attendee.slug}`}>
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                        style={{ backgroundColor: attendee.avatarColor }}
-                      >
-                        {attendee.name.charAt(0)}
-                      </div>
-                    </Link>
-                    <Link to={`/p/${attendee.slug}`} className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate hover:text-blue-500 transition-colors">
-                        {attendee.name}
-                      </p>
-                    </Link>
-                    {/* P62: Invite to Clarity Meeting button - only for logged-in users, not self, not for past/cancelled events */}
-                    {isLoggedIn && user && attendee.profileId !== user.id && !isPast && !isCancelled ? (
-                      <Link
-                        to="/live"
-                        onClick={() => analytics.track('meeting_invite_clicked', { source: 'event_page' })}
-                        className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
-                      >
-                        <MessageCircle className="w-3 h-3" />
-                        <span className="hidden sm:inline">Invite</span>
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-muted-foreground font-medium">
-                        {isPast ? 'Attended' : 'Going'}
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {(event.attendees ?? []).map(attendee => {
+                  // Determine action: invite (logged in, not self, active event) or status label
+                  const canInvite = isLoggedIn && user && attendee.profileId !== user.id && !isPast && !isCancelled;
+                  const action = canInvite ? "invite" : isPast ? "attended" : "going";
+
+                  return (
+                    <PersonRow
+                      key={attendee.profileId}
+                      profileId={attendee.profileId}
+                      slug={attendee.slug}
+                      name={attendee.name}
+                      avatarColor={attendee.avatarColor}
+                      avatarUrl={attendee.avatarUrl}
+                      action={action}
+                      inviteSource="event_page"
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>

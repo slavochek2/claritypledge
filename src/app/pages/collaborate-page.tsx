@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircleIcon, CodeIcon } from "lucide-react";
+import { CheckCircleIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
 import { useAuth } from "@/auth";
 
@@ -117,7 +117,7 @@ export function CollaboratePage() {
   return (
     <div className="min-h-screen py-20 px-4">
       <SEO
-        title="Collaborate"
+        title="Co-create"
         description="Join the Clarity Pledge community. Host events, contribute code, share ideas, or help us build better communication tools."
         url="/collaborate"
       />
@@ -125,10 +125,20 @@ export function CollaboratePage() {
         {/* Hero Section */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-            Collaborate With Us
+            Co-create With Us
           </h1>
           <p className="text-xl text-muted-foreground">
-            Clarity Pledge is open source. We're building this together.
+            Clarity Pledge is{" "}
+            <a
+              href="https://github.com/slavochek2/claritypledge"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
+              onClick={() => analytics.track('github_link_clicked', { source: 'collaborate_page' })}
+            >
+              open source
+            </a>
+            . We're building this together.
           </p>
         </div>
 
@@ -216,22 +226,6 @@ export function CollaboratePage() {
               </Button>
             </form>
 
-            {/* GitHub Link */}
-            <div className="mt-8 pt-6 border-t border-border">
-              <p className="text-muted-foreground text-center mb-3">
-                Or dive into the code:
-              </p>
-              <a
-                href="https://github.com/slavochek2/claritypledge"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
-                onClick={() => analytics.track('github_link_clicked', { source: 'collaborate_page' })}
-              >
-                <CodeIcon className="w-5 h-5" />
-                View on GitHub
-              </a>
-            </div>
           </div>
         )}
       </div>

@@ -195,8 +195,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // P50: Should redirect to pledge certificate for existing pledger
-        expect(mockNavigate).toHaveBeenCalledWith('/p/existing-slug/pledge', { replace: true });
+        // P62: Should redirect to dashboard
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -249,8 +249,8 @@ describe('CRITICAL AUTH FLOW', () => {
           is_verified: true
         });
 
-        // P50: Should redirect to pledge certificate for new pledger
-        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user/pledge', { replace: true });
+        // P62: Should redirect to dashboard
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -292,8 +292,8 @@ describe('CRITICAL AUTH FLOW', () => {
         // Second call should have slug with -2 suffix
         const secondCall = mockUpsert.mock.calls[1][0];
         expect(secondCall.slug).toBe('john-doe-2');
-        // P50: Redirects to pledge certificate
-        expect(mockNavigate).toHaveBeenCalledWith('/p/john-doe-2/pledge', { replace: true });
+        // P62: Redirects to dashboard
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
 
@@ -357,8 +357,8 @@ describe('CRITICAL AUTH FLOW', () => {
         // Final call should have timestamp slug
         const finalCall = mockUpsert.mock.calls[3][0];
         expect(finalCall.slug).toBe(`popular-name-${mockTimestamp}`);
-        // P50: Redirects to pledge certificate
-        expect(mockNavigate).toHaveBeenCalledWith(`/p/popular-name-${mockTimestamp}/pledge`, { replace: true });
+        // P62: Redirects to dashboard
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
 
       vi.restoreAllMocks();
@@ -458,8 +458,8 @@ describe('CRITICAL AUTH FLOW', () => {
         const upsertData = getUpsertData();
         // P64: signup flow creates account with has_pledged=false
         expect(upsertData.has_pledged).toBe(false);
-        // Should redirect to profile page (not pledge certificate)
-        expect(mockNavigate).toHaveBeenCalledWith('/p/new-user', { replace: true });
+        // Should redirect to dashboard
+        expect(mockNavigate).toHaveBeenCalledWith('/home', { replace: true });
       });
     });
   });

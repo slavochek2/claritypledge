@@ -27,6 +27,7 @@ import {
   FileTextIcon,
   UserPlusIcon,
   LayoutDashboardIcon,
+  UsersIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -68,9 +69,17 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Take the Pledge + Log In + Create Account */}
+        {/* Public menu - Collaborate, Take the Pledge, Log In, Create Account */}
         {showPublicCTAs && (
           <>
+            <Link
+              to="/collaborate"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <UsersIcon className="w-4 h-4 inline mr-2" />
+              Co-create
+            </Link>
             <Link
               to="/sign-pledge"
               className={mobileLinkClass}
@@ -148,6 +157,15 @@ export function NavigationMenuItems({
             )}
 
             <Link
+              to="/collaborate"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <UsersIcon className="w-4 h-4 inline mr-2" />
+              Co-create
+            </Link>
+
+            <Link
               to="/settings"
               className={mobileLinkClass}
               onClick={handleItemClick}
@@ -174,9 +192,15 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Take the Pledge + Log In + Create Account */}
+      {/* Public menu - Collaborate, Take the Pledge, Log In, Create Account */}
       {showPublicCTAs && (
         <>
+          <DropdownMenuItem asChild>
+            <Link to="/collaborate" className="cursor-pointer">
+              <UsersIcon className="w-4 h-4 mr-2" />
+              Co-create
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">
               <FileTextIcon className="w-4 h-4 mr-2" />
@@ -233,6 +257,14 @@ export function NavigationMenuItems({
               </Link>
             </DropdownMenuItem>
           )}
+
+          {/* Collaborate */}
+          <DropdownMenuItem asChild>
+            <Link to="/collaborate" className="cursor-pointer">
+              <UsersIcon className="w-4 h-4 mr-2" />
+              Co-create
+            </Link>
+          </DropdownMenuItem>
 
           {/* Settings */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>
