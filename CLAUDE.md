@@ -124,6 +124,27 @@ Load these docs when working on specific areas:
 | /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+
+## Worktree Branch Naming
+
+**Standard naming:** `w1`, `w2`, `w3`, `w4`, etc.
+
+**Rules:**
+1. **When syncing to main:** If user asks to "bring worktree up to date" or "sync with main", automatically reset the branch name to generic (`w1`, `w2`, etc.) after merging
+2. **When starting feature work:** Before the first commit on a worktree, rename the branch to match the feature (e.g., `p62-dashboard-w1`)
+3. **Branch rename command:** `git branch -m <new-name>`
+
+**Example workflow:**
+```bash
+# User: "bring w1 up to date with main"
+cd ~/Documents/claritypledge-1
+git fetch origin main
+git merge origin/main
+git branch -m w1  # Reset to generic name
+
+# Later, starting feature p62:
+git branch -m p62-dashboard-w1  # Rename before first commit
+```
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
 | Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
 | Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
