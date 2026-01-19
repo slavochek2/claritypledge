@@ -184,4 +184,15 @@ describe('PledgerCard', () => {
       expect(screen.getByText('Open pledge')).toBeInTheDocument();
     });
   });
+
+  // P76: Pledger Avatar Distinction
+  describe('P76: Pledger avatar distinction', () => {
+    it('renders pledger badge with accessibility label', () => {
+      render(<PledgerCard {...mockPledger} />, { wrapper });
+
+      // PledgerCard always shows pledger distinction (isPledger=true, showPledgeBadge=true)
+      const badge = screen.getByLabelText('Verified pledger');
+      expect(badge).toBeInTheDocument();
+    });
+  });
 });

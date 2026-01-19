@@ -119,8 +119,8 @@ npm test              # All unit tests pass
 | UAT-1.6 | ✅ | Unit test: badge not rendered when showPledgeBadge omitted/false |
 | UAT-2.1 | ✅ | Unit test: pledger avatar shows badge (getAllByLabelText) |
 | UAT-2.2 | ✅ | Unit test: non-pledger avatar has no badge (queryByLabelText) |
-| UAT-3.1 | ⬜ | |
-| UAT-3.2 | ⬜ | |
+| UAT-3.1 | ✅ | Unit test: PledgerCard shows badge (getByLabelText) |
+| UAT-3.2 | ✅ | SignatureWall uses PledgerCard (inherits isPledger/showPledgeBadge) |
 | UAT-4.1 | ⬜ | |
 | UAT-4.2 | ⬜ | |
 
