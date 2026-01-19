@@ -691,7 +691,7 @@ describe("ProfilePage", () => {
       }, { timeout: 3000 });
     });
 
-    it("should show 'No upcoming events' with 'Host an event' link for owner with no events", async () => {
+    it("should show empty state with 'Create Event' button for owner with no events", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
       vi.spyOn(auth, "useAuth").mockReturnValue(
         createAuthMock({ user: mockProfile, sessionUserId: mockProfile.id })
@@ -707,12 +707,12 @@ describe("ProfilePage", () => {
 
       await waitFor(() => {
         expect(screen.getByRole("heading", { name: /events/i })).toBeInTheDocument();
-        expect(screen.getByText(/no upcoming events/i)).toBeInTheDocument();
-        expect(screen.getByRole("link", { name: /host an event/i })).toBeInTheDocument();
+        expect(screen.getByText(/you haven't hosted any events yet/i)).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: /create event/i })).toBeInTheDocument();
       }, { timeout: 3000 });
     });
 
-    it("should show 'No upcoming events' WITHOUT 'Host an event' link for visitors", async () => {
+    it("should hide events section entirely for visitors with no events", async () => {
       const otherUser: Profile = {
         ...mockProfile,
         id: "other-user-id",
@@ -733,12 +733,11 @@ describe("ProfilePage", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByRole("heading", { name: /events/i })).toBeInTheDocument();
-        expect(screen.getByText(/no upcoming events/i)).toBeInTheDocument();
+        expect(screen.getByTestId("compact-profile-card")).toBeInTheDocument();
       }, { timeout: 3000 });
 
-      // Visitor should NOT see the "Host an event" link
-      expect(screen.queryByRole("link", { name: /host an event/i })).not.toBeInTheDocument();
+      // Visitor should NOT see the events section at all when there are no events
+      expect(screen.queryByRole("heading", { name: /events/i })).not.toBeInTheDocument();
     });
   });
 
