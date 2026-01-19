@@ -9,36 +9,33 @@ describe("GravatarAvatar", () => {
     return wrapper.firstChild as HTMLElement;
   };
 
-  // UAT-1.1: isPledger prop adds blue ring with animation
+  // UAT-1.1: isPledger prop adds static blue ring (Instagram/Telegram-style)
   describe("isPledger prop", () => {
-    it("adds blue ring and glow-pulse animation when isPledger is true", () => {
+    it("adds blue ring when isPledger is true", () => {
       const { container } = render(
         <GravatarAvatar name="Test User" isPledger={true} />
       );
       const avatar = getAvatarDiv(container);
 
-      // Should have ring-blue-500 and animate-glow-pulse classes
+      // Should have ring-blue-500 class (static ring, no animation)
       expect(avatar.className).toContain("ring-blue-500");
-      expect(avatar.className).toContain("animate-glow-pulse");
     });
 
     // UAT-1.2: isPledger=false has no ring
-    it("has no ring or animation when isPledger is false", () => {
+    it("has no ring when isPledger is false", () => {
       const { container } = render(
         <GravatarAvatar name="Test User" isPledger={false} />
       );
       const avatar = getAvatarDiv(container);
 
       expect(avatar.className).not.toContain("ring-blue-500");
-      expect(avatar.className).not.toContain("animate-glow-pulse");
     });
 
-    it("has no ring or animation when isPledger is omitted", () => {
+    it("has no ring when isPledger is omitted", () => {
       const { container } = render(<GravatarAvatar name="Test User" />);
       const avatar = getAvatarDiv(container);
 
       expect(avatar.className).not.toContain("ring-blue-500");
-      expect(avatar.className).not.toContain("animate-glow-pulse");
     });
   });
 
