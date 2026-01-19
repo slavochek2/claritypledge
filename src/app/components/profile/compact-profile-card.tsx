@@ -41,7 +41,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
         <div
           data-testid="avatar-container"
           className={`flex-shrink-0 rounded-full ${
-            hasPledged ? "p-1 bg-blue-500 ring-blue-500" : ""
+            hasPledged ? "p-1 bg-blue-500" : ""
           }`}
         >
           {profile.avatarUrl ? (

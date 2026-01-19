@@ -14,6 +14,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-19: Avatar ring effect via background-padding, not Tailwind ring utilities
+
+**Context:** P75 Compact Profile Card needed a blue ring around pledger avatars. During code review, discovered the initial implementation used `ring-blue-500` which only sets color without visible ring (requires `ring` or `ring-2` for thickness).
+
+**Decision:** Use `p-1 bg-blue-500` on the avatar container to create the ring effect. The 4px padding with solid blue background creates a visually identical ring around the circular avatar.
+
+**Alternatives rejected:**
+- `ring-2 ring-blue-500` — Tailwind's ring utility, but ring appears outside the element's box model which can cause layout issues with adjacent content
+- Inline avatar implementation with ring (chosen for P75, but identified as tech debt) — P76 will refactor to use `GravatarAvatar` component with `isPledger` prop
+
+**Consequences:**
+- Simple, predictable ring that's part of the avatar's box model
+- P76 will standardize this pattern in `GravatarAvatar` component with `isPledger` prop
+- Ring width is fixed at 4px (`p-1`); larger avatars may want `p-1.5` or `ring-3`
+
+**References:** [compact-profile-card.tsx](../src/app/components/profile/compact-profile-card.tsx) | [p76_pledger_avatar_distinction.md](../features/p76_pledger_avatar_distinction.md)
+
+---
+
 ## 2026-01-19: Service abstraction pattern with feature flag for backend rollout
 
 **Context:** P61 Events feature needed to transition from mock data to real Supabase backend without breaking existing UI or requiring big-bang deployment.

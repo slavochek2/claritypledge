@@ -406,6 +406,74 @@ describe("ProfilePage", () => {
       }, { timeout: 3000 });
     });
 
+    it("should copy profile URL to clipboard when share button is clicked", async () => {
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      // Mock clipboard API
+      const mockWriteText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, {
+        clipboard: { writeText: mockWriteText },
+      });
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /share profile/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      const shareButton = screen.getByRole("button", { name: /share profile/i });
+      await act(async () => {
+        shareButton.click();
+      });
+
+      expect(mockWriteText).toHaveBeenCalledWith(
+        expect.stringContaining("/p/test-user")
+      );
+    });
+
+    it("should handle clipboard error gracefully", async () => {
+      vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
+      vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
+
+      // Mock clipboard API to reject
+      const mockWriteText = vi.fn().mockRejectedValue(new Error("Clipboard access denied"));
+      Object.assign(navigator, {
+        clipboard: { writeText: mockWriteText },
+      });
+
+      // Mock console.error to avoid test noise (component doesn't log, but just in case)
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      render(
+        <MemoryRouter initialEntries={["/p/test-user"]}>
+          <Routes>
+            <Route path="/p/:id" element={<ProfilePage />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /share profile/i })).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      const shareButton = screen.getByRole("button", { name: /share profile/i });
+
+      // Should not throw - error is handled gracefully
+      await act(async () => {
+        shareButton.click();
+      });
+
+      expect(mockWriteText).toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
+    });
+
     it("should show blue ring around avatar for pledgers", async () => {
       vi.mocked(api.getProfileBySlug).mockResolvedValue(mockProfile);
       vi.spyOn(auth, "useAuth").mockReturnValue(createAuthMock());
@@ -420,7 +488,8 @@ describe("ProfilePage", () => {
 
       await waitFor(() => {
         const avatarContainer = screen.getByTestId("avatar-container");
-        expect(avatarContainer).toHaveClass("ring-blue-500");
+        // Blue ring is achieved via p-1 bg-blue-500 (padding creates visual ring effect)
+        expect(avatarContainer).toHaveClass("bg-blue-500");
       }, { timeout: 3000 });
     });
 
@@ -439,7 +508,8 @@ describe("ProfilePage", () => {
 
       await waitFor(() => {
         const avatarContainer = screen.getByTestId("avatar-container");
-        expect(avatarContainer).not.toHaveClass("ring-blue-500");
+        // Non-pledgers should NOT have the blue ring (no bg-blue-500)
+        expect(avatarContainer).not.toHaveClass("bg-blue-500");
       }, { timeout: 3000 });
     });
 
