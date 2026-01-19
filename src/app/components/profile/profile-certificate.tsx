@@ -49,8 +49,8 @@ export function ProfileCertificate({
   exportMode = false,
   pledgeVersion = 3,
 }: ProfileCertificateProps) {
-  // Get the pledge content for this version
-  const pledgeContent = PLEDGE_VERSIONS[pledgeVersion];
+  // Get the pledge content for this version (fallback to v3 if invalid)
+  const pledgeContent = PLEDGE_VERSIONS[pledgeVersion] ?? PLEDGE_VERSIONS[3];
   // v2 and v3 share the same structure (header, exception sections)
   const hasExtendedFormat = pledgeVersion === 2 || pledgeVersion === 3;
 

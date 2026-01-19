@@ -23,6 +23,18 @@ if (sentryDsn && import.meta.env.PROD) {
     // Privacy: Do NOT send PII without explicit user consent
     sendDefaultPii: false,
 
+    // Filter out noise from browser/extension issues we can't fix
+    ignoreErrors: [
+      // IndexedDB errors from Supabase/LogRocket (Safari, private mode, disk issues)
+      /indexedDB\.open/i,
+      /Internal error opening backing store/i,
+      // Browser extensions parsing JSON-LD that doesn't exist
+      /@context.*toLowerCase/i,
+      // Service worker registration in unsupported browsers/private mode
+      /Rejected.*serviceWorker/i,
+      /serviceWorker.*register/i,
+    ],
+
     // Performance monitoring
     integrations: [
       Sentry.browserTracingIntegration(),

@@ -40,7 +40,25 @@ done
 
 If hashes differ, offer to sync from current worktree.
 
-### 3. Retrospective
+### 3. Sentry Health Check
+
+Check for unresolved production errors using the Sentry MCP:
+
+```
+Search for: "unresolved errors from last 7 days"
+Organization: 22minds-llc
+Region URL: https://de.sentry.io
+Project: javascript-react
+```
+
+**Triage criteria:**
+- **>10 events**: Investigate immediately
+- **5-10 events**: Flag for review
+- **<5 events**: Note but don't block
+
+Report issues found with brief assessment (code bug vs environment issue).
+
+### 4. Retrospective
 
 Ask the user (one at a time, wait for answers):
 
@@ -50,7 +68,7 @@ Ask the user (one at a time, wait for answers):
 
 If user identifies improvements, implement them now (update CLAUDE.md, skills, or workflows).
 
-### 4. Update State File
+### 5. Update State File
 
 After completing the review:
 ```bash
@@ -68,6 +86,10 @@ Confirm: "Weekly review complete. Next reminder in 7 days."
 ✅ CLAUDE.md references valid (or list missing)
 ⚠️ Stale docs: X files (or ✅ all current)
 ✅ Worktrees in sync (or ⚠️ X worktrees differ)
+
+### Sentry
+✅ No issues >10 events (or ⚠️ X issues need attention)
+[List any issues found with brief triage]
 
 ### Retro
 **Went well:** [user's answer]
