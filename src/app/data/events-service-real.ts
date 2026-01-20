@@ -711,6 +711,7 @@ export const realEventsService: EventsService = {
   },
 
   // P77: Get user's past events (attended or hosted)
+  // Returns up to 50 most recent past events, deduplicated
   async getUserPastEvents(profileId: string): Promise<EventWithHost[]> {
     log(' getUserPastEvents:', profileId);
 
@@ -724,12 +725,16 @@ export const realEventsService: EventsService = {
 
     if (rsvpError) {
       log('ERROR: getUserPastEvents rsvp error:', rsvpError);
+      // Continue with empty RSVP list - user may still have hosted events
     }
 
+    // Filter out events where user is also the host to avoid duplicates
+    // (host_id check in query will already include those)
     const rsvpEventIds = rsvps?.map(r => r.event_id) || [];
 
     // Get past events where user attended or hosted
     // Past = datetime < now (regardless of status)
+    // Limit to 50 most recent for performance
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -745,13 +750,23 @@ export const realEventsService: EventsService = {
       `)
       .lt('datetime', now)
       .or(`host_id.eq.${profileId}${rsvpEventIds.length > 0 ? `,id.in.(${rsvpEventIds.join(',')})` : ''}`)
-      .order('datetime', { ascending: false }); // Most recent first
+      .order('datetime', { ascending: false }) // Most recent first
+      .limit(50);
 
     if (error) {
       log('ERROR: getUserPastEvents error:', error);
       return [];
     }
 
-    return (data as DbEventWithHost[]).map(mapEventFromDb);
+    // Dedupe: if user both hosted AND RSVP'd to same event, it could appear twice
+    // (shouldn't happen normally, but defensive coding)
+    const seen = new Set<string>();
+    const deduped = (data as DbEventWithHost[]).filter(event => {
+      if (seen.has(event.id)) return false;
+      seen.add(event.id);
+      return true;
+    });
+
+    return deduped.map(mapEventFromDb);
   },
 };

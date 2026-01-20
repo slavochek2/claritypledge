@@ -298,13 +298,6 @@ export function HomePage() {
                 role="tablist"
                 aria-label="Your events"
                 className="flex gap-1 mb-4"
-                onKeyDown={(e) => {
-                  // Keyboard navigation between tabs
-                  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    setEventsTab(eventsTab === 'upcoming' ? 'past' : 'upcoming');
-                  }
-                }}
               >
                 <button
                   role="tab"
