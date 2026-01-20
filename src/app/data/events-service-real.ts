@@ -709,4 +709,49 @@ export const realEventsService: EventsService = {
 
     return (data as DbEventWithHost[]).map(mapEventFromDb);
   },
+
+  // P77: Get user's past events (attended or hosted)
+  async getUserPastEvents(profileId: string): Promise<EventWithHost[]> {
+    log(' getUserPastEvents:', profileId);
+
+    const now = new Date().toISOString();
+
+    // Get event IDs where user is RSVP'd
+    const { data: rsvps, error: rsvpError } = await supabase
+      .from('event_rsvps')
+      .select('event_id')
+      .eq('profile_id', profileId);
+
+    if (rsvpError) {
+      log('ERROR: getUserPastEvents rsvp error:', rsvpError);
+    }
+
+    const rsvpEventIds = rsvps?.map(r => r.event_id) || [];
+
+    // Get past events where user attended or hosted
+    // Past = datetime < now (regardless of status)
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        *,
+        host:profiles!events_host_id_fkey (
+          id,
+          full_name:name,
+          slug,
+          headline:role,
+          avatar_color,
+          avatar_url
+        )
+      `)
+      .lt('datetime', now)
+      .or(`host_id.eq.${profileId}${rsvpEventIds.length > 0 ? `,id.in.(${rsvpEventIds.join(',')})` : ''}`)
+      .order('datetime', { ascending: false }); // Most recent first
+
+    if (error) {
+      log('ERROR: getUserPastEvents error:', error);
+      return [];
+    }
+
+    return (data as DbEventWithHost[]).map(mapEventFromDb);
+  },
 };

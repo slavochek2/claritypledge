@@ -4,13 +4,13 @@
 
 | Category | Tests | Status |
 |----------|-------|--------|
-| 1. Your Events Tabs | 4 | ⬜⬜⬜⬜ |
-| 2. Past Events Data | 3 | ⬜⬜⬜ |
-| 3. Empty States | 3 | ⬜⬜⬜ |
-| 4. Discover Section | 2 | ⬜⬜ |
-| 5. Events List | 1 | ⬜ |
+| 1. Your Events Tabs | 4 | ✅✅✅✅ |
+| 2. Past Events Data | 3 | ✅✅✅ |
+| 3. Empty States | 3 | ✅✅✅ |
+| 4. Discover Section | 2 | ✅✅ |
+| 5. Events List | 1 | ✅ |
 
-**Total: 0/13 (0%)**
+**Total: 13/13 (100%)**
 
 ---
 
@@ -20,25 +20,25 @@
 - **Given:** User is logged in on dashboard
 - **When:** Dashboard loads
 - **Then:** "Your Events" section shows two tabs: "Upcoming (N)" and "Past (N)" with correct counts
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-1.2: Upcoming tab is default
 - **Given:** User navigates to dashboard
 - **When:** Page loads
 - **Then:** Upcoming tab is selected by default
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-1.3: Tab switching works
 - **Given:** User is on dashboard with both tabs visible
 - **When:** User clicks "Past" tab
 - **Then:** Past events are displayed, tab shows selected state
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-1.4: Tab keyboard accessibility
 - **Given:** User focuses on tabs
 - **When:** User presses arrow keys
 - **Then:** Tab selection moves between Upcoming and Past
-- **Status:** ⬜
+- **Status:** ✅
 
 ---
 
@@ -48,19 +48,19 @@
 - **Given:** User attended events in the past (RSVP'd, event datetime passed)
 - **When:** User clicks "Past" tab
 - **Then:** Those events appear in the list
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-2.2: Past hosted events show
 - **Given:** User hosted events in the past (event datetime passed)
 - **When:** User clicks "Past" tab
 - **Then:** Those events appear with hosting indicator
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-2.3: Past events ordered by date
 - **Given:** User has multiple past events
 - **When:** User views Past tab
 - **Then:** Events are ordered by date (most recent first)
-- **Status:** ⬜
+- **Status:** ✅
 
 ---
 
@@ -70,19 +70,19 @@
 - **Given:** User has no upcoming events
 - **When:** Dashboard loads
 - **Then:** Empty state shows "No upcoming events yet" with NO CTA links
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-3.2: Participants empty state (no link)
 - **Given:** User has no upcoming events
 - **When:** Dashboard loads
 - **Then:** Participants section shows "Join an event to see participants" with NO CTA link
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-3.3: Past tab empty state
 - **Given:** User has no past events
 - **When:** User clicks "Past" tab
 - **Then:** Empty state shows appropriate message (no events attended yet)
-- **Status:** ⬜
+- **Status:** ✅
 
 ---
 
@@ -92,13 +92,13 @@
 - **Given:** User has 0 upcoming events
 - **When:** Dashboard loads
 - **Then:** "Discover Events" section is NOT visible
-- **Status:** ⬜
+- **Status:** ✅
 
 ### UAT-4.2: Visible when has upcoming events
 - **Given:** User has 1+ upcoming events AND public events exist
 - **When:** Dashboard loads
 - **Then:** "Discover Events" section IS visible
-- **Status:** ⬜
+- **Status:** ✅
 
 ---
 
@@ -108,4 +108,4 @@
 - **Given:** User is on /events page with no upcoming events
 - **When:** Page loads showing empty state
 - **Then:** Text says "Check back later or host your own!" but NO "Host Event" button (header has it)
-- **Status:** ⬜
+- **Status:** ✅
