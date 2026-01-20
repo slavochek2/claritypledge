@@ -141,18 +141,20 @@ export function HomePage() {
           Welcome back, {firstName}
         </h1>
 
-        {/* Quick Actions */}
+        {/* Quick Actions
+            UX: "Browse Events" is primary (blue) because most users want to join events.
+            "Host an Event" is secondary because hosting is less common action. */}
         <div className="flex flex-wrap gap-3">
           <Link
             to="/events"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-card hover:bg-accent transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
           >
             <CalendarIcon className="w-4 h-4" />
             Browse Events
           </Link>
           <Link
             to="/events/new"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-card hover:bg-accent transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
             Host an Event
@@ -214,8 +216,7 @@ export function HomePage() {
                     avatarColor={person.avatarColor}
                     avatarUrl={person.avatarUrl}
                     isPledger={person.hasPledged}
-                    action="invite"
-                    inviteSource="dashboard"
+                    action="going"
                   />
                 ))}
               </div>

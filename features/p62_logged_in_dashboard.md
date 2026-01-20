@@ -305,7 +305,7 @@ interface EventAttendee {
 | Event | When | Properties |
 |-------|------|------------|
 | `dashboard_viewed` | Page load | — |
-| `meeting_invite_clicked` | Click "Invite to a Clarity Meeting" | `source: 'dashboard' \| 'event_page'` |
+| ~~`meeting_invite_clicked`~~ | ~~Click "Invite to a Clarity Meeting"~~ | ~~`source: 'dashboard' \| 'event_page'`~~ — **REMOVED:** Invite button removed from PersonRow in favor of simpler status-only display |
 | `collaborate_form_submitted` | Form submit | `interests: string[]` |
 | `quick_action_clicked` | Click quick action | `action: 'start_meeting' \| 'host_event' \| 'collaborate'` |
 

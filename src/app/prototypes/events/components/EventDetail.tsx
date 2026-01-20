@@ -444,25 +444,18 @@ export function EventDetail() {
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
-                {(event.attendees ?? []).map(attendee => {
-                  // Determine action: invite (logged in, not self, active event) or status label
-                  const canInvite = isLoggedIn && user && attendee.profileId !== user.id && !isPast && !isCancelled;
-                  const action = canInvite ? "invite" : isPast ? "attended" : "going";
-
-                  return (
-                    <PersonRow
-                      key={attendee.profileId}
-                      profileId={attendee.profileId}
-                      slug={attendee.slug}
-                      name={attendee.name}
-                      avatarColor={attendee.avatarColor}
-                      avatarUrl={attendee.avatarUrl}
-                      isPledger={attendee.hasPledged}
-                      action={action}
-                      inviteSource="event_page"
-                    />
-                  );
-                })}
+                {(event.attendees ?? []).map(attendee => (
+                  <PersonRow
+                    key={attendee.profileId}
+                    profileId={attendee.profileId}
+                    slug={attendee.slug}
+                    name={attendee.name}
+                    avatarColor={attendee.avatarColor}
+                    avatarUrl={attendee.avatarUrl}
+                    isPledger={attendee.hasPledged}
+                    action={isPast ? "attended" : "going"}
+                  />
+                ))}
               </div>
             </div>
           </div>
