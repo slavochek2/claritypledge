@@ -163,7 +163,7 @@ Magic link emails are sent via Brevo SMTP, configured in Supabase Auth settings.
 ## Redirect URLs
 
 Magic links need correct redirect URLs configured in Supabase dashboard:
-- Development: `http://localhost:5173/auth/callback`
+- Development: `http://localhost:5001/auth/callback`
 - Production: `https://claritypledge.com/auth/callback`
 
 If magic links redirect to the wrong place, check these settings.
