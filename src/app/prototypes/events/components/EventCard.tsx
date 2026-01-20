@@ -8,16 +8,17 @@ interface EventCardProps {
   isLoggedIn?: boolean;
   userId?: string;  // Pass from parent (EventsList uses useAuth)
   isUserGoing?: boolean;  // RSVP status checked by parent
+  linkPrefix?: string;  // Override link base (e.g., '/prototype/events-mock')
 }
 
-export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = false }: EventCardProps) {
+export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = false, linkPrefix = '/events' }: EventCardProps) {
   const eventDate = new Date(event.datetime);
   const userIsHost = isLoggedIn && !!userId && event.hostId === userId;
   const isCancelled = event.status === 'cancelled';
 
   return (
     <Link
-      to={`/events/${event.slug}`}
+      to={`${linkPrefix}/${event.slug}`}
       className={`group block border border-border rounded-xl overflow-hidden bg-card transition-all duration-200 ${
         isCancelled
           ? 'opacity-60 hover:opacity-80'

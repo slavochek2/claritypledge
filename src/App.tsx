@@ -37,6 +37,7 @@ const PremiumPrototype = lazy(() => import("@/app/prototypes/premium").then(m =>
 const ConvergedPrototype = lazy(() => import("@/app/prototypes/converged").then(m => ({ default: m.ConvergedPrototype })));
 const LinkedInLikePrototype = lazy(() => import("@/app/prototypes/linkedin-like").then(m => ({ default: m.LinkedInLikePrototype })));
 const EventsPrototype = lazy(() => import("@/app/prototypes/events").then(m => ({ default: m.EventsPrototype })));
+const EventsMockPrototype = lazy(() => import("@/app/prototypes/events-mock").then(m => ({ default: m.EventsMockPrototype })));
 
 // Loading fallback for lazy routes
 function PageLoader() {
@@ -416,6 +417,7 @@ export default function ClarityPledgeApp() {
         <Route path="/prototype/premium/*" element={<LazyRoute><PremiumPrototype /></LazyRoute>} />
         <Route path="/prototype/converged/*" element={<LazyRoute><ConvergedPrototype /></LazyRoute>} />
         <Route path="/prototype/linkedin-like/*" element={<LazyRoute><LinkedInLikePrototype /></LazyRoute>} />
+        <Route path="/prototype/events-mock/*" element={<LazyRoute><EventsMockPrototype /></LazyRoute>} />
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>

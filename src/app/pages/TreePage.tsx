@@ -2,11 +2,6 @@ import { Link } from 'react-router-dom';
 
 const productionPages = [
   {
-    path: '/events',
-    label: 'Events',
-    description: 'Browse and RSVP to events (mock data in dev)'
-  },
-  {
     path: '/feed',
     label: 'Feed',
     description: 'Browse and vote on ideas'
@@ -24,6 +19,11 @@ const productionPages = [
 ];
 
 const prototypeRoutes = [
+  {
+    path: '/prototype/events-mock',
+    label: 'Events (Mock Data)',
+    description: 'Hardcoded events — safe for testing, works in prod'
+  },
   {
     path: '/prototype/linkedin-like/profile',
     label: 'LinkedIn-like',
