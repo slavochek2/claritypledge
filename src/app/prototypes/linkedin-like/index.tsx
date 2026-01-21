@@ -9,23 +9,37 @@ import { Topology } from './components/Topology';
 import { StoryDetail } from './components/StoryDetail';
 import { PointDetail } from './components/PointDetail';
 import { ExploreFeed } from './components/ExploreFeed';
+// New LinkedIn-style nav
+import { MyEvents } from './components/MyEvents';
 
 export function LinkedInLikePrototype() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="profile" replace />} />
-      <Route path="feed" element={<Feed />} />
-      <Route path="idea/:id" element={<IdeaDetail />} />
-      {/* P60: Story and Point routes */}
-      <Route path="story/:id" element={<StoryDetail />} />
-      <Route path="point/:id" element={<PointDetail />} />
-      <Route path="explore" element={<ExploreFeed />} />
+      {/* Default: go to Feed (discovery) */}
+      <Route path="/" element={<Navigate to="feed" replace />} />
+
+      {/* Primary nav routes */}
+      <Route path="feed" element={<ExploreFeed />} />
+      <Route path="my-events" element={<MyEvents />} />
       <Route path="profile" element={<Profile />} />
       <Route path="profile/:id" element={<Profile />} />
-      <Route path="chat" element={<Chat />} />
+
+      {/* Content detail pages */}
+      <Route path="idea/:id" element={<IdeaDetail />} />
+      <Route path="story/:id" element={<StoryDetail />} />
+      <Route path="point/:id" element={<PointDetail />} />
+
+      {/* Live sessions */}
       <Route path="live" element={<Live />} />
       <Route path="live/:ideaId" element={<Live />} />
+
+      {/* Legacy/other routes */}
+      <Route path="explore" element={<Navigate to="/prototype/linkedin-like/feed" replace />} />
+      <Route path="chat" element={<Chat />} />
       <Route path="topology" element={<Topology />} />
+
+      {/* Old feed route */}
+      <Route path="ideas" element={<Feed />} />
     </Routes>
   );
 }

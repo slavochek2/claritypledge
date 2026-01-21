@@ -13,9 +13,13 @@ interface PrototypeLayoutProps {
 
 export function PrototypeLayout({ children, hideHeader = false, hideBottomNav = false, className = '' }: PrototypeLayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {!hideHeader && <PrototypeHeader />}
-      <main className={`${className} ${!hideBottomNav ? 'pb-16 sm:pb-0' : ''}`}>
+      <main className={`
+        ${!hideHeader ? 'pt-16 lg:pt-20' : ''}
+        ${!hideBottomNav ? 'pb-20 lg:pb-0' : ''}
+        ${className}
+      `}>
         {children}
       </main>
       {!hideBottomNav && <BottomNav />}

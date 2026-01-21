@@ -45,16 +45,16 @@ export function ExploreFeed() {
 
   return (
     <PrototypeLayout>
-      <div className="max-w-lg mx-auto pb-8">
+      <div className="container mx-auto max-w-2xl px-4 py-6">
         {/* Header */}
-        <div className="px-4 py-4 bg-white border-b sticky top-0 z-10">
-          <h1 className="text-xl font-bold text-gray-900">Explore</h1>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Feed</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Discover stories and explore debates
+            Discover stories and points from others
           </p>
 
           {/* Filter tabs */}
-          <div className="flex gap-2 mt-3">
+          <div className="flex gap-2 mt-4">
             <FilterButton
               label="All"
               active={filter === 'all'}
@@ -64,19 +64,19 @@ export function ExploreFeed() {
               label="Stories"
               active={filter === 'stories'}
               onClick={() => setFilter('stories')}
-              activeColor="bg-blue-100 text-blue-700 border-blue-300"
+              activeColor="bg-blue-50 text-blue-700 border-blue-200"
             />
             <FilterButton
               label="Points"
               active={filter === 'points'}
               onClick={() => setFilter('points')}
-              activeColor="bg-slate-100 text-slate-700 border-slate-300"
+              activeColor="bg-gray-100 text-gray-700 border-gray-300"
             />
           </div>
         </div>
 
         {/* Feed items */}
-        <div className="px-2 pt-3 space-y-3">
+        <div className="space-y-4">
           {filteredItems.map(feedItem => (
             feedItem.type === 'story' ? (
               <StoryCard key={`story-${feedItem.item.id}`} story={feedItem.item} />
@@ -87,7 +87,7 @@ export function ExploreFeed() {
         </div>
 
         {filteredItems.length === 0 && (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-16">
             <p className="text-gray-500">No items to show</p>
           </div>
         )}

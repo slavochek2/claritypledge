@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Radio, User, Compass } from 'lucide-react';
+import { Newspaper, CalendarDays, User } from 'lucide-react';
+import { routes } from '../config';
 
 interface NavItem {
   path: string;
@@ -8,9 +9,9 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/prototype/linkedin-like/explore', label: 'Explore', icon: <Compass size={22} /> },
-  { path: '/prototype/linkedin-like/live', label: 'Live', icon: <Radio size={22} /> },
-  { path: '/prototype/linkedin-like/profile', label: 'Profile', icon: <User size={22} /> },
+  { path: routes.feed, label: 'Feed', icon: <Newspaper size={20} /> },
+  { path: routes.myEvents, label: 'My Events', icon: <CalendarDays size={20} /> },
+  { path: routes.profile, label: 'Profile', icon: <User size={20} /> },
 ];
 
 export function BottomNav() {
@@ -18,32 +19,37 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   const isActive = (path: string) => {
-    if (path.includes('/explore') && location.pathname.includes('/explore')) return true;
-    if (path.includes('/live') && location.pathname.includes('/live')) return true;
-    if (path.includes('/profile') && location.pathname.includes('/profile')) return true;
-    // Story and Point detail pages should highlight Explore
-    if (path.includes('/explore') && (location.pathname.includes('/story/') || location.pathname.includes('/point/'))) return true;
+    // Feed is active for feed, story, and point detail pages
+    if (path === routes.feed && (
+      location.pathname.includes('/feed') ||
+      location.pathname.includes('/story/') ||
+      location.pathname.includes('/point/')
+    )) return true;
+    if (path === routes.myEvents && location.pathname.includes('/my-events')) return true;
+    if (path === routes.profile && location.pathname.includes('/profile')) return true;
     return location.pathname === path;
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 sm:hidden">
-      {/* Bottom nav only visible on mobile (hidden on sm: and up) */}
-      <div className="flex items-center justify-around h-14 max-w-lg mx-auto">
-        {navItems.map((item) => (
-          <button
-            key={item.path}
-            onClick={() => navigate(item.path)}
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActive(item.path)
-                ? 'text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {item.icon}
-            <span className="text-xs mt-0.5 font-medium">{item.label}</span>
-          </button>
-        ))}
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 lg:hidden">
+      <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-4">
+        {navItems.map((item) => {
+          const active = isActive(item.path);
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center justify-center flex-1 h-full py-2 transition-colors ${
+                active
+                  ? 'text-blue-600'
+                  : 'text-gray-500 active:text-gray-700'
+              }`}
+            >
+              {item.icon}
+              <span className="text-xs mt-1 font-medium">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </nav>
   );

@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Zap, Globe, Users, Lock, Crosshair, MessageCircle, Share2, ExternalLink, BookOpen } from 'lucide-react';
+import { Zap, Globe, Users, Lock, Pin, MessageCircle, Share2, ExternalLink } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,8 +8,9 @@ import {
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory } from '../data/mock-data';
-import { PositionBadge } from './shared';
-import type { Story, Point } from '../../shared/types';
+import { PositionBadge, ShareDropdown } from './shared';
+import type { Story } from '../../shared/types';
+import type { PositionType } from '../../shared/types';
 
 interface StoryCardProps {
   story: Story;
@@ -38,8 +38,6 @@ export function StoryCard({
   onVerify,
 }: StoryCardProps) {
   const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(false);
-
   const author = getUserById(story.authorId);
   const linkedPoints = getPointsForStory(story.id);
 
@@ -137,7 +135,7 @@ export function StoryCard({
                     {(story.crossDisagreementCount ?? 0) > 0 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 text-blue-600 cursor-default">
+                          <span className="flex items-center gap-1 cursor-default">
                             <Zap size={14} />
                             {story.crossDisagreementCount}
                           </span>
@@ -186,85 +184,62 @@ export function StoryCard({
                   </div>
                 </div>
               </TooltipProvider>
+
+              {/* Quoted Points - Twitter quote style, always visible */}
+              {linkedPoints.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {linkedPoints.map(point => (
+                    <QuotedPoint
+                      key={point.id}
+                      point={point}
+                      authorName={author.name}
+                      authorId={story.authorId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.point(point.id));
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
-
-      {/* Linked Points section - Pattern B yellow border */}
-      {linkedPoints.length > 0 && (
-        <div className="border-t border-gray-100">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-            className="w-full px-4 py-2 flex items-center justify-between text-sm text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <Crosshair size={14} className="text-slate-500" />
-              Linked Points ({linkedPoints.length})
-            </span>
-            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
-
-          {expanded && (
-            <div className="px-4 py-2 space-y-2 bg-slate-50/50">
-              {linkedPoints.map(point => (
-                <LinkedPointRow
-                  key={point.id}
-                  point={point}
-                  authorId={story.authorId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.point(point.id));
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
 /**
- * Compact row showing a linked Point with position badges
+ * Twitter-style quoted Point card - always visible, not expandable
  */
-function LinkedPointRow({
+function QuotedPoint({
   point,
+  authorName,
   authorId,
   onClick
 }: {
   point: Point;
+  authorName: string;
   authorId: string;
   onClick: (e: React.MouseEvent) => void;
 }) {
-  const author = getUserById(authorId);
   const authorPosition = point.positions[authorId]?.position;
-  const yourPosition = point.positions['current']?.position;
 
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-2 rounded-lg hover:bg-slate-100 transition-colors"
+      className="w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
     >
-      <p className="text-sm text-gray-800 line-clamp-1">{point.text}</p>
-      <div className="flex items-center gap-3 mt-1 text-xs">
-        {authorPosition && (
-          <span className="text-gray-600">
-            {author?.name.split(' ')[0]}: <PositionBadge position={authorPosition} plural={false} variant="label" />
-          </span>
-        )}
-        {yourPosition ? (
-          <span className="text-gray-600">
-            You: <PositionBadge position={yourPosition} plural={false} variant="label" />
-          </span>
-        ) : (
-          <span className="text-gray-400">You: -</span>
-        )}
+      {/* Author position at top */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <Pin size={12} className="text-slate-400" />
+        <span className="text-xs text-gray-600">
+          {authorName.split(' ')[0]}: {authorPosition && <PositionBadge position={authorPosition} />}
+        </span>
       </div>
+      {/* Point text */}
+      <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
     </button>
   );
 }

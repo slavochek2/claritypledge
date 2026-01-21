@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarIcon, PlusIcon, CheckCircle2, Users } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
-import { routes } from '../config';
 import { currentUser } from '../data/mock-data';
 
 // Mock events data for prototype
@@ -73,10 +72,10 @@ export function MyEvents() {
 
   return (
     <PrototypeLayout>
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-8 md:py-12 max-w-6xl">
         {/* Welcome Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+        <div className="mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
             Welcome back, {firstName}
           </h1>
 
@@ -84,21 +83,21 @@ export function MyEvents() {
           <div className="flex flex-wrap gap-3">
             <Link
               to="/events"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors shadow-sm"
             >
               <CalendarIcon className="w-4 h-4" />
               Browse Events
             </Link>
             <Link
               to="/events/new"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
             >
               <PlusIcon className="w-4 h-4" />
               Host an Event
             </Link>
             <Link
               to="/co-create"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
             >
               <Users className="w-4 h-4" />
               Co-create
@@ -107,16 +106,16 @@ export function MyEvents() {
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Participants Section */}
-          <section className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-lg font-semibold mb-3 pb-2 border-b">
+          <section>
+            <h2 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">
               Participants of Your Next Event
             </h2>
 
             {mockUpcomingEvents.length > 0 ? (
               <div>
-                <p className="text-sm text-gray-500 mb-3">
+                <p className="text-sm text-gray-500 mb-4">
                   {mockUpcomingEvents[0].title} — {formatEventDate(mockUpcomingEvents[0].datetime)}
                 </p>
                 <div className="space-y-2">
@@ -126,7 +125,7 @@ export function MyEvents() {
                 </div>
               </div>
             ) : (
-              <div className="bg-gray-50 rounded-lg p-6 text-center">
+              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
                 <p className="text-gray-500">
                   Join an event to see participants
                 </p>
@@ -135,13 +134,13 @@ export function MyEvents() {
           </section>
 
           {/* Events Section */}
-          <section className="bg-white rounded-xl border border-gray-200 p-4">
-            <h2 className="text-lg font-semibold mb-3 pb-2 border-b">
+          <section>
+            <h2 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">
               Your Events
             </h2>
 
             {/* Tabs */}
-            <div className="flex gap-1 mb-4">
+            <div className="flex gap-1 mb-4" role="tablist">
               <TabButton
                 label={`Upcoming (${mockUpcomingEvents.length})`}
                 active={eventsTab === 'upcoming'}
@@ -162,7 +161,7 @@ export function MyEvents() {
                     <EventRow key={event.id} event={event} />
                   ))
                 ) : (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
                     <p className="text-gray-500">No upcoming events yet</p>
                   </div>
                 )}
@@ -174,7 +173,7 @@ export function MyEvents() {
                     <EventRow key={event.id} event={event} />
                   ))
                 ) : (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
                     <p className="text-gray-500">No past events yet</p>
                   </div>
                 )}
@@ -183,8 +182,8 @@ export function MyEvents() {
 
             {/* Discover Events */}
             {mockUpcomingEvents.length > 0 && mockDiscoverEvents.length > 0 && (
-              <div className="mt-6 pt-4 border-t">
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                   Discover Events
                 </h3>
                 <div className="space-y-2">
@@ -194,9 +193,9 @@ export function MyEvents() {
                 </div>
                 <Link
                   to="/events"
-                  className="block text-center text-sm text-blue-500 hover:text-blue-600 mt-3"
+                  className="block text-center text-sm text-blue-600 hover:text-blue-700 font-medium mt-4"
                 >
-                  See all events &rarr;
+                  See all events →
                 </Link>
               </div>
             )}
@@ -213,9 +212,9 @@ function PersonRow({ person }: { person: { id: string; name: string; avatarColor
   const initials = person.name.split(' ').map(n => n[0]).join('').slice(0, 2);
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
       <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm shrink-0"
         style={{ backgroundColor: person.avatarColor }}
       >
         {initials}
@@ -223,7 +222,7 @@ function PersonRow({ person }: { person: { id: string; name: string; avatarColor
       <div className="flex-1 min-w-0">
         <p className="font-medium text-gray-900 truncate">{person.name}</p>
       </div>
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 border border-green-200">
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 shrink-0">
         <CheckCircle2 className="w-3 h-3" />
         Going
       </span>
@@ -244,9 +243,9 @@ function EventRow({ event, isDiscover = false }: {
   return (
     <Link
       to={`/events/${event.id}`}
-      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+      className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all"
     >
-      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
         <CalendarIcon className="w-5 h-5 text-blue-600" />
       </div>
       <div className="flex-1 min-w-0">
@@ -254,10 +253,10 @@ function EventRow({ event, isDiscover = false }: {
         <p className="text-sm text-gray-500">{formatEventDate(event.datetime)}</p>
       </div>
       {!isDiscover && (
-        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full shrink-0 ${
           event.isHosting
-            ? 'bg-blue-100 text-blue-700 border border-blue-200'
-            : 'bg-green-100 text-green-700 border border-green-200'
+            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+            : 'bg-green-50 text-green-700 border border-green-200'
         }`}>
           <CheckCircle2 className="w-3 h-3" />
           {event.isHosting ? 'Hosting' : 'Going'}
@@ -270,6 +269,8 @@ function EventRow({ event, isDiscover = false }: {
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
         active
