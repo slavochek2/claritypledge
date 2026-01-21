@@ -6,6 +6,10 @@ export const ROUTE_BASE = '/prototype/linkedin-like';
 export const routes = {
   feed: `${ROUTE_BASE}/feed`,
   idea: (id: string) => `${ROUTE_BASE}/idea/${id}`,
+  // P60: Story and Point routes
+  story: (id: string) => `${ROUTE_BASE}/story/${id}`,
+  point: (id: string) => `${ROUTE_BASE}/point/${id}`,
+  explore: `${ROUTE_BASE}/explore`,
   profile: `${ROUTE_BASE}/profile`,
   profileById: (id: string) => `${ROUTE_BASE}/profile/${id}`,
   chat: `${ROUTE_BASE}/chat`,
@@ -18,8 +22,8 @@ export const routes = {
 // Navigation tabs configuration
 export const navTabs = [
   { id: 'feed', label: 'Ideas', path: routes.feed },
+  { id: 'explore', label: 'Explore', path: routes.explore },
   { id: 'chat', label: 'Chat', path: routes.chat },
   { id: 'live', label: 'Live', path: routes.live },
   { id: 'profile', label: 'Profile', path: routes.profile },
-  { id: 'topology', label: 'Network', path: routes.topology },
 ] as const;

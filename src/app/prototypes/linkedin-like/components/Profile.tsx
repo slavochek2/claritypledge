@@ -1,10 +1,17 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Zap } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { PrototypeLayout } from './PrototypeLayout';
-import { IdeaCard } from './IdeaCard';
+import { PointCard } from './PointCard';
+import { StoryCard } from './StoryCard';
 import { FilterTabs, type PositionFilter } from './shared/FilterTabs';
-import { getUserById, mockIdeas, currentUser, getUserMetrics, getUserCalibration } from '../data/mock-data';
+import { getUserById, currentUser, getUserMetrics, getUserCalibration, mockPoints, mockStories } from '../data/mock-data';
 import { CalibrationDisplay } from './shared/CalibrationDisplay';
 import { routes } from '../config';
 import {
@@ -14,8 +21,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import type { Point, Story } from '../../shared/types';
 
 type IdeaVisibility = 'public' | 'shared' | 'private';
+type ContentTab = 'points' | 'stories';
 
 export function Profile() {
   const { id } = useParams<{ id: string }>();
@@ -27,30 +36,36 @@ export function Profile() {
   const [activeFilter, setActiveFilter] = useState<PositionFilter>('all');
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [contentTab, setContentTab] = useState<ContentTab>('points');
 
   const isOwnProfile = !id || id === 'current';
   const user = isOwnProfile ? currentUser : getUserById(id || '');
 
-  // Get ideas where this user has a position
-  const userPositions = mockIdeas.filter(
-    (idea) =>
-      idea.positions[user?.id || ''] !== null &&
-      idea.positions[user?.id || ''] !== undefined
+  // Get Points where this user has taken a position
+  const userPoints = mockPoints.filter(
+    (point) =>
+      point.positions[user?.id || ''] !== null &&
+      point.positions[user?.id || ''] !== undefined
   );
 
-  // Calculate counts for each position
-  const counts = {
-    all: userPositions.length,
-    agree: userPositions.filter(idea => idea.positions[user?.id || '']?.position === 'agree').length,
-    disagree: userPositions.filter(idea => idea.positions[user?.id || '']?.position === 'disagree').length,
-    dont_know: userPositions.filter(idea => idea.positions[user?.id || '']?.position === 'dont_know').length,
+  // Get Stories authored by this user
+  const userStories = mockStories.filter(
+    (story) => story.authorId === user?.id
+  );
+
+  // Calculate counts for Points filter
+  const pointsCounts = {
+    all: userPoints.length,
+    agree: userPoints.filter(p => p.positions[user?.id || '']?.position === 'agree').length,
+    disagree: userPoints.filter(p => p.positions[user?.id || '']?.position === 'disagree').length,
+    dont_know: userPoints.filter(p => p.positions[user?.id || '']?.position === 'dont_know').length,
   };
 
-  // Filter by position
-  const filteredPositions = activeFilter === 'all'
-    ? userPositions
-    : userPositions.filter((idea) => {
-        const entry = idea.positions[user?.id || ''];
+  // Filter Points by position
+  const filteredPoints = activeFilter === 'all'
+    ? userPoints
+    : userPoints.filter((point) => {
+        const entry = point.positions[user?.id || ''];
         return entry?.position === activeFilter;
       });
 
@@ -117,43 +132,111 @@ export function Profile() {
                 {(() => {
                   const metrics = getUserMetrics(user.id);
                   return (
-                    <div className="flex items-center gap-5 mt-3 pt-3 border-t border-gray-100 text-gray-500">
-                      <span className="flex items-center gap-1.5 text-sm">
-                        <Users size={16} />
-                        <span>{metrics.positionsTaken}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5 text-sm">
-                        <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
-                        <span>{metrics.claritySessions}</span>
-                      </span>
-                      <span className={`flex items-center gap-1.5 text-sm ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                        <Zap size={16} />
-                        <span>{metrics.crossVerifications}</span>
-                      </span>
-                    </div>
+                    <TooltipProvider delayDuration={100}>
+                      <div className="flex items-center gap-5 mt-3 pt-3 border-t border-gray-100 text-gray-500">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center gap-1.5 text-sm cursor-default">
+                              <Users size={16} />
+                              <span>{metrics.positionsTaken}</span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Positions taken on Points</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex items-center gap-1.5 text-sm cursor-default">
+                              <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
+                              <span>{metrics.claritySessions}</span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Clarity sessions completed</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`flex items-center gap-1.5 text-sm cursor-default ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                              <Zap size={16} />
+                              <span>{metrics.crossVerifications}</span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Cross-disagreement verifications</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TooltipProvider>
                   );
                 })()}
               </div>
 
-              {/* Position filter tabs */}
-              <div className="bg-white border-x border-b border-gray-200 rounded-b-lg">
-                <FilterTabs
-                  activeFilter={activeFilter}
-                  onFilterChange={setActiveFilter}
-                  counts={counts}
-                />
+              {/* Content tab selector + Position filter tabs (combined for Points) */}
+              <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
+                {/* Points / Stories tabs */}
+                <div className="flex border-b border-gray-200">
+                  <button
+                    onClick={() => setContentTab('points')}
+                    className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                      contentTab === 'points'
+                        ? 'text-slate-900'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Points ({userPoints.length})
+                    {contentTab === 'points' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-600" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setContentTab('stories')}
+                    className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                      contentTab === 'stories'
+                        ? 'text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Stories ({userStories.length})
+                    {contentTab === 'stories' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                    )}
+                  </button>
+                </div>
+
+                {/* Position filter tabs - only for Points */}
+                {contentTab === 'points' && (
+                  <FilterTabs
+                    activeFilter={activeFilter}
+                    onFilterChange={setActiveFilter}
+                    counts={pointsCounts}
+                  />
+                )}
               </div>
 
-              {/* Ideas list */}
-              <div className="pt-4 space-y-2">
-                {filteredPositions.length === 0 ? (
-                  <div className="bg-white rounded-lg p-8 text-center">
-                    <p className="text-gray-500">No ideas engaged with yet</p>
-                  </div>
+              {/* Content list */}
+              <div className="pt-4 space-y-3">
+                {contentTab === 'points' ? (
+                  filteredPoints.length === 0 ? (
+                    <div className="bg-white rounded-lg p-8 text-center">
+                      <p className="text-gray-500">No positions taken yet</p>
+                    </div>
+                  ) : (
+                    filteredPoints.map((point) => (
+                      <PointCard key={point.id} point={point} />
+                    ))
+                  )
                 ) : (
-                  filteredPositions.map((idea) => (
-                    <IdeaCard key={idea.id} idea={idea} profileUserId={user.id} />
-                  ))
+                  userStories.length === 0 ? (
+                    <div className="bg-white rounded-lg p-8 text-center">
+                      <p className="text-gray-500">No stories shared yet</p>
+                    </div>
+                  ) : (
+                    userStories.map((story) => (
+                      <StoryCard key={story.id} story={story} />
+                    ))
+                  )
                 )}
               </div>
           </div>
@@ -218,20 +301,43 @@ export function Profile() {
               {(() => {
                 const metrics = getUserMetrics(user.id);
                 return (
-                  <div className="flex items-center gap-5 mt-3 pt-3 border-t border-gray-100 text-gray-500">
-                    <span className="flex items-center gap-1.5 text-sm">
-                      <Users size={16} />
-                      <span>{metrics.positionsTaken}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 text-sm">
-                      <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
-                      <span>{metrics.claritySessions}</span>
-                    </span>
-                    <span className={`flex items-center gap-1.5 text-sm ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                      <Zap size={16} />
-                      <span>{metrics.crossVerifications}</span>
-                    </span>
-                  </div>
+                  <TooltipProvider delayDuration={100}>
+                    <div className="flex items-center gap-5 mt-3 pt-3 border-t border-gray-100 text-gray-500">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1.5 text-sm cursor-default">
+                            <Users size={16} />
+                            <span>{metrics.positionsTaken}</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Positions taken on Points</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1.5 text-sm cursor-default">
+                            <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
+                            <span>{metrics.claritySessions}</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clarity sessions completed</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`flex items-center gap-1.5 text-sm cursor-default ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                            <Zap size={16} />
+                            <span>{metrics.crossVerifications}</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Cross-disagreement verifications</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
                 );
               })()}
             </div>
@@ -325,28 +431,75 @@ export function Profile() {
               </div>
             </div>
 
-            {/* Position filter tabs */}
-            <div className="bg-white mt-3 border border-gray-200 rounded-lg">
-              <FilterTabs
-                activeFilter={activeFilter}
-                onFilterChange={setActiveFilter}
-                counts={counts}
-              />
+            {/* Content tab selector + Position filter tabs (combined for Points) */}
+            <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
+              {/* Points / Stories tabs */}
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setContentTab('points')}
+                  className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                    contentTab === 'points'
+                      ? 'text-slate-900'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Points ({userPoints.length})
+                  {contentTab === 'points' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-600" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setContentTab('stories')}
+                  className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                    contentTab === 'stories'
+                      ? 'text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Stories ({userStories.length})
+                  {contentTab === 'stories' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                  )}
+                </button>
+              </div>
+
+              {/* Position filter tabs - only for Points */}
+              {contentTab === 'points' && (
+                <FilterTabs
+                  activeFilter={activeFilter}
+                  onFilterChange={setActiveFilter}
+                  counts={pointsCounts}
+                />
+              )}
             </div>
 
-            {/* Ideas list */}
-            <div className="pt-4 space-y-2">
-              {filteredPositions.length === 0 ? (
-                <div className="bg-white rounded-lg p-8 text-center">
-                  <p className="text-gray-500">
-                    {activeFilter === 'all'
-                      ? 'No ideas engaged with yet'
-                      : `No ideas you ${activeFilter === 'agree' ? 'agreed with' : activeFilter === 'disagree' ? 'disagreed with' : "are unsure about"}`
-                    }
-                  </p>
-                </div>
+            {/* Content list */}
+            <div className="pt-4 space-y-3">
+              {contentTab === 'points' ? (
+                filteredPoints.length === 0 ? (
+                  <div className="bg-white rounded-lg p-8 text-center">
+                    <p className="text-gray-500">
+                      {activeFilter === 'all'
+                        ? 'No positions taken yet'
+                        : `No points you ${activeFilter === 'agree' ? 'agreed with' : activeFilter === 'disagree' ? 'disagreed with' : "are unsure about"}`
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  filteredPoints.map((point) => (
+                    <PointCard key={point.id} point={point} />
+                  ))
+                )
               ) : (
-                filteredPositions.map((idea) => <IdeaCard key={idea.id} idea={idea} />)
+                userStories.length === 0 ? (
+                  <div className="bg-white rounded-lg p-8 text-center">
+                    <p className="text-gray-500">No stories shared yet</p>
+                  </div>
+                ) : (
+                  userStories.map((story) => (
+                    <StoryCard key={story.id} story={story} />
+                  ))
+                )
               )}
             </div>
         </div>

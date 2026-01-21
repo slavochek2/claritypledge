@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Plus, ChevronDown, User, Settings, LogOut } from 'lucide-react';
+import { Plus, ChevronDown, User, Settings, LogOut, Compass, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { currentUser } from '../data/mock-data';
 
@@ -64,6 +64,27 @@ export function PrototypeHeader() {
 
                   {/* Dropdown menu */}
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1">
+                    {/* Navigation items - hidden on mobile where bottom nav shows */}
+                    <div className="hidden sm:block">
+                      <Link
+                        to="/prototype/linkedin-like/explore"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Compass size={16} />
+                        Explore
+                      </Link>
+                      <Link
+                        to="/prototype/linkedin-like/live"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <Radio size={16} />
+                        Live
+                      </Link>
+                      <div className="border-t border-gray-100 my-1" />
+                    </div>
+
                     <Link
                       to="/prototype/linkedin-like/profile"
                       onClick={() => setDropdownOpen(false)}

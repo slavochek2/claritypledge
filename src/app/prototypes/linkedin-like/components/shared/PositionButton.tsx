@@ -17,20 +17,20 @@ interface PositionButtonProps {
 const config = {
   agree: {
     label: 'Agree',
-    activeClass: 'bg-emerald-500 text-white border-emerald-500',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
+    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
     icon: '✓',
   },
   disagree: {
     label: 'Disagree',
-    activeClass: 'bg-rose-500 text-white border-rose-500',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
+    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
     icon: '✗',
   },
   dont_know: {
     label: 'Unsure',
-    activeClass: 'bg-gray-500 text-white border-gray-500',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+    activeClass: 'bg-gray-500 text-white border-gray-500 hover:bg-gray-600 hover:border-gray-600',
+    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
     icon: '?',
   },
 };

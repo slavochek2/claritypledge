@@ -3,7 +3,7 @@
  * @description Unit tests for PersonRow component.
  * Tests avatar rendering, name display, pledger status, and action states.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { PersonRow } from '@/app/components/shared/PersonRow';

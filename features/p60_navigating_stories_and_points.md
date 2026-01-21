@@ -186,7 +186,7 @@ Home/Feed
 
 Current prototype structure:
 ```
-/prototype/premium/
+/prototype/linkedin-like/
 ├── Feed.tsx (shows Ideas - needs Story/Point distinction)
 ├── IdeaDetail.tsx (needs split into StoryDetail + PointDetail)
 ├── Live.tsx (P55 verification - keep as-is)
