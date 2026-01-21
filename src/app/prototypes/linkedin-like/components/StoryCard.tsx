@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Zap, Globe, Users, Lock, BookOpen, Crosshair, MessageCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Zap, Globe, Users, Lock, BookOpen, Crosshair, MessageCircle, Share2 } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -154,15 +154,30 @@ export function StoryCard({
                       </Tooltip>
                     )}
                   </div>
-                  {showVerifyButton && (
-                    <button
-                      onClick={onVerify}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
-                    >
-                      <MessageCircle size={12} />
-                      Verify
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {showVerifyButton && (
+                      <button
+                        onClick={onVerify}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                      >
+                        <MessageCircle size={12} />
+                        Verify
+                      </button>
+                    )}
+                    {/* Share button - always visible for mobile accessibility */}
+                    {!isDetailView && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // TODO: Share functionality
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                        aria-label="Share story"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </TooltipProvider>
             </div>

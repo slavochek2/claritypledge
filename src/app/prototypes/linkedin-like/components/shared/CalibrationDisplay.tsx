@@ -1,6 +1,20 @@
 import { useState } from 'react';
-import { HelpCircle, Ear, MessageCircle } from 'lucide-react';
-import type { UserCalibration, CalibrationState, RoleCalibration } from '../../../shared/types';
+import { HelpCircle } from 'lucide-react';
+import type { UserCalibration, RoleCalibration } from '../../../shared/types';
+
+/**
+ * Help text for each calibration role.
+ */
+const HELP_TEXT = {
+  listener: {
+    title: 'Listener Calibration',
+    description: 'How well you predict your own understanding when listening. Green = accurate self-assessment. Red = over or underestimating.',
+  },
+  speaker: {
+    title: 'Speaker Calibration',
+    description: 'How well you predict if others understood you when speaking. Green = accurate self-assessment. Red = over or underestimating.',
+  },
+};
 
 interface CalibrationDisplayProps {
   calibration: UserCalibration;
@@ -12,16 +26,14 @@ interface CalibrationDisplayProps {
 
 /**
  * Combined calibration display card with header.
- * Contains both Listener and Speaker mini-displays.
+ * Contains both Listener and Speaker mini-displays, each with their own help tooltip.
  */
 export function CalibrationDisplay({
   calibration,
   comparisonCalibration,
   userLabel,
 }: CalibrationDisplayProps) {
-  const [showHelp, setShowHelp] = useState(false);
   const hasComparison = !!comparisonCalibration;
-  const totalSessions = calibration.listener.sessionCount + calibration.speaker.sessionCount;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -30,22 +42,7 @@ export function CalibrationDisplay({
         <h3 className="text-sm font-medium text-gray-700">
           {userLabel ? `${userLabel}'s` : 'Your'} Self-Awareness
         </h3>
-        <button
-          onClick={() => setShowHelp(!showHelp)}
-          className="text-gray-300 hover:text-gray-500"
-          aria-label="What is this?"
-        >
-          <HelpCircle size={16} />
-        </button>
       </div>
-
-      {/* Help panel */}
-      {showHelp && (
-        <div className="mb-3 p-2 bg-gray-50 rounded text-xs text-gray-500">
-          <p>Based on {totalSessions} clarity sessions.</p>
-          <p className="mt-1">Compares self-estimated understanding vs actual ratings.</p>
-        </div>
-      )}
 
       {/* Legend - only when comparing */}
       {hasComparison && (
@@ -61,19 +58,19 @@ export function CalibrationDisplay({
         </div>
       )}
 
-      {/* Calibration rows with spectrum */}
+      {/* Calibration rows with spectrum - each has own help */}
       <div className="space-y-4">
         <CalibrationRow
-          label="Listener"
+          role="listener"
           gap={calibration.listener.avgGap}
-          state={calibration.listener.state}
+          sessionCount={calibration.listener.sessionCount}
           comparisonGap={comparisonCalibration?.listener.avgGap}
           hasComparison={hasComparison}
         />
         <CalibrationRow
-          label="Speaker"
+          role="speaker"
           gap={calibration.speaker.avgGap}
-          state={calibration.speaker.state}
+          sessionCount={calibration.speaker.sessionCount}
           comparisonGap={comparisonCalibration?.speaker.avgGap}
           hasComparison={hasComparison}
         />
@@ -97,22 +94,38 @@ export function MiniCalibrationDisplay({
   comparisonCalibration?: RoleCalibration | null;
   userLabel?: string;
 }) {
-  const Icon = role === 'listener' ? Ear : MessageCircle;
+  const [showHelp, setShowHelp] = useState(false);
   const label = role === 'listener' ? 'Listener' : 'Speaker';
+  const help = HELP_TEXT[role];
   const hasComparison = !!comparisonCalibration;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3">
-      {/* Header with icon */}
-      <div className="flex items-center gap-2 mb-2">
-        <Icon size={14} className="text-gray-400" />
+      {/* Header with help icon */}
+      <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-gray-600">{label}</span>
-        {hasComparison && (
-          <span className="text-[10px] text-gray-400 ml-auto">
-            vs {userLabel || 'you'}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {hasComparison && (
+            <span className="text-[10px] text-gray-400">
+              vs {userLabel || 'you'}
+            </span>
+          )}
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="text-gray-300 hover:text-gray-500"
+            aria-label={`What is ${label.toLowerCase()} calibration?`}
+          >
+            <HelpCircle size={12} />
+          </button>
+        </div>
       </div>
+
+      {/* Help tooltip */}
+      {showHelp && (
+        <div className="mb-2 p-2 bg-gray-50 rounded text-xs text-gray-500">
+          <p>{help.description}</p>
+        </div>
+      )}
 
       {/* Spectrum bar */}
       <CalibrationBar
@@ -124,32 +137,52 @@ export function MiniCalibrationDisplay({
 }
 
 /**
- * Calibration row with colored spectrum and dots.
- * Spectrum: Orange (overconfident) → Gray (calibrated) → Teal (underconfident)
+ * Calibration row with colored spectrum, help icon, and dots.
+ * Spectrum: Red (overconfident) → Green (calibrated) → Red (underconfident)
  *
  * Color rationale:
- * - Orange (warm) = overconfident = "running hot"
- * - Gray (neutral) = calibrated = accurate self-assessment
- * - Teal (cool) = underconfident = "running cold"
+ * - Red (both ends) = miscalibrated = bad (over or underconfident)
+ * - Green (middle) = calibrated = accurate self-assessment = good
  */
 function CalibrationRow({
-  label,
+  role,
   gap,
+  sessionCount,
   comparisonGap,
   hasComparison,
 }: {
-  label: string;
+  role: 'listener' | 'speaker';
   gap: number;
-  state: CalibrationState;
+  sessionCount: number;
   comparisonGap?: number;
   hasComparison?: boolean;
 }) {
+  const [showHelp, setShowHelp] = useState(false);
+  const label = role === 'listener' ? 'Listener' : 'Speaker';
+  const help = HELP_TEXT[role];
+
   return (
     <div>
-      {/* Label only - no state text */}
-      <div className="mb-1.5">
+      {/* Label with help icon */}
+      <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs text-gray-500">{label}</span>
+        <button
+          onClick={() => setShowHelp(!showHelp)}
+          className="text-gray-300 hover:text-gray-500"
+          aria-label={`What is ${label.toLowerCase()} calibration?`}
+        >
+          <HelpCircle size={14} />
+        </button>
       </div>
+
+      {/* Help tooltip */}
+      {showHelp && (
+        <div className="mb-2 p-2 bg-gray-50 rounded text-xs text-gray-500">
+          <p className="font-medium text-gray-600">{help.title}</p>
+          <p className="mt-0.5">{help.description}</p>
+          <p className="mt-1 text-gray-400">Based on {sessionCount} sessions.</p>
+        </div>
+      )}
 
       <CalibrationBar
         gap={gap}
@@ -161,7 +194,10 @@ function CalibrationRow({
 
 /**
  * Shared spectrum bar component.
- * Spectrum: Orange (overconfident) → Gray (calibrated) → Teal (underconfident)
+ * Spectrum: Red (overconfident) → Green (calibrated) → Red (underconfident)
+ *
+ * Both extremes are red because both over and underconfidence are bad.
+ * Green in the middle = calibrated = good.
  */
 function CalibrationBar({
   gap,
@@ -181,8 +217,8 @@ function CalibrationBar({
 
   return (
     <div className="relative h-2 rounded-full overflow-hidden" style={{
-      // Orange → Gray → Teal gradient
-      background: 'linear-gradient(to right, #f97316, #9ca3af 50%, #14b8a6)'
+      // Red → Green → Red gradient (both extremes are bad)
+      background: 'linear-gradient(to right, #ef4444, #22c55e 50%, #ef4444)'
     }}>
       {/* Comparison dot (you) - smaller, lighter */}
       {comparisonPosition !== null && (

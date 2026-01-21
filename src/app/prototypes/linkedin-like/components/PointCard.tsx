@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, ChevronDown, ChevronUp, ExternalLink, Share2, BookOpen, Crosshair } from 'lucide-react';
+import { Users, ChevronDown, ChevronUp, Share2, BookOpen, Crosshair } from 'lucide-react';
 import { routes } from '../config';
 import {
   getUserById,
@@ -27,7 +27,6 @@ export function PointCard({ point, compact = false, isDetailView = false }: Poin
     point.positions['current']?.position || null
   );
   const [expanded, setExpanded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   const linkedStories = getStoriesForPoint(point.id);
   const counts = getPointPositionCounts(point);
@@ -52,14 +51,12 @@ export function PointCard({ point, compact = false, isDetailView = false }: Poin
     <div
       className={cardClassName}
       onClick={handleCardClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Main content */}
       <div className="p-4">
         {/* Header - no avatar, just Point label with icon */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded-full">
+        <div className="flex items-center justify-end mb-3">
+          <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
             <Crosshair size={12} />
             Point
           </span>
@@ -97,29 +94,18 @@ export function PointCard({ point, compact = false, isDetailView = false }: Poin
             )}
           </div>
 
-          {/* Action buttons - show on hover (not in detail view) */}
+          {/* Share button - always visible for mobile, hover effect for desktop */}
           {!isDetailView && (
-            <div className={`flex items-center gap-1 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(routes.point(point.id));
-                }}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
-              >
-                <ExternalLink size={12} />
-                Open
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // TODO: Share functionality
-                }}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Share2 size={14} />
-              </button>
-            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                // TODO: Share functionality
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Share point"
+            >
+              <Share2 size={14} />
+            </button>
           )}
         </div>
       </div>

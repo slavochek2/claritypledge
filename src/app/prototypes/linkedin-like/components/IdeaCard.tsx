@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Share2, Check, Copy, Zap, Users, ExternalLink, Globe, Lock } from 'lucide-react';
+import { Share2, Check, Copy, Zap, Users, Globe, Lock } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
 import { PositionButtons } from './shared';
 import { routes } from '../config';
@@ -36,7 +36,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   const [showDeleteIdeaConfirm, setShowDeleteIdeaConfirm] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Check if we're on a profile page
   const isOnProfilePage = location.pathname.includes('/profile');
@@ -153,8 +152,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
       <div
         className={cardClassName}
         onClick={handleCardClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Twitter-style layout: avatar on left, content indented */}
         <div className="flex gap-3 px-4 pt-3">
@@ -276,19 +273,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
               </div>
               {/* Right side buttons */}
               <div className="flex items-center gap-1">
-                {/* Open button - visible on hover (not in detail view) */}
-                {isHovered && !isDetailView && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.idea(idea.id));
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-full hover:bg-blue-600 transition-colors"
-                  >
-                    <ExternalLink size={14} />
-                    Open
-                  </button>
-                )}
                 {/* Share button */}
               <Tooltip>
                   <TooltipTrigger asChild>
