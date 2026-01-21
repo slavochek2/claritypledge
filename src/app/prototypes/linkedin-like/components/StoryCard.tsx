@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Globe, Users, Lock, Pin, MessageCircle, ExternalLink } from 'lucide-react';
+import { Zap, Globe, Users, Lock, Pin, MessageCircle, ExternalLink, Radio, BookOpen } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -7,8 +8,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
-import { getUserById, formatTimeAgo, getPointsForStory } from '../data/mock-data';
-import { PositionBadge, ShareDropdown } from './shared';
+import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts } from '../data/mock-data';
+import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
 import type { Story } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 
@@ -22,6 +23,8 @@ interface StoryCardProps {
   showVerifyButton?: boolean;
   /** Callback for verify button */
   onVerify?: (e: React.MouseEvent) => void;
+  /** Hide expanded linked Points (show count only). Use when displaying inside a Point context. */
+  hideLinkedPoints?: boolean;
 }
 
 /**
@@ -36,6 +39,7 @@ export function StoryCard({
   authorPosition,
   showVerifyButton = false,
   onVerify,
+  hideLinkedPoints = false,
 }: StoryCardProps) {
   const navigate = useNavigate();
   const author = getUserById(story.authorId);
@@ -81,31 +85,52 @@ export function StoryCard({
             <div className="flex-1 min-w-0">
               {/* Author info row */}
               <div className="mb-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.profileById(author.id));
-                    }}
-                    className="font-semibold text-gray-900 hover:underline text-sm"
-                  >
-                    {author.name}
-                  </button>
-                  {authorPosition && (
-                    <PositionBadge position={authorPosition} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.profileById(author.id));
+                      }}
+                      className="font-semibold text-gray-900 hover:underline text-sm"
+                    >
+                      {author.name}
+                    </button>
+                    {authorPosition && (
+                      <PositionBadge position={authorPosition} />
+                    )}
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-gray-400 cursor-default">
+                            <PrivacyIcon size={12} />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{privacyLabel}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  {/* Action buttons - appear on hover (always visible on touch devices) */}
+                  {!isDetailView && (
+                    <div
+                      className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(routes.story(story.id));
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
+                      >
+                        <ExternalLink size={12} />
+                        Open
+                      </button>
+                      <ShareDropdown type="story" id={story.id} />
+                    </div>
                   )}
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-gray-400 cursor-default">
-                          <PrivacyIcon size={12} />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{privacyLabel}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </div>
                 <p className="text-xs text-gray-500">
                   {author.role} · {formatTimeAgo(story.createdAt)}
@@ -121,10 +146,23 @@ export function StoryCard({
               <TooltipProvider delayDuration={100}>
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
+                    {/* 1. Linked points count */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex items-center gap-1 cursor-default">
-                          <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
+                          <Pin size={14} />
+                          {linkedPoints.length}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Linked points</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    {/* 2. Clarity sessions (antenna/live icon) */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <Radio size={14} />
                           {story.verificationCount}
                         </span>
                       </TooltipTrigger>
@@ -132,54 +170,33 @@ export function StoryCard({
                         <p>Clarity sessions completed</p>
                       </TooltipContent>
                     </Tooltip>
-                    {(story.crossDisagreementCount ?? 0) > 0 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 cursor-default">
-                            <Zap size={14} />
-                            {story.crossDisagreementCount}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Cross-disagreement verifications</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                    {/* 3. Clarity across disagreement (lightning) */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <Zap size={14} />
+                          {story.crossDisagreementCount ?? 0}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clarity across disagreement</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {showVerifyButton && (
-                      <button
-                        onClick={onVerify}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
-                      >
-                        <MessageCircle size={12} />
-                        Verify
-                      </button>
-                    )}
-                    {/* Action buttons - appear on hover */}
-                    {!isDetailView && (
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(routes.story(story.id));
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
-                        >
-                          <ExternalLink size={12} />
-                          Open
-                        </button>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <ShareDropdown type="story" id={story.id} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {showVerifyButton && (
+                    <button
+                      onClick={onVerify}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                    >
+                      <MessageCircle size={12} />
+                      Verify
+                    </button>
+                  )}
                 </div>
               </TooltipProvider>
 
-              {/* Quoted Points - Twitter quote style, always visible */}
-              {linkedPoints.length > 0 && (
+              {/* Quoted Points - Twitter quote style, shown when not hidden */}
+              {linkedPoints.length > 0 && !hideLinkedPoints && (
                 <div className="mt-3 space-y-2">
                   {linkedPoints.map(point => (
                     <QuotedPoint
@@ -205,6 +222,7 @@ export function StoryCard({
 
 /**
  * Twitter-style quoted Point card - always visible, not expandable
+ * Position buttons are interactive using same style as main PointCard
  */
 function QuotedPoint({
   point,
@@ -217,7 +235,16 @@ function QuotedPoint({
   authorId: string;
   onClick: (e: React.MouseEvent) => void;
 }) {
+  const [userPosition, setUserPosition] = useState<PositionType | null>(
+    point.positions['current']?.position || null
+  );
   const authorPosition = point.positions[authorId]?.position;
+  const linkedStories = getStoriesForPoint(point.id);
+  const counts = getPointPositionCounts(point);
+
+  const handlePositionClick = (position: PositionType) => {
+    setUserPosition(userPosition === position ? null : position);
+  };
 
   return (
     <button
@@ -225,14 +252,31 @@ function QuotedPoint({
       className="w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
     >
       {/* Author position at top */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <Pin size={12} className="text-slate-400" />
-        <span className="text-xs text-gray-600">
-          {authorName.split(' ')[0]}: {authorPosition && <PositionBadge position={authorPosition} />}
-        </span>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <Pin size={12} className="text-slate-400" />
+          <span className="text-xs text-gray-600">
+            {authorName.split(' ')[0]}: {authorPosition && <PositionBadge position={authorPosition} />}
+          </span>
+        </div>
+        <ExternalLink size={10} className="text-slate-400" />
       </div>
       {/* Point text */}
       <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
+      {/* Stats row with interactive position buttons */}
+      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+        <span className="flex items-center gap-1" title="Linked stories">
+          <BookOpen size={12} />
+          {linkedStories.length}
+        </span>
+        {/* Compact position buttons - same style as main PointCard */}
+        <PositionButtons
+          userPosition={userPosition}
+          counts={counts}
+          onPositionClick={handlePositionClick}
+          compact
+        />
+      </div>
     </button>
   );
 }

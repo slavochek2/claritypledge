@@ -1,17 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Zap } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Pin, BookOpen, Radio, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
 import { FilterTabs, type PositionFilter } from './shared/FilterTabs';
-import { getUserById, currentUser, getUserMetrics, getUserCalibration, mockPoints, mockStories } from '../data/mock-data';
+import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories } from '../data/mock-data';
 import { CalibrationDisplay } from './shared/CalibrationDisplay';
 import { routes } from '../config';
 import {
@@ -53,6 +47,10 @@ export function Profile() {
     (story) => story.authorId === user?.id
   );
 
+  // Calculate profile totals from stories
+  const totalClaritySessions = userStories.reduce((sum, s) => sum + (s.verificationCount || 0), 0);
+  const totalClarityAcrossDisagreement = userStories.reduce((sum, s) => sum + (s.crossDisagreementCount ?? 0), 0);
+
   // Calculate counts for Points filter
   const pointsCounts = {
     all: userPoints.length,
@@ -82,17 +80,15 @@ export function Profile() {
   // Viewing someone else's profile
   if (!isOwnProfile) {
     const calibration = getUserCalibration(user.id);
-    const myCalibration = getUserCalibration('current');
 
     return (
       <PrototypeLayout>
         <div className="relative max-w-4xl mx-auto pb-8">
-          {/* Calibration sidebar - positioned to not affect main content centering */}
+          {/* Calibration sidebar - desktop only */}
           {calibration && (
-            <div className="absolute left-4 top-3 w-44 hidden xl:block">
+            <div className="absolute left-0 top-3 w-52 hidden xl:block">
               <CalibrationDisplay
                 calibration={calibration}
-                comparisonCalibration={myCalibration}
                 userLabel={user.name.split(' ')[0]}
               />
             </div>
@@ -100,78 +96,88 @@ export function Profile() {
 
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
-              {/* Profile header card */}
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <button
-                    onClick={() => navigate(-1)}
-                    className="p-1 text-gray-500 hover:text-gray-700 -ml-1"
-                  >
-                    <ArrowLeft size={18} />
-                  </button>
+              {/* Back button - above card like production */}
+              <button
+                onClick={() => navigate(routes.home)}
+                className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
+              >
+                <ArrowLeft size={16} className="mr-1" />
+                Back to Dashboard
+              </button>
+
+              {/* Profile header card - matches production compact-profile-card */}
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                {/* Top row: Avatar + Name/Role + Share button */}
+                <div className="flex items-center gap-4">
+                  {/* Avatar - blue ring only if pledger */}
+                  <div className="flex-shrink-0">
+                    <div className={`w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl ${
+                      user.hasPledged ? 'ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-white' : ''
+                    }`}>
+                      {user.avatar}
+                    </div>
+                  </div>
+
+                  {/* Name and Role */}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
+                    {user.role && (
+                      <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
+                    )}
+                  </div>
+
+                  {/* Share button */}
                   <button
                     onClick={() => setShowShareDialog(true)}
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                    className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                    aria-label="Share profile"
                   >
-                    <Share2 size={18} />
+                    <Share2 size={20} />
                   </button>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl">
-                    {user.avatar}
+
+                {/* Profile stats row */}
+                <div className="flex items-center justify-center gap-4 mt-4 py-3 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 text-gray-600" title="Points">
+                    <Pin size={16} className="text-gray-400" />
+                    <span className="text-sm font-medium">{userPoints.length}</span>
                   </div>
-                  <div>
-                    <h2 className="font-semibold text-gray-900 text-lg">{user.name}</h2>
-                    {user.role && (
-                      <p className="text-sm text-gray-600">{user.role}{user.company && ` at ${user.company}`}</p>
-                    )}
+                  <div className="flex items-center gap-1.5 text-gray-600" title="Stories">
+                    <BookOpen size={16} className="text-gray-400" />
+                    <span className="text-sm font-medium">{userStories.length}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-gray-600" title="Clarity sessions">
+                    <Radio size={16} className="text-gray-400" />
+                    <span className="text-sm font-medium">{totalClaritySessions}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-gray-600" title="Clarity across disagreement">
+                    <Zap size={16} className="text-gray-400" />
+                    <span className="text-sm font-medium">{totalClarityAcrossDisagreement}</span>
                   </div>
                 </div>
 
-                {/* Aggregate metrics row */}
-                {(() => {
-                  const metrics = getUserMetrics(user.id);
-                  return (
-                    <TooltipProvider delayDuration={100}>
-                      <div className="flex items-center gap-5 mt-3 pt-3 border-t border-gray-100 text-gray-500">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1.5 text-sm cursor-default">
-                              <Users size={16} />
-                              <span>{metrics.positionsTaken}</span>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Positions taken on Points</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1.5 text-sm cursor-default">
-                              <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
-                              <span>{metrics.claritySessions}</span>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Clarity sessions completed</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className={`flex items-center gap-1.5 text-sm cursor-default ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                              <Zap size={16} />
-                              <span>{metrics.crossVerifications}</span>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Cross-disagreement verifications</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TooltipProvider>
-                  );
-                })()}
+                {/* Pledge section - only show if they're a pledger */}
+                {user.hasPledged && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => navigate(routes.profileById(user.id))}
+                      className="text-blue-500 hover:text-blue-600 font-medium inline-flex items-center gap-1"
+                    >
+                      View their pledge →
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Calibration display - mobile/tablet only */}
+              {calibration && (
+                <div className="mt-3 xl:hidden">
+                  <CalibrationDisplay
+                    calibration={calibration}
+                    userLabel={user.name.split(' ')[0]}
+                  />
+                </div>
+              )}
 
               {/* Content tab selector + Position filter tabs (combined for Points) */}
               <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
@@ -224,7 +230,7 @@ export function Profile() {
                     </div>
                   ) : (
                     filteredPoints.map((point) => (
-                      <PointCard key={point.id} point={point} />
+                      <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
                     ))
                   )
                 ) : (
@@ -268,78 +274,93 @@ export function Profile() {
   return (
     <PrototypeLayout>
       <div className="relative max-w-4xl mx-auto pb-8">
-        {/* Calibration sidebar - positioned to not affect main content centering */}
+        {/* Calibration sidebar - desktop only */}
         {ownCalibration && (
-          <div className="absolute left-4 top-3 w-44 hidden xl:block">
+          <div className="absolute left-0 top-3 w-52 hidden xl:block">
             <CalibrationDisplay calibration={ownCalibration} />
           </div>
         )}
 
         {/* Main profile content - centered */}
         <div className="max-w-lg mx-auto px-4 mt-3">
-            {/* Profile header card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl">
-                  {user.avatar}
+            {/* Back button - above card like production */}
+            <button
+              onClick={() => navigate(routes.home)}
+              className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
+            >
+              <ArrowLeft size={16} className="mr-1" />
+              Back to Dashboard
+            </button>
+
+            {/* Profile header card - matches production compact-profile-card */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              {/* Top row: Avatar + Name/Role + Share button */}
+              <div className="flex items-center gap-4">
+                {/* Avatar - blue ring only if pledger */}
+                <div className="flex-shrink-0">
+                  <div className={`w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl ${
+                    user.hasPledged ? 'ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-white' : ''
+                  }`}>
+                    {user.avatar}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h2 className="font-semibold text-gray-900 text-lg">{user.name}</h2>
+
+                {/* Name and Role */}
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
                   {user.role && (
-                    <p className="text-sm text-gray-600">{user.role}{user.company && ` at ${user.company}`}</p>
+                    <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                   )}
                 </div>
+
+                {/* Share button */}
                 <button
                   onClick={() => setShowShareDialog(true)}
-                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors self-start"
+                  className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  aria-label="Share profile"
                 >
-                  <Share2 size={18} />
+                  <Share2 size={20} />
                 </button>
               </div>
 
-              {/* Aggregate metrics row */}
-              {(() => {
-                const metrics = getUserMetrics(user.id);
-                return (
-                  <TooltipProvider delayDuration={100}>
-                    <div className="flex items-center gap-5 mt-3 pt-3 border-t border-gray-100 text-gray-500">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1.5 text-sm cursor-default">
-                            <Users size={16} />
-                            <span>{metrics.positionsTaken}</span>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Positions taken on Points</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1.5 text-sm cursor-default">
-                            <span className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
-                            <span>{metrics.claritySessions}</span>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Clarity sessions completed</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className={`flex items-center gap-1.5 text-sm cursor-default ${metrics.crossVerifications > 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                            <Zap size={16} />
-                            <span>{metrics.crossVerifications}</span>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Cross-disagreement verifications</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </TooltipProvider>
-                );
-              })()}
+              {/* Profile stats row */}
+              <div className="flex items-center justify-center gap-4 mt-4 py-3 border-t border-gray-100">
+                <div className="flex items-center gap-1.5 text-gray-600" title="Points">
+                  <Pin size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium">{userPoints.length}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600" title="Stories">
+                  <BookOpen size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium">{userStories.length}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600" title="Clarity sessions">
+                  <Radio size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium">{totalClaritySessions}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-600" title="Clarity across disagreement">
+                  <Zap size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium">{totalClarityAcrossDisagreement}</span>
+                </div>
+              </div>
+
+              {/* CTA button - depends on pledge status */}
+              <div className="pt-3 border-t border-gray-100">
+                {user.hasPledged ? (
+                  <Button
+                    onClick={() => navigate(routes.profileById(user.id))}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    View My Pledge
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => navigate('/sign-pledge')}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    Take the Pledge
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Inline idea composer */}
@@ -431,6 +452,13 @@ export function Profile() {
               </div>
             </div>
 
+            {/* Calibration display - mobile/tablet only */}
+            {ownCalibration && (
+              <div className="mt-3 xl:hidden">
+                <CalibrationDisplay calibration={ownCalibration} />
+              </div>
+            )}
+
             {/* Content tab selector + Position filter tabs (combined for Points) */}
             <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
               {/* Points / Stories tabs */}
@@ -487,7 +515,7 @@ export function Profile() {
                   </div>
                 ) : (
                   filteredPoints.map((point) => (
-                    <PointCard key={point.id} point={point} />
+                    <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
                   ))
                 )
               ) : (

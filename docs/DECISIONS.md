@@ -14,6 +14,90 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-21: Story visibility model — Private / Shared / Public
+
+**Context:** Designing P60 (Exploration UX) revealed unclear story visibility. Original spec said "private by default" but didn't define how stories become visible to others, especially within events.
+
+**Decision:** Three visibility levels:
+- **Private** — Only author sees (drafts)
+- **Shared** — Event participants see (event feed)
+- **Public** — Everyone sees (global feed, profile)
+
+"Shared" chosen over "event-private" because it's extensible — future: shared with specific individuals via chat.
+
+**Alternatives rejected:**
+- Two levels (private/public) — No event scoping
+- "Event-private" label — Too specific, doesn't extend to future sharing
+
+**Consequences:**
+- Story model needs `visibility` field: `private | shared | public`
+- Event feed shows `shared` stories from that event
+- Future chat sharing can reuse `shared` + recipient list
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
+## 2026-01-21: Verification only makes sense with story author
+
+**Context:** P60 exploration surfaced question: can I verify understanding of Sarah's story with Bob (not Sarah)?
+
+**Decision:** No. Verification is always 1:1 with the story author. The goal is confirming YOU understood THEIR experience — a third party can't validate that.
+
+**Alternatives rejected:**
+- Allow any pair to verify any story — Doesn't make sense epistemologically
+- Group verification — Too complex, dilutes the 1:1 understanding check
+
+**Consequences:**
+- "Verify" button must indicate WHO you'll verify with (show author)
+- /live session is always requester + story author
+- Stories must have exactly one author (no co-authored stories)
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) | [p55_understanding_verification_loop.md](../features/done/p55_understanding_verification_loop.md)
+
+---
+
+## 2026-01-21: Global notification bell for verification requests
+
+**Context:** How does a story author know someone wants to verify? Options: email, event-page-only badge, or global in-app notifications.
+
+**Decision:** Global bell icon in top-right nav with badge count. Tapping shows dropdown with pending requests.
+
+**Alternatives rejected:**
+- Email only — Users are on platform at events, email is friction
+- Event-page-only badge — User might browse elsewhere, misses notification
+- No notifications (polling) — Poor UX, author never knows
+
+**Consequences:**
+- Need notification infrastructure (bell icon, badge, dropdown)
+- First notification type: verification request
+- Pattern extends to future notifications (chat messages, etc.)
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
+## 2026-01-21: Verification stays event-scoped for MVP
+
+**Context:** P60 spec said "anyone can request verification from any public story" but this creates spam and requires network/connection features labeled "post-MVP."
+
+**Decision:** Verification only available within events for MVP. The "Verify" button appears on shared stories within an event context, not on random public stories.
+
+**Alternatives rejected:**
+- Open verification (anyone can request) — Spam risk, no coordination mechanism
+- Connection-gated (must connect first) — Requires network feature, too heavy for MVP
+- Chat-coordinated — Requires chat feature, too heavy for MVP
+
+**Consequences:**
+- "Verify" button only on event-scoped stories
+- No network/connections needed for MVP
+- Event = implicit trust boundary / social graph
+- Public story feed can exist but without "Verify" buttons
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
 ## 2026-01-19: Avatar ring effect via background-padding, not Tailwind ring utilities
 
 **Context:** P75 Compact Profile Card needed a blue ring around pledger avatars. During code review, discovered the initial implementation used `ring-blue-500` which only sets color without visible ring (requires `ring` or `ring-2` for thickness).

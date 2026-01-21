@@ -30,6 +30,7 @@ export const currentUser: User = {
   role: 'Product Manager',
   company: 'TechCorp',
   connections: 127,
+  hasPledged: true, // Current user has taken the pledge
 };
 
 // -----------------------------------------------------------------------------
@@ -46,6 +47,7 @@ export const mockUsers: User[] = [
     role: 'Senior Product Manager',
     company: 'TechCorp',
     connections: 543,
+    hasPledged: true, // Pledger - gets blue ring
   },
   {
     id: '2',
@@ -56,6 +58,7 @@ export const mockUsers: User[] = [
     role: 'Staff Engineer',
     company: 'StartupXYZ',
     connections: 312,
+    hasPledged: false, // Non-pledger - no ring, no pledge CTA
   },
   {
     id: '3',
@@ -66,6 +69,7 @@ export const mockUsers: User[] = [
     role: 'Research Lead',
     company: 'DesignCo',
     connections: 891,
+    hasPledged: true, // Pledger
   },
   {
     id: '4',
@@ -76,6 +80,7 @@ export const mockUsers: User[] = [
     role: 'Principal Designer',
     company: 'TechCorp',
     connections: 234,
+    hasPledged: false, // Non-pledger
   },
   {
     id: '5',
@@ -86,6 +91,7 @@ export const mockUsers: User[] = [
     role: 'Engineering Manager',
     company: 'BigTech Inc',
     connections: 678,
+    hasPledged: true, // Pledger
   },
 ];
 

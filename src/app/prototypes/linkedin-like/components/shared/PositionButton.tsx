@@ -69,9 +69,36 @@ interface PositionButtonsProps {
   userPosition: Position;
   counts: { agree: number; disagree: number; dont_know: number };
   onPositionClick: (position: Position) => void;
+  /** Compact mode for embedded use (e.g., QuotedPoint) */
+  compact?: boolean;
 }
 
-export function PositionButtons({ userPosition, counts, onPositionClick }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {(['agree', 'disagree', 'dont_know'] as const).map((pos) => {
+          const c = config[pos];
+          const isActive = userPosition === pos;
+          return (
+            <button
+              key={pos}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPositionClick(pos);
+              }}
+              className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                isActive ? c.activeClass : c.inactiveClass
+              }`}
+            >
+              {c.label} {counts[pos]}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={100}>
       <div className="flex items-center justify-start gap-2">

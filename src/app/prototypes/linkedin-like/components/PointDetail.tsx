@@ -108,6 +108,7 @@ export function PointDetail() {
                     compact
                     authorPosition={point.positions[story.authorId]?.position}
                     showVerifyButton
+                    hideLinkedPoints
                     onVerify={(e) => {
                       e.stopPropagation();
                       navigate(routes.live);

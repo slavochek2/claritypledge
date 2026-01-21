@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Settings, LogOut } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, Newspaper, CalendarDays, User, Radio, type LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,9 +11,15 @@ import {
 import { currentUser } from '../data/mock-data';
 import { routes } from '../config';
 
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+}
+
 /**
- * PrototypeHeader - Matches prod SimpleNavigation style
- * Clean text links, backdrop blur, proper spacing
+ * PrototypeHeader - LinkedIn-style icon navigation
+ * Icons with labels for main nav, backdrop blur, proper spacing
  */
 export function PrototypeHeader() {
   const navigate = useNavigate();
@@ -40,10 +46,10 @@ export function PrototypeHeader() {
     return location.pathname === path;
   };
 
-  const navLinks = [
-    { path: routes.feed, label: 'Feed' },
-    { path: routes.myEvents, label: 'My Events' },
-    { path: routes.profile, label: 'Profile' },
+  const navItems: NavItem[] = [
+    { path: routes.feed, label: 'Feed', icon: Newspaper },
+    { path: routes.myEvents, label: 'My Events', icon: CalendarDays },
+    { path: routes.profile, label: 'Profile', icon: User },
   ];
 
   // Get initials for avatar
@@ -70,28 +76,34 @@ export function PrototypeHeader() {
             <span className="font-semibold text-gray-900 hidden sm:block">Clarity Pledge</span>
           </Link>
 
-          {/* Desktop: Nav links + CTA + Avatar */}
-          <div className="hidden lg:flex items-center gap-6">
-            {/* Nav links */}
-            {navLinks.map(link => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`text-sm font-medium transition-colors ${
-                  isActive(link.path)
-                    ? 'text-blue-600'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+          {/* Desktop: Icon nav (LinkedIn-style) + CTA + Avatar */}
+          <div className="hidden lg:flex items-center gap-2">
+            {/* Nav items with icons */}
+            {navItems.map(item => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    active
+                      ? 'text-blue-600'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                  <span className="text-xs mt-1 font-medium">{item.label}</span>
+                </Link>
+              );
+            })}
 
             {/* Start a Clarity Session CTA */}
             <Link
               to={routes.live}
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
             >
+              <Radio size={16} />
               Start a Clarity Session
             </Link>
 
@@ -154,7 +166,8 @@ export function PrototypeHeader() {
               <DropdownMenuContent align="end" sideOffset={8} className="w-48">
                 {/* CTA on mobile */}
                 <DropdownMenuItem asChild>
-                  <Link to={routes.live} className="cursor-pointer font-medium text-blue-600">
+                  <Link to={routes.live} className="cursor-pointer font-medium text-blue-600 flex items-center gap-2">
+                    <Radio size={16} />
                     Start a Clarity Session
                   </Link>
                 </DropdownMenuItem>

@@ -7,6 +7,7 @@ export const routes = {
   // Primary nav (LinkedIn-style)
   feed: `${ROUTE_BASE}/feed`,           // Discovery feed (Stories/Points)
   myEvents: `${ROUTE_BASE}/my-events`,  // Dashboard (was "explore" on logged-out, "home/dashboard" on prod)
+  home: `${ROUTE_BASE}/my-events`,      // Alias for dashboard (used by "Back to Dashboard" links)
   profile: `${ROUTE_BASE}/profile`,     // My profile
 
   // Content detail pages

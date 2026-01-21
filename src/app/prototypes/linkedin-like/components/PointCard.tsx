@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Share2, BookOpen, ExternalLink, Pin } from 'lucide-react';
+import { BookOpen, ExternalLink, Pin, Radio, Zap } from 'lucide-react';
 import { routes } from '../config';
 import {
   getStoriesForPoint,
   getPointPositionCounts,
+  getUserById,
+  getPointsForStory,
 } from '../data/mock-data';
-import { PositionButtons } from './shared';
-import type { Point, Position } from '../../shared/types';
+import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
+import type { Point, Position, Story } from '../../shared/types';
 
 interface PointCardProps {
   point: Point;
   compact?: boolean;
   isDetailView?: boolean;
+  /** When viewing on someone's profile, show their linked Story */
+  profileOwnerId?: string;
 }
 
 /**
@@ -20,14 +24,18 @@ interface PointCardProps {
  * Visual: Gray left border, Clarity logo avatar (platform-owned), position buttons
  * Pattern B: Shows linked Stories expandable section
  */
-export function PointCard({ point, compact = false, isDetailView = false }: PointCardProps) {
+export function PointCard({ point, compact = false, isDetailView = false, profileOwnerId }: PointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
     point.positions['current']?.position || null
   );
   const linkedStories = getStoriesForPoint(point.id);
   const counts = getPointPositionCounts(point);
-  const totalPositions = counts.agree + counts.disagree + counts.dont_know;
+
+  // On profile page, find the profile owner's story linked to this point
+  const ownerStory = profileOwnerId
+    ? linkedStories.find(s => s.authorId === profileOwnerId)
+    : null;
 
   const handleCardClick = () => {
     if (!isDetailView) {
@@ -60,10 +68,27 @@ export function PointCard({ point, compact = false, isDetailView = false }: Poin
           {/* Content column - aligned with StoryCard */}
           <div className="flex-1 min-w-0">
             {/* Header row - matches StoryCard's author info structure */}
-            <div className="mb-2">
-              <span className="font-semibold text-gray-900 text-sm">
-                {totalPositions} {totalPositions === 1 ? 'owner' : 'owners'}
-              </span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-500">Shared Point</span>
+              {/* Action buttons - appear on hover (always visible on touch devices) */}
+              {!isDetailView && (
+                <div
+                  className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.point(point.id));
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
+                  >
+                    <ExternalLink size={12} />
+                    Open
+                  </button>
+                  <ShareDropdown type="point" id={point.id} />
+                </div>
+              )}
             </div>
 
             {/* Point text - same position as StoryCard text */}
@@ -84,48 +109,91 @@ export function PointCard({ point, compact = false, isDetailView = false }: Poin
             </div>
 
             {/* Stats row - icon-only style, matches StoryCard */}
-            <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
-              {linkedStories.length > 0 ? (
+            {linkedStories.length > 0 && (
+              <div className="flex items-center mt-3 text-sm text-gray-500">
                 <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full">
                   <span className="flex items-center gap-1" title={`${linkedStories.length} stories`}>
                     <BookOpen size={14} />
                     {linkedStories.length}
                   </span>
                 </div>
-              ) : (
-                <div />
-              )}
+              </div>
+            )}
 
-              {/* Action buttons - appear on hover */}
-              {!isDetailView && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.point(point.id));
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
-                  >
-                    <ExternalLink size={12} />
-                    Open
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // TODO: Share functionality
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label="Share point"
-                  >
-                    <Share2 size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Owner's linked Story - shown on profile pages */}
+            {ownerStory && (
+              <div className="mt-3">
+                <QuotedStory
+                  story={ownerStory}
+                  point={point}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.story(ownerStory.id));
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
 
     </div>
+  );
+}
+
+/**
+ * Twitter-style quoted Story card - shows why someone took a position
+ */
+function QuotedStory({
+  story,
+  point,
+  onClick
+}: {
+  story: Story;
+  point: Point;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const author = getUserById(story.authorId);
+  const authorPosition = point.positions[story.authorId]?.position;
+  const storyLinkedPoints = getPointsForStory(story.id);
+
+  return (
+    <button
+      onClick={onClick}
+      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-200 transition-colors"
+    >
+      {/* Author info at top */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          {author && (
+            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs">
+              {author.avatar}
+            </div>
+          )}
+          <span className="text-xs font-medium text-gray-700">
+            {author?.name.split(' ')[0]}
+          </span>
+          {authorPosition && <PositionBadge position={authorPosition} />}
+        </div>
+        <ExternalLink size={10} className="text-blue-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity" />
+      </div>
+      {/* Story text */}
+      <p className="text-sm text-gray-700 line-clamp-2">{story.text}</p>
+      {/* Stats row */}
+      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+        <span className="flex items-center gap-1" title="Linked points">
+          <Pin size={12} />
+          {storyLinkedPoints.length}
+        </span>
+        <span className="flex items-center gap-1" title="Clarity sessions">
+          <Radio size={12} />
+          {story.verificationCount}
+        </span>
+        <span className="flex items-center gap-1" title="Clarity across disagreement">
+          <Zap size={12} />
+          {story.crossDisagreementCount ?? 0}
+        </span>
+      </div>
+    </button>
   );
 }

@@ -30,6 +30,8 @@ export interface User {
   role?: string;
   company?: string;
   connections?: number;
+  // Pledge status - determines blue ring and pledge CTA visibility
+  hasPledged?: boolean;
 }
 
 // -----------------------------------------------------------------------------
