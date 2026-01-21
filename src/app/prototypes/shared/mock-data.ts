@@ -807,3 +807,24 @@ export function getStories(authorId?: string): Story[] {
 export function getPoints(): Point[] {
   return mockPoints;
 }
+
+/**
+ * Get participant users for a Point (users who have taken a position)
+ * Returns up to `limit` users, excluding 'current' pseudo-user
+ */
+export function getPointParticipants(point: Point, limit = 3): { id: string; avatar: string; name: string }[] {
+  const participants: { id: string; avatar: string; name: string }[] = [];
+
+  for (const [userId, entry] of Object.entries(point.positions)) {
+    if (userId === 'current' || !entry?.position) continue;
+
+    const user = getUserById(userId);
+    if (user) {
+      participants.push({ id: user.id, avatar: user.avatar, name: user.name });
+    }
+
+    if (participants.length >= limit) break;
+  }
+
+  return participants;
+}

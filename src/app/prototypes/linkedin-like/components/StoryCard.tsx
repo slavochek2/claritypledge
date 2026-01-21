@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Zap, Globe, Users, Lock, BookOpen, Crosshair, MessageCircle, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Zap, Globe, Users, Lock, Crosshair, MessageCircle, Share2, ExternalLink, BookOpen } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,8 @@ import {
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory } from '../data/mock-data';
-import type { Story, Point, PositionType } from '../../shared/types';
+import { PositionBadge } from './shared';
+import type { Story, Point } from '../../shared/types';
 
 interface StoryCardProps {
   story: Story;
@@ -50,7 +51,7 @@ export function StoryCard({
 
   const cardClassName = isDetailView
     ? "bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden"
-    : "bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all";
+    : "group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all";
 
   // Privacy icon based on visibility
   const PrivacyIcon = story.visibility === 'public' ? Globe
@@ -81,43 +82,36 @@ export function StoryCard({
             {/* Content column - aligned under avatar */}
             <div className="flex-1 min-w-0">
               {/* Author info row */}
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.profileById(author.id));
-                      }}
-                      className="font-semibold text-gray-900 hover:underline text-sm"
-                    >
-                      {author.name}
-                    </button>
-                    {authorPosition && (
-                      <PositionBadge position={authorPosition} />
-                    )}
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="text-gray-400 cursor-default">
-                            <PrivacyIcon size={12} />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{privacyLabel}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {author.role} · {formatTimeAgo(story.createdAt)}
-                  </p>
+              <div className="mb-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(author.id));
+                    }}
+                    className="font-semibold text-gray-900 hover:underline text-sm"
+                  >
+                    {author.name}
+                  </button>
+                  {authorPosition && (
+                    <PositionBadge position={authorPosition} />
+                  )}
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-gray-400 cursor-default">
+                          <PrivacyIcon size={12} />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{privacyLabel}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                {/* Story label with icon */}
-                <span className="flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                  <BookOpen size={12} />
-                  Story
-                </span>
+                <p className="text-xs text-gray-500">
+                  {author.role} · {formatTimeAgo(story.createdAt)}
+                </p>
               </div>
 
               {/* Story text - indented under author */}
@@ -128,7 +122,7 @@ export function StoryCard({
               {/* Stats row - icon-only style */}
               <TooltipProvider delayDuration={100}>
                 <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex items-center gap-1 cursor-default">
@@ -164,18 +158,30 @@ export function StoryCard({
                         Verify
                       </button>
                     )}
-                    {/* Share button - always visible for mobile accessibility */}
+                    {/* Action buttons - appear on hover */}
                     {!isDetailView && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // TODO: Share functionality
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                        aria-label="Share story"
-                      >
-                        <Share2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(routes.story(story.id));
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
+                        >
+                          <ExternalLink size={12} />
+                          Open
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // TODO: Share functionality
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          aria-label="Share story"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -248,41 +254,17 @@ function LinkedPointRow({
       <div className="flex items-center gap-3 mt-1 text-xs">
         {authorPosition && (
           <span className="text-gray-600">
-            {author?.name.split(' ')[0]}: <PositionLabel position={authorPosition} />
+            {author?.name.split(' ')[0]}: <PositionBadge position={authorPosition} plural={false} variant="label" />
           </span>
         )}
         {yourPosition ? (
           <span className="text-gray-600">
-            You: <PositionLabel position={yourPosition} />
+            You: <PositionBadge position={yourPosition} plural={false} variant="label" />
           </span>
         ) : (
           <span className="text-gray-400">You: -</span>
         )}
       </div>
     </button>
-  );
-}
-
-function PositionLabel({ position }: { position: PositionType }) {
-  const config = {
-    agree: { label: 'Agree', className: 'text-blue-600' },
-    disagree: { label: 'Disagree', className: 'text-slate-600' },
-    dont_know: { label: 'Unsure', className: 'text-gray-500' },
-  };
-  const c = config[position];
-  return <span className={c.className}>{c.label}</span>;
-}
-
-function PositionBadge({ position }: { position: PositionType }) {
-  const config = {
-    agree: { label: 'Agrees', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-    disagree: { label: 'Disagrees', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-    dont_know: { label: 'Unsure', className: 'bg-gray-100 text-gray-600 border-gray-200' },
-  };
-  const c = config[position];
-  return (
-    <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${c.className}`}>
-      {c.label}
-    </span>
   );
 }

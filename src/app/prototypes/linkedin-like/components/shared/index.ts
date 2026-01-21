@@ -1,4 +1,5 @@
 export { FilterTabs, type PositionFilter } from './FilterTabs';
+export { PositionBadge } from './PositionBadge';
 export { PositionBanner } from './PositionBanner';
 export { PositionButton, PositionButtons } from './PositionButton';
 export { RatingDots, RatingDotsPending } from './RatingDots';

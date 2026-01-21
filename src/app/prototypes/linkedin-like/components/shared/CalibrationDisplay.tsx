@@ -59,7 +59,7 @@ export function CalibrationDisplay({
       )}
 
       {/* Calibration rows with spectrum - each has own help */}
-      <div className="space-y-1">
+      <div className="space-y-3">
         <CalibrationRow
           role="listener"
           gap={calibration.listener.avgGap}
@@ -75,6 +75,7 @@ export function CalibrationDisplay({
           hasComparison={hasComparison}
         />
       </div>
+
     </div>
   );
 }
@@ -216,38 +217,23 @@ function CalibrationBar({
   const comparisonPosition = comparisonGap !== undefined ? gapToPosition(comparisonGap) : null;
 
   return (
-    <div className="relative">
-      {/* The bar with gradient and center notch */}
-      <div className="relative h-2.5 rounded-full overflow-visible" style={{
-        // Gray → Blue → Gray gradient (blue center = calibrated)
-        background: 'linear-gradient(to right, #d1d5db 0%, #3b82f6 40%, #3b82f6 60%, #d1d5db 100%)'
-      }}>
-        {/* Center notch/marker - triangle pointing down */}
+    <div className="relative h-2.5 rounded-full overflow-hidden" style={{
+      // Gray → Blue → Gray gradient (blue center = calibrated)
+      background: 'linear-gradient(to right, #d1d5db 0%, #93c5fd 35%, #3b82f6 50%, #93c5fd 65%, #d1d5db 100%)'
+    }}>
+      {/* Comparison dot (you) - smaller, lighter */}
+      {comparisonPosition !== null && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 -top-1.5"
-          style={{
-            width: 0,
-            height: 0,
-            borderLeft: '4px solid transparent',
-            borderRight: '4px solid transparent',
-            borderTop: '5px solid #3b82f6',
-          }}
+          className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-400 border-2 border-white shadow-sm"
+          style={{ left: `calc(${comparisonPosition}% - 5px)` }}
         />
+      )}
 
-        {/* Comparison dot (you) - smaller, lighter */}
-        {comparisonPosition !== null && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-400 border-2 border-white shadow-sm"
-            style={{ left: `calc(${comparisonPosition}% - 5px)` }}
-          />
-        )}
-
-        {/* Primary dot - larger, darker */}
-        <div
-          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-700 border-2 border-white shadow-sm"
-          style={{ left: `calc(${position}% - 6px)` }}
-        />
-      </div>
+      {/* Primary dot - larger, darker */}
+      <div
+        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-700 border-2 border-white shadow-sm"
+        style={{ left: `calc(${position}% - 6px)` }}
+      />
     </div>
   );
 }
