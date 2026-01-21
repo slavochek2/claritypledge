@@ -8,11 +8,11 @@ import type { UserCalibration, RoleCalibration } from '../../../shared/types';
 const HELP_TEXT = {
   listener: {
     title: 'Listener Calibration',
-    description: 'How well you predict your own understanding when listening. Green = accurate self-assessment. Red = over or underestimating.',
+    description: 'How well you predict your own understanding when listening. Blue center = accurate. Gray edges = over or underestimating.',
   },
   speaker: {
     title: 'Speaker Calibration',
-    description: 'How well you predict if others understood you when speaking. Green = accurate self-assessment. Red = over or underestimating.',
+    description: 'How well you predict if others understood you when speaking. Blue center = accurate. Gray edges = over or underestimating.',
   },
 };
 
@@ -59,7 +59,7 @@ export function CalibrationDisplay({
       )}
 
       {/* Calibration rows with spectrum - each has own help */}
-      <div className="space-y-4">
+      <div className="space-y-1">
         <CalibrationRow
           role="listener"
           gap={calibration.listener.avgGap}
@@ -138,11 +138,11 @@ export function MiniCalibrationDisplay({
 
 /**
  * Calibration row with colored spectrum, help icon, and dots.
- * Spectrum: Red (overconfident) → Green (calibrated) → Red (underconfident)
+ * Spectrum: Gray (overconfident) → Blue (calibrated) → Gray (underconfident)
  *
  * Color rationale:
- * - Red (both ends) = miscalibrated = bad (over or underconfident)
- * - Green (middle) = calibrated = accurate self-assessment = good
+ * - Gray (both ends) = miscalibrated = not yet calibrated
+ * - Blue (middle) = calibrated = on-target (per design system: blue = "your" ideal state)
  */
 function CalibrationRow({
   role,
@@ -163,15 +163,15 @@ function CalibrationRow({
 
   return (
     <div>
-      {/* Label with help icon */}
-      <div className="flex items-center justify-between mb-1.5">
+      {/* Label with help icon next to it */}
+      <div className="flex items-center mb-1.5">
         <span className="text-xs text-gray-500">{label}</span>
         <button
           onClick={() => setShowHelp(!showHelp)}
-          className="text-gray-300 hover:text-gray-500"
+          className="ml-1 text-gray-300 hover:text-gray-500"
           aria-label={`What is ${label.toLowerCase()} calibration?`}
         >
-          <HelpCircle size={14} />
+          <HelpCircle size={12} />
         </button>
       </div>
 
@@ -194,10 +194,10 @@ function CalibrationRow({
 
 /**
  * Shared spectrum bar component.
- * Spectrum: Red (overconfident) → Green (calibrated) → Red (underconfident)
+ * Spectrum: Gray (overconfident) → Blue (calibrated) → Gray (underconfident)
  *
- * Both extremes are red because both over and underconfidence are bad.
- * Green in the middle = calibrated = good.
+ * Gray edges = not yet calibrated (neutral, not alarming).
+ * Blue center = calibrated = on-target.
  */
 function CalibrationBar({
   gap,
@@ -216,23 +216,38 @@ function CalibrationBar({
   const comparisonPosition = comparisonGap !== undefined ? gapToPosition(comparisonGap) : null;
 
   return (
-    <div className="relative h-2 rounded-full overflow-hidden" style={{
-      // Red → Green → Red gradient (both extremes are bad)
-      background: 'linear-gradient(to right, #ef4444, #22c55e 50%, #ef4444)'
-    }}>
-      {/* Comparison dot (you) - smaller, lighter */}
-      {comparisonPosition !== null && (
+    <div className="relative">
+      {/* The bar with gradient and center notch */}
+      <div className="relative h-2.5 rounded-full overflow-visible" style={{
+        // Gray → Blue → Gray gradient (blue center = calibrated)
+        background: 'linear-gradient(to right, #d1d5db 0%, #3b82f6 40%, #3b82f6 60%, #d1d5db 100%)'
+      }}>
+        {/* Center notch/marker - triangle pointing down */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-400 border-2 border-white shadow-sm"
-          style={{ left: `calc(${comparisonPosition}% - 5px)` }}
+          className="absolute left-1/2 -translate-x-1/2 -top-1.5"
+          style={{
+            width: 0,
+            height: 0,
+            borderLeft: '4px solid transparent',
+            borderRight: '4px solid transparent',
+            borderTop: '5px solid #3b82f6',
+          }}
         />
-      )}
 
-      {/* Primary dot - larger, darker */}
-      <div
-        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-700 border-2 border-white shadow-sm"
-        style={{ left: `calc(${position}% - 6px)` }}
-      />
+        {/* Comparison dot (you) - smaller, lighter */}
+        {comparisonPosition !== null && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gray-400 border-2 border-white shadow-sm"
+            style={{ left: `calc(${comparisonPosition}% - 5px)` }}
+          />
+        )}
+
+        {/* Primary dot - larger, darker */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-gray-700 border-2 border-white shadow-sm"
+          style={{ left: `calc(${position}% - 6px)` }}
+        />
+      </div>
     </div>
   );
 }

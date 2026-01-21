@@ -56,7 +56,7 @@ export function PointCard({ point, compact = false, isDetailView = false }: Poin
       <div className="p-4">
         {/* Header - no avatar, just Point label with icon */}
         <div className="flex items-center justify-end mb-3">
-          <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+          <span className="flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
             <Crosshair size={12} />
             Point
           </span>

@@ -114,7 +114,7 @@ export function StoryCard({
                   </p>
                 </div>
                 {/* Story label with icon */}
-                <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                <span className="flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                   <BookOpen size={12} />
                   Story
                 </span>
