@@ -4,7 +4,6 @@ import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Pin, B
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
-import { FilterTabs, type PositionFilter } from './shared/FilterTabs';
 import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories } from '../data/mock-data';
 import { CalibrationDisplay } from './shared/CalibrationDisplay';
 import { routes } from '../config';
@@ -21,8 +20,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import type { Point, Story } from '../../shared/types';
-
 type IdeaVisibility = 'public' | 'shared' | 'private';
 type ContentTab = 'points' | 'stories';
 
@@ -33,7 +30,6 @@ export function Profile() {
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [ideaVisibility, setIdeaVisibility] = useState<IdeaVisibility>('public');
   const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<PositionFilter>('all');
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>('points');
@@ -41,12 +37,15 @@ export function Profile() {
   const isOwnProfile = !id || id === 'current';
   const user = isOwnProfile ? currentUser : getUserById(id || '');
 
-  // Get Points where this user has taken a position
-  const userPoints = mockPoints.filter(
-    (point) =>
-      point.positions[user?.id || ''] !== null &&
-      point.positions[user?.id || ''] !== undefined
-  );
+  // Get Points where this user has taken a position, sorted by newest position first
+  const userId = user?.id || '';
+  const userPoints = mockPoints
+    .filter((point) => point.positions[userId] != null)
+    .sort((a, b) => {
+      const aTime = new Date(a.positions[userId]?.timestamp || 0).getTime();
+      const bTime = new Date(b.positions[userId]?.timestamp || 0).getTime();
+      return bTime - aTime; // Newest first
+    });
 
   // Get Stories authored by this user
   const userStories = mockStories.filter(
@@ -56,22 +55,6 @@ export function Profile() {
   // Calculate profile totals from stories
   const totalClaritySessions = userStories.reduce((sum, s) => sum + (s.verificationCount || 0), 0);
   const totalClarityAcrossDisagreement = userStories.reduce((sum, s) => sum + (s.crossDisagreementCount ?? 0), 0);
-
-  // Calculate counts for Points filter
-  const pointsCounts = {
-    all: userPoints.length,
-    agree: userPoints.filter(p => p.positions[user?.id || '']?.position === 'agree').length,
-    disagree: userPoints.filter(p => p.positions[user?.id || '']?.position === 'disagree').length,
-    dont_know: userPoints.filter(p => p.positions[user?.id || '']?.position === 'dont_know').length,
-  };
-
-  // Filter Points by position
-  const filteredPoints = activeFilter === 'all'
-    ? userPoints
-    : userPoints.filter((point) => {
-        const entry = point.positions[user?.id || ''];
-        return entry?.position === activeFilter;
-      });
 
   if (!user) {
     return (
@@ -92,7 +75,7 @@ export function Profile() {
         <div className="relative max-w-4xl mx-auto pb-8">
           {/* Calibration sidebar - desktop only */}
           {calibration && (
-            <div className="absolute right-[calc(50%+280px)] top-3 w-52 hidden xl:block">
+            <div className="absolute right-[calc(50%+280px)] top-14 w-52 hidden xl:block">
               <CalibrationDisplay
                 calibration={calibration}
                 userLabel={user.name.split(' ')[0]}
@@ -113,8 +96,8 @@ export function Profile() {
 
               {/* Profile header card - matches production compact-profile-card */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                {/* Top row: Avatar + Name/Role */}
-                <div className="flex items-center gap-4">
+                {/* Top row: Avatar + Name/Role + Share button */}
+                <div className="flex items-start gap-4">
                   {/* Avatar - blue ring only if pledger */}
                   <div className="flex-shrink-0">
                     <div className={`w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl ${
@@ -131,9 +114,18 @@ export function Profile() {
                       <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                     )}
                   </div>
+
+                  {/* Share button - top right like cards */}
+                  <button
+                    onClick={() => setShowShareDialog(true)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                    aria-label="Share profile"
+                  >
+                    <Share2 size={16} />
+                  </button>
                 </div>
 
-                {/* Profile stats row with share button */}
+                {/* Profile stats row with pledge link */}
                 <TooltipProvider delayDuration={100}>
                   <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
                     <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
@@ -182,28 +174,17 @@ export function Profile() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    {/* Share button */}
-                    <button
-                      onClick={() => setShowShareDialog(true)}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                      aria-label="Share profile"
-                    >
-                      <Share2 size={14} />
-                    </button>
+                    {/* Pledge link - inline with stats */}
+                    {user.hasPledged && (
+                      <button
+                        onClick={() => navigate(routes.profileById(user.id))}
+                        className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                      >
+                        View pledge →
+                      </button>
+                    )}
                   </div>
                 </TooltipProvider>
-
-                {/* Pledge section - only show if they're a pledger */}
-                {user.hasPledged && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => navigate(routes.profileById(user.id))}
-                      className="text-blue-500 hover:text-blue-600 font-medium inline-flex items-center gap-1"
-                    >
-                      View their pledge →
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Calibration display - mobile/tablet only */}
@@ -216,10 +197,10 @@ export function Profile() {
                 </div>
               )}
 
-              {/* Content tab selector + Position filter tabs (combined for Points) */}
+              {/* Content tab selector */}
               <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
                 {/* Points / Stories tabs */}
-                <div className="flex border-b border-gray-200">
+                <div className="flex">
                   <button
                     onClick={() => setContentTab('points')}
                     className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
@@ -247,26 +228,17 @@ export function Profile() {
                     )}
                   </button>
                 </div>
-
-                {/* Position filter tabs - only for Points */}
-                {contentTab === 'points' && (
-                  <FilterTabs
-                    activeFilter={activeFilter}
-                    onFilterChange={setActiveFilter}
-                    counts={pointsCounts}
-                  />
-                )}
               </div>
 
               {/* Content list */}
               <div className="pt-4 space-y-3">
                 {contentTab === 'points' ? (
-                  filteredPoints.length === 0 ? (
+                  userPoints.length === 0 ? (
                     <div className="bg-white rounded-lg p-8 text-center">
                       <p className="text-gray-500">No positions taken yet</p>
                     </div>
                   ) : (
-                    filteredPoints.map((point) => (
+                    userPoints.map((point) => (
                       <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
                     ))
                   )
@@ -313,7 +285,7 @@ export function Profile() {
       <div className="relative max-w-4xl mx-auto pb-8">
         {/* Calibration sidebar - desktop only */}
         {ownCalibration && (
-          <div className="absolute right-[calc(50%+280px)] top-3 w-52 hidden xl:block">
+          <div className="absolute right-[calc(50%+280px)] top-14 w-52 hidden xl:block">
             <CalibrationDisplay calibration={ownCalibration} />
           </div>
         )}
@@ -332,7 +304,7 @@ export function Profile() {
             {/* Profile header card - matches production compact-profile-card */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
               {/* Top row: Avatar + Name/Role + Share button */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-4">
                 {/* Avatar - blue ring only if pledger */}
                 <div className="flex-shrink-0">
                   <div className={`w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl ${
@@ -349,9 +321,18 @@ export function Profile() {
                     <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                   )}
                 </div>
+
+                {/* Share button - top right like cards */}
+                <button
+                  onClick={() => setShowShareDialog(true)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                  aria-label="Share profile"
+                >
+                  <Share2 size={16} />
+                </button>
               </div>
 
-              {/* Profile stats row with share button */}
+              {/* Profile stats row with pledge link */}
               <TooltipProvider delayDuration={100}>
                 <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
                   <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
@@ -400,35 +381,24 @@ export function Profile() {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  {/* Share button */}
-                  <button
-                    onClick={() => setShowShareDialog(true)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label="Share profile"
-                  >
-                    <Share2 size={14} />
-                  </button>
+                  {/* Pledge link - inline with stats */}
+                  {user.hasPledged ? (
+                    <button
+                      onClick={() => navigate(routes.profileById(user.id))}
+                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                    >
+                      View pledge →
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/sign-pledge')}
+                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                    >
+                      Take pledge →
+                    </button>
+                  )}
                 </div>
               </TooltipProvider>
-
-              {/* CTA button - depends on pledge status */}
-              <div className="pt-3 border-t border-gray-100">
-                {user.hasPledged ? (
-                  <Button
-                    onClick={() => navigate(routes.profileById(user.id))}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    View My Pledge
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => navigate('/sign-pledge')}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    Take the Pledge
-                  </Button>
-                )}
-              </div>
             </div>
 
             {/* Inline idea composer */}
@@ -527,10 +497,10 @@ export function Profile() {
               </div>
             )}
 
-            {/* Content tab selector + Position filter tabs (combined for Points) */}
+            {/* Content tab selector */}
             <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
               {/* Points / Stories tabs */}
-              <div className="flex border-b border-gray-200">
+              <div className="flex">
                 <button
                   onClick={() => setContentTab('points')}
                   className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
@@ -558,31 +528,17 @@ export function Profile() {
                   )}
                 </button>
               </div>
-
-              {/* Position filter tabs - only for Points */}
-              {contentTab === 'points' && (
-                <FilterTabs
-                  activeFilter={activeFilter}
-                  onFilterChange={setActiveFilter}
-                  counts={pointsCounts}
-                />
-              )}
             </div>
 
             {/* Content list */}
             <div className="pt-4 space-y-3">
               {contentTab === 'points' ? (
-                filteredPoints.length === 0 ? (
+                userPoints.length === 0 ? (
                   <div className="bg-white rounded-lg p-8 text-center">
-                    <p className="text-gray-500">
-                      {activeFilter === 'all'
-                        ? 'No positions taken yet'
-                        : `No points you ${activeFilter === 'agree' ? 'agreed with' : activeFilter === 'disagree' ? 'disagreed with' : "are unsure about"}`
-                      }
-                    </p>
+                    <p className="text-gray-500">No positions taken yet</p>
                   </div>
                 ) : (
-                  filteredPoints.map((point) => (
+                  userPoints.map((point) => (
                     <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
                   ))
                 )
@@ -689,7 +645,7 @@ function ShareProfileDialog({
             )}
           </Button>
           {hasNativeShare && (
-            <Button onClick={handleNativeShare} className="flex-1">
+            <Button onClick={handleNativeShare} className="flex-1 bg-blue-500 hover:bg-blue-600">
               <Share2 size={16} className="mr-2" />
               Share
             </Button>

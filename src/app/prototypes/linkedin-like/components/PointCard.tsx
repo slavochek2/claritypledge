@@ -170,6 +170,10 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                     e.stopPropagation();
                     navigate(routes.story(storyToShow.id));
                   }}
+                  onAuthorClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.profileById(storyToShow.authorId));
+                  }}
                 />
               </div>
             )}
@@ -192,13 +196,16 @@ function QuotedStory({
   story,
   point,
   isAuthorTheProfileOwner,
-  onClick
+  onClick,
+  onAuthorClick
 }: {
   story: Story;
   point: Point;
   /** When true, show "Author's Story" instead of position badge */
   isAuthorTheProfileOwner?: boolean;
   onClick: (e: React.MouseEvent) => void;
+  /** Callback when author name/avatar is clicked */
+  onAuthorClick?: (e: React.MouseEvent) => void;
 }) {
   const author = getUserById(story.authorId);
   const authorPosition = point.positions[story.authorId]?.position;
@@ -214,21 +221,68 @@ function QuotedStory({
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           {author && (
-            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAuthorClick?.(e);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAuthorClick?.(e as unknown as React.MouseEvent);
+                }
+              }}
+              className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs hover:ring-2 hover:ring-blue-200 transition-all cursor-pointer"
+            >
               {author.avatar}
-            </div>
+            </span>
           )}
           {isAuthorTheProfileOwner ? (
-            <span className="text-xs font-medium text-gray-700">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAuthorClick?.(e);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAuthorClick?.(e as unknown as React.MouseEvent);
+                }
+              }}
+              className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
+            >
               {isCurrentUser ? 'Your' : `${author?.name.split(' ')[0]}'s`} Story
             </span>
           ) : (
             authorPosition && (
-              <PositionBadge
-                position={authorPosition}
-                name={author?.name.split(' ')[0]}
-                isCurrentUser={isCurrentUser}
-              />
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAuthorClick?.(e);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onAuthorClick?.(e as unknown as React.MouseEvent);
+                  }
+                }}
+                className="cursor-pointer hover:underline"
+              >
+                <PositionBadge
+                  position={authorPosition}
+                  name={author?.name.split(' ')[0]}
+                  isCurrentUser={isCurrentUser}
+                />
+              </span>
             )
           )}
         </div>

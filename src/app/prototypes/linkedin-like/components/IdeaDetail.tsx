@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { IdeaCard } from './IdeaCard';
-import { FilterTabs, type PositionFilter, RatingDots } from './shared';
+import { FilterTabs, type PositionFilter, RatingDots, PositionBadge } from './shared';
 import { routes } from '../config';
 import {
   getIdeaById,
@@ -75,12 +75,12 @@ export function IdeaDetail() {
                 </p>
                 <p className="text-xs text-blue-700 flex items-center gap-1 mt-0.5">
                   Their stance:
-                  <span className={`font-medium ${
-                    sharedByPosition === 'agree' ? 'text-emerald-600' :
-                    sharedByPosition === 'disagree' ? 'text-blue-600' :
-                    'text-gray-600'
+                  <span className={`font-medium px-1.5 py-0.5 rounded ${
+                    sharedByPosition === 'agree' ? 'bg-blue-100 text-blue-700' :
+                    sharedByPosition === 'disagree' ? 'bg-slate-100 text-slate-700' :
+                    'bg-white text-gray-600 ring-1 ring-gray-300'
                   }`}>
-                    {sharedByPosition === 'agree' ? '✓ Agreed' : sharedByPosition === 'disagree' ? '✗ Disagreed' : '? Unsure'}
+                    {sharedByPosition === 'agree' ? 'Agrees' : sharedByPosition === 'disagree' ? 'Disagrees' : 'Unsure'}
                   </span>
                 </p>
               </div>
@@ -144,37 +144,6 @@ export function IdeaDetail() {
         <ClaritySessionsSection ideaId={idea.id} idea={idea} navigate={navigate} />
       </div>
     </PrototypeLayout>
-  );
-}
-
-// Position badge for user list - simple icon + text, no avatar (already shown on left)
-function PositionBadge({ position }: { position: Position }) {
-  const config = {
-    agree: {
-      label: 'Agreed',
-      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      icon: '✓',
-    },
-    disagree: {
-      label: 'Disagreed',
-      className: 'bg-blue-50 text-blue-700 border-blue-200',
-      icon: '✗',
-    },
-    dont_know: {
-      label: 'Unsure',
-      className: 'bg-gray-100 text-gray-600 border-gray-300',
-      icon: '?',
-    },
-  };
-
-  const c = config[position as keyof typeof config];
-  if (!c) return null;
-
-  return (
-    <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${c.className}`}>
-      <span>{c.icon}</span>
-      <span>{c.label}</span>
-    </span>
   );
 }
 

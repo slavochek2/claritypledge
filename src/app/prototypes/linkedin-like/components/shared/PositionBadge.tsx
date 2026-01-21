@@ -25,6 +25,10 @@ export function PositionBadge({
   name,
   isCurrentUser = false,
 }: PositionBadgeProps) {
+  // When showing YOUR position, all badges use blue (it's your action)
+  // When showing someone else's position, use semantic colors
+  const yourBadgeClass = 'bg-blue-100 text-blue-700';
+
   const config = {
     agree: {
       label: 'Agrees',
@@ -36,14 +40,17 @@ export function PositionBadge({
     },
     dont_know: {
       label: 'Unsure',
-      badgeClass: 'bg-white text-gray-600 ring-1 ring-gray-300'
+      badgeClass: 'bg-slate-100 text-slate-600'
     },
   };
 
   const c = config[position];
   const displayName = isCurrentUser ? 'You' : name;
 
-  // If no name provided, just show the position as a badge
+  // Use blue for YOUR position (any stance), semantic colors for others
+  const badgeClass = isCurrentUser ? yourBadgeClass : c.badgeClass;
+
+  // If no name provided, just show the position as a badge (use semantic colors)
   if (!displayName) {
     return (
       <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${c.badgeClass}`}>
@@ -55,7 +62,7 @@ export function PositionBadge({
   return (
     <span className="text-xs flex items-center gap-1">
       <span className="text-gray-500">{displayName}</span>
-      <span className={`font-medium px-1.5 py-0.5 rounded ${c.badgeClass}`}>{c.label}</span>
+      <span className={`font-medium px-1.5 py-0.5 rounded ${badgeClass}`}>{c.label}</span>
     </span>
   );
 }
