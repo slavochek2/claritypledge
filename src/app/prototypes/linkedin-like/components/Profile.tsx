@@ -92,7 +92,7 @@ export function Profile() {
         <div className="relative max-w-4xl mx-auto pb-8">
           {/* Calibration sidebar - desktop only */}
           {calibration && (
-            <div className="absolute left-0 top-3 w-52 hidden xl:block">
+            <div className="absolute right-[calc(50%+280px)] top-3 w-52 hidden xl:block">
               <CalibrationDisplay
                 calibration={calibration}
                 userLabel={user.name.split(' ')[0]}
@@ -313,7 +313,7 @@ export function Profile() {
       <div className="relative max-w-4xl mx-auto pb-8">
         {/* Calibration sidebar - desktop only */}
         {ownCalibration && (
-          <div className="absolute left-0 top-3 w-52 hidden xl:block">
+          <div className="absolute right-[calc(50%+280px)] top-3 w-52 hidden xl:block">
             <CalibrationDisplay calibration={ownCalibration} />
           </div>
         )}

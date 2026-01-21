@@ -36,7 +36,7 @@ export function PositionBadge({
     },
     dont_know: {
       label: 'Unsure',
-      badgeClass: 'bg-gray-100 text-gray-600'
+      badgeClass: 'bg-white text-gray-600 ring-1 ring-gray-300'
     },
   };
 

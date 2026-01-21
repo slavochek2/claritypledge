@@ -78,50 +78,76 @@ For each state, verify:
 
 **Purpose:** Ensure the same semantic concept looks identical across all pages. When introducing new UI patterns, verify they match existing implementations.
 
-### Pattern Categories to Check:
+### A. Neighboring Page Analysis (CRITICAL)
+
+**Before implementing any UI element, check how sibling/related pages handle the same pattern.**
+
+1. **Identify neighboring pages** in the same directory or feature area
+2. **Search for the same UI pattern** across those pages
+3. **Extract the exact implementation** (icon, size, styling, placement, behavior)
+4. **Match it exactly** unless there's a documented reason to differ
+
+```bash
+# 1. Find sibling files in the same directory
+ls -la $(dirname TARGET_FILE)
+
+# 2. Search for the pattern you're implementing (e.g., back button)
+grep -n "ArrowLeft\|ChevronLeft\|back\|Back" SIBLING_FILES
+
+# 3. Read the implementation in context (get surrounding lines)
+grep -B2 -A10 "ArrowLeft" SIBLING_FILE.tsx
+```
+
+### B. Pattern Categories to Check:
 
 | Pattern | What to Search | Consistency Rule |
 |---------|----------------|------------------|
+| **Back Navigation** | `ArrowLeft`, `ChevronLeft`, `navigate(-1)` | Same icon, size, placement, behavior |
+| **Page Headers** | `<h1`, title patterns | Same hierarchy, spacing from back button |
 | **RSVP/Attendance Status** | "going", "attending", "registered" | Same color, badge style, text |
 | **Empty States** | "No .* found", "empty", "nothing here" | Same layout (icon + text + optional CTA) |
 | **Loading States** | "loading", "Skeleton", "Spinner" | Same component, same placement |
 | **User Status Badges** | `<Badge`, status indicators | Same semantic meaning = same styling |
 | **Card Layouts** | Event cards, person cards | Same info hierarchy, spacing |
 | **Action Buttons** | RSVP, Join, Cancel | Same styling for same action type |
+| **Filter Controls** | tabs, dropdowns, toggles | Same component, same styling |
 
-### How to Check:
+### C. How to Check:
 
 ```bash
-# 1. Find all instances of a semantic pattern (e.g., attendance status)
-grep -rn "going\|Going\|attending" src/app/components/ src/app/pages/
+# 1. Find all instances of a pattern in related files
+grep -rn "ArrowLeft\|navigate" src/app/prototypes/linkedin-like/components/
 
-# 2. For each match, note: file, line, text shown, color/styling used
+# 2. For each match, note: file, line, implementation details
 
 # 3. Compare - flag any differences in:
-#    - Text (e.g., "Going" vs "You are going")
-#    - Color (e.g., green vs blue for same meaning)
-#    - Component (e.g., Badge vs plain text)
-#    - Placement (e.g., left vs right aligned)
+#    - Icon (e.g., ArrowLeft vs ChevronLeft)
+#    - Size (e.g., size={18} vs size={20})
+#    - Styling (e.g., different className)
+#    - Container (e.g., wrapped in div vs not)
+#    - Behavior (e.g., navigate(-1) vs navigate(routes.home))
+#    - Placement (e.g., inside/outside content container)
 ```
 
-### Cross-Page Consistency Report Format:
+### D. Cross-Page Consistency Report Format:
 
 ```markdown
 ### Cross-Page Consistency
 
-| Concept | Location A | Location B | Issue |
-|---------|------------|------------|-------|
-| Attending status | EventRow: green Badge "Going" | Dashboard: blue text "Going" | ❌ Color mismatch |
-| Empty events | EventList: illustration + "No events" | Dashboard: "Nothing here" | ❌ Different treatment |
-| Event card | events-page: full EventRowCompact | home-page: custom card | ⚠️ Should reuse component |
+| Pattern | Reference Implementation | Current Implementation | Issue |
+|---------|-------------------------|------------------------|-------|
+| Back button | StoryDetail: `<div className="px-4 pt-3">` | ExploreFeed: `<div className="mb-4">` | ❌ Different container styling |
+| Back icon | PointDetail: `<ArrowLeft size={18} />` | ExploreFeed: `<ArrowLeft size={18} />` | ✅ Matches |
+| Back behavior | PointDetail: conditional navigate | ExploreFeed: direct to routes.home | ⚠️ Different but intentional |
 ```
 
-### Component Reuse Check:
+### E. Component Reuse Check:
 
 When auditing new code, verify:
-1. **Does a shared component exist?** Check `src/app/components/shared/` first
+1. **Does a shared component exist?** Check `src/app/components/shared/` or `src/app/prototypes/*/components/shared/` first
 2. **If similar code exists in 2+ places**, flag for extraction to shared component
 3. **New patterns should be discussed** before implementing differently than existing
+4. **If you find 3+ implementations of the same pattern**, propose extracting to a shared component
 
 ## Step 6: Generate Report
 
