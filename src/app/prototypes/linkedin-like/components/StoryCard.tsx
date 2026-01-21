@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Zap, Globe, Users, Lock, Pin, MessageCircle, Share2, ExternalLink } from 'lucide-react';
+import { Zap, Globe, Users, Lock, Pin, MessageCircle, ExternalLink } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -169,16 +169,9 @@ export function StoryCard({
                           <ExternalLink size={12} />
                           Open
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // TODO: Share functionality
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                          aria-label="Share story"
-                        >
-                          <Share2 size={14} />
-                        </button>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ShareDropdown type="story" id={story.id} />
+                        </div>
                       </div>
                     )}
                   </div>
