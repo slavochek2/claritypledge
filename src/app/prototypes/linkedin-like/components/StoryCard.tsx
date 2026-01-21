@@ -249,7 +249,7 @@ function QuotedPoint({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
     >
       {/* Author position at top */}
       <div className="flex items-center justify-between mb-1.5">
@@ -259,7 +259,7 @@ function QuotedPoint({
             {authorName.split(' ')[0]}: {authorPosition && <PositionBadge position={authorPosition} />}
           </span>
         </div>
-        <ExternalLink size={10} className="text-slate-400" />
+        <ExternalLink size={10} className="text-slate-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity" />
       </div>
       {/* Point text */}
       <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
