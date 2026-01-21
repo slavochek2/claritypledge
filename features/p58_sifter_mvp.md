@@ -396,6 +396,7 @@ AI: "5 people already believe something similar:
 | When move to Points? | **After all Stories settled OR user says "enough"** | User controls pace |
 | Zero Points valid? | **Yes** | Some dumps are pure processing |
 | Point matching in MVP? | **No** | Build database first, match later |
+| Points without Stories? | **No — every Point must have at least one Story** | Points need context; a Story explains WHY someone believes the Point |
 
 ---
 

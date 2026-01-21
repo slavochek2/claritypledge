@@ -15,6 +15,7 @@ import type {
   Position,
   UserCalibration,
   CalibrationState,
+  Notification,
 } from './types';
 
 // -----------------------------------------------------------------------------
@@ -337,6 +338,55 @@ export const mockComments: Comment[] = [
   { id: '4', ideaId: '2', userId: '1', text: 'I think AI will augment rather than replace. The timeline seems aggressive. Would love to verify understanding on what "replace" means exactly.', createdAt: '2026-01-02T15:00:00Z', likes: 15 },
   { id: '5', ideaId: '2', userId: '3', text: 'Depends on your definition of "knowledge work" — some tasks are more automatable than others. Let\'s break this down.', createdAt: '2026-01-02T16:00:00Z', likes: 7 },
 ];
+
+// -----------------------------------------------------------------------------
+// Notifications (Bell Icon)
+// -----------------------------------------------------------------------------
+
+export const mockNotifications: Notification[] = [
+  {
+    id: 'n1',
+    type: 'verification_request',
+    fromUserId: '1', // Alice
+    storyId: 'st8',  // Wants to verify your remote work story
+    eventId: 'evt-1',
+    createdAt: '2026-01-09T14:30:00Z',
+    read: false,
+  },
+  {
+    id: 'n2',
+    type: 'verification_request',
+    fromUserId: '3', // Carol
+    storyId: 'st9',  // Wants to verify your no-meetings story
+    eventId: 'evt-2',
+    createdAt: '2026-01-09T10:15:00Z',
+    read: false,
+  },
+  {
+    id: 'n3',
+    type: 'verification_accepted',
+    fromUserId: '2', // Bob accepted your request
+    storyId: 'st2',
+    createdAt: '2026-01-08T16:00:00Z',
+    read: true,
+  },
+];
+
+/**
+ * Get unread notification count for badge display.
+ */
+export function getUnreadNotificationCount(): number {
+  return mockNotifications.filter(n => !n.read).length;
+}
+
+/**
+ * Get all notifications for current user, sorted by date (newest first).
+ */
+export function getNotifications(): Notification[] {
+  return [...mockNotifications].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
 
 // -----------------------------------------------------------------------------
 // Messages
@@ -700,6 +750,7 @@ export const mockStories: Story[] = [
     authorId: '4', // David
     createdAt: '2026-01-05T11:00:00Z',
     visibility: 'shared',
+    eventId: 'evt-1', // Shared within "Future of Work Summit"
     linkedPointIds: ['pt2'],
     verificationCount: 4,
     crossDisagreementCount: 1,
@@ -750,8 +801,19 @@ export const mockStories: Story[] = [
     authorId: 'current', // You
     createdAt: '2026-01-08T14:00:00Z',
     visibility: 'shared',
+    eventId: 'evt-2', // Shared within "Team Productivity Workshop"
     linkedPointIds: ['pt2'],
     verificationCount: 3,
+    crossDisagreementCount: 0,
+  },
+  {
+    id: 'st10',
+    text: 'I\'m drafting thoughts about how async communication changed our team dynamics. Not ready to share yet - still processing the experience.',
+    authorId: 'current', // You
+    createdAt: '2026-01-09T10:00:00Z',
+    visibility: 'private', // Draft - only author sees
+    linkedPointIds: [],
+    verificationCount: 0,
     crossDisagreementCount: 0,
   },
 ];

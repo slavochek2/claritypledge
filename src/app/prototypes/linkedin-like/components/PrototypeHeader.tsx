@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Settings, LogOut, Newspaper, CalendarDays, User, Radio, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, Newspaper, CalendarDays, User, Radio, Bell, type LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { currentUser } from '../data/mock-data';
+import { currentUser, getUnreadNotificationCount, getNotifications, getUserById, getStoryById } from '../data/mock-data';
 import { routes } from '../config';
 
 interface NavItem {
@@ -97,6 +97,9 @@ export function PrototypeHeader() {
                 </Link>
               );
             })}
+
+            {/* Notification Bell */}
+            <NotificationBell />
 
             {/* Start a Clarity Session CTA */}
             <Link
@@ -197,5 +200,115 @@ export function PrototypeHeader() {
         </div>
       </div>
     </nav>
+  );
+}
+
+/**
+ * NotificationBell - Bell icon with badge and dropdown
+ * Shows verification requests and other notifications
+ */
+function NotificationBell() {
+  const navigate = useNavigate();
+  const unreadCount = getUnreadNotificationCount();
+  const notifications = getNotifications();
+
+  const getNotificationText = (notification: ReturnType<typeof getNotifications>[0]) => {
+    const fromUser = getUserById(notification.fromUserId);
+    const story = notification.storyId ? getStoryById(notification.storyId) : null;
+
+    switch (notification.type) {
+      case 'verification_request':
+        return {
+          title: `${fromUser?.name || 'Someone'} wants to verify understanding`,
+          subtitle: story ? `"${story.text.slice(0, 50)}..."` : undefined,
+        };
+      case 'verification_accepted':
+        return {
+          title: `${fromUser?.name || 'Someone'} accepted your verification request`,
+          subtitle: 'Ready to start a Clarity Session',
+        };
+      case 'verification_declined':
+        return {
+          title: `${fromUser?.name || 'Someone'} declined your verification request`,
+          subtitle: undefined,
+        };
+      default:
+        return { title: 'New notification', subtitle: undefined };
+    }
+  };
+
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="relative flex items-center justify-center w-10 h-10 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        >
+          <Bell size={20} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-xs font-medium text-white bg-red-500 rounded-full">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="w-80">
+        <div className="px-3 py-2 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900">Notifications</h3>
+        </div>
+        {notifications.length === 0 ? (
+          <div className="px-3 py-6 text-center text-gray-500 text-sm">
+            No notifications yet
+          </div>
+        ) : (
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.map((notification) => {
+              const { title, subtitle } = getNotificationText(notification);
+              const fromUser = getUserById(notification.fromUserId);
+
+              return (
+                <DropdownMenuItem
+                  key={notification.id}
+                  className={`flex items-start gap-3 px-3 py-3 cursor-pointer ${
+                    !notification.read ? 'bg-blue-50' : ''
+                  }`}
+                  onClick={() => {
+                    if (notification.type === 'verification_request' && notification.storyId) {
+                      navigate(routes.story(notification.storyId));
+                    }
+                  }}
+                >
+                  {/* Avatar */}
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0"
+                    style={{ backgroundColor: '#3B82F6' }}
+                  >
+                    {fromUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2) || '?'}
+                  </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${!notification.read ? 'font-medium' : ''} text-gray-900`}>
+                      {title}
+                    </p>
+                    {subtitle && (
+                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                        {subtitle}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(notification.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {/* Unread dot */}
+                  {!notification.read && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2" />
+                  )}
+                </DropdownMenuItem>
+              );
+            })}
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

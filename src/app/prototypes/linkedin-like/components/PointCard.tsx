@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, ExternalLink, Pin, Radio, Zap } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { routes } from '../config';
 import {
   getStoriesForPoint,
   getPointPositionCounts,
   getUserById,
   getPointsForStory,
+  currentUser,
 } from '../data/mock-data';
 import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
 import type { Point, Position, Story } from '../../shared/types';
@@ -33,9 +40,20 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   const counts = getPointPositionCounts(point);
 
   // On profile page, find the profile owner's story linked to this point
+  // In feed (no profileOwnerId), show first linked story for context
   const ownerStory = profileOwnerId
     ? linkedStories.find(s => s.authorId === profileOwnerId)
     : null;
+  const storyToShow = ownerStory || linkedStories[0] || null;
+
+  // Get the profile owner's position on this point (for header display)
+  const profileOwnerPosition = profileOwnerId
+    ? point.positions[profileOwnerId]?.position
+    : null;
+
+  // Get profile owner's name for position badge
+  const profileOwner = profileOwnerId ? getUserById(profileOwnerId) : null;
+  const isCurrentUserProfile = profileOwnerId === currentUser.id;
 
   const handleCardClick = () => {
     if (!isDetailView) {
@@ -69,7 +87,19 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
           <div className="flex-1 min-w-0">
             {/* Header row - matches StoryCard's author info structure */}
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-500">Shared Point</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">Point</span>
+                {profileOwnerPosition && (
+                  <span className="text-xs text-gray-400">·</span>
+                )}
+                {profileOwnerPosition && (
+                  <PositionBadge
+                    position={profileOwnerPosition}
+                    name={profileOwner?.name.split(' ')[0]}
+                    isCurrentUser={isCurrentUserProfile}
+                  />
+                )}
+              </div>
               {/* Action buttons - appear on hover (always visible on touch devices) */}
               {!isDetailView && (
                 <div
@@ -110,25 +140,35 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
             {/* Stats row - icon-only style, matches StoryCard */}
             {linkedStories.length > 0 && (
-              <div className="flex items-center mt-3 text-sm text-gray-500">
-                <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full">
-                  <span className="flex items-center gap-1" title={`${linkedStories.length} stories`}>
-                    <BookOpen size={14} />
-                    {linkedStories.length}
-                  </span>
+              <TooltipProvider delayDuration={100}>
+                <div className="flex items-center mt-3 text-sm text-gray-500">
+                  <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <BookOpen size={14} />
+                          {linkedStories.length}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Linked stories</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
-              </div>
+              </TooltipProvider>
             )}
 
-            {/* Owner's linked Story - shown on profile pages */}
-            {ownerStory && (
+            {/* Linked Story - shown on profile pages (owner's) or in feed (first linked) */}
+            {storyToShow && (
               <div className="mt-3">
                 <QuotedStory
-                  story={ownerStory}
+                  story={storyToShow}
                   point={point}
+                  isAuthorTheProfileOwner={!!profileOwnerId && storyToShow.authorId === profileOwnerId}
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(routes.story(ownerStory.id));
+                    navigate(routes.story(storyToShow.id));
                   }}
                 />
               </div>
@@ -143,19 +183,27 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
 /**
  * Twitter-style quoted Story card - shows why someone took a position
+ *
+ * When viewing on a profile page where the story author IS the profile owner,
+ * we show "[Name]'s Story" instead of position badge because
+ * authoring a story is different from voting on a point.
  */
 function QuotedStory({
   story,
   point,
+  isAuthorTheProfileOwner,
   onClick
 }: {
   story: Story;
   point: Point;
+  /** When true, show "Author's Story" instead of position badge */
+  isAuthorTheProfileOwner?: boolean;
   onClick: (e: React.MouseEvent) => void;
 }) {
   const author = getUserById(story.authorId);
   const authorPosition = point.positions[story.authorId]?.position;
   const storyLinkedPoints = getPointsForStory(story.id);
+  const isCurrentUser = story.authorId === currentUser.id;
 
   return (
     <button
@@ -170,30 +218,62 @@ function QuotedStory({
               {author.avatar}
             </div>
           )}
-          <span className="text-xs font-medium text-gray-700">
-            {author?.name.split(' ')[0]}
-          </span>
-          {authorPosition && <PositionBadge position={authorPosition} />}
+          {isAuthorTheProfileOwner ? (
+            <span className="text-xs font-medium text-gray-700">
+              {isCurrentUser ? 'Your' : `${author?.name.split(' ')[0]}'s`} Story
+            </span>
+          ) : (
+            authorPosition && (
+              <PositionBadge
+                position={authorPosition}
+                name={author?.name.split(' ')[0]}
+                isCurrentUser={isCurrentUser}
+              />
+            )
+          )}
         </div>
         <ExternalLink size={10} className="text-blue-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity" />
       </div>
       {/* Story text */}
       <p className="text-sm text-gray-700 line-clamp-2">{story.text}</p>
       {/* Stats row */}
-      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-        <span className="flex items-center gap-1" title="Linked points">
-          <Pin size={12} />
-          {storyLinkedPoints.length}
-        </span>
-        <span className="flex items-center gap-1" title="Clarity sessions">
-          <Radio size={12} />
-          {story.verificationCount}
-        </span>
-        <span className="flex items-center gap-1" title="Clarity across disagreement">
-          <Zap size={12} />
-          {story.crossDisagreementCount ?? 0}
-        </span>
-      </div>
+      <TooltipProvider delayDuration={100}>
+        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1 cursor-default">
+                <Pin size={12} />
+                {storyLinkedPoints.length}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Linked points</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1 cursor-default">
+                <Radio size={12} />
+                {story.verificationCount}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Clarity sessions completed</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1 cursor-default">
+                <Zap size={12} />
+                {story.crossDisagreementCount ?? 0}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Clarity across disagreement</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
     </button>
   );
 }

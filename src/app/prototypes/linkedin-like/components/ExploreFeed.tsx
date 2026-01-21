@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
 import { PointCard } from './PointCard';
+import { routes } from '../config';
 import { getStories, getPoints } from '../data/mock-data';
 import type { Story, Point } from '../../shared/types';
 
@@ -16,6 +19,7 @@ type FilterType = 'all' | 'stories' | 'points';
  * Users can filter by content type and explore debates or personal experiences.
  */
 export function ExploreFeed() {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<FilterType>('all');
 
   const stories = getStories();
@@ -46,6 +50,16 @@ export function ExploreFeed() {
   return (
     <PrototypeLayout>
       <div className="container mx-auto max-w-2xl px-4 py-6">
+        {/* Back button */}
+        <div className="mb-4">
+          <button
+            onClick={() => navigate(routes.home)}
+            className="p-1 text-gray-500 hover:text-gray-700 -ml-1"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        </div>
+
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Feed</h1>

@@ -194,6 +194,26 @@ export interface IdeasTabState {
 }
 
 // -----------------------------------------------------------------------------
+// Notification Types
+// -----------------------------------------------------------------------------
+
+export type NotificationType = 'verification_request' | 'verification_accepted' | 'verification_declined';
+
+/**
+ * A notification for in-app alerts (bell icon).
+ * First type: verification requests from other users.
+ */
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  fromUserId: string;         // Who triggered this notification
+  storyId?: string;           // Story they want to verify (for verification_request)
+  eventId?: string;           // Event context (if applicable)
+  createdAt: string;
+  read: boolean;
+}
+
+// -----------------------------------------------------------------------------
 // Calibration Types (P56.1)
 // -----------------------------------------------------------------------------
 
@@ -236,6 +256,11 @@ export interface UserCalibration {
 /**
  * A Story is a personal experience that can only be understood (not debated).
  * Stories have an author and are shown with blue styling.
+ *
+ * Visibility:
+ * - 'private': Only author sees (drafts)
+ * - 'shared': Event participants see (requires eventId)
+ * - 'public': Everyone sees (global feed, profile)
  */
 export interface Story {
   id: string;
@@ -243,6 +268,7 @@ export interface Story {
   authorId: string;           // Who wrote this story
   createdAt: string;
   visibility: IdeaVisibility;
+  eventId?: string;           // Required when visibility='shared' - which event this is shared with
   linkedPointIds: string[];   // Points this story relates to
   verificationCount: number;  // How many people verified understanding
   crossDisagreementCount?: number; // How many cross-disagreement verifications

@@ -14,6 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import type { Point, Story } from '../../shared/types';
 
@@ -107,7 +113,7 @@ export function Profile() {
 
               {/* Profile header card - matches production compact-profile-card */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                {/* Top row: Avatar + Name/Role + Share button */}
+                {/* Top row: Avatar + Name/Role */}
                 <div className="flex items-center gap-4">
                   {/* Avatar - blue ring only if pledger */}
                   <div className="flex-shrink-0">
@@ -125,36 +131,67 @@ export function Profile() {
                       <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                     )}
                   </div>
-
-                  {/* Share button */}
-                  <button
-                    onClick={() => setShowShareDialog(true)}
-                    className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                    aria-label="Share profile"
-                  >
-                    <Share2 size={20} />
-                  </button>
                 </div>
 
-                {/* Profile stats row */}
-                <div className="flex items-center justify-center gap-4 mt-4 py-3 border-t border-gray-100">
-                  <div className="flex items-center gap-1.5 text-gray-600" title="Points">
-                    <Pin size={16} className="text-gray-400" />
-                    <span className="text-sm font-medium">{userPoints.length}</span>
+                {/* Profile stats row with share button */}
+                <TooltipProvider delayDuration={100}>
+                  <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
+                    <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 cursor-default">
+                            <Pin size={14} />
+                            {userPoints.length}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Points</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 cursor-default">
+                            <BookOpen size={14} />
+                            {userStories.length}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Stories</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 cursor-default">
+                            <Radio size={14} />
+                            {totalClaritySessions}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clarity sessions completed</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 cursor-default">
+                            <Zap size={14} />
+                            {totalClarityAcrossDisagreement}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clarity across disagreement</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    {/* Share button */}
+                    <button
+                      onClick={() => setShowShareDialog(true)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="Share profile"
+                    >
+                      <Share2 size={14} />
+                    </button>
                   </div>
-                  <div className="flex items-center gap-1.5 text-gray-600" title="Stories">
-                    <BookOpen size={16} className="text-gray-400" />
-                    <span className="text-sm font-medium">{userStories.length}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-gray-600" title="Clarity sessions">
-                    <Radio size={16} className="text-gray-400" />
-                    <span className="text-sm font-medium">{totalClaritySessions}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-gray-600" title="Clarity across disagreement">
-                    <Zap size={16} className="text-gray-400" />
-                    <span className="text-sm font-medium">{totalClarityAcrossDisagreement}</span>
-                  </div>
-                </div>
+                </TooltipProvider>
 
                 {/* Pledge section - only show if they're a pledger */}
                 {user.hasPledged && (
@@ -312,36 +349,67 @@ export function Profile() {
                     <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                   )}
                 </div>
-
-                {/* Share button */}
-                <button
-                  onClick={() => setShowShareDialog(true)}
-                  className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                  aria-label="Share profile"
-                >
-                  <Share2 size={20} />
-                </button>
               </div>
 
-              {/* Profile stats row */}
-              <div className="flex items-center justify-center gap-4 mt-4 py-3 border-t border-gray-100">
-                <div className="flex items-center gap-1.5 text-gray-600" title="Points">
-                  <Pin size={16} className="text-gray-400" />
-                  <span className="text-sm font-medium">{userPoints.length}</span>
+              {/* Profile stats row with share button */}
+              <TooltipProvider delayDuration={100}>
+                <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
+                  <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <Pin size={14} />
+                          {userPoints.length}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Points</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <BookOpen size={14} />
+                          {userStories.length}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Stories</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <Radio size={14} />
+                          {totalClaritySessions}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clarity sessions completed</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center gap-1 cursor-default">
+                          <Zap size={14} />
+                          {totalClarityAcrossDisagreement}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clarity across disagreement</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {/* Share button */}
+                  <button
+                    onClick={() => setShowShareDialog(true)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Share profile"
+                  >
+                    <Share2 size={14} />
+                  </button>
                 </div>
-                <div className="flex items-center gap-1.5 text-gray-600" title="Stories">
-                  <BookOpen size={16} className="text-gray-400" />
-                  <span className="text-sm font-medium">{userStories.length}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600" title="Clarity sessions">
-                  <Radio size={16} className="text-gray-400" />
-                  <span className="text-sm font-medium">{totalClaritySessions}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-600" title="Clarity across disagreement">
-                  <Zap size={16} className="text-gray-400" />
-                  <span className="text-sm font-medium">{totalClarityAcrossDisagreement}</span>
-                </div>
-              </div>
+              </TooltipProvider>
 
               {/* CTA button - depends on pledge status */}
               <div className="pt-3 border-t border-gray-100">

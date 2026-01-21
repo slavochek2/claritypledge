@@ -14,6 +14,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-21: Feed shows Points with Stories from your network
+
+**Context:** Points in the feed feel random. No indication WHY a Point is relevant to you. Discussed showing quoted Stories from people you know (same event attendees, future Clarity Partners).
+
+**Decision:**
+- Points in feed show QuotedStory from people in your network (attended same event)
+- Show up to 3 relevant Stories max if multiple matches
+- This explains "why am I seeing this?" — someone you know shared their experience
+
+**Alternatives rejected:**
+- Badge only ("Sarah from TechConf quoted") — Less context, Stories ARE the context
+- Sort boost without showing — User doesn't understand why order changed
+- Dedicated "From network" tab — Fragments the feed unnecessarily
+
+**Consequences:**
+- PointCard in feed needs to filter linkedStories by user's event co-attendees
+- Reuse existing `QuotedStory` component
+- When Clarity Partners (P83) ships, add that as another relevance signal
+
+**References:** [p83_clarity_partners.md](../features/p83_clarity_partners.md) — future expansion
+
+---
+
 ## 2026-01-21: Story visibility model — Private / Shared / Public
 
 **Context:** Designing P60 (Exploration UX) revealed unclear story visibility. Original spec said "private by default" but didn't define how stories become visible to others, especially within events.

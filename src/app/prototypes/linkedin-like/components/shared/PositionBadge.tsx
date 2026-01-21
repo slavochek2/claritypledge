@@ -2,51 +2,60 @@ import type { PositionType } from '../../../shared/types';
 
 interface PositionBadgeProps {
   position: PositionType;
-  /** Use plural form: "Agrees" vs "Agree" */
-  plural?: boolean;
-  /** Variant: 'badge' for pill style, 'label' for inline colored text */
-  variant?: 'badge' | 'label';
+  /** Name to display before position (e.g., "Alice agrees") */
+  name?: string;
+  /** Use "You" for current user's position */
+  isCurrentUser?: boolean;
 }
 
 /**
- * Displays a position as either a badge pill or inline colored label.
+ * Displays a position as inline colored text with optional name.
  *
- * Badge variant: gray pill with "Agrees"/"Disagrees"/"Unsure"
- * Label variant: inline colored text "Agree"/"Disagree"/"Unsure"
+ * Format: "{Name} agrees/disagrees/is unsure"
+ * - Name in gray, position in colored text
+ * - Agree: blue, Disagree: slate, Unsure: gray
+ *
+ * Examples:
+ * - "Alice agrees" (on someone's profile)
+ * - "You agree" (on your own profile)
+ * - "agrees" (when name is omitted)
  */
 export function PositionBadge({
   position,
-  plural = true,
-  variant = 'badge'
+  name,
+  isCurrentUser = false,
 }: PositionBadgeProps) {
   const config = {
     agree: {
-      singular: 'Agree',
-      plural: 'Agrees',
-      labelClass: 'text-blue-600'
+      label: 'Agrees',
+      badgeClass: 'bg-blue-100 text-blue-700'
     },
     disagree: {
-      singular: 'Disagree',
-      plural: 'Disagrees',
-      labelClass: 'text-slate-600'
+      label: 'Disagrees',
+      badgeClass: 'bg-slate-100 text-slate-700'
     },
     dont_know: {
-      singular: 'Unsure',
-      plural: 'Unsure',
-      labelClass: 'text-gray-500'
+      label: 'Unsure',
+      badgeClass: 'bg-gray-100 text-gray-600'
     },
   };
 
   const c = config[position];
-  const label = plural ? c.plural : c.singular;
+  const displayName = isCurrentUser ? 'You' : name;
 
-  if (variant === 'label') {
-    return <span className={c.labelClass}>{label}</span>;
+  // If no name provided, just show the position as a badge
+  if (!displayName) {
+    return (
+      <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${c.badgeClass}`}>
+        {c.label}
+      </span>
+    );
   }
 
   return (
-    <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
-      {label}
+    <span className="text-xs flex items-center gap-1">
+      <span className="text-gray-500">{displayName}</span>
+      <span className={`font-medium px-1.5 py-0.5 rounded ${c.badgeClass}`}>{c.label}</span>
     </span>
   );
 }

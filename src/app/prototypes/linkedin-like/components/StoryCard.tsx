@@ -8,9 +8,9 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
-import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts } from '../data/mock-data';
+import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
 import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
-import type { Story } from '../../shared/types';
+import type { Story, Point } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 
 interface StoryCardProps {
@@ -97,7 +97,14 @@ export function StoryCard({
                       {author.name}
                     </button>
                     {authorPosition && (
-                      <PositionBadge position={authorPosition} />
+                      <>
+                        <span className="text-xs text-gray-400">·</span>
+                        <PositionBadge
+                          position={authorPosition}
+                          name={author.name.split(' ')[0]}
+                          isCurrentUser={story.authorId === currentUser.id}
+                        />
+                      </>
                     )}
                     <TooltipProvider delayDuration={100}>
                       <Tooltip>
@@ -241,6 +248,7 @@ function QuotedPoint({
   const authorPosition = point.positions[authorId]?.position;
   const linkedStories = getStoriesForPoint(point.id);
   const counts = getPointPositionCounts(point);
+  const isCurrentUser = authorId === currentUser.id;
 
   const handlePositionClick = (position: PositionType) => {
     setUserPosition(userPosition === position ? null : position);
@@ -255,28 +263,41 @@ function QuotedPoint({
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           <Pin size={12} className="text-slate-400" />
-          <span className="text-xs text-gray-600">
-            {authorName.split(' ')[0]}: {authorPosition && <PositionBadge position={authorPosition} />}
-          </span>
+          {authorPosition && (
+            <PositionBadge
+              position={authorPosition}
+              name={authorName.split(' ')[0]}
+              isCurrentUser={isCurrentUser}
+            />
+          )}
         </div>
         <ExternalLink size={10} className="text-slate-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity" />
       </div>
       {/* Point text */}
       <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
       {/* Stats row with interactive position buttons */}
-      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-        <span className="flex items-center gap-1" title="Linked stories">
-          <BookOpen size={12} />
-          {linkedStories.length}
-        </span>
-        {/* Compact position buttons - same style as main PointCard */}
-        <PositionButtons
-          userPosition={userPosition}
-          counts={counts}
-          onPositionClick={handlePositionClick}
-          compact
-        />
-      </div>
+      <TooltipProvider delayDuration={100}>
+        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1 cursor-default">
+                <BookOpen size={12} />
+                {linkedStories.length}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Linked stories</p>
+            </TooltipContent>
+          </Tooltip>
+          {/* Compact position buttons - same style as main PointCard */}
+          <PositionButtons
+            userPosition={userPosition}
+            counts={counts}
+            onPositionClick={handlePositionClick}
+            compact
+          />
+        </div>
+      </TooltipProvider>
     </button>
   );
 }

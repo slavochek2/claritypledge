@@ -11,6 +11,7 @@ export * from '../../shared/mock-data';
 // LinkedIn-like specific type aliases for backwards compatibility
 export type { Position, PositionType, PositionEntry } from '../../shared/types';
 export type { IdeaVisibility, VerificationStatus, UnderstandingDirection } from '../../shared/types';
+export type { Notification, NotificationType } from '../../shared/types';
 
 // P55: Understanding Verification Loop types
 export type { SurfacedIdea, SwipeAction, IdeaQueueItem, IdeasTabState } from '../../shared/types';
