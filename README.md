@@ -1,15 +1,33 @@
-# Clarity Pledge App
+# Clarity Pledge
 
-A web application for the Clarity Pledge movement - helping professionals commit to clear communication and reducing the hidden costs of miscommunication.
+**See the gap between how well you think you communicate and how well you actually do — then close it.**
 
-## Overview
+A sensemaking platform that reveals calibration gaps in understanding and motivates people to close them.
 
-The Clarity Pledge is a public commitment platform where professionals can:
-- Sign a pledge to prioritize clear communication
-- Build a verified profile with their commitment
-- Receive endorsements from colleagues
-- Share their certificate publicly
-- Join a community of clarity advocates
+## The Problem
+
+People fail to have constructive dialogues because:
+1. **Speakers** overestimate how clearly they communicated
+2. **Listeners** overestimate how well they understood
+
+No feedback loop exists — conversations end without checking if understanding actually happened.
+
+## How It Works
+
+1. **Events** — Organizers create events, seed topics for discussion
+2. **Stories** — Personal experiences that can only be understood (not debated)
+3. **Points** — Claims about reality that can be agreed/disagreed with (-3 to +3)
+4. **Verification** — `/live` sessions where partners explain back each other's Stories
+5. **Calibration** — Your profile shows the gap between confidence and reality
+
+The **Pledge** is a graduation feature — users who demonstrate calibrated listening can publicly commit to the protocol.
+
+## Go Deeper
+
+- [Lean Canvas](docs/lean-canvas.md) — Business model and value proposition
+- [Hypotheses](docs/hypotheses.md) — What we're testing and validation status
+- [Roadmap](docs/roadmap.md) — Build sequence and current focus
+- [Philosophy](docs/visions/v7_communicative_critical_rationalism.md) — Epistemological foundations (optional deep-dive)
 
 ## Tech Stack
 
@@ -18,8 +36,6 @@ The Clarity Pledge is a public commitment platform where professionals can:
 - **Backend:** Supabase (PostgreSQL + Auth)
 - **Routing:** React Router
 - **Forms:** React Hook Form + Zod validation
-- **Icons:** Lucide React
-- **Animations:** Framer Motion
 
 ## Prerequisites
 
@@ -81,70 +97,24 @@ App will be available at `http://localhost:5001`
 
 ## Project Structure
 
-See [CLAUDE.md](./CLAUDE.md) for detailed project structure and architecture documentation.
+See [CLAUDE.md](./CLAUDE.md) for detailed architecture and AI agent instructions.
 
 ```
-polymet-clarity-pledge-app/
-├── src/
-│   ├── app/                 # Main application code
-│   │   ├── components/      # Feature components
-│   │   ├── pages/           # Route pages
-│   │   ├── data/            # API layer (api.ts)
-│   │   └── types/           # TypeScript interfaces
-│   ├── auth/                # Authentication module
-│   ├── components/ui/       # Base UI components (shadcn/ui)
-│   ├── hooks/               # Shared React hooks
-│   └── lib/                 # Utilities (supabase clients)
-├── docs/                    # Documentation
-│   └── technical/           # Technical guides
-├── features/                # Feature planning docs
-├── e2e/                     # Playwright E2E tests
-├── supabase/                # Database schema and migrations
-└── CLAUDE.md                # AI agent instructions & architecture
+├── src/app/           # Application code (components, pages, data layer)
+├── docs/              # Documentation (technical guides, vision docs)
+├── features/          # Feature planning (specs, UATs)
+├── e2e/               # Playwright E2E tests
+└── supabase/          # Database schema
 ```
-
-## Key Features
-
-### 1. Pledge Signing
-- Users fill out a form with their name, email, role, and reason
-- Magic link authentication via email (no passwords)
-- Profile created after email verification
-
-### 2. Email Verification
-- Magic link sent to user's email
-- Clicking link verifies email and activates profile
-- Seamless redirect flow: `/auth/callback` → `/verify/:id` → `/p/:id`
-
-### 3. Public Profiles
-- Each user gets a unique profile page: `/p/:id`
-- Displays pledge certificate
-- Shows endorsements from colleagues
-- Shareable via social media
-
-### 4. Endorsement System
-- Users can request endorsements from colleagues
-- Endorsers verify via email link
-- Verified endorsements displayed on profile
-
-### 5. Signatories Directory
-- Browse all verified pledge signatories
-- Filter and search functionality
-- View public profiles
 
 ## Development Commands
 
 ```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Run linter
-npm run lint
+npm run dev          # Start dev server (localhost:5001)
+npm run build        # Production build
+npm run lint         # ESLint
+npm test             # Unit tests (Vitest)
+npm run test:e2e     # E2E tests (Playwright)
 ```
 
 ## Environment Variables
@@ -164,78 +134,15 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 
 See `.env.example` for optional configuration (feature flags, Sentry).
 
-## Technical Documentation
+## Documentation
 
-For more detailed technical information, please see the following documents:
-
-- [Database Schema](./docs/technical/database.md)
-- [Authentication Flow](./docs/technical/authentication.md)
-- [Deployment Guide](./docs/technical/deployment.md)
-- [Testing Checklist](./docs/technical/testing.md)
-- [Debugging Guide](./docs/technical/debugging.md)
-- [E2E Testing Guide](./docs/technical/e2e-testing.md)
-
-## Common Issues
-
-See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed solutions.
-
-**Quick fixes:**
-
-1. **Profile not found:** Check trigger installation + API key
-2. **Magic link fails:** Verify redirect URL + email settings
-3. **API errors:** Confirm anon key format (JWT starting with "eyJ")
-
-## Deployment
-
-### Build
-
-```bash
-npm run build
-```
-
-Output goes to `dist/` folder.
-
-### Deploy Options
-
-- **Vercel:** Connect GitHub repo, auto-deploy
-- **Netlify:** Drag & drop `dist/` folder
-- **Supabase Hosting:** Use Supabase CLI
-- **Custom server:** Serve `dist/` with any static host
-
-**Important for deployment:**
-- Set up environment variables
-- Configure Supabase redirect URLs
-- Update CORS settings if needed
-
-## Testing Checklist
-
-Before deploying, test these flows:
-
-- [ ] Sign pledge with new email
-- [ ] Receive and click magic link
-- [ ] Profile created and displayed
-- [ ] Request endorsement
-- [ ] Endorser receives and verifies via email
-- [ ] Endorsement shows on profile
-- [ ] Share profile link works
-- [ ] Signatories page loads all profiles
-- [ ] Debug page shows correct status
-
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and development guidelines.
+| Topic | Document |
+|-------|----------|
+| Architecture & conventions | [CLAUDE.md](./CLAUDE.md) |
+| Database schema | [docs/technical/database.md](./docs/technical/database.md) |
+| Authentication | [docs/technical/authentication.md](./docs/technical/authentication.md) |
+| E2E testing | [docs/technical/e2e-testing.md](./docs/technical/e2e-testing.md) |
 
 ## License
 
 AGPL-3.0 - See [LICENSE](./LICENSE) for details.
-
-## Support
-
-For issues or questions:
-- Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
-- Use the `/debug` page for diagnostics
-- Review Supabase logs for backend errors
-
----
-
-**Built with clarity in mind. 🎯**
