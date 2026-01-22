@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Pin, Mic } from 'lucide-react';
+import { ExternalLink, Mic, Pin } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -14,7 +14,7 @@ import {
   getUserById,
   currentUser,
 } from '../data/mock-data';
-import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
+import { PointHeader, PositionButtons, ShareDropdown } from './shared';
 import type { Point, Position, Story } from '../../shared/types';
 
 interface PointCardProps {
@@ -37,6 +37,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   );
   const linkedStories = getStoriesForPoint(point.id);
   const counts = getPointPositionCounts(point);
+  const totalStances = counts.agree + counts.disagree + counts.dont_know;
 
   // On profile page, prioritize profile owner's stories first
   // Then show other linked stories (max 3 total)
@@ -90,19 +91,12 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
           <div className="flex-1 min-w-0">
             {/* Header row - matches StoryCard's author info structure */}
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-gray-500">Point</span>
-                {profileOwnerPosition && (
-                  <span className="text-xs text-gray-400">·</span>
-                )}
-                {profileOwnerPosition && (
-                  <PositionBadge
-                    position={profileOwnerPosition}
-                    name={profileOwner?.name.split(' ')[0]}
-                    isCurrentUser={isCurrentUserProfile}
-                  />
-                )}
-              </div>
+              <PointHeader
+                totalStances={totalStances}
+                authorPosition={profileOwnerPosition}
+                authorName={profileOwner?.name.split(' ')[0]}
+                isCurrentUser={isCurrentUserProfile}
+              />
               {/* Action buttons - appear on hover (always visible on touch devices) */}
               {!isDetailView && (
                 <div
@@ -149,7 +143,6 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                     key={story.id}
                     story={story}
                     point={point}
-                    isAuthorTheProfileOwner={!!profileOwnerId && story.authorId === profileOwnerId}
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(routes.story(story.id));
@@ -182,30 +175,20 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 }
 
 /**
- * Twitter-style quoted Story card - shows why someone took a position
- *
- * When viewing on a profile page where the story author IS the profile owner,
- * we show "[Name]'s Story" instead of position badge because
- * authoring a story is different from voting on a point.
+ * Twitter-style quoted Story card - shows a linked story within a Point.
+ * Position badge removed per P88 — position is shown in Point header, not here.
  */
 function QuotedStory({
   story,
-  point,
-  isAuthorTheProfileOwner,
   onClick,
   onAuthorClick
 }: {
   story: Story;
-  point: Point;
-  /** When true, show "Author's Story" instead of position badge */
-  isAuthorTheProfileOwner?: boolean;
   onClick: (e: React.MouseEvent) => void;
   /** Callback when author name/avatar is clicked */
   onAuthorClick?: (e: React.MouseEvent) => void;
 }) {
   const author = getUserById(story.authorId);
-  const authorPosition = point.positions[story.authorId]?.position;
-  const isCurrentUser = story.authorId === currentUser.id;
 
   return (
     <button
@@ -235,7 +218,8 @@ function QuotedStory({
               {author.avatar}
             </span>
           )}
-          {isAuthorTheProfileOwner ? (
+          {/* Author name - clickable */}
+          {author && (
             <span
               role="button"
               tabIndex={0}
@@ -252,36 +236,14 @@ function QuotedStory({
               }}
               className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
             >
-              {author?.name.split(' ')[0]}'s Story
+              {author.name}
             </span>
-          ) : (
-            authorPosition && (
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAuthorClick?.(e);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onAuthorClick?.(e as unknown as React.MouseEvent);
-                  }
-                }}
-                className="cursor-pointer hover:underline"
-              >
-                <PositionBadge
-                  position={authorPosition}
-                  name={author?.name.split(' ')[0]}
-                  isCurrentUser={isCurrentUser}
-                />
-              </span>
-            )
           )}
         </div>
-        <ExternalLink size={10} className="text-blue-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity" />
+        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
+          <ExternalLink size={10} />
+          Open
+        </span>
       </div>
       {/* Story text */}
       <p className="text-sm text-gray-700 line-clamp-2">{story.text}</p>

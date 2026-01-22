@@ -191,13 +191,11 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="text-gray-400 cursor-default">
-                        {idea.visibility === 'public' && <Globe size={14} />}
-                        {idea.visibility === 'shared' && <Users size={14} />}
-                        {idea.visibility === 'private' && <Lock size={14} />}
+                        {idea.visibility === 'public' ? <Globe size={14} /> : <Lock size={14} />}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Visibility: {idea.visibility === 'public' ? 'Public' : idea.visibility === 'shared' ? 'Shared' : 'Private'}</p>
+                      <p>Visibility: {idea.visibility === 'public' ? 'Public' : 'Restricted'}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

@@ -646,6 +646,50 @@ export function getCalibrationState(avgGap: number): CalibrationState {
   return 'calibrated';
 }
 
+/**
+ * User credibility stats shown next to name everywhere.
+ * - ear: How many people's stories this user understood (as listener)
+ * - mic: How many people understood this user's stories (as speaker)
+ */
+export interface UserCredibilityStats {
+  ear: number;  // People this user understood
+  mic: number;  // People who understood this user
+}
+
+/**
+ * Get Ear/Mic credibility stats for a user.
+ * Used to show credibility signal next to name in all contexts.
+ */
+export function getUserCredibilityStats(userId: string): UserCredibilityStats {
+  // Ear: Count verification sessions where this user was the listener
+  // For mock, we use calibration session count as proxy
+  const calibration = mockCalibrationData[userId];
+  const ear = calibration?.listener.sessionCount || 0;
+
+  // Mic: Sum of verificationCount across all stories authored by this user
+  // This requires mockStories which is defined below, so we access it lazily
+  const mic = getMicCount(userId);
+
+  return { ear, mic };
+}
+
+// Helper to compute mic count (defined as function to access mockStories after it's declared)
+function getMicCount(userId: string): number {
+  // Will be populated after mockStories is defined
+  // For now, return from a lookup or compute from stories
+  return _micCountCache[userId] ?? 0;
+}
+
+// Cache for mic counts, populated after mockStories is loaded
+const _micCountCache: Record<string, number> = {};
+
+// Call this after mockStories is defined to populate cache
+export function _initMicCountCache(stories: { authorId: string; verificationCount: number }[]) {
+  for (const story of stories) {
+    _micCountCache[story.authorId] = (_micCountCache[story.authorId] || 0) + story.verificationCount;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // P60: Stories and Points Mock Data
 // -----------------------------------------------------------------------------
@@ -818,6 +862,9 @@ export const mockStories: Story[] = [
     crossDisagreementCount: 0,
   },
 ];
+
+// Initialize mic count cache from stories
+_initMicCountCache(mockStories);
 
 // -----------------------------------------------------------------------------
 // P60: Story and Point Helper Functions

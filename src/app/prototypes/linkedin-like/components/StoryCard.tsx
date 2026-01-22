@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, Globe, Users, Lock, Pin, MessageCircle, ExternalLink } from 'lucide-react';
+import { Mic, Globe, Lock, MessageCircle, ExternalLink, Pin } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser } from '../data/mock-data';
-import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
+import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, UserCredibility } from './shared';
 import type { Story, Point } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 
@@ -52,13 +52,9 @@ export function StoryCard({
     ? "bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden"
     : "group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all";
 
-  // Privacy icon based on visibility
-  const PrivacyIcon = story.visibility === 'public' ? Globe
-    : story.visibility === 'shared' ? Users
-    : Lock;
-  const privacyLabel = story.visibility === 'public' ? 'Public'
-    : story.visibility === 'shared' ? 'Shared'
-    : 'Private';
+  // Privacy icon based on visibility (Globe = public, Lock = restricted)
+  const PrivacyIcon = story.visibility === 'public' ? Globe : Lock;
+  const privacyLabel = story.visibility === 'public' ? 'Public' : 'Restricted';
 
   return (
     <div className={cardClassName} onClick={handleCardClick}>
@@ -93,28 +89,19 @@ export function StoryCard({
                     >
                       {author.name}
                     </button>
-                    {authorPosition && (
+                    <UserCredibility userId={author.id} userName={author.name} />
+                    {/* Position on Point - Pin icon clarifies this is about the Point */}
+                    {authorPosition && story.authorId !== currentUser.id && (
                       <>
                         <span className="text-xs text-gray-400">·</span>
+                        <Pin size={10} className="text-slate-400" />
                         <PositionBadge
                           position={authorPosition}
                           name={author.name.split(' ')[0]}
-                          isCurrentUser={story.authorId === currentUser.id}
+                          isCurrentUser={false}
                         />
                       </>
                     )}
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="text-gray-400 cursor-default">
-                            <PrivacyIcon size={12} />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{privacyLabel}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
                   </div>
                   {/* Action buttons - appear on hover (always visible on touch devices) */}
                   {!isDetailView && (
@@ -136,8 +123,20 @@ export function StoryCard({
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-500">
-                  {author.role} · {formatTimeAgo(story.createdAt)}
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-gray-400 cursor-default">
+                          <PrivacyIcon size={12} />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{privacyLabel}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </p>
               </div>
 
@@ -231,6 +230,7 @@ function QuotedPoint({
   );
   const authorPosition = point.positions[authorId]?.position;
   const counts = getPointPositionCounts(point);
+  const totalStances = counts.agree + counts.disagree + counts.dont_know;
   const isCurrentUser = authorId === currentUser.id;
 
   const handlePositionClick = (position: PositionType) => {
@@ -244,17 +244,18 @@ function QuotedPoint({
     >
       {/* Author position at top */}
       <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2">
-          <Pin size={12} className="text-slate-400" />
-          {authorPosition && (
-            <PositionBadge
-              position={authorPosition}
-              name={authorName.split(' ')[0]}
-              isCurrentUser={isCurrentUser}
-            />
-          )}
-        </div>
-        <ExternalLink size={10} className="text-slate-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity" />
+        <PointHeader
+          totalStances={totalStances}
+          authorPosition={authorPosition}
+          authorName={authorName.split(' ')[0]}
+          isCurrentUser={isCurrentUser}
+          compact
+          showLabel={false}
+        />
+        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
+          <ExternalLink size={10} />
+          Open
+        </span>
       </div>
       {/* Point text */}
       <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>

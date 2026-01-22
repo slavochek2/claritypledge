@@ -1,4 +1,5 @@
 export { FilterTabs, type PositionFilter } from './FilterTabs';
+export { PointHeader } from './PointHeader';
 export { PositionBadge } from './PositionBadge';
 export { PositionBanner } from './PositionBanner';
 export { PositionButton, PositionButtons } from './PositionButton';
@@ -8,3 +9,4 @@ export { VerificationStatusDialog } from './VerificationStatusDialog';
 export { VerificationStatusPanel } from './VerificationStatusPanel';
 export { ShareDropdown } from './ShareDropdown';
 export { VisibilityBadge } from './VisibilityBadge';
+export { UserCredibility } from './UserCredibility';

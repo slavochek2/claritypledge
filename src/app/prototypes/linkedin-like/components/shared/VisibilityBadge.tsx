@@ -1,4 +1,4 @@
-import { Globe, Users, Lock } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
 import { IdeaVisibility } from '../../data/mock-data';
 
 interface VisibilityBadgeProps {
@@ -7,8 +7,8 @@ interface VisibilityBadgeProps {
 
 const config = {
   public: { icon: Globe, label: 'Public', className: 'text-gray-500 bg-gray-100' },
-  shared: { icon: Users, label: 'Shared', className: 'text-blue-600 bg-blue-50' },
-  private: { icon: Lock, label: 'Private', className: 'text-gray-600 bg-gray-100' },
+  shared: { icon: Lock, label: 'Restricted', className: 'text-gray-600 bg-gray-100' },
+  private: { icon: Lock, label: 'Restricted', className: 'text-gray-600 bg-gray-100' },
 };
 
 export function VisibilityBadge({ visibility }: VisibilityBadgeProps) {

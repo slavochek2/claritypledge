@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Mic, Ear } from 'lucide-react';
+import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Ear } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
-import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories } from '../data/mock-data';
+import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories, getUserCredibilityStats } from '../data/mock-data';
 import { CalibrationDisplay } from './shared/CalibrationDisplay';
 import { routes } from '../config';
 import {
@@ -52,10 +52,8 @@ export function Profile() {
     (story) => story.authorId === user?.id
   );
 
-  // Calculate profile totals from stories
-  const totalClaritySessions = userStories.reduce((sum, s) => sum + (s.verificationCount || 0), 0);
-  // Note: Ear metric ("People you understood") is hardcoded to 7 for mock
-  // In production, this would be computed from all sessions where user was the listener
+  // Get credibility stats (Ear/Mic) from shared function for consistency
+  const credibilityStats = getUserCredibilityStats(user?.id || '');
 
   if (!user) {
     return (
@@ -110,7 +108,24 @@ export function Profile() {
 
                   {/* Name and Role */}
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
+                      {credibilityStats.ear > 0 && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-0.5 text-sm text-gray-400 cursor-default">
+                                <Ear size={14} />
+                                {credibilityStats.ear}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{user.name.split(' ')[0]} understood others' stories</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                     {user.role && (
                       <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                     )}
@@ -126,44 +141,17 @@ export function Profile() {
                   </button>
                 </div>
 
-                {/* Profile stats row with pledge link */}
-                <TooltipProvider delayDuration={100}>
-                  <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
-                    <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 cursor-default">
-                            <Ear size={14} />
-                            7
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{user.name.split(' ')[0]} understood others' stories</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 cursor-default">
-                            <Mic size={14} />
-                            {totalClaritySessions}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>People understood {user.name.split(' ')[0]}'s stories</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    {/* Pledge link - inline with stats */}
-                    {user.hasPledged && (
-                      <button
-                        onClick={() => navigate(routes.profileById(user.id))}
-                        className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                      >
-                        View pledge →
-                      </button>
-                    )}
+                {/* Pledge link row */}
+                {user.hasPledged && (
+                  <div className="flex items-center justify-end mt-4 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => navigate(routes.profileById(user.id))}
+                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                    >
+                      View pledge →
+                    </button>
                   </div>
-                </TooltipProvider>
+                )}
               </div>
 
               {/* Calibration display - mobile/tablet only */}
@@ -295,7 +283,24 @@ export function Profile() {
 
                 {/* Name and Role */}
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
+                    {credibilityStats.ear > 0 && (
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-0.5 text-sm text-gray-400 cursor-default">
+                              <Ear size={14} />
+                              {credibilityStats.ear}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>You understood others' stories</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
                   {user.role && (
                     <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                   )}
@@ -311,51 +316,24 @@ export function Profile() {
                 </button>
               </div>
 
-              {/* Profile stats row with pledge link */}
-              <TooltipProvider delayDuration={100}>
-                <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
-                  <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Ear size={14} />
-                          7
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>You understood others' stories</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Mic size={14} />
-                          {totalClaritySessions}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>People understood your stories</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  {/* Pledge link - inline with stats */}
-                  {user.hasPledged ? (
-                    <button
-                      onClick={() => navigate(routes.profileById(user.id))}
-                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                    >
-                      View pledge →
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => navigate('/sign-pledge')}
-                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                    >
-                      Take pledge →
-                    </button>
-                  )}
-                </div>
-              </TooltipProvider>
+              {/* Pledge link row */}
+              <div className="flex items-center justify-end mt-4 pt-3 border-t border-gray-100">
+                {user.hasPledged ? (
+                  <button
+                    onClick={() => navigate(routes.profileById(user.id))}
+                    className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                  >
+                    View pledge →
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/sign-pledge')}
+                    className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
+                  >
+                    Take pledge →
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Inline idea composer */}
