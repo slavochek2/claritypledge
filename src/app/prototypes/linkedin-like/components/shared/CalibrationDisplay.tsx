@@ -1,4 +1,4 @@
-import { HelpCircle, Ear, Mic } from 'lucide-react';
+import { HelpCircle, Ear, Mic, Lock } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -8,13 +8,26 @@ import {
 import type { UserCalibration, RoleCalibration } from '../../../shared/types';
 
 /**
- * Get calibration state label from gap value.
- * Negative = overconfident, Positive = underconfident, Near zero = calibrated
+ * Get calibration state label from gap value (7 levels).
+ * gap = actual - self: negative = overconfident, positive = underconfident
+ *
+ * Brackets (based on 1-10 rating scale, ±2 points = significant):
+ *   < -2     Very overconfident
+ *   -2 to -1 Overconfident
+ *   -1 to -0.5 Somewhat overconfident
+ *   -0.5 to +0.5 Well calibrated
+ *   +0.5 to +1 Somewhat underconfident
+ *   +1 to +2 Underconfident
+ *   > +2     Very underconfident
  */
 function getCalibrationLabel(gap: number): string {
-  if (gap < -0.5) return 'Overconfident';
-  if (gap > 0.5) return 'Underconfident';
-  return 'Well calibrated';
+  if (gap < -2) return 'Very overconfident';
+  if (gap < -1) return 'Overconfident';
+  if (gap < -0.5) return 'Somewhat overconfident';
+  if (gap <= 0.5) return 'Well calibrated';
+  if (gap <= 1) return 'Somewhat underconfident';
+  if (gap <= 2) return 'Underconfident';
+  return 'Very underconfident';
 }
 
 /**
@@ -26,10 +39,11 @@ export function InlineCalibration({
 }: {
   calibration: UserCalibration;
 }) {
-  // Map gap to position: -3 (overconfident) to +3 (underconfident)
+  // Map gap to position: left = underconfident (+), right = overconfident (-)
+  // Flipped so "over" is visually on the right (intuitive)
   const gapToPosition = (g: number) => {
     const clamped = Math.max(-3, Math.min(3, g));
-    return ((clamped + 3) / 6) * 100;
+    return ((3 - clamped) / 6) * 100;  // -3 → 100% (right), +3 → 0% (left)
   };
 
   const listenerPos = gapToPosition(calibration.listener.avgGap);
@@ -40,40 +54,51 @@ export function InlineCalibration({
   return (
     <TooltipProvider delayDuration={100}>
       <div className="mt-3 flex items-center gap-3">
-        <span className="text-xs text-gray-500 shrink-0">Calibration</span>
-        <div className="relative h-4 w-32 rounded-full bg-gray-200">
+        <div className="flex items-center gap-1 shrink-0">
+          <Lock size={10} className="text-gray-400" />
+          <span className="text-xs text-gray-500">Calibration</span>
+        </div>
+        <div className="relative h-6 w-32">
+          {/* Bar */}
+          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2 rounded-full bg-gray-200" />
           {/* Center tick mark - subtle */}
-          <div className="absolute left-1/2 top-0 w-px h-full bg-gray-400 -translate-x-px" />
+          <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-px h-2 bg-gray-400 -translate-x-px" />
 
-          {/* Listener icon (ear) */}
+          {/* Listener icon (ear) - above the bar */}
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center cursor-default"
-                style={{ left: `calc(${listenerPos}% - 8px)` }}
+                className="absolute top-0 w-4 h-4 flex items-center justify-center cursor-default -translate-x-1/2"
+                style={{ left: `${listenerPos}%` }}
               >
-                <Ear size={14} className="text-gray-500" />
+                <Ear size={12} className="text-gray-500" />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[200px]">
+            <TooltipContent side="top" className="max-w-[240px]">
               <p className="text-xs font-medium">{listenerLabel} as Listener</p>
               <p className="text-xs text-gray-500">{TOOLTIP_TEXT.listener}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
+              </p>
             </TooltipContent>
           </Tooltip>
 
-          {/* Speaker icon (mic) */}
+          {/* Speaker icon (mic) - below the bar */}
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center cursor-default"
-                style={{ left: `calc(${speakerPos}% - 8px)` }}
+                className="absolute bottom-0 w-4 h-4 flex items-center justify-center cursor-default -translate-x-1/2"
+                style={{ left: `${speakerPos}%` }}
               >
-                <Mic size={14} className="text-gray-500" />
+                <Mic size={12} className="text-gray-500" />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[200px]">
+            <TooltipContent side="bottom" className="max-w-[240px]">
               <p className="text-xs font-medium">{speakerLabel} as Speaker</p>
               <p className="text-xs text-gray-500">{TOOLTIP_TEXT.speaker}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Avg (their understanding − your estimate) over {calibration.speaker.sessionCount} session{calibration.speaker.sessionCount !== 1 ? 's' : ''}
+              </p>
             </TooltipContent>
           </Tooltip>
         </div>

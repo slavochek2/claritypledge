@@ -14,6 +14,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-22: Calibration display — inline bar with 7-level brackets
+
+**Context:** Calibration was shown as a separate card (sidebar on desktop, below profile on mobile). Discussed making it part of the profile card, and needed to define meaningful labels for calibration gaps.
+
+**Decision:**
+- **Placement:** Inline inside profile card, below stats (one unified "who is this person" card)
+- **Visual:** Single horizontal bar with two icons positioned on it:
+  - 👂 Ear (Lucide `Ear`) = Listener calibration
+  - 🎤 Mic (Lucide `Mic`) = Speaker calibration
+- **Direction:** Left = underconfident, Right = overconfident (intuitive: "over" = more = right)
+- **7-level brackets** (gap = actual - self, on 1-10 rating scale):
+
+| avgGap | Label |
+|--------|-------|
+| < -2 | Very overconfident |
+| -2 to -1 | Overconfident |
+| -1 to -0.5 | Somewhat overconfident |
+| -0.5 to +0.5 | Well calibrated |
+| +0.5 to +1 | Somewhat underconfident |
+| +1 to +2 | Underconfident |
+| > +2 | Very underconfident |
+
+- **Tooltips:** Hover icon shows state + explanation (e.g., "Overconfident as Listener: How well you predict you understand others")
+
+**Alternatives rejected:**
+- Two separate bars (listener/speaker) — More visual noise, single bar with two markers is cleaner
+- Percentage display ("78%") — Doesn't communicate direction (over vs under)
+- Emoji icons — Too colorful/distracting, grey Lucide icons better
+- Green center line — Too prominent, subtle grey tick mark instead
+- 3-level brackets (over/calibrated/under) — Not granular enough, 7 mirrors position scale
+
+**Consequences:**
+- `InlineCalibration` component in `CalibrationDisplay.tsx` handles this
+- Full `CalibrationDisplay` component still exists for other contexts if needed
+- Bar direction is inverted from mathematical convention (positive gap = left)
+
+**References:** [CalibrationDisplay.tsx](../src/app/prototypes/linkedin-like/components/shared/CalibrationDisplay.tsx) | [types.ts](../src/app/prototypes/shared/types.ts#L267-L300)
+
+---
+
 ## 2026-01-21: Feed shows Points with Stories from your network
 
 **Context:** Points in the feed feel random. No indication WHY a Point is relevant to you. Discussed showing quoted Stories from people you know (same event attendees, future Clarity Partners).
