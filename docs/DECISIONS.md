@@ -14,6 +14,132 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-21: Feed shows Points with Stories from your network
+
+**Context:** Points in the feed feel random. No indication WHY a Point is relevant to you. Discussed showing quoted Stories from people you know (same event attendees, future Clarity Partners).
+
+**Decision:**
+- Points in feed show QuotedStory from people in your network (attended same event)
+- Show up to 3 relevant Stories max if multiple matches
+- This explains "why am I seeing this?" — someone you know shared their experience
+
+**Alternatives rejected:**
+- Badge only ("Sarah from TechConf quoted") — Less context, Stories ARE the context
+- Sort boost without showing — User doesn't understand why order changed
+- Dedicated "From network" tab — Fragments the feed unnecessarily
+
+**Consequences:**
+- PointCard in feed needs to filter linkedStories by user's event co-attendees
+- Reuse existing `QuotedStory` component
+- When Clarity Partners (P83) ships, add that as another relevance signal
+
+**References:** [p83_clarity_partners.md](../features/p83_clarity_partners.md) — future expansion
+
+---
+
+## 2026-01-21: Story visibility model — Private / Shared / Public
+
+**Context:** Designing P60 (Exploration UX) revealed unclear story visibility. Original spec said "private by default" but didn't define how stories become visible to others, especially within events.
+
+**Decision:** Three visibility levels:
+- **Private** — Only author sees (drafts)
+- **Shared** — Event participants see (event feed)
+- **Public** — Everyone sees (global feed, profile)
+
+"Shared" chosen over "event-private" because it's extensible — future: shared with specific individuals via chat.
+
+**Alternatives rejected:**
+- Two levels (private/public) — No event scoping
+- "Event-private" label — Too specific, doesn't extend to future sharing
+
+**Consequences:**
+- Story model needs `visibility` field: `private | shared | public`
+- Event feed shows `shared` stories from that event
+- Future chat sharing can reuse `shared` + recipient list
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
+## 2026-01-21: Verification only makes sense with story author
+
+**Context:** P60 exploration surfaced question: can I verify understanding of Sarah's story with Bob (not Sarah)?
+
+**Decision:** No. Verification is always 1:1 with the story author. The goal is confirming YOU understood THEIR experience — a third party can't validate that.
+
+**Alternatives rejected:**
+- Allow any pair to verify any story — Doesn't make sense epistemologically
+- Group verification — Too complex, dilutes the 1:1 understanding check
+
+**Consequences:**
+- "Verify" button must indicate WHO you'll verify with (show author)
+- /live session is always requester + story author
+- Stories must have exactly one author (no co-authored stories)
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) | [p55_understanding_verification_loop.md](../features/done/p55_understanding_verification_loop.md)
+
+---
+
+## 2026-01-21: Global notification bell for verification requests
+
+**Context:** How does a story author know someone wants to verify? Options: email, event-page-only badge, or global in-app notifications.
+
+**Decision:** Global bell icon in top-right nav with badge count. Tapping shows dropdown with pending requests.
+
+**Alternatives rejected:**
+- Email only — Users are on platform at events, email is friction
+- Event-page-only badge — User might browse elsewhere, misses notification
+- No notifications (polling) — Poor UX, author never knows
+
+**Consequences:**
+- Need notification infrastructure (bell icon, badge, dropdown)
+- First notification type: verification request
+- Pattern extends to future notifications (chat messages, etc.)
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
+## 2026-01-21: Verification stays event-scoped for MVP
+
+**Context:** P60 spec said "anyone can request verification from any public story" but this creates spam and requires network/connection features labeled "post-MVP."
+
+**Decision:** Verification only available within events for MVP. The "Verify" button appears on shared stories within an event context, not on random public stories.
+
+**Alternatives rejected:**
+- Open verification (anyone can request) — Spam risk, no coordination mechanism
+- Connection-gated (must connect first) — Requires network feature, too heavy for MVP
+- Chat-coordinated — Requires chat feature, too heavy for MVP
+
+**Consequences:**
+- "Verify" button only on event-scoped stories
+- No network/connections needed for MVP
+- Event = implicit trust boundary / social graph
+- Public story feed can exist but without "Verify" buttons
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
+## 2026-01-19: Avatar ring effect via background-padding, not Tailwind ring utilities
+
+**Context:** P75 Compact Profile Card needed a blue ring around pledger avatars. During code review, discovered the initial implementation used `ring-blue-500` which only sets color without visible ring (requires `ring` or `ring-2` for thickness).
+
+**Decision:** Use `p-1 bg-blue-500` on the avatar container to create the ring effect. The 4px padding with solid blue background creates a visually identical ring around the circular avatar.
+
+**Alternatives rejected:**
+- `ring-2 ring-blue-500` — Tailwind's ring utility, but ring appears outside the element's box model which can cause layout issues with adjacent content
+- Inline avatar implementation with ring (chosen for P75, but identified as tech debt) — P76 will refactor to use `GravatarAvatar` component with `isPledger` prop
+
+**Consequences:**
+- Simple, predictable ring that's part of the avatar's box model
+- P76 will standardize this pattern in `GravatarAvatar` component with `isPledger` prop
+- Ring width is fixed at 4px (`p-1`); larger avatars may want `p-1.5` or `ring-3`
+
+**References:** [compact-profile-card.tsx](../src/app/components/profile/compact-profile-card.tsx) | [p76_pledger_avatar_distinction.md](../features/p76_pledger_avatar_distinction.md)
+
+---
+
 ## 2026-01-19: Service abstraction pattern with feature flag for backend rollout
 
 **Context:** P61 Events feature needed to transition from mock data to real Supabase backend without breaking existing UI or requiring big-bang deployment.

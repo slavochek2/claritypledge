@@ -167,11 +167,11 @@ export function SettingsPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          to={`/p/${user?.slug}`}
+          to="/home"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeftIcon className="w-4 h-4 mr-1" />
-          Back to Profile
+          Back to Dashboard
         </Link>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-2">

@@ -4,22 +4,39 @@
 export const ROUTE_BASE = '/prototype/linkedin-like';
 
 export const routes = {
-  feed: `${ROUTE_BASE}/feed`,
+  // Primary nav (LinkedIn-style)
+  feed: `${ROUTE_BASE}/feed`,           // Discovery feed (Stories/Points)
+  myEvents: `${ROUTE_BASE}/my-events`,  // Dashboard (was "explore" on logged-out, "home/dashboard" on prod)
+  home: `${ROUTE_BASE}/my-events`,      // Alias for dashboard (used by "Back to Dashboard" links)
+  profile: `${ROUTE_BASE}/profile`,     // My profile
+
+  // Content detail pages
   idea: (id: string) => `${ROUTE_BASE}/idea/${id}`,
-  profile: `${ROUTE_BASE}/profile`,
+  story: (id: string) => `${ROUTE_BASE}/story/${id}`,
+  point: (id: string) => `${ROUTE_BASE}/point/${id}`,
   profileById: (id: string) => `${ROUTE_BASE}/profile/${id}`,
-  chat: `${ROUTE_BASE}/chat`,
+
+  // Live sessions
   live: `${ROUTE_BASE}/live`,
   liveWithIdea: (ideaId: string) => `${ROUTE_BASE}/live/${ideaId}`,
   liveHistory: (ideaId: string) => `${ROUTE_BASE}/live/${ideaId}/history`,
+
+  // Legacy/other
+  explore: `${ROUTE_BASE}/explore`,     // Alias for feed (backward compat)
+  chat: `${ROUTE_BASE}/chat`,
   topology: `${ROUTE_BASE}/topology`,
 } as const;
 
-// Navigation tabs configuration
+// Primary navigation for logged-in users (LinkedIn-style)
+export const primaryNav = [
+  { id: 'feed', label: 'Feed', path: routes.feed },
+  { id: 'my-events', label: 'My Events', path: routes.myEvents },
+  { id: 'profile', label: 'My Profile', path: routes.profile },
+] as const;
+
+// Legacy: old tabs config (kept for backward compat)
 export const navTabs = [
-  { id: 'feed', label: 'Ideas', path: routes.feed },
-  { id: 'chat', label: 'Chat', path: routes.chat },
-  { id: 'live', label: 'Live', path: routes.live },
+  { id: 'feed', label: 'Feed', path: routes.feed },
+  { id: 'my-events', label: 'My Events', path: routes.myEvents },
   { id: 'profile', label: 'Profile', path: routes.profile },
-  { id: 'topology', label: 'Network', path: routes.topology },
 ] as const;

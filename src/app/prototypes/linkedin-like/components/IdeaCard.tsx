@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Share2, Check, Copy, Zap, Users, ExternalLink, Globe, Lock } from 'lucide-react';
+import { Share2, Check, Copy, Zap, Users, Globe, Lock, ExternalLink } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
 import { PositionButtons } from './shared';
 import { routes } from '../config';
@@ -36,7 +36,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   const [showDeleteIdeaConfirm, setShowDeleteIdeaConfirm] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Check if we're on a profile page
   const isOnProfilePage = location.pathname.includes('/profile');
@@ -133,7 +132,7 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   // Card styling - clickable in list view, static in detail view
   const cardClassName = isDetailView
     ? "bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative"
-    : "bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all relative";
+    : "group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all relative";
 
   const handleCardClick = () => {
     if (!isDetailView) {
@@ -153,8 +152,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
       <div
         className={cardClassName}
         onClick={handleCardClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Twitter-style layout: avatar on left, content indented */}
         <div className="flex gap-3 px-4 pt-3">
@@ -274,39 +271,37 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   </TooltipContent>
                 </Tooltip>
               </div>
-              {/* Right side buttons */}
-              <div className="flex items-center gap-1">
-                {/* Open button - visible on hover (not in detail view) */}
-                {isHovered && !isDetailView && (
+              {/* Action buttons - appear on hover */}
+              {!isDetailView && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(routes.idea(idea.id));
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-full hover:bg-blue-600 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
                   >
-                    <ExternalLink size={14} />
+                    <ExternalLink size={12} />
                     Open
                   </button>
-                )}
-                {/* Share button */}
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowShareDialog(true);
-                      }}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                    >
-                      <Share2 size={16} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Share this idea</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowShareDialog(true);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Share this idea</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
             </div>
             </TooltipProvider>
           </div>

@@ -1,3 +1,14 @@
+---
+status: prepped
+prepped_date: 2026-01-19
+prepped_by: /prep-spec
+reviews:
+  ux: passed
+  architect: passed
+  tea: skipped
+execution: /loop
+---
+
 # P62: Logged-In Dashboard Experience
 
 ## Problem
@@ -294,56 +305,56 @@ interface EventAttendee {
 | Event | When | Properties |
 |-------|------|------------|
 | `dashboard_viewed` | Page load | — |
-| `meeting_invite_clicked` | Click "Invite to a Clarity Meeting" | `source: 'dashboard' \| 'event_page'` |
+| ~~`meeting_invite_clicked`~~ | ~~Click "Invite to a Clarity Meeting"~~ | ~~`source: 'dashboard' \| 'event_page'`~~ — **REMOVED:** Invite button removed from PersonRow in favor of simpler status-only display |
 | `collaborate_form_submitted` | Form submit | `interests: string[]` |
 | `quick_action_clicked` | Click quick action | `action: 'start_meeting' \| 'host_event' \| 'collaborate'` |
 
 ## Phases
 
 ### Phase 1: Nav + Dashboard Shell + Collaborate Page
-- [ ] Add "Collaborate" link to nav (non-logged-in users)
-- [ ] Add "Collaborate" to footer
-- [ ] Add "Dashboard" to logged-in user's dropdown menu
-- [ ] Create `/home` route (auth-protected)
-- [ ] Create `HomePage` with welcome message + placeholder sections
-- [ ] Create `/collaborate` route (public)
-- [ ] Create `CollaboratePage` with form (Web3Forms)
-- [ ] Add GitHub link
+- [x] Add "Co-create" link to nav (non-logged-in users)
+- [ ] Add "Co-create" to footer
+- [x] Add "Dashboard" to logged-in user's dropdown menu
+- [x] Create `/home` route (auth-protected)
+- [x] Create `HomePage` with welcome message + placeholder sections
+- [x] Create `/collaborate` route (public)
+- [x] Create `CollaboratePage` with form (Web3Forms)
+- [x] Add GitHub link
 
 **No blockers. Can start immediately.**
 
 ### Phase 2: Quick Actions + Take Pledge Banner
-- [ ] Add quick action cards (Start Meeting, Host Event, Collaborate)
-- [ ] Add conditional "Take the Pledge" banner
-- [ ] Track analytics
+- [ ] Add quick action cards (Start Meeting, Host Event, Collaborate) — SKIPPED (not needed for MVP)
+- [x] Add conditional "Take the Pledge" banner
+- [x] Track analytics (dashboard_viewed, collaborate events)
 
 **No blockers. Can start immediately.**
 
 ### Phase 3: Events Integration
-- [ ] Add `getUserRegisteredEvents(profileId)` to EventsService
-- [ ] Add `getUserHostedEvents(profileId)` to EventsService
-- [ ] Add `getUpcomingPublicEvents()` to EventsService
-- [ ] Implement in mock + real services
-- [ ] Display Attending, Hosting, Upcoming Events sections
+- [x] Add `getUserRegisteredEvents(profileId)` to EventsService
+- [x] Add `getUserHostedEvents(profileId)` to EventsService
+- [x] Add `getUpcomingPublicEvents()` to EventsService
+- [x] Implement in mock + real services
+- [x] Display Attending, Hosting, Upcoming Events sections
 - [ ] Add collapsible behavior for mobile
-- [ ] Link to event detail/edit pages
+- [x] Link to event detail/edit pages
 
 **Blocked by:** Events service interface changes (small addition)
 
 ### Phase 4: People Section
-- [ ] Add `getUserNextEvent(profileId)` to EventsService
-- [ ] Add `getPeopleFromEvent(eventId, excludeProfileId)` to EventsService
-- [ ] Implement in mock + real services
-- [ ] Display people list with avatar + name + button
-- [ ] Click avatar/name → profile page
-- [ ] Click button → `/live`
-- [ ] Empty states for edge cases
+- [x] Add `getUserNextEvent(profileId)` to EventsService
+- [x] Add `getPeopleFromEvent(eventId, excludeProfileId)` to EventsService
+- [x] Implement in mock + real services
+- [x] Display people list with avatar + name + button
+- [x] Click avatar/name → profile page
+- [x] Click button → `/live`
+- [x] Empty states for edge cases
 
 **Depends on:** Phase 3
 
 ### Phase 5: Event Page Integration
-- [ ] Add "Invite to a Clarity Meeting" button to event detail attendee list
-- [ ] Same flow as dashboard (→ `/live`)
+- [x] Add "Invite to a Clarity Meeting" button to event detail attendee list
+- [x] Same flow as dashboard (→ `/live`)
 
 **Can be done in parallel with Phase 4.**
 

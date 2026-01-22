@@ -1,6 +1,6 @@
 /**
  * @file live-session-banner.tsx
- * @description P23 V9: Simple centered header - "Clarity Meeting with [Partner]"
+ * @description P23 V9: Simple centered header - "Clarity Session with [Partner]"
  * V10: Added exit button (X) in top-left corner
  * V12: Added sound toggle button (right side)
  * V13: Added logo on left, full-width header with proper spacing
@@ -30,9 +30,9 @@ import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-ite
 interface LiveSessionBannerProps {
   partnerName?: string;
   onExit?: () => void;
-  /** Title to show in center - defaults to "Clarity Meeting with [Partner]" */
+  /** Title to show in center - defaults to "Clarity Session with [Partner]" */
   title?: string;
-  /** Whether this is a live meeting (shows Leave Meeting option) */
+  /** Whether this is a live session (shows Leave Session option) */
   isLiveMeeting?: boolean;
 }
 
@@ -43,10 +43,10 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
 
   // P52: Use shared navigation auth state hook for consistency with SimpleNavigation
   // P67: user and showUserMenu needed for avatar display
-  const { signOut, user, showUserMenu } = useNavAuthState();
+  const { signOut, user, showUserMenu, hasPledged } = useNavAuthState();
 
   // Determine display title
-  const displayTitle = title ?? (partnerName ? `Clarity Meeting with ${displayPartnerName}` : 'Live Clarity Meeting');
+  const displayTitle = title ?? (partnerName ? `Clarity Session with ${displayPartnerName}` : 'Live Clarity Session');
 
   return (
     <div className="h-16 lg:h-20 bg-background">
@@ -84,6 +84,7 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
                 avatarColor={user.avatarColor}
                 photoUrl={user.avatarUrl}
                 size="sm"
+                isPledger={hasPledged}
               />
             ) : (
               <MenuIcon className="w-5 h-5" />
@@ -114,7 +115,7 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
                 data-testid="leave-meeting"
               >
                 <LogOut className="h-4 w-4 mr-2" />
-                Leave Meeting
+                Leave Session
               </DropdownMenuItem>
             </>
           )}

@@ -15,6 +15,7 @@ import type {
   Position,
   UserCalibration,
   CalibrationState,
+  Notification,
 } from './types';
 
 // -----------------------------------------------------------------------------
@@ -30,6 +31,7 @@ export const currentUser: User = {
   role: 'Product Manager',
   company: 'TechCorp',
   connections: 127,
+  hasPledged: true, // Current user has taken the pledge
 };
 
 // -----------------------------------------------------------------------------
@@ -46,6 +48,7 @@ export const mockUsers: User[] = [
     role: 'Senior Product Manager',
     company: 'TechCorp',
     connections: 543,
+    hasPledged: true, // Pledger - gets blue ring
   },
   {
     id: '2',
@@ -56,6 +59,7 @@ export const mockUsers: User[] = [
     role: 'Staff Engineer',
     company: 'StartupXYZ',
     connections: 312,
+    hasPledged: false, // Non-pledger - no ring, no pledge CTA
   },
   {
     id: '3',
@@ -66,6 +70,7 @@ export const mockUsers: User[] = [
     role: 'Research Lead',
     company: 'DesignCo',
     connections: 891,
+    hasPledged: true, // Pledger
   },
   {
     id: '4',
@@ -76,6 +81,7 @@ export const mockUsers: User[] = [
     role: 'Principal Designer',
     company: 'TechCorp',
     connections: 234,
+    hasPledged: false, // Non-pledger
   },
   {
     id: '5',
@@ -86,6 +92,7 @@ export const mockUsers: User[] = [
     role: 'Engineering Manager',
     company: 'BigTech Inc',
     connections: 678,
+    hasPledged: true, // Pledger
   },
 ];
 
@@ -331,6 +338,55 @@ export const mockComments: Comment[] = [
   { id: '4', ideaId: '2', userId: '1', text: 'I think AI will augment rather than replace. The timeline seems aggressive. Would love to verify understanding on what "replace" means exactly.', createdAt: '2026-01-02T15:00:00Z', likes: 15 },
   { id: '5', ideaId: '2', userId: '3', text: 'Depends on your definition of "knowledge work" — some tasks are more automatable than others. Let\'s break this down.', createdAt: '2026-01-02T16:00:00Z', likes: 7 },
 ];
+
+// -----------------------------------------------------------------------------
+// Notifications (Bell Icon)
+// -----------------------------------------------------------------------------
+
+export const mockNotifications: Notification[] = [
+  {
+    id: 'n1',
+    type: 'verification_request',
+    fromUserId: '1', // Alice
+    storyId: 'st8',  // Wants to verify your remote work story
+    eventId: 'evt-1',
+    createdAt: '2026-01-09T14:30:00Z',
+    read: false,
+  },
+  {
+    id: 'n2',
+    type: 'verification_request',
+    fromUserId: '3', // Carol
+    storyId: 'st9',  // Wants to verify your no-meetings story
+    eventId: 'evt-2',
+    createdAt: '2026-01-09T10:15:00Z',
+    read: false,
+  },
+  {
+    id: 'n3',
+    type: 'verification_accepted',
+    fromUserId: '2', // Bob accepted your request
+    storyId: 'st2',
+    createdAt: '2026-01-08T16:00:00Z',
+    read: true,
+  },
+];
+
+/**
+ * Get unread notification count for badge display.
+ */
+export function getUnreadNotificationCount(): number {
+  return mockNotifications.filter(n => !n.read).length;
+}
+
+/**
+ * Get all notifications for current user, sorted by date (newest first).
+ */
+export function getNotifications(): Notification[] {
+  return [...mockNotifications].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
 
 // -----------------------------------------------------------------------------
 // Messages
@@ -588,4 +644,255 @@ export function getCalibrationState(avgGap: number): CalibrationState {
   if (avgGap < -0.5) return 'overconfident';
   if (avgGap > 0.5) return 'underconfident';
   return 'calibrated';
+}
+
+// -----------------------------------------------------------------------------
+// P60: Stories and Points Mock Data
+// -----------------------------------------------------------------------------
+
+import type { Story, Point } from './types';
+
+/**
+ * Mock Points - claims about reality that can be agreed/disagreed with.
+ * Points are ownerless (global) - no single author.
+ */
+export const mockPoints: Point[] = [
+  {
+    id: 'pt1',
+    text: 'Remote work is more productive than office work for knowledge workers',
+    createdAt: '2026-01-01T10:00:00Z',
+    positions: {
+      '1': { position: 'agree', timestamp: '2026-01-03T10:00:00Z' },
+      '2': { position: 'disagree', timestamp: '2026-01-03T14:30:00Z' },
+      '3': { position: 'agree', timestamp: '2026-01-04T09:15:00Z' },
+      '4': { position: 'dont_know', timestamp: '2026-01-05T11:00:00Z' },
+      'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },
+    },
+    linkedStoryIds: ['st1', 'st2', 'st3', 'st8'],
+  },
+  {
+    id: 'pt2',
+    text: 'Fewer meetings leads to better outcomes',
+    createdAt: '2026-01-02T14:00:00Z',
+    positions: {
+      '1': { position: 'agree', timestamp: '2026-01-02T15:00:00Z' },
+      '2': { position: 'agree', timestamp: '2026-01-02T16:00:00Z' },
+      '3': { position: 'disagree', timestamp: '2026-01-03T10:30:00Z' },
+      'current': { position: 'dont_know', timestamp: '2026-01-06T11:15:00Z' },
+    },
+    linkedStoryIds: ['st1', 'st4', 'st9'],
+  },
+  {
+    id: 'pt3',
+    text: 'AI will replace most knowledge work within 10 years',
+    createdAt: '2026-01-03T09:00:00Z',
+    positions: {
+      '1': { position: 'disagree', timestamp: '2026-01-03T12:00:00Z' },
+      '2': { position: 'agree', timestamp: '2026-01-03T14:00:00Z' },
+      '3': { position: 'dont_know', timestamp: '2026-01-04T09:00:00Z' },
+      '5': { position: 'agree', timestamp: '2026-01-05T10:00:00Z' },
+      'current': { position: 'disagree', timestamp: '2026-01-06T08:00:00Z' },
+    },
+    linkedStoryIds: ['st5', 'st6'],
+  },
+  {
+    id: 'pt4',
+    text: 'Code reviews are more valuable than automated testing',
+    createdAt: '2026-01-04T11:00:00Z',
+    positions: {
+      '2': { position: 'disagree', timestamp: '2026-01-04T14:00:00Z' },
+      '3': { position: 'agree', timestamp: '2026-01-04T15:00:00Z' },
+      '4': { position: 'agree', timestamp: '2026-01-05T09:00:00Z' },
+      'current': { position: 'agree', timestamp: '2026-01-06T10:00:00Z' },
+    },
+    linkedStoryIds: ['st7'],
+  },
+];
+
+/**
+ * Mock Stories - personal experiences that can only be understood (not debated).
+ * Stories have an author and are shown with blue styling.
+ */
+export const mockStories: Story[] = [
+  {
+    id: 'st1',
+    text: 'After switching to fully remote, I found myself shipping 40% more features. The lack of interruptions and commute time gave me deep focus blocks I never had in the office.',
+    authorId: '1', // Alice
+    createdAt: '2026-01-03T10:00:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt1', 'pt2'],
+    verificationCount: 3,
+    crossDisagreementCount: 1,
+  },
+  {
+    id: 'st2',
+    text: 'I tried remote work for 6 months and felt completely disconnected from my team. Important decisions happened in hallway conversations I wasn\'t part of.',
+    authorId: '2', // Bob
+    createdAt: '2026-01-03T14:30:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt1'],
+    verificationCount: 2,
+    crossDisagreementCount: 2,
+  },
+  {
+    id: 'st3',
+    text: 'Our research team went remote and collaboration actually improved. We started documenting everything which made knowledge sharing easier across time zones.',
+    authorId: '3', // Carol
+    createdAt: '2026-01-04T09:15:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt1'],
+    verificationCount: 1,
+    crossDisagreementCount: 0,
+  },
+  {
+    id: 'st4',
+    text: 'When we cut our weekly meetings from 8 to 2, team morale skyrocketed. People finally had time to do deep work instead of context-switching all day.',
+    authorId: '4', // David
+    createdAt: '2026-01-05T11:00:00Z',
+    visibility: 'shared',
+    eventId: 'evt-1', // Shared within "Future of Work Summit"
+    linkedPointIds: ['pt2'],
+    verificationCount: 4,
+    crossDisagreementCount: 1,
+  },
+  {
+    id: 'st5',
+    text: 'I\'ve been using AI coding assistants for a year now. They\'ve changed how I work but I still make all the architectural decisions. The AI is a tool, not a replacement.',
+    authorId: '1', // Alice
+    createdAt: '2026-01-05T14:00:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt3'],
+    verificationCount: 2,
+    crossDisagreementCount: 1,
+  },
+  {
+    id: 'st6',
+    text: 'My junior developer role was eliminated when the company adopted AI tools. Management said they only need senior devs to "supervise the AI" now.',
+    authorId: '5', // Emma
+    createdAt: '2026-01-06T10:00:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt3'],
+    verificationCount: 5,
+    crossDisagreementCount: 3,
+  },
+  {
+    id: 'st7',
+    text: 'In my experience, code reviews catch bugs that tests miss. A colleague\'s review once found a security vulnerability that no test would have caught.',
+    authorId: '3', // Carol
+    createdAt: '2026-01-06T15:00:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt4'],
+    verificationCount: 1,
+    crossDisagreementCount: 0,
+  },
+  {
+    id: 'st8',
+    text: 'I started working remotely 2 years ago and my work-life balance has completely transformed. I can pick up my kids from school now without stressing about commute time.',
+    authorId: 'current', // You
+    createdAt: '2026-01-07T09:00:00Z',
+    visibility: 'public',
+    linkedPointIds: ['pt1'],
+    verificationCount: 2,
+    crossDisagreementCount: 1,
+  },
+  {
+    id: 'st9',
+    text: 'Our team tried a "no meetings Wednesday" experiment. Productivity went through the roof - I finished a project that had been stalled for weeks.',
+    authorId: 'current', // You
+    createdAt: '2026-01-08T14:00:00Z',
+    visibility: 'shared',
+    eventId: 'evt-2', // Shared within "Team Productivity Workshop"
+    linkedPointIds: ['pt2'],
+    verificationCount: 3,
+    crossDisagreementCount: 0,
+  },
+  {
+    id: 'st10',
+    text: 'I\'m drafting thoughts about how async communication changed our team dynamics. Not ready to share yet - still processing the experience.',
+    authorId: 'current', // You
+    createdAt: '2026-01-09T10:00:00Z',
+    visibility: 'private', // Draft - only author sees
+    linkedPointIds: [],
+    verificationCount: 0,
+    crossDisagreementCount: 0,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// P60: Story and Point Helper Functions
+// -----------------------------------------------------------------------------
+
+export function getPointById(id: string): Point | undefined {
+  return mockPoints.find(p => p.id === id);
+}
+
+export function getStoryById(id: string): Story | undefined {
+  return mockStories.find(s => s.id === id);
+}
+
+export function getStoriesForPoint(pointId: string): Story[] {
+  const point = getPointById(pointId);
+  if (!point) return [];
+  return point.linkedStoryIds
+    .map(id => getStoryById(id))
+    .filter((s): s is Story => s !== undefined);
+}
+
+export function getPointsForStory(storyId: string): Point[] {
+  const story = getStoryById(storyId);
+  if (!story) return [];
+  return story.linkedPointIds
+    .map(id => getPointById(id))
+    .filter((p): p is Point => p !== undefined);
+}
+
+/**
+ * Get position counts for a Point (like getPositionCounts for Ideas)
+ */
+export function getPointPositionCounts(point: Point): { agree: number; disagree: number; dont_know: number } {
+  const counts = { agree: 0, disagree: 0, dont_know: 0 };
+  for (const entry of Object.values(point.positions)) {
+    if (entry?.position) {
+      counts[entry.position]++;
+    }
+  }
+  return counts;
+}
+
+/**
+ * Get all stories, optionally filtered by author
+ */
+export function getStories(authorId?: string): Story[] {
+  if (authorId) {
+    return mockStories.filter(s => s.authorId === authorId);
+  }
+  return mockStories;
+}
+
+/**
+ * Get all points
+ */
+export function getPoints(): Point[] {
+  return mockPoints;
+}
+
+/**
+ * Get participant users for a Point (users who have taken a position)
+ * Returns up to `limit` users, excluding 'current' pseudo-user
+ */
+export function getPointParticipants(point: Point, limit = 3): { id: string; avatar: string; name: string }[] {
+  const participants: { id: string; avatar: string; name: string }[] = [];
+
+  for (const [userId, entry] of Object.entries(point.positions)) {
+    if (userId === 'current' || !entry?.position) continue;
+
+    const user = getUserById(userId);
+    if (user) {
+      participants.push({ id: user.id, avatar: user.avatar, name: user.name });
+    }
+
+    if (participants.length >= limit) break;
+  }
+
+  return participants;
 }

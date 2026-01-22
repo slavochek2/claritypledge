@@ -21,8 +21,46 @@ Generate a ready-to-paste `/ralph-loop:ralph-loop` command from a UAT file.
 | `--spec` | No | auto-detect | Path to tech spec (overrides auto-detection) |
 | `--max-iterations` | No | 30 | Safety limit for iterations |
 | `--completion-promise` | No | auto | Defaults to `<promise>{FEATURE} UAT COMPLETE</promise>` |
+| `--force-ralph` | No | false | Skip complexity check, always output ralph-loop |
 
 ## Workflow
+
+### Step 0: Analyze Spec Complexity (Smart Recommendation)
+
+Before generating the ralph-loop command, analyze the spec to determine if ralph-loop is even appropriate.
+
+**Read the spec file and extract:**
+- **Requirements count** — Count `- [ ]` checkboxes, "must", "should", "will" statements
+- **Risk keywords** — `auth`, `payment`, `migration`, `security`, `breaking change`, `RLS`
+- **Integration points** — External APIs, DB schema changes, third-party services
+
+**Decision logic:**
+
+| Condition | Recommendation |
+|-----------|----------------|
+| Requirements < 12 AND no risk keywords AND integrations < 3 | `/loop` (simple) |
+| Otherwise | `ralph-loop` (complex) |
+
+**If simple spec detected:**
+
+Output `/loop` recommendation FIRST, then ralph-loop as optional fallback:
+
+```
+## Recommended: /loop
+
+This spec is straightforward ({N} requirements, no risky integrations).
+Just run `/loop` and describe the task — faster iteration, no UAT overhead.
+
+---
+
+## If you prefer structured UAT tracking anyway:
+
+{ralph-loop command here}
+```
+
+**If complex spec detected:**
+
+Output ralph-loop directly (no `/loop` recommendation).
 
 ### Step 1: Validate UAT File
 
@@ -150,6 +188,8 @@ Copy and paste the command above to start the implementation loop.
 | Spec not found | Error with paths tried and suggestion to use `--spec` |
 | UAT has 0 tests | Error: "UAT has no tests (no UAT-X.Y entries found)." |
 | UAT already at 100% | Info: "UAT already complete (100%). Nothing to implement." Then output command anyway (user may want to re-verify) |
+| Simple spec (< 12 req, no risk) | Recommend `/loop` first, ralph-loop as fallback |
+| `--force-ralph` flag provided | Skip complexity check, output ralph-loop directly |
 
 ## Example
 

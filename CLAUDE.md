@@ -88,7 +88,7 @@ A **Sensemaking Platform** that reveals calibration gaps in how well people unde
 
 ```bash
 # Development
-npm run dev              # Start dev server (localhost:5173)
+npm run dev              # Start dev server (localhost:5001)
 npm run build            # Production build
 npm run preview          # Preview production build
 

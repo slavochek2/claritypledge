@@ -423,6 +423,9 @@ Notes from initial review (2025-01-19):
 - Non-attendees viewing the event page should NOT see meeting buttons on attendee cards
 - This prevents strangers from requesting meetings with event attendees
 
+### Why Not Reuse /chat?
+Considered extending `/chat` to handle meeting requests. Rejected — chat is sync (both online), requests are async (hours/days between send and accept). Would still need notification bell. Keep P64 simple with dedicated `meeting_requests` table.
+
 ### Review Findings to Address
 - **Bidirectional requests:** Block if any pending request exists between the pair (decided)
 - **"Not now" button:** Keeps request pending, soft dismiss (decided)

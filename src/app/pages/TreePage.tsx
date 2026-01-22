@@ -20,6 +20,11 @@ const productionPages = [
 
 const prototypeRoutes = [
   {
+    path: '/prototype/events-mock',
+    label: 'Events (Mock Data)',
+    description: 'Hardcoded events — safe for testing, works in prod'
+  },
+  {
     path: '/prototype/linkedin-like/profile',
     label: 'LinkedIn-like',
     description: 'P55 - Idea verification with swipe interface'

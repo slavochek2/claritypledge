@@ -8,7 +8,7 @@ export function AlternativeHowItWorks() {
       step: "1",
       title: "Share a link",
       description:
-        "Start a clarity meeting and share the link with anyone you've just had an important conversation with.",
+        "Start a clarity session and share the link with anyone you've just had an important conversation with.",
     },
     {
       icon: MessageSquareIcon,

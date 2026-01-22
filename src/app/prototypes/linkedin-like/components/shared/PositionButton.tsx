@@ -17,20 +17,20 @@ interface PositionButtonProps {
 const config = {
   agree: {
     label: 'Agree',
-    activeClass: 'bg-emerald-500 text-white border-emerald-500',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
+    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
     icon: '✓',
   },
   disagree: {
     label: 'Disagree',
-    activeClass: 'bg-rose-500 text-white border-rose-500',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
+    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
     icon: '✗',
   },
   dont_know: {
     label: 'Unsure',
-    activeClass: 'bg-gray-500 text-white border-gray-500',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
+    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
     icon: '?',
   },
 };
@@ -69,9 +69,36 @@ interface PositionButtonsProps {
   userPosition: Position;
   counts: { agree: number; disagree: number; dont_know: number };
   onPositionClick: (position: Position) => void;
+  /** Compact mode for embedded use (e.g., QuotedPoint) */
+  compact?: boolean;
 }
 
-export function PositionButtons({ userPosition, counts, onPositionClick }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
+  if (compact) {
+    return (
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {(['agree', 'disagree', 'dont_know'] as const).map((pos) => {
+          const c = config[pos];
+          const isActive = userPosition === pos;
+          return (
+            <button
+              key={pos}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPositionClick(pos);
+              }}
+              className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                isActive ? c.activeClass : c.inactiveClass
+              }`}
+            >
+              {c.label} {counts[pos]}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={100}>
       <div className="flex items-center justify-start gap-2">

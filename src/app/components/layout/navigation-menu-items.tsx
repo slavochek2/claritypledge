@@ -26,6 +26,8 @@ import {
   UserIcon,
   FileTextIcon,
   UserPlusIcon,
+  LayoutDashboardIcon,
+  UsersIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -67,9 +69,17 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Take the Pledge + Log In + Create Account */}
+        {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
         {showPublicCTAs && (
           <>
+            <Link
+              to="/co-create"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <UsersIcon className="w-4 h-4 inline mr-2" />
+              Co-create
+            </Link>
             <Link
               to="/sign-pledge"
               className={mobileLinkClass}
@@ -103,6 +113,17 @@ export function NavigationMenuItems({
         {/* Verified user menu */}
         {showUserMenu && (
           <>
+            {/* P62: Dashboard link */}
+            <Link
+              to="/home"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+              data-testid={includeTestIds ? 'dashboard' : undefined}
+            >
+              <LayoutDashboardIcon className="w-4 h-4 inline mr-2" />
+              Dashboard
+            </Link>
+
             <Link
               to="/me"
               className={mobileLinkClass}
@@ -136,6 +157,15 @@ export function NavigationMenuItems({
             )}
 
             <Link
+              to="/co-create"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <UsersIcon className="w-4 h-4 inline mr-2" />
+              Co-create
+            </Link>
+
+            <Link
               to="/settings"
               className={mobileLinkClass}
               onClick={handleItemClick}
@@ -162,9 +192,15 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Take the Pledge + Log In + Create Account */}
+      {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
       {showPublicCTAs && (
         <>
+          <DropdownMenuItem asChild>
+            <Link to="/co-create" className="cursor-pointer">
+              <UsersIcon className="w-4 h-4 mr-2" />
+              Co-create
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">
               <FileTextIcon className="w-4 h-4 mr-2" />
@@ -189,6 +225,14 @@ export function NavigationMenuItems({
       {/* Verified user menu */}
       {showUserMenu && (
         <>
+          {/* P62: Dashboard link */}
+          <DropdownMenuItem asChild data-testid={includeTestIds ? 'dashboard' : undefined}>
+            <Link to="/home" className="cursor-pointer">
+              <LayoutDashboardIcon className="w-4 h-4 mr-2" />
+              Dashboard
+            </Link>
+          </DropdownMenuItem>
+
           {/* View My Profile */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'view-profile' : undefined}>
             <Link to="/me" className="cursor-pointer">
@@ -213,6 +257,14 @@ export function NavigationMenuItems({
               </Link>
             </DropdownMenuItem>
           )}
+
+          {/* Co-create */}
+          <DropdownMenuItem asChild>
+            <Link to="/co-create" className="cursor-pointer">
+              <UsersIcon className="w-4 h-4 mr-2" />
+              Co-create
+            </Link>
+          </DropdownMenuItem>
 
           {/* Settings */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>

@@ -53,7 +53,7 @@ describe('CreateEvent Auth Check', () => {
     });
 
     // Should NOT show sign-up message
-    expect(screen.queryByText('Sign Up to Create Events')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign Up to Host Events')).not.toBeInTheDocument();
   });
 
   it('should show sign-up message when user is not authenticated', async () => {
@@ -75,7 +75,7 @@ describe('CreateEvent Auth Check', () => {
 
     // Should show sign-up message
     await waitFor(() => {
-      expect(screen.getByText('Sign Up to Create Events')).toBeInTheDocument();
+      expect(screen.getByText('Sign Up to Host Events')).toBeInTheDocument();
     });
 
     // Should NOT show the form

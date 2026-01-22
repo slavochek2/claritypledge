@@ -18,7 +18,14 @@ export function CreateEvent() {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('18:00');
-  const [timezone, setTimezone] = useState('Asia/Bangkok');
+  // Default to user's timezone, fallback to America/Los_Angeles
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return 'America/Los_Angeles';
+    }
+  });
   const [durationMinutes, setDurationMinutes] = useState(120); // 2 hours default
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
@@ -39,7 +46,7 @@ export function CreateEvent() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Sign Up to Create Events</h1>
+          <h1 className="text-2xl font-bold mb-2">Sign Up to Host Events</h1>
           <p className="text-muted-foreground mb-4">You need an account to host events.</p>
           <Link to="/signup">
             <Button className="bg-blue-500 hover:bg-blue-600 text-white">Sign Up</Button>
@@ -123,7 +130,7 @@ export function CreateEvent() {
             <ArrowLeft className="w-4 h-4" />
             Back to Events
           </Link>
-          <h1 className="text-2xl font-bold">Create Event</h1>
+          <h1 className="text-2xl font-bold">Host an Event</h1>
         </div>
         <div className="space-y-6">
           {/* Event Name */}
@@ -268,7 +275,7 @@ export function CreateEvent() {
               size="lg"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Creating Event...' : 'Create Event'}
+              {isSubmitting ? 'Creating...' : 'Publish Event'}
             </Button>
           </div>
         </div>

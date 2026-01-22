@@ -56,7 +56,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 npm run dev
 ```
 
-App runs at `http://localhost:5173`
+App runs at `http://localhost:5001`
 
 ## Understanding the Codebase
 
@@ -99,7 +99,7 @@ npm run test:e2e     # Run E2E tests (requires setup)
 
 ### Testing Magic Links Locally
 
-Magic links redirect to `localhost:5173` in development. To test:
+Magic links redirect to `localhost:5001` in development. To test:
 
 1. Sign up with a real email you can access
 2. Check your inbox for the magic link

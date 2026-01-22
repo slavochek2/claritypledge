@@ -3,17 +3,15 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-01-18
-**North Star:** First open-space Clarity Event
+**Last Updated:** 2026-01-20
+**North Star:** First 30-person Clarity Event (H2 validation)
 
-> **Current Build Sequence (5 days):**
-> 1. Events backend (worktree-4) — Days 1-2
-> 2. /live connection from event — Days 2-3
-> 3. Stories + Points in profile (mockup) — Days 3-4
-> 4. Sifter (mockup + AI agent) — Days 4-5
-> 5. Calibration banner — Day 5
+> **Current Focus:** P60 Exploration UX → Manual seed → H2 test event
 >
-> See [DECISIONS.md](../docs/DECISIONS.md) entry 2026-01-17 for rationale.
+> **What's done:** Events backend, /live verification
+> **What's next:** P60 (Story/Point navigation UI) — mockup/frontend only
+> **Then:** Manually seed Stories/Points → Run 30-person event → Validate H2
+> **After H2:** Sifter (P58) automates seeding
 
 ---
 
@@ -145,26 +143,26 @@ This badge appears next to their name across the platform, rewarding epistemic h
 
 ## Build Phases
 
-### Phase 0: AI Sifter MVP (P58)
+### Phase 0: Exploration UX (P60) ✅ CURRENT
 
-**Goal:** Users can brain dump and get Stories/Points separated.
+**Goal:** Users can navigate between Stories and Points, filter by position, initiate verification.
 
-See [p58_sifter_mvp.md](./p58_sifter_mvp.md) for full spec.
+See [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) for full spec.
 
 ```
-□ Chat interface for brain dump
-□ AI Sifter: detect Story vs Point
-□ Hardener: make Points falsifiable
-□ Mirror Test: AI plays back, user confirms
-□ Store sifted content (stories + points tables)
+□ StoryDetail screen (blue card + linked Points)
+□ PointDetail screen (yellow card + linked Stories with position filter)
+□ Pattern B cards (collapse/expand, position badges)
+□ "Verify Understanding" button → /live
+□ Feed with Story/Point cards
 ```
 
 **Why first:**
-- Users arrive at events with pre-sifted, clear ideas
-- Answers "why must I verify?" — your Story deserves understanding
-- Personal value even without events
+- Can't test H2 without visible Stories/Points
+- Manual seeding sufficient — Sifter comes later
+- Frontend mockup, backend schema exists
 
-### Phase 1: Points + Positions Backend
+### Phase 1: Points + Positions Backend ✅ DONE
 
 **Goal:** Points can be shared, positions can be staked on -3 to +3 scale.
 
@@ -235,16 +233,16 @@ position_history (
 ALTER TABLE clarity_sessions ADD COLUMN point_id uuid references points(id);
 ```
 
-### Phase 2: Event Container
+### Phase 2: Event Container ✅ DONE
 
 **Goal:** Self-service event creation, scoped points.
 
 ```
-□ Events table + API
-□ Simple event creation (name + description)
-□ Event registration (magic link → add to event)
-□ Event feed (points scoped to event)
-□ Attendee list with positions
+✓ Events table + API
+✓ Simple event creation (name + description)
+✓ Event registration (magic link → add to event)
+□ Event feed (points scoped to event) — needs P60
+□ Attendee list with positions — needs P60
 □ "See my events" on profile
 ```
 
@@ -285,30 +283,45 @@ event_participants (
 | Share QR, wait for join | Both in same room |
 | Unknown partner | Picked from attendee list |
 
-### Phase 4: AI Synthesis
+### Phase 4: First Event (H2 Validation)
+
+**Goal:** Run 30-person event to validate H2 (visibility changes behavior).
+
+```
+□ Manually seed 3-5 Stories/Points for test event
+□ End-to-end test with P60 UI
+□ Run event, observe verification behavior
+□ Post-event survey: >50% verify, >60% "worth it"
+```
+
+**Success criteria:** See [hypotheses.md](hypotheses.md) H2 definition.
+
+### Phase 5: Sifter (P58)
+
+**Goal:** Automate Story/Point creation (only after H2 validated).
+
+See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
+
+```
+□ Chat interface for brain dump
+□ AI Sifter: detect Story vs Point
+□ Hardener: make Points falsifiable
+□ Mirror Test: AI plays back, user confirms
+```
+
+**Why after H2:** Don't automate seeding until manual seeding proves the loop works.
+
+### Phase 6: AI Synthesis + Context Portal
 
 **Goal:** Post-verification learning extraction.
 
 ```
 □ Transcription (Whisper on recorded audio)
 □ AI synthesis: "What you learned about their Story"
-□ Show synthesis + thumbs up/down
 □ Context Portal: "Catch Up" summary for newcomers
 ```
 
-See [v7_context_portal_design.md](../docs/visions/v7_context_portal_design.md) for Context Portal spec.
-
-### Phase 5: Polish + First Event
-
-**Goal:** Run a real event.
-
-```
-□ "Who disagrees with me" filter
-□ Gap signal (⚡ unbridged disagreements)
-□ Seed 3-5 points for test event
-□ End-to-end test
-□ Run event, collect feedback
-```
+See [p59_context_portal_design.md](../features/p59_context_portal_design.md) for spec.
 
 ---
 
@@ -327,49 +340,13 @@ See [v7_context_portal_design.md](../docs/visions/v7_context_portal_design.md) f
 
 ---
 
-## Hypotheses to Test
+## Hypotheses
 
-### H1: Will People Use the Sifter?
+**Source of truth:** [hypotheses.md](hypotheses.md)
 
-**Test:** Offer brain dump chat. Count completions.
-**Success:** >50% complete at least one sift.
-**Measures:** Sifter starts vs completions.
+**Current focus:** H2 (visibility changes behavior) and H0 (calibration revelation motivates action)
 
-### H2: Will People Stake Positions?
-
-**Test:** Show points at event. Count stakes.
-**Success:** >80% stake on at least 1 point.
-**Measures:** Query positions table.
-
-### H3: Will People Self-Select for Verification?
-
-**Test:** Show who disagrees. Let them pair.
-**Success:** >50% do at least 1 verification.
-**Measures:** Query clarity_sessions with point_id.
-
-### H4: Does Verification Feel Valuable?
-
-**Test:** Post-verification survey.
-**Success:** >60% say "worth it."
-**Measures:** In-app thumbs up/down.
-
-### H5: Does AI Synthesis Add Value?
-
-**Test:** Show "What you learned" after session.
-**Success:** >50% say accurate/useful.
-**Measures:** Thumbs up/down on synthesis.
-
----
-
-## Success Criteria: First Event
-
-| Metric | Target | Why |
-|--------|--------|-----|
-| Sifter completion | >50% | Will they use it? |
-| Position stake rate | >80% | Engagement baseline |
-| Verification rate | >50% | Core loop works? |
-| "Worth it" rating | >60% | Feels valuable? |
-| Friction notes | <5 blockers | What needs fixing? |
+**First Event success criteria:** See H2 in hypotheses.md — >50% verify, >60% "worth it"
 
 ---
 
@@ -428,14 +405,21 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 ## Related Documents
 
-- [p58_sifter_mvp.md](./p58_sifter_mvp.md) — AI Sifter + Hardener spec
-- [v0_theory-of-change.md](../docs/visions/v0_theory-of-change.md) — Philosophy
-- [v5_sensemaking_vision.md](../docs/visions/v5_1_sensemaking_platform_synthesis.md) — Story/Point framework
-- [v7_communicative_critical_rationalism.md](../docs/visions/v7_communicative_critical_rationalism.md) — Meta-epistemology, measurement stack, asymmetric conversion
-- [v7_context_portal_design.md](../docs/visions/v7_context_portal_design.md) — Catch-up feature
-- [hypotheses.md](../docs/hypotheses.md) — What we're testing (H-Core, H1-H5)
-- [P55: Understanding Verification Loop](./p55_Understanding%20Verification%20Loop.md) — Core mechanism
-- [P56: Event as Clarity Container](./p56_event_as_clarity_container.md) — Event mechanics
+**Current Work:**
+- [P60: Exploration UX](../features/p60_navigating_stories_and_points.md) — Story/Point navigation (CURRENT)
+- [P78: User Personas](../features/p78_user_personas.md) — Event organizer + other personas
+- [P79: Consulting Revenue](../features/p79_consulting_revenue_model.md) — Bootstrap revenue model
+
+**Core Specs:**
+- [P55: Understanding Verification Loop](../features/done/p55_understanding_verification_loop.md) — /live mechanism
+- [P56: Event as Clarity Container](../features/p56_event_as_clarity_container.md) — Event mechanics
+- [P58: Sifter MVP](../features/p58_sifter_mvp.md) — AI Sifter (after H2)
+- [P59: Context Portal](../features/p59_context_portal_design.md) — Catch-up feature
+
+**Foundation:**
+- [hypotheses.md](hypotheses.md) — What we're testing (H-Core, H0-H5)
+- [v0_theory-of-change.md](visions/v0_theory-of-change.md) — Cascade mechanism
+- [v7_communicative_critical_rationalism.md](visions/v7_communicative_critical_rationalism.md) — Epistemology
 
 ---
 
@@ -443,6 +427,7 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 | Date | Change |
 |------|--------|
+| 2026-01-20 | Restructured phases: P60 (exploration) now Phase 0, Sifter moved to Phase 5 (after H2). Marked Events backend done. Deleted duplicate hypotheses, linked to hypotheses.md. Added P78/P79 references. |
 | 2026-01-18 | v7 alignment: -3 to +3 position scale, ≥8/10 verification threshold, calibration badge (≥10 sessions + ±0.5 gap), Story↔Point bidirectional linking, position_history table for conversion tracking, new open questions Q4/Q5 |
 | 2026-01-14 | Refactored from p57, integrated v6 Story/Point model, added Sifter as Phase 0 |
 | 2026-01-13 | Original p57 created |

@@ -698,6 +698,8 @@ export interface EventAttendee {
   slug: string;
   avatarColor?: string;
   avatarUrl?: string;
+  /** Whether this attendee has signed the pledge */
+  hasPledged: boolean;
 }
 
 export interface DbEvent {

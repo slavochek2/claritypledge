@@ -25,24 +25,20 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
         count={counts.agree}
         active={activeFilter === 'agree'}
         onClick={() => onFilterChange('agree')}
-        activeColor="text-emerald-600"
-        underlineColor="bg-emerald-600"
+        activeColor="text-blue-600"
+        underlineColor="bg-blue-600"
       />
       <FilterTab
         label="Disagreed"
         count={counts.disagree}
         active={activeFilter === 'disagree'}
         onClick={() => onFilterChange('disagree')}
-        activeColor="text-blue-600"
-        underlineColor="bg-blue-600"
       />
       <FilterTab
         label="Unsure"
         count={counts.dont_know}
         active={activeFilter === 'dont_know'}
         onClick={() => onFilterChange('dont_know')}
-        activeColor="text-gray-500"
-        underlineColor="bg-gray-500"
       />
     </div>
   );

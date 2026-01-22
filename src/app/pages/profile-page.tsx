@@ -18,8 +18,8 @@ import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
-import { getInitials, getAvatarColor } from "@/lib/utils";
-import { MailIcon } from "lucide-react";
+import { MailIcon, ArrowLeftIcon } from "lucide-react";
+import { CompactProfileCard } from "@/app/components/profile/compact-profile-card";
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -116,7 +116,6 @@ export function ProfilePage() {
   }
 
   const isOwner = session?.user?.id === profile.id;
-  const hasPledged = profile.hasPledged;
 
   // Handle resend verification email
   const handleResendEmail = async () => {
@@ -144,8 +143,6 @@ export function ProfilePage() {
       setIsResending(false);
     }
   };
-
-  const avatarColor = getAvatarColor(profile.name, profile.avatarColor);
 
   // Show verification prompt for unverified owners
   if (isOwner && !profile.isVerified) {
@@ -247,82 +244,19 @@ export function ProfilePage() {
           signedAt: profile.signedAt,
         }}
       />
-      <div className="min-h-screen bg-background py-12 px-4">
-        <div className="container mx-auto max-w-3xl">
-          {/* Profile Card */}
-          <div className="bg-card border rounded-lg shadow-sm p-8">
-            <div className="flex flex-col items-center text-center space-y-6">
-              {/* Avatar with optional blue ring for pledgers */}
-              <div className={`relative ${hasPledged ? 'p-1 bg-blue-500 rounded-full' : ''}`}>
-                <div className={`w-24 h-24 rounded-full ${avatarColor} flex items-center justify-center text-white text-3xl font-bold`}>
-                  {getInitials(profile.name)}
-                </div>
-              </div>
+      <div className="min-h-screen bg-background py-8 px-4">
+        <div className="container mx-auto max-w-2xl">
+          {/* P76: Back button - conditional based on auth state */}
+          <Link
+            to={session ? "/home" : "/"}
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-1" />
+            {session ? "Back to Dashboard" : "Back to Home"}
+          </Link>
 
-              {/* Name and Role */}
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">
-                  {profile.name}
-                </h1>
-                {profile.role && (
-                  <p className="text-lg text-muted-foreground">
-                    {profile.role}
-                  </p>
-                )}
-              </div>
-
-              {/* Pledge Status & CTAs */}
-              <div className="w-full space-y-4 pt-4">
-                {isOwner ? (
-                  // Owner viewing their own profile
-                  <div className="space-y-3">
-                    {hasPledged ? (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          You've signed the Clarity Pledge
-                        </p>
-                        <Link to={`/p/${profile.slug}/pledge`} className="block">
-                          <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white">
-                            View My Pledge
-                          </Button>
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          Ready to make your public commitment?
-                        </p>
-                        <Link to="/sign-pledge?prefill=true" className="block">
-                          <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white">
-                            Take the Pledge
-                          </Button>
-                        </Link>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  // Visitor viewing someone else's profile
-                  <div className="space-y-3">
-                    {hasPledged && (
-                      <>
-                        <p className="text-sm text-muted-foreground">
-                          {profile.name.split(' ')[0]} has signed the Clarity Pledge
-                        </p>
-                        <Link
-                          to={`/p/${profile.slug}/pledge`}
-                          className="text-blue-500 hover:text-blue-600 font-medium inline-flex items-center gap-1"
-                        >
-                          View their pledge →
-                        </Link>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Future: Events attended, Stories/Points (P58) */}
-            </div>
-          </div>
+          {/* P75: Compact Profile Card */}
+          <CompactProfileCard profile={profile} isOwner={isOwner} />
         </div>
       </div>
     </>

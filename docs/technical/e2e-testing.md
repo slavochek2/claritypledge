@@ -253,13 +253,13 @@ test('should create profile after magic link token verification', async () => {
 export default defineConfig({
   workers: 1, // Run tests sequentially
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5001',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:5001',
     reuseExistingServer: true,
   },
 });
