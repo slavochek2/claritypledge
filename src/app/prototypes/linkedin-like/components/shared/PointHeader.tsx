@@ -27,7 +27,7 @@ export function PointHeader({
   authorName,
   isCurrentUser = false,
   compact = false,
-  showLabel = true,
+  showLabel = false,
 }: PointHeaderProps) {
   const iconSize = compact ? 10 : 12;
   const textClass = compact ? 'text-[11px]' : 'text-xs';

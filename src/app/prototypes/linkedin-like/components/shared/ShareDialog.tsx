@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Share2, Copy, Check } from 'lucide-react';
+import { Share2, Copy, Check, ChevronDown, Code } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,10 @@ interface ShareDialogProps {
 /**
  * ShareDialog - Unified share dialog for Stories, Points, and Profiles
  *
- * Design: YouTube-inspired KISS approach
+ * Design: YouTube-inspired
  * - URL field with inline copy button
+ * - Embed code collapsed by default (for story/point only)
  * - Native share on mobile
- * - No embed (YAGNI)
  */
 export function ShareDialog({
   open,
@@ -37,14 +37,28 @@ export function ShareDialog({
   title,
   description,
 }: ShareDialogProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'link' | 'embed' | null>(null);
+  const [showEmbed, setShowEmbed] = useState(false);
   const hasNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
+  const showEmbedOption = type === 'story' || type === 'point';
 
-  const handleCopy = async () => {
+  const embedCode = `<iframe src="${url}?embed=true" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>`;
+
+  const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied('link');
+      setTimeout(() => setCopied(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleCopyEmbed = async () => {
+    try {
+      await navigator.clipboard.writeText(embedCode);
+      setCopied('embed');
+      setTimeout(() => setCopied(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -71,7 +85,10 @@ export function ShareDialog({
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       onOpenChange(isOpen);
-      if (!isOpen) setCopied(false);
+      if (!isOpen) {
+        setCopied(null);
+        setShowEmbed(false);
+      }
     }}>
       <DialogContent className="w-[calc(100%-2rem)] max-w-sm mx-auto">
         <DialogHeader>
@@ -84,12 +101,12 @@ export function ShareDialog({
             <span className="whitespace-nowrap">{url}</span>
           </div>
           <Button
-            onClick={handleCopy}
+            onClick={handleCopyLink}
             variant="ghost"
             size="sm"
-            className={`shrink-0 ${copied ? 'text-green-600 hover:text-green-600' : ''}`}
+            className={`shrink-0 ${copied === 'link' ? 'text-green-600 hover:text-green-600' : ''}`}
           >
-            {copied ? (
+            {copied === 'link' ? (
               <Check size={16} />
             ) : (
               <Copy size={16} />
@@ -99,8 +116,11 @@ export function ShareDialog({
 
         {/* Feedback text */}
         <div className="h-5 text-center">
-          {copied && (
-            <span className="text-sm text-green-600">Copied to clipboard!</span>
+          {copied === 'link' && (
+            <span className="text-sm text-green-600">Link copied!</span>
+          )}
+          {copied === 'embed' && (
+            <span className="text-sm text-green-600">Embed code copied!</span>
           )}
         </div>
 
@@ -113,6 +133,48 @@ export function ShareDialog({
             <Share2 size={16} className="mr-2" />
             Share...
           </Button>
+        )}
+
+        {/* Embed section - collapsed by default, story/point only */}
+        {showEmbedOption && (
+          <div className="border-t pt-3 mt-1">
+            <button
+              onClick={() => setShowEmbed(!showEmbed)}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors w-full"
+            >
+              <Code size={14} />
+              <span>Embed code</span>
+              <ChevronDown
+                size={14}
+                className={`ml-auto transition-transform ${showEmbed ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {showEmbed && (
+              <div className="mt-3 space-y-2">
+                <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-600 font-mono overflow-x-auto max-h-24">
+                  <pre className="whitespace-pre-wrap break-all">{embedCode}</pre>
+                </div>
+                <Button
+                  onClick={handleCopyEmbed}
+                  variant="outline"
+                  size="sm"
+                  className={`w-full ${copied === 'embed' ? 'bg-green-50 border-green-200 text-green-700' : ''}`}
+                >
+                  {copied === 'embed' ? (
+                    <>
+                      <Check size={14} className="mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} className="mr-2" />
+                      Copy embed code
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>
