@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
+import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
@@ -116,7 +116,12 @@ export function StoryCard({
                         <ExternalLink size={12} />
                         Open
                       </button>
-                      <ShareDropdown type="story" id={story.id} />
+                      <ShareButton
+                        type="story"
+                        id={story.id}
+                        title={`${author.name}'s story`}
+                        description={story.text.slice(0, 100)}
+                      />
                     </div>
                   )}
                 </div>
@@ -254,6 +259,7 @@ function QuotedPoint({
 
     return adjusted;
   }, [baseCounts, initialPosition, userPosition]);
+  const totalStances = counts.agree + counts.disagree + counts.unsure;
 
   const handlePositionClick = (position: PositionType) => {
     setUserPosition(userPosition === position ? null : position);

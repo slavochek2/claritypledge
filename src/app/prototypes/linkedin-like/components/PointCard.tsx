@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Mic, Pin } from 'lucide-react';
+import { ExternalLink, Mic, Pin, Ear } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -13,8 +13,9 @@ import {
   getPointPositionCounts,
   getUserById,
   currentUser,
+  getUserCredibilityStats,
 } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, type SevenPointCounts } from './shared';
+import { PointHeader, PositionBadge, PositionButtons, ShareButton, type SevenPointCounts } from './shared';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
 
@@ -76,16 +77,12 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   }, [baseCounts, initialPosition, userPosition]);
   const totalStances = counts.agree + counts.disagree + counts.unsure;
 
-  // On profile page, prioritize profile owner's stories first
-  // Then show other linked stories (max 3 total)
-  const sortedStories = profileOwnerId
-    ? [...linkedStories].sort((a, b) => {
-        if (a.authorId === profileOwnerId && b.authorId !== profileOwnerId) return -1;
-        if (b.authorId === profileOwnerId && a.authorId !== profileOwnerId) return 1;
-        return 0;
-      })
+  // On profile page, only show stories from the profile owner (max 3)
+  // On feed/detail pages, show all linked stories (max 3)
+  const filteredStories = profileOwnerId
+    ? linkedStories.filter(s => s.authorId === profileOwnerId)
     : linkedStories;
-  const storiesToShow = sortedStories.slice(0, 3);
+  const storiesToShow = filteredStories.slice(0, 3);
 
   // Get the profile owner's position on this point (for header display)
   const profileOwnerPosition = profileOwnerId
@@ -150,7 +147,11 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                     <ExternalLink size={12} />
                     Open
                   </button>
-                  <ShareDropdown type="point" id={point.id} />
+                  <ShareButton
+                      type="point"
+                      id={point.id}
+                      description={point.text.slice(0, 100)}
+                    />
                 </div>
               )}
             </div>
@@ -189,7 +190,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                     }}
                   />
                 ))}
-                {linkedStories.length > 3 && (
+                {filteredStories.length > 3 && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -197,7 +198,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                     }}
                     className="text-xs text-blue-600 hover:underline"
                   >
-                    +{linkedStories.length - 3} more stories
+                    +{filteredStories.length - 3} more stories
                   </button>
                 )}
               </div>
@@ -225,6 +226,7 @@ function QuotedStory({
   onAuthorClick?: (e: React.MouseEvent) => void;
 }) {
   const author = getUserById(story.authorId);
+  const credibilityStats = author ? getUserCredibilityStats(author.id) : { ear: 0, mic: 0 };
 
   return (
     <button
@@ -272,8 +274,24 @@ function QuotedStory({
               }}
               className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
             >
-              {author.name}'s Story
+              {author.name}
             </span>
+          )}
+          {/* Ear indicator - understanding credibility */}
+          {author && credibilityStats.ear > 0 && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center gap-0.5 text-xs text-gray-400 cursor-default">
+                    <Ear size={12} />
+                    {credibilityStats.ear}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{author.name.split(' ')[0]} understood others' stories</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">

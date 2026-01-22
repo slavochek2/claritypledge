@@ -7,20 +7,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Check, X, HelpCircle } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-
-// Position group icons for consistent UI
-export const POSITION_ICONS = {
-  agree: Check,
-  disagree: X,
-  unsure: HelpCircle,
-} as const;
 
 // 7-point position counts interface
 export interface SevenPointCounts {
@@ -64,7 +57,6 @@ interface ButtonGroupConfig {
   shortLabel: string; // For compact/mobile display
   defaultPosition: PositionType;
   positions: PositionType[];
-  icon: typeof Check;
   activeClass: string;
   inactiveClass: string;
 }
@@ -72,28 +64,25 @@ interface ButtonGroupConfig {
 const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
   disagree: {
     label: 'Disagree',
-    shortLabel: '', // Icon-only on mobile
+    shortLabel: '',
     defaultPosition: 'disagree', // -2
     positions: ['strongly_disagree', 'disagree', 'somewhat_disagree'],
-    icon: X,
     activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
     inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
   },
   unsure: {
     label: 'Unsure',
-    shortLabel: '', // Icon-only on mobile
+    shortLabel: '',
     defaultPosition: 'unsure', // 0
     positions: ['unsure'],
-    icon: HelpCircle,
     activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
     inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
   },
   agree: {
     label: 'Agree',
-    shortLabel: '', // Icon-only on mobile
+    shortLabel: '',
     defaultPosition: 'agree', // +2
     positions: ['strongly_agree', 'agree', 'somewhat_agree'], // Most intense at top
-    icon: Check,
     activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
     inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
   },
@@ -134,12 +123,20 @@ interface PositionButtonGroupProps {
   compact?: boolean;
 }
 
-// Tooltip text for default action
-const GROUP_TOOLTIPS: Record<PositionButtonGroup, string> = {
-  disagree: 'Disagree',
-  unsure: 'Unsure',
-  agree: 'Agree',
-};
+// Tooltip text - shows current position if selected, or default action
+function getTooltipText(group: PositionButtonGroup, userPosition: Position): string {
+  // If user has a position in this group, show the full label of their selection
+  if (userPosition && getPositionGroup(userPosition) === group) {
+    return POSITION_LABELS[userPosition];
+  }
+  // Default: show the group name (what clicking will do)
+  const defaults: Record<PositionButtonGroup, string> = {
+    disagree: 'Disagree',
+    unsure: 'Unsure',
+    agree: 'Agree',
+  };
+  return defaults[group];
+}
 
 function PositionButtonGroupComponent({
   group,
@@ -184,7 +181,7 @@ function PositionButtonGroupComponent({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p>{GROUP_TOOLTIPS[group]}</p>
+              <p>{getTooltipText(group, userPosition)}</p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -213,7 +210,7 @@ function PositionButtonGroupComponent({
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p>{GROUP_TOOLTIPS[group]}</p>
+            <p>{getTooltipText(group, userPosition)}</p>
           </TooltipContent>
         </Tooltip>
 

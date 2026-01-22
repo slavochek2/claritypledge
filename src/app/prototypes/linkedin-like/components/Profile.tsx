@@ -1,25 +1,19 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Ear } from 'lucide-react';
+import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Ear } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
 import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories, getUserCredibilityStats } from '../data/mock-data';
 import { CalibrationDisplay, InlineCalibration } from './shared/CalibrationDisplay';
+import { ShareDialog } from './shared/ShareDialog';
 import { routes } from '../config';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
 type IdeaVisibility = 'public' | 'shared' | 'private';
 type ContentTab = 'points' | 'stories';
 
@@ -31,7 +25,6 @@ export function Profile() {
   const [ideaVisibility, setIdeaVisibility] = useState<IdeaVisibility>('public');
   const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
 
   const isOwnProfile = !id || id === 'current';
@@ -124,7 +117,7 @@ export function Profile() {
                         onClick={() => navigate(routes.profileById(user.id))}
                         className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                       >
-                        See Clarity Pledge
+                        See their Clarity Pledge
                       </button>
                     )}
                   </div>
@@ -139,17 +132,6 @@ export function Profile() {
                   </button>
                 </div>
 
-                {/* Pledge link row */}
-                {user.hasPledged && (
-                  <div className="flex items-center justify-end mt-4 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => navigate(routes.profileById(user.id))}
-                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                    >
-                      View pledge →
-                    </button>
-                  </div>
-                )}
 
                 {/* Calibration bars - inline */}
                 {calibration && (
@@ -217,20 +199,13 @@ export function Profile() {
           </div>
 
           {/* Share Profile Dialog */}
-          <ShareProfileDialog
+          <ShareDialog
             open={showShareDialog}
-            onOpenChange={(open) => {
-              setShowShareDialog(open);
-              if (!open) setCopied(false);
-            }}
-            user={user}
-            copied={copied}
-            onCopy={() => {
-              const shareUrl = `${window.location.origin}${routes.profileById(user.id)}`;
-              navigator.clipboard?.writeText(shareUrl);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
+            onOpenChange={setShowShareDialog}
+            type="profile"
+            url={`${window.location.origin}/prototype/linkedin-like/profile/${user.id}`}
+            title={`${user.name}'s Clarity Profile`}
+            description={`Check out ${user.name}'s positions on Clarity`}
           />
         </div>
       </PrototypeLayout>
@@ -295,7 +270,7 @@ export function Profile() {
                       onClick={() => navigate(routes.profileById(user.id))}
                       className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                     >
-                      See Clarity Pledge
+                      See my Clarity Pledge
                     </button>
                   ) : (
                     <button
@@ -317,24 +292,11 @@ export function Profile() {
                 </button>
               </div>
 
-              {/* Pledge link row */}
-              <div className="flex items-center justify-end mt-4 pt-3 border-t border-gray-100">
-                {user.hasPledged ? (
-                  <button
-                    onClick={() => navigate(routes.profileById(user.id))}
-                    className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                  >
-                    View pledge →
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => navigate('/sign-pledge')}
-                    className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                  >
-                    Take pledge →
-                  </button>
-                )}
-              </div>
+
+              {/* Calibration bars - inline */}
+              {ownCalibration && (
+                <InlineCalibration calibration={ownCalibration} />
+              )}
             </div>
 
             {/* Inline idea composer */}
@@ -486,101 +448,15 @@ export function Profile() {
         </div>
 
         {/* Share Profile Dialog */}
-        <ShareProfileDialog
+        <ShareDialog
           open={showShareDialog}
-          onOpenChange={(open) => {
-            setShowShareDialog(open);
-            if (!open) setCopied(false);
-          }}
-          user={user}
-          copied={copied}
-          onCopy={() => {
-            const shareUrl = `${window.location.origin}${routes.profileById(user.id)}`;
-            navigator.clipboard?.writeText(shareUrl);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }}
+          onOpenChange={setShowShareDialog}
+          type="profile"
+          url={`${window.location.origin}/prototype/linkedin-like/profile/${user.id}`}
+          title={`${user.name}'s Clarity Profile`}
+          description={`Check out ${user.name}'s positions on Clarity`}
         />
       </div>
     </PrototypeLayout>
-  );
-}
-
-// Share Profile Dialog - KISS: just copy button with feedback
-function ShareProfileDialog({
-  open,
-  onOpenChange,
-  user,
-  copied,
-  onCopy,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  user: { id: string; name: string; avatar: string; role?: string };
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  const shareUrl = `${window.location.origin}/prototype/linkedin-like/profile/${user.id}`;
-  const hasNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
-
-  const handleNativeShare = () => {
-    navigator.share({
-      title: `${user.name}'s Clarity Profile`,
-      text: `Check out ${user.name}'s positions on Clarity`,
-      url: shareUrl,
-    }).catch(() => {});
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm mx-auto">
-        <DialogHeader>
-          <DialogTitle>Share profile</DialogTitle>
-        </DialogHeader>
-
-        {/* Profile preview */}
-        <div className="bg-gray-50 rounded-lg p-3 border flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg">
-            {user.avatar}
-          </div>
-          <div>
-            <p className="font-medium text-gray-900">{user.name}</p>
-            {user.role && <p className="text-xs text-gray-500">{user.role}</p>}
-          </div>
-        </div>
-
-        {/* Link display */}
-        <div className="bg-gray-100 rounded-md px-3 py-2 text-xs text-gray-500 font-mono overflow-x-auto">
-          <span className="whitespace-nowrap">{shareUrl}</span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button
-            onClick={onCopy}
-            variant="outline"
-            className={`flex-1 ${copied ? 'bg-green-50 border-green-200 text-green-700' : ''}`}
-          >
-            {copied ? (
-              <>
-                <Check size={16} className="mr-2" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy size={16} className="mr-2" />
-                Copy link
-              </>
-            )}
-          </Button>
-          {hasNativeShare && (
-            <Button onClick={handleNativeShare} className="flex-1 bg-blue-500 hover:bg-blue-600">
-              <Share2 size={16} className="mr-2" />
-              Share
-            </Button>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

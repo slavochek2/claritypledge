@@ -7,6 +7,7 @@ export { RatingDots, RatingDotsPending } from './RatingDots';
 export { VerifyButton } from './VerifyButton';
 export { VerificationStatusDialog } from './VerificationStatusDialog';
 export { VerificationStatusPanel } from './VerificationStatusPanel';
+export { ShareButton, ShareDialog } from './ShareDialog';
 export { ShareDropdown } from './ShareDropdown';
 export { VisibilityBadge } from './VisibilityBadge';
 export { UserCredibility } from './UserCredibility';

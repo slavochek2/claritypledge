@@ -11,7 +11,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: routes.feed, label: 'Feed', icon: <Newspaper size={20} /> },
   { path: routes.myEvents, label: 'My Events', icon: <CalendarDays size={20} /> },
-  { path: routes.profile, label: 'Profile', icon: <User size={20} /> },
+  { path: routes.profile, label: 'My Profile', icon: <User size={20} /> },
 ];
 
 export function BottomNav() {

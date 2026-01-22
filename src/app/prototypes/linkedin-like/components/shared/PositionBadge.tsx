@@ -1,6 +1,10 @@
 import type { PositionType } from '../../../shared/types';
-import { Check, X, HelpCircle } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface PositionBadgeProps {
   position: PositionType;
@@ -10,87 +14,84 @@ interface PositionBadgeProps {
   isCurrentUser?: boolean;
 }
 
+// Short labels matching button notation
+const POSITION_SHORT_LABELS: Record<PositionType, string> = {
+  strongly_agree: 'Agrees+',
+  agree: 'Agrees',
+  somewhat_agree: 'Agrees−',
+  unsure: 'Unsure',
+  somewhat_disagree: 'Disagrees−',
+  disagree: 'Disagrees',
+  strongly_disagree: 'Disagrees+',
+};
+
+// Full labels for tooltips
+const POSITION_FULL_LABELS: Record<PositionType, string> = {
+  strongly_agree: 'Strongly Agrees',
+  agree: 'Agrees',
+  somewhat_agree: 'Somewhat Agrees',
+  unsure: 'Unsure',
+  somewhat_disagree: 'Somewhat Disagrees',
+  disagree: 'Disagrees',
+  strongly_disagree: 'Strongly Disagrees',
+};
+
 /**
  * Displays a position as inline colored text with optional name.
- * Returns null for current user (buttons already show their position).
  *
- * Format: "{Name} strongly agrees/agrees/is unsure/disagrees/strongly disagrees"
+ * Format: "{Name} Agrees+/Agrees/Agrees−/Unsure/Disagrees−/Disagrees/Disagrees+"
  * - Name in gray, position in colored badge
  * - ALL positions use blue - taking any stance is equally valuable
- * - Icons differentiate: ✓ (agree), ✗ (disagree), ? (unsure)
+ * - Tooltip shows full label (e.g., "Strongly Agrees")
  *
  * Examples:
- * - "Alice strongly agrees" (on someone's profile)
- * - "You agree" (on your own profile)
- * - "disagrees" (when name is omitted)
+ * - "Alice Agrees+" with tooltip "Strongly Agrees"
+ * - "You Agrees" with tooltip "Agrees"
+ * - "Disagrees−" (when name is omitted) with tooltip "Somewhat Disagrees"
  */
 export function PositionBadge({
   position,
   name,
   isCurrentUser = false,
 }: PositionBadgeProps) {
-  // All positions use blue - taking any stance is equally valuable
-  // Icons differentiate: ✓ (agree), ✗ (disagree), ? (unsure)
   const blueBadge = 'bg-blue-100 text-blue-700';
-  const config: Record<PositionType, { label: string; badgeClass: string; icon: LucideIcon }> = {
-    strongly_agree: {
-      label: 'Strongly Agrees',
-      badgeClass: blueBadge,
-      icon: Check,
-    },
-    agree: {
-      label: 'Agrees',
-      badgeClass: blueBadge,
-      icon: Check,
-    },
-    somewhat_agree: {
-      label: 'Somewhat Agrees',
-      badgeClass: blueBadge,
-      icon: Check,
-    },
-    unsure: {
-      label: 'Unsure',
-      badgeClass: blueBadge,
-      icon: HelpCircle,
-    },
-    somewhat_disagree: {
-      label: 'Somewhat Disagrees',
-      badgeClass: blueBadge,
-      icon: X,
-    },
-    disagree: {
-      label: 'Disagrees',
-      badgeClass: blueBadge,
-      icon: X,
-    },
-    strongly_disagree: {
-      label: 'Strongly Disagrees',
-      badgeClass: blueBadge,
-      icon: X,
-    },
-  };
-
-  const c = config[position];
   const displayName = isCurrentUser ? 'You' : name;
-  const Icon = c.icon;
+  const shortLabel = POSITION_SHORT_LABELS[position];
+  const fullLabel = POSITION_FULL_LABELS[position];
 
-  // If no name provided, just show the position as a badge (use semantic colors)
+  // If no name provided, just show the position as a badge
   if (!displayName) {
     return (
-      <span className={`text-xs font-medium px-1.5 py-0.5 rounded flex items-center gap-1 ${c.badgeClass}`}>
-        <Icon className="h-3 w-3" />
-        {c.label}
-      </span>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`text-xs font-medium px-1.5 py-0.5 rounded cursor-default ${blueBadge}`}>
+              {shortLabel}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>{fullLabel}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
   return (
-    <span className="text-xs flex items-center gap-1">
-      <span className="text-gray-500">{displayName}</span>
-      <span className={`font-medium px-1.5 py-0.5 rounded flex items-center gap-1 ${c.badgeClass}`}>
-        <Icon className="h-3 w-3" />
-        {c.label}
-      </span>
-    </span>
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs flex items-center gap-1 cursor-default">
+            <span className="text-gray-500">{displayName}</span>
+            <span className={`font-medium px-1.5 py-0.5 rounded ${blueBadge}`}>
+              {shortLabel}
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>{fullLabel}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

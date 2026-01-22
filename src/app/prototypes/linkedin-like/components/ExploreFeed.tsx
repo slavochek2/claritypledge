@@ -12,7 +12,7 @@ type FeedItem =
   | { type: 'story'; item: Story; sortDate: string }
   | { type: 'point'; item: Point; sortDate: string };
 
-type FilterType = 'all' | 'stories' | 'points';
+type FilterType = 'stories' | 'points';
 
 /**
  * ExploreFeed - Discovery feed showing both Stories and Points
@@ -20,7 +20,7 @@ type FilterType = 'all' | 'stories' | 'points';
  */
 export function ExploreFeed() {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filter, setFilter] = useState<FilterType>('stories');
 
   const stories = getStories();
   const points = getPoints();
@@ -41,7 +41,6 @@ export function ExploreFeed() {
 
   // Filter items
   const filteredItems = feedItems.filter(feedItem => {
-    if (filter === 'all') return true;
     if (filter === 'stories') return feedItem.type === 'story';
     if (filter === 'points') return feedItem.type === 'point';
     return true;
@@ -66,25 +65,36 @@ export function ExploreFeed() {
             Discover stories and points from others
           </p>
 
-          {/* Filter tabs */}
-          <div className="flex gap-2 mt-4">
-            <FilterButton
-              label="All"
-              active={filter === 'all'}
-              onClick={() => setFilter('all')}
-            />
-            <FilterButton
-              label="Stories"
-              active={filter === 'stories'}
-              onClick={() => setFilter('stories')}
-              activeColor="bg-blue-50 text-blue-700 border-blue-200"
-            />
-            <FilterButton
-              label="Points"
-              active={filter === 'points'}
-              onClick={() => setFilter('points')}
-              activeColor="bg-gray-100 text-gray-700 border-gray-300"
-            />
+          {/* Filter tabs - matching Profile pattern */}
+          <div className="bg-white border border-gray-200 mt-4 rounded-lg overflow-hidden">
+            <div className="flex">
+              <button
+                onClick={() => setFilter('stories')}
+                className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                  filter === 'stories'
+                    ? 'text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Stories ({stories.length})
+                {filter === 'stories' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
+              </button>
+              <button
+                onClick={() => setFilter('points')}
+                className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                  filter === 'points'
+                    ? 'text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Points ({points.length})
+                {filter === 'points' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -109,27 +119,3 @@ export function ExploreFeed() {
   );
 }
 
-function FilterButton({
-  label,
-  active,
-  onClick,
-  activeColor = 'bg-gray-100 text-gray-900 border-gray-300',
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  activeColor?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 text-sm font-medium rounded-full border transition-colors ${
-        active
-          ? activeColor
-          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}

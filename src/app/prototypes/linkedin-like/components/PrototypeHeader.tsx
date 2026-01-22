@@ -49,7 +49,7 @@ export function PrototypeHeader() {
   const navItems: NavItem[] = [
     { path: routes.feed, label: 'Feed', icon: Newspaper },
     { path: routes.myEvents, label: 'My Events', icon: CalendarDays },
-    { path: routes.profile, label: 'Profile', icon: User },
+    { path: routes.profile, label: 'My Profile', icon: User },
   ];
 
   // Get initials for avatar
