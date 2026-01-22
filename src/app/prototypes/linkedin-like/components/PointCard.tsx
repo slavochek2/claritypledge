@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ExternalLink, Pin, Mic } from 'lucide-react';
+import { ExternalLink, Pin, Mic } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -12,7 +12,6 @@ import {
   getStoriesForPoint,
   getPointPositionCounts,
   getUserById,
-  getPointsForStory,
   currentUser,
 } from '../data/mock-data';
 import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
@@ -39,12 +38,16 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   const linkedStories = getStoriesForPoint(point.id);
   const counts = getPointPositionCounts(point);
 
-  // On profile page, find the profile owner's story linked to this point
-  // In feed (no profileOwnerId), show first linked story for context
-  const ownerStory = profileOwnerId
-    ? linkedStories.find(s => s.authorId === profileOwnerId)
-    : null;
-  const storyToShow = ownerStory || linkedStories[0] || null;
+  // On profile page, prioritize profile owner's stories first
+  // Then show other linked stories (max 3 total)
+  const sortedStories = profileOwnerId
+    ? [...linkedStories].sort((a, b) => {
+        if (a.authorId === profileOwnerId && b.authorId !== profileOwnerId) return -1;
+        if (b.authorId === profileOwnerId && a.authorId !== profileOwnerId) return 1;
+        return 0;
+      })
+    : linkedStories;
+  const storiesToShow = sortedStories.slice(0, 3);
 
   // Get the profile owner's position on this point (for header display)
   const profileOwnerPosition = profileOwnerId
@@ -138,43 +141,36 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               />
             </div>
 
-            {/* Stats row - icon-only style, matches StoryCard */}
-            {linkedStories.length > 0 && (
-              <TooltipProvider delayDuration={100}>
-                <div className="flex items-center mt-3 text-sm text-gray-500">
-                  <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <BookOpen size={14} />
-                          {linkedStories.length}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Linked stories</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              </TooltipProvider>
-            )}
-
-            {/* Linked Story - shown on profile pages (owner's) or in feed (first linked) */}
-            {storyToShow && (
-              <div className="mt-3">
-                <QuotedStory
-                  story={storyToShow}
-                  point={point}
-                  isAuthorTheProfileOwner={!!profileOwnerId && storyToShow.authorId === profileOwnerId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.story(storyToShow.id));
-                  }}
-                  onAuthorClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.profileById(storyToShow.authorId));
-                  }}
-                />
+            {/* Linked Stories - show all (max 3) */}
+            {storiesToShow.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {storiesToShow.map(story => (
+                  <QuotedStory
+                    key={story.id}
+                    story={story}
+                    point={point}
+                    isAuthorTheProfileOwner={!!profileOwnerId && story.authorId === profileOwnerId}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.story(story.id));
+                    }}
+                    onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(story.authorId));
+                    }}
+                  />
+                ))}
+                {linkedStories.length > 3 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.point(point.id));
+                    }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    +{linkedStories.length - 3} more stories
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -209,7 +205,6 @@ function QuotedStory({
 }) {
   const author = getUserById(story.authorId);
   const authorPosition = point.positions[story.authorId]?.position;
-  const storyLinkedPoints = getPointsForStory(story.id);
   const isCurrentUser = story.authorId === currentUser.id;
 
   return (
@@ -290,20 +285,9 @@ function QuotedStory({
       </div>
       {/* Story text */}
       <p className="text-sm text-gray-700 line-clamp-2">{story.text}</p>
-      {/* Stats row */}
+      {/* Stats row - verification count only */}
       <TooltipProvider delayDuration={100}>
         <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 cursor-default">
-                <Pin size={12} />
-                {storyLinkedPoints.length}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Linked points</p>
-            </TooltipContent>
-          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="flex items-center gap-1 cursor-default">
