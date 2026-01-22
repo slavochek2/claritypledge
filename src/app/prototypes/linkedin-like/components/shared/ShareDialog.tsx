@@ -122,31 +122,25 @@ export function ShareDialog({
 
         {/* Content area */}
         <div className="space-y-3">
-          {/* Code display */}
-          <div className="bg-gray-100 rounded-lg p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
-            <pre className="whitespace-pre-wrap break-all">
-              {activeTab === 'link' ? url : embedCode}
-            </pre>
+          {/* URL/Code display with inline copy button */}
+          <div className="flex items-stretch bg-gray-100 rounded-lg overflow-hidden">
+            <div className="flex-1 p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
+              <pre className="whitespace-pre-wrap break-all">
+                {activeTab === 'link' ? url : embedCode}
+              </pre>
+            </div>
+            <button
+              onClick={handleCopy}
+              className={`flex-shrink-0 px-3 flex items-center justify-center border-l border-gray-200 transition-colors ${
+                copied
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+              }`}
+              aria-label={copied ? 'Copied' : (activeTab === 'link' ? 'Copy link' : 'Copy embed code')}
+            >
+              {copied ? <Check size={18} /> : <Copy size={18} />}
+            </button>
           </div>
-
-          {/* Copy button */}
-          <Button
-            onClick={handleCopy}
-            variant="outline"
-            className={`w-full ${copied ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-700' : ''}`}
-          >
-            {copied ? (
-              <>
-                <Check size={16} className="mr-2" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy size={16} className="mr-2" />
-                {activeTab === 'link' ? 'Copy link' : 'Copy embed code'}
-              </>
-            )}
-          </Button>
 
           {/* Native share button (mobile) - only for link tab */}
           {hasNativeShare && activeTab === 'link' && (
