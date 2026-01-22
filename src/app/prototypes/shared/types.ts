@@ -8,12 +8,65 @@
 // Position Types
 // -----------------------------------------------------------------------------
 
-export type PositionType = 'agree' | 'disagree' | 'dont_know';
+// 7-point Likert scale: -3 to +3, plus false_premise flag
+// Enables tracking position *magnitude* changes for V7 vision's Asymmetric Conversion Hypothesis
+//
+// Scale values:
+//   strongly_disagree (-3), disagree (-2), somewhat_disagree (-1),
+//   unsure (0),
+//   somewhat_agree (+1), agree (+2), strongly_agree (+3)
+//   false_premise (flag) - meta-critique: "the Point itself is flawed"
+//
+export type PositionType =
+  | 'strongly_disagree'  // -3
+  | 'disagree'           // -2
+  | 'somewhat_disagree'  // -1
+  | 'unsure'             // 0
+  | 'somewhat_agree'     // +1
+  | 'agree'              // +2
+  | 'strongly_agree'     // +3
+  | 'false_premise';     // flag (not on spectrum)
+
 export type Position = PositionType | null;
+
+// Legacy 3-point positions for backwards compatibility (migrate to moderate values)
+// agree → agree (+2), disagree → disagree (-2), dont_know → unsure (0)
+export type LegacyPositionType = 'agree' | 'disagree' | 'dont_know';
 
 export interface PositionEntry {
   position: PositionType;
   timestamp: string;
+}
+
+// Position value mapping for numeric operations
+export const POSITION_VALUES: Record<Exclude<PositionType, 'false_premise'>, number> = {
+  strongly_disagree: -3,
+  disagree: -2,
+  somewhat_disagree: -1,
+  unsure: 0,
+  somewhat_agree: 1,
+  agree: 2,
+  strongly_agree: 3,
+};
+
+// Button groups for 3-button UI
+export type PositionButtonGroup = 'disagree' | 'unsure' | 'agree';
+
+// Map position type to its button group
+export function getPositionGroup(position: PositionType): PositionButtonGroup {
+  switch (position) {
+    case 'strongly_disagree':
+    case 'disagree':
+    case 'somewhat_disagree':
+      return 'disagree';
+    case 'unsure':
+    case 'false_premise':
+      return 'unsure';
+    case 'somewhat_agree':
+    case 'agree':
+    case 'strongly_agree':
+      return 'agree';
+  }
 }
 
 // -----------------------------------------------------------------------------

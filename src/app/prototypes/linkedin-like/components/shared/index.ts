@@ -1,7 +1,7 @@
 export { FilterTabs, type PositionFilter } from './FilterTabs';
 export { PositionBadge } from './PositionBadge';
 export { PositionBanner } from './PositionBanner';
-export { PositionButton, PositionButtons } from './PositionButton';
+export { PositionButton, PositionButtons, type SevenPointCounts, type FivePointCounts } from './PositionButton';
 export { RatingDots, RatingDotsPending } from './RatingDots';
 export { VerifyButton } from './VerifyButton';
 export { VerificationStatusDialog } from './VerificationStatusDialog';

@@ -11,14 +11,14 @@ interface PositionBadgeProps {
 /**
  * Displays a position as inline colored text with optional name.
  *
- * Format: "{Name} agrees/disagrees/is unsure"
+ * Format: "{Name} strongly agrees/agrees/is unsure/disagrees/strongly disagrees"
  * - Name in gray, position in colored text
- * - Agree: blue, Disagree: slate, Unsure: gray
+ * - Agree variants: blue, Disagree variants: slate, Unsure/False Premise: gray
  *
  * Examples:
- * - "Alice agrees" (on someone's profile)
+ * - "Alice strongly agrees" (on someone's profile)
  * - "You agree" (on your own profile)
- * - "agrees" (when name is omitted)
+ * - "disagrees" (when name is omitted)
  */
 export function PositionBadge({
   position,
@@ -29,18 +29,39 @@ export function PositionBadge({
   // When showing someone else's position, use semantic colors
   const yourBadgeClass = 'bg-blue-100 text-blue-700';
 
-  const config = {
+  // 7-point scale + false_premise configuration
+  const config: Record<PositionType, { label: string; badgeClass: string }> = {
+    strongly_agree: {
+      label: 'Strongly Agrees',
+      badgeClass: 'bg-blue-100 text-blue-700'
+    },
     agree: {
       label: 'Agrees',
       badgeClass: 'bg-blue-100 text-blue-700'
+    },
+    somewhat_agree: {
+      label: 'Somewhat Agrees',
+      badgeClass: 'bg-blue-100 text-blue-700'
+    },
+    unsure: {
+      label: 'Unsure',
+      badgeClass: 'bg-slate-100 text-slate-600'
+    },
+    false_premise: {
+      label: 'False Premise',
+      badgeClass: 'bg-slate-100 text-slate-600'
+    },
+    somewhat_disagree: {
+      label: 'Somewhat Disagrees',
+      badgeClass: 'bg-slate-100 text-slate-700'
     },
     disagree: {
       label: 'Disagrees',
       badgeClass: 'bg-slate-100 text-slate-700'
     },
-    dont_know: {
-      label: 'Unsure',
-      badgeClass: 'bg-slate-100 text-slate-600'
+    strongly_disagree: {
+      label: 'Strongly Disagrees',
+      badgeClass: 'bg-slate-100 text-slate-700'
     },
   };
 
