@@ -14,6 +14,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-22: Story-Point relationship is N:N (many-to-many)
+
+**Context:** Designing data model for Stories and Points. Initially considered 1:N (each Point belongs to one Story). User raised: "What if multiple Stories reference the same Point?"
+
+**Decision:** N:N relationship with junction table `story_points`. A Story can link to multiple Points; a Point can be linked from multiple Stories.
+
+**Key insight:** Users don't manually create Points — AI extracts them from Stories and handles linking. The "add existing point" UX isn't user-facing, it's AI-facing. This removes the main argument against N:N (creation flow complexity).
+
+**Why N:N wins:**
+- AI can deduplicate Points across Stories (same claim, multiple experiences)
+- Enables "join existing Point" feature (P58 future enhancement)
+- Matches philosophy: Points are shared claims, Stories are personal context
+- No user-facing UX burden since AI handles linking
+
+**Alternatives rejected:**
+- 1:N (Point belongs to one Story) — Forces Point duplication when multiple Stories support same claim; doesn't match how Points work (global claims, not owned)
+
+**Consequences:**
+- Data model needs `story_points` junction table instead of `story_id` FK on points
+- AI Sifter must check for existing matching Points before creating new ones
+- Point detail pages show all linked Stories (already implemented in prototype)
+
+**References:** [p58_sifter_mvp.md](../features/p58_sifter_mvp.md#data-model) | [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md)
+
+---
+
 ## 2026-01-22: Show linked items inline, not counts
 
 **Context:** StoryCard showed a "🔗 1" badge for linked Points count, then displayed only 1 Point below. PointCard similarly showed a "📖 1" count then 1 Story. Users asked "why show a count when I could just see the actual items?"

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, Globe, Lock, MessageCircle, ExternalLink, Pin } from 'lucide-react';
+import { Mic, MessageCircle, ExternalLink, Pin } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, UserCredibility } from './shared';
+import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, UserCredibility, VisibilityBadge } from './shared';
 import type { Story, Point } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 
@@ -51,10 +51,6 @@ export function StoryCard({
   const cardClassName = isDetailView
     ? "bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden"
     : "group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all";
-
-  // Privacy icon based on visibility (Globe = public, Lock = restricted)
-  const PrivacyIcon = story.visibility === 'public' ? Globe : Lock;
-  const privacyLabel = story.visibility === 'public' ? 'Public' : 'Restricted';
 
   return (
     <div className={cardClassName} onClick={handleCardClick}>
@@ -125,18 +121,7 @@ export function StoryCard({
                 </div>
                 <p className="text-xs text-gray-500 flex items-center gap-1">
                   <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-gray-400 cursor-default">
-                          <PrivacyIcon size={12} />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{privacyLabel}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <VisibilityBadge visibility={story.visibility} />
                 </p>
               </div>
 

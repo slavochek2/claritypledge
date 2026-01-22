@@ -224,16 +224,43 @@ stories (
 ```sql
 points (
   id uuid primary key default gen_random_uuid(),
-  created_by uuid references profiles(id) not null,
-  text text not null,                 -- hardened version only
-  agreement_rating int not null check (agreement_rating >= 0 and agreement_rating <= 10),
-  story_id uuid references stories(id), -- optional link to source Story
-  sift_session_id uuid,
+  text text not null,                 -- hardened version only (global, not user-owned)
   created_at timestamp default now()
 )
 
--- RLS: Points are readable by all, writable by creator
--- Points with agreement_rating shown publicly: "Maria agrees (8/10)"
+-- RLS: Points are readable by all
+-- Points are global claims — no single creator. AI deduplicates when extracting.
+```
+
+### Story-Points Junction Table (N:N)
+
+```sql
+story_points (
+  id uuid primary key default gen_random_uuid(),
+  story_id uuid references stories(id) not null,
+  point_id uuid references points(id) not null,
+  created_at timestamp default now(),
+  unique(story_id, point_id)
+)
+
+-- Links Stories to Points. A Story can have multiple Points; a Point can appear in multiple Stories.
+-- AI creates these links during sifting — users approve but don't manually link.
+```
+
+### Positions Table (User stance on Points)
+
+```sql
+positions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  point_id uuid references points(id) not null,
+  agreement_rating int not null check (agreement_rating >= 0 and agreement_rating <= 10),
+  created_at timestamp default now(),
+  unique(user_id, point_id)
+)
+
+-- User's position on a Point. Shown as "Maria agrees (8/10)"
+-- Separate from story_points — you can have a position without a Story.
 ```
 
 ### Sift Sessions Table
@@ -397,6 +424,7 @@ AI: "5 people already believe something similar:
 | Zero Points valid? | **Yes** | Some dumps are pure processing |
 | Point matching in MVP? | **No** | Build database first, match later |
 | Points without Stories? | **No — every Point must have at least one Story** | Points need context; a Story explains WHY someone believes the Point |
+| Story-Point relationship? | **N:N (many-to-many)** | AI handles linking, enables deduplication. Users don't manually create Points — AI extracts and links. See [decisions.md](../docs/decisions.md#2026-01-22-story-point-relationship-is-nn-many-to-many) |
 
 ---
 

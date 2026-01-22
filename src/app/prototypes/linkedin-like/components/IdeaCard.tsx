@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Share2, Check, Copy, Zap, Users, Globe, Lock, ExternalLink } from 'lucide-react';
+import { Share2, Check, Copy, Zap, Users, ExternalLink } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
-import { PositionButtons } from './shared';
+import { PositionButtons, VisibilityBadge } from './shared';
 import { routes } from '../config';
 import {
   Dialog,
@@ -187,18 +187,7 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   {idea.createdAt ? formatTimeAgo(idea.createdAt) : ''}
                 </span>
                 {/* Visibility badge */}
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-gray-400 cursor-default">
-                        {idea.visibility === 'public' ? <Globe size={14} /> : <Lock size={14} />}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Visibility: {idea.visibility === 'public' ? 'Public' : 'Restricted'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <VisibilityBadge visibility={idea.visibility} size={14} />
                 {/* Show profile user's position inline when on their profile */}
                 {isOtherUserProfile && profileUser && profileUserPosition && (
                   <>

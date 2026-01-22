@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Settings, LogOut, Newspaper, CalendarDays, User, Radio, Bell, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, Newspaper, CalendarDays, User, Radio, Bell, LayoutDashboard, ScrollText, Users, type LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -128,9 +129,29 @@ export function PrototypeHeader() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={8} className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link to={routes.profile} className="cursor-pointer">
-                    View Profile
+                  <Link to={routes.myEvents} className="cursor-pointer">
+                    <LayoutDashboard size={16} className="mr-2" />
+                    Dashboard
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={routes.profile} className="cursor-pointer">
+                    <User size={16} className="mr-2" />
+                    View My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`${routes.profile}#pledge`} className="cursor-pointer">
+                    <ScrollText size={16} className="mr-2" />
+                    View My Pledge
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => toast.info('Co-create coming soon')}
+                  className="cursor-pointer"
+                >
+                  <Users size={16} className="mr-2" />
+                  Co-create
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <button className="w-full cursor-pointer">
@@ -176,9 +197,29 @@ export function PrototypeHeader() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to={routes.profile} className="cursor-pointer">
-                    View Profile
+                  <Link to={routes.myEvents} className="cursor-pointer">
+                    <LayoutDashboard size={16} className="mr-2" />
+                    Dashboard
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={routes.profile} className="cursor-pointer">
+                    <User size={16} className="mr-2" />
+                    View My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={`${routes.profile}#pledge`} className="cursor-pointer">
+                    <ScrollText size={16} className="mr-2" />
+                    View My Pledge
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => toast.info('Co-create coming soon')}
+                  className="cursor-pointer"
+                >
+                  <Users size={16} className="mr-2" />
+                  Co-create
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <button className="w-full cursor-pointer">

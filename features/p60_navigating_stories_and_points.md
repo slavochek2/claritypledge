@@ -39,7 +39,7 @@ From P58 UX exploration, we chose **Pattern B** for Story/Point relationships:
 | Position badges | Agrees/Disagrees on Story cards |
 | Avatar stack | Collapsed state preview |
 
-This pattern handles many-to-many relationships cleanly.
+This pattern handles **N:N relationships** cleanly — a Story can link to multiple Points, and a Point can appear in multiple Stories. See [decisions.md](../docs/decisions.md#2026-01-22-story-point-relationship-is-nn-many-to-many) for rationale.
 
 ### Point Cards Have No Icon
 

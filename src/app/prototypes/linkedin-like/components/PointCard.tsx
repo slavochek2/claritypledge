@@ -142,7 +142,6 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   <QuotedStory
                     key={story.id}
                     story={story}
-                    point={point}
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(routes.story(story.id));
@@ -236,7 +235,7 @@ function QuotedStory({
               }}
               className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
             >
-              {author.name}
+              {author.name}'s Story
             </span>
           )}
         </div>

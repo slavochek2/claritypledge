@@ -96,12 +96,66 @@ This preserves P85's "quick default, refined via dropdown" pattern.
 
 ### Swipe Gestures (Stories)
 
-| Gesture | Action | Meaning |
-|---------|--------|---------|
-| Swipe right | Understood | "I get this experience" |
-| Swipe left | Confused | "I need clarification" |
-| Swipe down | Skip | Move to next |
-| **Tap "Related Points"** | Expand | See Points from this Story |
+Stories are experiences to understand, not claims to judge. Swipes are navigation only.
+
+| Gesture | Action |
+|---------|--------|
+| Swipe any direction | Next card |
+| **Tap card** | Expand Story (read full) |
+| **Tap "Related Points"** | See Points from this Story |
+| **Tap /live button** | Start verification session |
+
+### /live Entry Button on Stories
+
+Each Story card has a verification button. Text changes based on whose Story it is:
+
+**Viewing someone else's Story:**
+```
+┌─────────────────────────────────────────┐
+│  📖 Story                               │
+│                                         │
+│  "Working remotely during COVID taught  │
+│   me that async communication is..."    │
+│                                         │
+│  — Sarah Chen                           │
+│                                         │
+│  [Do you understand Sarah?]  ← button   │
+│                                         │
+│  Related Points (3)                     │
+└─────────────────────────────────────────┘
+```
+
+**Viewing your own Story:**
+```
+┌─────────────────────────────────────────┐
+│  📖 Story                               │
+│                                         │
+│  "Working remotely during COVID taught  │
+│   me that async communication is..."    │
+│                                         │
+│  — You                                  │
+│                                         │
+│  [Does Alex understand you?]  ← button  │
+│                                         │
+│  Related Points (3)                     │
+└─────────────────────────────────────────┘
+```
+
+**Button behavior:**
+
+| Context | Button Text | Tap Action |
+|---------|-------------|------------|
+| Their Story | "Do you understand {Name}?" | Open /live as **verifier** |
+| My Story | "Does {Partner} understand you?" | Open /live as **author** |
+
+**Partner selection:** If no partner context, button opens partner picker first, then /live.
+
+**/live landing state:**
+- Drawer already open
+- This Story pre-selected at top
+- Ready to begin verification
+
+This is a **mock** in the prototype — button shows toast "Would open /live with this Story" rather than full /live implementation.
 
 ### Card View on Desktop
 
@@ -186,6 +240,10 @@ Related Points (3)
 | View toggle | Per session | Don't force preference, let users switch freely |
 | Default view | Platform-based | Mobile → Cards, Desktop → List |
 | Avatar row | Both views | Filtering is view-agnostic |
+| Swipe down | Skip (no record) | Unsure is deliberate; skip is "not now" |
+| Stories swipe | Navigation only | Stories aren't claims to judge |
+| Card order | Unpositioned first | Show fresh content before already-seen |
+| /live button | On Story cards | Entry point to verification from content |
 
 ## Components
 
@@ -248,14 +306,17 @@ When no more cards:
 
 - [ ] View toggle switches between List and Card views
 - [ ] Card View shows full-screen swipeable cards
-- [ ] Swipe right = Agree (+2), left = Disagree (-2), down = Skip
+- [ ] Swipe right = Agree (+2), left = Disagree (-2), down = Skip (Points)
+- [ ] Stories: swipe = next, no position recorded
 - [ ] Dropdown tap opens intensity options (P85 pattern)
 - [ ] Participant avatar row filters content in both views
 - [ ] Content type tabs filter Stories/Points/All
 - [ ] Story link on Point cards opens Story context
 - [ ] Desktop keyboard shortcuts work in Card View
 - [ ] Progress indicator shows position in stack
-- [ ] Undo toast appears after each swipe
+- [ ] Undo toast appears after Point swipes
+- [ ] /live button appears on Story cards with correct text
+- [ ] /live button shows mock toast (prototype)
 
 ## Out of Scope (Future)
 
@@ -264,8 +325,10 @@ When no more cards:
 - Position streak gamification — P92?
 - "Who thinks like me" matching — P93?
 
-## Open Questions
+## Resolved Decisions
 
-1. **Swipe down = Skip vs Unsure?** Skip (no position recorded) or Unsure (0 position recorded)?
-2. **Stories swipe meaning?** "Understood/Confused" or just "Next/Skip"?
-3. **Card stack order?** Chronological, random, or algorithmic (controversy first)?
+| # | Question | Decision | Rationale |
+|---|----------|----------|-----------|
+| 1 | Swipe down = Skip vs Unsure? | **Skip** (no position) | Unsure is deliberate position; use dropdown for that |
+| 2 | Stories swipe meaning? | **Navigation only** | Stories aren't claims; swipe = next, tap = read/verify |
+| 3 | Card stack order? | **Unpositioned first, then chronological** | Maximize fresh engagement |
