@@ -32,7 +32,7 @@ export function Profile() {
   const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [contentTab, setContentTab] = useState<ContentTab>('points');
+  const [contentTab, setContentTab] = useState<ContentTab>('stories');
 
   const isOwnProfile = !id || id === 'current';
   const user = isOwnProfile ? currentUser : getUserById(id || '');
@@ -199,21 +199,8 @@ export function Profile() {
 
               {/* Content tab selector */}
               <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
-                {/* Points / Stories tabs */}
+                {/* Stories / Points tabs */}
                 <div className="flex">
-                  <button
-                    onClick={() => setContentTab('points')}
-                    className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
-                      contentTab === 'points'
-                        ? 'text-blue-600'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Points ({userPoints.length})
-                    {contentTab === 'points' && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                    )}
-                  </button>
                   <button
                     onClick={() => setContentTab('stories')}
                     className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
@@ -227,22 +214,25 @@ export function Profile() {
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
                     )}
                   </button>
+                  <button
+                    onClick={() => setContentTab('points')}
+                    className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                      contentTab === 'points'
+                        ? 'text-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Points ({userPoints.length})
+                    {contentTab === 'points' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                    )}
+                  </button>
                 </div>
               </div>
 
               {/* Content list */}
               <div className="pt-4 space-y-3">
-                {contentTab === 'points' ? (
-                  userPoints.length === 0 ? (
-                    <div className="bg-white rounded-lg p-8 text-center">
-                      <p className="text-gray-500">No positions taken yet</p>
-                    </div>
-                  ) : (
-                    userPoints.map((point) => (
-                      <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
-                    ))
-                  )
-                ) : (
+                {contentTab === 'stories' ? (
                   userStories.length === 0 ? (
                     <div className="bg-white rounded-lg p-8 text-center">
                       <p className="text-gray-500">No stories shared yet</p>
@@ -250,6 +240,16 @@ export function Profile() {
                   ) : (
                     userStories.map((story) => (
                       <StoryCard key={story.id} story={story} />
+                    ))
+                  )
+                ) : (
+                  userPoints.length === 0 ? (
+                    <div className="bg-white rounded-lg p-8 text-center">
+                      <p className="text-gray-500">No positions taken yet</p>
+                    </div>
+                  ) : (
+                    userPoints.map((point) => (
+                      <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
                     ))
                   )
                 )}
@@ -499,21 +499,8 @@ export function Profile() {
 
             {/* Content tab selector */}
             <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
-              {/* Points / Stories tabs */}
+              {/* Stories / Points tabs */}
               <div className="flex">
-                <button
-                  onClick={() => setContentTab('points')}
-                  className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
-                    contentTab === 'points'
-                      ? 'text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Points ({userPoints.length})
-                  {contentTab === 'points' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                  )}
-                </button>
                 <button
                   onClick={() => setContentTab('stories')}
                   className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
@@ -527,22 +514,25 @@ export function Profile() {
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
                   )}
                 </button>
+                <button
+                  onClick={() => setContentTab('points')}
+                  className={`flex-1 py-3 text-sm font-medium text-center transition-colors relative ${
+                    contentTab === 'points'
+                      ? 'text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Points ({userPoints.length})
+                  {contentTab === 'points' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                  )}
+                </button>
               </div>
             </div>
 
             {/* Content list */}
             <div className="pt-4 space-y-3">
-              {contentTab === 'points' ? (
-                userPoints.length === 0 ? (
-                  <div className="bg-white rounded-lg p-8 text-center">
-                    <p className="text-gray-500">No positions taken yet</p>
-                  </div>
-                ) : (
-                  userPoints.map((point) => (
-                    <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
-                  ))
-                )
-              ) : (
+              {contentTab === 'stories' ? (
                 userStories.length === 0 ? (
                   <div className="bg-white rounded-lg p-8 text-center">
                     <p className="text-gray-500">No stories shared yet</p>
@@ -550,6 +540,16 @@ export function Profile() {
                 ) : (
                   userStories.map((story) => (
                     <StoryCard key={story.id} story={story} />
+                  ))
+                )
+              ) : (
+                userPoints.length === 0 ? (
+                  <div className="bg-white rounded-lg p-8 text-center">
+                    <p className="text-gray-500">No positions taken yet</p>
+                  </div>
+                ) : (
+                  userPoints.map((point) => (
+                    <PointCard key={point.id} point={point} profileOwnerId={user?.id} />
                   ))
                 )
               )}
