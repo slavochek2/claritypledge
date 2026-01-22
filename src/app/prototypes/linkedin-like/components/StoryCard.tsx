@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, Globe, Users, Lock, Pin, MessageCircle, ExternalLink, BookOpen } from 'lucide-react';
+import { Mic, Globe, Users, Lock, Pin, MessageCircle, ExternalLink } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
-import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
+import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser } from '../data/mock-data';
 import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
 import type { Story, Point } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
@@ -23,8 +23,6 @@ interface StoryCardProps {
   showVerifyButton?: boolean;
   /** Callback for verify button */
   onVerify?: (e: React.MouseEvent) => void;
-  /** Hide expanded linked Points (show count only). Use when displaying inside a Point context. */
-  hideLinkedPoints?: boolean;
 }
 
 /**
@@ -39,7 +37,6 @@ export function StoryCard({
   authorPosition,
   showVerifyButton = false,
   onVerify,
-  hideLinkedPoints = false,
 }: StoryCardProps) {
   const navigate = useNavigate();
   const author = getUserById(story.authorId);
@@ -153,19 +150,7 @@ export function StoryCard({
               <TooltipProvider delayDuration={100}>
                 <div className="flex items-center justify-between mt-3">
                   <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
-                    {/* 1. Linked points count */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Pin size={14} />
-                          {linkedPoints.length}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Linked points</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    {/* 2. People who understood the story author */}
+                    {/* People who understood the story author */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex items-center gap-1 cursor-default">
@@ -190,10 +175,10 @@ export function StoryCard({
                 </div>
               </TooltipProvider>
 
-              {/* Quoted Points - Twitter quote style, shown when not hidden */}
-              {linkedPoints.length > 0 && !hideLinkedPoints && (
+              {/* Quoted Points - Twitter quote style, show all (max 3) */}
+              {linkedPoints.length > 0 && (
                 <div className="mt-3 space-y-2">
-                  {linkedPoints.map(point => (
+                  {linkedPoints.slice(0, 3).map(point => (
                     <QuotedPoint
                       key={point.id}
                       point={point}
@@ -205,6 +190,17 @@ export function StoryCard({
                       }}
                     />
                   ))}
+                  {linkedPoints.length > 3 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.story(story.id));
+                      }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      +{linkedPoints.length - 3} more points
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -234,7 +230,6 @@ function QuotedPoint({
     point.positions['current']?.position || null
   );
   const authorPosition = point.positions[authorId]?.position;
-  const linkedStories = getStoriesForPoint(point.id);
   const counts = getPointPositionCounts(point);
   const isCurrentUser = authorId === currentUser.id;
 
@@ -263,29 +258,15 @@ function QuotedPoint({
       </div>
       {/* Point text */}
       <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
-      {/* Stats row with interactive position buttons */}
-      <TooltipProvider delayDuration={100}>
-        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 cursor-default">
-                <BookOpen size={12} />
-                {linkedStories.length}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Linked stories</p>
-            </TooltipContent>
-          </Tooltip>
-          {/* Compact position buttons - same style as main PointCard */}
-          <PositionButtons
-            userPosition={userPosition}
-            counts={counts}
-            onPositionClick={handlePositionClick}
-            compact
-          />
-        </div>
-      </TooltipProvider>
+      {/* Position buttons - compact */}
+      <div className="mt-2">
+        <PositionButtons
+          userPosition={userPosition}
+          counts={counts}
+          onPositionClick={handlePositionClick}
+          compact
+        />
+      </div>
     </button>
   );
 }

@@ -257,7 +257,7 @@ function QuotedStory({
               }}
               className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
             >
-              {isCurrentUser ? 'Your' : `${author?.name.split(' ')[0]}'s`} Story
+              {author?.name.split(' ')[0]}'s Story
             </span>
           ) : (
             authorPosition && (

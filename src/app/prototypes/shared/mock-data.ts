@@ -24,7 +24,7 @@ import type {
 
 export const currentUser: User = {
   id: 'current',
-  name: 'You',
+  name: 'Jordan Taylor',
   avatar: '👤',
   verifiedListenerScore: 5,
   bio: 'Building better understanding',

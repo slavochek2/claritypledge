@@ -213,6 +213,21 @@ Two main patterns:
 </span>
 ```
 
+#### Position Badges (Prototype)
+
+Position badges (Agrees/Disagrees/Unsure) use **uniform blue styling** regardless of position type:
+
+```tsx
+// All positions use same blue styling
+<span className="bg-blue-100 text-blue-700 text-xs font-medium px-1.5 py-0.5 rounded">
+  Agrees
+</span>
+```
+
+**Rationale:** Visual consistency — the badge indicates someone took a position, not the position's "value". Disagree isn't negative, Agree isn't positive. They're equal actions.
+
+**Implementation:** See `PositionBadge.tsx` in linkedin-like prototype.
+
 #### Message Bubbles (Chat Pattern)
 
 ```tsx

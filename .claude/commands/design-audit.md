@@ -8,6 +8,29 @@ This skill performs a **systematic** design audit, going beyond color violations
 
 **When to use:** After implementing UI features, before PR review, when user asks to "check design compliance"
 
+## Step 0: Check Excalidraw Wireframes
+
+Scan wireframe files for forbidden colors:
+
+```bash
+# Find all excalidraw files
+find docs/bmad/diagrams -name "*.excalidraw" -type f 2>/dev/null
+
+# For each file, check for forbidden colors:
+# Forbidden: amber (#f59e0b, #fbbf24), orange (#ff9800, #f97316), yellow (#eab308)
+# Forbidden: iOS blue (#007AFF) - should be #3b82f6
+# Forbidden: purple (#a855f7, #9333ea, #7c3aed)
+```
+
+**Correct colors per design-system.md:**
+| Element | Stroke | Background |
+|---------|--------|------------|
+| Primary button | #3b82f6 | #3b82f6 |
+| Secondary button | #e0e0e0 | #ffffff |
+| Your status | #bfdbfe | #eff6ff |
+| Other's status | #e0e0e0 | #f5f5f5 |
+| Success state | #22c55e | #dcfce7 |
+
 ## Step 1: Read the Design Spec
 
 First, read the current design system specification:
