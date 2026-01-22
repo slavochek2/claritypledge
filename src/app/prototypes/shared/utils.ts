@@ -43,8 +43,8 @@ export function formatTimeAgoVerbose(dateString: string): string {
 // Position Helpers
 // -----------------------------------------------------------------------------
 
-export function getPositionCounts(idea: Idea | IdeaSimple): { agree: number; disagree: number; dont_know: number } {
-  const counts = { agree: 0, disagree: 0, dont_know: 0 };
+export function getPositionCounts(idea: Idea | IdeaSimple): { agree: number; disagree: number; unsure: number } {
+  const counts = { agree: 0, disagree: 0, unsure: 0 };
 
   Object.values(idea.positions).forEach(entry => {
     if (entry === null) return;
@@ -54,8 +54,16 @@ export function getPositionCounts(idea: Idea | IdeaSimple): { agree: number; dis
       ? entry.position
       : entry as PositionType | null;
 
-    if (position && position in counts) {
-      counts[position as PositionType]++;
+    if (!position) return;
+
+    // Map 7-point scale to 3-bucket counts (for backwards compatibility)
+    if (['strongly_agree', 'agree', 'somewhat_agree'].includes(position)) {
+      counts.agree++;
+    } else if (['strongly_disagree', 'disagree', 'somewhat_disagree'].includes(position)) {
+      counts.disagree++;
+    } else if (['unsure', 'dont_know'].includes(position)) {
+      // Support both old 'dont_know' and new 'unsure'
+      counts.unsure++;
     }
   });
 
@@ -64,27 +72,45 @@ export function getPositionCounts(idea: Idea | IdeaSimple): { agree: number; dis
 
 export function getPositionEmoji(position: Position): string {
   switch (position) {
-    case 'agree': return '✓';
-    case 'disagree': return '✗';
-    case 'dont_know': return '?';
+    case 'strongly_agree':
+    case 'agree':
+    case 'somewhat_agree':
+      return '✓';
+    case 'strongly_disagree':
+    case 'disagree':
+    case 'somewhat_disagree':
+      return '✗';
+    case 'unsure':
+    case 'dont_know': // backwards compatibility
+      return '−';
     default: return '○';
   }
 }
 
 export function getPositionLabel(position: Position): string {
   switch (position) {
+    case 'strongly_agree': return 'Strongly Agrees';
     case 'agree': return 'Agrees';
+    case 'somewhat_agree': return 'Somewhat Agrees';
+    case 'strongly_disagree': return 'Strongly Disagrees';
     case 'disagree': return 'Disagrees';
-    case 'dont_know': return 'Uncertain';
+    case 'somewhat_disagree': return 'Somewhat Disagrees';
+    case 'unsure': return 'Unsure';
+    case 'dont_know': return 'Unsure'; // backwards compatibility
     default: return 'No position';
   }
 }
 
 export function getPositionActionLabel(position: Position): string {
   switch (position) {
+    case 'strongly_agree': return 'Strongly Agreed';
     case 'agree': return 'Agreed';
+    case 'somewhat_agree': return 'Somewhat Agreed';
+    case 'strongly_disagree': return 'Strongly Disagreed';
     case 'disagree': return 'Disagreed';
-    case 'dont_know': return 'Unsure';
+    case 'somewhat_disagree': return 'Somewhat Disagreed';
+    case 'unsure': return 'Unsure';
+    case 'dont_know': return 'Unsure'; // backwards compatibility
     default: return 'No position';
   }
 }

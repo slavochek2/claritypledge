@@ -19,7 +19,7 @@ export function IdeaDetail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const idea = getIdeaById(id || '');
-  const counts = idea ? getPositionCounts(idea) : { agree: 0, disagree: 0, dont_know: 0 };
+  const counts = idea ? getPositionCounts(idea) : { agree: 0, disagree: 0, unsure: 0 };
 
   // Check if this was shared by someone (from=userId)
   const fromUserId = searchParams.get('from');
@@ -38,7 +38,7 @@ export function IdeaDetail() {
     );
   }
 
-  const totalPositions = counts.agree + counts.disagree + counts.dont_know;
+  const totalPositions = counts.agree + counts.disagree + counts.unsure;
 
   return (
     <PrototypeLayout>

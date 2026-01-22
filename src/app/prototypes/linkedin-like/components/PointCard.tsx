@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, ExternalLink, Pin, Radio, Zap } from 'lucide-react';
 import {
@@ -15,8 +15,9 @@ import {
   getPointsForStory,
   currentUser,
 } from '../data/mock-data';
-import { PositionBadge, PositionButtons, ShareDropdown } from './shared';
-import type { Point, Position, Story } from '../../shared/types';
+import { PositionBadge, PositionButtons, ShareDropdown, type SevenPointCounts } from './shared';
+import type { Point, Position, Story, PositionType, PositionButtonGroup } from '../../shared/types';
+import { getPositionGroup } from '../../shared/types';
 
 interface PointCardProps {
   point: Point;
@@ -37,7 +38,43 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
     point.positions['current']?.position || null
   );
   const linkedStories = getStoriesForPoint(point.id);
-  const counts = getPointPositionCounts(point);
+  const baseCounts = getPointPositionCounts(point);
+
+  // Track initial position from mock data
+  const initialPosition = point.positions['current']?.position || null;
+
+  // Compute adjusted counts based on user's current position vs initial
+  const counts = useMemo((): SevenPointCounts => {
+    const adjusted: SevenPointCounts = {
+      strongly_agree: 0,
+      agree: baseCounts.agree,
+      somewhat_agree: 0,
+      unsure: baseCounts.unsure,
+      somewhat_disagree: 0,
+      disagree: baseCounts.disagree,
+      strongly_disagree: 0,
+    };
+
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+
+    const initialGroup = getGroup(initialPosition as PositionType | null);
+    const currentGroup = getGroup(userPosition as PositionType | null);
+
+    if (initialGroup !== currentGroup) {
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
+
+    return adjusted;
+  }, [baseCounts, initialPosition, userPosition]);
 
   // On profile page, find the profile owner's story linked to this point
   // In feed (no profileOwnerId), show first linked story for context

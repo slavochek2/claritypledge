@@ -670,7 +670,7 @@ export const mockPoints: Point[] = [
       '5': { position: 'somewhat_disagree', timestamp: '2026-01-05T12:00:00Z' },   // -1 (new)
       '6': { position: 'strongly_agree', timestamp: '2026-01-06T09:00:00Z' },      // +3
       '7': { position: 'agree', timestamp: '2026-01-06T14:00:00Z' },               // +2
-      '8': { position: 'false_premise', timestamp: '2026-01-06T16:00:00Z' },       // flag (new)
+      '8': { position: 'unsure', timestamp: '2026-01-06T16:00:00Z' },              // 0
       'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },         // +2
     },
     linkedStoryIds: ['st1', 'st2', 'st3', 'st8'],
@@ -853,7 +853,7 @@ export function getPointsForStory(storyId: string): Point[] {
 }
 
 /**
- * 7-point position counts for Points (plus false_premise flag)
+ * 7-point position counts for Points
  * Used for the 3-button dropdown UI where counts are aggregated by group
  */
 export interface SevenPointCounts {
@@ -861,14 +861,13 @@ export interface SevenPointCounts {
   agree: number;              // +2
   somewhat_agree: number;     // +1
   unsure: number;             // 0
-  false_premise: number;      // flag
   somewhat_disagree: number;  // -1
   disagree: number;           // -2
   strongly_disagree: number;  // -3
 }
 
 /**
- * Get position counts for a Point (7-point Likert scale + false_premise)
+ * Get position counts for a Point (7-point Likert scale)
  */
 export function getPointPositionCounts(point: Point): SevenPointCounts {
   const counts: SevenPointCounts = {
@@ -876,7 +875,6 @@ export function getPointPositionCounts(point: Point): SevenPointCounts {
     agree: 0,
     somewhat_agree: 0,
     unsure: 0,
-    false_premise: 0,
     somewhat_disagree: 0,
     disagree: 0,
     strongly_disagree: 0,
@@ -895,7 +893,7 @@ export function getPointPositionCounts(point: Point): SevenPointCounts {
 export function getAggregatedCounts(counts: SevenPointCounts): { disagree: number; unsure: number; agree: number } {
   return {
     disagree: counts.strongly_disagree + counts.disagree + counts.somewhat_disagree,
-    unsure: counts.unsure + counts.false_premise,
+    unsure: counts.unsure,
     agree: counts.somewhat_agree + counts.agree + counts.strongly_agree,
   };
 }

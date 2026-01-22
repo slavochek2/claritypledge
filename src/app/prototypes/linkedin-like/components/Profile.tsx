@@ -113,6 +113,14 @@ export function Profile() {
                     {user.role && (
                       <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                     )}
+                    {user.hasPledged && (
+                      <button
+                        onClick={() => navigate(routes.profileById(user.id))}
+                        className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
+                      >
+                        See Clarity Pledge
+                      </button>
+                    )}
                   </div>
 
                   {/* Share button - top right like cards */}
@@ -125,7 +133,7 @@ export function Profile() {
                   </button>
                 </div>
 
-                {/* Profile stats row with pledge link */}
+                {/* Profile stats row */}
                 <TooltipProvider delayDuration={100}>
                   <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
                     <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
@@ -174,15 +182,6 @@ export function Profile() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    {/* Pledge link - inline with stats */}
-                    {user.hasPledged && (
-                      <button
-                        onClick={() => navigate(routes.profileById(user.id))}
-                        className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                      >
-                        View pledge →
-                      </button>
-                    )}
                   </div>
                 </TooltipProvider>
               </div>
@@ -381,15 +380,8 @@ export function Profile() {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  {/* Pledge link - inline with stats */}
-                  {user.hasPledged ? (
-                    <button
-                      onClick={() => navigate(routes.profileById(user.id))}
-                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                    >
-                      View pledge →
-                    </button>
-                  ) : (
+                  {/* Take pledge CTA - only show if user hasn't pledged */}
+                  {!user.hasPledged && (
                     <button
                       onClick={() => navigate('/sign-pledge')}
                       className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"

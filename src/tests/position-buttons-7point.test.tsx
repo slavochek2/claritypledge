@@ -14,14 +14,13 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
     agree: 10,              // +2
     somewhat_agree: 3,      // +1
     unsure: 2,              // 0
-    false_premise: 1,       // flag
     somewhat_disagree: 4,   // -1
     disagree: 8,            // -2
     strongly_disagree: 2,   // -3
   };
 
   describe('Button rendering', () => {
-    it('renders exactly 3 main button groups (each has main + dropdown trigger)', () => {
+    it('renders 3 main button groups (Disagree/Agree have dropdown, Unsure is simple)', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -30,10 +29,11 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // In standard mode: each group has 2 buttons (main + dropdown trigger)
-      // So we expect 6 buttons total for 3 groups
+      // Disagree and Agree have 2 buttons each (main + dropdown trigger)
+      // Unsure is a simple button (no dropdown since only one option)
+      // Total: 2 + 1 + 2 = 5 buttons
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(6); // 3 groups × 2 buttons each
+      expect(buttons).toHaveLength(5);
 
       // Check all 3 group labels are present
       expect(screen.getByText('Disagree')).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
       expect(screen.getByText('Agree')).toBeInTheDocument();
     });
 
-    it('displays aggregated counts per button group', () => {
+    it('displays aggregated counts per button group in brackets', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -51,13 +51,13 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
       );
 
       // Disagree group: strongly_disagree (2) + disagree (8) + somewhat_disagree (4) = 14
-      expect(screen.getByText('14')).toBeInTheDocument();
+      expect(screen.getByText('(14)')).toBeInTheDocument();
 
-      // Unsure group: unsure (2) + false_premise (1) = 3
-      expect(screen.getByText('3')).toBeInTheDocument();
+      // Unsure group: unsure (2)
+      expect(screen.getByText('(2)')).toBeInTheDocument();
 
       // Agree group: somewhat_agree (3) + agree (10) + strongly_agree (5) = 18
-      expect(screen.getByText('18')).toBeInTheDocument();
+      expect(screen.getByText('(18)')).toBeInTheDocument();
     });
   });
 
@@ -74,7 +74,6 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Click the main Disagree button (not the dropdown trigger)
       const disagreeBtn = screen.getByText('Disagree').closest('button');
       await user.click(disagreeBtn!);
       expect(handleClick).toHaveBeenCalledWith('disagree');
@@ -127,19 +126,15 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Open dropdown using the testid
       const dropdownTrigger = screen.getByTestId('disagree-dropdown');
       await user.click(dropdownTrigger);
 
-      // Check dropdown options appear
       expect(screen.getByRole('menuitem', { name: /Strongly Disagree/i })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: /^Disagree$/i })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: /Somewhat Disagree/i })).toBeInTheDocument();
     });
 
-    it('Unsure dropdown contains Unsure and False Premise options', async () => {
-      const user = userEvent.setup();
-
+    it('Unsure is a simple button without dropdown (single option)', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -148,11 +143,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const dropdownTrigger = screen.getByTestId('unsure-dropdown');
-      await user.click(dropdownTrigger);
-
-      expect(screen.getByRole('menuitem', { name: /^Unsure$/i })).toBeInTheDocument();
-      expect(screen.getByRole('menuitem', { name: /False Premise/i })).toBeInTheDocument();
+      expect(screen.queryByTestId('unsure-dropdown')).not.toBeInTheDocument();
     });
 
     it('Agree dropdown contains intensity options when opened', async () => {
@@ -192,25 +183,6 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
 
       expect(handleClick).toHaveBeenCalledWith('strongly_disagree');
     });
-
-    it('selecting False Premise from dropdown calls onPositionClick', async () => {
-      const user = userEvent.setup();
-      const handleClick = vi.fn();
-
-      render(
-        <PositionButtons
-          userPosition={null}
-          counts={sevenPointCounts}
-          onPositionClick={handleClick}
-        />
-      );
-
-      const dropdownTrigger = screen.getByTestId('unsure-dropdown');
-      await user.click(dropdownTrigger);
-      await user.click(screen.getByRole('menuitem', { name: /False Premise/i }));
-
-      expect(handleClick).toHaveBeenCalledWith('false_premise');
-    });
   });
 
   describe('Active state highlighting', () => {
@@ -223,25 +195,21 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Find the button containing "Disagree" text (but not "Strongly")
-      // The main button should have the active class
-      const disagreeText = screen.getByText(/Somewhat Disagree/i);
-      const disagreeBtn = disagreeText.closest('button');
-      expect(disagreeBtn).toHaveClass('bg-blue-500');
+      const disagreeText = screen.getByText(/Disagree−/);
+      const container = disagreeText.closest('button')?.parentElement;
+      expect(container).toHaveClass('bg-blue-500');
     });
 
-    it('highlights Unsure group when user position is false_premise', () => {
+    it('highlights Unsure button when user position is unsure', () => {
       render(
         <PositionButtons
-          userPosition="false_premise"
+          userPosition="unsure"
           counts={sevenPointCounts}
           onPositionClick={vi.fn()}
         />
       );
 
-      // The button should show "False Premise" and be active
-      const falsePremiseText = screen.getByText(/False Premise/i);
-      const unsureBtn = falsePremiseText.closest('button');
+      const unsureBtn = screen.getByText('Unsure').closest('button');
       expect(unsureBtn).toHaveClass('bg-blue-500');
     });
 
@@ -254,12 +222,12 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const stronglyAgreeText = screen.getByText(/Strongly Agree/i);
-      const agreeBtn = stronglyAgreeText.closest('button');
-      expect(agreeBtn).toHaveClass('bg-blue-500');
+      const stronglyAgreeText = screen.getByText(/Agree\+/);
+      const container = stronglyAgreeText.closest('button')?.parentElement;
+      expect(container).toHaveClass('bg-blue-500');
     });
 
-    it('shows specific position label when user selected non-default', () => {
+    it('shows abbreviated position label when user selected non-default', () => {
       render(
         <PositionButtons
           userPosition="strongly_disagree"
@@ -268,27 +236,25 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // The button should show "Strongly Disagree" instead of just "Disagree"
-      expect(screen.getByText(/Strongly Disagree/i)).toBeInTheDocument();
+      expect(screen.getByText(/Disagree\+/)).toBeInTheDocument();
     });
 
     it('shows default label when user selected default position', () => {
       render(
         <PositionButtons
-          userPosition="agree" // Default for agree group is 'agree'
+          userPosition="agree"
           counts={sevenPointCounts}
           onPositionClick={vi.fn()}
         />
       );
 
-      // Should just show "Agree" (not "Somewhat Agree" or "Strongly Agree")
       const agreeButtons = screen.getAllByText(/^Agree$/);
       expect(agreeButtons.length).toBeGreaterThanOrEqual(1);
     });
   });
 
   describe('Compact mode', () => {
-    it('renders 3 button groups in compact mode (single trigger each)', () => {
+    it('renders 3 button groups in compact mode (same structure as standard)', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -298,12 +264,11 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // In compact mode, each group is a single dropdown trigger
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(3);
+      expect(buttons).toHaveLength(5);
     });
 
-    it('compact mode shows aggregated counts', () => {
+    it('compact mode shows aggregated counts in brackets', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -313,9 +278,9 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      expect(screen.getByText('14')).toBeInTheDocument(); // Disagree
-      expect(screen.getByText('3')).toBeInTheDocument();  // Unsure
-      expect(screen.getByText('18')).toBeInTheDocument(); // Agree
+      expect(screen.getByText('(14)')).toBeInTheDocument();
+      expect(screen.getByText('(2)')).toBeInTheDocument();
+      expect(screen.getByText('(18)')).toBeInTheDocument();
     });
   });
 });
@@ -327,39 +292,34 @@ describe('SevenPointCounts aggregation', () => {
       agree: 10,
       somewhat_agree: 3,
       unsure: 2,
-      false_premise: 1,
       somewhat_disagree: 4,
       disagree: 8,
       strongly_disagree: 2,
     };
 
-    // Disagree group: -3 + -2 + -1 = 2 + 8 + 4 = 14
     const disagreeTotal = counts.strongly_disagree + counts.disagree + counts.somewhat_disagree;
     expect(disagreeTotal).toBe(14);
 
-    // Unsure group: 0 + flag = 2 + 1 = 3
-    const unsureTotal = counts.unsure + counts.false_premise;
-    expect(unsureTotal).toBe(3);
+    const unsureTotal = counts.unsure;
+    expect(unsureTotal).toBe(2);
 
-    // Agree group: +1 + +2 + +3 = 3 + 10 + 5 = 18
     const agreeTotal = counts.somewhat_agree + counts.agree + counts.strongly_agree;
     expect(agreeTotal).toBe(18);
   });
 });
 
 describe('Position type mapping', () => {
-  it('maps 7-point values + false_premise correctly (8 total types)', () => {
+  it('maps 7-point values correctly (7 total types)', () => {
     const positionTypes = [
-      'strongly_disagree',  // -3
-      'disagree',           // -2
-      'somewhat_disagree',  // -1
-      'unsure',             // 0
-      'somewhat_agree',     // +1
-      'agree',              // +2
-      'strongly_agree',     // +3
-      'false_premise',      // flag
+      'strongly_disagree',
+      'disagree',
+      'somewhat_disagree',
+      'unsure',
+      'somewhat_agree',
+      'agree',
+      'strongly_agree',
     ];
 
-    expect(positionTypes).toHaveLength(8);
+    expect(positionTypes).toHaveLength(7);
   });
 });

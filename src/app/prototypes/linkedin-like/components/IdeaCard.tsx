@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Share2, Check, Copy, Zap, Users, Globe, Lock, ExternalLink } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
-import { PositionButtons } from './shared';
+import { PositionButtons, type SevenPointCounts } from './shared';
+import { getPositionGroup } from '../../shared/types';
+import type { PositionType, PositionButtonGroup } from '../../shared/types';
 import { routes } from '../config';
 import {
   Dialog,
@@ -46,7 +48,48 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   const profileUserPosition = profileUserEntry?.position || null;
   const profileUser = profileUserId ? getUserById(profileUserId) : null;
 
-  const counts = getPositionCounts(idea);
+  const baseCounts = getPositionCounts(idea);
+
+  // Track initial position from mock data
+  const initialPosition = idea.positions['current']?.position || null;
+
+  // Compute adjusted counts based on user's current position vs initial
+  const counts = useMemo((): SevenPointCounts => {
+    // Start with base counts distributed to default positions
+    const adjusted: SevenPointCounts = {
+      strongly_agree: 0,
+      agree: baseCounts.agree,
+      somewhat_agree: 0,
+      unsure: baseCounts.unsure,
+      somewhat_disagree: 0,
+      disagree: baseCounts.disagree,
+      strongly_disagree: 0,
+    };
+
+    // Helper to get the group for a position
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+
+    const initialGroup = getGroup(initialPosition as PositionType | null);
+    const currentGroup = getGroup(userPosition as PositionType | null);
+
+    // Adjust counts based on position change
+    if (initialGroup !== currentGroup) {
+      // Decrease count for initial group (if any)
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      // Increase count for current group (if any)
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
+
+    return adjusted;
+  }, [baseCounts, initialPosition, userPosition]);
 
   // Get ALL verification sessions for the panel
   const allVerificationSessions = getAllVerificationSessionsForIdea(idea.id);
@@ -142,9 +185,9 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
 
   // Helper for profile user's position text
   const getPositionLabel = (pos: Position) => {
-    if (pos === 'agree') return { text: 'Agreed', icon: '✓', color: 'text-emerald-600' };
-    if (pos === 'disagree') return { text: 'Disagreed', icon: '✗', color: 'text-blue-600' };
-    return { text: 'Unsure', icon: '?', color: 'text-gray-500' };
+    if (pos === 'agree') return { text: 'Agreed', icon: '✓', color: 'text-blue-600' };
+    if (pos === 'disagree') return { text: 'Disagreed', icon: '✗', color: 'text-slate-600' };
+    return { text: 'Unsure', icon: '−', color: 'text-gray-500' };
   };
 
   return (
@@ -239,11 +282,11 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   <TooltipTrigger asChild>
                     <span className="flex items-center gap-1.5 text-sm cursor-default">
                       <Users size={16} />
-                      <span>{counts.agree + counts.disagree + counts.dont_know}</span>
+                      <span>{counts.agree + counts.disagree + counts.unsure}</span>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{counts.agree + counts.disagree + counts.dont_know} positions taken</p>
+                    <p>{counts.agree + counts.disagree + counts.unsure} positions taken</p>
                   </TooltipContent>
                 </Tooltip>
                 {/* Clarity sessions */}
@@ -425,11 +468,11 @@ function ShareDialog({
           {userPosition && (
             <div className="mt-2">
               <span className={`inline-flex items-center text-xs font-medium px-2 py-1 rounded-full ${
-                userPosition === 'agree' ? 'bg-emerald-100 text-emerald-700' :
-                userPosition === 'disagree' ? 'bg-blue-100 text-blue-700' :
+                userPosition === 'agree' ? 'bg-blue-100 text-blue-700' :
+                userPosition === 'disagree' ? 'bg-slate-100 text-slate-700' :
                 'bg-gray-200 text-gray-600'
               }`}>
-                {userPosition === 'agree' ? '✓ You agreed' : userPosition === 'disagree' ? '✗ You disagreed' : '? You\'re unsure'}
+                {userPosition === 'agree' ? '✓ You agreed' : userPosition === 'disagree' ? '✗ You disagreed' : '− You\'re unsure'}
               </span>
             </div>
           )}

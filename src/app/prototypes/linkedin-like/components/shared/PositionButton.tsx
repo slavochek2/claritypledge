@@ -7,15 +7,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Check, X, HelpCircle } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
-// 7-point position counts interface (plus false_premise)
+// Position group icons for consistent UI
+export const POSITION_ICONS = {
+  agree: Check,
+  disagree: X,
+  unsure: HelpCircle,
+} as const;
+
+// 7-point position counts interface
 export interface SevenPointCounts {
   strongly_agree: number;     // +3
   agree: number;              // +2
   somewhat_agree: number;     // +1
   unsure: number;             // 0
-  false_premise: number;      // flag
   somewhat_disagree: number;  // -1
   disagree: number;           // -2
   strongly_disagree: number;  // -3
@@ -24,23 +36,35 @@ export interface SevenPointCounts {
 // Backwards compatibility: also export as FivePointCounts for existing code
 export type FivePointCounts = SevenPointCounts;
 
-// Position labels for display
+// Position labels for display (full - used in dropdowns)
 const POSITION_LABELS: Record<PositionType, string> = {
   strongly_disagree: 'Strongly Disagree',
   disagree: 'Disagree',
   somewhat_disagree: 'Somewhat Disagree',
   unsure: 'Unsure',
-  false_premise: 'False Premise',
   somewhat_agree: 'Somewhat Agree',
   agree: 'Agree',
   strongly_agree: 'Strongly Agree',
 };
 
+// Short labels for button display (abbreviated when selected)
+const POSITION_SHORT_LABELS: Record<PositionType, string> = {
+  strongly_disagree: 'Disagree+',
+  disagree: 'Disagree',
+  somewhat_disagree: 'Disagree−',
+  unsure: 'Unsure',
+  somewhat_agree: 'Agree−',
+  agree: 'Agree',
+  strongly_agree: 'Agree+',
+};
+
 // Button group configuration
 interface ButtonGroupConfig {
   label: string;
+  shortLabel: string; // For compact/mobile display
   defaultPosition: PositionType;
   positions: PositionType[];
+  icon: typeof Check;
   activeClass: string;
   inactiveClass: string;
 }
@@ -48,22 +72,28 @@ interface ButtonGroupConfig {
 const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
   disagree: {
     label: 'Disagree',
+    shortLabel: '', // Icon-only on mobile
     defaultPosition: 'disagree', // -2
     positions: ['strongly_disagree', 'disagree', 'somewhat_disagree'],
+    icon: X,
     activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
     inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
   },
   unsure: {
     label: 'Unsure',
+    shortLabel: '', // Icon-only on mobile
     defaultPosition: 'unsure', // 0
-    positions: ['unsure', 'false_premise'],
+    positions: ['unsure'],
+    icon: HelpCircle,
     activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
     inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
   },
   agree: {
     label: 'Agree',
+    shortLabel: '', // Icon-only on mobile
     defaultPosition: 'agree', // +2
-    positions: ['somewhat_agree', 'agree', 'strongly_agree'],
+    positions: ['strongly_agree', 'agree', 'somewhat_agree'], // Most intense at top
+    icon: Check,
     activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
     inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
   },
@@ -78,24 +108,19 @@ function getGroupCount(counts: SevenPointCounts, group: PositionButtonGroup): nu
     case 'disagree':
       return counts.strongly_disagree + counts.disagree + counts.somewhat_disagree;
     case 'unsure':
-      return counts.unsure + counts.false_premise;
+      return counts.unsure;
     case 'agree':
       return counts.somewhat_agree + counts.agree + counts.strongly_agree;
   }
 }
 
-// Get display label for button (shows specific position if selected)
+// Get display label for button (shows SHORT label when selected)
 function getButtonLabel(group: PositionButtonGroup, userPosition: Position): string {
   const config = BUTTON_GROUPS[group];
 
-  // If user has a position in this group, show the specific label
+  // If user has a position in this group, show the short label
   if (userPosition && getPositionGroup(userPosition) === group) {
-    // For default positions, just show the group label
-    if (userPosition === config.defaultPosition) {
-      return config.label;
-    }
-    // For non-default positions, show specific label
-    return POSITION_LABELS[userPosition];
+    return POSITION_SHORT_LABELS[userPosition];
   }
 
   return config.label;
@@ -109,6 +134,13 @@ interface PositionButtonGroupProps {
   compact?: boolean;
 }
 
+// Tooltip text for default action
+const GROUP_TOOLTIPS: Record<PositionButtonGroup, string> = {
+  disagree: 'Disagree',
+  unsure: 'Unsure',
+  agree: 'Agree',
+};
+
 function PositionButtonGroupComponent({
   group,
   userPosition,
@@ -119,6 +151,7 @@ function PositionButtonGroupComponent({
   const config = BUTTON_GROUPS[group];
   const isActive = userPosition ? getPositionGroup(userPosition) === group : false;
   const buttonLabel = getButtonLabel(group, userPosition);
+  const hasDropdown = config.positions.length > 1;
 
   const handleQuickClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,79 +162,80 @@ function PositionButtonGroupComponent({
     onPositionClick(position);
   };
 
-  if (compact) {
+  // Simple button without dropdown (e.g., Unsure with only one option)
+  if (!hasDropdown) {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors flex items-center gap-0.5 ${
-              isActive ? config.activeClass : config.inactiveClass
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span>{buttonLabel}</span>
-            <span className={isActive ? 'opacity-90' : 'opacity-60'}>{count}</span>
-            <ChevronDown className="h-3 w-3 opacity-50" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
-          {config.positions.map((pos) => (
-            <DropdownMenuItem
-              key={pos}
-              onClick={() => handleDropdownSelect(pos)}
-              className={userPosition === pos ? 'bg-blue-50' : ''}
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleQuickClick}
+              className={`inline-flex items-center gap-1 rounded-full border text-xs font-medium px-2.5 py-1 transition-colors hover:opacity-80 ${
+                isActive ? config.activeClass : config.inactiveClass
+              }`}
             >
-              {POSITION_LABELS[pos]}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+              <span>{buttonLabel}</span>
+              <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>{GROUP_TOOLTIPS[group]}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 
+  // Button with dropdown for multiple options (Agree/Disagree)
   return (
-    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-      {/* Main button - quick click */}
-      <Button
-        onClick={handleQuickClick}
-        variant="outline"
-        size="sm"
-        className={`rounded-l-full rounded-r-none text-xs px-3 py-1 h-auto border-r-0 ${
+    <TooltipProvider delayDuration={300}>
+      <div
+        className={`inline-flex items-center rounded-full border text-xs font-medium transition-colors ${
           isActive ? config.activeClass : config.inactiveClass
         }`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <span>{buttonLabel}</span>
-        <span className={`ml-1 ${isActive ? 'opacity-90' : 'opacity-60'}`}>{count}</span>
-      </Button>
-
-      {/* Dropdown trigger */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={`rounded-r-full rounded-l-none text-xs px-1.5 py-1 h-auto ${
-              isActive ? config.activeClass : config.inactiveClass
-            }`}
-            aria-label={`${group} options`}
-            data-testid={`${group}-dropdown`}
-          >
-            <ChevronDown className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          {config.positions.map((pos) => (
-            <DropdownMenuItem
-              key={pos}
-              onClick={() => handleDropdownSelect(pos)}
-              className={userPosition === pos ? 'bg-blue-50' : ''}
+        {/* Main area - quick click with tooltip */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleQuickClick}
+              className="flex items-center gap-1 px-2.5 py-1 hover:opacity-80 transition-opacity"
             >
-              {POSITION_LABELS[pos]}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+              <span>{buttonLabel}</span>
+              <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>{GROUP_TOOLTIPS[group]}</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Dropdown trigger - arrow inside the same button */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="px-1.5 py-1 hover:opacity-80 transition-opacity"
+              aria-label={`${group} options`}
+              data-testid={`${group}-dropdown`}
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {config.positions.map((pos) => (
+              <DropdownMenuItem
+                key={pos}
+                onClick={() => handleDropdownSelect(pos)}
+                className={userPosition === pos ? 'bg-blue-50' : ''}
+              >
+                {POSITION_LABELS[pos]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -246,7 +280,7 @@ interface PositionButtonsProps {
 
 export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
   return (
-    <div className={`flex items-center ${compact ? 'gap-1 flex-wrap' : 'justify-start gap-1.5'}`}>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
       {BUTTON_ORDER.map((group) => (
         <PositionButtonGroupComponent
           key={group}

@@ -1,4 +1,7 @@
-type PositionFilter = 'all' | 'agree' | 'disagree' | 'dont_know';
+import { Check, X, Minus } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+type PositionFilter = 'all' | 'agree' | 'disagree' | 'unsure';
 
 interface FilterTabsProps {
   activeFilter: PositionFilter;
@@ -7,7 +10,7 @@ interface FilterTabsProps {
     all: number;
     agree: number;
     disagree: number;
-    dont_know: number;
+    unsure: number;
   };
 }
 
@@ -25,20 +28,21 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
         count={counts.agree}
         active={activeFilter === 'agree'}
         onClick={() => onFilterChange('agree')}
-        activeColor="text-blue-600"
-        underlineColor="bg-blue-600"
+        icon={Check}
       />
       <FilterTab
         label="Disagreed"
         count={counts.disagree}
         active={activeFilter === 'disagree'}
         onClick={() => onFilterChange('disagree')}
+        icon={X}
       />
       <FilterTab
         label="Unsure"
-        count={counts.dont_know}
-        active={activeFilter === 'dont_know'}
-        onClick={() => onFilterChange('dont_know')}
+        count={counts.unsure}
+        active={activeFilter === 'unsure'}
+        onClick={() => onFilterChange('unsure')}
+        icon={Minus}
       />
     </div>
   );
@@ -49,6 +53,7 @@ function FilterTab({
   count,
   active,
   onClick,
+  icon: Icon,
   activeColor = 'text-blue-600',
   underlineColor = 'bg-blue-600',
 }: {
@@ -56,16 +61,18 @@ function FilterTab({
   count: number;
   active: boolean;
   onClick: () => void;
+  icon?: LucideIcon;
   activeColor?: string;
   underlineColor?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
+      className={`flex-1 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-1 ${
         active ? activeColor : 'text-gray-500 hover:text-gray-700'
       }`}
     >
+      {Icon && <Icon className="h-3.5 w-3.5" />}
       {label} ({count})
       {active && (
         <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${underlineColor}`} />
