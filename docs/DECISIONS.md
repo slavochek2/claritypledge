@@ -14,6 +14,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-22: Show linked items inline, not counts
+
+**Context:** StoryCard showed a "🔗 1" badge for linked Points count, then displayed only 1 Point below. PointCard similarly showed a "📖 1" count then 1 Story. Users asked "why show a count when I could just see the actual items?"
+
+**Decision:**
+- Remove count badges for linked items (Pin count on Stories, BookOpen count on Points)
+- Show ALL linked items inline (max 3, with "+N more" overflow link)
+- On profile pages, prioritize profile owner's stories first in PointCard
+- Remove `hideLinkedPoints` prop — always show linked content
+
+**Alternatives rejected:**
+- Keep count badge + show 1 item — Redundant; count is information about data we could just show
+- Expand/collapse toggle — Adds interaction cost, hides value-adding content by default
+- Always show all (no limit) — Could get unwieldy with 10+ linked items
+
+**Consequences:**
+- Cards are slightly taller when multiple linked items exist
+- Simpler component API (no `hideLinkedPoints` prop)
+- Users see full context without clicking
+- Overflow links drive navigation to detail pages when >3 items
+
+**References:** [roadmap.md](roadmap.md#q2-how-do-stories-link-to-multiple-points) — MVP was "1:1" but prototype now shows many-to-many
+
+---
+
 ## 2026-01-21: Feed shows Points with Stories from your network
 
 **Context:** Points in the feed feel random. No indication WHY a Point is relevant to you. Discussed showing quoted Stories from people you know (same event attendees, future Clarity Partners).

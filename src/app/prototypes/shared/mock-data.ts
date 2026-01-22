@@ -668,7 +668,7 @@ export const mockPoints: Point[] = [
       '4': { position: 'dont_know', timestamp: '2026-01-05T11:00:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },
     },
-    linkedStoryIds: ['st1', 'st2', 'st3', 'st8'],
+    linkedStoryIds: ['st1', 'st2', 'st3', 'st8', 'st9'], // Added st9
   },
   {
     id: 'pt2',
@@ -680,7 +680,7 @@ export const mockPoints: Point[] = [
       '3': { position: 'disagree', timestamp: '2026-01-03T10:30:00Z' },
       'current': { position: 'dont_know', timestamp: '2026-01-06T11:15:00Z' },
     },
-    linkedStoryIds: ['st1', 'st4', 'st9'],
+    linkedStoryIds: ['st1', 'st2', 'st4', 'st8', 'st9'], // Added st2, st8
   },
   {
     id: 'pt3',
@@ -700,12 +700,13 @@ export const mockPoints: Point[] = [
     text: 'Code reviews are more valuable than automated testing',
     createdAt: '2026-01-04T11:00:00Z',
     positions: {
+      '1': { position: 'agree', timestamp: '2026-01-05T14:30:00Z' }, // Alice (from st5)
       '2': { position: 'disagree', timestamp: '2026-01-04T14:00:00Z' },
       '3': { position: 'agree', timestamp: '2026-01-04T15:00:00Z' },
       '4': { position: 'agree', timestamp: '2026-01-05T09:00:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-06T10:00:00Z' },
     },
-    linkedStoryIds: ['st7'],
+    linkedStoryIds: ['st5', 'st7'], // Added st5 (Alice's AI story)
   },
 ];
 
@@ -730,7 +731,7 @@ export const mockStories: Story[] = [
     authorId: '2', // Bob
     createdAt: '2026-01-03T14:30:00Z',
     visibility: 'public',
-    linkedPointIds: ['pt1'],
+    linkedPointIds: ['pt1', 'pt2'], // Also relates to meetings culture
     verificationCount: 2,
     crossDisagreementCount: 2,
   },
@@ -761,7 +762,7 @@ export const mockStories: Story[] = [
     authorId: '1', // Alice
     createdAt: '2026-01-05T14:00:00Z',
     visibility: 'public',
-    linkedPointIds: ['pt3'],
+    linkedPointIds: ['pt3', 'pt4'], // AI affects both knowledge work and code review practices
     verificationCount: 2,
     crossDisagreementCount: 1,
   },
@@ -791,7 +792,7 @@ export const mockStories: Story[] = [
     authorId: 'current', // You
     createdAt: '2026-01-07T09:00:00Z',
     visibility: 'public',
-    linkedPointIds: ['pt1'],
+    linkedPointIds: ['pt1', 'pt2'], // Remote work relates to meeting culture too
     verificationCount: 2,
     crossDisagreementCount: 1,
   },
@@ -802,7 +803,7 @@ export const mockStories: Story[] = [
     createdAt: '2026-01-08T14:00:00Z',
     visibility: 'shared',
     eventId: 'evt-2', // Shared within "Team Productivity Workshop"
-    linkedPointIds: ['pt2'],
+    linkedPointIds: ['pt1', 'pt2'], // Relates to both remote work and meeting culture
     verificationCount: 3,
     crossDisagreementCount: 0,
   },
