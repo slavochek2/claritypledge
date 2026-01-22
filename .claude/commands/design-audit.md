@@ -134,6 +134,30 @@ grep -B2 -A10 "ArrowLeft" SIBLING_FILE.tsx
 | **Card Layouts** | Event cards, person cards | Same info hierarchy, spacing |
 | **Action Buttons** | RSVP, Join, Cancel | Same styling for same action type |
 | **Filter Controls** | tabs, dropdowns, toggles | Same component, same styling |
+| **Position Badges** | `PositionBadge`, agrees/disagrees | ALL blue - see Position UI rules below |
+| **Position Buttons** | `PositionButtons`, Agree/Disagree/Unsure | Same component everywhere, responsive layout |
+
+### B.1 Position UI Rules (LinkedIn-like Prototype)
+
+**Philosophy:** Taking ANY position (agree, disagree, unsure) is equally valuable. The goal is engagement and understanding, not judgment.
+
+**Position Badges (`PositionBadge` component):**
+- ALL positions use **blue** (`bg-blue-100 text-blue-700`)
+- Icons differentiate stance: ✓ (agree variants), ✗ (disagree variants), ? (unsure)
+- Never use semantic colors (no green for agree, no red for disagree)
+
+**Position Buttons (`PositionButtons` component):**
+- Use the shared component everywhere - never duplicate
+- Active/selected button: `bg-blue-500 text-white`
+- Inactive buttons: `bg-white text-gray-600 border-gray-200`
+- Layout: Stack vertically on mobile (`flex-col`), horizontal on desktop (`sm:flex-row`)
+- The `compact` prop does NOT change layout - always responsive
+
+**Common violations:**
+- Using slate/grey for disagree badges (should be blue)
+- Using different colors for different positions (should all be blue)
+- Hardcoding horizontal layout for embedded position buttons (should use shared component)
+- Inconsistent button structure causing visual differences (all should use div wrapper)
 
 ### C. How to Check:
 

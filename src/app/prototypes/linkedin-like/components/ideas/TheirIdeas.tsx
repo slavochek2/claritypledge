@@ -6,8 +6,10 @@
 import { useState } from 'react';
 import { Lightbulb, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import type { SurfacedIdea, PositionType } from '../../data/mock-data';
-import { mockYourSurfacedIdeas, getUserById } from '../../data/mock-data';
+import type { SurfacedIdea } from '../../data/mock-data';
+import { mockYourSurfacedIdeas } from '../../data/mock-data';
+import type { PositionType, Position } from '../../../shared/types';
+import { PositionButtons, type SevenPointCounts } from '../shared';
 
 interface TheirIdeasProps {
   partnerName?: string;
@@ -15,9 +17,20 @@ interface TheirIdeasProps {
 }
 
 interface IdeaWithPositions extends SurfacedIdea {
-  yourPosition?: PositionType | null;
-  theirPosition?: PositionType | null;
+  yourPosition?: Position;
+  theirPosition?: Position;
 }
+
+// Empty counts for position buttons (this UI doesn't show community counts)
+const EMPTY_COUNTS: SevenPointCounts = {
+  strongly_agree: 0,
+  agree: 0,
+  somewhat_agree: 0,
+  unsure: 0,
+  somewhat_disagree: 0,
+  disagree: 0,
+  strongly_disagree: 0,
+};
 
 export function TheirIdeas({ partnerName = 'Alice', onSurfaceIdea }: TheirIdeasProps) {
   // Ideas with mock positions
@@ -29,7 +42,7 @@ export function TheirIdeas({ partnerName = 'Alice', onSurfaceIdea }: TheirIdeasP
     }))
   );
 
-  const handlePositionChange = (ideaId: string, position: PositionType) => {
+  const handlePositionChange = (position: PositionType, ideaId: string) => {
     setIdeas(prev => prev.map(idea => {
       if (idea.id !== ideaId) return idea;
 
@@ -38,13 +51,17 @@ export function TheirIdeas({ partnerName = 'Alice', onSurfaceIdea }: TheirIdeasP
 
       // Show toast
       if (newPosition) {
-        const positionLabels: Record<PositionType, string> = {
+        const positionLabels: Record<string, string> = {
+          strongly_agree: 'strongly agreed with',
           agree: 'agreed with',
+          somewhat_agree: 'somewhat agreed with',
+          strongly_disagree: 'strongly disagreed with',
           disagree: 'disagreed with',
-          dont_know: "aren't sure about",
+          somewhat_disagree: 'somewhat disagreed with',
+          unsure: "aren't sure about",
         };
         toast.success(`Position staked!`, {
-          description: `You ${positionLabels[newPosition]} this idea`,
+          description: `You ${positionLabels[newPosition] || 'took a position on'} this idea`,
         });
       }
 
@@ -109,24 +126,32 @@ export function TheirIdeas({ partnerName = 'Alice', onSurfaceIdea }: TheirIdeasP
 interface TheirIdeaCardProps {
   idea: IdeaWithPositions;
   partnerName: string;
-  onPositionChange: (ideaId: string, position: PositionType) => void;
+  onPositionChange: (position: PositionType, ideaId: string) => void;
 }
 
 function TheirIdeaCard({ idea, partnerName, onPositionChange }: TheirIdeaCardProps) {
   const hasTheirPosition = idea.theirPosition !== null;
   const positionsDiffer = idea.yourPosition && idea.theirPosition && idea.yourPosition !== idea.theirPosition;
 
-  // Position banner styling
+  // Position banner styling - map 7-point scale to 3 display groups
   const getBannerStyle = () => {
-    if (!hasTheirPosition) return null;
+    if (!hasTheirPosition || !idea.theirPosition) return null;
 
-    const styles: Record<PositionType, { bg: string; text: string; label: string }> = {
-      agree: { bg: 'bg-green-50', text: 'text-green-700', label: 'agrees' },
-      disagree: { bg: 'bg-blue-50', text: 'text-blue-700', label: 'disagrees' },
-      dont_know: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'is unsure' },
-    };
+    // Map positions to display groups
+    const agreePositions = ['strongly_agree', 'agree', 'somewhat_agree'];
+    const disagreePositions = ['strongly_disagree', 'disagree', 'somewhat_disagree'];
+    const unsurePositions = ['unsure'];
 
-    return styles[idea.theirPosition!];
+    if (agreePositions.includes(idea.theirPosition)) {
+      return { bg: 'bg-blue-50', text: 'text-blue-700', label: 'agrees' };
+    }
+    if (disagreePositions.includes(idea.theirPosition)) {
+      return { bg: 'bg-slate-50', text: 'text-slate-700', label: 'disagrees' };
+    }
+    if (unsurePositions.includes(idea.theirPosition)) {
+      return { bg: 'bg-gray-100', text: 'text-gray-600', label: 'is unsure' };
+    }
+    return null;
   };
 
   const bannerStyle = getBannerStyle();
@@ -147,65 +172,16 @@ function TheirIdeaCard({ idea, partnerName, onPositionChange }: TheirIdeaCardPro
       <div className="p-4">
         <p className="text-gray-900">"{idea.text}"</p>
 
-        {/* Position buttons */}
-        <div className="mt-3 flex items-center justify-end gap-2">
-          <PositionButton
-            position="disagree"
-            isActive={idea.yourPosition === 'disagree'}
-            onClick={() => onPositionChange(idea.id, 'disagree')}
-          />
-          <PositionButton
-            position="dont_know"
-            isActive={idea.yourPosition === 'dont_know'}
-            onClick={() => onPositionChange(idea.id, 'dont_know')}
-          />
-          <PositionButton
-            position="agree"
-            isActive={idea.yourPosition === 'agree'}
-            onClick={() => onPositionChange(idea.id, 'agree')}
+        {/* Position buttons - using shared component */}
+        <div className="mt-3 flex items-center justify-end">
+          <PositionButtons
+            userPosition={idea.yourPosition || null}
+            counts={EMPTY_COUNTS}
+            onPositionClick={(position) => onPositionChange(position, idea.id)}
+            compact
           />
         </div>
       </div>
     </div>
-  );
-}
-
-// Position button component
-interface PositionButtonProps {
-  position: PositionType;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-function PositionButton({ position, isActive, onClick }: PositionButtonProps) {
-  const config: Record<PositionType, { icon: string; activeClass: string; inactiveClass: string }> = {
-    agree: {
-      icon: '✓',
-      activeClass: 'bg-green-500 text-white border-green-500',
-      inactiveClass: 'text-green-600 border-green-200 hover:bg-green-50',
-    },
-    disagree: {
-      icon: '✗',
-      activeClass: 'bg-blue-500 text-white border-blue-500',
-      inactiveClass: 'text-blue-600 border-blue-200 hover:bg-blue-50',
-    },
-    dont_know: {
-      icon: '?',
-      activeClass: 'bg-gray-500 text-white border-gray-500',
-      inactiveClass: 'text-gray-600 border-gray-200 hover:bg-gray-50',
-    },
-  };
-
-  const { icon, activeClass, inactiveClass } = config[position];
-
-  return (
-    <button
-      onClick={onClick}
-      className={`w-9 h-9 rounded-full border-2 flex items-center justify-center font-medium transition-all ${
-        isActive ? activeClass : inactiveClass
-      }`}
-    >
-      {icon}
-    </button>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Mic, Pin } from 'lucide-react';
 import {
@@ -14,8 +14,9 @@ import {
   getUserById,
   currentUser,
 } from '../data/mock-data';
-import { PointHeader, PositionButtons, ShareDropdown } from './shared';
-import type { Point, Position, Story } from '../../shared/types';
+import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, type SevenPointCounts } from './shared';
+import type { Point, Position, Story, PositionType, PositionButtonGroup } from '../../shared/types';
+import { getPositionGroup } from '../../shared/types';
 
 interface PointCardProps {
   point: Point;
@@ -36,8 +37,44 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
     point.positions['current']?.position || null
   );
   const linkedStories = getStoriesForPoint(point.id);
-  const counts = getPointPositionCounts(point);
-  const totalStances = counts.agree + counts.disagree + counts.dont_know;
+  const baseCounts = getPointPositionCounts(point);
+
+  // Track initial position from mock data
+  const initialPosition = point.positions['current']?.position || null;
+
+  // Compute adjusted counts based on user's current position vs initial
+  const counts = useMemo((): SevenPointCounts => {
+    const adjusted: SevenPointCounts = {
+      strongly_agree: 0,
+      agree: baseCounts.agree,
+      somewhat_agree: 0,
+      unsure: baseCounts.unsure,
+      somewhat_disagree: 0,
+      disagree: baseCounts.disagree,
+      strongly_disagree: 0,
+    };
+
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+
+    const initialGroup = getGroup(initialPosition as PositionType | null);
+    const currentGroup = getGroup(userPosition as PositionType | null);
+
+    if (initialGroup !== currentGroup) {
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
+
+    return adjusted;
+  }, [baseCounts, initialPosition, userPosition]);
+  const totalStances = counts.agree + counts.disagree + counts.unsure;
 
   // On profile page, prioritize profile owner's stories first
   // Then show other linked stories (max 3 total)
@@ -123,7 +160,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               {point.text}
             </p>
 
-            {/* Position buttons - compact */}
+            {/* Position buttons */}
             <div
               className="mt-3"
               onClick={(e) => e.stopPropagation()}

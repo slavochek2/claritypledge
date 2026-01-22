@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mic, MessageCircle, ExternalLink, Pin } from 'lucide-react';
 import {
@@ -8,10 +8,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { routes } from '../config';
-import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, UserCredibility, VisibilityBadge } from './shared';
-import type { Story, Point } from '../../shared/types';
+import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
+import { PointHeader, PositionBadge, PositionButtons, ShareDropdown, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
+import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
+import { getPositionGroup } from '../../shared/types';
 
 interface StoryCardProps {
   story: Story;
@@ -214,9 +215,45 @@ function QuotedPoint({
     point.positions['current']?.position || null
   );
   const authorPosition = point.positions[authorId]?.position;
-  const counts = getPointPositionCounts(point);
-  const totalStances = counts.agree + counts.disagree + counts.dont_know;
+  const linkedStories = getStoriesForPoint(point.id);
+  const baseCounts = getPointPositionCounts(point);
   const isCurrentUser = authorId === currentUser.id;
+
+  // Track initial position from mock data
+  const initialPosition = point.positions['current']?.position || null;
+
+  // Compute adjusted counts based on user's current position vs initial
+  const counts = useMemo((): SevenPointCounts => {
+    const adjusted: SevenPointCounts = {
+      strongly_agree: 0,
+      agree: baseCounts.agree,
+      somewhat_agree: 0,
+      unsure: baseCounts.unsure,
+      somewhat_disagree: 0,
+      disagree: baseCounts.disagree,
+      strongly_disagree: 0,
+    };
+
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+
+    const initialGroup = getGroup(initialPosition);
+    const currentGroup = getGroup(userPosition);
+
+    if (initialGroup !== currentGroup) {
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
+
+    return adjusted;
+  }, [baseCounts, initialPosition, userPosition]);
 
   const handlePositionClick = (position: PositionType) => {
     setUserPosition(userPosition === position ? null : position);

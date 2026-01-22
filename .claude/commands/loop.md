@@ -14,11 +14,11 @@ Before starting, analyze the task and determine:
 | Type | Steps |
 |------|-------|
 | Bug fix (backend) | Failing test → Implement → Tests pass → Done |
-| Bug fix (UI) | Failing test → Implement → Tests pass → Visual check → E2E tests → Done |
-| Feature (with UI) | Failing test → Implement → Tests pass → Visual check → E2E tests → UX review (if significant) → Done |
+| Bug fix (UI) | Failing test → Implement → Tests pass → Visual check → E2E tests → Design audit → Done |
+| Feature (with UI) | Failing test → Implement → Tests pass → Visual check → E2E tests → UX review (if significant) → Design audit → Done |
 | Feature (backend-only) | Failing test → Implement → Tests pass → Done |
 | Refactor | Tests pass (baseline) → Refactor → Tests still pass → Done |
-| UI change only | Implement → Visual check → UX review → Done |
+| UI change only | Implement → Visual check → UX review → Design audit → Done |
 
 **For bug fixes, always start with reproduction** (see Step 0.5 below).
 
@@ -232,6 +232,33 @@ Check against `docs/bmad/ux-design-specification.md`:
 - Accessibility basics (contrast, labels)
 - Mobile-first design respected
 
+### 7. Design Audit (for UI tasks)
+
+**Run `/design-audit`** as the final quality gate for any task with UI impact.
+
+The audit will:
+1. Find all buttons and classify by purpose (CTA, secondary, destructive)
+2. Verify styling matches purpose (blue for CTAs, etc.)
+3. Check all user states are testable (visitor, logged in, host, etc.)
+4. Verify cross-page consistency (same patterns look identical everywhere)
+5. Run accessibility checks (color contrast, focus states)
+6. Generate detailed report
+
+**If issues found:** The audit offers to fix them directly — no need to spawn another agent.
+
+**Skip for:**
+- Backend-only changes
+- Trivial bug fixes (typos, copy)
+- Refactors with no visual changes
+
+**Report to user:**
+```
+Design Audit:
+- Buttons checked: N
+- Issues found: N (or "None")
+- Fixes applied: [yes/no/skipped]
+```
+
 ---
 
 ## Iteration Rules
@@ -366,6 +393,7 @@ Results:
 - Visual check: OK / ISSUES / SKIPPED (auth-gated)
 - E2E tests: PASS / FAIL / SKIPPED
 - UX review: OK / ISSUES / SKIPPED
+- Design audit: OK / N issues fixed / SKIPPED (backend-only)
 
 Status: DONE / NEED INPUT
 [If NEED INPUT: explain what's needed]

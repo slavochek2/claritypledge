@@ -111,7 +111,7 @@ export const mockIdeas: Idea[] = [
       '1': { position: 'agree', timestamp: '2026-01-03T10:00:00Z' },
       '2': { position: 'disagree', timestamp: '2026-01-03T14:30:00Z' },
       '3': { position: 'agree', timestamp: '2026-01-04T09:15:00Z' },
-      '4': { position: 'dont_know', timestamp: '2026-01-05T11:00:00Z' },
+      '4': { position: 'unsure', timestamp: '2026-01-05T11:00:00Z' },
       '5': { position: 'disagree', timestamp: '2026-01-06T16:45:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },
     },
@@ -128,7 +128,7 @@ export const mockIdeas: Idea[] = [
     positions: {
       '1': { position: 'disagree', timestamp: '2026-01-02T15:00:00Z' },
       '2': { position: 'agree', timestamp: '2026-01-02T14:00:00Z' },
-      '3': { position: 'dont_know', timestamp: '2026-01-03T10:30:00Z' },
+      '3': { position: 'unsure', timestamp: '2026-01-03T10:30:00Z' },
       '4': { position: 'disagree', timestamp: '2026-01-04T13:00:00Z' },
       '5': { position: 'agree', timestamp: '2026-01-05T09:00:00Z' },
       'current': { position: 'disagree', timestamp: '2026-01-06T11:15:00Z' },
@@ -144,7 +144,7 @@ export const mockIdeas: Idea[] = [
     createdAt: '2026-01-01T09:00:00Z',
     visibility: 'shared',
     positions: {
-      '1': { position: 'dont_know', timestamp: '2026-01-01T12:00:00Z' },
+      '1': { position: 'unsure', timestamp: '2026-01-01T12:00:00Z' },
       '2': { position: 'disagree', timestamp: '2026-01-02T08:30:00Z' },
       '3': { position: 'agree', timestamp: '2026-01-01T09:00:00Z' },
       '4': { position: 'agree', timestamp: '2026-01-03T14:00:00Z' },
@@ -166,8 +166,8 @@ export const mockIdeas: Idea[] = [
       '2': { position: 'agree', timestamp: '2025-12-31T09:30:00Z' },
       '3': { position: 'disagree', timestamp: '2026-01-01T11:00:00Z' },
       '4': { position: 'agree', timestamp: '2025-12-30T16:00:00Z' },
-      '5': { position: 'dont_know', timestamp: '2026-01-02T14:45:00Z' },
-      'current': { position: 'dont_know', timestamp: '2026-01-03T10:00:00Z' },
+      '5': { position: 'unsure', timestamp: '2026-01-02T14:45:00Z' },
+      'current': { position: 'unsure', timestamp: '2026-01-03T10:00:00Z' },
     },
     verificationCount: 4,
     crossDisagreementCount: 1,
@@ -705,12 +705,17 @@ export const mockPoints: Point[] = [
     id: 'pt1',
     text: 'Remote work is more productive than office work for knowledge workers',
     createdAt: '2026-01-01T10:00:00Z',
+    // 7-point scale demo: all position types represented (including new granular ones)
     positions: {
-      '1': { position: 'agree', timestamp: '2026-01-03T10:00:00Z' },
-      '2': { position: 'disagree', timestamp: '2026-01-03T14:30:00Z' },
-      '3': { position: 'agree', timestamp: '2026-01-04T09:15:00Z' },
-      '4': { position: 'dont_know', timestamp: '2026-01-05T11:00:00Z' },
-      'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },
+      '1': { position: 'strongly_agree', timestamp: '2026-01-03T10:00:00Z' },      // +3
+      '2': { position: 'strongly_disagree', timestamp: '2026-01-03T14:30:00Z' },   // -3
+      '3': { position: 'somewhat_agree', timestamp: '2026-01-04T09:15:00Z' },      // +1 (new)
+      '4': { position: 'unsure', timestamp: '2026-01-05T11:00:00Z' },              // 0
+      '5': { position: 'somewhat_disagree', timestamp: '2026-01-05T12:00:00Z' },   // -1 (new)
+      '6': { position: 'strongly_agree', timestamp: '2026-01-06T09:00:00Z' },      // +3
+      '7': { position: 'agree', timestamp: '2026-01-06T14:00:00Z' },               // +2
+      '8': { position: 'unsure', timestamp: '2026-01-06T16:00:00Z' },              // 0
+      'current': { position: 'agree', timestamp: '2026-01-07T08:30:00Z' },         // +2
     },
     linkedStoryIds: ['st1', 'st2', 'st3', 'st8', 'st9'], // Added st9
   },
@@ -719,10 +724,11 @@ export const mockPoints: Point[] = [
     text: 'Fewer meetings leads to better outcomes',
     createdAt: '2026-01-02T14:00:00Z',
     positions: {
-      '1': { position: 'agree', timestamp: '2026-01-02T15:00:00Z' },
+      '1': { position: 'strongly_agree', timestamp: '2026-01-02T15:00:00Z' },
       '2': { position: 'agree', timestamp: '2026-01-02T16:00:00Z' },
       '3': { position: 'disagree', timestamp: '2026-01-03T10:30:00Z' },
-      'current': { position: 'dont_know', timestamp: '2026-01-06T11:15:00Z' },
+      '4': { position: 'strongly_agree', timestamp: '2026-01-04T09:00:00Z' },
+      'current': { position: 'unsure', timestamp: '2026-01-06T11:15:00Z' },
     },
     linkedStoryIds: ['st1', 'st2', 'st4', 'st8', 'st9'], // Added st2, st8
   },
@@ -731,9 +737,9 @@ export const mockPoints: Point[] = [
     text: 'AI will replace most knowledge work within 10 years',
     createdAt: '2026-01-03T09:00:00Z',
     positions: {
-      '1': { position: 'disagree', timestamp: '2026-01-03T12:00:00Z' },
-      '2': { position: 'agree', timestamp: '2026-01-03T14:00:00Z' },
-      '3': { position: 'dont_know', timestamp: '2026-01-04T09:00:00Z' },
+      '1': { position: 'strongly_disagree', timestamp: '2026-01-03T12:00:00Z' },
+      '2': { position: 'strongly_agree', timestamp: '2026-01-03T14:00:00Z' },
+      '3': { position: 'unsure', timestamp: '2026-01-04T09:00:00Z' },
       '5': { position: 'agree', timestamp: '2026-01-05T10:00:00Z' },
       'current': { position: 'disagree', timestamp: '2026-01-06T08:00:00Z' },
     },
@@ -745,9 +751,9 @@ export const mockPoints: Point[] = [
     createdAt: '2026-01-04T11:00:00Z',
     positions: {
       '1': { position: 'agree', timestamp: '2026-01-05T14:30:00Z' }, // Alice (from st5)
-      '2': { position: 'disagree', timestamp: '2026-01-04T14:00:00Z' },
+      '2': { position: 'strongly_disagree', timestamp: '2026-01-04T14:00:00Z' },
       '3': { position: 'agree', timestamp: '2026-01-04T15:00:00Z' },
-      '4': { position: 'agree', timestamp: '2026-01-05T09:00:00Z' },
+      '4': { position: 'strongly_agree', timestamp: '2026-01-05T09:00:00Z' },
       'current': { position: 'agree', timestamp: '2026-01-06T10:00:00Z' },
     },
     linkedStoryIds: ['st5', 'st7'], // Added st5 (Alice's AI story)
@@ -895,16 +901,49 @@ export function getPointsForStory(storyId: string): Point[] {
 }
 
 /**
- * Get position counts for a Point (like getPositionCounts for Ideas)
+ * 7-point position counts for Points
+ * Used for the 3-button dropdown UI where counts are aggregated by group
  */
-export function getPointPositionCounts(point: Point): { agree: number; disagree: number; dont_know: number } {
-  const counts = { agree: 0, disagree: 0, dont_know: 0 };
+export interface SevenPointCounts {
+  strongly_agree: number;     // +3
+  agree: number;              // +2
+  somewhat_agree: number;     // +1
+  unsure: number;             // 0
+  somewhat_disagree: number;  // -1
+  disagree: number;           // -2
+  strongly_disagree: number;  // -3
+}
+
+/**
+ * Get position counts for a Point (7-point Likert scale)
+ */
+export function getPointPositionCounts(point: Point): SevenPointCounts {
+  const counts: SevenPointCounts = {
+    strongly_agree: 0,
+    agree: 0,
+    somewhat_agree: 0,
+    unsure: 0,
+    somewhat_disagree: 0,
+    disagree: 0,
+    strongly_disagree: 0,
+  };
   for (const entry of Object.values(point.positions)) {
-    if (entry?.position) {
-      counts[entry.position]++;
+    if (entry?.position && entry.position in counts) {
+      counts[entry.position as keyof SevenPointCounts]++;
     }
   }
   return counts;
+}
+
+/**
+ * Aggregate counts by button group for 3-button UI
+ */
+export function getAggregatedCounts(counts: SevenPointCounts): { disagree: number; unsure: number; agree: number } {
+  return {
+    disagree: counts.strongly_disagree + counts.disagree + counts.somewhat_disagree,
+    unsure: counts.unsure,
+    agree: counts.somewhat_agree + counts.agree + counts.strongly_agree,
+  };
 }
 
 /**

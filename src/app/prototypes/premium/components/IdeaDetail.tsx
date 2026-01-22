@@ -35,7 +35,7 @@ export function IdeaDetail() {
 
   const author = getUserById(idea.createdBy);
   const counts = getPositionCounts(idea);
-  const total = counts.agree + counts.disagree + counts.dont_know;
+  const total = counts.agree + counts.disagree + counts.unsure;
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setIsScrolled(e.currentTarget.scrollTop > 10);
