@@ -285,6 +285,8 @@ After swiping, brief toast appears:
 
 Tap "Undo" → card returns, position cleared.
 
+**Timing:** Toast visible for 3 seconds, dismissed immediately on next swipe.
+
 ### Empty State
 
 When no more cards:
@@ -332,3 +334,6 @@ When no more cards:
 | 1 | Swipe down = Skip vs Unsure? | **Skip** (no position) | Unsure is deliberate position; use dropdown for that |
 | 2 | Stories swipe meaning? | **Navigation only** | Stories aren't claims; swipe = next, tap = read/verify |
 | 3 | Card stack order? | **Unpositioned first, then chronological** | Maximize fresh engagement |
+| 4 | Undo toast duration? | **3 seconds**, dismissed on next swipe | Balance accessibility + rapid use |
+| 5 | Loading/error states? | **Skip for prototype** | Mock data renders instantly, no network calls |
+| 6 | Screen reader support? | **Out of scope for prototype** | Swipe gestures conflict with VoiceOver/TalkBack; revisit for production |
