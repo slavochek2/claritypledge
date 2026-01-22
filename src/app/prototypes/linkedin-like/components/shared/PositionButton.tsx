@@ -163,25 +163,31 @@ function PositionButtonGroupComponent({
   };
 
   // Simple button without dropdown (e.g., Unsure with only one option)
+  // Use same div wrapper structure as dropdown buttons for consistent styling
   if (!hasDropdown) {
     return (
       <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleQuickClick}
-              className={`inline-flex items-center gap-1 rounded-full border text-xs font-medium px-2.5 py-1 transition-colors hover:opacity-80 ${
-                isActive ? config.activeClass : config.inactiveClass
-              }`}
-            >
-              <span>{buttonLabel}</span>
-              <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>{GROUP_TOOLTIPS[group]}</p>
-          </TooltipContent>
-        </Tooltip>
+        <div
+          className={`inline-flex items-center rounded-full border text-xs font-medium transition-colors ${
+            isActive ? config.activeClass : config.inactiveClass
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleQuickClick}
+                className="flex items-center gap-1 px-2.5 py-1 hover:opacity-80 transition-opacity"
+              >
+                <span>{buttonLabel}</span>
+                <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{GROUP_TOOLTIPS[group]}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </TooltipProvider>
     );
   }
@@ -279,6 +285,8 @@ interface PositionButtonsProps {
 }
 
 export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
+  // Always use responsive layout: stack on mobile, horizontal on sm+
+  // The compact prop is preserved for potential future styling differences
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
       {BUTTON_ORDER.map((group) => (

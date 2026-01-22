@@ -1,4 +1,4 @@
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Ear, Mic } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -8,11 +8,86 @@ import {
 import type { UserCalibration, RoleCalibration } from '../../../shared/types';
 
 /**
+ * Get calibration state label from gap value.
+ * Negative = overconfident, Positive = underconfident, Near zero = calibrated
+ */
+function getCalibrationLabel(gap: number): string {
+  if (gap < -0.5) return 'Overconfident';
+  if (gap > 0.5) return 'Underconfident';
+  return 'Well calibrated';
+}
+
+/**
+ * Inline calibration display for embedding in profile cards.
+ * Single bar with ear (listener) and mic (speaker) icons.
+ */
+export function InlineCalibration({
+  calibration,
+}: {
+  calibration: UserCalibration;
+}) {
+  // Map gap to position: -3 (overconfident) to +3 (underconfident)
+  const gapToPosition = (g: number) => {
+    const clamped = Math.max(-3, Math.min(3, g));
+    return ((clamped + 3) / 6) * 100;
+  };
+
+  const listenerPos = gapToPosition(calibration.listener.avgGap);
+  const speakerPos = gapToPosition(calibration.speaker.avgGap);
+  const listenerLabel = getCalibrationLabel(calibration.listener.avgGap);
+  const speakerLabel = getCalibrationLabel(calibration.speaker.avgGap);
+
+  return (
+    <TooltipProvider delayDuration={100}>
+      <div className="mt-3 flex items-center gap-3">
+        <span className="text-xs text-gray-500 shrink-0">Calibration</span>
+        <div className="relative h-4 w-32 rounded-full bg-gray-200">
+          {/* Center tick mark - subtle */}
+          <div className="absolute left-1/2 top-0 w-px h-full bg-gray-400 -translate-x-px" />
+
+          {/* Listener icon (ear) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center cursor-default"
+                style={{ left: `calc(${listenerPos}% - 8px)` }}
+              >
+                <Ear size={14} className="text-gray-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[200px]">
+              <p className="text-xs font-medium">{listenerLabel} as Listener</p>
+              <p className="text-xs text-gray-500">{TOOLTIP_TEXT.listener}</p>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Speaker icon (mic) */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center cursor-default"
+                style={{ left: `calc(${speakerPos}% - 8px)` }}
+              >
+                <Mic size={14} className="text-gray-500" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[200px]">
+              <p className="text-xs font-medium">{speakerLabel} as Speaker</p>
+              <p className="text-xs text-gray-500">{TOOLTIP_TEXT.speaker}</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+/**
  * Tooltip text for each calibration role.
  */
 const TOOLTIP_TEXT = {
-  listener: 'How well you predicted your understanding of others (before explaining back to them)',
-  speaker: 'How well you predicted others\' understanding of you (before they explained back)',
+  listener: 'How well you predict you understand others',
+  speaker: 'How well you predict others understand you',
 };
 
 interface CalibrationDisplayProps {

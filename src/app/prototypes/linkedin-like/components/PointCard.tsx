@@ -163,7 +163,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               {point.text}
             </p>
 
-            {/* Position buttons - compact */}
+            {/* Position buttons */}
             <div
               className="mt-3"
               onClick={(e) => e.stopPropagation()}

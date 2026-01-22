@@ -14,8 +14,9 @@ interface PositionBadgeProps {
  * Displays a position as inline colored text with optional name.
  *
  * Format: "{Name} strongly agrees/agrees/is unsure/disagrees/strongly disagrees"
- * - Name in gray, position in colored text
- * - Agree variants: blue, Disagree variants: slate, Unsure/False Premise: gray
+ * - Name in gray, position in colored badge
+ * - ALL positions use blue - taking any stance is equally valuable
+ * - Icons differentiate: ✓ (agree), ✗ (disagree), ? (unsure)
  *
  * Examples:
  * - "Alice strongly agrees" (on someone's profile)
@@ -27,45 +28,43 @@ export function PositionBadge({
   name,
   isCurrentUser = false,
 }: PositionBadgeProps) {
-  // When showing YOUR position, all badges use blue (it's your action)
-  // When showing someone else's position, use semantic colors
-  const yourBadgeClass = 'bg-blue-100 text-blue-700';
-
-  // 7-point scale configuration
+  // All positions use blue - taking any stance is equally valuable
+  // Icons differentiate: ✓ (agree), ✗ (disagree), ? (unsure)
+  const blueBadge = 'bg-blue-100 text-blue-700';
   const config: Record<PositionType, { label: string; badgeClass: string; icon: LucideIcon }> = {
     strongly_agree: {
       label: 'Strongly Agrees',
-      badgeClass: 'bg-blue-100 text-blue-700',
+      badgeClass: blueBadge,
       icon: Check,
     },
     agree: {
       label: 'Agrees',
-      badgeClass: 'bg-blue-100 text-blue-700',
+      badgeClass: blueBadge,
       icon: Check,
     },
     somewhat_agree: {
       label: 'Somewhat Agrees',
-      badgeClass: 'bg-blue-100 text-blue-700',
+      badgeClass: blueBadge,
       icon: Check,
     },
     unsure: {
       label: 'Unsure',
-      badgeClass: 'bg-slate-100 text-slate-600',
+      badgeClass: blueBadge,
       icon: HelpCircle,
     },
     somewhat_disagree: {
       label: 'Somewhat Disagrees',
-      badgeClass: 'bg-slate-100 text-slate-700',
+      badgeClass: blueBadge,
       icon: X,
     },
     disagree: {
       label: 'Disagrees',
-      badgeClass: 'bg-slate-100 text-slate-700',
+      badgeClass: blueBadge,
       icon: X,
     },
     strongly_disagree: {
       label: 'Strongly Disagrees',
-      badgeClass: 'bg-slate-100 text-slate-700',
+      badgeClass: blueBadge,
       icon: X,
     },
   };
@@ -73,9 +72,6 @@ export function PositionBadge({
   const c = config[position];
   const displayName = isCurrentUser ? 'You' : name;
   const Icon = c.icon;
-
-  // Use blue for YOUR position (any stance), semantic colors for others
-  const badgeClass = isCurrentUser ? yourBadgeClass : c.badgeClass;
 
   // If no name provided, just show the position as a badge (use semantic colors)
   if (!displayName) {
@@ -90,7 +86,7 @@ export function PositionBadge({
   return (
     <span className="text-xs flex items-center gap-1">
       <span className="text-gray-500">{displayName}</span>
-      <span className={`font-medium px-1.5 py-0.5 rounded flex items-center gap-1 ${badgeClass}`}>
+      <span className={`font-medium px-1.5 py-0.5 rounded flex items-center gap-1 ${c.badgeClass}`}>
         <Icon className="h-3 w-3" />
         {c.label}
       </span>

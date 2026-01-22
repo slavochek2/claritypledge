@@ -209,8 +209,10 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      const unsureBtn = screen.getByText('Unsure').closest('button');
-      expect(unsureBtn).toHaveClass('bg-blue-500');
+      // Unsure button now uses same wrapper structure as Agree/Disagree
+      const unsureText = screen.getByText('Unsure');
+      const container = unsureText.closest('button')?.parentElement;
+      expect(container).toHaveClass('bg-blue-500');
     });
 
     it('highlights Agree group when user has any agree position', () => {

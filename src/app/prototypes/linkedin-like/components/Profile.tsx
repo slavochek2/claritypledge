@@ -5,7 +5,7 @@ import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
 import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories } from '../data/mock-data';
-import { CalibrationDisplay } from './shared/CalibrationDisplay';
+import { InlineCalibration } from './shared/CalibrationDisplay';
 import { routes } from '../config';
 import {
   Dialog,
@@ -73,16 +73,6 @@ export function Profile() {
     return (
       <PrototypeLayout>
         <div className="relative max-w-4xl mx-auto pb-8">
-          {/* Calibration sidebar - desktop only */}
-          {calibration && (
-            <div className="absolute right-[calc(50%+280px)] top-14 w-52 hidden xl:block">
-              <CalibrationDisplay
-                calibration={calibration}
-                userLabel={user.name.split(' ')[0]}
-              />
-            </div>
-          )}
-
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
               {/* Back button - above card like production */}
@@ -184,17 +174,12 @@ export function Profile() {
                     </div>
                   </div>
                 </TooltipProvider>
-              </div>
 
-              {/* Calibration display - mobile/tablet only */}
-              {calibration && (
-                <div className="mt-3 xl:hidden">
-                  <CalibrationDisplay
-                    calibration={calibration}
-                    userLabel={user.name.split(' ')[0]}
-                  />
-                </div>
-              )}
+                {/* Calibration bars - inline */}
+                {calibration && (
+                  <InlineCalibration calibration={calibration} />
+                )}
+              </div>
 
               {/* Content tab selector */}
               <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
@@ -282,13 +267,6 @@ export function Profile() {
   return (
     <PrototypeLayout>
       <div className="relative max-w-4xl mx-auto pb-8">
-        {/* Calibration sidebar - desktop only */}
-        {ownCalibration && (
-          <div className="absolute right-[calc(50%+280px)] top-14 w-52 hidden xl:block">
-            <CalibrationDisplay calibration={ownCalibration} />
-          </div>
-        )}
-
         {/* Main profile content - centered */}
         <div className="max-w-lg mx-auto px-4 mt-3">
             {/* Back button - above card like production */}
@@ -319,6 +297,21 @@ export function Profile() {
                   {user.role && (
                     <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
                   )}
+                  {user.hasPledged ? (
+                    <button
+                      onClick={() => navigate(routes.profileById(user.id))}
+                      className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
+                    >
+                      See Clarity Pledge
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => navigate('/sign-pledge')}
+                      className="text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
+                    >
+                      Take the Clarity Pledge
+                    </button>
+                  )}
                 </div>
 
                 {/* Share button - top right like cards */}
@@ -331,7 +324,7 @@ export function Profile() {
                 </button>
               </div>
 
-              {/* Profile stats row with pledge link */}
+              {/* Profile stats row */}
               <TooltipProvider delayDuration={100}>
                 <div className="flex items-center justify-between mt-4 py-3 border-t border-gray-100">
                   <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
@@ -380,17 +373,13 @@ export function Profile() {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  {/* Take pledge CTA - only show if user hasn't pledged */}
-                  {!user.hasPledged && (
-                    <button
-                      onClick={() => navigate('/sign-pledge')}
-                      className="text-sm text-blue-500 hover:text-blue-600 font-medium whitespace-nowrap"
-                    >
-                      Take pledge →
-                    </button>
-                  )}
                 </div>
               </TooltipProvider>
+
+              {/* Calibration bars - inline */}
+              {ownCalibration && (
+                <InlineCalibration calibration={ownCalibration} />
+              )}
             </div>
 
             {/* Inline idea composer */}
@@ -481,13 +470,6 @@ export function Profile() {
                 </div>
               </div>
             </div>
-
-            {/* Calibration display - mobile/tablet only */}
-            {ownCalibration && (
-              <div className="mt-3 xl:hidden">
-                <CalibrationDisplay calibration={ownCalibration} />
-              </div>
-            )}
 
             {/* Content tab selector */}
             <div className="bg-white border border-gray-200 mt-3 rounded-lg overflow-hidden">
