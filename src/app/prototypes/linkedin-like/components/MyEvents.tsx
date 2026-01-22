@@ -1,293 +1,144 @@
 /**
- * MyEvents - Dashboard for logged-in user
- * Shows: my upcoming sessions, my events, browse events CTA, co-create CTA
- * Based on prod home-page.tsx but with mock data for prototype
+ * MyEvents - Events list for LinkedIn-like prototype
+ * Mirrors production /events/list but uses mock data
+ * Assumes user is always "logged in" in this prototype
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarIcon, PlusIcon, CheckCircle2, Users } from 'lucide-react';
+import { Plus, CalendarDays, Users } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
-import { currentUser } from '../data/mock-data';
+import { EventCard } from '@/app/prototypes/events/components/EventCard';
+import { mockEventsService } from '@/app/data/events-service-mock';
+import { mockCurrentUser } from '@/app/prototypes/events/_archive/mock-data';
+import type { EventWithHost } from '@/app/types';
+import { Button } from '@/components/ui/button';
 
-// Mock events data for prototype
-const mockUpcomingEvents = [
-  {
-    id: '1',
-    title: 'Tech Ethics Discussion',
-    datetime: '2025-01-25T18:00:00Z',
-    timezone: 'America/New_York',
-    isHosting: false,
-    attendeeCount: 12,
-  },
-  {
-    id: '2',
-    title: 'Remote Work Roundtable',
-    datetime: '2025-01-28T14:00:00Z',
-    timezone: 'America/New_York',
-    isHosting: true,
-    attendeeCount: 8,
-  },
-];
-
-const mockPastEvents = [
-  {
-    id: '3',
-    title: 'AI in Healthcare Panel',
-    datetime: '2025-01-10T16:00:00Z',
-    timezone: 'America/New_York',
-    isHosting: false,
-    attendeeCount: 24,
-  },
-];
-
-const mockParticipants = [
-  { id: '1', name: 'Alice Chen', avatarColor: '#4F46E5', hasPledged: true },
-  { id: '2', name: 'Bob Smith', avatarColor: '#059669', hasPledged: false },
-  { id: '3', name: 'Carol Davis', avatarColor: '#DC2626', hasPledged: true },
-  { id: '4', name: 'David Park', avatarColor: '#7C3AED', hasPledged: false },
-];
-
-const mockDiscoverEvents = [
-  {
-    id: '4',
-    title: 'Design Systems Workshop',
-    datetime: '2025-02-01T15:00:00Z',
-    timezone: 'America/New_York',
-    attendeeCount: 15,
-  },
-  {
-    id: '5',
-    title: 'Startup Founders Meetup',
-    datetime: '2025-02-05T17:00:00Z',
-    timezone: 'America/New_York',
-    attendeeCount: 32,
-  },
-];
-
-type EventsTab = 'upcoming' | 'past';
+type Tab = 'upcoming' | 'past';
 
 export function MyEvents() {
-  const [eventsTab, setEventsTab] = useState<EventsTab>('upcoming');
-  const firstName = currentUser.name.split(' ')[0];
+  const [activeTab, setActiveTab] = useState<Tab>('upcoming');
+  const [upcomingEvents, setUpcomingEvents] = useState<EventWithHost[]>([]);
+  const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
+  const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchEvents() {
+      const [upcoming, past] = await Promise.all([
+        mockEventsService.getUpcomingEvents(),
+        mockEventsService.getPastEvents(),
+      ]);
+      setUpcomingEvents(upcoming);
+      setPastEvents(past);
+
+      // Check RSVP status for mock user
+      const allEvents = [...upcoming, ...past];
+      const rsvpChecks = await Promise.all(
+        allEvents.map(event => mockEventsService.isUserRsvpd(event.id, mockCurrentUser.id))
+      );
+      const rsvpSet = new Set<string>();
+      allEvents.forEach((event, i) => {
+        if (rsvpChecks[i]) rsvpSet.add(event.id);
+      });
+      setUserRsvps(rsvpSet);
+
+      setLoading(false);
+    }
+    fetchEvents();
+  }, []);
+
+  const events = activeTab === 'upcoming' ? upcomingEvents : pastEvents;
 
   return (
     <PrototypeLayout>
-      <div className="container mx-auto px-4 py-8 md:py-12 max-w-6xl">
-        {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-            Welcome back, {firstName}
-          </h1>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
+          <h1 className="text-2xl font-bold mb-4">Events</h1>
 
-          {/* Quick Actions */}
-          <div className="flex flex-wrap gap-3">
-            <Link
-              to="/events"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-colors shadow-sm"
+          {/* Tabs + Actions row */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
+            <button
+              role="tab"
+              aria-selected={activeTab === 'upcoming'}
+              onClick={() => setActiveTab('upcoming')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'upcoming'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              <CalendarIcon className="w-4 h-4" />
-              Browse Events
-            </Link>
-            <Link
-              to="/events/new"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
+              Upcoming ({upcomingEvents.length})
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'past'}
+              onClick={() => setActiveTab('past')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'past'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              <PlusIcon className="w-4 h-4" />
-              Host an Event
-            </Link>
-            <Link
-              to="/co-create"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 transition-colors"
-            >
-              <Users className="w-4 h-4" />
-              Co-create
-            </Link>
+              Past ({pastEvents.length})
+            </button>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2">
+              <Link to="/co-create">
+                <Button variant="outline" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  Co-create
+                </Button>
+              </Link>
+              <Link to="/prototype/events-mock/new">
+                <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
+                  <Plus className="w-4 h-4" />
+                  Host Event
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Participants Section */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">
-              Participants of Your Next Event
-            </h2>
-
-            {mockUpcomingEvents.length > 0 ? (
-              <div>
-                <p className="text-sm text-gray-500 mb-4">
-                  {mockUpcomingEvents[0].title} — {formatEventDate(mockUpcomingEvents[0].datetime)}
-                </p>
-                <div className="space-y-2">
-                  {mockParticipants.map(person => (
-                    <PersonRow key={person.id} person={person} />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-gray-500">
-                  Join an event to see participants
-                </p>
-              </div>
-            )}
-          </section>
-
-          {/* Events Section */}
-          <section>
-            <h2 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">
-              Your Events
-            </h2>
-
-            {/* Tabs */}
-            <div className="flex gap-1 mb-4" role="tablist">
-              <TabButton
-                label={`Upcoming (${mockUpcomingEvents.length})`}
-                active={eventsTab === 'upcoming'}
-                onClick={() => setEventsTab('upcoming')}
-              />
-              <TabButton
-                label={`Past (${mockPastEvents.length})`}
-                active={eventsTab === 'past'}
-                onClick={() => setEventsTab('past')}
-              />
+        {/* Events Grid */}
+        <div className="max-w-5xl mx-auto px-4 pb-6">
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="text-muted-foreground">Loading events...</div>
             </div>
-
-            {/* Tab Content */}
-            {eventsTab === 'upcoming' ? (
-              <div className="space-y-2">
-                {mockUpcomingEvents.length > 0 ? (
-                  mockUpcomingEvents.map(event => (
-                    <EventRow key={event.id} event={event} />
-                  ))
-                ) : (
-                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                    <p className="text-gray-500">No upcoming events yet</p>
-                  </div>
-                )}
+          ) : events.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {events.map(event => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  isLoggedIn={true}
+                  userId={mockCurrentUser.id}
+                  isUserGoing={userRsvps.has(event.id)}
+                  linkPrefix="/prototype/events-mock"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+                <CalendarDays className="w-8 h-8 text-muted-foreground" />
               </div>
-            ) : (
-              <div className="space-y-2">
-                {mockPastEvents.length > 0 ? (
-                  mockPastEvents.map(event => (
-                    <EventRow key={event.id} event={event} />
-                  ))
-                ) : (
-                  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                    <p className="text-gray-500">No past events yet</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Discover Events */}
-            {mockUpcomingEvents.length > 0 && mockDiscoverEvents.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                  Discover Events
-                </h3>
-                <div className="space-y-2">
-                  {mockDiscoverEvents.map(event => (
-                    <EventRow key={event.id} event={event} isDiscover />
-                  ))}
-                </div>
-                <Link
-                  to="/events"
-                  className="block text-center text-sm text-blue-600 hover:text-blue-700 font-medium mt-4"
-                >
-                  See all events →
-                </Link>
-              </div>
-            )}
-          </section>
+              <h3 className="text-xl font-semibold mb-2">
+                No {activeTab} events
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                {activeTab === 'upcoming'
+                  ? 'Check back later or host your own!'
+                  : 'Past events will appear here after they conclude.'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </PrototypeLayout>
   );
-}
-
-// Helper components
-
-function PersonRow({ person }: { person: { id: string; name: string; avatarColor: string; hasPledged: boolean } }) {
-  const initials = person.name.split(' ').map(n => n[0]).join('').slice(0, 2);
-
-  return (
-    <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-      <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm shrink-0"
-        style={{ backgroundColor: person.avatarColor }}
-      >
-        {initials}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-900 truncate">{person.name}</p>
-      </div>
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200 shrink-0">
-        <CheckCircle2 className="w-3 h-3" />
-        Going
-      </span>
-    </div>
-  );
-}
-
-function EventRow({ event, isDiscover = false }: {
-  event: {
-    id: string;
-    title: string;
-    datetime: string;
-    isHosting?: boolean;
-    attendeeCount: number;
-  };
-  isDiscover?: boolean;
-}) {
-  return (
-    <Link
-      to={`/events/${event.id}`}
-      className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all"
-    >
-      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-        <CalendarIcon className="w-5 h-5 text-blue-600" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-900 truncate">{event.title}</p>
-        <p className="text-sm text-gray-500">{formatEventDate(event.datetime)}</p>
-      </div>
-      {!isDiscover && (
-        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full shrink-0 ${
-          event.isHosting
-            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-            : 'bg-green-50 text-green-700 border border-green-200'
-        }`}>
-          <CheckCircle2 className="w-3 h-3" />
-          {event.isHosting ? 'Hosting' : 'Going'}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-        active
-          ? 'bg-blue-500 text-white'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function formatEventDate(datetime: string): string {
-  return new Date(datetime).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }

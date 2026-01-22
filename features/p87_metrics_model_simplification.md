@@ -2,12 +2,12 @@
 
 **Status:** Ready for implementation
 **Scope:** LinkedIn-like prototype mock only
-**Components affected:** StoryCard, Profile, PointCard
+**Components affected:** StoryCard, Profile, PointCard (QuotedStory subcomponent)
 
 ## Problem
 
 The current metrics display has directional confusion:
-- Radio icon used everywhere without clear meaning
+- Radio icon (clarity session count) used everywhere without clear meaning
 - Zap (cross-disagreement) shown on StoryCard with speaker direction but would show on Profile with listener direction — confusing
 - No clear distinction between "I was understood" (speaker) vs "I understood others" (listener)
 
@@ -17,12 +17,14 @@ Simplify metrics model with clear directional semantics:
 
 ### Icon Meanings (Consistent Across App)
 
-| Icon | Meaning | Direction |
-|------|---------|-----------|
-| Pin | Linked points | — |
-| BookOpen | Linked stories / Stories count | — |
-| Mic | "Understood me" (clarity sessions as speaker) | Speaker |
-| Ear | "Understood others despite disagreeing" | Listener |
+| Icon | Current | New Meaning | Direction |
+|------|---------|-------------|-----------|
+| Pin | Linked points | (unchanged) | — |
+| BookOpen | Linked stories / Stories count | (unchanged) | — |
+| Radio | Clarity session count | **Remove** — replace with Mic | — |
+| Mic | (new) | "Understood me" (clarity sessions as speaker) | Speaker |
+| Zap | Cross-disagreement count | **Remove** from StoryCard; replace with Ear on Profile | — |
+| Ear | (new) | "Understood others despite disagreeing" | Listener |
 
 ### StoryCard Metrics
 
@@ -31,7 +33,9 @@ Simplify metrics model with clear directional semantics:
 | Pin | `linkedPoints.length` | "Linked points" |
 | Mic | `story.verificationCount` | "People who understood this" |
 
-**Removed:** Zap (crossDisagreementCount) — creates directional confusion when same icon appears on Profile with opposite meaning.
+**Changes:**
+- Radio → Mic (same data, clearer metaphor: "I spoke, they understood")
+- Remove Zap (crossDisagreementCount) — creates directional confusion
 
 ### Profile Metrics
 
@@ -42,15 +46,25 @@ Simplify metrics model with clear directional semantics:
 | Mic | Sum of `story.verificationCount` | "Understood me" |
 | Ear | Listener cross-disagreement sessions | "Understood others despite disagreeing" |
 
-**Note:** Ear metric requires computing from session data where user was listener AND positions differed. For mock, can use a placeholder or derive from existing data.
+**Changes:**
+- Radio → Mic (clarity sessions as speaker)
+- Zap → Ear (listening achievement, not conflict energy)
 
-### PointCard Metrics
+**Note:** Ear metric requires computing from session data where user was listener AND positions differed. For mock, use a hardcoded placeholder value.
+
+### PointCard Metrics (main component)
 
 | Icon | Data Source | Tooltip |
 |------|-------------|---------|
 | BookOpen | `linkedStories.length` | "Linked stories" |
 
 **No changes needed.** Points don't accumulate clarity session metrics — they flow through Stories.
+
+### PointCard QuotedStory Subcomponent
+
+QuotedStory displays Story metrics inline. Apply same changes as StoryCard:
+- Radio → Mic
+- Remove Zap
 
 ## Rationale
 
@@ -78,7 +92,8 @@ Simplify metrics model with clear directional semantics:
 - <Radio size={14} />
 + <Mic size={14} />
   {story.verificationCount}
-  // Tooltip: "People who understood this"
+- // Tooltip: "Clarity sessions completed"
++ // Tooltip: "People who understood this"
 
 - // Remove Zap section entirely
 - <Zap size={14} />
@@ -97,23 +112,39 @@ Simplify metrics model with clear directional semantics:
 
 - <Zap size={14} />    // Tooltip: "Clarity across disagreement"
 + <Ear size={14} />    // Tooltip: "Understood others despite disagreeing"
-  // Note: Data source needs to change from speaker to listener direction
+  // Data: hardcode mock value (e.g., 3) for prototype
 ```
 
-### PointCard.tsx
+### PointCard.tsx (main component)
 
-No changes needed.
+No changes to main PointCard metrics.
+
+### PointCard.tsx (QuotedStory subcomponent)
+
+```diff
+- import { BookOpen, ExternalLink, Pin, Radio, Zap } from 'lucide-react';
++ import { BookOpen, ExternalLink, Pin, Mic } from 'lucide-react';
+
+// In QuotedStory stats row:
+- <Radio size={12} />
++ <Mic size={12} />
+  {story.verificationCount}
+- // Tooltip: "Clarity sessions completed"
++ // Tooltip: "People who understood this"
+
+- // Remove Zap section entirely
+- <Zap size={12} />
+- {story.crossDisagreementCount ?? 0}
+```
 
 ### Mock Data
 
-For the Ear metric on Profile, need to add listener session count. Options:
-1. Add `listenerCrossDisagreementCount` to User type
-2. Compute from sessions where user was listener
-3. For mock, use a placeholder value
+For Profile Ear metric: hardcode a placeholder value (e.g., `3`) rather than computing from sessions.
 
 ## Test Plan
 
-1. **StoryCard**: Verify Mic icon appears with correct tooltip, no Zap icon
-2. **Profile**: Verify Mic and Ear icons with correct tooltips
-3. **PointCard**: Verify no changes (BookOpen only)
-4. **Visual consistency**: Icons should be clear and non-confusing across all views
+1. **StoryCard**: Verify Mic icon appears with tooltip "People who understood this", no Zap icon
+2. **Profile**: Verify Mic ("Understood me") and Ear ("Understood others despite disagreeing") icons with correct tooltips
+3. **PointCard main**: Verify no changes (BookOpen only)
+4. **PointCard QuotedStory**: Verify Mic icon, no Zap icon (matches StoryCard)
+5. **Visual consistency**: Icons should be clear and non-confusing across all views

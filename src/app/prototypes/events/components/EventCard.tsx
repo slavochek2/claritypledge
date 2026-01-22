@@ -48,7 +48,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
               {isCancelled ? 'You Were Hosting' : "You're Hosting"}
             </span>
           )}
-          {isUserGoing && (
+          {isUserGoing && !userIsHost && (
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
               isCancelled
                 ? 'bg-gray-100 text-gray-600 border border-gray-200'
