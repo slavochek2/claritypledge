@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, ExternalLink, Pin, Radio, Zap } from 'lucide-react';
+import { BookOpen, ExternalLink, Pin, Mic } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -307,23 +307,12 @@ function QuotedStory({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="flex items-center gap-1 cursor-default">
-                <Radio size={12} />
+                <Mic size={12} />
                 {story.verificationCount}
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Clarity sessions completed</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 cursor-default">
-                <Zap size={12} />
-                {story.crossDisagreementCount ?? 0}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Clarity across disagreement</p>
+              <p>People understood this story</p>
             </TooltipContent>
           </Tooltip>
         </div>

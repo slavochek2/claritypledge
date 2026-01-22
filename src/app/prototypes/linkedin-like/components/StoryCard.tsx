@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Globe, Users, Lock, Pin, MessageCircle, ExternalLink, Radio, BookOpen } from 'lucide-react';
+import { Mic, Globe, Users, Lock, Pin, MessageCircle, ExternalLink, BookOpen } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -165,28 +165,16 @@ export function StoryCard({
                         <p>Linked points</p>
                       </TooltipContent>
                     </Tooltip>
-                    {/* 2. Clarity sessions (antenna/live icon) */}
+                    {/* 2. People who understood the story author */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex items-center gap-1 cursor-default">
-                          <Radio size={14} />
+                          <Mic size={14} />
                           {story.verificationCount}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Clarity sessions completed</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    {/* 3. Clarity across disagreement (lightning) */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Zap size={14} />
-                          {story.crossDisagreementCount ?? 0}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Clarity across disagreement</p>
+                        <p>People understood this story</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>

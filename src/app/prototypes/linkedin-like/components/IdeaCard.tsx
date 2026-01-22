@@ -460,7 +460,7 @@ function ShareDialog({
             )}
           </Button>
           {hasNativeShare && (
-            <Button onClick={handleNativeShare} className="flex-1">
+            <Button onClick={handleNativeShare} className="flex-1 bg-blue-500 hover:bg-blue-600">
               <Share2 size={16} className="mr-2" />
               Share
             </Button>

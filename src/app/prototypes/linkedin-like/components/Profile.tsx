@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Pin, BookOpen, Radio, Zap } from 'lucide-react';
+import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Copy, Mic, Ear } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
@@ -54,7 +54,8 @@ export function Profile() {
 
   // Calculate profile totals from stories
   const totalClaritySessions = userStories.reduce((sum, s) => sum + (s.verificationCount || 0), 0);
-  const totalClarityAcrossDisagreement = userStories.reduce((sum, s) => sum + (s.crossDisagreementCount ?? 0), 0);
+  // Note: Ear metric ("People you understood") is hardcoded to 7 for mock
+  // In production, this would be computed from all sessions where user was the listener
 
   if (!user) {
     return (
@@ -132,45 +133,23 @@ export function Profile() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="flex items-center gap-1 cursor-default">
-                            <Pin size={14} />
-                            {userPoints.length}
+                            <Ear size={14} />
+                            7
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Points</p>
+                          <p>{user.name.split(' ')[0]} understood others' stories</p>
                         </TooltipContent>
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="flex items-center gap-1 cursor-default">
-                            <BookOpen size={14} />
-                            {userStories.length}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Stories</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 cursor-default">
-                            <Radio size={14} />
+                            <Mic size={14} />
                             {totalClaritySessions}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Clarity sessions completed</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex items-center gap-1 cursor-default">
-                            <Zap size={14} />
-                            {totalClarityAcrossDisagreement}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Clarity across disagreement</p>
+                          <p>People understood {user.name.split(' ')[0]}'s stories</p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -339,45 +318,23 @@ export function Profile() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex items-center gap-1 cursor-default">
-                          <Pin size={14} />
-                          {userPoints.length}
+                          <Ear size={14} />
+                          7
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Points</p>
+                        <p>You understood others' stories</p>
                       </TooltipContent>
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="flex items-center gap-1 cursor-default">
-                          <BookOpen size={14} />
-                          {userStories.length}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Stories</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Radio size={14} />
+                          <Mic size={14} />
                           {totalClaritySessions}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Clarity sessions completed</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Zap size={14} />
-                          {totalClarityAcrossDisagreement}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Clarity across disagreement</p>
+                        <p>People understood your stories</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>

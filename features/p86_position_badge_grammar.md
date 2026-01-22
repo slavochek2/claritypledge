@@ -1,3 +1,14 @@
+---
+status: prepped
+prepped_date: 2026-01-22
+prepped_by: /prep-spec
+reviews:
+  ux: passed
+  architect: passed
+  tea: skipped
+execution: /loop
+---
+
 # P86: Position Badge — Hide for Self, Fix Grammar for Others
 
 ## Problem

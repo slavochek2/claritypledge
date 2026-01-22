@@ -1,6 +1,6 @@
 # P87: Metrics Model Simplification (LinkedIn-like Prototype)
 
-**Status:** Ready for implementation
+**Status:** Completed
 **Scope:** LinkedIn-like prototype mock only
 **Components affected:** StoryCard, Profile, PointCard (QuotedStory subcomponent)
 
@@ -41,16 +41,17 @@ Simplify metrics model with clear directional semantics:
 
 | Icon | Data Source | Tooltip |
 |------|-------------|---------|
-| Pin | Points count | "Points" |
-| BookOpen | Stories count | "Stories" |
+| Ear | All listening sessions | "People you understood" |
 | Mic | Sum of `story.verificationCount` | "Understood me" |
-| Ear | Listener cross-disagreement sessions | "Understood others despite disagreeing" |
 
 **Changes:**
+- Remove Pin and BookOpen (redundant with tabs showing counts)
 - Radio → Mic (clarity sessions as speaker)
-- Zap → Ear (listening achievement, not conflict energy)
+- Zap → Ear (listening achievement)
+- Ear first, Mic second (listener before speaker)
+- Simplified: Ear counts ALL listening sessions, not just cross-disagreement
 
-**Note:** Ear metric requires computing from session data where user was listener AND positions differed. For mock, use a hardcoded placeholder value.
+**Note:** Ear metric counts all sessions where user was listener. For mock, use hardcoded value (7).
 
 ### PointCard Metrics (main component)
 
@@ -103,16 +104,17 @@ QuotedStory displays Story metrics inline. Apply same changes as StoryCard:
 ### Profile.tsx
 
 ```diff
-- import { ... Radio, Zap ... } from 'lucide-react';
+- import { ... Radio, Zap, Pin, BookOpen ... } from 'lucide-react';
 + import { ... Mic, Ear ... } from 'lucide-react';
 
-// In stats row:
-- <Radio size={14} />  // Tooltip: "Clarity sessions completed"
-+ <Mic size={14} />    // Tooltip: "Understood me"
+// Remove Pin and BookOpen stats (redundant with tabs)
+// Reorder: Ear first, Mic second
 
-- <Zap size={14} />    // Tooltip: "Clarity across disagreement"
-+ <Ear size={14} />    // Tooltip: "Understood others despite disagreeing"
-  // Data: hardcode mock value (e.g., 3) for prototype
+// In stats row (only 2 stats now):
++ <Ear size={14} />    // Tooltip: "People you understood"
+  // Data: hardcode mock value (7) for prototype
+
++ <Mic size={14} />    // Tooltip: "Understood me"
 ```
 
 ### PointCard.tsx (main component)
@@ -139,12 +141,12 @@ No changes to main PointCard metrics.
 
 ### Mock Data
 
-For Profile Ear metric: hardcode a placeholder value (e.g., `3`) rather than computing from sessions.
+For Profile Ear metric: hardcode a placeholder value (`7`) rather than computing from sessions.
 
 ## Test Plan
 
 1. **StoryCard**: Verify Mic icon appears with tooltip "People who understood this", no Zap icon
-2. **Profile**: Verify Mic ("Understood me") and Ear ("Understood others despite disagreeing") icons with correct tooltips
-3. **PointCard main**: Verify no changes (BookOpen only)
+2. **Profile**: Verify only 2 stats: Ear ("People you understood") first, then Mic ("Understood me"). No Pin/BookOpen.
+3. **PointCard main**: Verify no changes (BookOpen only for linked stories)
 4. **PointCard QuotedStory**: Verify Mic icon, no Zap icon (matches StoryCard)
 5. **Visual consistency**: Icons should be clear and non-confusing across all views
