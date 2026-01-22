@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Share2, Copy, Check, ChevronDown, Code } from 'lucide-react';
+import { Share2, Copy, Check, Link2, Code } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+
+type ShareTab = 'link' | 'embed';
 
 interface ShareDialogProps {
   open: boolean;
@@ -24,9 +27,9 @@ interface ShareDialogProps {
 /**
  * ShareDialog - Unified share dialog for Stories, Points, and Profiles
  *
- * Design: YouTube-inspired
- * - URL field with inline copy button
- * - Embed code collapsed by default (for story/point only)
+ * Design: Tabs approach (YouTube-inspired)
+ * - Link tab: URL with copy button
+ * - Embed tab: iframe code with copy button (story/point only)
  * - Native share on mobile
  */
 export function ShareDialog({
@@ -37,28 +40,19 @@ export function ShareDialog({
   title,
   description,
 }: ShareDialogProps) {
-  const [copied, setCopied] = useState<'link' | 'embed' | null>(null);
-  const [showEmbed, setShowEmbed] = useState(false);
+  const [activeTab, setActiveTab] = useState<ShareTab>('link');
+  const [copied, setCopied] = useState(false);
   const hasNativeShare = typeof navigator !== 'undefined' && 'share' in navigator;
   const showEmbedOption = type === 'story' || type === 'point';
 
   const embedCode = `<iframe src="${url}?embed=true" width="100%" height="400" frameborder="0" style="border-radius: 8px; border: 1px solid #e5e7eb;"></iframe>`;
 
-  const handleCopyLink = async () => {
+  const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(url);
-      setCopied('link');
-      setTimeout(() => setCopied(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
-    }
-  };
-
-  const handleCopyEmbed = async () => {
-    try {
-      await navigator.clipboard.writeText(embedCode);
-      setCopied('embed');
-      setTimeout(() => setCopied(null), 2000);
+      const textToCopy = activeTab === 'link' ? url : embedCode;
+      await navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -86,96 +80,85 @@ export function ShareDialog({
     <Dialog open={open} onOpenChange={(isOpen) => {
       onOpenChange(isOpen);
       if (!isOpen) {
-        setCopied(null);
-        setShowEmbed(false);
+        setCopied(false);
+        setActiveTab('link');
       }
     }}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm mx-auto">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-md mx-auto">
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Copy a link or embed code to share this {type}
+          </DialogDescription>
         </DialogHeader>
 
-        {/* URL field with inline copy */}
-        <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-          <div className="flex-1 px-3 py-2 text-sm text-gray-600 font-mono overflow-x-auto">
-            <span className="whitespace-nowrap">{url}</span>
-          </div>
-          <Button
-            onClick={handleCopyLink}
-            variant="ghost"
-            size="sm"
-            className={`shrink-0 ${copied === 'link' ? 'text-green-600 hover:text-green-600' : ''}`}
-          >
-            {copied === 'link' ? (
-              <Check size={16} />
-            ) : (
-              <Copy size={16} />
-            )}
-          </Button>
-        </div>
-
-        {/* Feedback text */}
-        <div className="h-5 text-center">
-          {copied === 'link' && (
-            <span className="text-sm text-green-600">Link copied!</span>
-          )}
-          {copied === 'embed' && (
-            <span className="text-sm text-green-600">Embed code copied!</span>
-          )}
-        </div>
-
-        {/* Native share button (mobile) */}
-        {hasNativeShare && (
-          <Button
-            onClick={handleNativeShare}
-            className="w-full bg-blue-500 hover:bg-blue-600"
-          >
-            <Share2 size={16} className="mr-2" />
-            Share...
-          </Button>
-        )}
-
-        {/* Embed section - collapsed by default, story/point only */}
+        {/* Tabs - only show if embed option available */}
         {showEmbedOption && (
-          <div className="border-t pt-3 mt-1">
+          <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
             <button
-              onClick={() => setShowEmbed(!showEmbed)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors w-full"
+              onClick={() => { setActiveTab('link'); setCopied(false); }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'link'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Link2 size={14} />
+              Link
+            </button>
+            <button
+              onClick={() => { setActiveTab('embed'); setCopied(false); }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'embed'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
             >
               <Code size={14} />
-              <span>Embed code</span>
-              <ChevronDown
-                size={14}
-                className={`ml-auto transition-transform ${showEmbed ? 'rotate-180' : ''}`}
-              />
+              Embed
             </button>
-            {showEmbed && (
-              <div className="mt-3 space-y-2">
-                <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-600 font-mono overflow-x-auto max-h-24">
-                  <pre className="whitespace-pre-wrap break-all">{embedCode}</pre>
-                </div>
-                <Button
-                  onClick={handleCopyEmbed}
-                  variant="outline"
-                  size="sm"
-                  className={`w-full ${copied === 'embed' ? 'bg-green-50 border-green-200 text-green-700' : ''}`}
-                >
-                  {copied === 'embed' ? (
-                    <>
-                      <Check size={14} className="mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} className="mr-2" />
-                      Copy embed code
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
           </div>
         )}
+
+        {/* Content area */}
+        <div className="space-y-3">
+          {/* Code display */}
+          <div className="bg-gray-100 rounded-lg p-3 text-sm text-gray-600 font-mono overflow-x-auto max-h-24">
+            <pre className="whitespace-pre-wrap break-all">
+              {activeTab === 'link' ? url : embedCode}
+            </pre>
+          </div>
+
+          {/* Copy button */}
+          <Button
+            onClick={handleCopy}
+            variant="outline"
+            className={`w-full ${copied ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-700' : ''}`}
+          >
+            {copied ? (
+              <>
+                <Check size={16} className="mr-2" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy size={16} className="mr-2" />
+                {activeTab === 'link' ? 'Copy link' : 'Copy embed code'}
+              </>
+            )}
+          </Button>
+
+          {/* Native share button (mobile) - only for link tab */}
+          {hasNativeShare && activeTab === 'link' && (
+            <Button
+              onClick={handleNativeShare}
+              className="w-full bg-blue-500 hover:bg-blue-600"
+            >
+              <Share2 size={16} className="mr-2" />
+              Share...
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
