@@ -120,6 +120,7 @@ Load these docs when working on specific areas:
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
+| All MCP servers (Notion, Maps, LinkedIn, etc.) | [mcp-servers.md](docs/technical/mcp-servers.md) |
 | E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
 | /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
@@ -167,6 +168,32 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 - `@/*` → `src/*`
 - `@components/*` → `src/components/*`
 - `@lib/*` → `src/lib/*`
+
+## Database Access Policy
+
+**Agents have TEST database access only. No production database access.**
+
+| Environment | MCP Access | Purpose |
+|-------------|------------|---------|
+| Test (`gfjctyxqlwexxwsmkakq`) | ✅ Full access | Development, testing, experimentation |
+| Production | ❌ No access | Protected from agent modifications |
+
+**Workflow for production changes:**
+1. Develop and test changes on test database
+2. Capture changes as SQL migrations in `supabase/migrations/`
+3. Human reviews migration files
+4. Human applies to production via `supabase db push` or Supabase dashboard
+
+**Why this policy:**
+- Agents can experiment freely on test without risk
+- Production data is protected from accidental modifications
+- Changes are auditable through migration files
+- Human approval required before production deployment
+
+**MCP Configuration:**
+- `.mcp.json` contains test Supabase credentials only (gitignored)
+- Works consistently across all worktrees
+- Never add production credentials to any config file
 
 ## Project Structure
 

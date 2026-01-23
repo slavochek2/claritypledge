@@ -22,10 +22,47 @@ Generate a ready-to-paste `/ralph-loop:ralph-loop` command from a UAT file.
 | `--max-iterations` | No | 30 | Safety limit for iterations |
 | `--completion-promise` | No | auto | Defaults to `<promise>{FEATURE} UAT COMPLETE</promise>` |
 | `--force-ralph` | No | false | Skip complexity check, always output ralph-loop |
+| `--skip-prep-check` | No | false | Skip spec prepped check (not recommended) |
 
 ## Workflow
 
-### Step 0: Analyze Spec Complexity (Smart Recommendation)
+### Step 0: Pre-flight Check (REQUIRED)
+
+**Before anything else, verify the spec was prepped.**
+
+1. Find the related spec file (auto-detect or `--spec`)
+2. Read spec frontmatter
+3. Check `status` field:
+
+| Status | Action |
+|--------|--------|
+| `prepped` | ✅ Continue to Step 1 |
+| `blocked` | ❌ Error: "Spec has unresolved blockers. Run `/prep-spec --force` to review." |
+| Any other value or missing | ❌ Error (see below) |
+
+**If spec not prepped:**
+
+```
+Error: Spec not prepped.
+
+The spec at `{spec_path}` has status: {status or 'none'}
+
+/prep-spec catches blindspots BEFORE implementation:
+- UX review (flows, edge cases, accessibility)
+- Architect review (existing code reuse, dependencies)
+- Generates UAT file automatically
+
+**Run this first:**
+  /prep-spec {spec_path}
+
+Then re-run /generate-ralph-loop.
+```
+
+**Bypass:** Use `--skip-prep-check` to skip this check (not recommended).
+
+---
+
+### Step 0.5: Analyze Spec Complexity (Smart Recommendation)
 
 Before generating the ralph-loop command, analyze the spec to determine if ralph-loop is even appropriate.
 
@@ -144,16 +181,26 @@ Score: {CURRENT_SCORE}/{TEST_COUNT} ({PERCENT}%)
 1. Read UAT file, find first ⬜ or ❌ test
 2. Read ONLY relevant spec section (not whole spec)
 3. Implement using TDD (test first)
-4. Verify with Playwright MCP (screenshots, clicks) and Chrome DevTools MCP (network, console)
-5. Update scorecard in UAT file: ⬜→✅ or ⬜→❌
-6. Commit after each category: wip({feature_slug}): category N complete
-7. Report: Score X/{TEST_COUNT} (N%)
-8. Continue until 100%
+4. **Verify in browser** — Navigate to page with Playwright MCP, check for console errors
+5. If console errors → fix before proceeding (do NOT mark test as passed)
+6. Update scorecard in UAT file: ⬜→✅ or ⬜→❌
+7. Commit after each category: wip({feature_slug}): category N complete
+8. Report: Score X/{TEST_COUNT} (N%)
+9. Continue until 100%
 
-## Exit Conditions
-- Score = 100% → output completion promise
-- Same test fails 3x → stop, report blocker
-- Context pressure (15+ iterations) → suggest fresh context
+## Exit Conditions (ALL must be true before LOOP_COMPLETE)
+- UAT Score = 100%
+- `npm run build` passes
+- `npm test` passes
+- **Page loads without console errors** (verify with Playwright MCP)
+
+**NEVER emit LOOP_COMPLETE if:**
+- Any console errors on page load
+- Build or tests fail
+- UAT score < 100%
+- You haven't verified the page loads in browser
+
+If blocked: stop, report blocker, do NOT emit completion promise.
 
 ## Start
 Read {UAT_PATH} and begin with first ⬜ test.
@@ -183,6 +230,8 @@ Copy and paste the command above to start the implementation loop.
 
 | Scenario | Behavior |
 |----------|----------|
+| **Spec not prepped** | Error: "Run `/prep-spec` first" (unless `--skip-prep-check`) |
+| **Spec status: blocked** | Error: "Spec has unresolved blockers. Run `/prep-spec --force` to review." |
 | UAT file not found | Error with suggestion to run `/prep-spec` |
 | UAT wrong format (no scorecard) | Error: "UAT file doesn't match expected format. Expected scorecard table with ⬜/✅/❌ markers." |
 | Spec not found | Error with paths tried and suggestion to use `--spec` |
@@ -190,6 +239,7 @@ Copy and paste the command above to start the implementation loop.
 | UAT already at 100% | Info: "UAT already complete (100%). Nothing to implement." Then output command anyway (user may want to re-verify) |
 | Simple spec (< 12 req, no risk) | Recommend `/loop` first, ralph-loop as fallback |
 | `--force-ralph` flag provided | Skip complexity check, output ralph-loop directly |
+| `--skip-prep-check` flag provided | Skip prep check (warn: "Skipping prep check — blindspots may exist") |
 
 ## Example
 
@@ -218,16 +268,26 @@ Score: 0/25 (0%)
 1. Read UAT file, find first ⬜ or ❌ test
 2. Read ONLY relevant spec section (not whole spec)
 3. Implement using TDD (test first)
-4. Verify with Playwright MCP (screenshots, clicks) and Chrome DevTools MCP (network, console)
-5. Update scorecard in UAT file: ⬜→✅ or ⬜→❌
-6. Commit after each category: wip(events): category N complete
-7. Report: Score X/25 (N%)
-8. Continue until 100%
+4. **Verify in browser** — Navigate to page with Playwright MCP, check for console errors
+5. If console errors → fix before proceeding (do NOT mark test as passed)
+6. Update scorecard in UAT file: ⬜→✅ or ⬜→❌
+7. Commit after each category: wip(events): category N complete
+8. Report: Score X/25 (N%)
+9. Continue until 100%
 
-## Exit Conditions
-- Score = 100% → output completion promise
-- Same test fails 3x → stop, report blocker
-- Context pressure (15+ iterations) → suggest fresh context
+## Exit Conditions (ALL must be true before LOOP_COMPLETE)
+- UAT Score = 100%
+- `npm run build` passes
+- `npm test` passes
+- **Page loads without console errors** (verify with Playwright MCP)
+
+**NEVER emit LOOP_COMPLETE if:**
+- Any console errors on page load
+- Build or tests fail
+- UAT score < 100%
+- You haven't verified the page loads in browser
+
+If blocked: stop, report blocker, do NOT emit completion promise.
 
 ## Start
 Read features/p61_acceptance_tests.md and begin with first ⬜ test." --max-iterations 30 --completion-promise "<promise>P61 UAT COMPLETE</promise>"

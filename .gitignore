@@ -50,3 +50,6 @@ playwright-report/
 
 # Temporary commit message drafts
 .commit-message.txt
+
+# MCP server config (contains secrets)
+.mcp.json

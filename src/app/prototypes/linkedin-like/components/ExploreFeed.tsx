@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
 import { PointCard } from './PointCard';
-import { ViewToggle, type ViewMode } from './shared/ViewToggle';
 import { CardStack, ParticipantRow, ContentTypeTabs, type ContentFilter } from './card-view';
 import { routes } from '../config';
-import { getStories, getPoints, mockUsers, currentUser } from '../data/mock-data';
+import { getStories, getPoints, mockUsers, currentUser, getUserById } from '../data/mock-data';
 import type { Story, Point, PositionType } from '../../shared/types';
 
 type FeedItem =
@@ -16,29 +15,20 @@ type FeedItem =
   | { type: 'point'; item: Point; sortDate: string };
 
 /**
- * Determine default view based on screen width
- * Mobile (< 768px) = cards, Desktop = list
- */
-function getDefaultView(): ViewMode {
-  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-    return 'cards';
-  }
-  return 'list';
-}
-
-/**
- * ExploreFeed - Discovery feed showing both Stories and Points
- * Users can filter by content type, person, and switch between List and Card views.
+ * ExploreFeed (Home) - Discovery feed showing Stories and Points
  *
- * P89: Added Card View with swipeable cards for mobile-first interaction.
+ * UX Pattern:
+ * - Default: List view of all content
+ * - Tap avatar: Opens card view of THAT PERSON's content only (Telegram stories style)
+ * - Tap name in cards: Navigate to their full profile
  */
 export function ExploreFeed() {
   const navigate = useNavigate();
 
-  // View mode state
-  const [viewMode, setViewMode] = useState<ViewMode>(getDefaultView);
+  // Selected participant for card view (null = list view)
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
 
-  // Filter state (content type only - participant filtering removed, now navigates to profile)
+  // Content type filter (for card view)
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
 
   // Get all data
@@ -50,8 +40,7 @@ export function ExploreFeed() {
     return [currentUser, ...mockUsers];
   }, []);
 
-  // Combine and sort by date
-  // Card View: Unpositioned items first (for Points), then chronological
+  // Combine and sort by date (newest first)
   const feedItems = useMemo((): FeedItem[] => {
     const storyItems: FeedItem[] = stories.map(story => ({
       type: 'story' as const,
@@ -67,39 +56,40 @@ export function ExploreFeed() {
 
     const allItems = [...storyItems, ...pointItems];
 
-    if (viewMode === 'cards') {
-      // Card View: Unpositioned Points first, then chronological
-      return allItems.sort((a, b) => {
-        // Points without current user position come first
-        const aHasPosition = a.type === 'point' && a.item.positions['current'];
-        const bHasPosition = b.type === 'point' && b.item.positions['current'];
-
-        if (!aHasPosition && bHasPosition) return -1;
-        if (aHasPosition && !bHasPosition) return 1;
-
-        // Then sort by date (newest first)
-        return new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime();
-      });
-    }
-
-    // List View: Just chronological (newest first)
     return allItems.sort((a, b) =>
       new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime()
     );
-  }, [stories, points, viewMode]);
+  }, [stories, points]);
 
-  // Apply content type filter
-  const filteredItems = useMemo(() => {
-    return feedItems.filter(feedItem => {
+  // Filter items by selected participant (for card view)
+  const participantItems = useMemo((): FeedItem[] => {
+    if (!selectedParticipantId) return feedItems;
+
+    return feedItems.filter(item => {
+      if (item.type === 'story') {
+        return item.item.authorId === selectedParticipantId;
+      } else {
+        // For Points, show if the participant has taken a position
+        return item.item.positions[selectedParticipantId] != null;
+      }
+    });
+  }, [feedItems, selectedParticipantId]);
+
+  // Apply content type filter (used in card view)
+  const filteredParticipantItems = useMemo(() => {
+    return participantItems.filter(feedItem => {
       if (contentFilter === 'stories') return feedItem.type === 'story';
       if (contentFilter === 'points') return feedItem.type === 'point';
       return true;
     });
-  }, [feedItems, contentFilter]);
+  }, [participantItems, contentFilter]);
 
-  // Counts for tabs
-  const storiesCount = stories.length;
-  const pointsCount = points.length;
+  // Counts for tabs (scoped to selected participant in card view)
+  const storiesCount = participantItems.filter(i => i.type === 'story').length;
+  const pointsCount = participantItems.filter(i => i.type === 'point').length;
+
+  // Get selected participant info
+  const selectedParticipant = selectedParticipantId ? getUserById(selectedParticipantId) : null;
 
   // Handlers
   const handleStoryTap = (storyId: string) => {
@@ -122,32 +112,53 @@ export function ExploreFeed() {
     console.log(`Position changed for point ${pointId}:`, position);
   };
 
-  const handleBackToList = () => {
-    setViewMode('list');
+  const handleAvatarClick = (userId: string) => {
+    setSelectedParticipantId(userId);
+    setContentFilter('all'); // Reset filter when switching person
+  };
+
+  const handleCloseCards = () => {
+    setSelectedParticipantId(null);
   };
 
   return (
     <PrototypeLayout>
-      {viewMode === 'cards' ? (
-        // Card View - Full screen
+      {selectedParticipantId ? (
+        // Card View - Viewing one person's content (Telegram stories style)
         <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50">
           {/* Header */}
           <div className="bg-white border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => navigate(routes.home)}
-                className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <ArrowLeft size={16} className="mr-1" />
-                Back
-              </button>
-              <ViewToggle view={viewMode} onViewChange={setViewMode} />
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleCloseCards}
+                  className="inline-flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={20} />
+                </button>
+                {selectedParticipant && (
+                  <div>
+                    <button
+                      onClick={() => navigate(routes.profileById(selectedParticipantId))}
+                      className="font-semibold text-gray-900 hover:underline"
+                    >
+                      {selectedParticipant.name}
+                    </button>
+                    <p className="text-xs text-gray-500">
+                      {storiesCount} stories · {pointsCount} points
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Participant Row - tap to view profile */}
+            {/* Participant Row - tap to switch person */}
             <ParticipantRow
               participants={participants}
               currentUserId={currentUser.id}
+              onAvatarClick={handleAvatarClick}
+              selectedUserId={selectedParticipantId}
             />
 
             {/* Content Type Tabs */}
@@ -163,62 +174,56 @@ export function ExploreFeed() {
 
           {/* Card Stack */}
           <div className="flex-1 p-4 overflow-hidden">
-            <CardStack
-              items={filteredItems}
-              onStoryTap={handleStoryTap}
-              onPointTap={handlePointTap}
-              onLiveButtonClick={handleLiveButtonClick}
-              onPositionChange={handlePositionChange}
-              onBackToList={handleBackToList}
-            />
+            {filteredParticipantItems.length > 0 ? (
+              <CardStack
+                items={filteredParticipantItems}
+                onStoryTap={handleStoryTap}
+                onPointTap={handlePointTap}
+                onLiveButtonClick={handleLiveButtonClick}
+                onPositionChange={handlePositionChange}
+                onBackToList={handleCloseCards}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <p className="text-gray-500 mb-4">
+                  {selectedParticipant?.name} hasn't shared any {contentFilter === 'all' ? 'content' : contentFilter} yet.
+                </p>
+                <button
+                  onClick={() => navigate(routes.profileById(selectedParticipantId))}
+                  className="text-blue-600 hover:underline text-sm font-medium"
+                >
+                  View their profile
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : (
-        // List View
+        // List View - Default home view
         <div className="container mx-auto max-w-2xl px-4 py-6">
-          {/* Back button */}
-          <button
-            onClick={() => navigate(routes.home)}
-            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
-          >
-            <ArrowLeft size={16} className="mr-1" />
-            Back to Dashboard
-          </button>
-
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Feed</h1>
-                <p className="text-sm text-gray-500 mt-1">
-                  Discover stories and points from others
-                </p>
-              </div>
-              <ViewToggle view={viewMode} onViewChange={setViewMode} />
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Home</h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Discover stories and points from others
+              </p>
             </div>
 
-            {/* Participant Row - tap to view profile */}
+            {/* Participant Row - tap avatar to see their cards */}
             <div className="mt-4">
               <ParticipantRow
                 participants={participants}
                 currentUserId={currentUser.id}
-              />
-            </div>
-
-            {/* Content Type Tabs */}
-            <div className="mt-4">
-              <ContentTypeTabs
-                filter={contentFilter}
-                onChange={setContentFilter}
-                storiesCount={storiesCount}
-                pointsCount={pointsCount}
+                onAvatarClick={handleAvatarClick}
+                selectedUserId={selectedParticipantId}
               />
             </div>
           </div>
 
           {/* Feed items */}
           <div className="space-y-4">
-            {filteredItems.map(feedItem => (
+            {feedItems.map(feedItem => (
               feedItem.type === 'story' ? (
                 <StoryCard key={`story-${feedItem.item.id}`} story={feedItem.item} />
               ) : (
@@ -227,7 +232,7 @@ export function ExploreFeed() {
             ))}
           </div>
 
-          {filteredItems.length === 0 && (
+          {feedItems.length === 0 && (
             <div className="flex items-center justify-center py-16">
               <p className="text-gray-500">No items to show</p>
             </div>
