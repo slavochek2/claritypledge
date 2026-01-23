@@ -3,14 +3,14 @@
 **Status:** Planning
 **Created:** 2026-01-23
 **Priority:** High — Required for H2 test (30-person event)
-**Supersedes:** p84_verify_with_author.md (archived)
+**Supersedes:** p84_verify_with_author.md (archived), p91_navigation_ia.md (merged)
 
 ---
 
 ## Goal
 
 Enable the H2 hypothesis test: Run a 30-person event where verification visibility changes behavior. This requires:
-1. Event-scoped content (Stories/Points visible within event)
+1. Public content (Stories/Points visible globally, filterable by event)
 2. Partner discovery (find who to verify with)
 3. Verification flow (tap → pick partner → /live → rate → log)
 4. Stance prompts (capture position changes after understanding)
@@ -23,13 +23,23 @@ Enable the H2 hypothesis test: Run a 30-person event where verification visibili
 
 | Tab | Default for | Content |
 |-----|-------------|---------|
-| **Info** | Non-members | Description, date, location, host |
-| **Feed** | Members | Stories + Points scoped to event |
-| **Attendees** | — | List with positions, "Verify" buttons |
+| **Info** | Non-members | Description, date, location, host, vertical attendee list |
+| **Feed** | Members | Horizontal attendee cards (filter) + Stories/Points below |
 
 - Non-logged-in user lands on Info tab
 - Member lands on Feed tab
-- All tabs accessible to members
+- Both tabs accessible to members
+
+### Attendees in Two Places (Different Functions)
+
+| Location | Layout | Purpose | Tap action |
+|----------|--------|---------|------------|
+| **Info tab** | Vertical list (below description) | See who's here | Opens profile |
+| **Feed tab** | Horizontal cards (at top) | Filter content | Filters Feed to their Stories/Points |
+
+### Verification Flow Entry
+
+Primary path: Feed → tap person's card → see their content → tap "Verify" on Story
 
 ---
 
@@ -194,12 +204,16 @@ Stories verified:
 
 | Decision | Answer |
 |----------|--------|
-| Event page structure | Tabs: Info / Feed / Attendees |
+| Event page structure | **2 tabs: Info / Feed** |
+| Info tab attendees | Vertical list, tap → profile |
+| Feed tab attendees | Horizontal cards at top, tap → filter Feed |
+| Content scope | **Public only** (no event-scoped privacy for H2) |
+| Global feed | **Keep** (unfiltered view of all content) |
 | Verify button visibility | Hidden if no shared event |
 | Re-verification | Once per person per Story |
 | Multi-story sessions | Yes, via "Verify another?" prompt |
 | Who initiates | Both (listener picks, or speaker invites) |
-| Pairing mechanism | Share link/QR (no presence system) |
+| Pairing mechanism | **Both:** notification invite (specific person) + QR (open invite) |
 | Verification threshold | 8/10 minimum to count as "verified" |
 | Stance prompts | Post-verification, both people, all linked Points (no cap) |
 | Log structure | Per-session, viewable from Story/Profile/Session |
@@ -209,23 +223,26 @@ Stories verified:
 ## Out of Scope (Deferred)
 
 - P55 Ideas swipe during /live (too complex for H2)
-- Global feed (event IS the feed for MVP)
 - Presence system (green dots for online users)
-- Async verification requests with notifications
 - AI sifter / brain dump (Phase 5)
 - Topology visualization (component exists, not integrated)
+- Event-only content privacy (public only for H2)
+- Communities layer (see P92)
 
 ---
 
 ## Dependencies
 
-- [ ] Event page with tabs (new)
-- [ ] Event-scoped Stories/Points data model
+- [ ] Event page with 2 tabs: Info / Feed
+- [ ] Attendee list in Info tab (vertical)
+- [ ] Attendee filter cards in Feed tab (horizontal)
+- [ ] Filter Feed by attendee (tap card → show their content)
 - [x] /live session flow (exists in prototype)
 - [x] Story cards with verification count (exists)
 - [ ] Partner picker component
 - [ ] Post-verification stance prompt
 - [ ] Session log storage and views
+- [ ] Notification invites for verification
 
 ---
 
@@ -241,16 +258,73 @@ Stories verified:
 
 ## Acceptance Criteria
 
-1. Event page shows Info/Feed/Attendees tabs
+1. Event page shows 2 tabs: Info / Feed
 2. Non-member sees Info tab by default
 3. Member sees Feed tab by default
-4. "Verify" button hidden on Stories from non-shared-event authors
-5. "Verify" button hidden on own Stories
-6. Tapping "Verify" opens partner picker with shared-event attendees
-7. Selecting partner starts /live with Story loaded
-8. After verification, stance prompt shows for all linked Points
-9. "Verify another?" prompt enables multi-story sessions
-10. Verification logged and viewable from Story, Profile, and Session views
+4. Info tab shows vertical attendee list; tap → opens profile
+5. Feed tab shows horizontal attendee cards at top; tap → filters Feed
+6. "Verify" button hidden on Stories from non-shared-event authors
+7. "Verify" button hidden on own Stories
+8. Tapping "Verify" shows link + QR to share
+9. Can send notification invite to specific person
+10. Selecting partner starts /live with Story loaded
+11. After verification, stance prompt shows for all linked Points
+12. "Verify another?" prompt enables multi-story sessions
+13. Verification logged and viewable from Story, Profile, and Session views
+14. Global feed shows all content (unfiltered)
+
+---
+
+---
+
+## Navigation & Information Architecture
+
+*Merged from P91*
+
+### Global Navigation
+
+| Item | Label | Notes |
+|------|-------|-------|
+| Home | **Events** | Not "My Events", not "Dashboard" |
+| Global feed | **Feed** | Keep — shows all content unfiltered |
+| Profile | **Profile** | Not "My Profile" |
+
+### Back Buttons
+
+| Context | Label |
+|---------|-------|
+| From event detail | `← Events` or just `←` |
+| From profile | `←` (browser back) |
+
+### Information Architecture
+
+```
+Events (home)
+├── Event List
+│   └── Event Card → tap to open
+│
+└── Event Detail `/event/:id`
+    ├── Info tab (non-member default)
+    │   ├── Description, date, location, host
+    │   └── Attendee list (vertical)
+    │
+    └── Feed tab (member default)
+        ├── Attendee cards (horizontal, filter)
+        └── Stories + Points
+
+Feed (global)
+└── All Stories + Points (unfiltered)
+
+Profile `/p/:slug`
+└── Verification history, stats, pledger badge
+```
+
+### Naming Rules
+
+- ❌ No "Dashboard" anywhere
+- ❌ No "My Events" (just "Events")
+- ❌ No "My Profile" (just "Profile")
+- ✅ Simple, direct labels
 
 ---
 
@@ -258,4 +332,5 @@ Stories verified:
 
 | Date | Change |
 |------|--------|
+| 2026-01-23 | Merged P91 navigation decisions. Updated tabs to 2 (Info/Feed). Added content scope (public only). Added notification invites. |
 | 2026-01-23 | Created from design session. Supersedes p84. |
