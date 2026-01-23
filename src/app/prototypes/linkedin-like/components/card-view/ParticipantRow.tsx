@@ -15,7 +15,7 @@ interface ParticipantRowProps {
   currentUserId?: string;
   /** Called when avatar is tapped - opens their content in card view */
   onAvatarClick?: (userId: string) => void;
-  /** Currently selected user (shows ring around avatar) */
+  /** Currently selected user (others dim to 40% opacity, Telegram-style) */
   selectedUserId?: string | null;
 }
 
@@ -35,6 +35,9 @@ export function ParticipantRow({
     return firstName.length > 8 ? firstName.slice(0, 7) + '…' : firstName;
   };
 
+  // When someone is selected, dim others (Telegram-style)
+  const hasSelection = selectedUserId != null;
+
   return (
     <div
       className="flex items-start gap-3 overflow-x-auto scrollbar-hide py-2 -mx-4 px-4"
@@ -44,17 +47,19 @@ export function ParticipantRow({
       {participants.map((user) => {
         const isCurrentUser = user.id === currentUserId;
         const isSelected = user.id === selectedUserId;
+        const dimmed = hasSelection && !isSelected;
 
         return (
           <button
             key={user.id}
             onClick={() => handleClick(user.id)}
-            className="flex-shrink-0 flex flex-col items-center gap-1 group"
+            className={`flex-shrink-0 flex flex-col items-center gap-1 group transition-opacity duration-200 ${
+              dimmed ? 'opacity-40' : 'opacity-100'
+            }`}
             aria-label={`View ${user.name}'s stories`}
+            aria-current={isSelected ? 'location' : undefined}
           >
-            <div className={`transition-transform group-hover:scale-105 group-active:scale-95 ${
-              isSelected ? 'ring-2 ring-blue-500 ring-offset-2 rounded-full' : ''
-            }`}>
+            <div className="transition-transform group-hover:scale-105 group-active:scale-95">
               <GravatarAvatar
                 name={user.name}
                 size="sm"
