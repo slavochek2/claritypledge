@@ -116,8 +116,8 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
       {/* Main content - matches StoryCard structure */}
       <div className="p-4">
         <div className="flex gap-3">
-          {/* Pin icon - same width as StoryCard avatar */}
-          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-500">
+          {/* Pin icon - same width as StoryCard avatar, blue to distinguish from Stories */}
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
             <Pin size={20} />
           </div>
 
@@ -145,7 +145,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
                   >
                     <ExternalLink size={12} />
-                    Open
+                    Open Point
                   </button>
                   <ShareButton
                       type="point"
@@ -296,7 +296,7 @@ function QuotedStory({
         </div>
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
           <ExternalLink size={10} />
-          Open
+          Open Story
         </span>
       </div>
       {/* Story text */}

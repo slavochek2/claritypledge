@@ -114,7 +114,7 @@ export function StoryCard({
                         className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
                       >
                         <ExternalLink size={12} />
-                        Open
+                        Open Story
                       </button>
                       <ShareButton
                         type="story"
@@ -282,7 +282,7 @@ function QuotedPoint({
         />
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
           <ExternalLink size={10} />
-          Open
+          Open Point
         </span>
       </div>
       {/* Point text */}
