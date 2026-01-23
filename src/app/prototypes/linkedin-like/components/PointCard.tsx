@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
+import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import {
@@ -168,62 +168,60 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                 onPositionClick={handlePositionClick}
               />
             </div>
-
-            {/* Stats row with linked stories toggle - profile context only */}
-            {profileOwnerId && !isDetailView && filteredStories.length > 0 && (
-              <div className="mt-3 flex items-center gap-1 text-sm text-gray-500">
-                <MobileTooltip content={`${filteredStories.length} linked ${filteredStories.length === 1 ? 'story' : 'stories'} - click to ${storiesExpanded ? 'collapse' : 'expand'}`}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setStoriesExpanded(!storiesExpanded);
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors min-w-[44px] min-h-[44px] justify-center"
-                    aria-expanded={storiesExpanded}
-                    aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} ${filteredStories.length} linked stories`}
-                  >
-                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    <BookOpen size={14} />
-                    {filteredStories.length}
-                  </button>
-                </MobileTooltip>
-              </div>
-            )}
-
-            {/* Expanded linked stories - profile context only */}
-            {profileOwnerId && !isDetailView && storiesExpanded && storiesToShow.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {storiesToShow.map(story => (
-                  <QuotedStory
-                    key={story.id}
-                    story={story}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.story(story.id));
-                    }}
-                    onAuthorClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.profileById(story.authorId));
-                    }}
-                  />
-                ))}
-                {filteredStories.length > 3 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.point(point.id));
-                    }}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    +{filteredStories.length - 3} more stories
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
 
+      {/* Linked Stories Footer - collapsible section */}
+      {profileOwnerId && !isDetailView && filteredStories.length > 0 && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setStoriesExpanded(!storiesExpanded);
+            }}
+            className="w-full flex items-center gap-2 pl-[52px] pr-4 py-3 border-t border-gray-100 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+            aria-expanded={storiesExpanded}
+            aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
+          >
+            {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>
+              Supported by {filteredStories.length} of {profileOwner?.name?.split(' ')[0] || 'their'}'s {filteredStories.length === 1 ? 'story' : 'stories'}
+            </span>
+          </button>
+
+          {/* Expanded linked stories */}
+          {storiesExpanded && storiesToShow.length > 0 && (
+            <div className="pl-[52px] pr-4 pb-4 space-y-2">
+              {storiesToShow.map(story => (
+                <QuotedStory
+                  key={story.id}
+                  story={story}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.story(story.id));
+                  }}
+                  onAuthorClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.profileById(story.authorId));
+                  }}
+                />
+              ))}
+              {filteredStories.length > 3 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.point(point.id));
+                  }}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  +{filteredStories.length - 3} more stories
+                </button>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

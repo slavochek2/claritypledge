@@ -27,7 +27,7 @@ export function UserCredibility({ userId, userName, size = 'sm' }: UserCredibili
   const firstName = userName?.split(' ')[0] || 'This user';
 
   return (
-    <MobileTooltip content={`${firstName} understood others' stories`}>
+    <MobileTooltip content={`${firstName} understood ${stats.ear} ${stats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
       <span className={`inline-flex items-center gap-0.5 ${textSize} text-gray-400`}>
         <Ear size={iconSize} />
         <span>{stats.ear}</span>

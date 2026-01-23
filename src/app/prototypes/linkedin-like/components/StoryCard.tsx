@@ -145,30 +145,12 @@ export function StoryCard({
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-1 text-sm text-gray-500">
                   {/* People who understood the story author */}
-                  <MobileTooltip content="People understood this story">
+                  <MobileTooltip content={`${author?.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
                     <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full">
                       <Mic size={14} />
                       {story.verificationCount}
                     </span>
                   </MobileTooltip>
-                  {/* Linked points - collapsible in profile context */}
-                  {linkedPoints.length > 0 && context === 'profile' && (
-                    <MobileTooltip content={`${linkedPoints.length} linked point${linkedPoints.length !== 1 ? 's' : ''} - click to ${pointsExpanded ? 'collapse' : 'expand'}`}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPointsExpanded(!pointsExpanded);
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors min-w-[44px] min-h-[44px] justify-center"
-                        aria-expanded={pointsExpanded}
-                        aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} ${linkedPoints.length} linked points`}
-                      >
-                        {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <Pin size={14} />
-                        {linkedPoints.length}
-                      </button>
-                    </MobileTooltip>
-                  )}
                 </div>
                 {showVerifyButton && (
                   <button
@@ -181,67 +163,60 @@ export function StoryCard({
                 )}
               </div>
 
-              {/* Expanded linked points - profile context only */}
-              {linkedPoints.length > 0 && context === 'profile' && pointsExpanded && (
-                <div className="mt-3 space-y-2">
-                  {linkedPoints.slice(0, 3).map(point => (
-                    <QuotedPoint
-                      key={point.id}
-                      point={point}
-                      authorName={author?.name || ''}
-                      authorId={story.authorId}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.point(point.id));
-                      }}
-                    />
-                  ))}
-                  {linkedPoints.length > 3 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.story(story.id));
-                      }}
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      +{linkedPoints.length - 3} more points
-                    </button>
-                  )}
-                </div>
-              )}
-              {linkedPoints.length > 0 && context !== 'profile' && context !== 'point-detail' && (
-                // Story detail or default: Show full QuotedPoints
-                <div className="mt-3 space-y-2">
-                  {linkedPoints.slice(0, 3).map(point => (
-                    <QuotedPoint
-                      key={point.id}
-                      point={point}
-                      authorName={author.name}
-                      authorId={story.authorId}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.point(point.id));
-                      }}
-                    />
-                  ))}
-                  {linkedPoints.length > 3 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.story(story.id));
-                      }}
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      +{linkedPoints.length - 3} more points
-                    </button>
-                  )}
-                </div>
-              )}
               {/* point-detail context: Hide QuotedPoints entirely - Stories are already in Point context */}
             </div>
           </div>
         )}
       </div>
+
+      {/* Linked Points Footer - collapsible section */}
+      {linkedPoints.length > 0 && context !== 'point-detail' && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPointsExpanded(!pointsExpanded);
+            }}
+            className="w-full flex items-center gap-2 pl-[52px] pr-4 py-3 border-t border-gray-100 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+            aria-expanded={pointsExpanded}
+            aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
+          >
+            {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>
+              Supports {author?.name?.split(' ')[0] || 'their'}'s positions on {linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}
+            </span>
+          </button>
+
+          {/* Expanded linked points */}
+          {pointsExpanded && (
+            <div className="pl-[52px] pr-4 pb-4 space-y-2">
+              {linkedPoints.slice(0, 3).map(point => (
+                <QuotedPoint
+                  key={point.id}
+                  point={point}
+                  authorName={author?.name || ''}
+                  authorId={story.authorId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.point(point.id));
+                  }}
+                />
+              ))}
+              {linkedPoints.length > 3 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(routes.story(story.id));
+                  }}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  +{linkedPoints.length - 3} more points
+                </button>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

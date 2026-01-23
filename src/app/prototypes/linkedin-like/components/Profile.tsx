@@ -103,7 +103,7 @@ export function Profile() {
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{user.name.split(' ')[0]} understood others' stories</p>
+                              <p>{user.name.split(' ')[0]} understood {credibilityStats.ear} {credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -256,7 +256,7 @@ export function Profile() {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>You understood others' stories</p>
+                            <p>You understood {credibilityStats.ear} {credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
