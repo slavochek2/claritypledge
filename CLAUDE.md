@@ -115,8 +115,10 @@ Load these docs when working on specific areas:
 
 | Working on... | Read |
 |---------------|------|
+| Core concepts (Stories, Points, Calibration) | [domain-model.md](docs/domain-model.md) |
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
+| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
@@ -125,6 +127,9 @@ Load these docs when working on specific areas:
 | /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+| Past decisions, why we chose X over Y | [DECISIONS.md](docs/DECISIONS.md) |
+| Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
 
 ## Worktree Branch Naming
 
@@ -146,15 +151,23 @@ git branch -m w1  # Reset to generic name
 # Later, starting feature p62:
 git branch -m p62-dashboard-w1  # Rename before first commit
 ```
-| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
-| Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
-| Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
-| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 
 ## Knowledge-Driven Development
 
-- `/kdd` - Record decisions (run after features with interesting trade-offs)
-- [decisions.md](docs/decisions.md) - Why we chose things (append-only, newest at top)
+`/kdd` — Run after finishing features to capture knowledge and keep docs current.
+
+**What it manages:**
+
+| Category | Docs |
+|----------|------|
+| Strategic (the "why") | `DECISIONS.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
+| Technical (the "how") | `database.md`, `authentication.md`, `domain-model.md`, etc. |
+
+**When to run:**
+- After features with interesting trade-offs
+- When hypothesis validated/invalidated
+- When priorities shift
+- When confusion about past decisions signals one should have been recorded
 
 ## Configuration
 
