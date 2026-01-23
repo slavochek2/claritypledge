@@ -8,12 +8,7 @@ import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories, 
 import { CalibrationDisplay, InlineCalibration } from './shared/CalibrationDisplay';
 import { ShareDialog } from './shared/ShareDialog';
 import { routes } from '../config';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { MobileTooltip } from './shared/MobileTooltip';
 type IdeaVisibility = 'public' | 'shared' | 'private';
 type ContentTab = 'points' | 'stories';
 
@@ -67,13 +62,13 @@ export function Profile() {
         <div className="relative max-w-4xl mx-auto pb-8">
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
-              {/* Back button - above card like production */}
+              {/* Back button - per P90: simple "← Events" */}
               <button
                 onClick={() => navigate(routes.home)}
                 className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
               >
                 <ArrowLeft size={16} className="mr-1" />
-                Back to Dashboard
+                Events
               </button>
 
               {/* Profile header card - matches production compact-profile-card */}
@@ -94,19 +89,12 @@ export function Profile() {
                     <div className="flex items-center gap-2">
                       <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
                       {credibilityStats.ear > 0 && (
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center gap-0.5 text-sm text-gray-400 cursor-default">
-                                <Ear size={14} />
-                                {credibilityStats.ear}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{user.name.split(' ')[0]} understood others' stories</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <MobileTooltip content={`${user.name.split(' ')[0]} understood others' stories`}>
+                          <span className="inline-flex items-center gap-0.5 text-sm text-gray-400">
+                            <Ear size={14} />
+                            {credibilityStats.ear}
+                          </span>
+                        </MobileTooltip>
                       )}
                     </div>
                     {user.role && (
@@ -226,7 +214,7 @@ export function Profile() {
               className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
             >
               <ArrowLeft size={16} className="mr-1" />
-              Back to Dashboard
+              Events
             </button>
 
             {/* Profile header card - matches production compact-profile-card */}
@@ -247,19 +235,12 @@ export function Profile() {
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
                     {credibilityStats.ear > 0 && (
-                      <TooltipProvider delayDuration={100}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center gap-0.5 text-sm text-gray-400 cursor-default">
-                              <Ear size={14} />
-                              {credibilityStats.ear}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>You understood others' stories</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <MobileTooltip content="You understood others' stories">
+                        <span className="inline-flex items-center gap-0.5 text-sm text-gray-400">
+                          <Ear size={14} />
+                          {credibilityStats.ear}
+                        </span>
+                      </MobileTooltip>
                     )}
                   </div>
                   {user.role && (

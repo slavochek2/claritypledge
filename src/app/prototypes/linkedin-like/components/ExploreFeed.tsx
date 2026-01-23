@@ -49,13 +49,13 @@ export function ExploreFeed() {
   return (
     <PrototypeLayout>
       <div className="container mx-auto max-w-2xl px-4 py-6">
-        {/* Back button - matches Profile pattern for main nav pages */}
+        {/* Back button - per P90: simple "← Events" */}
         <button
           onClick={() => navigate(routes.home)}
           className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
         >
           <ArrowLeft size={16} className="mr-1" />
-          Back to Dashboard
+          Events
         </button>
 
         {/* Header */}
