@@ -9,14 +9,19 @@ import { routes } from '../config';
 import {
   getPointById,
   getStoriesForPoint,
-  getPointPositionCounts,
 } from '../data/mock-data';
-import type { Point } from '../../shared/types';
+import type { PositionType, Story } from '../../shared/types';
+import { getPositionGroup, type PositionButtonGroup } from '../../shared/types';
 
 /**
  * PointDetail - Journey 1: "Explore a debate"
- * Shows a Point with linked Stories, filterable by position.
- * Users can stake their position and find people who disagree.
+ * Shows a Point with linked Stories grouped by position.
+ *
+ * Layout:
+ * - Filter tabs at top (no "All" tab - click active to deselect)
+ * - When filter = 'all': show all position sections
+ * - When filter = specific: show only that section
+ * - Empty sections show "(no positions yet)"
  */
 export function PointDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,29 +40,34 @@ export function PointDetail() {
   }
 
   const linkedStories = getStoriesForPoint(point.id);
-  const counts = getPointPositionCounts(point);
 
-  // Count stories by author's position on this point
-  const storyCounts = {
-    all: linkedStories.length,
-    agree: 0,
-    disagree: 0,
-    dont_know: 0,
+  // Group stories by author's position on this point
+  const storiesByPosition: Record<PositionButtonGroup, Story[]> = {
+    agree: [],
+    disagree: [],
+    unsure: [],
   };
 
   for (const story of linkedStories) {
     const authorPosition = point.positions[story.authorId]?.position;
     if (authorPosition) {
-      storyCounts[authorPosition]++;
+      const group = getPositionGroup(authorPosition as PositionType);
+      storiesByPosition[group].push(story);
     }
   }
 
-  // Filter stories by author's position
-  const filteredStories = linkedStories.filter(story => {
-    if (positionFilter === 'all') return true;
-    const authorPosition = point.positions[story.authorId]?.position;
-    return authorPosition === positionFilter;
-  });
+  const storyCounts = {
+    all: linkedStories.length,
+    agree: storiesByPosition.agree.length,
+    disagree: storiesByPosition.disagree.length,
+    unsure: storiesByPosition.unsure.length,
+  };
+
+  // Which sections to show based on filter
+  const positionsToShow: PositionButtonGroup[] =
+    positionFilter === 'all'
+      ? ['agree', 'disagree', 'unsure']
+      : [positionFilter as PositionButtonGroup];
 
   return (
     <PrototypeLayout>
@@ -86,39 +96,78 @@ export function PointDetail() {
 
         {/* Stories section */}
         <div className="bg-white border border-gray-200 mx-2 mt-3 rounded-lg">
-          {/* Filter tabs */}
+          {/* Filter tabs - click active to deselect (shows all) */}
           <FilterTabs
             activeFilter={positionFilter}
             onFilterChange={setPositionFilter}
             counts={storyCounts}
           />
 
-          {/* Stories list */}
-          <div className="p-4">
-            {filteredStories.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">
-                No stories with this position yet
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {filteredStories.map(story => (
-                  <StoryCard
-                    key={story.id}
-                    story={story}
-                    compact
-                    authorPosition={point.positions[story.authorId]?.position}
-                    showVerifyButton
-                    onVerify={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.live);
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+          {/* Position-grouped stories */}
+          <div className="p-4 space-y-4">
+            {positionsToShow.map(position => (
+              <PositionSection
+                key={position}
+                position={position}
+                stories={storiesByPosition[position]}
+                point={point}
+              />
+            ))}
           </div>
         </div>
       </div>
     </PrototypeLayout>
+  );
+}
+
+/**
+ * Section for a single position group (Agree/Disagree/Unsure)
+ * Shows header with count and list of stories (or empty state)
+ */
+function PositionSection({
+  position,
+  stories,
+  point,
+}: {
+  position: PositionButtonGroup;
+  stories: Story[];
+  point: ReturnType<typeof getPointById>;
+}) {
+  const labels: Record<PositionButtonGroup, string> = {
+    agree: 'Agree',
+    disagree: 'Disagree',
+    unsure: 'Unsure',
+  };
+
+  return (
+    <div>
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          {labels[position]} ({stories.length})
+        </span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+
+      {/* Stories or empty state */}
+      {stories.length === 0 ? (
+        <p className="text-center text-gray-400 text-sm py-3">
+          (no positions yet)
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {stories.map(story => (
+            <StoryCard
+              key={story.id}
+              story={story}
+              compact
+              context="point-detail"
+              authorPosition={point?.positions[story.authorId]?.position}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
