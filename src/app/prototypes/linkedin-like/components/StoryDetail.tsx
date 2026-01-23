@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Zap } from 'lucide-react';
+import { ArrowLeft, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
 import { RatingDots } from './shared';
@@ -10,12 +10,11 @@ import {
   getPointsForStory,
   mockVerificationSessions,
 } from '../data/mock-data';
-import { Button } from '@/components/ui/button';
 import type { Story } from '../../shared/types';
 
 /**
  * StoryDetail - Journey 2: "Understand a person"
- * Shows a Story with linked Points (via StoryCard) and "Verify Understanding" CTA.
+ * Shows a Story with linked Points (via StoryCard) and Clarity Sessions.
  */
 export function StoryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -54,24 +53,6 @@ export function StoryDetail() {
 
         {/* Clarity Sessions section */}
         <ClaritySessionsSection story={story} navigate={navigate} />
-
-        {/* Verify Understanding CTA */}
-        <div className="mx-2 mt-3">
-          <Button
-            onClick={() => {
-              // Navigate to live session with this story's author
-              // In production, this would trigger the verification request flow
-              navigate(routes.live);
-            }}
-            className="w-full py-6 text-base font-medium bg-blue-600 hover:bg-blue-700"
-          >
-            <MessageCircle className="mr-2 h-5 w-5" />
-            Verify Understanding with {author?.name.split(' ')[0]}
-          </Button>
-          <p className="text-xs text-center text-gray-500 mt-2">
-            Start a clarity session to explain back their perspective
-          </p>
-        </div>
       </div>
     </PrototypeLayout>
   );
