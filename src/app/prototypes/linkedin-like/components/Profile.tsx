@@ -67,13 +67,13 @@ export function Profile() {
         <div className="relative max-w-4xl mx-auto pb-8">
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
-              {/* Back button - above card like production */}
+              {/* Back button - goes to previous page */}
               <button
-                onClick={() => navigate(routes.home)}
+                onClick={() => navigate(-1)}
                 className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
               >
                 <ArrowLeft size={16} className="mr-1" />
-                Back to Dashboard
+                Back
               </button>
 
               {/* Profile header card - matches production compact-profile-card */}
