@@ -178,7 +178,7 @@ Before taking screenshots, check if the page requires authentication:
 3. **Take mobile screenshot** (resize to 375px width) - check responsive behavior
 4. **Check browser console** for errors:
    ```
-   Use: mcp__playwright__browser_console_messages
+   Use: mcp__MCP_DOCKER__browser_console_messages
    ```
 5. **Verify against design system:**
    - Primary CTAs: `blue-500` / `blue-600` hover

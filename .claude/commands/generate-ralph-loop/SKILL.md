@@ -1,244 +1,478 @@
 ---
 name: generate-ralph-loop
-description: Generate a ready-to-paste /ralph-loop command from a UAT (acceptance test) file. Use when you have a UAT file and want to run an iterative implementation loop. Takes a UAT file path, auto-detects the related tech spec, and outputs a complete ralph-loop command. If no UAT file exists, suggests running /prep-spec first.
+description: Generate commands for Ralph Orchestrator (external tool) or Claude Code's internal /ralph-loop. Reads a spec or UAT file, analyzes complexity, and outputs ready-to-run commands. Primary output is Ralph Orchestrator (solves context compaction). Internal /ralph-loop is deprecated fallback for simple tasks.
 ---
 
 # Generate Ralph Loop
 
-Generate a ready-to-paste `/ralph-loop:ralph-loop` command from a UAT file.
+Generate ready-to-run commands for iterative AI development loops.
+
+**Primary output:** Ralph Orchestrator commands (external tool, no context compaction)
+**Fallback:** Claude Code's internal `/ralph-loop` (deprecated, for simple tasks only)
+
+## Why Ralph Orchestrator over internal /ralph-loop?
+
+| Aspect | Ralph Orchestrator (external) | /ralph-loop (internal) |
+|--------|------------------------------|------------------------|
+| Context | Fresh each iteration | Compacts over time |
+| State | Files (`.agent/memories.md`) | Degrades with compaction |
+| Long loops | ✅ Reliable | ❌ Forgets earlier work |
+| Setup | Requires `ralph` CLI installed | Built into Claude Code |
+| Best for | Complex features, 10+ iterations | Simple tasks, <5 iterations |
 
 ## Usage
 
 ```
-/generate-ralph-loop <path-to-uat-file> [--spec PATH] [--max-iterations N] [--completion-promise TEXT]
+/generate-ralph-loop <path-to-spec-or-uat> [options]
 ```
 
 ## Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `<path-to-uat-file>` | Yes | - | Path to the UAT file (e.g., `features/p61_acceptance_tests.md`) |
+| `<path>` | Yes | - | Path to spec file (e.g., `features/p89_swipeable_card_view.md`) or UAT file |
 | `--spec` | No | auto-detect | Path to tech spec (overrides auto-detection) |
+| `--uat` | No | auto-detect | Path to UAT file (if separate from spec) |
 | `--max-iterations` | No | 30 | Safety limit for iterations |
-| `--completion-promise` | No | auto | Defaults to `<promise>{FEATURE} UAT COMPLETE</promise>` |
-| `--force-ralph` | No | false | Skip complexity check, always output ralph-loop |
+| `--preset` | No | spec-driven | Ralph preset: `spec-driven`, `tdd-red-green`, `feature` |
+| `--internal` | No | false | Force output of internal /ralph-loop (deprecated) |
+| `--prompt-file` | No | false | Generate PROMPT.md file instead of inline command |
+
+## Important: How to Run Ralph
+
+**CRITICAL:** Ralph requires either a PROMPT.md file OR an inline prompt string. It does NOT read spec files directly from the `-p` flag.
+
+### ❌ WRONG (common mistake)
+```bash
+# This passes a FILE PATH as prompt text — Ralph won't read the file!
+ralph run -p features/p89_swipeable_card_view.md
+```
+
+### ✅ CORRECT Methods
+
+**Method 1: Create PROMPT.md file (recommended)**
+```bash
+# Step 1: Create PROMPT.md with your task
+echo "Implement P89 per features/p89_swipeable_card_view.md" > PROMPT.md
+
+# Step 2: Run Ralph (it reads PROMPT.md automatically)
+ralph run --no-tui
+```
+
+**Method 2: Inline prompt with task description**
+```bash
+# Pass the DESCRIPTION, not the file path
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Create ViewToggle, CardStack components."
+```
+
+### Why `--no-tui`?
+
+The TUI (terminal UI) has compatibility issues with some terminals like **Ghostty**. Use `--no-tui` for reliable text output that works everywhere.
+
+| Flag | When to use |
+|------|-------------|
+| `ralph run` | Standard terminals (iTerm2, Terminal.app) |
+| `ralph run --no-tui` | Ghostty, or if TUI shows blank/blinking screen |
 
 ## Workflow
 
-### Step 0: Analyze Spec Complexity (Smart Recommendation)
+### Step 0: Check Ralph Orchestrator Installation
 
-Before generating the ralph-loop command, analyze the spec to determine if ralph-loop is even appropriate.
+First, verify Ralph Orchestrator is available:
 
-**Read the spec file and extract:**
-- **Requirements count** — Count `- [ ]` checkboxes, "must", "should", "will" statements
+```bash
+ralph --version
+```
+
+If not installed, include installation instructions in output:
+
+```
+Note: Ralph Orchestrator not detected.
+Install with: npm install -g @ralph-orchestrator/ralph-cli
+Or: brew install ralph-orchestrator
+```
+
+### Step 0.5: Initialize Ralph (one-time per project)
+
+```bash
+ralph init --backend claude
+```
+
+This creates `ralph.yml` config file.
+
+**Worktree tip:** If you use git worktrees, you have two options:
+
+1. **Commit ralph.yml to git** — all worktrees share the same config:
+   ```bash
+   ralph init --backend claude
+   git add ralph.yml
+   echo ".agent/" >> .gitignore  # Keep memories per-worktree
+   git commit -m "chore: add ralph config"
+   ```
+
+2. **Init per worktree** — run `ralph init --backend claude` in each worktree separately
+
+Recommended: Commit `ralph.yml`, gitignore `.agent/` (memories/tasks are session-specific).
+
+### Step 1: Analyze Spec Complexity (Smart Recommendation)
+
+Read the spec file and extract:
+- **Requirements count** — Count `- [ ]` checkboxes, success criteria, "must", "should", "will" statements
 - **Risk keywords** — `auth`, `payment`, `migration`, `security`, `breaking change`, `RLS`
 - **Integration points** — External APIs, DB schema changes, third-party services
+- **Component count** — New components listed in spec
 
 **Decision logic:**
 
 | Condition | Recommendation |
 |-----------|----------------|
-| Requirements < 12 AND no risk keywords AND integrations < 3 | `/loop` (simple) |
-| Otherwise | `ralph-loop` (complex) |
+| Requirements < 8 AND no risk keywords AND integrations < 2 | `/loop` (simple, interactive) |
+| Requirements < 15 AND minimal risk | Ralph Orchestrator |
+| Complex (15+ req, risk keywords, many integrations) | Ralph Orchestrator + suggest chunking |
 
-**If simple spec detected:**
+**Output order (most to least recommended):**
 
-Output `/loop` recommendation FIRST, then ralph-loop as optional fallback:
+1. **Simple specs:** `/loop` first, then Ralph Orchestrator as alternative
+2. **Medium specs:** Ralph Orchestrator (primary), internal /ralph-loop (deprecated fallback)
+3. **Complex specs:** Ralph Orchestrator only, with suggestion to chunk into smaller specs
 
-```
-## Recommended: /loop
+### Step 2: Read and Parse Input File
 
-This spec is straightforward ({N} requirements, no risky integrations).
-Just run `/loop` and describe the task — faster iteration, no UAT overhead.
+The input can be a **spec file** or **UAT file**. Detect by:
+- UAT files: contain `UAT-X.Y` patterns, scorecard tables with ⬜/✅/❌
+- Spec files: contain "Success Criteria", "Components", "Solution" sections
 
----
+**From spec files, extract:**
+1. **Feature name** — From heading or filename
+2. **Success criteria** — Bullet points under "Success Criteria" section
+3. **Components** — Listed components to implement
+4. **Key decisions** — From "Key Design Decisions" or similar sections
 
-## If you prefer structured UAT tracking anyway:
-
-{ralph-loop command here}
-```
-
-**If complex spec detected:**
-
-Output ralph-loop directly (no `/loop` recommendation).
-
-### Step 1: Validate UAT File
-
-Read the specified UAT file. If it doesn't exist:
-
-```
-Error: No UAT file found at `{path}`.
-
-To create one, run:
-  /prep-spec features/{feature}.md
-
-Or create manually with this structure:
-  - Scorecard table with ⬜/✅/❌ status
-  - Numbered test cases (UAT-X.Y format)
-  - Categories grouping related tests
-```
-
-### Step 2: Parse UAT File
-
-Extract from the UAT file:
-
-1. **Feature name** — From heading or filename (`p61_acceptance_tests.md` → `P61`)
+**From UAT files, extract:**
+1. **Feature name** — From heading or filename
 2. **Test count** — Count all `UAT-X.Y` entries
 3. **Current score** — Count ✅ vs total tests
 4. **Categories** — List of category headings
 
-### Step 3: Find Related Spec
+### Step 3: Find Related Files
 
-Try these paths in order:
+If given a spec, look for UAT:
+- `{spec_basename}_uat.md`
+- `{spec_basename}_acceptance_tests.md`
 
-1. `{uat_basename}.md` (e.g., `p61.md` from `p61_acceptance_tests.md`)
-2. `{uat_basename}_tech_spec.md` (e.g., `p61_tech_spec.md`)
-3. Same directory as UAT file
-4. `features/` directory
-5. If `--spec` provided, use that
+If given a UAT, look for spec:
+- `{uat_basename}.md` (e.g., `p61.md` from `p61_uat.md`)
+- `{uat_basename}_tech_spec.md`
 
-If not found:
-```
-Error: Cannot find tech spec for `{uat_file}`.
+**Both are optional** — Ralph Orchestrator works with just a spec file.
 
-Tried:
-  - features/p61.md
-  - features/p61_tech_spec.md
+### Step 4: Generate Ralph Orchestrator Commands
 
-Use --spec to specify the path:
-  /generate-ralph-loop features/p61_acceptance_tests.md --spec docs/my-spec.md
-```
+**Primary output: Ralph Orchestrator**
 
-If multiple found (both `foo.md` and `foo_tech_spec.md`):
-- Use `foo_tech_spec.md` (more specific)
-- Log: "Using `foo_tech_spec.md` (both `foo.md` and `foo_tech_spec.md` exist)"
+Generate two forms:
 
-### Step 4: Check for Spec Drift
+**Form 1: Inline command (quick start)**
 
-Compare file modification times:
-- If spec modified AFTER UAT was created, warn:
-```
-Warning: Spec modified after UAT was generated.
-Consider running `/prep-spec` again to regenerate UAT.
-Continuing anyway...
+```bash
+ralph run -p "Implement {FEATURE_NAME} per {SPEC_PATH}. Success criteria: {CRITERIA_SUMMARY}. Verify with browser MCP tools. Commit after each component."
 ```
 
-### Step 5: Generate Command
+**Form 2: PROMPT.md file (recommended for complex specs)**
 
-Assemble the ralph-loop prompt with:
+Generate a `PROMPT.md` file in project root:
 
 ```markdown
-{FEATURE_NAME} Implementation
+# {FEATURE_NAME} Implementation
 
-## Your Task
-Implement {FEATURE_NAME} until ALL {TEST_COUNT} acceptance tests pass.
+## Spec
+{SPEC_PATH}
 
-## Files
-- Tech spec: {SPEC_PATH}
-- UAT scorecard: {UAT_PATH}
+## Success Criteria
+{EXTRACTED_SUCCESS_CRITERIA}
 
-## Current Status
-Score: {CURRENT_SCORE}/{TEST_COUNT} ({PERCENT}%)
+## Implementation Protocol
+1. Read spec section relevant to current component
+2. Implement using TDD (test first when applicable)
+3. Verify with Playwright MCP or Chrome DevTools MCP
+4. Commit after each component: `feat({feature_slug}): add {component}`
+5. Continue until all success criteria met
 
-## Protocol
-1. Read UAT file, find first ⬜ or ❌ test
-2. Read ONLY relevant spec section (not whole spec)
-3. Implement using TDD (test first)
-4. Verify with Playwright MCP (screenshots, clicks) and Chrome DevTools MCP (network, console)
-5. Update scorecard in UAT file: ⬜→✅ or ⬜→❌
-6. Commit after each category: wip({feature_slug}): category N complete
-7. Report: Score X/{TEST_COUNT} (N%)
-8. Continue until 100%
+## Components to Implement
+{COMPONENT_LIST}
 
-## Exit Conditions
-- Score = 100% → output completion promise
-- Same test fails 3x → stop, report blocker
-- Context pressure (15+ iterations) → suggest fresh context
+## Verification
+Use browser MCP tools to verify:
+- UI renders correctly
+- Interactions work as specified
+- No console errors
 
-## Start
-Read {UAT_PATH} and begin with first ⬜ test.
+## Completion
+When ALL success criteria are met, output: COMPLETE
 ```
 
-### Step 6: Output
+Then run:
+```bash
+ralph run
+```
 
-Output the complete command:
+### Step 5: Generate Deprecated Internal Command (Fallback)
+
+**Only if `--internal` flag used or spec is very simple:**
 
 ```
-Ready-to-run command:
+---
 
-/ralph-loop:ralph-loop "{PROMPT}" --max-iterations {MAX_ITERATIONS} --completion-promise "<promise>{FEATURE_NAME} UAT COMPLETE</promise>"
+## ⚠️ Deprecated: Internal /ralph-loop
+
+The internal `/ralph-loop` runs inside Claude's context window, which compacts over long loops.
+Use Ralph Orchestrator instead for reliable iteration.
+
+**If you still want to use internal loop (simple tasks only):**
+
+/ralph-loop "{PROMPT}" --max-iterations {MAX_ITERATIONS} --completion-promise "<promise>{FEATURE_NAME} COMPLETE</promise>"
+```
+
+### Step 6: Output Format
+
+**Complete output structure:**
+
+```
+# {FEATURE_NAME} — Ralph Commands
+
+## Complexity Analysis
+- Requirements: {N}
+- Risk keywords: {list or "none"}
+- Integration points: {N}
+- Recommendation: {/loop | Ralph Orchestrator | Ralph Orchestrator + chunk}
 
 ---
 
-Feature: {FEATURE_NAME}
-Spec: {SPEC_PATH}
-UAT: {UAT_PATH}
-Tests: {TEST_COUNT} ({CURRENT_SCORE} already passing)
-Max iterations: {MAX_ITERATIONS}
+## Step-by-Step Instructions
 
-Copy and paste the command above to start the implementation loop.
+### Prerequisites (one-time setup)
+
+1. **Install Ralph** (if not already installed):
+   ```bash
+   npm install -g @ralph-orchestrator/ralph-cli
+   # or: brew install ralph-orchestrator
+   ```
+
+2. **Initialize Ralph in your project** (if no ralph.yml exists):
+   ```bash
+   ralph init --backend claude
+   ```
+
+   **Using git worktrees?** Commit `ralph.yml` to share across worktrees, but gitignore `.agent/`:
+   ```bash
+   git add ralph.yml && echo ".agent/" >> .gitignore
+   ```
+
+### Run the Task
+
+**Option A: Using PROMPT.md (recommended)**
+
+```bash
+# Step 1: Create PROMPT.md
+cat > PROMPT.md << 'EOF'
+{PROMPT_MD_CONTENT}
+EOF
+
+# Step 2: Run Ralph
+ralph run --no-tui
+```
+
+**Option B: One-liner with inline prompt**
+
+```bash
+ralph run --no-tui -p "{INLINE_PROMPT}"
+```
+
+### Monitor Progress
+
+- Ralph shows iteration count and what it's doing
+- State is saved to `.agent/memories.md` and `.agent/tasks.jsonl`
+- Press `Ctrl+C` to stop if needed
+- Use `ralph run --continue` to resume interrupted sessions
+
+---
+
+## Quick Reference
+
+| Command | When to use |
+|---------|-------------|
+| `ralph run --no-tui` | ✅ Recommended (works in all terminals) |
+| `ralph run` | Standard terminals only (iTerm2, Terminal.app) |
+| `ralph run --continue` | Resume interrupted session |
+| `/loop` | Simple interactive tasks (inside Claude) |
+| `/ralph-loop` | ⚠️ Deprecated — avoid for new work |
+
+### Common Issues
+
+| Problem | Solution |
+|---------|----------|
+| TUI blank/blinking | Use `--no-tui` flag |
+| "claude not found" | Run from terminal where `claude` command works |
+| Nothing happens | Check PROMPT.md exists: `cat PROMPT.md` |
+| Wrong: `-p file.md` | Pass description, not file path: `-p "Implement X per file.md"` |
 ```
 
 ## Edge Cases
 
 | Scenario | Behavior |
 |----------|----------|
-| UAT file not found | Error with suggestion to run `/prep-spec` |
-| UAT wrong format (no scorecard) | Error: "UAT file doesn't match expected format. Expected scorecard table with ⬜/✅/❌ markers." |
-| Spec not found | Error with paths tried and suggestion to use `--spec` |
-| UAT has 0 tests | Error: "UAT has no tests (no UAT-X.Y entries found)." |
-| UAT already at 100% | Info: "UAT already complete (100%). Nothing to implement." Then output command anyway (user may want to re-verify) |
-| Simple spec (< 12 req, no risk) | Recommend `/loop` first, ralph-loop as fallback |
-| `--force-ralph` flag provided | Skip complexity check, output ralph-loop directly |
+| Spec not found | Error with suggestion to check path |
+| No success criteria in spec | Warning: "No explicit success criteria found. Consider adding a Success Criteria section." Generate command anyway using inferred criteria from description. |
+| Very simple spec (<8 req) | Recommend `/loop` first, Ralph as alternative |
+| Very complex spec (20+ req) | Recommend chunking: "Consider breaking into smaller features for better iteration." |
+| Ralph not installed | Include installation instructions: `npm install -g @ralph-orchestrator/ralph-cli` |
+| `--internal` flag | Output internal /ralph-loop command (with deprecation warning) |
+| `--prompt-file` flag | Generate PROMPT.md file in project root instead of inline command |
+| UAT file provided | Use UAT for structured tracking (update scorecard during iteration) |
 
-## Example
+## Example 1: Spec File Input
 
-Input:
+**Input:**
 ```
-/generate-ralph-loop features/p61_acceptance_tests.md
+/generate-ralph-loop features/p89_swipeable_card_view.md
 ```
 
-Output:
+**Output:**
 ```
-Ready-to-run command:
+# P89 Swipeable Card View — Ralph Commands
 
-/ralph-loop:ralph-loop "P61 Events Implementation
-
-## Your Task
-Implement P61 Events until ALL 25 acceptance tests pass.
-
-## Files
-- Tech spec: features/p61_events_complete_tech_spec.md
-- UAT scorecard: features/p61_acceptance_tests.md
-
-## Current Status
-Score: 0/25 (0%)
-
-## Protocol
-1. Read UAT file, find first ⬜ or ❌ test
-2. Read ONLY relevant spec section (not whole spec)
-3. Implement using TDD (test first)
-4. Verify with Playwright MCP (screenshots, clicks) and Chrome DevTools MCP (network, console)
-5. Update scorecard in UAT file: ⬜→✅ or ⬜→❌
-6. Commit after each category: wip(events): category N complete
-7. Report: Score X/25 (N%)
-8. Continue until 100%
-
-## Exit Conditions
-- Score = 100% → output completion promise
-- Same test fails 3x → stop, report blocker
-- Context pressure (15+ iterations) → suggest fresh context
-
-## Start
-Read features/p61_acceptance_tests.md and begin with first ⬜ test." --max-iterations 30 --completion-promise "<promise>P61 UAT COMPLETE</promise>"
+## Complexity Analysis
+- Requirements: 12 success criteria
+- Risk keywords: none
+- Integration points: 1 (P85 position scale)
+- Recommendation: Ralph Orchestrator
 
 ---
 
-Feature: P61 Events
-Spec: features/p61_events_complete_tech_spec.md
-UAT: features/p61_acceptance_tests.md
-Tests: 25 (0 already passing)
-Max iterations: 30
+## Step-by-Step Instructions
 
-Copy and paste the command above to start the implementation loop.
+### Prerequisites (one-time setup)
+
+1. **Install Ralph** (if not already installed):
+   ```bash
+   npm install -g @ralph-orchestrator/ralph-cli
+   ```
+
+2. **Initialize Ralph in your project** (if no ralph.yml exists):
+   ```bash
+   ralph init --backend claude
+   ```
+
+### Run the Task
+
+**Option A: Using PROMPT.md (recommended)**
+
+```bash
+# Step 1: Create PROMPT.md
+cat > PROMPT.md << 'EOF'
+# P89 Swipeable Card View Implementation
+
+## Spec
+features/p89_swipeable_card_view.md
+
+## Success Criteria
+- [ ] View toggle switches between List and Card views
+- [ ] Card View shows full-screen swipeable cards
+- [ ] Swipe right = Agree (+2), left = Disagree (-2), down = Skip
+- [ ] Stories: swipe = next, no position recorded
+- [ ] Dropdown tap opens intensity options (P85 pattern)
+- [ ] Participant avatar row filters content in both views
+- [ ] Content type tabs filter Stories/Points/All
+- [ ] Desktop keyboard shortcuts work in Card View
+- [ ] Progress indicator shows position in stack
+- [ ] Undo toast appears after Point swipes
+- [ ] /live button appears on Story cards with correct text
+- [ ] /live button shows mock toast (prototype)
+
+## Components to Implement
+1. ViewToggle — List/Cards switch
+2. CardStack — Swipeable card container
+3. SwipeableCard — Individual card with gesture handling
+4. ParticipantRow — Horizontal avatar filter
+5. ContentTypeTabs — Stories/Points/All filter
+6. SwipeHint — Visual hint showing swipe directions
+
+## Protocol
+1. Start with ViewToggle component
+2. Implement one component at a time
+3. Verify with Playwright MCP after each component
+4. Commit: `feat(p89): add {component}`
+
+## Completion
+When ALL success criteria pass, output: COMPLETE
+EOF
+
+# Step 2: Run Ralph
+ralph run --no-tui
+```
+
+**Option B: One-liner with inline prompt**
+
+```bash
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Add ViewToggle, CardStack, SwipeableCard components. Swipe right=Agree, left=Disagree, down=Skip. Verify with browser MCP."
+```
+
+---
+
+## Quick Reference
+
+| Command | When to use |
+|---------|-------------|
+| `ralph run --no-tui` | ✅ Recommended (works in all terminals including Ghostty) |
+| `ralph run` | Standard terminals only (iTerm2, Terminal.app) |
+| `ralph run --continue` | Resume interrupted session |
+
+### ⚠️ Common Mistake
+
+```bash
+# ❌ WRONG - passes file path as prompt text
+ralph run -p features/p89_swipeable_card_view.md
+
+# ✅ CORRECT - passes description that references the file
+ralph run --no-tui -p "Implement P89 per features/p89_swipeable_card_view.md"
+```
+```
+
+## Example 2: Simple Spec
+
+**Input:**
+```
+/generate-ralph-loop features/p95_fix_button_color.md
+```
+
+**Output:**
+```
+# P95 Fix Button Color — Ralph Commands
+
+## Complexity Analysis
+- Requirements: 3
+- Risk keywords: none
+- Integration points: 0
+- Recommendation: /loop (simple task)
+
+---
+
+## Recommended: /loop
+
+This is a simple task (3 requirements, no integrations).
+Just run `/loop` interactively inside Claude Code — faster than setting up Ralph.
+
+---
+
+## Alternative: Ralph Orchestrator
+
+If you prefer automated iteration:
+
+```bash
+# Create PROMPT.md
+echo "Fix button color per features/p95_fix_button_color.md" > PROMPT.md
+
+# Run Ralph
+ralph run --no-tui
+```
 ```

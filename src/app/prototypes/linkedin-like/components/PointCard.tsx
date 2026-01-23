@@ -1,12 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Mic, Pin, Ear } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import {
   getStoriesForPoint,
@@ -279,19 +274,12 @@ function QuotedStory({
           )}
           {/* Ear indicator - understanding credibility */}
           {author && credibilityStats.ear > 0 && (
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex items-center gap-0.5 text-xs text-gray-400 cursor-default">
-                    <Ear size={12} />
-                    {credibilityStats.ear}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{author.name.split(' ')[0]} understood others' stories</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <MobileTooltip content={`${author.name.split(' ')[0]} understood others' stories`}>
+              <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
+                <Ear size={12} />
+                {credibilityStats.ear}
+              </span>
+            </MobileTooltip>
           )}
         </div>
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
@@ -302,21 +290,14 @@ function QuotedStory({
       {/* Story text */}
       <p className="text-sm text-gray-700 line-clamp-2">{story.text}</p>
       {/* Stats row - verification count only */}
-      <TooltipProvider delayDuration={100}>
-        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex items-center gap-1 cursor-default">
-                <Mic size={12} />
-                {story.verificationCount}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>People understood this story</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
+      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+        <MobileTooltip content="People understood this story">
+          <span className="flex items-center gap-1">
+            <Mic size={12} />
+            {story.verificationCount}
+          </span>
+        </MobileTooltip>
+      </div>
     </button>
   );
 }

@@ -14,6 +14,19 @@ Ordered list of assumptions we're testing. Each must be validated before the nex
 
 This is the foundational claim of [Communicative Critical Rationalism](visions/v7_communicative_critical_rationalism.md). If false, the entire epistemological framework needs revision.
 
+### The Two Components
+
+Asymmetric conversion requires BOTH:
+
+| Metric | Definition | Measures |
+|--------|------------|----------|
+| **Retention** | Holders stay after understanding opposing Stories | Conviction stability |
+| **Conversion** | Opponents flip toward after understanding supporting Stories | Persuasive power |
+
+**Asymmetry Score** = Conversion Rate − (1 − Retention Rate)
+
+A truly "strong" Point has high retention AND high conversion — it holds believers and wins converts.
+
 ### The Four States of Agreement
 
 The real value is in detecting **false states** — H-Core measures conversion patterns across these states:

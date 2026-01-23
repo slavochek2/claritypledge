@@ -1,10 +1,5 @@
 import { Globe, Lock } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { MobileTooltip } from './MobileTooltip';
 import { IdeaVisibility } from '../../data/mock-data';
 
 interface VisibilityBadgeProps {
@@ -26,34 +21,20 @@ export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: Vi
 
   if (showLabel) {
     return (
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs cursor-default ${className}`}>
-              <Icon size={size} />
-              {label}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{description}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <MobileTooltip content={description}>
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${className}`}>
+          <Icon size={size} />
+          {label}
+        </span>
+      </MobileTooltip>
     );
   }
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="text-gray-400 cursor-default">
-            <Icon size={size} />
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{description}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <MobileTooltip content={description}>
+      <span className="text-gray-400">
+        <Icon size={size} />
+      </span>
+    </MobileTooltip>
   );
 }

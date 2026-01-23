@@ -152,28 +152,28 @@ await deleteClaritySession(sessionCode);
 
 ## Manual Testing with Browser Tools
 
-### Using Playwright MCP
+### Using Docker MCP Browser Tools
 
 ```typescript
 // Open two tabs
-await mcp__playwright__browser_tabs({ action: 'new' });
-await mcp__playwright__browser_navigate({ url: 'http://localhost:5001/live' });
+await mcp__MCP_DOCKER__browser_tabs({ action: 'new' });
+await mcp__MCP_DOCKER__browser_navigate({ url: 'http://localhost:5001/live' });
 
 // Tab 1: Creator
-await mcp__playwright__browser_type({ ref: 'name-input', text: 'Alice' });
+await mcp__MCP_DOCKER__browser_type({ ref: 'name-input', text: 'Alice' });
 // ... fill form, click create
 
 // Get room code from UI
 
 // Tab 2: Joiner
-await mcp__playwright__browser_tabs({ action: 'select', index: 1 });
-await mcp__playwright__browser_navigate({ url: 'http://localhost:5001/live/ROOMCODE' });
+await mcp__MCP_DOCKER__browser_tabs({ action: 'select', index: 1 });
+await mcp__MCP_DOCKER__browser_navigate({ url: 'http://localhost:5001/live/ROOMCODE' });
 // ... fill form, click join
 ```
 
 ### Using Chrome DevTools MCP
 
-Similar approach with `mcp__chrome-devtools__` tools.
+Similar approach with `mcp__chrome-devtools__` tools (for debugging/performance).
 
 ## Coordination Patterns
 

@@ -70,13 +70,37 @@ The core measurable claim of this framework:
 
 > In a network of calibrated active listeners, the Point closest to truth is the one that exhibits the highest **Asymmetric Conversion Rate**: the statistical likelihood that an opponent moves their position toward the Point after achieving verified understanding (≥8/10) of its supporting Stories, while the inverse does not occur.
 
+### The Two Components of Asymmetric Conversion
+
+A truly "strong" Point exhibits BOTH metrics:
+
+| Metric | Definition | What it measures |
+|--------|------------|------------------|
+| **Retention Rate** | Holders who stay after understanding opposing Stories | Conviction stability — the Point survives exposure to counter-narratives |
+| **Conversion Rate** | Opponents who flip toward after understanding supporting Stories | Persuasive power — the Point wins converts through understanding |
+
+**Asymmetry Score** = Conversion Rate − (1 − Retention Rate)
+
+- **High asymmetry** → Strong truth signal: opponents convert, believers stay
+- **Zero asymmetry** → Value conflict or both partially right
+- **Negative asymmetry** → The Point may be wrong: believers leave, opponents don't join
+
+### Why BOTH Matter
+
+A Point with only high conversion but low retention is "viral but unstable" — it recruits but can't hold.
+
+A Point with only high retention but low conversion is "tribal" — preaching to the choir.
+
+The truth-seeking sweet spot requires BOTH: a Point that retains believers who encounter criticism AND converts opponents who truly understand it.
+
 ### Why Asymmetry Matters
 
 | Pattern | Interpretation |
 |---------|----------------|
-| **Asymmetric conversion** (one side moves more) | Signal toward truth |
+| **Asymmetric conversion** (opponents flip toward, holders stay) | Signal toward truth |
 | **Symmetric conversion** (both sides move equally) | Genuine value conflict or both partially right |
 | **No conversion despite understanding** | Incommensurable axioms — the disagreement is about values, not facts |
+| **Reverse asymmetry** (holders leave, opponents don't join) | The Point may be wrong |
 
 ### What This Enables
 

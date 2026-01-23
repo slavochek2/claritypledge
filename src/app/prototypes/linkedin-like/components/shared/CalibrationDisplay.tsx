@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from 'react';
 import { HelpCircle, Ear, Mic, Lock } from 'lucide-react';
 import {
   Tooltip,
@@ -6,6 +7,71 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { UserCalibration, RoleCalibration } from '../../../shared/types';
+
+/**
+ * Tooltip that works on both desktop (hover) and mobile (tap/click).
+ * Similar to MobileTooltip but with customizable side and content.
+ */
+function CalibrationTooltip({
+  children,
+  content,
+  side = 'top',
+}: {
+  children: React.ReactNode;
+  content: React.ReactNode;
+  side?: 'top' | 'bottom' | 'left' | 'right';
+}) {
+  const [open, setOpen] = useState(false);
+  const [clickLocked, setClickLocked] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    // On click: always show for 3s (don't toggle - more predictable UX)
+    setOpen(true);
+    setClickLocked(true);
+    timeoutRef.current = setTimeout(() => {
+      setOpen(false);
+      setClickLocked(false);
+    }, 3000);
+  }, []);
+
+  // Handle hover changes, but don't let hover close a click-opened tooltip
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    if (clickLocked && !newOpen) {
+      return;
+    }
+    setOpen(newOpen);
+  }, [clickLocked]);
+
+  return (
+    <Tooltip open={open} onOpenChange={handleOpenChange}>
+      <TooltipTrigger asChild>
+        <span
+          onClick={handleClick}
+          className="cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleClick(e as unknown as React.MouseEvent);
+            }
+          }}
+        >
+          {children}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side={side} className="max-w-[240px]">
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * Get calibration state label from gap value (7 levels).
@@ -65,42 +131,46 @@ export function InlineCalibration({
           <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-px h-2 bg-gray-400 -translate-x-px" />
 
           {/* Listener icon (ear) - above the bar */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="absolute top-0 w-4 h-4 flex items-center justify-center cursor-default -translate-x-1/2"
-                style={{ left: `${listenerPos}%` }}
-              >
-                <Ear size={12} className="text-gray-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[240px]">
-              <p className="text-xs font-medium">{listenerLabel} as Listener</p>
-              <p className="text-xs text-gray-500">{TOOLTIP_TEXT.listener}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          <CalibrationTooltip
+            side="top"
+            content={
+              <>
+                <p className="text-xs font-medium">{listenerLabel} as Listener</p>
+                <p className="text-xs text-gray-500">{TOOLTIP_TEXT.listener}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
+                </p>
+              </>
+            }
+          >
+            <span
+              className="absolute top-0 w-4 h-4 flex items-center justify-center -translate-x-1/2"
+              style={{ left: `${listenerPos}%` }}
+            >
+              <Ear size={12} className="text-gray-500" />
+            </span>
+          </CalibrationTooltip>
 
           {/* Speaker icon (mic) - below the bar */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="absolute bottom-0 w-4 h-4 flex items-center justify-center cursor-default -translate-x-1/2"
-                style={{ left: `${speakerPos}%` }}
-              >
-                <Mic size={12} className="text-gray-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[240px]">
-              <p className="text-xs font-medium">{speakerLabel} as Speaker</p>
-              <p className="text-xs text-gray-500">{TOOLTIP_TEXT.speaker}</p>
-              <p className="text-xs text-gray-400 mt-1">
-                Avg (their understanding − your estimate) over {calibration.speaker.sessionCount} session{calibration.speaker.sessionCount !== 1 ? 's' : ''}
-              </p>
-            </TooltipContent>
-          </Tooltip>
+          <CalibrationTooltip
+            side="bottom"
+            content={
+              <>
+                <p className="text-xs font-medium">{speakerLabel} as Speaker</p>
+                <p className="text-xs text-gray-500">{TOOLTIP_TEXT.speaker}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Avg (their understanding − your estimate) over {calibration.speaker.sessionCount} session{calibration.speaker.sessionCount !== 1 ? 's' : ''}
+                </p>
+              </>
+            }
+          >
+            <span
+              className="absolute bottom-0 w-4 h-4 flex items-center justify-center -translate-x-1/2"
+              style={{ left: `${speakerPos}%` }}
+            >
+              <Mic size={12} className="text-gray-500" />
+            </span>
+          </CalibrationTooltip>
         </div>
       </div>
     </TooltipProvider>

@@ -1,12 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mic, MessageCircle, ExternalLink, Pin } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
 import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
@@ -137,33 +132,26 @@ export function StoryCard({
               </p>
 
               {/* Stats row - icon-only style */}
-              <TooltipProvider delayDuration={100}>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
-                    {/* People who understood the story author */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="flex items-center gap-1 cursor-default">
-                          <Mic size={14} />
-                          {story.verificationCount}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>People understood this story</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  {showVerifyButton && (
-                    <button
-                      onClick={onVerify}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
-                    >
-                      <MessageCircle size={12} />
-                      Verify
-                    </button>
-                  )}
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
+                  {/* People who understood the story author */}
+                  <MobileTooltip content="People understood this story">
+                    <span className="flex items-center gap-1">
+                      <Mic size={14} />
+                      {story.verificationCount}
+                    </span>
+                  </MobileTooltip>
                 </div>
-              </TooltipProvider>
+                {showVerifyButton && (
+                  <button
+                    onClick={onVerify}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                  >
+                    <MessageCircle size={12} />
+                    Verify
+                  </button>
+                )}
+              </div>
 
               {/* Quoted Points - Twitter quote style, show all (max 3) */}
               {linkedPoints.length > 0 && (

@@ -1,10 +1,5 @@
 import { Ear } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { MobileTooltip } from './MobileTooltip';
 import { getUserCredibilityStats } from '../../../shared/mock-data';
 
 interface UserCredibilityProps {
@@ -32,18 +27,11 @@ export function UserCredibility({ userId, userName, size = 'sm' }: UserCredibili
   const firstName = userName?.split(' ')[0] || 'This user';
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className={`inline-flex items-center gap-0.5 ${textSize} text-gray-400 cursor-default`}>
-            <Ear size={iconSize} />
-            <span>{stats.ear}</span>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{firstName} understood others' stories</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <MobileTooltip content={`${firstName} understood others' stories`}>
+      <span className={`inline-flex items-center gap-0.5 ${textSize} text-gray-400`}>
+        <Ear size={iconSize} />
+        <span>{stats.ear}</span>
+      </span>
+    </MobileTooltip>
   );
 }
