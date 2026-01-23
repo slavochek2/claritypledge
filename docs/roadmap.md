@@ -19,93 +19,7 @@ Build sequence and priorities. What we're building and in what order.
 
 A platform where people **sift** messy thoughts into protected **Stories** (for empathy) and sharpened **Points** (for truth), then **verify understanding** across disagreement.
 
----
-
-## Core Concepts
-
-### Stories vs Points
-
-| Type | Nature | User Action | Verification |
-|------|--------|-------------|--------------|
-| **Story** | Lived experience, the "why" behind a position | Can only be understood | /live explain-back (≥8/10 = verified) |
-| **Point** | Logical claim, something debatable | Position on -3 to +3 scale | Position staking |
-
-**Position Scale (7-point Likert):**
-| Score | Meaning |
-|-------|---------|
-| -3 | Strongly disagree |
-| -2 | Disagree |
-| -1 | Slightly disagree |
-| 0 | Unsure / No opinion |
-| +1 | Slightly agree |
-| +2 | Agree |
-| +3 | Strongly agree |
-
-**The relationship (bidirectional):**
-```
-POINT: "Remote work is more productive"
-   ↕
-   │ bidirectional linking
-   ↕
-STORY: "I burned out commuting 2 hours daily"
-   ↑
-   │ leads to
-   ↓
-POSITION: "+2 (Agree) on this Point"
-```
-
-- **Point → Story:** A Point can link to Stories that support or oppose it
-- **Story → Point:** A Story can link to Points it explains your position on
-
-**Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point.
-
-### Verification Threshold
-
-**≥8/10 = Verified Understanding**
-
-When both parties rate understanding ≥8/10 in a /live session, the understanding is "verified."
-
-| Score | Status | Display |
-|-------|--------|---------|
-| 10/10 | Perfect | Green badge |
-| 8-9/10 | Verified | Green badge |
-| <8/10 | In Progress | Amber/gray |
-
-### Calibration Badge (Public Reputation)
-
-Users earn a public "Calibrated" badge when:
-- **≥10 clarity sessions completed** AND
-- **avgGap within ±0.5** (self-assessment matches reality)
-
-This badge appears next to their name across the platform, rewarding epistemic humility while preserving privacy (exact calibration numbers stay private on their dashboard).
-
-### The User Flow (Integrated)
-
-```
-1. BRAIN DUMP
-   User talks/types messy thoughts
-        ↓
-2. AI SIFTS
-   Story (blue) vs Point (yellow)
-        ↓
-3. HARDENER
-   AI sharpens Point into falsifiable claim
-        ↓
-4. MIRROR TEST
-   AI plays back understanding, user confirms
-        ↓
-5. STAKE POSITION
-   User agrees/disagrees on Points
-        ↓
-6. FIND DISAGREER
-   See who has opposite position
-        ↓
-7. VERIFY STORY
-   /live explain-back on their Story
-        ↓
-8. INFORMED DISAGREEMENT
-   Still disagree, but understand WHY
-```
+**Core concepts (Stories, Points, Position Scale, Calibration):** See [domain-model.md](domain-model.md)
 
 ---
 
@@ -179,62 +93,7 @@ See [p85_event_verification_flow.md](../features/p85_event_verification_flow.md)
 □ Basic points feed page
 ```
 
-**Schema:**
-```sql
--- Points table
-points (
-  id uuid primary key,
-  event_id uuid,                    -- null = global
-  text text not null,
-  hardened_text text,               -- AI-refined version
-  created_by uuid references profiles(id),
-  created_at timestamp
-)
-
--- Stories table
-stories (
-  id uuid primary key,
-  user_id uuid references profiles(id),
-  text text not null,
-  created_at timestamp
-)
-
--- Story-Point links (bidirectional)
-story_point_links (
-  id uuid primary key,
-  story_id uuid references stories(id),
-  point_id uuid references points(id),
-  link_type text,                   -- 'supports' | 'opposes' | 'explains'
-  created_at timestamp
-)
-
--- Positions table (current position)
-positions (
-  id uuid primary key,
-  point_id uuid references points(id),
-  user_id uuid references profiles(id),
-  position integer,                 -- -3 to +3 scale
-  story_id uuid references stories(id),  -- why they hold this position
-  created_at timestamp,
-  updated_at timestamp,
-  unique(point_id, user_id)
-)
-
--- Position history (for conversion tracking)
-position_history (
-  id uuid primary key,
-  position_id uuid references positions(id),
-  old_position integer,
-  new_position integer,
-  changed_at timestamp,
-  -- Context: what triggered the change?
-  after_session_id uuid references clarity_sessions(id),  -- if changed after verification
-  after_session_score integer       -- the understanding score when changed
-)
-
--- Link sessions to points
-ALTER TABLE clarity_sessions ADD COLUMN point_id uuid references points(id);
-```
+**Schema:** See [database.md](technical/database.md) for implemented schemas, feature specs for planned schemas.
 
 ### Phase 2: Event Container ✅ DONE
 
@@ -247,24 +106,6 @@ ALTER TABLE clarity_sessions ADD COLUMN point_id uuid references points(id);
 □ Event feed (points scoped to event) — needs P60
 □ Attendee list with positions — needs P60
 □ "See my events" on profile
-```
-
-**Schema:**
-```sql
-events (
-  id uuid primary key,
-  name text not null,
-  description text,
-  created_by uuid references profiles(id),
-  created_at timestamp
-)
-
-event_participants (
-  event_id uuid references events(id),
-  user_id uuid references profiles(id),
-  joined_at timestamp,
-  primary key (event_id, user_id)
-)
 ```
 
 ### Phase 3: Sifter (P58)
