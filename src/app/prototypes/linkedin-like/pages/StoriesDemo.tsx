@@ -3,6 +3,7 @@ import { IdeasStories } from '../components/ideas/IdeasStories';
 import type { StoryIdea, Position } from '../components/ideas/types';
 
 // Demo data - simulating a live conversation session
+// Using fixed timestamps for deterministic rendering and testing (M4)
 const initialIdeas: StoryIdea[] = [
   {
     id: 'idea-1',
@@ -11,7 +12,7 @@ const initialIdeas: StoryIdea[] = [
     myPosition: null,
     partnerPosition: 'agree',
     isVerified: false,
-    timestamp: new Date().toISOString(),
+    timestamp: '2026-01-23T10:00:00Z',
   },
   {
     id: 'idea-2',
@@ -20,7 +21,7 @@ const initialIdeas: StoryIdea[] = [
     myPosition: 'disagree',
     partnerPosition: 'agree',
     isVerified: false,
-    timestamp: new Date().toISOString(),
+    timestamp: '2026-01-23T10:05:00Z',
   },
   {
     id: 'idea-3',
@@ -29,7 +30,7 @@ const initialIdeas: StoryIdea[] = [
     myPosition: 'agree',
     partnerPosition: 'agree',
     isVerified: true,
-    timestamp: new Date().toISOString(),
+    timestamp: '2026-01-23T10:10:00Z',
   },
   {
     id: 'idea-4',
@@ -38,7 +39,7 @@ const initialIdeas: StoryIdea[] = [
     myPosition: 'agree',
     partnerPosition: 'disagree',
     isVerified: false,
-    timestamp: new Date().toISOString(),
+    timestamp: '2026-01-23T10:15:00Z',
   },
 ];
 
@@ -75,6 +76,7 @@ export function StoriesDemo() {
   };
 
   const handleAddIdea = () => {
+    // Use Date.now() only for unique ID generation, not for display
     const newIdea: StoryIdea = {
       id: `idea-${Date.now()}`,
       text: 'New idea surfaced from conversation...',
@@ -82,7 +84,7 @@ export function StoriesDemo() {
       myPosition: null,
       partnerPosition: null,
       isVerified: false,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString(), // Runtime-generated for new ideas is OK
     };
     setIdeas((prev) => [newIdea, ...prev]);
     setStartIndex(0);
@@ -97,7 +99,7 @@ export function StoriesDemo() {
       myPosition: 'agree',
       partnerPosition: null,
       isVerified: false,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString(), // Runtime-generated for new ideas is OK
     };
     setIdeas((prev) => [profileIdea, ...prev]);
     setStartIndex(0);

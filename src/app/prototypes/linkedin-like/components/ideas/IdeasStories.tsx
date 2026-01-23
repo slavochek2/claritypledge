@@ -1,9 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { X, Plus, CheckCircle2, Sparkles, MessageCircle, Bookmark } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { IdeasStoriesProps, Position, StoryIdea } from './types';
 import { hasDivergentPositions } from './types';
+
+// Constants
+const SWIPE_THRESHOLD_PX = 50;
+const KEYBOARD_NAV_DEBOUNCE_MS = 150;
 
 // Progress bar at top (Instagram-style)
 function ProgressBar({ total, current }: { total: number; current: number }) {
@@ -15,11 +19,7 @@ function ProgressBar({ total, current }: { total: number; current: number }) {
           data-testid="progress-segment"
           className={cn(
             'h-0.5 flex-1 rounded-full transition-all duration-300',
-            idx < current
-              ? 'bg-white'
-              : idx === current
-                ? 'bg-white'
-                : 'bg-white/30'
+            idx <= current ? 'bg-white' : 'bg-white/30'
           )}
         />
       ))}
@@ -306,6 +306,20 @@ export function IdeasStories({
 }: IdeasStoriesProps) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Focus management: focus close button when modal opens (M1)
+  useEffect(() => {
+    if (ideas.length > 0) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        closeButtonRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [ideas.length]);
 
   // Empty state
   if (ideas.length === 0) {
@@ -321,19 +335,31 @@ export function IdeasStories({
   const hasPendingVerification = pendingVerificationRequest === currentIdea.id;
 
   const handleNext = useCallback(() => {
+    if (isNavigating) return; // Debounce guard (M3)
+    setIsNavigating(true);
+
     if (currentIndex < ideas.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
       // Auto-close after last story
       onClose();
     }
-  }, [currentIndex, ideas.length, onClose]);
+
+    // Reset debounce after animation completes
+    setTimeout(() => setIsNavigating(false), KEYBOARD_NAV_DEBOUNCE_MS);
+  }, [currentIndex, ideas.length, onClose, isNavigating]);
 
   const handlePrev = useCallback(() => {
+    if (isNavigating) return; // Debounce guard (M3)
+    setIsNavigating(true);
+
     if (currentIndex > 0) {
       setCurrentIndex((prev) => prev - 1);
     }
-  }, [currentIndex]);
+
+    // Reset debounce after animation completes
+    setTimeout(() => setIsNavigating(false), KEYBOARD_NAV_DEBOUNCE_MS);
+  }, [currentIndex, isNavigating]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientX);
@@ -344,8 +370,7 @@ export function IdeasStories({
     const touchEnd = e.changedTouches[0].clientX;
     const diff = touchStart - touchEnd;
 
-    // Swipe threshold of 50px
-    if (Math.abs(diff) > 50) {
+    if (Math.abs(diff) > SWIPE_THRESHOLD_PX) {
       if (diff > 0) {
         handleNext(); // Swipe left = next
       } else {
@@ -362,11 +387,17 @@ export function IdeasStories({
     handleNext();
   };
 
-  // Keyboard navigation
+  // Keyboard navigation with debouncing (M3)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') handlePrev();
-      if (e.key === 'ArrowRight') handleNext();
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrev();
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+      }
       if (e.key === 'Escape') onClose();
     };
 
@@ -375,7 +406,13 @@ export function IdeasStories({
   }, [handleNext, handlePrev, onClose]);
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black z-50 flex flex-col">
+    <div
+      ref={containerRef}
+      className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black z-50 flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ideas stories viewer"
+    >
       {/* Progress bar */}
       <ProgressBar total={ideas.length} current={currentIndex} />
 
@@ -405,6 +442,7 @@ export function IdeasStories({
             </button>
           )}
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close"
             className="w-9 h-9 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
@@ -414,10 +452,10 @@ export function IdeasStories({
         </div>
       </div>
 
-      {/* Story content with tap/swipe navigation */}
+      {/* Story content with tap/swipe navigation (M2: touch-action prevents scroll bounce) */}
       <div
         data-testid="story-tap-area"
-        className="flex-1 overflow-hidden"
+        className="flex-1 overflow-hidden touch-pan-y"
         onClick={handleTap}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}

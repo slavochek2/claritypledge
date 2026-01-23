@@ -322,10 +322,10 @@ describe('IdeasStories - Full Screen Stories UX', () => {
   });
 });
 
-describe('IdeasHistoryView - History panel', () => {
-  // Import would come from actual component
-  // Simplified test structure for history view
-  it.todo('shows all ideas with status indicators');
-  it.todo('groups ideas by: pending, divergent, verified');
-  it.todo('allows tapping idea to jump to it in stories');
-});
+// NOTE: IdeasHistoryView component not yet implemented
+// Uncomment when component is created:
+// describe('IdeasHistoryView - History panel', () => {
+//   it('shows all ideas with status indicators', () => { ... });
+//   it('groups ideas by: pending, divergent, verified', () => { ... });
+//   it('allows tapping idea to jump to it in stories', () => { ... });
+// });
