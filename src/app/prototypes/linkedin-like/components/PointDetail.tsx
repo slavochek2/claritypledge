@@ -89,14 +89,14 @@ export function PointDetail() {
           </button>
         </div>
 
-        {/* Point card - reusing component in detail view mode */}
+        {/* Point card */}
         <div className="px-2 pt-2">
           <PointCard point={point} isDetailView />
         </div>
 
         {/* Stories section */}
         <div className="bg-white border border-gray-200 mx-2 mt-3 rounded-lg">
-          {/* Filter tabs - click active to deselect (shows all) */}
+          {/* Filter tabs */}
           <FilterTabs
             activeFilter={positionFilter}
             onFilterChange={setPositionFilter}
@@ -104,15 +104,14 @@ export function PointDetail() {
           />
 
           {/* Position-grouped stories */}
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-6">
             {positionsToShow.map(position => (
               <PositionSection
                 key={position}
                 position={position}
                 stories={storiesByPosition[position]}
-                point={point}
+                positionsByAuthor={point.positions}
                 showHeader={positionFilter === 'all'}
-                hidePositionBadge={positionFilter !== 'all'}
               />
             ))}
           </div>
@@ -125,22 +124,20 @@ export function PointDetail() {
 /**
  * Section for a single position group (Agree/Disagree/Unsure)
  * Shows header only when viewing all positions (showHeader=true)
- * When filtered to single position, tab already indicates the position
+ * Uses thread lines to show hierarchy: Position → Person → Story
  */
 function PositionSection({
   position,
   stories,
-  point,
+  positionsByAuthor,
   showHeader,
-  hidePositionBadge,
 }: {
   position: PositionButtonGroup;
   stories: Story[];
-  point: ReturnType<typeof getPointById>;
-  /** Show section header - false when filtered to single position (tab is the header) */
+  /** Map of author ID to their position entry */
+  positionsByAuthor: Record<string, { position: PositionType; timestamp: string }>;
+  /** Show position label header (when viewing all positions) */
   showHeader: boolean;
-  /** Hide position badge on cards - true when filtered (tab already shows position) */
-  hidePositionBadge: boolean;
 }) {
   const labels: Record<PositionButtonGroup, string> = {
     agree: 'Agree',
@@ -148,36 +145,42 @@ function PositionSection({
     unsure: 'Unsure',
   };
 
+  // When viewing all positions, hide empty sections entirely
+  // Only show "(no stories yet)" when explicitly filtering to an empty category
+  if (stories.length === 0 && showHeader) {
+    return null;
+  }
+
   return (
     <div>
-      {/* Section header - only when viewing all positions */}
-      {showHeader && (
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            {labels[position]} ({stories.length})
-          </span>
-          <div className="flex-1 h-px bg-gray-200" />
+      {/* Position label - shown when viewing all positions */}
+      {showHeader && stories.length > 0 && (
+        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+          {labels[position]}
         </div>
       )}
 
-      {/* Stories or empty state */}
+      {/* Stories or empty state (only shown when filtering to specific position) */}
       {stories.length === 0 ? (
         <p className="text-center text-gray-400 text-sm py-3">
           (no stories yet)
         </p>
       ) : (
-        <div className="space-y-3">
-          {stories.map(story => (
-            <StoryCard
-              key={story.id}
-              story={story}
-              compact
-              context="point-detail"
-              authorPosition={point?.positions[story.authorId]?.position}
-              hidePositionBadge={hidePositionBadge}
-            />
-          ))}
+        <div className="relative pl-6">
+          {/* Single vertical thread line */}
+          <div className="absolute left-2 top-2 bottom-2 w-px bg-gray-300" />
+
+          <div className="space-y-3">
+            {stories.map(story => (
+              <StoryCard
+                key={story.id}
+                story={story}
+                compact
+                context="point-detail"
+                authorPosition={positionsByAuthor[story.authorId]?.position}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

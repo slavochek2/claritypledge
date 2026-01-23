@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, MessageCircle, ExternalLink, Pin, ChevronDown, ChevronRight } from 'lucide-react';
+import { Mic, MessageCircle, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
-import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
+import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
 import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
@@ -18,14 +18,14 @@ interface StoryCardProps {
   isDetailView?: boolean;
   /** Display context - 'profile' hides QuotedPoints, 'point-detail' hides QuotedPoints */
   context?: StoryCardContext;
-  /** Optional position badge to show (e.g., when displayed in Point context) */
-  authorPosition?: PositionType;
-  /** Hide position badge even if authorPosition is set (e.g., when filtered by position) */
-  hidePositionBadge?: boolean;
   /** Show "Verify" button in card footer */
   showVerifyButton?: boolean;
   /** Callback for verify button */
   onVerify?: (e: React.MouseEvent) => void;
+  /** Show thread line styling (used in point-detail hierarchy) */
+  showThreadLine?: boolean;
+  /** Author's position on the Point (shown before name in point-detail context) */
+  authorPosition?: PositionType;
 }
 
 /**
@@ -38,13 +38,14 @@ export function StoryCard({
   compact = false,
   isDetailView = false,
   context,
-  authorPosition,
-  hidePositionBadge = false,
   showVerifyButton = false,
   onVerify,
+  showThreadLine = true,
+  authorPosition,
 }: StoryCardProps) {
   const navigate = useNavigate();
   const author = getUserById(story.authorId);
+  const authorCredibility = getUserCredibilityStats(story.authorId);
   const linkedPoints = getPointsForStory(story.id);
   const [pointsExpanded, setPointsExpanded] = useState(false);
   const isCurrentUserStory = story.authorId === currentUser.id;
@@ -83,6 +84,10 @@ export function StoryCard({
               <div className="mb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
+                    {/* Position badge before name (in point-detail context) */}
+                    {authorPosition && context === 'point-detail' && (
+                      <PositionBadge position={authorPosition} />
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -93,17 +98,6 @@ export function StoryCard({
                       {author.name}
                     </button>
                     <UserCredibility userId={author.id} userName={author.name} />
-                    {/* Position on Point - Pin icon clarifies this is about the Point */}
-                    {/* Hidden when filtered by position (tab already shows position) */}
-                    {authorPosition && !hidePositionBadge && story.authorId !== currentUser.id && (
-                      <>
-                        <span className="text-xs text-gray-400">·</span>
-                        <Pin size={10} className="text-slate-400" />
-                        <PositionBadge
-                          position={authorPosition}
-                        />
-                      </>
-                    )}
                   </div>
                   {/* Action buttons - appear on hover (always visible on touch devices) */}
                   {!isDetailView && (
@@ -189,30 +183,36 @@ export function StoryCard({
 
           {/* Expanded linked points */}
           {pointsExpanded && (
-            <div className="pl-[52px] pr-4 pb-4 space-y-2">
-              {linkedPoints.slice(0, 3).map(point => (
-                <QuotedPoint
-                  key={point.id}
-                  point={point}
-                  authorName={author?.name || ''}
-                  authorId={story.authorId}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.point(point.id));
-                  }}
-                />
-              ))}
-              {linkedPoints.length > 3 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.story(story.id));
-                  }}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  +{linkedPoints.length - 3} more points
-                </button>
-              )}
+            <div className="pl-[52px] pr-4 pb-4 relative">
+              {/* Single vertical thread line */}
+              <div className="absolute left-[56px] top-0 bottom-3 w-px bg-gray-300" />
+
+              <div className="space-y-2 pl-3">
+                {linkedPoints.slice(0, 3).map(point => (
+                  <QuotedPoint
+                    key={point.id}
+                    point={point}
+                    authorName={author?.name || ''}
+                    authorId={story.authorId}
+                    authorEarCount={authorCredibility.ear}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.point(point.id));
+                    }}
+                  />
+                ))}
+                {linkedPoints.length > 3 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.story(story.id));
+                    }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    +{linkedPoints.length - 3} more points
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </>
@@ -229,11 +229,13 @@ function QuotedPoint({
   point,
   authorName,
   authorId,
+  authorEarCount,
   onClick
 }: {
   point: Point;
   authorName: string;
   authorId: string;
+  authorEarCount?: number;
   onClick: (e: React.MouseEvent) => void;
 }) {
   const [userPosition, setUserPosition] = useState<PositionType | null>(
@@ -242,7 +244,6 @@ function QuotedPoint({
   const authorPosition = point.positions[authorId]?.position;
   const linkedStories = getStoriesForPoint(point.id);
   const baseCounts = getPointPositionCounts(point);
-  const isCurrentUser = authorId === currentUser.id;
 
   // Track initial position from mock data
   const initialPosition = point.positions['current']?.position || null;
@@ -279,8 +280,6 @@ function QuotedPoint({
 
     return adjusted;
   }, [baseCounts, initialPosition, userPosition]);
-  const totalStances = counts.agree + counts.disagree + counts.unsure;
-
   const handlePositionClick = (position: PositionType) => {
     setUserPosition(userPosition === position ? null : position);
   };
@@ -293,10 +292,9 @@ function QuotedPoint({
       {/* Author position at top */}
       <div className="flex items-center justify-between mb-1.5">
         <PointHeader
-          totalStances={totalStances}
           authorPosition={authorPosition}
-          authorName={authorName.split(' ')[0]}
-          isCurrentUser={isCurrentUser}
+          authorName={authorName}
+          authorEarCount={authorEarCount}
           compact
           showLabel={false}
         />

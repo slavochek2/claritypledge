@@ -71,7 +71,6 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
     return adjusted;
   }, [baseCounts, initialPosition, userPosition]);
-  const totalStances = counts.agree + counts.disagree + counts.unsure;
 
   // On profile page, only show stories from the profile owner (max 3)
   // On feed/detail pages, show all linked stories (max 3)
@@ -85,9 +84,9 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
     ? point.positions[profileOwnerId]?.position
     : null;
 
-  // Get profile owner's name for position badge
+  // Get profile owner's name and credibility for position badge
   const profileOwner = profileOwnerId ? getUserById(profileOwnerId) : null;
-  const isCurrentUserProfile = profileOwnerId === currentUser.id;
+  const profileOwnerCredibility = profileOwnerId ? getUserCredibilityStats(profileOwnerId) : null;
 
   const handleCardClick = () => {
     if (!isDetailView) {
@@ -122,10 +121,9 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
             {/* Header row - matches StoryCard's author info structure */}
             <div className="flex items-center justify-between mb-2">
               <PointHeader
-                totalStances={totalStances}
                 authorPosition={profileOwnerPosition}
-                authorName={profileOwner?.name.split(' ')[0]}
-                isCurrentUser={isCurrentUserProfile}
+                authorName={profileOwner?.name}
+                authorEarCount={profileOwnerCredibility?.ear}
               />
               {/* Action buttons - appear on hover (always visible on touch devices) */}
               {!isDetailView && (
@@ -192,32 +190,37 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
           {/* Expanded linked stories */}
           {storiesExpanded && storiesToShow.length > 0 && (
-            <div className="pl-[52px] pr-4 pb-4 space-y-2">
-              {storiesToShow.map(story => (
-                <QuotedStory
-                  key={story.id}
-                  story={story}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.story(story.id));
-                  }}
-                  onAuthorClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.profileById(story.authorId));
-                  }}
-                />
-              ))}
-              {filteredStories.length > 3 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(routes.point(point.id));
-                  }}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  +{filteredStories.length - 3} more stories
-                </button>
-              )}
+            <div className="pl-[52px] pr-4 pb-4 relative">
+              {/* Single vertical thread line */}
+              <div className="absolute left-[56px] top-0 bottom-3 w-px bg-gray-300" />
+
+              <div className="space-y-2 pl-3">
+                {storiesToShow.map(story => (
+                  <QuotedStory
+                    key={story.id}
+                    story={story}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.story(story.id));
+                    }}
+                    onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(story.authorId));
+                    }}
+                  />
+                ))}
+                {filteredStories.length > 3 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.point(point.id));
+                    }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    +{filteredStories.length - 3} more stories
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </>
@@ -246,7 +249,7 @@ function QuotedStory({
   return (
     <button
       onClick={onClick}
-      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-200 transition-colors"
+      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
     >
       {/* Author info at top */}
       <div className="flex items-center justify-between mb-1.5">

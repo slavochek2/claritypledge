@@ -10,7 +10,7 @@ interface PositionBadgeProps {
   position: PositionType;
   /** Name to display before position (e.g., "Alice agrees") */
   name?: string;
-  /** Use "You" for current user's position */
+  /** Whether this is the current user's position (currently unused, kept for API compatibility) */
   isCurrentUser?: boolean;
 }
 
@@ -46,16 +46,15 @@ const POSITION_FULL_LABELS: Record<PositionType, string> = {
  *
  * Examples:
  * - "Alice Agrees+" with tooltip "Strongly Agrees"
- * - "You Agrees" with tooltip "Agrees"
+ * - "Jordan Agrees" with tooltip "Agrees"
  * - "Disagrees−" (when name is omitted) with tooltip "Somewhat Disagrees"
  */
 export function PositionBadge({
   position,
   name,
-  isCurrentUser = false,
 }: PositionBadgeProps) {
   const blueBadge = 'bg-blue-100 text-blue-700';
-  const displayName = isCurrentUser ? 'You' : name;
+  const displayName = name;
   const shortLabel = POSITION_SHORT_LABELS[position];
   const fullLabel = POSITION_FULL_LABELS[position];
 
