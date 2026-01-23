@@ -140,14 +140,32 @@ export function StoryCard({
 
               {/* Stats row - icon-only style */}
               <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
+                <div className="flex items-center gap-1 text-sm text-gray-500">
                   {/* People who understood the story author */}
                   <MobileTooltip content="People understood this story">
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full">
                       <Mic size={14} />
                       {story.verificationCount}
                     </span>
                   </MobileTooltip>
+                  {/* Linked points - collapsible in profile context */}
+                  {linkedPoints.length > 0 && context === 'profile' && (
+                    <MobileTooltip content={`${linkedPoints.length} linked point${linkedPoints.length !== 1 ? 's' : ''} - click to ${pointsExpanded ? 'collapse' : 'expand'}`}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPointsExpanded(!pointsExpanded);
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors min-w-[44px] min-h-[44px] justify-center"
+                        aria-expanded={pointsExpanded}
+                        aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} ${linkedPoints.length} linked points`}
+                      >
+                        {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        <Pin size={14} />
+                        {linkedPoints.length}
+                      </button>
+                    </MobileTooltip>
+                  )}
                 </div>
                 {showVerifyButton && (
                   <button
@@ -160,54 +178,31 @@ export function StoryCard({
                 )}
               </div>
 
-              {/* Quoted Points - context-aware display */}
-              {linkedPoints.length > 0 && context === 'profile' && (
-                // Profile context: Collapsible "Your N points" (collapsed by default)
-                <div className="mt-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPointsExpanded(!pointsExpanded);
-                    }}
-                    className="flex items-center gap-1.5 min-w-[44px] min-h-[44px] px-2 py-2 -mx-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                    aria-expanded={pointsExpanded}
-                    aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} ${isCurrentUserStory ? 'your' : author?.name.split(' ')[0] + "'s"} points`}
-                  >
-                    {pointsExpanded ? (
-                      <ChevronDown size={16} className="flex-shrink-0" />
-                    ) : (
-                      <ChevronRight size={16} className="flex-shrink-0" />
-                    )}
-                    <span>
-                      {isCurrentUserStory ? 'Your' : `${author?.name.split(' ')[0]}'s`} {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
-                    </span>
-                  </button>
-                  {pointsExpanded && (
-                    <div className="mt-2 space-y-2">
-                      {linkedPoints.slice(0, 3).map(point => (
-                        <QuotedPoint
-                          key={point.id}
-                          point={point}
-                          authorName={author?.name || ''}
-                          authorId={story.authorId}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(routes.point(point.id));
-                          }}
-                        />
-                      ))}
-                      {linkedPoints.length > 3 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(routes.story(story.id));
-                          }}
-                          className="text-xs text-blue-600 hover:underline"
-                        >
-                          +{linkedPoints.length - 3} more points
-                        </button>
-                      )}
-                    </div>
+              {/* Expanded linked points - profile context only */}
+              {linkedPoints.length > 0 && context === 'profile' && pointsExpanded && (
+                <div className="mt-3 space-y-2">
+                  {linkedPoints.slice(0, 3).map(point => (
+                    <QuotedPoint
+                      key={point.id}
+                      point={point}
+                      authorName={author?.name || ''}
+                      authorId={story.authorId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.point(point.id));
+                      }}
+                    />
+                  ))}
+                  {linkedPoints.length > 3 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.story(story.id));
+                      }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      +{linkedPoints.length - 3} more points
+                    </button>
                   )}
                 </div>
               )}

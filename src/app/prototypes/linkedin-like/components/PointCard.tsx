@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight } from 'lucide-react';
+import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import {
@@ -169,57 +169,54 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               />
             </div>
 
-            {/* Linked Stories - collapsible on profile, hidden on detail view */}
-            {/* Detail view: Stories are shown below, grouped by position - don't duplicate here */}
-            {profileOwnerId && !isDetailView && (
-              // Profile context: Collapsible "Your N stories" (collapsed by default)
-              <div className="mt-3">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setStoriesExpanded(!storiesExpanded);
-                  }}
-                  className="flex items-center gap-1.5 min-w-[44px] min-h-[44px] px-2 py-2 -mx-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                  aria-expanded={storiesExpanded}
-                  aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} ${isCurrentUserProfile ? 'your' : profileOwner?.name.split(' ')[0] + "'s"} stories`}
-                >
-                  {storiesExpanded ? (
-                    <ChevronDown size={16} className="flex-shrink-0" />
-                  ) : (
-                    <ChevronRight size={16} className="flex-shrink-0" />
-                  )}
-                  <span>
-                    {isCurrentUserProfile ? 'Your' : `${profileOwner?.name.split(' ')[0]}'s`} {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
-                  </span>
-                </button>
-                {storiesExpanded && storiesToShow.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {storiesToShow.map(story => (
-                      <QuotedStory
-                        key={story.id}
-                        story={story}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(routes.story(story.id));
-                        }}
-                        onAuthorClick={(e) => {
-                          e.stopPropagation();
-                          navigate(routes.profileById(story.authorId));
-                        }}
-                      />
-                    ))}
-                    {filteredStories.length > 3 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(routes.point(point.id));
-                        }}
-                        className="text-xs text-blue-600 hover:underline"
-                      >
-                        +{filteredStories.length - 3} more stories
-                      </button>
-                    )}
-                  </div>
+            {/* Stats row with linked stories toggle - profile context only */}
+            {profileOwnerId && !isDetailView && filteredStories.length > 0 && (
+              <div className="mt-3 flex items-center gap-1 text-sm text-gray-500">
+                <MobileTooltip content={`${filteredStories.length} linked ${filteredStories.length === 1 ? 'story' : 'stories'} - click to ${storiesExpanded ? 'collapse' : 'expand'}`}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStoriesExpanded(!storiesExpanded);
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors min-w-[44px] min-h-[44px] justify-center"
+                    aria-expanded={storiesExpanded}
+                    aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} ${filteredStories.length} linked stories`}
+                  >
+                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <BookOpen size={14} />
+                    {filteredStories.length}
+                  </button>
+                </MobileTooltip>
+              </div>
+            )}
+
+            {/* Expanded linked stories - profile context only */}
+            {profileOwnerId && !isDetailView && storiesExpanded && storiesToShow.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {storiesToShow.map(story => (
+                  <QuotedStory
+                    key={story.id}
+                    story={story}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.story(story.id));
+                    }}
+                    onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(story.authorId));
+                    }}
+                  />
+                ))}
+                {filteredStories.length > 3 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.point(point.id));
+                    }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    +{filteredStories.length - 3} more stories
+                  </button>
                 )}
               </div>
             )}
