@@ -14,6 +14,72 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-23: Event page — no tabs, outcomes focus, card selection inside /live
+
+**Context:** Designing event verification flow (P85) for physical events. Originally had Info/Feed tabs on event page. Realized "feed" was wrong mental model.
+
+**Decision:**
+- **No tabs on event page** — Single page with info + participants + outcomes
+- **No "feed"** — At physical events, people match in person. Don't need digital content discovery.
+- **Card selection happens inside /live** — Same UI pattern everywhere (profiles and /live sessions)
+- **Event page shows outcomes** — Verification count, avg understanding, leaderboard with ears (👂)
+- **Ears = calibration reputation** — Shows on participant list, creates social proof
+
+**Alternatives rejected:**
+- Info/Feed tabs — Added complexity, feed doesn't fit physical event model
+- Digital partner matching — Unnecessary for in-person events
+- Content browsing on event page — Wrong place; browse profiles or select inside /live
+- Separate "explore" feed — Just use same card component everywhere
+
+**Consequences:**
+- Event page is simpler (one view)
+- Card selection UI component shared between profiles and /live
+- Event outcomes section drives H2 (visibility) and H0b (FOMO)
+- No presence system needed — link/QR sufficient for /live pairing
+
+**References:** [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) | [hypotheses.md](hypotheses.md#h2-visibility-changes-group-behavior-)
+
+---
+
+## 2026-01-23: H0b hypothesis — Social FOMO drives adoption
+
+**Context:** Realized that showing calibration scores (ears 👂) on participant lists serves dual purpose: visibility (H2) and social FOMO (new hypothesis).
+
+**Decision:** Added H0b hypothesis to test whether seeing others' calibration motivates non-participants to verify.
+
+**Alternatives rejected:**
+- Merging with H0 — H0 is self-revelation ("I didn't realize I was miscalibrated"), H0b is social ("others have it, I want it")
+- Deferring — FOMO is core to event outcomes design, need to track it from first event
+
+**Consequences:**
+- H2 test event should track: Did seeing others' ears drive participation?
+- Event outcomes section explicitly shows leaderboard to trigger FOMO
+- Success criteria: Users mention wanting calibration after seeing others' scores
+
+**References:** [hypotheses.md](hypotheses.md#h0b-social-fomo-drives-adoption-)
+
+---
+
+## 2026-01-23: Build order — Verification flow before Sifter
+
+**Context:** Was unclear whether to build Sifter (P58) or verification flow (P85) first. Both seemed necessary for H2 test.
+
+**Decision:** Verification flow (P85) before Sifter (P58). Manual seeding is sufficient for H2 test.
+
+**Alternatives rejected:**
+- Sifter first — Would automate seeding but verification loop needs to work first
+- Both in parallel — Too much scope, verify the core loop first
+
+**Consequences:**
+- Phase 0: P85 Event Verification Flow (connect /live to content)
+- Phase 3: Sifter (after verification works)
+- First event can use manually seeded Stories/Points
+- Proves loop works before automating the seeding
+
+**References:** [roadmap.md](roadmap.md#build-phases) | [p58_sifter_mvp.md](../features/p58_sifter_mvp.md)
+
+---
+
 ## 2026-01-22: Calibration display — inline bar with 7-level brackets
 
 **Context:** Calibration was shown as a separate card (sidebar on desktop, below profile on mobile). Discussed making it part of the profile card, and needed to define meaningful labels for calibration gaps.

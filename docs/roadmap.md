@@ -3,13 +3,13 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-01-20
+**Last Updated:** 2026-01-23
 **North Star:** First 30-person Clarity Event (H2 validation)
 
-> **Current Focus:** P60 Exploration UX → Manual seed → H2 test event
+> **Current Focus:** P85 Event Verification Flow → Connect /live to content → H2 test event
 >
-> **What's done:** Events backend, /live verification
-> **What's next:** P60 (Story/Point navigation UI) — mockup/frontend only
+> **What's done:** Events backend, /live verification, 7-point position scale UI
+> **What's next:** Card selection inside /live, verification logging, event outcomes display
 > **Then:** Manually seed Stories/Points → Run 30-person event → Validate H2
 > **After H2:** Sifter (P58) automates seeding
 
@@ -143,28 +143,31 @@ This badge appears next to their name across the platform, rewarding epistemic h
 
 ## Build Phases
 
-### Phase 0: Exploration UX (P60) ✅ CURRENT
+### Phase 0: Event Verification Flow (P85) ✅ CURRENT
 
-**Goal:** Users can navigate between Stories and Points, filter by position, initiate verification.
+**Goal:** Connect /live to Stories/Points, log verifications, display event outcomes.
 
-See [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) for full spec.
+See [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) for full spec.
 
 ```
-□ StoryDetail screen (blue card + linked Points)
-□ PointDetail screen (yellow card + linked Stories with position filter)
-□ Pattern B cards (collapse/expand, position badges)
-□ "Verify Understanding" button → /live
-□ Feed with Story/Point cards
+□ Card selection inside /live (browse your cards + partner's cards)
+□ Simplified card component (collapsed linked content)
+□ Stance prompt after verification (position on linked Points)
+□ VerificationEvent logging (positions before/after)
+□ Event outcomes section (verification count, leaderboard)
+□ Ears (👂) count on participant list
 ```
 
 **Why first:**
-- Can't test H2 without visible Stories/Points
-- Manual seeding sufficient — Sifter comes later
-- Frontend mockup, backend schema exists
+- /live exists but isn't connected to content
+- Need verification logging before H2 test
+- Event outcomes create visibility (H2) and FOMO (H0b)
+
+**Key insight:** No "feed" needed. At physical events, people match in person. Card selection happens inside /live, not on event page.
 
 ### Phase 1: Points + Positions Backend ✅ DONE
 
-**Goal:** Points can be shared, positions can be staked on -3 to +3 scale.
+**Goal:** Points can be shared, positions can be staked on -3 to +3 scale. 7-point UI completed.
 
 ```
 □ Points table (from sifted content or manual entry)
@@ -264,41 +267,9 @@ event_participants (
 )
 ```
 
-### Phase 3: Quick-Pair /live
+### Phase 3: Sifter (P58)
 
-**Goal:** Instant verification from event context.
-
-```
-□ Modify /live: accept ?with=userId&point=pointId params
-□ Skip code/QR flow when params present
-□ Show Point context + both parties' Stories
-□ Link session to point_id in DB
-□ "Verify with [person]" button on attendee list
-```
-
-**Current vs Event flow:**
-| Current /live | Event /live |
-|---------------|-------------|
-| Create session, get code | No code — partner known |
-| Share QR, wait for join | Both in same room |
-| Unknown partner | Picked from attendee list |
-
-### Phase 4: First Event (H2 Validation)
-
-**Goal:** Run 30-person event to validate H2 (visibility changes behavior).
-
-```
-□ Manually seed 3-5 Stories/Points for test event
-□ End-to-end test with P60 UI
-□ Run event, observe verification behavior
-□ Post-event survey: >50% verify, >60% "worth it"
-```
-
-**Success criteria:** See [hypotheses.md](hypotheses.md) H2 definition.
-
-### Phase 5: Sifter (P58)
-
-**Goal:** Automate Story/Point creation (only after H2 validated).
+**Goal:** Automate Story/Point creation (manual seeding works but is friction).
 
 See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
 
@@ -309,9 +280,23 @@ See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
 □ Mirror Test: AI plays back, user confirms
 ```
 
-**Why after H2:** Don't automate seeding until manual seeding proves the loop works.
+**Why after verification flow:** Don't automate seeding until verification loop is connected. Manual seeding sufficient for H2 test.
 
-### Phase 6: AI Synthesis + Context Portal
+### Phase 4: First Event (H2 Validation)
+
+**Goal:** Run 30-person event to validate H2 (visibility changes behavior) and H0b (social FOMO).
+
+```
+□ Manually seed 3-5 Stories/Points for test event
+□ End-to-end test with verification flow
+□ Run event, observe verification behavior
+□ Post-event survey: >50% verify, >60% "worth it"
+□ Track: Did seeing others' ears (👂) drive participation?
+```
+
+**Success criteria:** See [hypotheses.md](hypotheses.md) H2 and H0b definitions.
+
+### Phase 5: AI Synthesis + Context Portal
 
 **Goal:** Post-verification learning extraction.
 
@@ -406,7 +391,7 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 ## Related Documents
 
 **Current Work:**
-- [P60: Exploration UX](../features/p60_navigating_stories_and_points.md) — Story/Point navigation (CURRENT)
+- [P85: Event Verification Flow](../features/p85_event_verification_flow.md) — Card selection in /live, verification logging, event outcomes (CURRENT)
 - [P78: User Personas](../features/p78_user_personas.md) — Event organizer + other personas
 - [P79: Consulting Revenue](../features/p79_consulting_revenue_model.md) — Bootstrap revenue model
 
@@ -427,6 +412,7 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 | Date | Change |
 |------|--------|
+| 2026-01-23 | **Major restructure:** P85 Event Verification Flow is now Phase 0. Sifter moved to Phase 3. Added H0b to H2 test criteria. Key insight: no "feed" needed — card selection happens inside /live, event page shows outcomes only. |
 | 2026-01-20 | Restructured phases: P60 (exploration) now Phase 0, Sifter moved to Phase 5 (after H2). Marked Events backend done. Deleted duplicate hypotheses, linked to hypotheses.md. Added P78/P79 references. |
 | 2026-01-18 | v7 alignment: -3 to +3 position scale, ≥8/10 verification threshold, calibration badge (≥10 sessions + ±0.5 gap), Story↔Point bidirectional linking, position_history table for conversion tracking, new open questions Q4/Q5 |
 | 2026-01-14 | Refactored from p57, integrated v6 Story/Point model, added Sifter as Phase 0 |

@@ -2,6 +2,7 @@
 
 **Status:** Planning
 **Created:** 2026-01-23
+**Updated:** 2026-01-23
 **Priority:** High — Required for H2 test (30-person event)
 **Supersedes:** p84_verify_with_author.md (archived), p91_navigation_ia.md (merged)
 
@@ -10,73 +11,131 @@
 ## Goal
 
 Enable the H2 hypothesis test: Run a 30-person event where verification visibility changes behavior. This requires:
-1. Public content (Stories/Points visible globally, filterable by event)
-2. Partner discovery (find who to verify with)
-3. Verification flow (tap → pick partner → /live → rate → log)
-4. Stance prompts (capture position changes after understanding)
+1. Event page with outcomes visibility (who verified, calibration leaderboard)
+2. Card selection inside /live (not a separate "feed")
+3. Verification flow (select content → /live → rate → log position shift)
+4. Calibration display that creates FOMO (H0b)
+
+---
+
+## Key Insight: No Feed Needed
+
+At physical events, people match in person — they walk up and talk. Digital "feed" for partner discovery is unnecessary.
+
+What matters:
+- **Card selection** happens inside /live (browse your cards + partner's cards)
+- **Event page** shows outcomes (who's calibrated, verification count)
+- **Visibility** creates social proof and FOMO
 
 ---
 
 ## Event Page Structure
 
-**Single page with tabs:** `/event/:id`
+**Single page, no tabs:** `/event/:id`
 
-| Tab | Default for | Content |
-|-----|-------------|---------|
-| **Info** | Non-members | Description, date, location, host, vertical attendee list |
-| **Feed** | Members | Horizontal attendee cards (filter) + Stories/Points below |
+```
+┌─────────────────────────────────────────────┐
+│ 🥾 Clarity Hike: Golden Gate               │
+│ Jan 20, 2026 • San Francisco               │
+│                                             │
+│ [Event description - keep current design]   │
+│                                             │
+│ Host: @maria_k                              │
+│                                             │
+├─────────────────────────────────────────────┤
+│ PARTICIPANTS (12)                           │
+│                                             │
+│ 👂 12  Maria K.        [Start /live]        │
+│ 👂 8   John D.         [Start /live]        │
+│ 👂 6   Carol C.        [Start /live]        │
+│ 👂 3   You             [Invite to verify]   │
+│ 👂 --  New Person      [Start /live]        │
+│                                             │
+├─────────────────────────────────────────────┤
+│ EVENT OUTCOMES                              │
+│                                             │
+│ 8 verifications completed                   │
+│ Avg understanding: 7.2/10                   │
+│                                             │
+│ [Join this event]  ← CTA for non-members    │
+└─────────────────────────────────────────────┘
+```
 
-- Non-logged-in user lands on Info tab
-- Member lands on Feed tab
-- Both tabs accessible to members
+### What Each Section Shows
 
-### Attendees in Two Places (Different Functions)
+| Section | Content | Purpose |
+|---------|---------|---------|
+| **Header** | Event name, date, location, host | Context |
+| **Description** | Event details (keep current design) | Why attend |
+| **Participants** | List with ears (👂) count + /live CTA | See who's calibrated, start session |
+| **Outcomes** | Verification count, avg score | Social proof, H2 visibility |
 
-| Location | Layout | Purpose | Tap action |
-|----------|--------|---------|------------|
-| **Info tab** | Vertical list (below description) | See who's here | Opens profile |
-| **Feed tab** | Horizontal cards (at top) | Filter content | Filters Feed to their Stories/Points |
+### Ears (👂) Display
 
-### Verification Flow Entry
+Ears = calibration reputation. Shows on participant list:
+- `👂 12` = verified understanding with 12 people
+- `👂 --` = no verifications yet (new user)
 
-Primary path: Feed → tap person's card → see their content → tap "Verify" on Story
+Tap participant → opens their profile (see their Stories/Points there)
 
 ---
 
-## Feed Tab: Responsive Behavior
+## Card Selection: Inside /live
 
-| Viewport | Content display |
-|----------|-----------------|
-| Mobile (<768px) | Swipeable card stack (Stories only) |
-| Desktop (≥768px) | Scrollable StoryCard list |
+"Feed" was the wrong mental model. It's actually **card selection for verification**.
 
-- **Stories only** in Feed — no Points until after verification
-- Points appear in stance prompt after /live completes
-- Desktop reuses existing `StoryCard` component from profile
-- Mobile uses `SwipeableCard` but Stories only (no Point cards)
+### Where Card Selection Happens
 
----
+| Context | What You See |
+|---------|--------------|
+| **Inside /live** | Your cards + Partner's cards — select what to verify |
+| **On profile** | Someone's Stories/Points — browse before /live |
+| **NOT on event page** | Event page shows outcomes, not content to browse |
 
-## Story Cards in Feed
-
-### Display
+### Card Selection UI (inside /live)
 
 ```
-[Story Card]
-"My experience with remote work..."
-Author: Carol Chen
-🎤 3  ← verification count (people who verified this Story)
-[Verify]
+┌─────────────────────────────────────────────┐
+│ /live with Carol                            │
+│                                             │
+│ SELECT CONTENT TO VERIFY                    │
+│                                             │
+│ [Your Stories]  [Carol's Stories]  ← tabs   │
+│                                             │
+│ ┌─────────────────────────────────────────┐ │
+│ │ 📖 "I burned out commuting 2 hours..."  │ │
+│ │    → 3 Points linked                    │ │
+│ │                            [Select]     │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+│ ┌─────────────────────────────────────────┐ │
+│ │ 📖 "My experience with remote work..."  │ │
+│ │    → 1 Point linked                     │ │
+│ │                            [Select]     │ │
+│ └─────────────────────────────────────────┘ │
+│                                             │
+└─────────────────────────────────────────────┘
 ```
 
-### Verify Button Rules
+### Card Design (Simplified)
 
-| Scenario | Button | Reason |
-|----------|--------|--------|
-| My own Story | Hidden | Can't verify yourself |
-| Author in shared event | Visible | Event = trust boundary |
-| Author NOT in shared event | Hidden | No verification with strangers |
-| Already verified by me | Shows "✓ Verified" | Once per person per Story |
+```
+┌─────────────────────────────────────────┐
+│ 📖 "Story text preview..."              │
+│    → 3 Points linked                    │  ← collapsed, not expanded
+│                            [Select]     │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ 📍 "Point text preview..."              │
+│    → 2 Stories linked                   │  ← collapsed, not expanded
+│                            [Select]     │
+└─────────────────────────────────────────┘
+```
+
+- **Collapsed by default** — "has X linked" not full expansion
+- **Select action** — brings into current /live session
+- **Same component** used on profiles and inside /live
 
 ---
 
@@ -86,229 +145,219 @@ Author: Carol Chen
 
 | From | Action | Flow |
 |------|--------|------|
-| **Story card** | Tap "Verify" | Pick partner → /live |
-| **Attendee card** | Tap "Verify with [name]" | Pick their Story → /live |
-| **My Story** | Tap "Get Verified" | Share link / pick partner to invite |
+| **Event participant list** | Tap "Start /live" | Enter session → select content |
+| **Profile** | Tap "Verify with [name]" | Enter session → select content |
+| **Inside /live** | Select card | Begin explain-back on that Story |
 
-### Primary Flow (Listener-initiated)
-
-```
-1. Feed: See Carol's Story
-2. Tap "Verify" on her Story
-3. Get session link/QR
-4. Share with Carol (in person or via message)
-5. Carol clicks link → both enter /live with Story loaded
-6. You explain back → Carol rates (0-10)
-7. Verification complete (8/10 minimum to count as "verified")
-8. Stance prompt (see below)
-9. "Verify another?" prompt
-```
-
-### Session Link Screen
+### Primary Flow (Physical Event)
 
 ```
-Verify Carol's Story:
-"My experience with remote work..."
-
-Share this link with Carol to start:
-
-[Copy link]  [Show QR]
-
-Waiting for Carol to join...
+1. At event, walk up to Carol
+2. Both open app, one taps "Start /live with Carol"
+3. In /live: browse each other's cards
+4. Select Carol's Story to verify
+5. You explain back → Carol rates (0-10)
+6. If ≥8/10 → "Verified" ✓
+7. Stance prompt (position on linked Points)
+8. "Verify another?" or end session
 ```
 
-- No presence system needed for MVP
-- Works for in-person events (show QR) and remote (share link)
-- Once Carol clicks link, both enter /live
+### Session Link/QR (for starting)
+
+```
+Start /live with Carol:
+
+[Show QR]  [Copy link]
+
+Carol scans QR or clicks link → both enter session
+```
+
+- Works in-person (QR) and remote (link)
+- No presence system needed
+- 24hr TTL on links
 
 ---
 
-## Multi-Story Sessions
-
-After each verification:
-
-```
-✓ Verification complete!
-
-Verify another Story?
-  → [Your turn - pick their Story]
-  → [Their turn - they pick yours]
-  → [End session]
-```
-
-- One Story at a time (focus)
-- Stay in session (no exit/re-enter friction)
-- Clear turn-taking
-- Either person can end anytime
-
----
-
-## Post-Verification Stance Prompt
+## Post-Verification: Stance Prompt
 
 After verification completes, **both people** see:
 
 ```
-✓ Verification complete! You rated 9/10.
+✓ Verification complete! Carol rated 9/10.
 
-This Story relates to:
+This Story relates to these Points:
 
-Point: "Remote work increases productivity"
-  Your stance: Disagree
-  [Update stance?] [Keep]
+📍 "Remote work increases productivity"
+   Your current stance: Disagree (-2)
+   [Update stance]  [Keep]
 
-Point: "Work-life balance matters more than salary"
-  Your stance: Strongly Agree
-  [Update stance?] [Keep]
+📍 "Work-life balance matters more than salary"
+   Your current stance: Strongly Agree (+3)
+   [Update stance]  [Keep]
 
 [Done]
 ```
 
 **Why this matters:**
 - Captures position change at moment of understanding
-- Identifies "strong" Points (positions rarely change)
-- Identifies "soft" Points (positions change after hearing Stories)
-- Both prompted = symmetric data
+- Data for H-Core (asymmetric conversion tracking)
+- Both prompted = symmetric data collection
 
 ---
 
-## Verification Logs
+## Event Outcomes Section
 
-**One record, three views:**
+The key H2 visibility feature — what happened at this event.
 
-### View 1: From Story Detail
-
-```
-Story: "My remote work experience"
-Author: Bob
-
-Verified by:
-  Carol → 10/10 (Jan 23)
-  You → 8/10 (Jan 22)
-  Alice → 7/10 (Jan 20)
-```
-
-### View 2: From Profile ("Our History")
+### Basic Display
 
 ```
-Carol's Profile
-...
-[View our 3 verification sessions]
+EVENT OUTCOMES
 
-Session history:
-  • Jan 23: 2 Stories verified
-  • Jan 20: 1 Story verified
-  • Jan 15: 1 Story verified
+8 verifications completed
+Avg understanding score: 7.2/10
+
+TOP CALIBRATED (this event)
+👂 12  Maria K.
+👂 8   John D.
+👂 6   You
 ```
 
-### View 3: Session Log
+### Future Enhancement: Impact Score
+
+Once we have enough data, add simplified P90:
 
 ```
-Session: Jan 23, 2:30pm
-Partner: Carol
-Duration: 12 min
+STRONGEST CONTENT (this event)
 
-Stories verified:
-  1. Carol's "Remote work..." → You: 10/10
-  2. Your "Office culture..." → Carol: 9/10
+📍 "Remote work improves wellbeing" ⚡ 72
+   3 position shifts after verification
+
+📖 "My burnout story" ⚡ 64
+   Changed 2 people's minds
+```
+
+---
+
+## Data Model
+
+### VerificationEvent (logs each verification)
+
+```typescript
+interface VerificationEvent {
+  id: string;
+  sessionId: string;           // /live session
+
+  // Who
+  verifierId: string;          // Who explained back
+  authorId: string;            // Whose Story was verified
+
+  // What
+  storyId: string;             // Which Story
+  pointIds: string[];          // Linked Points (for stance prompt)
+
+  // Scores
+  understandingScore: number;  // 0-10, from author
+
+  // Position tracking (for H-Core)
+  positionsBefore: Record<string, number>;  // pointId → position (-3 to +3)
+  positionsAfter: Record<string, number>;   // after stance prompt
+
+  // Context
+  eventId: string | null;      // If at an event
+  timestamp: Date;
+}
+```
+
+### Computed: Event Outcomes
+
+```typescript
+interface EventOutcomes {
+  eventId: string;
+
+  verificationCount: number;
+  avgUnderstandingScore: number;
+
+  // Leaderboard
+  participantEars: Array<{
+    userId: string;
+    ears: number;  // verifications at this event
+  }>;
+
+  // Future: Impact scores
+  topContent?: Array<{
+    contentId: string;
+    contentType: 'story' | 'point';
+    impactScore: number;
+  }>;
+}
 ```
 
 ---
 
 ## Key Decisions Summary
 
-| Decision | Answer |
-|----------|--------|
-| Event page structure | **2 tabs: Info / Feed** |
-| Info tab attendees | Vertical list, tap → profile |
-| Feed tab attendees | Horizontal cards at top, tap → filter Feed |
-| Content scope | **Public only** (no event-scoped privacy for H2) |
-| Global feed | **Keep** (unfiltered view of all content) |
-| Verify button visibility | Hidden if no shared event |
-| Re-verification | Once per person per Story |
-| Multi-story sessions | Yes, via "Verify another?" prompt |
-| Who initiates | Both (listener picks, or speaker invites) |
-| Pairing mechanism | **Both:** notification invite (specific person) + QR (open invite) |
-| Verification threshold | 8/10 minimum to count as "verified" |
-| Stance prompts | Post-verification, both people, all linked Points (no cap) |
-| Log structure | Per-session, viewable from Story/Profile/Session |
+| Decision | Answer | Rationale |
+|----------|--------|-----------|
+| Event page tabs | **No tabs** | Single page with info + outcomes |
+| Feed on event page | **No** | Card selection happens inside /live |
+| Partner discovery | **In person** | Physical events don't need digital matching |
+| Card selection location | **Inside /live** | Same UI for your cards + partner's cards |
+| Card display | **Collapsed** | "has X linked" not full expansion |
+| Event outcomes | **Leaderboard + counts** | Creates H2 visibility + H0b FOMO |
+| Ears display | **On participant list** | Shows calibration at glance |
 
 ---
 
-## Out of Scope (Deferred)
+## What's NOT in Scope
 
-- P55 Ideas swipe during /live (too complex for H2)
-- Presence system (green dots for online users)
-- AI sifter / brain dump (Phase 5)
-- Topology visualization (component exists, not integrated)
-- Event-only content privacy (public only for H2)
-- Communities layer (see P92)
+| Feature | Why Deferred |
+|---------|--------------|
+| Feed tab on events | Physical events don't need it |
+| Horizontal attendee filter | Not needed without feed |
+| Content discovery on event page | Browse profiles instead |
+| Presence system | Link/QR sufficient for MVP |
+| Notifications | Manual coordination for physical events |
+| AI Sifter | After verification flow works |
 
 ---
 
 ## Dependencies
 
-- [ ] Event page with 2 tabs: Info / Feed
-- [ ] Attendee list in Info tab (vertical)
-- [ ] Attendee filter cards in Feed tab (horizontal)
-- [ ] Filter Feed by attendee (tap card → show their content)
-- [x] /live session flow (exists in prototype)
-- [x] Story cards with verification count (exists)
-- [ ] Partner picker component
-- [ ] Post-verification stance prompt
-- [ ] Session log storage and views
-- [ ] Notification invites for verification
-
----
-
-## Resolved Questions
-
-| Question | Decision |
-|----------|----------|
-| Verification threshold | **8/10 minimum** to count as "verified" |
-| Partner offline | **Share link/QR** — no presence system for MVP |
-| Many linked Points | **Show all** — user taps "Keep" quickly, no cap needed |
+- [x] /live session flow (exists)
+- [x] Event page (exists, needs outcomes section)
+- [ ] Card selection UI inside /live
+- [ ] Simplified card component (collapsed linked content)
+- [ ] Stance prompt after verification
+- [ ] VerificationEvent logging
+- [ ] Event outcomes calculation + display
+- [ ] Ears count on participant list
 
 ---
 
 ## Acceptance Criteria
 
-1. Event page shows 2 tabs: Info / Feed
-2. Non-member sees Info tab by default
-3. Member sees Feed tab by default
-4. Info tab shows vertical attendee list; tap → opens profile
-5. Feed tab shows horizontal attendee cards at top; tap → filters Feed
-6. "Verify" button hidden on Stories from non-shared-event authors
-7. "Verify" button hidden on own Stories
-8. Tapping "Verify" shows link + QR to share
-9. Can send notification invite to specific person
-10. Selecting partner starts /live with Story loaded
-11. After verification, stance prompt shows for all linked Points
-12. "Verify another?" prompt enables multi-story sessions
-13. Verification logged and viewable from Story, Profile, and Session views
-14. Global feed shows all content (unfiltered)
-
----
+1. Event page shows single view (no tabs): info + participants + outcomes
+2. Participants list shows ears (👂) count for each person
+3. "Start /live" button on each participant
+4. Inside /live: can browse your cards + partner's cards
+5. Cards show "X linked" collapsed (not full expansion)
+6. Selecting card starts explain-back flow
+7. After verification (≥8/10), stance prompt appears for linked Points
+8. Position changes logged in VerificationEvent
+9. Event outcomes section shows verification count + leaderboard
+10. Leaderboard ordered by ears at this event
 
 ---
 
 ## Navigation & Information Architecture
-
-*Merged from P91*
 
 ### Global Navigation
 
 | Item | Label | Notes |
 |------|-------|-------|
 | Home | **Events** | Not "My Events", not "Dashboard" |
-| Global feed | **Feed** | Keep — shows all content unfiltered |
 | Profile | **Profile** | Not "My Profile" |
-
-### Back Buttons
-
-| Context | Label |
-|---------|-------|
-| From event detail | `← Events` or just `←` |
-| From profile | `←` (browser back) |
 
 ### Information Architecture
 
@@ -318,19 +367,22 @@ Events (home)
 │   └── Event Card → tap to open
 │
 └── Event Detail `/event/:id`
-    ├── Info tab (non-member default)
-    │   ├── Description, date, location, host
-    │   └── Attendee list (vertical)
-    │
-    └── Feed tab (member default)
-        ├── Attendee cards (horizontal, filter)
-        └── Stories + Points
-
-Feed (global)
-└── All Stories + Points (unfiltered)
+    ├── Header (name, date, location, host)
+    ├── Description
+    ├── Participants (with ears, /live CTA)
+    └── Outcomes (verification count, leaderboard)
 
 Profile `/p/:slug`
-└── Verification history, stats, pledger badge
+├── Stories (with verification counts)
+├── Points (with positions)
+├── Calibration banner
+└── Verification history
+
+/live `/live/:sessionId`
+├── Card selection (your cards / partner's cards)
+├── Explain-back flow
+├── Stance prompt
+└── "Verify another?" prompt
 ```
 
 ### Naming Rules
@@ -338,6 +390,7 @@ Profile `/p/:slug`
 - ❌ No "Dashboard" anywhere
 - ❌ No "My Events" (just "Events")
 - ❌ No "My Profile" (just "Profile")
+- ❌ No "Feed" on event page
 - ✅ Simple, direct labels
 
 ---
@@ -346,5 +399,5 @@ Profile `/p/:slug`
 
 | Date | Change |
 |------|--------|
-| 2026-01-23 | Merged P91 navigation decisions. Updated tabs to 2 (Info/Feed). Added content scope (public only). Added notification invites. |
-| 2026-01-23 | Created from design session. Supersedes p84. |
+| 2026-01-23 | **Major revision:** Removed tabs, moved card selection to inside /live, added event outcomes focus, simplified for physical events. Key insight: at physical events people match in person — no "feed" needed on event page. |
+| 2026-01-23 | Created from design session. Supersedes p84, p91 (navigation). |
