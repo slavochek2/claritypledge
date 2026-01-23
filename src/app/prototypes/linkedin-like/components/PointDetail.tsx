@@ -111,6 +111,8 @@ export function PointDetail() {
                 position={position}
                 stories={storiesByPosition[position]}
                 point={point}
+                showHeader={positionFilter === 'all'}
+                hidePositionBadge={positionFilter !== 'all'}
               />
             ))}
           </div>
@@ -122,16 +124,23 @@ export function PointDetail() {
 
 /**
  * Section for a single position group (Agree/Disagree/Unsure)
- * Shows header with count and list of stories (or empty state)
+ * Shows header only when viewing all positions (showHeader=true)
+ * When filtered to single position, tab already indicates the position
  */
 function PositionSection({
   position,
   stories,
   point,
+  showHeader,
+  hidePositionBadge,
 }: {
   position: PositionButtonGroup;
   stories: Story[];
   point: ReturnType<typeof getPointById>;
+  /** Show section header - false when filtered to single position (tab is the header) */
+  showHeader: boolean;
+  /** Hide position badge on cards - true when filtered (tab already shows position) */
+  hidePositionBadge: boolean;
 }) {
   const labels: Record<PositionButtonGroup, string> = {
     agree: 'Agree',
@@ -141,19 +150,21 @@ function PositionSection({
 
   return (
     <div>
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          {labels[position]} ({stories.length})
-        </span>
-        <div className="flex-1 h-px bg-gray-200" />
-      </div>
+      {/* Section header - only when viewing all positions */}
+      {showHeader && (
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            {labels[position]} ({stories.length})
+          </span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+      )}
 
       {/* Stories or empty state */}
       {stories.length === 0 ? (
         <p className="text-center text-gray-400 text-sm py-3">
-          (no positions yet)
+          (no stories yet)
         </p>
       ) : (
         <div className="space-y-3">
@@ -164,6 +175,7 @@ function PositionSection({
               compact
               context="point-detail"
               authorPosition={point?.positions[story.authorId]?.position}
+              hidePositionBadge={hidePositionBadge}
             />
           ))}
         </div>

@@ -20,6 +20,8 @@ interface StoryCardProps {
   context?: StoryCardContext;
   /** Optional position badge to show (e.g., when displayed in Point context) */
   authorPosition?: PositionType;
+  /** Hide position badge even if authorPosition is set (e.g., when filtered by position) */
+  hidePositionBadge?: boolean;
   /** Show "Verify" button in card footer */
   showVerifyButton?: boolean;
   /** Callback for verify button */
@@ -37,6 +39,7 @@ export function StoryCard({
   isDetailView = false,
   context,
   authorPosition,
+  hidePositionBadge = false,
   showVerifyButton = false,
   onVerify,
 }: StoryCardProps) {
@@ -91,8 +94,8 @@ export function StoryCard({
                     </button>
                     <UserCredibility userId={author.id} userName={author.name} />
                     {/* Position on Point - Pin icon clarifies this is about the Point */}
-                    {/* Don't pass name since author name is already shown prominently above */}
-                    {authorPosition && story.authorId !== currentUser.id && (
+                    {/* Hidden when filtered by position (tab already shows position) */}
+                    {authorPosition && !hidePositionBadge && story.authorId !== currentUser.id && (
                       <>
                         <span className="text-xs text-gray-400">·</span>
                         <Pin size={10} className="text-slate-400" />
