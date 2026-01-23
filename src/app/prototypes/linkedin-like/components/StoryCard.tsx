@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, MessageCircle, ExternalLink, Pin } from 'lucide-react';
+import { Mic, MessageCircle, ExternalLink, Pin, ChevronDown, ChevronRight } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser } from '../data/mock-data';
@@ -43,6 +43,8 @@ export function StoryCard({
   const navigate = useNavigate();
   const author = getUserById(story.authorId);
   const linkedPoints = getPointsForStory(story.id);
+  const [pointsExpanded, setPointsExpanded] = useState(false);
+  const isCurrentUserStory = story.authorId === currentUser.id;
 
   const handleCardClick = () => {
     if (!isDetailView) {
@@ -89,14 +91,13 @@ export function StoryCard({
                     </button>
                     <UserCredibility userId={author.id} userName={author.name} />
                     {/* Position on Point - Pin icon clarifies this is about the Point */}
+                    {/* Don't pass name since author name is already shown prominently above */}
                     {authorPosition && story.authorId !== currentUser.id && (
                       <>
                         <span className="text-xs text-gray-400">·</span>
                         <Pin size={10} className="text-slate-400" />
                         <PositionBadge
                           position={authorPosition}
-                          name={author.name.split(' ')[0]}
-                          isCurrentUser={false}
                         />
                       </>
                     )}
@@ -161,10 +162,53 @@ export function StoryCard({
 
               {/* Quoted Points - context-aware display */}
               {linkedPoints.length > 0 && context === 'profile' && (
-                // Profile context: Show count only
-                <div className="mt-3 flex items-center gap-1.5 text-sm text-gray-500">
-                  <span>🔗</span>
-                  <span>{linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}</span>
+                // Profile context: Collapsible "Your N points" (collapsed by default)
+                <div className="mt-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPointsExpanded(!pointsExpanded);
+                    }}
+                    className="flex items-center gap-1.5 min-w-[44px] min-h-[44px] px-2 py-2 -mx-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                    aria-expanded={pointsExpanded}
+                    aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} ${isCurrentUserStory ? 'your' : author?.name.split(' ')[0] + "'s"} points`}
+                  >
+                    {pointsExpanded ? (
+                      <ChevronDown size={16} className="flex-shrink-0" />
+                    ) : (
+                      <ChevronRight size={16} className="flex-shrink-0" />
+                    )}
+                    <span>
+                      {isCurrentUserStory ? 'Your' : `${author?.name.split(' ')[0]}'s`} {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'}
+                    </span>
+                  </button>
+                  {pointsExpanded && (
+                    <div className="mt-2 space-y-2">
+                      {linkedPoints.slice(0, 3).map(point => (
+                        <QuotedPoint
+                          key={point.id}
+                          point={point}
+                          authorName={author?.name || ''}
+                          authorId={story.authorId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(routes.point(point.id));
+                          }}
+                        />
+                      ))}
+                      {linkedPoints.length > 3 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(routes.story(story.id));
+                          }}
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          +{linkedPoints.length - 3} more points
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               {linkedPoints.length > 0 && context !== 'profile' && context !== 'point-detail' && (
