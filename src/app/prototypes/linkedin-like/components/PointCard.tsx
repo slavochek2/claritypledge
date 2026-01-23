@@ -297,7 +297,7 @@ function QuotedStory({
           )}
           {/* Ear indicator - understanding credibility */}
           {author && credibilityStats.ear > 0 && (
-            <MobileTooltip content={`${author.name.split(' ')[0]} understood others' stories`}>
+            <MobileTooltip content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
               <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
                 <Ear size={12} />
                 {credibilityStats.ear}
@@ -314,7 +314,7 @@ function QuotedStory({
       <p className="text-sm text-gray-700 line-clamp-2">{story.text}</p>
       {/* Stats row - verification count only */}
       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-        <MobileTooltip content="People understood this story">
+        <MobileTooltip content={`${author?.name.split(' ')[0] || 'Author'} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
           <span className="flex items-center gap-1">
             <Mic size={12} />
             {story.verificationCount}

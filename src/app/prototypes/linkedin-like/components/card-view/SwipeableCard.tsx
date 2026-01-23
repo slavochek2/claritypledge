@@ -273,7 +273,7 @@ function StoryContent({
               </span>
             </TooltipTrigger>
             <TooltipContent>
-              <p>People understood this story</p>
+              <p>{author?.name.split(' ')[0] || 'Author'} confirmed {story.verificationCount} {story.verificationCount === 1 ? 'person' : 'people'} understood this story</p>
             </TooltipContent>
           </Tooltip>
         </div>
