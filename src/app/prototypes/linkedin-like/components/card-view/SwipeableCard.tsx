@@ -54,7 +54,7 @@ export function SwipeableCard({
   isTopCard = false,
   onSwipe,
   onStoryTap,
-  onPointTap,
+  onPointTap: _onPointTap,
   onLiveButtonClick,
 }: SwipeableCardProps) {
   const [exitDirection, setExitDirection] = useState<SwipeDirection | null>(null);
@@ -174,7 +174,6 @@ export function SwipeableCard({
           ) : (
             <PointContent
               point={item as Point}
-              onTap={onPointTap}
               onStoryTap={onStoryTap}
             />
           )}
@@ -313,11 +312,9 @@ function StoryContent({
  */
 function PointContent({
   point,
-  onTap,
   onStoryTap,
 }: {
   point: Point;
-  onTap?: (pointId: string) => void;
   onStoryTap?: (storyId: string) => void;
 }) {
   const [userPosition, setUserPosition] = useState<Position>(
