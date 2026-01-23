@@ -43,6 +43,20 @@ Primary path: Feed → tap person's card → see their content → tap "Verify" 
 
 ---
 
+## Feed Tab: Responsive Behavior
+
+| Viewport | Content display |
+|----------|-----------------|
+| Mobile (<768px) | Swipeable card stack (Stories only) |
+| Desktop (≥768px) | Scrollable StoryCard list |
+
+- **Stories only** in Feed — no Points until after verification
+- Points appear in stance prompt after /live completes
+- Desktop reuses existing `StoryCard` component from profile
+- Mobile uses `SwipeableCard` but Stories only (no Point cards)
+
+---
+
 ## Story Cards in Feed
 
 ### Display

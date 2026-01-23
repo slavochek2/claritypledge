@@ -166,55 +166,27 @@ If given a UAT, look for spec:
 
 **Both are optional** — Ralph Orchestrator works with just a spec file.
 
-### Step 4: Generate Ralph Orchestrator Commands
+### Step 4: Generate Ralph Orchestrator Command
 
-**Primary output: Ralph Orchestrator**
-
-Generate two forms:
-
-**Form 1: Inline command (quick start)**
+**Output the simple one-liner only:**
 
 ```bash
-ralph run -p "Implement {FEATURE_NAME} per {SPEC_PATH}. Success criteria: {CRITERIA_SUMMARY}. Verify with browser MCP tools. Commit after each component."
+ralph run --no-tui -p "Implement {FEATURE_NAME} per {SPEC_PATH}. {BRIEF_CONTEXT}. Verify with browser MCP."
 ```
 
-**Form 2: PROMPT.md file (recommended for complex specs)**
+Where `{BRIEF_CONTEXT}` is 1-2 sentences max:
+- Key components to build
+- Important constraints (e.g., "Frontend mockup only", "Reuse existing components")
 
-Generate a `PROMPT.md` file in project root:
+**Keep it short.** Ralph will read the spec file for details.
 
-```markdown
-# {FEATURE_NAME} Implementation
+**DO NOT output:**
+- Long PROMPT.md heredocs
+- Detailed success criteria lists
+- Step-by-step implementation orders
+- Component breakdowns
 
-## Spec
-{SPEC_PATH}
-
-## Success Criteria
-{EXTRACTED_SUCCESS_CRITERIA}
-
-## Implementation Protocol
-1. Read spec section relevant to current component
-2. Implement using TDD (test first when applicable)
-3. Verify with Playwright MCP or Chrome DevTools MCP
-4. Commit after each component: `feat({feature_slug}): add {component}`
-5. Continue until all success criteria met
-
-## Components to Implement
-{COMPONENT_LIST}
-
-## Verification
-Use browser MCP tools to verify:
-- UI renders correctly
-- Interactions work as specified
-- No console errors
-
-## Completion
-When ALL success criteria are met, output: COMPLETE
-```
-
-Then run:
-```bash
-ralph run
-```
+If the one-liner fails, THEN suggest creating a PROMPT.md as fallback.
 
 ### Step 5: Generate Deprecated Internal Command (Fallback)
 
@@ -235,87 +207,27 @@ Use Ralph Orchestrator instead for reliable iteration.
 
 ### Step 6: Output Format
 
-**Complete output structure:**
+**Keep output minimal:**
 
 ```
-# {FEATURE_NAME} — Ralph Commands
+# {FEATURE_NAME} — Ralph Command
 
-## Complexity Analysis
-- Requirements: {N}
-- Risk keywords: {list or "none"}
-- Integration points: {N}
-- Recommendation: {/loop | Ralph Orchestrator | Ralph Orchestrator + chunk}
+**Requirements:** {N} | **Risk:** {keywords or "none"} | **Recommendation:** {/loop | Ralph}
 
 ---
 
-## Step-by-Step Instructions
-
-### Prerequisites (one-time setup)
-
-1. **Install Ralph** (if not already installed):
-   ```bash
-   npm install -g @ralph-orchestrator/ralph-cli
-   # or: brew install ralph-orchestrator
-   ```
-
-2. **Initialize Ralph in your project** (if no ralph.yml exists):
-   ```bash
-   ralph init --backend claude
-   ```
-
-   **Using git worktrees?** Commit `ralph.yml` to share across worktrees, but gitignore `.agent/`:
-   ```bash
-   git add ralph.yml && echo ".agent/" >> .gitignore
-   ```
-
-### Run the Task
-
-**Option A: Using PROMPT.md (recommended)**
+## Run
 
 ```bash
-# Step 1: Create PROMPT.md
-cat > PROMPT.md << 'EOF'
-{PROMPT_MD_CONTENT}
-EOF
-
-# Step 2: Run Ralph
-ralph run --no-tui
+ralph run --no-tui -p "{SHORT_PROMPT}"
 ```
-
-**Option B: One-liner with inline prompt**
-
-```bash
-ralph run --no-tui -p "{INLINE_PROMPT}"
-```
-
-### Monitor Progress
-
-- Ralph shows iteration count and what it's doing
-- State is saved to `.agent/memories.md` and `.agent/tasks.jsonl`
-- Press `Ctrl+C` to stop if needed
-- Use `ralph run --continue` to resume interrupted sessions
 
 ---
 
-## Quick Reference
-
-| Command | When to use |
-|---------|-------------|
-| `ralph run --no-tui` | ✅ Recommended (works in all terminals) |
-| `ralph run` | Standard terminals only (iTerm2, Terminal.app) |
-| `ralph run --continue` | Resume interrupted session |
-| `/loop` | Simple interactive tasks (inside Claude) |
-| `/ralph-loop` | ⚠️ Deprecated — avoid for new work |
-
-### Common Issues
-
-| Problem | Solution |
-|---------|----------|
-| TUI blank/blinking | Use `--no-tui` flag |
-| "claude not found" | Run from terminal where `claude` command works |
-| Nothing happens | Check PROMPT.md exists: `cat PROMPT.md` |
-| Wrong: `-p file.md` | Pass description, not file path: `-p "Implement X per file.md"` |
+**If it fails:** Create PROMPT.md with more detail, then `ralph run --no-tui`
 ```
+
+That's it. No long setup instructions, no heredocs, no component lists.
 
 ## Edge Cases
 
@@ -330,7 +242,7 @@ ralph run --no-tui -p "{INLINE_PROMPT}"
 | `--prompt-file` flag | Generate PROMPT.md file in project root instead of inline command |
 | UAT file provided | Use UAT for structured tracking (update scorecard during iteration) |
 
-## Example 1: Spec File Input
+## Example 1: Medium Spec
 
 **Input:**
 ```
@@ -339,103 +251,21 @@ ralph run --no-tui -p "{INLINE_PROMPT}"
 
 **Output:**
 ```
-# P89 Swipeable Card View — Ralph Commands
+# P89 Swipeable Card View — Ralph Command
 
-## Complexity Analysis
-- Requirements: 12 success criteria
-- Risk keywords: none
-- Integration points: 1 (P85 position scale)
-- Recommendation: Ralph Orchestrator
+**Requirements:** 12 | **Risk:** none | **Recommendation:** Ralph
 
 ---
 
-## Step-by-Step Instructions
-
-### Prerequisites (one-time setup)
-
-1. **Install Ralph** (if not already installed):
-   ```bash
-   npm install -g @ralph-orchestrator/ralph-cli
-   ```
-
-2. **Initialize Ralph in your project** (if no ralph.yml exists):
-   ```bash
-   ralph init --backend claude
-   ```
-
-### Run the Task
-
-**Option A: Using PROMPT.md (recommended)**
+## Run
 
 ```bash
-# Step 1: Create PROMPT.md
-cat > PROMPT.md << 'EOF'
-# P89 Swipeable Card View Implementation
-
-## Spec
-features/p89_swipeable_card_view.md
-
-## Success Criteria
-- [ ] View toggle switches between List and Card views
-- [ ] Card View shows full-screen swipeable cards
-- [ ] Swipe right = Agree (+2), left = Disagree (-2), down = Skip
-- [ ] Stories: swipe = next, no position recorded
-- [ ] Dropdown tap opens intensity options (P85 pattern)
-- [ ] Participant avatar row filters content in both views
-- [ ] Content type tabs filter Stories/Points/All
-- [ ] Desktop keyboard shortcuts work in Card View
-- [ ] Progress indicator shows position in stack
-- [ ] Undo toast appears after Point swipes
-- [ ] /live button appears on Story cards with correct text
-- [ ] /live button shows mock toast (prototype)
-
-## Components to Implement
-1. ViewToggle — List/Cards switch
-2. CardStack — Swipeable card container
-3. SwipeableCard — Individual card with gesture handling
-4. ParticipantRow — Horizontal avatar filter
-5. ContentTypeTabs — Stories/Points/All filter
-6. SwipeHint — Visual hint showing swipe directions
-
-## Protocol
-1. Start with ViewToggle component
-2. Implement one component at a time
-3. Verify with Playwright MCP after each component
-4. Commit: `feat(p89): add {component}`
-
-## Completion
-When ALL success criteria pass, output: COMPLETE
-EOF
-
-# Step 2: Run Ralph
-ralph run --no-tui
-```
-
-**Option B: One-liner with inline prompt**
-
-```bash
-ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Add ViewToggle, CardStack, SwipeableCard components. Swipe right=Agree, left=Disagree, down=Skip. Verify with browser MCP."
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Build ViewToggle, CardStack, SwipeableCard. Verify with browser MCP."
 ```
 
 ---
 
-## Quick Reference
-
-| Command | When to use |
-|---------|-------------|
-| `ralph run --no-tui` | ✅ Recommended (works in all terminals including Ghostty) |
-| `ralph run` | Standard terminals only (iTerm2, Terminal.app) |
-| `ralph run --continue` | Resume interrupted session |
-
-### ⚠️ Common Mistake
-
-```bash
-# ❌ WRONG - passes file path as prompt text
-ralph run -p features/p89_swipeable_card_view.md
-
-# ✅ CORRECT - passes description that references the file
-ralph run --no-tui -p "Implement P89 per features/p89_swipeable_card_view.md"
-```
+**If it fails:** Create PROMPT.md with more detail, then `ralph run --no-tui`
 ```
 
 ## Example 2: Simple Spec
@@ -447,32 +277,16 @@ ralph run --no-tui -p "Implement P89 per features/p89_swipeable_card_view.md"
 
 **Output:**
 ```
-# P95 Fix Button Color — Ralph Commands
+# P95 Fix Button Color
 
-## Complexity Analysis
-- Requirements: 3
-- Risk keywords: none
-- Integration points: 0
-- Recommendation: /loop (simple task)
+**Requirements:** 3 | **Risk:** none | **Recommendation:** /loop
 
 ---
 
-## Recommended: /loop
+This is simple. Just run `/loop` interactively.
 
-This is a simple task (3 requirements, no integrations).
-Just run `/loop` interactively inside Claude Code — faster than setting up Ralph.
-
----
-
-## Alternative: Ralph Orchestrator
-
-If you prefer automated iteration:
-
+If you prefer Ralph:
 ```bash
-# Create PROMPT.md
-echo "Fix button color per features/p95_fix_button_color.md" > PROMPT.md
-
-# Run Ralph
-ralph run --no-tui
+ralph run --no-tui -p "Fix button color per features/p95_fix_button_color.md"
 ```
 ```
