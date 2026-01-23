@@ -14,6 +14,49 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-23: Story-Point display — cards show counts, detail pages show grouped content
+
+**Context:** Reviewing LinkedIn-like prototype UX. The 2026-01-22 decision said "show linked items inline, not counts" but applying this everywhere created visual overload. StoryCards showed full Point position breakdowns; PointCards showed all quoted Stories; Point detail pages showed Stories flat without position grouping.
+
+**Decision:**
+
+**1. Profile cards (StoryCard, PointCard) — show counts, not inline content**
+- StoryCard: Show "🔗 2 points" count. Clicking opens story to see Points.
+- PointCard: Show "📖 2 stories" OR collapsible "Your 2 stories" (only THIS user's stories on their profile)
+- Rationale: Cards are for scanning. Curiosity drives clicks to detail pages.
+
+**2. Story detail page — show all linked Points inline**
+- One user's story links to Points they found relevant. Show them.
+- This is per-user content, makes sense inline.
+
+**3. Point detail page — group Stories by position**
+- Stories explain positions. Different users have different positions.
+- Layout: Position sections (Agree/Disagree/Unsure), each containing Stories from users with that position.
+- No "All" tab — default view shows all positions grouped. Tabs filter to single position.
+- No icons on tabs — just "Agree (2)" | "Disagree (0)" | "Unsure (2)"
+- No recursive quoting — Stories on Point page don't re-quote the Point
+- Empty positions: Show section with "(no stories yet)" for discoverability
+
+**4. Position badge placement**
+- When viewing all positions: Show position badge (e.g., "Agrees") ABOVE story content
+- When filtered to single position: Hide badge (redundant)
+
+**Alternatives rejected:**
+- Inline everything everywhere (original decision) — Visual overload on cards
+- Hide Stories on Point detail (just show counts) — Loses the "why" behind positions
+- Flat Story list on Point page — Ignores that Stories explain specific positions
+
+**Consequences:**
+- Updates 2026-01-22 decision: "inline not counts" applies to DETAIL pages, not cards
+- StoryCard and PointCard components simplified
+- Point detail page needs refactor: position-grouped layout
+- Remove "Verify" button from Point detail (outdated)
+- Remove checkmark/x/dash icons from position tabs
+
+**References:** [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) | 2026-01-22 decision below
+
+---
+
 ## 2026-01-23: Event page — no tabs, outcomes focus, card selection inside /live
 
 **Context:** Designing event verification flow (P85) for physical events. Originally had Info/Feed tabs on event page. Realized "feed" was wrong mental model.

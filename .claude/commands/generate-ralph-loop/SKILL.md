@@ -304,3 +304,33 @@ If you prefer Ralph:
 ralph run --no-tui -p "Fix button color per features/p95_fix_button_color.md. Before complete: run /bmad:bmm:workflows:code-review, fix all issues."
 ```
 ```
+
+---
+
+## Operational Notes
+
+### Stopping Ralph
+
+| Method | When to use |
+|--------|-------------|
+| `Ctrl+C` | During execution — graceful stop |
+| `pkill -f ralph` | From another terminal — force kill |
+
+### Initialization Reminder
+
+Before running Ralph for the first time in a worktree:
+
+```bash
+ralph init --backend claude
+```
+
+**What `--backend claude` does:**
+- Configures Ralph to use Claude as the AI backend (vs. GPT, Gemini, etc.)
+- Creates `ralph.yml` with backend settings
+- Does NOT read CLAUDE.md — it just sets which AI provider to use
+
+The AI will still read CLAUDE.md through Claude Code's normal context loading.
+
+**Worktree options:**
+1. **Commit `ralph.yml`** — Share config across worktrees (recommended)
+2. **Init per worktree** — Run `ralph init --backend claude` in each one

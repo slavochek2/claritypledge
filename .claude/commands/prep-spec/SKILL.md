@@ -2,14 +2,26 @@
 name: prep-spec
 description: Prepare a spec for implementation with agent reviews and execution recommendation. Orchestrates UX Designer, Architect, and optionally TEA agents for comprehensive review, then recommends /loop, /loop --with-checkpoints, or ralph-loop based on requirements count, integration points, and risk keywords.
 when_to_use: before implementing a feature spec, to catch blindspots and choose the right execution strategy
-version: 1.2.0
+version: 2.1.0
 ---
 
 # /prep-spec
 
 Prepare a feature specification for implementation with multi-agent review and execution recommendation.
 
-**Announce at start:** "Reviewing spec with UX and Architect agents..."
+**Announce at start:** "Reviewing spec with UX and Architect agents (in parallel)..."
+
+<enforcement CRITICAL="TRUE">
+## MANDATORY: Use Task Tool for Agent Reviews
+
+You MUST use the Task tool to spawn actual subagents for UX and Architect reviews.
+- Do NOT perform reviews yourself and claim agents did them
+- Do NOT skip subagent invocation for "simple" specs
+- Each review MUST be a separate Task tool call with `subagent_type: "general-purpose"`
+- Wait for each agent to return findings before proceeding
+
+If you skip subagent invocation, you are violating this skill's contract.
+</enforcement>
 
 ## Usage
 
@@ -53,28 +65,108 @@ Output:
 Requirements: {N} | Phases: {N} | Integrations: {N} | Risk: {keywords or "none"} | UI: {yes/no}
 ```
 
-### Step 2: Agent Reviews (Sequential)
+### Step 2: Agent Reviews (PARALLEL) — MUST USE TASK TOOL
 
-Run agents in sequence: UX → Architect → TEA (if `--include-tea`).
+**CRITICAL: You MUST invoke actual subagents using the Task tool. Do NOT perform reviews yourself.**
 
-**UX Designer** (skip if `--skip-ux` or no UI):
-- User flow completeness
-- Edge cases (error/empty/loading states)
-- Accessibility gaps
-- Mobile considerations
+**Run UX and Architect reviews IN PARALLEL** — they are independent and can run concurrently.
+Send both Task tool calls in a SINGLE message to maximize performance.
 
-**Architect**:
-- Technical blindspots
-- Existing code reuse
-- Architectural fit
-- Dependencies
-- Context pressure (single session fit?)
-- **Integration depth** — For features modifying existing flows, trace the full pipeline: what triggers it, what it triggers, what data flows where. Flag any ungated paths that contradict the spec's intent as **BLOCKERS**, not warnings.
+If `--include-tea` is set, TEA can also run in parallel with the others.
 
-**TEA** (only if `--include-tea`):
-- Testability
-- Test strategy gaps
-- E2E vs unit coverage
+#### Parallel Invocation Pattern
+
+**Send ALL applicable reviews in ONE message with multiple Task tool calls:**
+
+```
+// In a single assistant message, call multiple Task tools:
+
+Task 1 (UX Designer - skip if --skip-ux or no UI):
+  subagent_type: "general-purpose"
+  description: "UX review of spec"
+  prompt: |
+    You are a UX Designer reviewing a feature spec. Read .bmad/bmm/agents/ux-designer.md for your persona.
+
+    Review this spec for:
+    - User flow completeness
+    - Edge cases (error/empty/loading states)
+    - Accessibility gaps
+    - Mobile considerations
+
+    Spec content:
+    {paste spec content here}
+
+    Output format:
+    ## UX Review
+    ### Blockers
+    - [BLOCKER] {issue}
+    ### Warnings
+    - [WARNING] {issue}
+    ### Suggestions
+    - [SUGGESTION] {issue}
+
+    If no issues in a category, say "None".
+
+Task 2 (Architect - always run):
+  subagent_type: "general-purpose"
+  description: "Architect review of spec"
+  prompt: |
+    You are a Software Architect reviewing a feature spec. Read .bmad/bmm/agents/architect.md for your persona.
+
+    Review this spec for:
+    - Technical blindspots
+    - Existing code reuse opportunities
+    - Architectural fit with codebase
+    - Dependencies and integration points
+    - Context pressure (can this fit in a single session?)
+    - Integration depth — trace the full pipeline for modified flows. Flag ungated paths that contradict spec intent as BLOCKERS.
+
+    Read relevant source files to understand current implementation before reviewing.
+
+    Spec content:
+    {paste spec content here}
+
+    Files to check (from spec):
+    {list files from spec}
+
+    Output format:
+    ## Architect Review
+    ### Blockers
+    - [BLOCKER] {issue}
+    ### Warnings
+    - [WARNING] {issue}
+    ### Suggestions
+    - [SUGGESTION] {issue}
+
+    If no issues in a category, say "None".
+
+Task 3 (TEA - only if --include-tea):
+  subagent_type: "general-purpose"
+  description: "TEA review of spec"
+  prompt: |
+    You are a Test Engineer reviewing a feature spec for testability. Read .bmad/bmm/agents/tea.md for your persona.
+
+    Review this spec for:
+    - Testability of proposed changes
+    - Test strategy gaps
+    - E2E vs unit test coverage recommendations
+
+    Spec content:
+    {paste spec content here}
+
+    Output format:
+    ## TEA Review
+    ### Blockers
+    - [BLOCKER] {issue}
+    ### Warnings
+    - [WARNING] {issue}
+    ### Suggestions
+    - [SUGGESTION] {issue}
+
+    If no issues in a category, say "None".
+```
+
+**Wait for ALL parallel agents to complete before proceeding to Step 3.**
 
 ### Step 3: Output Findings Directly to Chat
 
@@ -117,12 +209,12 @@ If no decisions needed: "No decisions needed — spec is clear."
 
 ### Step 5: Recommend Execution Path
 
-**Decision logic:**
+**Only recommend execution for `ready` status. Otherwise, specify what's needed first.**
+
+**Execution decision (only if status = ready):**
 
 ```
-IF blockers > 0:
-  → BLOCKED (resolve first)
-ELSE IF risk_keywords_found OR integration_points >= 3:
+IF risk_keywords_found OR integration_points >= 3:
   → ralph-loop (high risk/complexity)
 ELSE IF requirements >= 12 OR phases >= 3:
   → /loop --with-checkpoints (medium complexity)
@@ -141,45 +233,82 @@ ELSE:
 
 **Risk keywords:** `auth`, `payment`, `migration`, `security`, `breaking change`, `RLS`
 
-Output recommendation:
+Output based on status:
 
 ```
-## Execution
+## Status & Next Steps
 
-**Recommendation:** {/loop | /loop --with-checkpoints | ralph-loop | BLOCKED}
-**Reason:** {brief explanation}
+**Status:** {READY | NEEDS ANSWERS | NEEDS REVISION | BLOCKED}
 
-{If /loop}
-Ready to implement. Run `/loop` and describe the task.
+{If READY}
+**Execution:** {/loop | /loop --with-checkpoints | ralph-loop}
+Ready to implement. Run `{command}` and describe the task.
 
-{If /loop --with-checkpoints}
-Medium complexity. Use `/loop` but pause after each phase for review.
+{If NEEDS ANSWERS}
+**{N} open questions require your input before implementation.**
+Answer the questions in the Decisions table above, then re-run `/prep-spec --force`.
 
-{If ralph-loop}
-Run: `/generate-ralph-loop features/{spec-name}_acceptance_tests.md`
+{If NEEDS REVISION}
+**{N} blindspots/gaps found. Spec should be revised.**
+Address the warnings above (especially edge cases and unclear behaviors), then re-run `/prep-spec --force`.
 
 {If BLOCKED}
-Resolve blockers first, then re-run `/prep-spec --force`.
+**{N} blockers must be resolved first.**
+Fix the blockers above, then re-run `/prep-spec --force`.
 ```
 
-### Step 6: Update Spec Frontmatter
+### Step 6: Determine Prep Status
+
+**Status is NOT binary. Use these levels:**
+
+| Status | Meaning | When to Use |
+|--------|---------|-------------|
+| `ready` | Spec is implementation-ready | Zero blockers, zero open questions, warnings are minor |
+| `needs-answers` | Spec has open questions | Decisions table has unresolved questions that need user input |
+| `needs-revision` | Spec has blindspots/gaps | Warnings indicate missing edge cases, unclear requirements, or architectural gaps |
+| `blocked` | Spec cannot proceed | Blockers found — fundamental issues that break the feature |
+
+**Decision logic:**
+
+```
+IF blockers > 0:
+  status = "blocked"
+ELSE IF decisions_table has items where "My Pick" is "ASK USER" or question is unresolved:
+  status = "needs-answers"
+ELSE IF warnings > 2 OR any warning is about missing edge cases/unclear behavior:
+  status = "needs-revision"
+ELSE:
+  status = "ready"
+```
+
+**Key principle:** Only `ready` specs should proceed to implementation. Other statuses require user action first.
+
+### Step 7: Update Spec Frontmatter
 
 Add YAML frontmatter to spec file:
 
 ```yaml
 ---
-status: prepped
-prepped_date: {YYYY-MM-DD}
-prepped_by: /prep-spec
+prep_status: {ready|needs-answers|needs-revision|blocked}
+prep_date: {YYYY-MM-DD}
+prep_by: /prep-spec
 reviews:
-  ux: {passed|failed|skipped}
-  architect: {passed|failed|skipped}
-  tea: {passed|failed|skipped}
-execution: {/loop|/loop --with-checkpoints|ralph-loop|blocked}
+  ux: {passed|warnings|failed|skipped}
+  architect: {passed|warnings|failed|skipped}
+  tea: {passed|warnings|failed|skipped}
+open_questions: {count or 0}
+blindspots: {count or 0}
+execution: {/loop|/loop --with-checkpoints|ralph-loop|pending}
 ---
 ```
 
-### Step 7: Save Report (Optional)
+**Review outcomes:**
+- `passed` — No blockers, no warnings
+- `warnings` — No blockers, but has warnings/suggestions
+- `failed` — Has blockers
+- `skipped` — Review not run
+
+### Step 8: Save Report (Optional)
 
 **Only save to file if `--save-report` flag is used or there are 5+ findings.**
 
@@ -187,11 +316,13 @@ Otherwise, all output goes directly to chat — no file created.
 
 If saving: `bmad/artifacts/{spec-name}-review.md`
 
-### Step 8: Generate UAT (if ralph-loop)
+### Step 9: Generate UAT (only if status=ready AND ralph-loop)
 
-If recommendation is `ralph-loop`:
+**Only generate UAT if status is `ready` AND execution is `ralph-loop`:**
 1. Call `/generate-uat {spec_path}`
 2. Update frontmatter with `uat_file` path
+
+If status is not `ready`, do NOT generate UAT — spec needs work first.
 
 ---
 
@@ -206,30 +337,36 @@ If recommendation is `ralph-loop`:
 
 ---
 
-### Blockers
+### Blockers ({count})
 {list or "None"}
 
-### Warnings
+### Blindspots & Warnings ({count})
 {list or "None"}
 
-### Suggestions
+### Suggestions ({count})
 {list or "None"}
 
 ---
 
-### Decisions Needed
+### Open Questions
 
-| # | Question | Options | My Pick |
-|---|----------|---------|---------|
-{table rows or "No decisions needed — spec is clear."}
+| # | Question | Options | Resolution |
+|---|----------|---------|------------|
+{table rows with "ASK USER" for unresolved, or actual pick for resolved}
+
+{Or: "No open questions — spec is clear."}
 
 ---
 
-### Execution
+### Status: {READY | NEEDS ANSWERS | NEEDS REVISION | BLOCKED}
 
-**{/loop | /loop --with-checkpoints | ralph-loop | BLOCKED}** — {brief reason}
+{If READY}
+**Execution:** {/loop | /loop --with-checkpoints | ralph-loop}
+{next step}
 
-{next step: command to run or blockers to resolve}
+{If NOT READY}
+**What's needed:** {specific actions required}
+After addressing, re-run `/prep-spec --force`.
 ```
 
 ---
@@ -254,7 +391,10 @@ When in doubt: if the feature would be **broken** without fixing it, it's a bloc
 | Spec already prepped | Show previous results, suggest `--force` |
 | Agent fails | Mark review as `failed`, continue with others |
 | No UI in spec | Skip UX review automatically |
-| Blockers found | Set `execution: blocked`, do not generate UAT |
+| Blockers found | Set `prep_status: blocked`, do not generate UAT |
+| Open questions exist | Set `prep_status: needs-answers`, list questions |
+| Multiple warnings about gaps | Set `prep_status: needs-revision`, list blindspots |
+| All clear | Set `prep_status: ready`, recommend execution path |
 
 ---
 
