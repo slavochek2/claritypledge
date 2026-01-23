@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
@@ -28,8 +28,8 @@ export function ExploreFeed() {
   // Selected participant for card view (null = list view)
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
 
-  // Content type filter (for card view)
-  const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
+  // Content type filter (shared between list and card view)
+  const [contentFilter, setContentFilter] = useState<ContentFilter>('stories');
 
   // Get all data
   const stories = getStories();
@@ -75,7 +75,7 @@ export function ExploreFeed() {
     });
   }, [feedItems, selectedParticipantId]);
 
-  // Apply content type filter (used in card view)
+  // Apply content type filter (used in both list and card view)
   const filteredParticipantItems = useMemo(() => {
     return participantItems.filter(feedItem => {
       if (contentFilter === 'stories') return feedItem.type === 'story';
@@ -84,9 +84,24 @@ export function ExploreFeed() {
     });
   }, [participantItems, contentFilter]);
 
-  // Counts for tabs (scoped to selected participant in card view)
-  const storiesCount = participantItems.filter(i => i.type === 'story').length;
-  const pointsCount = participantItems.filter(i => i.type === 'point').length;
+  // Apply content type filter to feed items (for list view)
+  const filteredFeedItems = useMemo(() => {
+    return feedItems.filter(feedItem => {
+      if (contentFilter === 'stories') return feedItem.type === 'story';
+      if (contentFilter === 'points') return feedItem.type === 'point';
+      return true;
+    });
+  }, [feedItems, contentFilter]);
+
+  // Counts for tabs
+  // In card view: scoped to selected participant
+  // In list view: all content
+  const storiesCount = selectedParticipantId
+    ? participantItems.filter(i => i.type === 'story').length
+    : feedItems.filter(i => i.type === 'story').length;
+  const pointsCount = selectedParticipantId
+    ? participantItems.filter(i => i.type === 'point').length
+    : feedItems.filter(i => i.type === 'point').length;
 
   // Get selected participant info
   const selectedParticipant = selectedParticipantId ? getUserById(selectedParticipantId) : null;
@@ -107,14 +122,13 @@ export function ExploreFeed() {
     });
   };
 
-  const handlePositionChange = (pointId: string, position: PositionType | null) => {
+  const handlePositionChange = (_pointId: string, _position: PositionType | null) => {
     // In a real app, this would update the backend
-    console.log(`Position changed for point ${pointId}:`, position);
   };
 
   const handleAvatarClick = (userId: string) => {
     setSelectedParticipantId(userId);
-    setContentFilter('all'); // Reset filter when switching person
+    // Keep current filter when switching person
   };
 
   const handleCloseCards = () => {
@@ -126,54 +140,56 @@ export function ExploreFeed() {
       {selectedParticipantId ? (
         // Card View - Viewing one person's content (Telegram stories style)
         <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50">
-          {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-4 py-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleCloseCards}
-                  className="inline-flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Close"
-                >
-                  <X size={20} />
-                </button>
-                {selectedParticipant && (
-                  <div>
-                    <button
-                      onClick={() => navigate(routes.profileById(selectedParticipantId))}
-                      className="font-semibold text-gray-900 hover:underline"
-                    >
-                      {selectedParticipant.name}
-                    </button>
-                    <p className="text-xs text-gray-500">
-                      {storiesCount} stories · {pointsCount} points
-                    </p>
-                  </div>
-                )}
+          {/* Header - centered on desktop */}
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-2xl mx-auto px-4 py-3">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleCloseCards}
+                    className="inline-flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                  {selectedParticipant && (
+                    <div>
+                      <button
+                        onClick={() => navigate(routes.profileById(selectedParticipantId))}
+                        className="font-semibold text-gray-900 hover:underline"
+                      >
+                        {selectedParticipant.name}
+                      </button>
+                      <p className="text-xs text-gray-500">
+                        {storiesCount} stories · {pointsCount} points
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Participant Row - tap to switch person */}
-            <ParticipantRow
-              participants={participants}
-              currentUserId={currentUser.id}
-              onAvatarClick={handleAvatarClick}
-              selectedUserId={selectedParticipantId}
-            />
-
-            {/* Content Type Tabs */}
-            <div className="mt-3">
-              <ContentTypeTabs
-                filter={contentFilter}
-                onChange={setContentFilter}
-                storiesCount={storiesCount}
-                pointsCount={pointsCount}
+              {/* Participant Row - tap to switch person */}
+              <ParticipantRow
+                participants={participants}
+                currentUserId={currentUser.id}
+                onAvatarClick={handleAvatarClick}
+                selectedUserId={selectedParticipantId}
               />
+
+              {/* Content Type Tabs */}
+              <div className="mt-3">
+                <ContentTypeTabs
+                  filter={contentFilter}
+                  onChange={setContentFilter}
+                  storiesCount={storiesCount}
+                  pointsCount={pointsCount}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Card Stack */}
-          <div className="flex-1 p-4 overflow-hidden">
+          {/* Card Stack - centered on desktop */}
+          <div className="flex-1 p-4 overflow-hidden max-w-2xl mx-auto w-full">
             {filteredParticipantItems.length > 0 ? (
               <CardStack
                 items={filteredParticipantItems}
@@ -186,7 +202,7 @@ export function ExploreFeed() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <p className="text-gray-500 mb-4">
-                  {selectedParticipant?.name} hasn't shared any {contentFilter === 'all' ? 'content' : contentFilter} yet.
+                  {selectedParticipant?.name} hasn't shared any {contentFilter} yet.
                 </p>
                 <button
                   onClick={() => navigate(routes.profileById(selectedParticipantId))}
@@ -219,11 +235,21 @@ export function ExploreFeed() {
                 selectedUserId={selectedParticipantId}
               />
             </div>
+
+            {/* Content Type Tabs */}
+            <div className="mt-4">
+              <ContentTypeTabs
+                filter={contentFilter}
+                onChange={setContentFilter}
+                storiesCount={storiesCount}
+                pointsCount={pointsCount}
+              />
+            </div>
           </div>
 
           {/* Feed items */}
           <div className="space-y-4">
-            {feedItems.map(feedItem => (
+            {filteredFeedItems.map(feedItem => (
               feedItem.type === 'story' ? (
                 <StoryCard key={`story-${feedItem.item.id}`} story={feedItem.item} />
               ) : (
@@ -232,9 +258,9 @@ export function ExploreFeed() {
             ))}
           </div>
 
-          {feedItems.length === 0 && (
+          {filteredFeedItems.length === 0 && (
             <div className="flex items-center justify-center py-16">
-              <p className="text-gray-500">No items to show</p>
+              <p className="text-gray-500">No {contentFilter} to show</p>
             </div>
           )}
         </div>

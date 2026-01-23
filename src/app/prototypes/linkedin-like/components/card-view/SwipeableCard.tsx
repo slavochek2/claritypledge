@@ -123,8 +123,8 @@ export function SwipeableCard({
       animate={exitDirection ? exitVariants[exitDirection] : undefined}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
-      {/* Card container */}
-      <div className={`h-full flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden ${
+      {/* Card container - max-width for desktop */}
+      <div className={`h-full max-w-lg mx-auto w-full flex flex-col bg-white rounded-xl shadow-lg border overflow-hidden ${
         isStory ? 'border-l-4 border-l-blue-500 border-gray-200' : 'border-l-4 border-l-slate-400 border-gray-200'
       }`}>
         {/* Swipe indicators (Points only) */}
@@ -233,15 +233,8 @@ function StoryContent({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Story badge */}
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full">
-          📖 Story
-        </span>
-      </div>
-
-      {/* Author info */}
+    <div className="space-y-3">
+      {/* Author info - matches feed card layout */}
       {author && (
         <div className="flex items-center gap-3">
           <button
@@ -249,13 +242,13 @@ function StoryContent({
               e.stopPropagation();
               onTap?.(story.id);
             }}
-            className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl hover:ring-2 hover:ring-blue-200 transition-all"
+            className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg hover:ring-2 hover:ring-blue-200 transition-all flex-shrink-0"
           >
             {author.avatar}
           </button>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-gray-900">{isOwnStory ? 'You' : author.name}</span>
+              <span className="font-semibold text-gray-900 text-sm">{isOwnStory ? 'You' : author.name}</span>
               <UserCredibility userId={author.id} userName={author.name} />
             </div>
             <p className="text-xs text-gray-500">
@@ -265,14 +258,14 @@ function StoryContent({
         </div>
       )}
 
-      {/* Story text */}
-      <p className="text-lg text-gray-900 leading-relaxed">
-        "{story.text}"
+      {/* Story text - no quotes, matches feed */}
+      <p className="text-base text-gray-900 leading-relaxed">
+        {story.text}
       </p>
 
-      {/* Stats */}
+      {/* Stats - matches feed card style */}
       <TooltipProvider delayDuration={100}>
-        <div className="flex items-center gap-3 text-sm text-gray-500">
+        <div className="flex items-center gap-3 px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-500 w-fit">
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="flex items-center gap-1 cursor-default">
@@ -299,16 +292,16 @@ function StoryContent({
         {getLiveButtonText()}
       </button>
 
-      {/* Related Points */}
+      {/* Related Points - compact link */}
       {linkedPoints.length > 0 && (
         <button
           onClick={(e) => {
             e.stopPropagation();
             onTap?.(story.id);
           }}
-          className="w-full text-left text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 hover:underline"
         >
-          Related Points ({linkedPoints.length}) →
+          {linkedPoints.length} related {linkedPoints.length === 1 ? 'point' : 'points'} →
         </button>
       )}
     </div>
@@ -378,21 +371,34 @@ function PointContent({
   const storyAuthor = firstLinkedStory ? getUserById(firstLinkedStory.authorId) : null;
 
   return (
-    <div className="space-y-4">
-      {/* Point badge */}
-      <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-slate-600 bg-slate-100 rounded-full">
-          <Pin size={12} />
-          Point
-        </span>
+    <div className="space-y-3">
+      {/* Header - matches feed card layout with Pin icon */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-500">
+          <Pin size={20} />
+        </div>
+        <div className="min-w-0">
+          <span className="text-sm font-medium text-gray-700">
+            {counts.agree + counts.disagree + counts.unsure} positions
+          </span>
+        </div>
       </div>
 
-      {/* Point text */}
-      <p className="text-xl text-gray-900 leading-relaxed font-medium">
-        "{point.text}"
+      {/* Point text - no quotes, matches feed */}
+      <p className="text-base text-gray-900 leading-relaxed">
+        {point.text}
       </p>
 
-      {/* From Story preview */}
+      {/* Position buttons */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <PositionButtons
+          userPosition={userPosition}
+          counts={counts}
+          onPositionClick={handlePositionClick}
+        />
+      </div>
+
+      {/* Linked Story - matches QuotedStory style from feed */}
       {firstLinkedStory && storyAuthor && (
         <button
           onClick={(e) => {
@@ -401,24 +407,15 @@ function PointContent({
           }}
           className="w-full text-left p-3 rounded-lg border border-gray-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-200 transition-colors"
         >
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>📖 From: {storyAuthor.name}'s Story</span>
-            <ExternalLink size={12} className="text-blue-600" />
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs">
+              {storyAuthor.avatar}
+            </span>
+            <span className="text-xs font-medium text-gray-700">{storyAuthor.name}</span>
           </div>
-          <p className="text-xs text-gray-500 line-clamp-1 mt-1">
-            {firstLinkedStory.text}
-          </p>
+          <p className="text-sm text-gray-700 line-clamp-2">{firstLinkedStory.text}</p>
         </button>
       )}
-
-      {/* Position buttons with dropdowns */}
-      <div onClick={(e) => e.stopPropagation()}>
-        <PositionButtons
-          userPosition={userPosition}
-          counts={counts}
-          onPositionClick={handlePositionClick}
-        />
-      </div>
     </div>
   );
 }

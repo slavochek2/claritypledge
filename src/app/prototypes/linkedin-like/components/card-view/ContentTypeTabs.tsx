@@ -3,7 +3,7 @@
  * @description Tab filter for Stories/Points/All content types.
  */
 
-export type ContentFilter = 'all' | 'stories' | 'points';
+export type ContentFilter = 'stories' | 'points';
 
 interface ContentTypeTabsProps {
   filter: ContentFilter;
@@ -18,10 +18,7 @@ export function ContentTypeTabs({
   storiesCount,
   pointsCount,
 }: ContentTypeTabsProps) {
-  const totalCount = storiesCount + pointsCount;
-
   const tabs: { id: ContentFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: totalCount },
     { id: 'stories', label: 'Stories', count: storiesCount },
     { id: 'points', label: 'Points', count: pointsCount },
   ];

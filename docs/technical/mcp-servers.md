@@ -8,8 +8,8 @@ All MCP servers are provided via **Docker MCP Toolkit**. Agents automatically ha
 
 | Server | Tools Prefix | Purpose |
 |--------|--------------|---------|
-| **Playwright** | `mcp__MCP_DOCKER__browser_*` | Browser automation, screenshots, UI testing |
-| **Next.js DevTools** | `mcp__MCP_DOCKER__nextjs_*` | Next.js runtime inspection, docs search |
+| **Playwright** | `mcp__playwright__browser_*` | Browser automation, screenshots, UI testing |
+| **Chrome DevTools** | `mcp__chrome-devtools__*` | Chrome DevTools Protocol, performance tracing |
 
 ### Data & Productivity
 

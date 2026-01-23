@@ -10,6 +10,13 @@
         "SUPABASE_URL": "https://gfjctyxqlwexxwsmkakq.supabase.co",
         "SUPABASE_ACCESS_TOKEN": "sbp_1a5b0cb3cc64ba6160b2a16f3f2d83f7708764a8"
       }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic/mcp-server-playwright"
+      ]
     }
   }
 }
