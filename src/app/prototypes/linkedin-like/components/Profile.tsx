@@ -181,7 +181,7 @@ export function Profile() {
                     </div>
                   ) : (
                     userStories.map((story) => (
-                      <StoryCard key={story.id} story={story} />
+                      <StoryCard key={story.id} story={story} context="profile" />
                     ))
                   )
                 ) : (
@@ -430,7 +430,7 @@ export function Profile() {
                   </div>
                 ) : (
                   userStories.map((story) => (
-                    <StoryCard key={story.id} story={story} />
+                    <StoryCard key={story.id} story={story} context="profile" />
                   ))
                 )
               ) : (

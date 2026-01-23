@@ -169,9 +169,10 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               />
             </div>
 
-            {/* Linked Stories - collapsible on profile, inline on detail/feed */}
-            {profileOwnerId ? (
-              // Profile context: Collapsible "Your N stories"
+            {/* Linked Stories - collapsible on profile, hidden on detail view */}
+            {/* Detail view: Stories are shown below, grouped by position - don't duplicate here */}
+            {profileOwnerId && !isDetailView && (
+              // Profile context: Collapsible "Your N stories" (collapsed by default)
               <div className="mt-3">
                 <button
                   onClick={(e) => {
@@ -221,37 +222,6 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   </div>
                 )}
               </div>
-            ) : (
-              // Feed/detail context: Show inline (max 3)
-              storiesToShow.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {storiesToShow.map(story => (
-                    <QuotedStory
-                      key={story.id}
-                      story={story}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.story(story.id));
-                      }}
-                      onAuthorClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.profileById(story.authorId));
-                      }}
-                    />
-                  ))}
-                  {filteredStories.length > 3 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.point(point.id));
-                      }}
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      +{filteredStories.length - 3} more stories
-                    </button>
-                  )}
-                </div>
-              )
             )}
           </div>
         </div>
