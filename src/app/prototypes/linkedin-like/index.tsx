@@ -11,6 +11,8 @@ import { PointDetail } from './components/PointDetail';
 import { ExploreFeed } from './components/ExploreFeed';
 // New LinkedIn-style nav
 import { MyEvents } from './components/MyEvents';
+// P55.1 Variant E: Instagram Stories-inspired Ideas UX
+import { StoriesDemo } from './pages/StoriesDemo';
 
 export function LinkedInLikePrototype() {
   return (
@@ -32,6 +34,9 @@ export function LinkedInLikePrototype() {
       {/* Live sessions */}
       <Route path="live" element={<Live />} />
       <Route path="live/:ideaId" element={<Live />} />
+
+      {/* Demo pages */}
+      <Route path="stories-demo" element={<StoriesDemo />} />
 
       {/* Legacy/other routes - redirect to home */}
       <Route path="feed" element={<Navigate to="/prototype/linkedin-like/home" replace />} />
