@@ -162,11 +162,20 @@ Before taking screenshots, check if the page requires authentication:
    - **Option C:** Skip visual check and note: "Auth-gated, visual check skipped (requires chrome integration)"
 3. **If NOT auth-gated:** Proceed normally
 
+#### Snapshot vs Screenshot
+
+**Start with snapshot** unless you need visual verification:
+- `take_snapshot` (~100-500 tokens): structure, elements, text, form state
+- `take_screenshot` (~1,500-4,000 tokens): styling, colors, layout bugs
+
+> 10 snapshots ≈ 2-5K tokens. 10 screenshots ≈ 20-40K tokens.
+
 #### Browser Tool Selection
 
 | What You Need | Tool | When |
 |---------------|------|------|
-| Screenshots, UI verification | Playwright MCP | Default choice |
+| Page structure, element UIDs | Playwright / Chrome DevTools | Use `take_snapshot` |
+| Visual verification | Playwright / Chrome DevTools | Use `take_screenshot` |
 | Network requests, API debugging | Chrome DevTools MCP | Tests fail due to API errors |
 | Performance traces | Chrome DevTools MCP | Page is slow, need profiling |
 | Authenticated state | Chrome Integration | Auth-gated pages, OAuth flows |

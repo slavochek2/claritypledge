@@ -1,111 +1,114 @@
 # Browser Tools Guide
 
-This guide covers all browser automation and inspection tools available to Claude agents.
+This guide covers browser automation tools available to Claude agents.
 
-## MCP Servers Available
+## Browser Tools (via Docker MCP)
 
-### Docker MCP Browser Tools (Primary)
+All browser tools are provided by **Docker MCP Toolkit** - no manual configuration needed.
 
-Browser automation via Docker MCP Toolkit (`mcp__MCP_DOCKER__browser_*`):
-- Navigate to pages and take screenshots
-- Check mobile (375px) and desktop views
-- Verify console for errors
-- Use for `/loop` visual checks when UI is involved
-- Managed by Docker Desktop — no manual config needed
+### Playwright MCP (Default)
 
-**Key tool:** `mcp__MCP_DOCKER__browser_eval` with action parameter:
-- `action: 'start'` — Start browser session
-- `action: 'navigate'` — Navigate to URL
-- `action: 'screenshot'` — Visual screenshot
-- `action: 'click'`, `'type'`, `'fill_form'` — Interactions
-- `action: 'evaluate'` — Run JavaScript in browser
-- `action: 'console_messages'` — Console capture
-- `action: 'close'` — Close browser session
+Tools: `mcp__MCP_DOCKER__browser_*`
 
-### Chrome DevTools MCP (`mcp__chrome-devtools__*`)
+- Navigate to pages, take screenshots, interact with elements
+- Runs **headless by default** (containerized)
+- **Inherently isolated** (each container is fresh)
+- Parallel-safe for multiple agents
+
+**Common tools:**
+- `browser_navigate` - Go to URL
+- `browser_snapshot` - Get accessibility tree (better than screenshot for actions)
+- `browser_take_screenshot` - Visual capture
+- `browser_click`, `browser_type`, `browser_fill_form` - Interactions
+- `browser_console_messages` - Check for errors
+
+### Chrome DevTools MCP
+
+Tools: `mcp__chrome-devtools__*`
 
 For deep browser debugging:
 - Network inspection (headers, timing, failures)
 - Performance traces and profiling
-- Memory leak investigation
+- Console messages with full context
 
-### Supabase MCP
-
-Direct database access and management:
-- Execute SQL queries against the database
-- List tables and view schemas
-- Inspect database functions and triggers
-- View RLS policies
-- Useful for debugging data issues and exploring schema
-
-### Chrome Integration (beta, `claude --chrome`)
-
-Browser automation via Chrome extension:
-- Uses your actual logged-in browser sessions (Gmail, Google Docs, OAuth flows)
-- Real-world testing with authenticated state
-- Requires: Chrome + Claude extension (v1.0.36+) + visible browser window
-- Enable with `claude --chrome` or `/chrome` command
-- **This is the only way to test OAuth flows or access authenticated state**
-
----
-
-## Browser Tools Decision Guide
-
-**Choose the right tool based on what you need:**
-
-| Need | Tool | Parallel-Safe |
-|------|------|---------------|
-| Quick screenshot / visual check | Docker MCP Browser | Yes |
-| Run test suite / CI | `npm run test:e2e` | Yes |
-| Debug network/perf/memory | Chrome DevTools MCP | Yes |
-| OAuth / logged-in sessions | Chrome Integration | No |
-
----
-
-## When to Use Each Tool
-
-### Default choice: Docker MCP Browser Tools
-
-- Fast, managed by Docker Desktop
-- Use for: screenshots, visual verification, UI testing
-- Tools: `mcp__MCP_DOCKER__browser_*`
-
-### Playwright E2E (`npm run test:e2e`)
-
-- Use for: Actual tests with assertions, `/loop` validation
-- Different from Docker MCP - this runs the test suite, not ad-hoc browser actions
-
-### Chrome DevTools MCP
-
-- Use when: Need network requests, headers, timing, performance traces
-- Tools: `mcp__chrome-devtools__*`
+**Note:** Currently disabled to test Docker MCP. Re-enable in `~/.claude/settings.json` if needed.
 
 ### Chrome Integration (`claude --chrome`)
 
-- Use when: Testing OAuth flows, Google login, or any authenticated state
-- Requires user to start Claude with `--chrome` flag
-- **Detection:** If Chrome Integration tools fail or aren't available, ask the user to restart with `claude --chrome`
+For authenticated sessions:
+- Uses your actual logged-in browser (Gmail, OAuth flows)
+- Requires: Chrome + Claude extension + `claude --chrome`
+- **Only way to test OAuth flows or access authenticated state**
+
+---
+
+## Snapshot vs Screenshot: Context Cost Guide
+
+**Default to snapshot.** Screenshots consume 10-20x more context tokens.
+
+| Tool | Context Cost | Use When |
+|------|--------------|----------|
+| `take_snapshot` | ~100-500 tokens | Structure, elements, text, form state |
+| `take_screenshot` | ~1,500-4,000 tokens | Visual bugs, styling, layout, showing user |
+
+### Decision Rule
+
+> **Checking content/structure?** → Snapshot
+> **Checking appearance?** → Screenshot
+
+| Task | Tool | Why |
+|------|------|-----|
+| "Is the button on the page?" | Snapshot | Structure check |
+| "Does the button look right?" | Screenshot | Visual check |
+| "Find the login form UID" | Snapshot | Element discovery |
+| "Check the color of the header" | Screenshot | Styling check |
+| "Verify form has 3 fields" | Snapshot | Structure check |
+| "Debug layout overflow" | Screenshot | Visual bug |
+
+**Math:** 10 snapshots ≈ 2-5K tokens. 10 screenshots ≈ 20-40K tokens.
+
+---
+
+## Tool Selection Guide
+
+| Need | Tool | Notes |
+|------|------|-------|
+| Check page structure/elements | Chrome DevTools / Playwright | Use `take_snapshot` |
+| Visual verification | Chrome DevTools / Playwright | Use `take_screenshot` |
+| Interact with page elements | Chrome DevTools / Playwright | Use snapshot first to get UIDs |
+| Run E2E test suite | `npm run test:e2e` | Playwright tests with assertions |
+| Debug network/perf issues | Chrome DevTools MCP | Network inspector, perf traces |
+| OAuth / logged-in sessions | Chrome Integration | Requires `claude --chrome` |
 
 ---
 
 ## Common Scenarios
 
-### "I need to take a screenshot of the landing page"
-Use **Docker MCP Browser** - fast, no setup needed.
+### "Take a screenshot of the landing page"
 ```
-mcp__MCP_DOCKER__browser_eval({ action: 'start' })
-mcp__MCP_DOCKER__browser_eval({ action: 'navigate', url: 'http://localhost:5001' })
-mcp__MCP_DOCKER__browser_eval({ action: 'screenshot' })
+1. browser_navigate to http://localhost:5001
+2. browser_take_screenshot
 ```
 
-### "I need to verify the OAuth login flow works"
-Use **Chrome Integration** (`claude --chrome`) - only tool with access to real browser sessions.
+### "Check for console errors"
+```
+1. browser_navigate to the page
+2. browser_console_messages with onlyErrors: true
+```
 
-### "Tests are failing and I need to see network requests"
-Use **Chrome DevTools MCP** - inspect headers, timing, response bodies.
+### "Fill out a form"
+```
+1. browser_navigate to the page
+2. browser_snapshot to get element refs
+3. browser_fill_form with field refs and values
+```
 
-### "I need to run the full E2E test suite"
-Use `npm run test:e2e` - runs Playwright tests with assertions.
+### "Test OAuth login flow"
+Ask user to restart with `claude --chrome` - Docker MCP can't access authenticated sessions.
 
-### "Multiple agents are working in parallel"
-Use **Docker MCP Browser** or **Chrome DevTools MCP** - both are parallel-safe.
+---
+
+## Related Docs
+
+- [mcp-servers.md](mcp-servers.md) - All available MCP servers (not just browser)
+- [e2e-testing.md](e2e-testing.md) - Playwright test suite

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Settings, LogOut, Newspaper, CalendarDays, User, Radio, Bell, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, Home, CalendarDays, User, Radio, Bell, type LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,8 +36,8 @@ export function PrototypeHeader() {
 
   // Check which nav item is active
   const isActive = (path: string) => {
-    if (path === routes.feed && (
-      location.pathname.includes('/feed') ||
+    if (path === routes.home && (
+      location.pathname.includes('/home') ||
       location.pathname.includes('/story/') ||
       location.pathname.includes('/point/')
     )) return true;
@@ -47,7 +47,7 @@ export function PrototypeHeader() {
   };
 
   const navItems: NavItem[] = [
-    { path: routes.feed, label: 'Feed', icon: Newspaper },
+    { path: routes.home, label: 'Home', icon: Home },
     { path: routes.myEvents, label: 'My Events', icon: CalendarDays },
     { path: routes.profile, label: 'My Profile', icon: User },
   ];
@@ -67,7 +67,7 @@ export function PrototypeHeader() {
         <div className="relative flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link
-            to={routes.feed}
+            to={routes.home}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">

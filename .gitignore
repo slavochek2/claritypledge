@@ -50,3 +50,12 @@ playwright-report/
 
 # Temporary commit message drafts
 .commit-message.txt
+
+# MCP server config (contains secrets)
+.mcp.json
+
+# Agent orchestration state (ralph, local agent memory)
+.agent/
+.ralph/
+PROMPT.md
+ralph.yml

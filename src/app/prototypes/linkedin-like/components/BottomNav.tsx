@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Newspaper, CalendarDays, User } from 'lucide-react';
+import { Home, CalendarDays, User } from 'lucide-react';
 import { routes } from '../config';
 
 interface NavItem {
@@ -9,7 +9,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: routes.feed, label: 'Feed', icon: <Newspaper size={20} /> },
+  { path: routes.home, label: 'Home', icon: <Home size={20} /> },
   { path: routes.myEvents, label: 'My Events', icon: <CalendarDays size={20} /> },
   { path: routes.profile, label: 'My Profile', icon: <User size={20} /> },
 ];
@@ -19,9 +19,9 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   const isActive = (path: string) => {
-    // Feed is active for feed, story, and point detail pages
-    if (path === routes.feed && (
-      location.pathname.includes('/feed') ||
+    // Home is active for home, story, and point detail pages
+    if (path === routes.home && (
+      location.pathname.includes('/home') ||
       location.pathname.includes('/story/') ||
       location.pathname.includes('/point/')
     )) return true;

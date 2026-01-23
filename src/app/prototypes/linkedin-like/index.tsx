@@ -15,11 +15,11 @@ import { MyEvents } from './components/MyEvents';
 export function LinkedInLikePrototype() {
   return (
     <Routes>
-      {/* Default: go to Feed (discovery) */}
-      <Route path="/" element={<Navigate to="feed" replace />} />
+      {/* Default: go to Home (discovery) */}
+      <Route path="/" element={<Navigate to="home" replace />} />
 
       {/* Primary nav routes */}
-      <Route path="feed" element={<ExploreFeed />} />
+      <Route path="home" element={<ExploreFeed />} />
       <Route path="my-events" element={<MyEvents />} />
       <Route path="profile" element={<Profile />} />
       <Route path="profile/:id" element={<Profile />} />
@@ -33,8 +33,9 @@ export function LinkedInLikePrototype() {
       <Route path="live" element={<Live />} />
       <Route path="live/:ideaId" element={<Live />} />
 
-      {/* Legacy/other routes */}
-      <Route path="explore" element={<Navigate to="/prototype/linkedin-like/feed" replace />} />
+      {/* Legacy/other routes - redirect to home */}
+      <Route path="feed" element={<Navigate to="/prototype/linkedin-like/home" replace />} />
+      <Route path="explore" element={<Navigate to="/prototype/linkedin-like/home" replace />} />
       <Route path="chat" element={<Chat />} />
       <Route path="topology" element={<Topology />} />
 
