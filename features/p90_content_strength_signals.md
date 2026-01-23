@@ -1,4 +1,4 @@
-# P90: Content Strength Signals
+# P90: Content Strength Signals (Impact Score)
 
 ## Status: Planning
 
@@ -11,33 +11,85 @@ Currently:
 - All Stories look the same (just show verification counts)
 - Users can't distinguish "viral but wrong" from "genuinely closer to truth"
 
+## Solution: Impact Score
+
+A single number (0-100) displayed on every Point and Story card.
+
+```
+┌────────────────────────────────┐
+│ "Climate change is human..."   │
+│                          ⚡ 72 │
+│  👍 23  🤷 8  👎 11             │
+└────────────────────────────────┘
+```
+
+### What Impact Score Measures
+
+| Content | Question It Answers |
+|---------|---------------------|
+| **Point** | "How much do stories move people on THIS point?" |
+| **Story** | "How much does THIS story move people on linked points?" |
+
+Higher score = more position shifts happened after quality verifications.
+
 ## Connection to H-Core
 
 This feature operationalizes [Asymmetric Conversion](../docs/visions/v7_communicative_critical_rationalism.md#the-asymmetric-conversion-hypothesis) from philosophy to UI.
 
-### What Makes a "Strong Point"
+A high Impact Score means: people who genuinely understood the content changed their position. This is the signal of truth-seeking — minds moving after real engagement, not just likes or shares.
 
-A Point closest to truth exhibits BOTH:
+## MVP Formula
 
-| Metric | Definition | Formula |
-|--------|------------|---------|
-| **Retention Rate** | Holders stay after understanding opposing Stories | (holders who stayed) / (holders who verified opposing Stories) |
-| **Conversion Rate** | Opponents flip toward after understanding supporting Stories | (opponents who flipped toward) / (opponents who verified supporting Stories) |
+### Raw Calculation
 
-**Asymmetry Score** = Conversion Rate − (1 − Retention Rate)
+```
+Raw = Σ (shift_magnitude × verification_score)
+```
 
-### What Makes a "Strong Story"
+Where:
+- `shift_magnitude` = |positionAfter - positionBefore| (0-6)
+- `verification_score` = author's rating of verification quality (0-10)
 
-A Story that changes minds:
+### Normalization
 
-| Metric | Definition | Formula |
-|--------|------------|---------|
-| **Flip Rate** | Verifiers change position on linked Point | (verifiers who flipped) / (total verifiers) |
-| **Flip Magnitude** | How far they move | Average |positionAfter - positionBefore| |
+```
+Score = min(100, round((Raw / BENCHMARK) × 100))
+```
+
+Where:
+- `BENCHMARK = 60` (tunable based on real data)
+- Score is capped at 100
+
+### Example
+
+| Verifier | Shift | Rating | Contribution |
+|----------|-------|--------|--------------|
+| A | +3 | 8 | 24 |
+| B | +1 | 6 | 6 |
+| C | +2 | 9 | 18 |
+| **Total** | | | **48** |
+
+Score = min(100, round((48 / 60) × 100)) = **80**
+
+### Implementation
+
+```typescript
+function calculateImpactScore(verifications: VerificationEvent[]): number | null {
+  if (verifications.length === 0) return null;
+
+  const raw = verifications.reduce((sum, v) => {
+    const shift = Math.abs(v.positionAfter - v.positionBefore);
+    return sum + (shift * v.verificationScore);
+  }, 0);
+
+  const BENCHMARK = 60;
+  return Math.min(100, Math.round((raw / BENCHMARK) * 100));
+}
+```
 
 ## Data Model
 
-### VerificationEvent (new)
+### VerificationEvent (new table)
 
 ```typescript
 interface VerificationEvent {
@@ -58,100 +110,140 @@ interface VerificationEvent {
 }
 ```
 
-### Computed Metrics (derived, not stored)
+### Computed (not stored)
 
 ```typescript
-interface PointStrength {
-  pointId: string;
+interface ImpactScore {
+  contentId: string;          // Point or Story ID
+  contentType: 'point' | 'story';
 
-  // Raw counts
-  totalVerifications: number;
-  holdersWhoVerifiedOpposing: number;
-  holdersWhoStayed: number;
-  opponentsWhoVerifiedSupporting: number;
-  opponentsWhoFlipped: number;
+  score: number | null;       // 0-100, null if no verifications
+  rawScore: number;           // Before normalization
+  verificationCount: number;  // How many verifications
 
-  // Rates
-  retentionRate: number;      // 0-1
-  conversionRate: number;     // 0-1
-  asymmetryScore: number;     // -1 to +1
-
-  // Confidence
-  sampleSize: number;
-  isStatisticallySignificant: boolean;
-}
-
-interface StoryStrength {
-  storyId: string;
-
-  // Raw counts
-  totalVerifications: number;
-  verifiersWhoFlipped: number;
-
-  // Metrics
-  flipRate: number;           // 0-1
-  averageFlipMagnitude: number; // 0-6
-
-  // Confidence
-  sampleSize: number;
-  isStatisticallySignificant: boolean;
+  // Display hints
+  isLowConfidence: boolean;   // < 3 verifications
 }
 ```
 
-## UI Concepts
+## UI Specification
 
-### Phase 1: Instrumentation Only
+### Card Display
 
-No UI changes. Just log VerificationEvents during `/live` sessions.
+```
+┌────────────────────────────────┐
+│ 📍 "Climate change is human..." │
+│                                │
+│                          ⚡ 72 │
+│                                │
+│  👍 23  🤷 8  👎 11             │
+└────────────────────────────────┘
 
-**When to log:**
-1. User takes position on Point → record `positionBefore`
-2. User completes verification of Story linked to Point → record `positionAfter`, `verificationScore`
+┌────────────────────────────────┐
+│ 📖 "My father was a coal miner" │
+│    by @sarah_k                 │
+│                                │
+│                          ⚡ 64 │
+│                                │
+│  ✓ 12 verified                 │
+└────────────────────────────────┘
+```
 
-### Phase 2: Simple Badges (future)
+### Display States
 
-Once we have ~100 verifications, show badges:
+| Verifications | Display | Style |
+|---------------|---------|-------|
+| 0 | `⚡ --` | Gray, muted |
+| 1-2 | `⚡ 23` | Gray (low confidence) |
+| 3+ | `⚡ 72` | Full color |
 
-| Badge | Criteria | Visual |
-|-------|----------|--------|
-| **High-conviction Point** | Asymmetry > 0.3, sample > 10 | 🎯 icon |
-| **Perspective-shifting Story** | Flip rate > 0.4, sample > 5 | 💡 icon |
+### Icon Choice
 
-### Phase 3: Detailed View (future)
+`⚡` (lightning) — represents impact/energy of position shifts.
 
-Show full strength metrics on Point/Story detail pages for transparency.
+Alternative considered: `🎯` (target) — fits "truth-seeking" but implies accuracy we can't guarantee.
+
+## Future Enhancements (Post-MVP)
+
+### Weighted Formula
+
+Once we have more data, add weights for:
+
+```
+Raw = Σ (shift × verification_score × sqrt(ears) × calibration)
+```
+
+| Factor | What It Is | Why It Matters |
+|--------|------------|----------------|
+| **Ears** | Verifier's reputation | Respected person moving = stronger signal |
+| **Calibration** | Verifier's self-assessment accuracy | Well-calibrated = trustworthy signal |
+
+### Expanded Analytics (Tap to See)
+
+On card expansion or detail page, show breakdown:
+
+```
+┌─────────────────────────────────────────────────┐
+│ 📍 POINT: "Climate change is human-caused"      │
+│                                           ⚡ 72 │
+│                                                 │
+│ How stories move people on this point:          │
+│                                                 │
+│      AGAINST              FOR                   │
+│        ←━━━━━━━○━━━━━━━━━━━━━━━━→              │
+│         -0.3        +1.8                        │
+│                                                 │
+│ FOR stories:                                    │
+│  📖 "Ice core data..." ━━━━━━→ +2.1            │
+│  📖 "My father..." ━━━→ +1.4                   │
+│                                                 │
+│ AGAINST stories:                                │
+│  📖 "Jobs will be lost..." ←━ -0.6             │
+│  📖 "Models are flawed..." · (0.0)             │
+└─────────────────────────────────────────────────┘
+```
 
 ## Open Questions
 
-1. **Threshold sensitivity** — What asymmetry score threshold = "strong"? Need empirical data.
-2. **Sample size** — Minimum verifications before showing badge? 5? 10? 20?
-3. **Time horizon** — When to measure `positionAfter`? Immediately? 24 hours later? A week?
-4. **Gaming risk** — Could people game this by strategic position-taking? How to detect?
+1. **Benchmark tuning** — Is 60 the right benchmark? Need real data.
+2. **Time horizon** — When to measure `positionAfter`? Immediately after verification.
+3. **Gaming risk** — Mitigated by verification quality rating from author.
+4. **Negative scores?** — MVP shows magnitude only. Direction could be added later.
+
+## Anti-Gaming
+
+| Risk | Mitigation |
+|------|------------|
+| Fake shifts | Author rates verification quality — bad verifications get low score |
+| Sybil attacks | Low verification count = low confidence display |
+| Strategic positioning | Need genuine verification to count |
 
 ## Dependencies
 
 - Requires `/live` sessions to be working (H1 validated ✅)
 - Requires position tracking on Points
 - Requires linking Stories to Points
+- Requires author rating of verification quality
 
 ## Success Criteria
 
 1. **Instrumentation:** Every verification logs a complete VerificationEvent
-2. **Analysis:** Can compute strength metrics from logged data
-3. **Validation:** Strong Points (by asymmetry) correlate with domain expert judgment
-4. **UI:** Users can distinguish strong from weak content at a glance
+2. **Calculation:** Impact Score computed correctly from logged data
+3. **Display:** Score visible on all Point and Story cards
+4. **Validation:** High-Impact content correlates with quality (manual review)
 
-## Timeline
+## Phases
 
 | Phase | Scope | Effort |
 |-------|-------|--------|
-| 1. Instrumentation | Log VerificationEvents | Small |
-| 2. Analysis | Compute metrics, validate with real data | Medium |
-| 3. UI Badges | Show badges on qualifying content | Small |
-| 4. Detail View | Full transparency on metrics | Medium |
+| 1. Instrumentation | Log VerificationEvents with positions | Small |
+| 2. Score Calculation | Implement formula, add to API | Small |
+| 3. UI Display | Show `⚡ N` on cards | Small |
+| 4. Analytics View | Expanded breakdown on tap | Medium |
+| 5. Weighted Formula | Add ears, calibration | Medium |
 
 ## Related Documents
 
 - [v7_communicative_critical_rationalism.md](../docs/visions/v7_communicative_critical_rationalism.md) — Philosophical foundation
 - [hypotheses.md](../docs/hypotheses.md) — H-Core hypothesis definition
-- [p89_swipeable_card_view.md](p89_swipeable_card_view.md) — Card UI where badges would appear
+- [p89_swipeable_card_view.md](p89_swipeable_card_view.md) — Card UI where score appears

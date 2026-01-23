@@ -668,10 +668,10 @@ export function Live() {
           <div className="flex items-center gap-3 px-4 py-3 max-w-4xl mx-auto">
             <button
               onClick={() => setMeetingPhase('start')}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              Cancel
             </button>
             <span className="flex-1 text-center text-sm text-gray-500">
               Waiting Room
