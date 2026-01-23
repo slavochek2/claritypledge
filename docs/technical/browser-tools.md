@@ -42,14 +42,42 @@ For authenticated sessions:
 
 ---
 
-## Decision Guide
+## Snapshot vs Screenshot: Context Cost Guide
+
+**Default to snapshot.** Screenshots consume 10-20x more context tokens.
+
+| Tool | Context Cost | Use When |
+|------|--------------|----------|
+| `take_snapshot` | ~100-500 tokens | Structure, elements, text, form state |
+| `take_screenshot` | ~1,500-4,000 tokens | Visual bugs, styling, layout, showing user |
+
+### Decision Rule
+
+> **Checking content/structure?** → Snapshot
+> **Checking appearance?** → Screenshot
+
+| Task | Tool | Why |
+|------|------|-----|
+| "Is the button on the page?" | Snapshot | Structure check |
+| "Does the button look right?" | Screenshot | Visual check |
+| "Find the login form UID" | Snapshot | Element discovery |
+| "Check the color of the header" | Screenshot | Styling check |
+| "Verify form has 3 fields" | Snapshot | Structure check |
+| "Debug layout overflow" | Screenshot | Visual bug |
+
+**Math:** 10 snapshots ≈ 2-5K tokens. 10 screenshots ≈ 20-40K tokens.
+
+---
+
+## Tool Selection Guide
 
 | Need | Tool | Notes |
 |------|------|-------|
-| Quick screenshot / visual check | Docker MCP Playwright | Default choice |
-| Interact with page elements | Docker MCP Playwright | Use `browser_snapshot` first |
+| Check page structure/elements | Chrome DevTools / Playwright | Use `take_snapshot` |
+| Visual verification | Chrome DevTools / Playwright | Use `take_screenshot` |
+| Interact with page elements | Chrome DevTools / Playwright | Use snapshot first to get UIDs |
 | Run E2E test suite | `npm run test:e2e` | Playwright tests with assertions |
-| Debug network/perf issues | Chrome DevTools MCP | If enabled |
+| Debug network/perf issues | Chrome DevTools MCP | Network inspector, perf traces |
 | OAuth / logged-in sessions | Chrome Integration | Requires `claude --chrome` |
 
 ---

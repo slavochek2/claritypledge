@@ -14,8 +14,8 @@ Direct Chrome DevTools Protocol access. Best for:
 
 **Key commands:**
 - `mcp__chrome-devtools__navigate_page` — Navigate to URL
-- `mcp__chrome-devtools__take_snapshot` — A11y tree snapshot (preferred over screenshot)
-- `mcp__chrome-devtools__take_screenshot` — Visual screenshot
+- `mcp__chrome-devtools__take_snapshot` — A11y tree snapshot (~100-500 tokens, use for structure/elements)
+- `mcp__chrome-devtools__take_screenshot` — Visual screenshot (~1,500-4,000 tokens, use for styling/layout)
 - `mcp__chrome-devtools__click`, `fill`, `hover` — Interactions
 - `mcp__chrome-devtools__list_network_requests` — Network inspection
 - `mcp__chrome-devtools__list_console_messages` — Console capture
@@ -32,8 +32,8 @@ Playwright automation via MCP. Best for:
 
 **Key commands:**
 - `mcp__playwright__browser_navigate` — Navigate to URL
-- `mcp__playwright__browser_snapshot` — A11y snapshot (preferred)
-- `mcp__playwright__browser_take_screenshot` — Visual screenshot
+- `mcp__playwright__browser_snapshot` — A11y snapshot (~100-500 tokens, use for structure/elements)
+- `mcp__playwright__browser_take_screenshot` — Visual screenshot (~1,500-4,000 tokens, use for styling/layout)
 - `mcp__playwright__browser_click`, `browser_type`, `browser_hover` — Interactions
 - `mcp__playwright__browser_fill_form` — Fill multiple fields at once
 - `mcp__playwright__browser_tabs` — Multi-tab management
