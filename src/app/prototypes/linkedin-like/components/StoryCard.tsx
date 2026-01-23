@@ -9,10 +9,15 @@ import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
 
+/** Display context for StoryCard - controls what's shown */
+export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
+
 interface StoryCardProps {
   story: Story;
   compact?: boolean;
   isDetailView?: boolean;
+  /** Display context - 'profile' hides QuotedPoints, 'point-detail' hides QuotedPoints */
+  context?: StoryCardContext;
   /** Optional position badge to show (e.g., when displayed in Point context) */
   authorPosition?: PositionType;
   /** Show "Verify" button in card footer */
@@ -30,6 +35,7 @@ export function StoryCard({
   story,
   compact = false,
   isDetailView = false,
+  context,
   authorPosition,
   showVerifyButton = false,
   onVerify,
@@ -153,8 +159,16 @@ export function StoryCard({
                 )}
               </div>
 
-              {/* Quoted Points - Twitter quote style, show all (max 3) */}
-              {linkedPoints.length > 0 && (
+              {/* Quoted Points - context-aware display */}
+              {linkedPoints.length > 0 && context === 'profile' && (
+                // Profile context: Show count only
+                <div className="mt-3 flex items-center gap-1.5 text-sm text-gray-500">
+                  <span>🔗</span>
+                  <span>{linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}</span>
+                </div>
+              )}
+              {linkedPoints.length > 0 && context !== 'profile' && context !== 'point-detail' && (
+                // Story detail or default: Show full QuotedPoints
                 <div className="mt-3 space-y-2">
                   {linkedPoints.slice(0, 3).map(point => (
                     <QuotedPoint
@@ -181,6 +195,7 @@ export function StoryCard({
                   )}
                 </div>
               )}
+              {/* point-detail context: Hide QuotedPoints entirely - Stories are already in Point context */}
             </div>
           </div>
         )}

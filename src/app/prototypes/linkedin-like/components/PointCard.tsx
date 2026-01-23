@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Mic, Pin, Ear } from 'lucide-react';
+import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import {
@@ -10,7 +10,7 @@ import {
   currentUser,
   getUserCredibilityStats,
 } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareButton, type SevenPointCounts } from './shared';
+import { PointHeader, PositionButtons, ShareButton, type SevenPointCounts } from './shared';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
 
@@ -32,6 +32,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   const [userPosition, setUserPosition] = useState<Position>(
     point.positions['current']?.position || null
   );
+  const [storiesExpanded, setStoriesExpanded] = useState(false);
   const linkedStories = getStoriesForPoint(point.id);
   const baseCounts = getPointPositionCounts(point);
 
@@ -168,35 +169,89 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               />
             </div>
 
-            {/* Linked Stories - show all (max 3) */}
-            {storiesToShow.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {storiesToShow.map(story => (
-                  <QuotedStory
-                    key={story.id}
-                    story={story}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.story(story.id));
-                    }}
-                    onAuthorClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.profileById(story.authorId));
-                    }}
-                  />
-                ))}
-                {filteredStories.length > 3 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.point(point.id));
-                    }}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    +{filteredStories.length - 3} more stories
-                  </button>
+            {/* Linked Stories - collapsible on profile, inline on detail/feed */}
+            {profileOwnerId ? (
+              // Profile context: Collapsible "Your N stories"
+              <div className="mt-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setStoriesExpanded(!storiesExpanded);
+                  }}
+                  className="flex items-center gap-1.5 min-w-[44px] min-h-[44px] px-2 py-2 -mx-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  aria-expanded={storiesExpanded}
+                  aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} ${isCurrentUserProfile ? 'your' : profileOwner?.name.split(' ')[0] + "'s"} stories`}
+                >
+                  {storiesExpanded ? (
+                    <ChevronDown size={16} className="flex-shrink-0" />
+                  ) : (
+                    <ChevronRight size={16} className="flex-shrink-0" />
+                  )}
+                  <span>
+                    {isCurrentUserProfile ? 'Your' : `${profileOwner?.name.split(' ')[0]}'s`} {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                  </span>
+                </button>
+                {storiesExpanded && storiesToShow.length > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {storiesToShow.map(story => (
+                      <QuotedStory
+                        key={story.id}
+                        story={story}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(routes.story(story.id));
+                        }}
+                        onAuthorClick={(e) => {
+                          e.stopPropagation();
+                          navigate(routes.profileById(story.authorId));
+                        }}
+                      />
+                    ))}
+                    {filteredStories.length > 3 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(routes.point(point.id));
+                        }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        +{filteredStories.length - 3} more stories
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
+            ) : (
+              // Feed/detail context: Show inline (max 3)
+              storiesToShow.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {storiesToShow.map(story => (
+                    <QuotedStory
+                      key={story.id}
+                      story={story}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.story(story.id));
+                      }}
+                      onAuthorClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.profileById(story.authorId));
+                      }}
+                    />
+                  ))}
+                  {filteredStories.length > 3 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.point(point.id));
+                      }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      +{filteredStories.length - 3} more stories
+                    </button>
+                  )}
+                </div>
+              )
             )}
           </div>
         </div>
