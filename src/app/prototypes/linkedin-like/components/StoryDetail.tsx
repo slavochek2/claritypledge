@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, Radio, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
 import { RatingDots } from './shared';
@@ -143,7 +143,9 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">C</span>
+          <span className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+            <Radio size={12} className="text-white" />
+          </span>
           <span className="font-medium text-gray-900">Clarity Sessions</span>
           <span className="text-sm text-gray-500">({verifications.length})</span>
         </div>
