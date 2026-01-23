@@ -5,69 +5,93 @@ description: Record decisions to docs/decisions.md. Run manually after finishing
 
 # Knowledge-Driven Development (KDD)
 
-Capture decisions that matter. Git tracks *what* changed; this captures *why*.
+Capture knowledge that matters. Git tracks *what* changed; this captures *why* and keeps docs current.
 
 ## Scope
 
-Record decisions that **affect code, architecture, or product behavior**:
-- Technical choices (libraries, patterns, data models)
-- Product decisions (UI scales, user flows, feature scoping)
-- Architecture (auth patterns, data structures, API design)
+This skill manages two categories of documentation:
 
-**Don't record:**
-- Philosophy or vision (that belongs in `docs/visions/`)
-- Hypotheses to test (that belongs in `docs/hypotheses.md`)
-- Feature planning (that belongs in `features/`)
+### Strategic Docs (the "why")
 
-**Rule of thumb:** If the decision affects what gets built or how, record it. If it's about *why we believe something*, it belongs in vision docs.
+| Doc | What goes there | Update when... |
+|-----|-----------------|----------------|
+| `docs/DECISIONS.md` | Technical/product trade-offs | You chose X over Y for a reason |
+| `docs/hypotheses.md` | What we're testing, validation status | Hypothesis validated, invalidated, or added |
+| `docs/roadmap.md` | Build phases, current focus | Phase complete, priorities shift |
+| `docs/lean-canvas.md` | Business model, customer segments | Business model changes |
+
+### Technical Docs (the "how")
+
+| Doc | What goes there | Update when... |
+|-----|-----------------|----------------|
+| `docs/technical/database.md` | Schema, RLS, data model | Schema changes implemented |
+| `docs/technical/authentication.md` | Auth flows, session handling | Auth patterns change |
+| `docs/technical/e2e-testing.md` | Test patterns, helpers | Testing approach evolves |
+| `docs/domain-model.md` | Core concepts (Stories, Points, etc.) | Domain model changes |
+
+**Don't update via /kdd:**
+- Philosophy/vision docs (`docs/visions/`) — rarely change
+- Feature specs (`features/`) — managed separately
 
 ## Workflow
 
-1. Show recent commits on current branch:
+1. **Review recent work:**
    ```bash
    git log --oneline -10
    ```
 
-2. **Analyze and propose** (don't just ask):
-   - Review commits and identify architectural/product decisions
-   - If decisions found: state what you'll record and why, then proceed (or ask once if genuinely ambiguous)
-   - If no decisions: say "No significant decisions to record" and move to step 5
-   - Don't repeatedly ask for confirmation - be decisive
+2. **Analyze and classify** — what type of knowledge was created?
+   - Decision made? → `DECISIONS.md`
+   - Hypothesis validated/added? → `hypotheses.md`
+   - Phase complete / focus shifted? → `roadmap.md`
+   - Business model changed? → `lean-canvas.md`
+   - Schema/auth/testing changed? → relevant technical doc
+   - Domain concepts changed? → `domain-model.md`
 
-3. Append to `docs/decisions.md` using this format:
+3. **Propose updates** — state what you'll update and why, then proceed.
+   - If no updates needed: "No knowledge updates needed" and skip to step 5
+   - Don't ask repeatedly for confirmation — be decisive
 
-```markdown
-## YYYY-MM-DD: Decision Title
+4. **Update docs** using appropriate format:
 
-**Context:** Why this came up
-**Decision:** What we chose
-**Alternatives rejected:** What we didn't choose
-**Consequences:** What this means going forward
-**References:** [filename.md](path/to/file.md) | [another.md](path/to/another.md#section)
-```
+   **For DECISIONS.md** (append at TOP, after header):
+   ```markdown
+   ## YYYY-MM-DD: Decision Title
 
-Use markdown links with relative paths from repo root. Link to specific sections with `#anchor` when relevant.
+   **Context:** Why this came up
+   **Decision:** What we chose
+   **Alternatives rejected:** What we didn't choose
+   **Consequences:** What this means going forward
+   **References:** [file.md](path/to/file.md)
+   ```
 
-4. Confirm: "Appended to docs/decisions.md"
+   **For hypotheses.md:**
+   - Change status emoji (⏳ → 🔄 → ✅)
+   - Add validation notes
+   - Add new hypotheses if discovered
 
-5. **Feature file housekeeping:** Check if any feature docs in `features/` are now complete:
+   **For roadmap.md:**
+   - Update "Current Focus" quote block
+   - Mark phases ✅ DONE
+   - Update "What's done" / "What's next"
+
+   **For technical docs:**
+   - Keep them accurate to current implementation
+   - These are Claude's context shortcuts — save future re-reading
+
+5. **Feature housekeeping:**
    ```bash
    ls features/*.md
    ```
-
-   Assess which features are complete based on the commits/work just done. If any are complete:
-   - State which file(s) you're moving and why
-   - Move them (use `mv` if untracked, `git mv` if tracked):
-     ```bash
-     mv features/pNN_feature.md features/done/
-     ```
-
-   If none are complete, skip silently.
+   If any features are complete based on the work done:
+   ```bash
+   mv features/pNN_feature.md features/done/
+   ```
 
 ## Rules
 
-- **Be decisive** - analyze and propose, don't repeatedly ask for permission
-- Append at TOP of file (after the header section, before existing entries)
-- Never edit old entries - append-only
+- **Be decisive** — analyze and propose, don't repeatedly ask
+- **DECISIONS.md is append-only** — never edit old entries
+- **Technical docs are living** — update to match current reality
+- **One commit can touch multiple docs** — that's fine
 - If user says skip, acknowledge and exit
-- Keep entries concise but complete
