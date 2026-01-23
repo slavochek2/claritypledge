@@ -154,7 +154,7 @@ The input can be a **spec file** or **UAT file**. Detect by:
 3. **Current score** — Count ✅ vs total tests
 4. **Categories** — List of category headings
 
-### Step 3: Find Related Files
+### Step 3: Find or Generate UAT
 
 If given a spec, look for UAT:
 - `{spec_basename}_uat.md`
@@ -164,19 +164,21 @@ If given a UAT, look for spec:
 - `{uat_basename}.md` (e.g., `p61.md` from `p61_uat.md`)
 - `{uat_basename}_tech_spec.md`
 
-**Both are optional** — Ralph Orchestrator works with just a spec file.
+**If UAT doesn't exist:** Call `/generate-uat {spec_path}` to create it before generating the Ralph command. UAT gives Ralph concrete checkboxes to verify against.
 
 ### Step 4: Generate Ralph Orchestrator Command
 
 **Output the simple one-liner only:**
 
 ```bash
-ralph run --no-tui -p "Implement {FEATURE_NAME} per {SPEC_PATH}. {BRIEF_CONTEXT}. Verify with browser MCP."
+ralph run --no-tui -p "Implement {FEATURE_NAME} per {SPEC_PATH}. {BRIEF_CONTEXT}. {UAT_CLAUSE}. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
 ```
 
-Where `{BRIEF_CONTEXT}` is 1-2 sentences max:
-- Key components to build
-- Important constraints (e.g., "Frontend mockup only", "Reuse existing components")
+Where:
+- `{BRIEF_CONTEXT}` = 1-2 sentences max (key components, constraints)
+- `{UAT_CLAUSE}` = "Verify against {uat_path}" (if UAT exists)
+
+**Always include quality gates:** `/bmad:bmm:workflows:code-review` and `/design-audit`
 
 **Keep it short.** Ralph will read the spec file for details.
 
@@ -242,7 +244,7 @@ That's it. No long setup instructions, no heredocs, no component lists.
 | `--prompt-file` flag | Generate PROMPT.md file in project root instead of inline command |
 | UAT file provided | Use UAT for structured tracking (update scorecard during iteration) |
 
-## Example 1: Medium Spec
+## Example 1: Medium Spec (with UAT)
 
 **Input:**
 ```
@@ -260,7 +262,7 @@ That's it. No long setup instructions, no heredocs, no component lists.
 ## Run
 
 ```bash
-ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Build ViewToggle, CardStack, SwipeableCard. Verify with browser MCP."
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Build ViewToggle, CardStack, SwipeableCard. Verify against features/p89_uat.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
 ```
 
 ---
@@ -268,7 +270,19 @@ ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipea
 **If it fails:** Create PROMPT.md with more detail, then `ralph run --no-tui`
 ```
 
-## Example 2: Simple Spec
+## Example 2: Spec without UAT
+
+**Input:**
+```
+/generate-ralph-loop features/p85_event_verification_flow.md
+```
+
+**Behavior:**
+1. No `features/p85_uat.md` found
+2. Calls `/generate-uat features/p85_event_verification_flow.md` to create it
+3. Then outputs command with UAT reference
+
+## Example 3: Simple Spec
 
 **Input:**
 ```
@@ -287,6 +301,6 @@ This is simple. Just run `/loop` interactively.
 
 If you prefer Ralph:
 ```bash
-ralph run --no-tui -p "Fix button color per features/p95_fix_button_color.md"
+ralph run --no-tui -p "Fix button color per features/p95_fix_button_color.md. Before complete: run /bmad:bmm:workflows:code-review, fix all issues."
 ```
 ```
