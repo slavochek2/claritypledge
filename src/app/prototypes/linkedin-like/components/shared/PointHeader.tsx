@@ -3,7 +3,7 @@ import { PositionBadge } from './PositionBadge';
 import type { Position } from '../../../shared/types';
 
 interface PointHeaderProps {
-  /** Total number of stances on this point */
+  /** Total number of positions on this point */
   totalStances: number;
   /** Position of the author/profile owner to display */
   authorPosition?: Position;
@@ -19,7 +19,7 @@ interface PointHeaderProps {
 
 /**
  * Shared header for Point displays
- * Shows: [Pin] Point · N Stances · [Author] Agrees
+ * Shows: [Pin] Point · N Positions · [Author] Agrees
  */
 export function PointHeader({
   totalStances,
@@ -41,7 +41,7 @@ export function PointHeader({
           {showLabel && <span className={`${textClass} text-gray-400`}>·</span>}
           <span className={`flex items-center gap-1 ${textClass} text-gray-500`}>
             <Users size={iconSize} />
-            {totalStances} {totalStances === 1 ? 'Stance' : 'Stances'}
+            {totalStances} {totalStances === 1 ? 'Position' : 'Positions'}
           </span>
         </>
       )}
