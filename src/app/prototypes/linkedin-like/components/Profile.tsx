@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Ear, Sparkles } from 'lucide-react';
+import { ArrowLeft, Share2, Ear, Sparkles, PenLine } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
@@ -25,6 +25,7 @@ export function Profile() {
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
+  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOwnProfile = !id || id === 'current';
   const user = isOwnProfile ? currentUser : getUserById(id || '');
@@ -63,7 +64,7 @@ export function Profile() {
 
     return (
       <PrototypeLayout>
-        <div className="relative max-w-4xl mx-auto pb-8">
+        <div className="relative max-w-4xl mx-auto pb-20">
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
               {/* Back button - goes to My Events */}
@@ -218,7 +219,7 @@ export function Profile() {
 
   return (
     <PrototypeLayout>
-      <div className="relative max-w-4xl mx-auto pb-8">
+      <div className="relative max-w-4xl mx-auto pb-20">
         {/* Main profile content - centered */}
         <div className="max-w-lg mx-auto px-4 mt-3">
             {/* Back button - above card like production */}
@@ -313,6 +314,7 @@ export function Profile() {
                   />
                   <div className="flex-1">
                     <textarea
+                      ref={composerTextareaRef}
                       value={newIdeaText}
                       onChange={(e) => setNewIdeaText(e.target.value)}
                       onFocus={() => setIsComposerExpanded(true)}
@@ -381,7 +383,20 @@ export function Profile() {
               {contentTab === 'stories' ? (
                 userStories.length === 0 ? (
                   <div className="bg-white rounded-lg p-8 text-center">
-                    <p className="text-gray-500">No stories shared yet</p>
+                    <p className="text-gray-500 mb-4">No stories shared yet</p>
+                    <button
+                      onClick={() => {
+                        composerTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(() => {
+                          composerTextareaRef.current?.focus();
+                          setIsComposerExpanded(true);
+                        }, 300);
+                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <PenLine size={16} />
+                      Share your first story
+                    </button>
                   </div>
                 ) : (
                   userStories.map((story) => (

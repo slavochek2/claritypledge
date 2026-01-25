@@ -119,18 +119,22 @@ export function InlineCalibration({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="flex items-center gap-1 shrink-0">
-          <Lock size={10} className="text-gray-400" />
-          <span className="text-xs text-gray-500">Calibration</span>
-        </div>
-        <div className="relative h-6 w-32">
-          {/* Bar */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2 rounded-full bg-gray-200" />
-          {/* Center tick mark - subtle */}
-          <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-px h-2 bg-gray-400 -translate-x-px" />
+      <div className="mt-4 pt-4 border-t border-gray-100">
+        {/* Label and bar on same row */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Lock size={12} className="text-gray-400" />
+            <span className="text-xs font-medium text-gray-600">Calibration</span>
+          </div>
 
-          {/* Listener icon (ear) - above the bar */}
+          {/* Bar with icons */}
+          <div className="relative h-10 flex-1 max-w-[160px]">
+            {/* Bar - increased contrast with border */}
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-gray-300 border border-gray-400" />
+            {/* Center tick mark */}
+            <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3 bg-gray-500 -translate-x-px rounded-full" />
+
+            {/* Listener icon (ear) - above the bar, 44px touch target */}
           <CalibrationTooltip
             side="top"
             content={
@@ -144,14 +148,16 @@ export function InlineCalibration({
             }
           >
             <span
-              className="absolute top-0 w-4 h-4 flex items-center justify-center -translate-x-1/2"
+              className="absolute -top-1 min-w-[44px] min-h-[44px] flex items-center justify-center -translate-x-1/2"
               style={{ left: `${listenerPos}%` }}
             >
-              <Ear size={12} className="text-gray-500" />
+              <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                <Ear size={16} className="text-blue-600" />
+              </span>
             </span>
           </CalibrationTooltip>
 
-          {/* Speaker icon (mic) - below the bar */}
+          {/* Speaker icon (mic) - below the bar, 44px touch target */}
           <CalibrationTooltip
             side="bottom"
             content={
@@ -165,12 +171,15 @@ export function InlineCalibration({
             }
           >
             <span
-              className="absolute bottom-0 w-4 h-4 flex items-center justify-center -translate-x-1/2"
+              className="absolute -bottom-1 min-w-[44px] min-h-[44px] flex items-center justify-center -translate-x-1/2"
               style={{ left: `${speakerPos}%` }}
             >
-              <Mic size={12} className="text-gray-500" />
+              <span className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                <Mic size={16} className="text-green-600" />
+              </span>
             </span>
           </CalibrationTooltip>
+          </div>
         </div>
       </div>
     </TooltipProvider>

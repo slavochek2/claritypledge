@@ -14,16 +14,15 @@ Migrate prototype (~8,600 lines) UI to production. Frontend first, verify, then 
 | **Navigation/Menu** | **Concept only** (menu items, routes) — not component architecture | Flexible on implementation |
 | **Events** | **Minor changes only:** move "Host Event" button, add "Co-create" button | Events already in production — no rebuild |
 
-### Navigation Considerations
+### Navigation Design (Decided)
 
-When implementing navigation (Phase 5), consider both user types:
+| User State | Nav Pattern |
+|------------|-------------|
+| **Non-logged-in** | Keep current header (Events, Pledgers, Manifesto, About) |
+| **Logged-in (Desktop)** | Icon nav (My Events, My Profile) + avatar dropdown |
+| **Logged-in (Mobile)** | Bottom tab bar (My Events, My Profile) + avatar dropdown |
 
-| User State | Current Nav | Questions to Resolve |
-|------------|-------------|---------------------|
-| **Logged in** | Dashboard, Profile, Co-create, Settings, Log Out | Covered in prototype |
-| **Not logged in** | Landing page nav (Home, About, Sign In) | Does this need to change? TBD during Phase 5 |
-
-**Desktop + Mobile:** Both need to work. Prototype may only show one — production needs both.
+Secondary links (Pledgers, Manifesto, About) move to Settings > "About Clarity Pledge" for logged-in users.
 
 ### What Stays the Same (NOT in scope)
 
@@ -68,6 +67,9 @@ Resolved questions before implementation. Sources: [decisions.md](../docs/decisi
 | **Profile structure** | Split by concern, not own/others — `ProfilePage` orchestrates reusable child components | Architecture review |
 | **Brain Dump composer** | Stub for P97 — full Sifter flow (P58) comes later | decisions.md 2026-01-23 |
 | **Events integration** | Include visibility + eventId in Stories schema | definitions.md |
+| **Navigation (logged-in)** | Icon nav (My Events, My Profile) + bottom tab on mobile + avatar dropdown (Settings, Log Out) | P97 planning |
+| **Navigation (non-logged-in)** | Keep current header (Events, Pledgers, Manifesto, About) | P97 planning |
+| **Secondary links (logged-in)** | Pledgers, Manifesto, About → Settings page under "About Clarity Pledge" | P97 planning |
 
 ---
 
@@ -310,46 +312,77 @@ ProfilePage
 
 ## Phase 4: Navigation + Events Buttons
 
-### Current Menu (Verified User)
-- Dashboard
-- View My Profile
-- View My Pledge / Take the Pledge
-- Co-create
-- Settings
-- Log Out
+### Navigation Design (Finalized)
 
-### New Menu (Verified User)
-- Dashboard (`/home`)
-- My Profile (`/me`) ← enhanced with Stories/Points
-- Co-create ← Events move here
-- Settings
-- Log Out
+**Non-logged-in (Desktop + Mobile):** Keep current — optimized for discovery
+```
+┌─────────────────────────────────────────────────┐
+│ Logo   Events  Pledgers  Manifesto  About  [CTA]│
+└─────────────────────────────────────────────────┘
+```
 
-**Note:** "View/Take Pledge" moves into Profile page (not separate menu item)
+**Logged-in (Desktop):** Icon nav — optimized for action
+```
+┌─────────────────────────────────────────────────┐
+│ Logo   📅 My Events   👤 My Profile   [CTA] [▼] │
+└─────────────────────────────────────────────────┘
+                                        ↓ dropdown
+                                  ┌───────────┐
+                                  │ Settings  │
+                                  │ Log Out   │
+                                  └───────────┘
+```
+
+**Logged-in (Mobile):** Bottom tab bar
+```
+┌─────────────────────────────────────────────────┐
+│ Logo                              [CTA]    [▼]  │
+├─────────────────────────────────────────────────┤
+│                  (content)                      │
+├─────────────────────────────────────────────────┤
+│          📅 My Events    👤 My Profile          │
+└─────────────────────────────────────────────────┘
+```
+
+### Where Items Move
+
+| Item | Current Location | New Location |
+|------|------------------|--------------|
+| Dashboard | Dropdown menu | Removed (My Events is the home) |
+| View My Profile | Dropdown menu | Icon nav |
+| View/Take Pledge | Dropdown menu | Profile page section |
+| Co-create | Dropdown menu | Button on My Events page |
+| Pledgers, Manifesto, About | Header (all users) | Settings > "About Clarity Pledge" (logged-in) |
+| Settings | Dropdown menu | Avatar dropdown |
+| Log Out | Dropdown menu | Avatar dropdown |
 
 ### Events Button Changes (Minor)
 
-| Change | Current | New |
-|--------|---------|-----|
-| "Host Event" button | Current location | Move to [TBD in UX analysis] |
-| "Co-create" button | Not on My Events | Add to My Events page |
+| Change | Details |
+|--------|---------|
+| "Host Event" button | Keep on My Events page |
+| "Co-create" button | Add to My Events page |
 
-**Events functionality stays the same** — just button placement.
+**Events functionality stays the same** — just button additions.
 
-### Pre-Implementation: UX Analysis
+### Settings Page Addition
 
-Before coding, spin up a **UX subagent** to analyze:
-1. How does new logged-in navigation affect non-logged-in navigation?
-2. Should menu items/labels stay consistent across states?
-3. Desktop vs mobile patterns — any differences needed?
-4. Where should "Host Event" and "Co-create" buttons go?
-5. Recommend concrete changes (or "no change needed")
-
-This ensures UX coherence before implementation.
+Add "About Clarity Pledge" section:
+```
+Settings
+├── Account
+├── Notifications
+└── About Clarity Pledge
+    ├── Pledgers
+    ├── Manifesto
+    └── About
+```
 
 ### Files to Modify
 - `src/app/components/layout/navigation-menu-items.tsx`
-- My Events page (button placement only)
+- `src/app/components/layout/` (new mobile bottom nav component)
+- `src/app/pages/settings-page.tsx` (add About section)
+- My Events page (add Co-create button)
 
 ---
 

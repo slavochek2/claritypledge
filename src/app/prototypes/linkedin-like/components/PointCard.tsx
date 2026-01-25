@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, Pin, Ear, ChevronDown, ChevronRight, Radio, ExternalLink } from 'lucide-react';
+import { Mic, Pin, Ear, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
@@ -132,21 +132,6 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Start Session - only when person context exists AND they have a story */}
-                  {profileOwnerId && filteredStories.length > 0 && (
-                    <MobileTooltip content="Start a Clarity Session">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/prototype/live/new?with=${profileOwnerId}&story=${filteredStories[0].id}`);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
-                      >
-                        <Radio size={12} />
-                        Start Session
-                      </button>
-                    </MobileTooltip>
-                  )}
                   <ShareButton
                     type="point"
                     id={point.id}

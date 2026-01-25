@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink } from 'lucide-react';
+import { Mic, MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink, Share2 } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
+import { OverflowMenu } from './shared/OverflowMenu';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
@@ -100,44 +101,59 @@ export function StoryCard({
                     </button>
                     <UserCredibility userId={author.id} userName={author.name} />
                   </div>
-                  {/* Action buttons - appear on hover (always visible on touch devices) */}
+                  {/* Action buttons - Share and Open only (Start Session moved to bottom) */}
                   {!isDetailView && (
-                    <div
-                      className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Start Session - primary CTA */}
-                      <MobileTooltip content="Start a Clarity Session">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/prototype/live/new?with=${story.authorId}&story=${story.id}`);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
-                        >
-                          <Radio size={12} />
-                          Start Session
-                        </button>
-                      </MobileTooltip>
-                      <ShareButton
-                        type="story"
-                        id={story.id}
-                        title={`${author.name}'s story`}
-                        description={story.text.slice(0, 100)}
-                      />
-                      {/* Open Story - icon only with tooltip */}
-                      <MobileTooltip content="Open story">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(routes.story(story.id));
-                          }}
-                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                          aria-label="Open story"
-                        >
-                          <ExternalLink size={16} />
-                        </button>
-                      </MobileTooltip>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {/* Desktop: Share and Open on hover */}
+                      <div className="hidden sm:flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+                        <ShareButton
+                          type="story"
+                          id={story.id}
+                          title={`${author.name}'s story`}
+                          description={story.text.slice(0, 100)}
+                        />
+                        <MobileTooltip content="Open story">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(routes.story(story.id));
+                            }}
+                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                            aria-label="Open story"
+                          >
+                            <ExternalLink size={16} />
+                          </button>
+                        </MobileTooltip>
+                      </div>
+
+                      {/* Mobile: overflow menu */}
+                      <div className="sm:hidden">
+                        <OverflowMenu
+                          items={[
+                            {
+                              icon: <Share2 size={16} />,
+                              label: 'Share',
+                              onClick: () => {
+                                const url = `${window.location.origin}${routes.story(story.id)}`;
+                                if (navigator.share) {
+                                  navigator.share({
+                                    title: `${author.name}'s story`,
+                                    text: story.text.slice(0, 100),
+                                    url,
+                                  });
+                                } else {
+                                  navigator.clipboard.writeText(url);
+                                }
+                              },
+                            },
+                            {
+                              icon: <ExternalLink size={16} />,
+                              label: 'Open story',
+                              onClick: () => navigate(routes.story(story.id)),
+                            },
+                          ]}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -178,6 +194,22 @@ export function StoryCard({
           </div>
         )}
       </div>
+
+      {/* Primary CTA at bottom - always visible */}
+      {!isDetailView && (
+        <div className="border-t border-gray-100 px-4 py-3">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/prototype/live/new?with=${story.authorId}&story=${story.id}`);
+            }}
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Radio size={16} />
+            Start a Clarity Session
+          </button>
+        </div>
+      )}
 
       {/* Linked Points Footer - collapsible section */}
       {linkedPoints.length > 0 && context !== 'point-detail' && (
