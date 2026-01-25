@@ -39,25 +39,26 @@ function PartnerPositionDisplay({
 }) {
   if (!position) return null;
 
+  // Design system: all positions use blue (taking any stance is equally valuable)
   const config = {
     agree: {
-      bg: 'bg-emerald-500/20',
-      border: 'border-emerald-500/40',
-      text: 'text-emerald-300',
+      bg: 'bg-blue-500/20',
+      border: 'border-blue-500/40',
+      text: 'text-blue-300',
       label: 'agrees with this',
       emoji: '👍',
     },
     disagree: {
-      bg: 'bg-red-500/20',
-      border: 'border-red-500/40',
-      text: 'text-red-300',
+      bg: 'bg-blue-500/20',
+      border: 'border-blue-500/40',
+      text: 'text-blue-300',
       label: 'disagrees with this',
       emoji: '👎',
     },
     unsure: {
-      bg: 'bg-amber-500/20',
-      border: 'border-amber-500/40',
-      text: 'text-amber-300',
+      bg: 'bg-blue-500/20',
+      border: 'border-blue-500/40',
+      text: 'text-blue-300',
       label: 'is unsure about this',
       emoji: '🤔',
     },
@@ -113,11 +114,7 @@ function PositionPoll({
             className={cn(
               'w-full py-3.5 px-4 rounded-xl font-medium transition-all flex items-center justify-between',
               isSelected
-                ? option.value === 'agree'
-                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
-                  : option.value === 'disagree'
-                    ? 'bg-red-500 text-white shadow-lg shadow-red-500/25'
-                    : 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
                 : 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
             )}
           >
@@ -143,7 +140,7 @@ function VerificationRequestBanner({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-4 mb-4"
+      className="bg-blue-600 rounded-2xl p-4 mb-4"
     >
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
@@ -161,7 +158,7 @@ function VerificationRequestBanner({
       <button
         onClick={onRespond}
         aria-label="Respond to verification"
-        className="w-full mt-3 py-3 bg-white text-purple-700 rounded-xl font-semibold hover:bg-white/90 transition-colors"
+        className="w-full mt-3 py-3 bg-white text-blue-700 rounded-xl font-semibold hover:bg-white/90 transition-colors"
       >
         Let Them Explain
       </button>
@@ -261,10 +258,10 @@ function StoryCard({
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="mb-4 flex items-center justify-center gap-2 py-3 bg-purple-500/20 rounded-xl border border-purple-500/30"
+          className="mb-4 flex items-center justify-center gap-2 py-3 bg-green-500/20 rounded-xl border border-green-500/30"
         >
-          <CheckCircle2 className="text-purple-400" size={20} />
-          <span className="text-purple-300 font-semibold">Understanding Verified</span>
+          <CheckCircle2 className="text-green-400" size={20} />
+          <span className="text-green-300 font-semibold">Understanding Verified</span>
         </motion.div>
       )}
 
@@ -275,7 +272,7 @@ function StoryCard({
             whileTap={{ scale: 0.98 }}
             onClick={onVerify}
             aria-label="Verify understanding"
-            className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
+            className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25"
           >
             <MessageCircle size={20} />
             Check Understanding
