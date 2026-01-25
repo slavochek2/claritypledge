@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { VerificationSession, getUserById } from '../../data/mock-data';
+import { VerificationSession, getUserById, currentUser } from '../../data/mock-data';
 
 interface VerificationStatusDialogProps {
   open: boolean;
@@ -39,9 +39,9 @@ export function VerificationStatusDialog({
   onOpenChange,
   sessions,
 }: VerificationStatusDialogProps) {
-  // Get display name (handle "current" as "You")
+  // Always use actual name in relationship views (third-person narrative context)
   const getName = (userId: string) => {
-    if (userId === 'current') return 'You';
+    if (userId === 'current') return currentUser.name;
     const user = getUserById(userId);
     return user?.name || userId;
   };

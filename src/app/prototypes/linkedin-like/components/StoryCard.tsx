@@ -25,7 +25,7 @@ interface StoryCardProps {
   onVerify?: (e: React.MouseEvent) => void;
   /** Show thread line styling (used in point-detail hierarchy) */
   showThreadLine?: boolean;
-  /** Author's position on the Point (shown before name in point-detail context) */
+  /** Author's position on the Point (used for data context, display removed to reduce redundancy since position sections already group by stance) */
   authorPosition?: PositionType;
 }
 
@@ -89,10 +89,6 @@ export function StoryCard({
               <div className="mb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    {/* Position badge before name (in point-detail context) */}
-                    {authorPosition && context === 'point-detail' && (
-                      <PositionBadge position={authorPosition} />
-                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

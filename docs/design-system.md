@@ -162,6 +162,23 @@ When showing content from multiple users in the same interface:
 - "You're speaking..." → Blue background (#eff6ff)
 - "Gosha finished speaking" → Gray background (#f5f5f5)
 
+#### Copy/Text Convention: "You" vs Actual Name
+
+**Rule:** In **third-person narrative contexts** (logs, history, relationship statements), always use the actual user name. In **direct address contexts**, "You" is fine.
+
+| Context | Use | Example |
+|---------|-----|---------|
+| Clarity Sessions log | Real name | "Alice Chen understands **Jordan Taylor**" ✓ |
+| Relationship statements | Real name | "**Jordan** verified **Alice**'s understanding" ✓ |
+| Historical records | Real name | "**Jordan Taylor** staked a position on Jan 5" ✓ |
+| Network graph labels | "You" | Node labeled "You" (personal view) ✓ |
+| Possessive phrases | "You/Your" | "Your profile", "Your idea" ✓ |
+| Participant lists | "You" | Showing "You" in a list of participants ✓ |
+| Notifications (in-app) | "You" | "You have a new verification" ✓ |
+| Notifications (email/push) | Real name | "Jordan, Alice verified understanding of your story" ✓ |
+
+**Why:** Third-person narratives read like historical records. "Alice understands You" is grammatically awkward and unclear when viewed later or by others. Real names create a clear, professional ledger.
+
 ### Component Patterns
 
 #### Buttons

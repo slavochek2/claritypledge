@@ -291,7 +291,7 @@ LAYER 4: TOPOLOGY MAP
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
 - [hypotheses.md](hypotheses.md) — What we're testing and validation status
 - [philosophy.md](philosophy.md) — Epistemological foundation (Asymmetric Conversion)
-- [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Full philosophical foundation
+- [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article with tactical frameworks (Three Asymmetries, Implementation Levels, Celebration Engine)
 - [Tournament Theory](visions/v2_tournament_theory.md) — Scaling protocol, √N mathematics
 
 ---

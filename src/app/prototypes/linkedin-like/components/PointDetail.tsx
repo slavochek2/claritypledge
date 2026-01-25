@@ -4,8 +4,8 @@ import { ArrowLeft } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
-import { FilterTabs, type PositionFilter } from './shared';
-import { PositionBadge } from './shared/PositionBadge';
+import { FilterTabs, PositionBadge, UserCredibility, type PositionFilter } from './shared';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import {
   getPointById,
@@ -195,7 +195,7 @@ function PositionSection({
 
 /**
  * Compact row for position holders without a story.
- * Shows avatar, name, title, and position badge.
+ * Styled consistently with StoryCard/QuotedStory patterns.
  */
 function PositionOnlyRow({ holder }: { holder: PositionHolder }) {
   const navigate = useNavigate();
@@ -204,24 +204,49 @@ function PositionOnlyRow({ holder }: { holder: PositionHolder }) {
   return (
     <div
       onClick={() => navigate(routes.profileById(user.id))}
-      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+      className="group flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors"
     >
-      {/* Avatar */}
-      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-sm flex-shrink-0">
-        {user.avatar || user.name.split(' ').map(n => n[0]).join('')}
-      </div>
+      {/* Avatar - consistent with StoryCard */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate(routes.profileById(user.id));
+        }}
+        className="flex-shrink-0 hover:opacity-80 transition-opacity"
+      >
+        <GravatarAvatar
+          name={user.name}
+          size="sm"
+          isPledger={user.hasPledged}
+        />
+      </button>
 
-      {/* Name and title */}
+      {/* Content - matches StoryCard author row structure */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <PositionBadge position={position} size="sm" />
-          <span className="font-medium text-gray-900 text-sm truncate">{user.name}</span>
+        <div className="flex items-center gap-1.5">
+          {/* Name - clickable */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(routes.profileById(user.id));
+            }}
+            className="font-medium text-gray-900 text-sm hover:underline truncate"
+          >
+            {user.name}
+          </button>
+          {/* Credibility - ear count */}
+          <UserCredibility userId={user.id} userName={user.name} />
+          {/* Position badge - after credibility */}
+          <PositionBadge position={position} />
         </div>
-        <p className="text-xs text-gray-500 truncate">{user.title}</p>
+        {/* Role metadata - consistent with StoryCard */}
+        <p className="text-xs text-gray-500 truncate">
+          {user.role}{user.company && ` at ${user.company}`}
+        </p>
       </div>
 
-      {/* No story indicator */}
-      <span className="text-xs text-gray-400 italic">No story shared</span>
+      {/* No story indicator - subtle */}
+      <span className="text-xs text-gray-400 italic flex-shrink-0">No story yet</span>
     </div>
   );
 }

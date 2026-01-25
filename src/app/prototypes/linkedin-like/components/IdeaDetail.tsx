@@ -12,6 +12,7 @@ import {
   getAllVerificationSessionsForIdea,
   Position,
   formatTimeAgo,
+  currentUser,
 } from '../data/mock-data';
 
 export function IdeaDetail() {
@@ -159,10 +160,12 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
   const sessions = getAllVerificationSessionsForIdea(ideaId);
 
   // Extract individual verifications from sessions
+  // Semantics: verifier = speaker (gave rating), verified = listener (demonstrated understanding)
+  // Display shows: "{verifiedId} understands {verifierId}" (listener understands speaker)
   type Verification = {
     sessionId: string;
-    verifierId: string;
-    verifiedId: string;
+    verifierId: string;  // speaker who confirmed understanding
+    verifiedId: string;  // listener who demonstrated understanding
     rating: number;
     isAcrossDisagreement: boolean;
   };
@@ -179,18 +182,20 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
     const p2Position = idea?.positions[p2]?.position;
     const isDifferentPosition = p1Position && p2Position && p1Position !== p2Position;
 
-    // Add verification for p1 → p2 (p1 understands p2)
+    // If p1 gave a rating, they're the speaker confirming p2 (listener) understood them
+    // Display: "p2 understands p1" (verified understands verifier)
     if (verifiedBy.includes(p1) && ratings[p1] !== undefined) {
       verifications.push({
         sessionId: session.id,
-        verifierId: p1,
-        verifiedId: p2,
+        verifierId: p1,  // speaker (gave the rating)
+        verifiedId: p2,  // listener (demonstrated understanding)
         rating: ratings[p1],
         isAcrossDisagreement: !!isDifferentPosition,
       });
     }
 
-    // Add verification for p2 → p1 (p2 understands p1)
+    // If p2 gave a rating, they're the speaker confirming p1 (listener) understood them
+    // Display: "p1 understands p2" (verified understands verifier)
     if (verifiedBy.includes(p2) && ratings[p2] !== undefined) {
       verifications.push({
         sessionId: session.id,
@@ -206,15 +211,19 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
 
   const acrossDisagreementCount = verifications.filter(v => v.isAcrossDisagreement).length;
 
+  const getUser = (userId: string) => {
+    if (userId === 'current') return currentUser;
+    return getUserById(userId);
+  };
+
   const getName = (userId: string) => {
-    if (userId === 'current') return 'You';
-    const user = getUserById(userId);
+    // Always use actual name in Clarity Sessions log (third-person narrative context)
+    const user = getUser(userId);
     return user?.name || 'Unknown';
   };
 
   const getAvatar = (userId: string) => {
-    if (userId === 'current') return '👤';
-    const user = getUserById(userId);
+    const user = getUser(userId);
     return user?.avatar || '?';
   };
 
@@ -243,17 +252,17 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
             onClick={() => navigate(routes.liveSession(v.sessionId))}
             className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
           >
-            {/* Verifier avatar */}
+            {/* Avatar of person who demonstrated understanding */}
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm flex-shrink-0">
-              {getAvatar(v.verifierId)}
+              {getAvatar(v.verifiedId)}
             </div>
 
-            {/* Text: "X understands Y" */}
+            {/* Text: "X understands Y" - verified demonstrates understanding of verifier */}
             <div className="flex-1 min-w-0">
               <p className="text-sm">
-                <span className="font-medium text-gray-900">{getName(v.verifierId)}</span>
-                <span className="text-gray-500"> understands </span>
                 <span className="font-medium text-gray-900">{getName(v.verifiedId)}</span>
+                <span className="text-gray-500"> understands </span>
+                <span className="font-medium text-gray-900">{getName(v.verifierId)}</span>
               </p>
             </div>
 

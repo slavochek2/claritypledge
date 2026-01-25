@@ -102,23 +102,27 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
     // Check if positions differ (simplified: assume different for now if both have positions)
     const isDifferentPosition = p1 !== p2;
 
-    // Add verification for p1 → p2 (p1 understands p2)
-    if (verifiedBy.includes(p1) && ratings[p1] !== undefined) {
+    // For Story pages: only show verifications where the STORY OWNER is the verifier
+    // (they confirmed someone else understood their story)
+    // The other party in the session is the one who demonstrated understanding
+
+    // If story author is p1 and they gave a rating, show "p2 understands p1 (author)"
+    if (p1 === story.authorId && verifiedBy.includes(p1) && ratings[p1] !== undefined) {
       verifications.push({
         sessionId: session.id,
-        verifierId: p1,
-        verifiedId: p2,
+        verifierId: p1,  // story author verified
+        verifiedId: p2,  // other person demonstrated understanding
         rating: ratings[p1],
         isAcrossDisagreement: !!isDifferentPosition,
       });
     }
 
-    // Add verification for p2 → p1 (p2 understands p1)
-    if (verifiedBy.includes(p2) && ratings[p2] !== undefined) {
+    // If story author is p2 and they gave a rating, show "p1 understands p2 (author)"
+    if (p2 === story.authorId && verifiedBy.includes(p2) && ratings[p2] !== undefined) {
       verifications.push({
         sessionId: session.id,
-        verifierId: p2,
-        verifiedId: p1,
+        verifierId: p2,  // story author verified
+        verifiedId: p1,  // other person demonstrated understanding
         rating: ratings[p2],
         isAcrossDisagreement: !!isDifferentPosition,
       });
@@ -135,7 +139,7 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
   };
 
   const getName = (userId: string) => {
-    if (userId === 'current') return 'You';
+    // Always use actual name in Clarity Sessions log (third-person narrative context)
     const user = getUser(userId);
     return user?.name || 'Unknown';
   };
@@ -165,9 +169,9 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
             onClick={() => navigate(routes.liveSession(v.sessionId))}
             className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
           >
-            {/* Verifier avatar */}
+            {/* Avatar of person who demonstrated understanding */}
             {(() => {
-              const user = getUser(v.verifierId);
+              const user = getUser(v.verifiedId);
               return user ? (
                 <GravatarAvatar
                   name={user.name}
@@ -180,12 +184,12 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
               );
             })()}
 
-            {/* Text: "X understands Y" */}
+            {/* Text: "X understands Y" - verified demonstrates understanding of verifier */}
             <div className="flex-1 min-w-0">
               <p className="text-sm">
-                <span className="font-medium text-gray-900">{getName(v.verifierId)}</span>
-                <span className="text-gray-500"> understands </span>
                 <span className="font-medium text-gray-900">{getName(v.verifiedId)}</span>
+                <span className="text-gray-500"> understands </span>
+                <span className="font-medium text-gray-900">{getName(v.verifierId)}</span>
               </p>
             </div>
 
