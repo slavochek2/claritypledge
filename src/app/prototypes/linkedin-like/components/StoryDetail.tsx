@@ -3,12 +3,14 @@ import { ArrowLeft, Radio, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
 import { RatingDots } from './shared';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import {
   getStoryById,
   getUserById,
   getPointsForStory,
   mockVerificationSessions,
+  currentUser,
 } from '../data/mock-data';
 import type { Story } from '../../shared/types';
 
@@ -126,16 +128,15 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
 
   const acrossDisagreementCount = verifications.filter(v => v.isAcrossDisagreement).length;
 
-  const getName = (userId: string) => {
-    if (userId === 'current') return 'You';
-    const user = getUserById(userId);
-    return user?.name || 'Unknown';
+  const getUser = (userId: string) => {
+    if (userId === 'current') return currentUser;
+    return getUserById(userId);
   };
 
-  const getAvatar = (userId: string) => {
-    if (userId === 'current') return '👤';
-    const user = getUserById(userId);
-    return user?.avatar || '?';
+  const getName = (userId: string) => {
+    if (userId === 'current') return 'You';
+    const user = getUser(userId);
+    return user?.name || 'Unknown';
   };
 
   return (
@@ -143,14 +144,12 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-            <Radio size={12} className="text-white" />
-          </span>
+          <Radio size={16} className="text-gray-500" />
           <span className="font-medium text-gray-900">Clarity Sessions</span>
           <span className="text-sm text-gray-500">({verifications.length})</span>
         </div>
         {acrossDisagreementCount > 0 && (
-          <div className="flex items-center gap-1.5 text-blue-600 text-sm">
+          <div className="flex items-center gap-1.5 text-gray-500 text-sm">
             <Zap size={14} />
             <span>{acrossDisagreementCount} across disagreement</span>
           </div>
@@ -166,9 +165,19 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
             className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
           >
             {/* Verifier avatar */}
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm flex-shrink-0">
-              {getAvatar(v.verifierId)}
-            </div>
+            {(() => {
+              const user = getUser(v.verifierId);
+              return user ? (
+                <GravatarAvatar
+                  name={user.name}
+                  size="sm"
+                  isPledger={user.hasPledged}
+                  className="!w-8 !h-8 !text-xs"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm flex-shrink-0">?</div>
+              );
+            })()}
 
             {/* Text: "X understands Y" */}
             <div className="flex-1 min-w-0">
@@ -182,7 +191,7 @@ function ClaritySessionsSection({ story, navigate }: ClaritySessionsSectionProps
             {/* Rating dots + across disagreement indicator */}
             <div className="flex items-center gap-2">
               {v.isAcrossDisagreement && (
-                <Zap size={12} className="text-blue-600" />
+                <Zap size={12} className="text-gray-400" />
               )}
               <RatingDots rating={v.rating} size="sm" />
             </div>

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mic, MessageCircle, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
 import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
@@ -66,16 +67,20 @@ export function StoryCard({
       <div className="p-4">
         {/* Author row with avatar */}
         {author && (
-          <div className="flex gap-3">
+          <div className="flex items-start gap-3">
             {/* Avatar column */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(routes.profileById(author.id));
               }}
-              className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg flex-shrink-0 hover:ring-2 hover:ring-blue-200 transition-all"
+              className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
             >
-              {author.avatar}
+              <GravatarAvatar
+                name={author.name}
+                size="sm"
+                isPledger={author.hasPledged}
+              />
             </button>
 
             {/* Content column - aligned under avatar */}
@@ -183,11 +188,8 @@ export function StoryCard({
 
           {/* Expanded linked points */}
           {pointsExpanded && (
-            <div className="pl-[52px] pr-4 pb-4 relative">
-              {/* Single vertical thread line */}
-              <div className="absolute left-[56px] top-0 bottom-3 w-px bg-gray-300" />
-
-              <div className="space-y-2 pl-3">
+            <div className="pl-[52px] pr-4 pb-4">
+              <div className="space-y-2">
                 {linkedPoints.slice(0, 3).map(point => (
                   <QuotedPoint
                     key={point.id}

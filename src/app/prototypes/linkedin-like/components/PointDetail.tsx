@@ -5,12 +5,14 @@ import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
 import { FilterTabs, type PositionFilter } from './shared';
+import { PositionBadge } from './shared/PositionBadge';
 import { routes } from '../config';
 import {
   getPointById,
   getStoriesForPoint,
+  getUserById,
 } from '../data/mock-data';
-import type { PositionType, Story } from '../../shared/types';
+import type { PositionType, Story, User } from '../../shared/types';
 import { getPositionGroup, type PositionButtonGroup } from '../../shared/types';
 
 /**
@@ -41,26 +43,39 @@ export function PointDetail() {
 
   const linkedStories = getStoriesForPoint(point.id);
 
-  // Group stories by author's position on this point
-  const storiesByPosition: Record<PositionButtonGroup, Story[]> = {
+  // Create a map of authorId -> story for quick lookup
+  const storyByAuthor: Record<string, Story> = {};
+  for (const story of linkedStories) {
+    storyByAuthor[story.authorId] = story;
+  }
+
+  // Group ALL position holders by their position (not just those with stories)
+  type PositionHolder = { user: User; position: PositionType; story?: Story };
+  const holdersByPosition: Record<PositionButtonGroup, PositionHolder[]> = {
     agree: [],
     disagree: [],
     unsure: [],
   };
 
-  for (const story of linkedStories) {
-    const authorPosition = point.positions[story.authorId]?.position;
-    if (authorPosition) {
-      const group = getPositionGroup(authorPosition as PositionType);
-      storiesByPosition[group].push(story);
-    }
+  for (const [userId, entry] of Object.entries(point.positions)) {
+    if (userId === 'current' || !entry?.position) continue;
+    const user = getUserById(userId);
+    if (!user) continue;
+
+    const group = getPositionGroup(entry.position as PositionType);
+    holdersByPosition[group].push({
+      user,
+      position: entry.position as PositionType,
+      story: storyByAuthor[userId],
+    });
   }
 
-  const storyCounts = {
-    all: linkedStories.length,
-    agree: storiesByPosition.agree.length,
-    disagree: storiesByPosition.disagree.length,
-    unsure: storiesByPosition.unsure.length,
+  // Count position holders (not just stories)
+  const positionCounts = {
+    all: Object.keys(point.positions).filter(id => id !== 'current').length,
+    agree: holdersByPosition.agree.length,
+    disagree: holdersByPosition.disagree.length,
+    unsure: holdersByPosition.unsure.length,
   };
 
   // Which sections to show based on filter
@@ -100,17 +115,16 @@ export function PointDetail() {
           <FilterTabs
             activeFilter={positionFilter}
             onFilterChange={setPositionFilter}
-            counts={storyCounts}
+            counts={positionCounts}
           />
 
-          {/* Position-grouped stories */}
+          {/* Position-grouped holders */}
           <div className="p-4 space-y-6">
             {positionsToShow.map(position => (
               <PositionSection
                 key={position}
                 position={position}
-                stories={storiesByPosition[position]}
-                positionsByAuthor={point.positions}
+                holders={holdersByPosition[position]}
                 showHeader={positionFilter === 'all'}
               />
             ))}
@@ -121,21 +135,20 @@ export function PointDetail() {
   );
 }
 
+type PositionHolder = { user: User; position: PositionType; story?: Story };
+
 /**
  * Section for a single position group (Agree/Disagree/Unsure)
  * Shows header only when viewing all positions (showHeader=true)
- * Uses thread lines to show hierarchy: Position → Person → Story
+ * Shows all position holders - those with stories get StoryCard, others get a compact row
  */
 function PositionSection({
   position,
-  stories,
-  positionsByAuthor,
+  holders,
   showHeader,
 }: {
   position: PositionButtonGroup;
-  stories: Story[];
-  /** Map of author ID to their position entry */
-  positionsByAuthor: Record<string, { position: PositionType; timestamp: string }>;
+  holders: PositionHolder[];
   /** Show position label header (when viewing all positions) */
   showHeader: boolean;
 }) {
@@ -146,43 +159,75 @@ function PositionSection({
   };
 
   // When viewing all positions, hide empty sections entirely
-  // Only show "(no stories yet)" when explicitly filtering to an empty category
-  if (stories.length === 0 && showHeader) {
+  // Only show "(no positions yet)" when explicitly filtering to an empty category
+  if (holders.length === 0 && showHeader) {
     return null;
   }
 
   return (
     <div>
       {/* Position label - shown when viewing all positions */}
-      {showHeader && stories.length > 0 && (
+      {showHeader && holders.length > 0 && (
         <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
           {labels[position]}
         </div>
       )}
 
-      {/* Stories or empty state (only shown when filtering to specific position) */}
-      {stories.length === 0 ? (
+      {/* Position holders or empty state */}
+      {holders.length === 0 ? (
         <p className="text-center text-gray-400 text-sm py-3">
-          (no stories yet)
+          (no positions yet)
         </p>
       ) : (
-        <div className="relative pl-6">
-          {/* Single vertical thread line */}
-          <div className="absolute left-2 top-2 bottom-2 w-px bg-gray-300" />
-
-          <div className="space-y-3">
-            {stories.map(story => (
+        <div className="space-y-3">
+          {holders.map(holder =>
+            holder.story ? (
               <StoryCard
-                key={story.id}
-                story={story}
+                key={holder.user.id}
+                story={holder.story}
                 compact
                 context="point-detail"
-                authorPosition={positionsByAuthor[story.authorId]?.position}
+                authorPosition={holder.position}
               />
-            ))}
-          </div>
+            ) : (
+              <PositionOnlyRow key={holder.user.id} holder={holder} />
+            )
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Compact row for position holders without a story.
+ * Shows avatar, name, title, and position badge.
+ */
+function PositionOnlyRow({ holder }: { holder: PositionHolder }) {
+  const navigate = useNavigate();
+  const { user, position } = holder;
+
+  return (
+    <div
+      onClick={() => navigate(routes.profileById(user.id))}
+      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
+    >
+      {/* Avatar */}
+      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium text-sm flex-shrink-0">
+        {user.avatar || user.name.split(' ').map(n => n[0]).join('')}
+      </div>
+
+      {/* Name and title */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <PositionBadge position={position} size="sm" />
+          <span className="font-medium text-gray-900 text-sm truncate">{user.name}</span>
+        </div>
+        <p className="text-xs text-gray-500 truncate">{user.title}</p>
+      </div>
+
+      {/* No story indicator */}
+      <span className="text-xs text-gray-400 italic">No story shared</span>
     </div>
   );
 }

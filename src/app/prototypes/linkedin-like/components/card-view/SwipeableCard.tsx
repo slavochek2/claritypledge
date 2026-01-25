@@ -21,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { PositionButtons, UserCredibility, type SevenPointCounts } from '../shared';
 import {
   getUserById,
@@ -241,13 +242,17 @@ function StoryContent({
               e.stopPropagation();
               onTap?.(story.id);
             }}
-            className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg hover:ring-2 hover:ring-blue-200 transition-all flex-shrink-0"
+            className="flex-shrink-0 hover:opacity-80 transition-opacity"
           >
-            {author.avatar}
+            <GravatarAvatar
+              name={author.name}
+              size="sm"
+              isPledger={author.hasPledged}
+            />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-gray-900 text-sm">{isOwnStory ? 'You' : author.name}</span>
+              <span className="font-semibold text-gray-900 text-sm">{author.name}</span>
               <UserCredibility userId={author.id} userName={author.name} />
             </div>
             <p className="text-xs text-gray-500">
@@ -405,9 +410,12 @@ function PointContent({
           className="w-full text-left p-3 rounded-lg border border-gray-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-200 transition-colors"
         >
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs">
-              {storyAuthor.avatar}
-            </span>
+            <GravatarAvatar
+              name={storyAuthor.name}
+              size="sm"
+              isPledger={storyAuthor.hasPledged}
+              className="!w-5 !h-5 !text-[10px]"
+            />
             <span className="text-xs font-medium text-gray-700">{storyAuthor.name}</span>
           </div>
           <p className="text-sm text-gray-700 line-clamp-2">{firstLinkedStory.text}</p>

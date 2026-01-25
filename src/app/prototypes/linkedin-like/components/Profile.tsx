@@ -4,6 +4,7 @@ import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Ear } from '
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories, getUserCredibilityStats } from '../data/mock-data';
 import { CalibrationDisplay, InlineCalibration } from './shared/CalibrationDisplay';
 import { ShareDialog } from './shared/ShareDialog';
@@ -82,11 +83,11 @@ export function Profile() {
                 <div className="flex items-start gap-4">
                   {/* Avatar - blue ring only if pledger */}
                   <div className="flex-shrink-0">
-                    <div className={`w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl ${
-                      user.hasPledged ? 'ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-white' : ''
-                    }`}>
-                      {user.avatar}
-                    </div>
+                    <GravatarAvatar
+                      name={user.name}
+                      size="lg"
+                      isPledger={user.hasPledged}
+                    />
                   </div>
 
                   {/* Name and Role */}
@@ -235,11 +236,11 @@ export function Profile() {
               <div className="flex items-start gap-4">
                 {/* Avatar - blue ring only if pledger */}
                 <div className="flex-shrink-0">
-                  <div className={`w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-3xl ${
-                    user.hasPledged ? 'ring-[3px] ring-blue-500 ring-offset-[3px] ring-offset-white' : ''
-                  }`}>
-                    {user.avatar}
-                  </div>
+                  <GravatarAvatar
+                    name={user.name}
+                    size="lg"
+                    isPledger={user.hasPledged}
+                  />
                 </div>
 
                 {/* Name and Role */}
@@ -303,9 +304,11 @@ export function Profile() {
             <div className="pt-3">
               <div className="bg-white rounded-lg border border-gray-200 p-3">
                 <div className="flex gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg shrink-0">
-                    {user.avatar}
-                  </div>
+                  <GravatarAvatar
+                    name={user.name}
+                    size="sm"
+                    isPledger={user.hasPledged}
+                  />
                   <div className="flex-1">
                     <textarea
                       value={newIdeaText}

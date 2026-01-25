@@ -248,7 +248,11 @@ export function ExploreFeed() {
           </div>
 
           {/* Feed items */}
-          <div className="space-y-4">
+          <div className="space-y-4 relative">
+            {/* Timeline connector line */}
+            {filteredFeedItems.length > 1 && (
+              <div className="absolute left-6 top-6 bottom-6 w-px bg-gray-200" />
+            )}
             {filteredFeedItems.map(feedItem => (
               feedItem.type === 'story' ? (
                 <StoryCard key={`story-${feedItem.item.id}`} story={feedItem.item} />

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import {
   getStoriesForPoint,
@@ -190,11 +191,8 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
           {/* Expanded linked stories */}
           {storiesExpanded && storiesToShow.length > 0 && (
-            <div className="pl-[52px] pr-4 pb-4 relative">
-              {/* Single vertical thread line */}
-              <div className="absolute left-[56px] top-0 bottom-3 w-px bg-gray-300" />
-
-              <div className="space-y-2 pl-3">
+            <div className="pl-[52px] pr-4 pb-4">
+              <div className="space-y-2">
                 {storiesToShow.map(story => (
                   <QuotedStory
                     key={story.id}
@@ -269,9 +267,14 @@ function QuotedStory({
                   onAuthorClick?.(e as unknown as React.MouseEvent);
                 }
               }}
-              className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-xs hover:ring-2 hover:ring-blue-200 transition-all cursor-pointer"
+              className="hover:opacity-80 transition-opacity cursor-pointer"
             >
-              {author.avatar}
+              <GravatarAvatar
+                name={author.name}
+                size="sm"
+                isPledger={author.hasPledged}
+                className="!w-5 !h-5 !text-[10px]"
+              />
             </span>
           )}
           {/* Author name - clickable */}

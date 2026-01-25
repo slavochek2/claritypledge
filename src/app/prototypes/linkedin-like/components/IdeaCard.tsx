@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Share2, Check, Copy, Zap, Users, ExternalLink } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
 import { PositionButtons, VisibilityBadge, type SevenPointCounts } from './shared';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { getPositionGroup } from '../../shared/types';
 import type { PositionType, PositionButtonGroup } from '../../shared/types';
 import { routes } from '../config';
@@ -205,9 +206,13 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                 e.stopPropagation();
                 navigate(`/prototype/linkedin-like/profile/${author.id}`);
               }}
-              className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg flex-shrink-0 hover:ring-2 hover:ring-blue-200 transition-all self-start"
+              className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
             >
-              {author.avatar}
+              <GravatarAvatar
+                name={author.name}
+                size="sm"
+                isPledger={author.hasPledged}
+              />
             </button>
           )}
 
