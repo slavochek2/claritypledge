@@ -382,7 +382,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 - Data model: `position` column as smallint (-3 to 3), per-user conversion history
 - No admin role needed for "certifying" listeners — system self-calibrates
 
-**References:** [v7_communicative_critical_rationalism.md](docs/visions/v7_communicative_critical_rationalism.md#the-measurement-stack)
+**References:** [philosophy.md](philosophy.md#the-measurement-stack)
 
 ---
 

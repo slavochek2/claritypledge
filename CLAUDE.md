@@ -78,7 +78,9 @@ For business model: [lean-canvas.md](docs/lean-canvas.md)
 - `hypotheses.md` — What we're testing
 - `roadmap.md` — Build sequence
 - `decisions.md` — Trade-offs (why X over Y)
-- `visions/*` — Philosophy & explorations
+- `philosophy.md` — WHY this works (epistemology)
+- `theory-of-change.md` — HOW change spreads (cascade, √N)
+- `visions/*` — Historical explorations
 
 **Consumer docs** (link only, never duplicate):
 - `README.md` — Setup for humans
@@ -131,7 +133,8 @@ Load these docs when working on specific areas:
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
 | Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
-| Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
+| Epistemology (WHY this works) | [philosophy.md](docs/philosophy.md) |
+| Cascade, √N, network effects | [theory-of-change.md](docs/theory-of-change.md) |
 
 ## Worktree Branch Naming
 
@@ -487,7 +490,7 @@ Before creating a new function, hook, or component:
 ```
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
-├── visions/            # Philosophy docs (v0, v7)
+├── visions/            # Historical explorations (v1-v8)
 ├── bmad/               # BMAD workflow status files
 ├── archive/            # Archived docs (superseded)
 ├── hypotheses.md       # What we're testing

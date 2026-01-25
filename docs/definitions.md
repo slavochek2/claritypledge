@@ -128,4 +128,4 @@ The real value is in detecting **false states**:
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
 - [hypotheses.md](hypotheses.md) — What we're testing (H-Core, H0-H5)
-- [v7_communicative_critical_rationalism.md](visions/v7_communicative_critical_rationalism.md) — Epistemological foundations
+- [philosophy.md](philosophy.md) — Epistemological foundations

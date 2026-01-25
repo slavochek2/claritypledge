@@ -17,7 +17,7 @@ decisions:
 
 # P96: Philosophy & Theory of Change Docs
 
-**Status:** In Progress (collaborative)
+**Status:** Complete
 **Created:** 2026-01-25
 
 ---
@@ -91,31 +91,27 @@ Currently in `visions/` folder:
 
 ### Phase 2: Create philosophy.md
 
-- [ ] **2.1** Create `docs/philosophy.md` based on decisions
-- [ ] **2.2** Keep v7 in visions/ as source/historical
+- [x] **2.1** Create `docs/philosophy.md` based on decisions ✓
+- [x] **2.2** Keep v7 in visions/ as source/historical ✓
 
 ### Phase 3: Promote theory-of-change.md
 
-- [ ] **3.1** Move `visions/v0_theory-of-change.md` → `docs/theory-of-change.md` (delete original)
-- [ ] **3.2** Update 22+ files with links to v0 (CLAUDE.md, lean-canvas.md, roadmap.md, hypotheses.md, feature docs)
+- [x] **3.1** Move `visions/v0_theory-of-change.md` → `docs/theory-of-change.md` (delete original) ✓
+- [x] **3.2** Update files with links to v0 (CLAUDE.md, lean-canvas.md, roadmap.md, hypotheses.md, etc.) ✓
 
 ### Phase 4: Cleanup visions folder
 
-- [ ] **4.1** Rename files with bad names:
+- [x] **4.1** Rename files with bad names: ✓
   - `v0.1 training model.md` → `v0.1_training_model.md`
   - `v2. tournament _ theory.md` → `v2_tournament_theory.md`
 - [x] **4.2** `p6.1_intuitive_trust_building.md` identified as published preprint (DOI: 10.5281/zenodo.14548583) ✓
-- [ ] **4.3** Keep all historical docs in visions/ (don't archive)
+- [x] **4.3** Keep all historical docs in visions/ (don't archive) ✓
 
 ### Phase 5: Integration
 
-- [ ] **5.1** Update /kdd to manage new docs (also remove `docs/visions/` from exclusion list):
-  ```
-  | Philosophy (epistemology) | `docs/philosophy.md` |
-  | Theory of change (cascade) | `docs/theory-of-change.md` |
-  ```
-- [ ] **5.2** Update CLAUDE.md Deep Dive References
-- [ ] **5.3** Update links in other docs
+- [x] **5.1** Update /kdd to manage new docs (also remove `docs/visions/` from exclusion list) ✓
+- [x] **5.2** Update CLAUDE.md Deep Dive References ✓
+- [x] **5.3** Update links in other docs (active docs updated, historical docs preserved) ✓
 
 ---
 
@@ -139,9 +135,9 @@ Currently in `visions/` folder:
 
 ## Success Criteria
 
-- [ ] `philosophy.md` exists with clear epistemological foundation
-- [ ] `theory-of-change.md` promoted to docs/ level
-- [ ] v7/v8 relationship clarified
-- [ ] visions/ folder cleaned up (renamed files, p6.1 noted as reference)
-- [ ] /kdd and CLAUDE.md updated
-- [ ] Clear separation: philosophy vs theory-of-change vs roadmap
+- [x] `philosophy.md` exists with clear epistemological foundation ✓
+- [x] `theory-of-change.md` promoted to docs/ level ✓
+- [x] v7/v8 relationship clarified ✓
+- [x] visions/ folder cleaned up (renamed files, p6.1 noted as reference) ✓
+- [x] /kdd and CLAUDE.md updated ✓
+- [x] Clear separation: philosophy vs theory-of-change vs roadmap ✓

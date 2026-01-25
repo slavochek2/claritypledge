@@ -244,8 +244,8 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 **Foundation:**
 - [hypotheses.md](hypotheses.md) — What we're testing (H-Core, H0-H5)
-- [v0_theory-of-change.md](visions/v0_theory-of-change.md) — Cascade mechanism
-- [v7_communicative_critical_rationalism.md](visions/v7_communicative_critical_rationalism.md) — Epistemology
+- [theory-of-change.md](theory-of-change.md) — Cascade mechanism, √N
+- [philosophy.md](philosophy.md) — Epistemology
 
 ---
 

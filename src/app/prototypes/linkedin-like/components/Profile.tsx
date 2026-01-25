@@ -284,18 +284,15 @@ export function Profile() {
                 </div>
 
                 {/* Share button - top right like cards */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setShowShareDialog(true)}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
-                      aria-label="Share profile"
-                    >
-                      <Share2 size={16} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Share profile</TooltipContent>
-                </Tooltip>
+                <MobileTooltip content="Share profile">
+                  <button
+                    onClick={() => setShowShareDialog(true)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                    aria-label="Share profile"
+                  >
+                    <Share2 size={16} />
+                  </button>
+                </MobileTooltip>
               </div>
 
 

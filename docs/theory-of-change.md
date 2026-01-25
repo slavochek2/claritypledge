@@ -1,6 +1,7 @@
 # Theory of Change: From Fractured Realities to Common Knowledge
 
-**Status:** Living document — the causal chain from individual verification to civilizational transformation
+**Status:** Source of truth — the causal chain from individual verification to civilizational transformation
+**See also:** [philosophy.md](philosophy.md) for WHY this works (epistemology)
 
 ---
 
@@ -8,9 +9,9 @@
 
 > By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality — not by forcing agreement, but by making disagreement informed.
 
-**For problem/solution context:** See [lean-canvas.md](../lean-canvas.md)
-**For what we're testing:** See [hypotheses.md](../hypotheses.md)
-**For epistemological foundation:** See [v7_communicative_critical_rationalism.md](v7_communicative_critical_rationalism.md)
+**For problem/solution context:** See [lean-canvas.md](lean-canvas.md)
+**For what we're testing:** See [hypotheses.md](hypotheses.md)
+**For epistemological foundation:** See [philosophy.md](philosophy.md)
 
 ---
 
@@ -174,7 +175,7 @@ A global network where:
 
 ## The Facilitation Ladder
 
-> **Note:** This describes the END STATE vision for group scaling, not the current build sequence. See [roadmap.md](../roadmap.md) for what we're building now.
+> **Note:** This describes the END STATE vision for group scaling, not the current build sequence. See [roadmap.md](roadmap.md) for what we're building now.
 
 The cascade requires building in a specific sequence. Each level builds on the previous.
 
@@ -287,16 +288,17 @@ LAYER 4: TOPOLOGY MAP
 
 ## Related Documents
 
-- [lean-canvas.md](../lean-canvas.md) — Problem, solution, customer segments
-- [hypotheses.md](../hypotheses.md) — What we're testing and validation status
-- [v7_communicative_critical_rationalism.md](v7_communicative_critical_rationalism.md) — Epistemological foundation (Asymmetric Conversion)
-- [The Clarity Tax Manifesto](../../src/app/content/full-article.md) — Full philosophical foundation
-- [Tournament Theory](./v2.%20tournament%20_%20theory.md) — Scaling protocol, √N mathematics
+- [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
+- [hypotheses.md](hypotheses.md) — What we're testing and validation status
+- [philosophy.md](philosophy.md) — Epistemological foundation (Asymmetric Conversion)
+- [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Full philosophical foundation
+- [Tournament Theory](visions/v2_tournament_theory.md) — Scaling protocol, √N mathematics
 
 ---
 
 ## Changelog
 
+- **2026-01-25:** Promoted from `docs/visions/v0_theory-of-change.md` to source of truth doc (P96)
 - **2026-01-18:** Refactored — extracted problem/solution to lean-canvas.md, validation to hypotheses.md. This doc now focuses purely on the cascade mechanism.
 - **2026-01-11:** Added Section 3.1 "Routing Intelligence: Which Gaps Matter Most"
 - **2025-01-04:** Added "The Facilitation Ladder" — tactical sequence for building from 1-on-1 to group sync

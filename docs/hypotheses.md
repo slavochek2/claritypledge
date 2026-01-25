@@ -12,7 +12,7 @@ Ordered list of assumptions we're testing. Each must be validated before the nex
 
 **What we're testing:** Does the Point closest to truth exhibit asymmetric conversion — opponents move toward it after verified understanding, but holders don't move away?
 
-This is the foundational claim of [Communicative Critical Rationalism](visions/v7_communicative_critical_rationalism.md). If false, the entire epistemological framework needs revision.
+This is the foundational claim of [Communicative Critical Rationalism](philosophy.md). If false, the entire epistemological framework needs revision.
 
 ### The Two Components
 
@@ -196,6 +196,6 @@ These assumptions must be validated in order. A1-A5 are validated by MVP (human 
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Product overview and business model
-- [v0_theory-of-change.md](visions/v0_theory-of-change.md) — Full validation strategy and cascade theory
+- [theory-of-change.md](theory-of-change.md) — Cascade mechanism, √N
 - [decisions.md](decisions.md) — Why we're testing in this order
 - [p69_product_vision_consolidation.md](../features/p69_product_vision_consolidation.md) — Documentation consolidation

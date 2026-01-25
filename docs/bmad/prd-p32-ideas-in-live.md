@@ -19,7 +19,7 @@ Currently, two people enter a session and verify understanding on... nothing spe
 
 Verification matters when there's an **idea** where agreement or disagreement has consequences.
 
-From [Theory of Change Section 6.1](../visions/v0_theory-of-change.md#61-the-facilitation-ladder):
+From [Theory of Change - Facilitation Ladder](../theory-of-change.md#the-facilitation-ladder):
 
 > The answer: verification matters when there's an **idea** where agreement/disagreement has consequences.
 

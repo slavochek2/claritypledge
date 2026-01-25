@@ -16,7 +16,8 @@ A sensemaking platform that reveals calibration gaps in understanding and motiva
 - [Lean Canvas](docs/lean-canvas.md) — Business model and value proposition
 - [Hypotheses](docs/hypotheses.md) — What we're testing and validation status
 - [Roadmap](docs/roadmap.md) — Build sequence and current focus
-- [Philosophy](docs/visions/v7_communicative_critical_rationalism.md) — Epistemological foundations (optional deep-dive)
+- [Philosophy](docs/philosophy.md) — Epistemological foundations (optional deep-dive)
+- [Theory of Change](docs/theory-of-change.md) — How change spreads (cascade, √N)
 
 ## Tech Stack
 

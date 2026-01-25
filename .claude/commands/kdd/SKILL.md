@@ -18,7 +18,8 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | What we're testing | `docs/hypotheses.md` |
 | Build sequence, priorities | `docs/roadmap.md` |
 | Trade-offs, "why X over Y" | `docs/decisions.md` |
-| Philosophy, end-state vision | `docs/visions/*.md` |
+| Epistemology (WHY this works) | `docs/philosophy.md` |
+| Cascade, √N, network effects | `docs/theory-of-change.md` |
 | Schema, RLS, data model | `docs/technical/database.md` |
 | Auth flows, session handling | `docs/technical/authentication.md` |
 | Test patterns, helpers | `docs/technical/e2e-testing.md` |
@@ -28,7 +29,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 - `CLAUDE.md` — Instructions for AI
 
 **Don't update via /kdd:**
-- Philosophy/vision docs (`docs/visions/`) — rarely change
+- Historical explorations (`docs/visions/`) — archived, rarely change
 - Feature specs (`features/`) — managed separately
 
 ## Guardrails
