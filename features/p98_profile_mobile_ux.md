@@ -1,14 +1,14 @@
 ---
-prep_status: needs-answers
+prep_status: ready
 prep_date: 2026-01-25
 prep_by: /prep-spec
 reviews:
   ux: warnings
   architect: warnings
   tea: skipped
-open_questions: 2
-blindspots: 6
-execution: pending
+open_questions: 0
+blindspots: 4
+execution: /loop
 ---
 
 # P98: Mobile UX Fixes
@@ -228,20 +228,21 @@ interface OverflowMenuProps {
 - [ ] All content scrollable above bottom nav
 - [ ] No content hidden when scrolled to bottom
 
-#### B3. Empty States with CTAs
+#### B3. Empty Story State with CTA
 
-**Problem:** "No stories shared yet" / "No positions taken yet" are dead ends.
+**Problem:** "No stories shared yet" is a dead end.
 
 **Files:** `Profile.tsx`
 
-**Fix:** Add action buttons to empty states:
-- Stories: "Share your first story" → composer focus
-- Points: "Explore points to take a position" → feed/discover
+**Fix:** Add action button to empty stories state:
+- "Share your first story" → scroll to composer and focus textarea
+- The composer ("What's on your mind?") is already the Sifter placeholder
+
+**Note:** Empty points state ("No positions taken yet") is out of scope — needs separate spec to design story-after-position flow.
 
 **Acceptance:**
-- [ ] Empty story state shows CTA button
-- [ ] Empty points state shows CTA button
-- [ ] CTAs navigate to appropriate destination
+- [ ] Empty story state shows "Share your first story" button
+- [ ] Button scrolls to composer and focuses textarea
 
 ---
 
@@ -252,6 +253,7 @@ interface OverflowMenuProps {
 - QuotedStory/QuotedPoint nested cards
 - Desktop layout changes
 - Touch target standardization across all components (future cleanup)
+- Empty points state CTA — needs P99 spec for story-after-position flow
 
 ## Testing
 
@@ -265,6 +267,7 @@ Manual QA on iPhone viewport (375px):
 5. Desktop hover behavior unchanged
 
 **Part B:**
-1. Fresh user with 0 stories/points → see CTAs
-2. User with content → calibration visible
-3. All cards scroll above bottom nav
+1. Fresh user with 0 stories → see "Share your first story" CTA
+2. CTA scrolls to composer and focuses it
+3. User with content → calibration visible
+4. All cards scroll above bottom nav
