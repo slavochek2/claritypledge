@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ExternalLink, Mic, Pin, Ear, ChevronDown, ChevronRight } from 'lucide-react';
+import { Mic, Pin, Ear, ChevronDown, ChevronRight, Radio, ExternalLink } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
@@ -132,21 +132,39 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.point(point.id));
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
-                  >
-                    <ExternalLink size={12} />
-                    Open Point
-                  </button>
+                  {/* Start Session - only when person context exists AND they have a story */}
+                  {profileOwnerId && filteredStories.length > 0 && (
+                    <MobileTooltip content="Start a Clarity Session">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/prototype/live/new?with=${profileOwnerId}&story=${filteredStories[0].id}`);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                      >
+                        <Radio size={12} />
+                        Start Session
+                      </button>
+                    </MobileTooltip>
+                  )}
                   <ShareButton
-                      type="point"
-                      id={point.id}
-                      description={point.text.slice(0, 100)}
-                    />
+                    type="point"
+                    id={point.id}
+                    description={point.text.slice(0, 100)}
+                  />
+                  {/* Open Point - icon only with tooltip */}
+                  <MobileTooltip content="Open point">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(routes.point(point.id));
+                      }}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="Open point"
+                    >
+                      <ExternalLink size={16} />
+                    </button>
+                  </MobileTooltip>
                 </div>
               )}
             </div>
@@ -308,9 +326,12 @@ function QuotedStory({
             </MobileTooltip>
           )}
         </div>
-        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
-          <ExternalLink size={10} />
-          Open Story
+        {/* Arrow icon - visual hint that card is clickable (not separately interactive) */}
+        <span
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity pointer-events-none"
+          aria-hidden="true"
+        >
+          <ExternalLink size={14} />
         </span>
       </div>
       {/* Story text */}

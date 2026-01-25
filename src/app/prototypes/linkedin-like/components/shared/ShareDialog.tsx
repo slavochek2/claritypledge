@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Share2, Copy, Check, Link2, Code } from 'lucide-react';
+import { MobileTooltip } from './MobileTooltip';
 import {
   Dialog,
   DialogContent,
@@ -190,16 +191,18 @@ export function ShareButton({ type, id, className, title, description }: ShareBu
 
   return (
     <>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-        className={className || "p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"}
-        aria-label={`Share ${type}`}
-      >
-        <Share2 size={14} />
-      </button>
+      <MobileTooltip content={`Share ${type}`}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen(true);
+          }}
+          className={className || "p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"}
+          aria-label={`Share ${type}`}
+        >
+          <Share2 size={14} />
+        </button>
+      </MobileTooltip>
       <ShareDialog
         open={open}
         onOpenChange={setOpen}

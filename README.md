@@ -4,23 +4,12 @@
 
 A sensemaking platform that reveals calibration gaps in understanding and motivates people to close them.
 
-## The Problem
+## What Is This?
 
-People fail to have constructive dialogues because:
-1. **Speakers** overestimate how clearly they communicated
-2. **Listeners** overestimate how well they understood
-
-No feedback loop exists — conversations end without checking if understanding actually happened.
-
-## How It Works
-
-1. **Events** — Organizers create events, seed topics for discussion
-2. **Stories** — Personal experiences that can only be understood (not debated)
-3. **Points** — Claims about reality that can be agreed/disagreed with (-3 to +3)
-4. **Verification** — `/live` sessions where partners explain back each other's Stories
-5. **Calibration** — Your profile shows the gap between confidence and reality
-
-The **Pledge** is a graduation feature — users who demonstrate calibrated listening can publicly commit to the protocol.
+**Learn more:**
+- [Problem & Solution](docs/lean-canvas.md) — Why this matters
+- [Core Concepts](docs/definitions.md) — Stories, Points, Verification
+- [What We're Building](docs/roadmap.md) — Current focus and phases
 
 ## Go Deeper
 

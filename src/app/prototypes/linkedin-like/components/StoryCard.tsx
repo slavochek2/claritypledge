@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, MessageCircle, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react';
+import { Mic, MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
@@ -110,22 +110,38 @@ export function StoryCard({
                       className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(routes.story(story.id));
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
-                      >
-                        <ExternalLink size={12} />
-                        Open Story
-                      </button>
+                      {/* Start Session - primary CTA */}
+                      <MobileTooltip content="Start a Clarity Session">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/prototype/live/new?with=${story.authorId}&story=${story.id}`);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-full hover:bg-blue-700 transition-colors"
+                        >
+                          <Radio size={12} />
+                          Start Session
+                        </button>
+                      </MobileTooltip>
                       <ShareButton
                         type="story"
                         id={story.id}
                         title={`${author.name}'s story`}
                         description={story.text.slice(0, 100)}
                       />
+                      {/* Open Story - icon only with tooltip */}
+                      <MobileTooltip content="Open story">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(routes.story(story.id));
+                          }}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          aria-label="Open story"
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      </MobileTooltip>
                     </div>
                   )}
                 </div>
@@ -145,9 +161,8 @@ export function StoryCard({
                 <div className="flex items-center gap-1 text-sm text-gray-500">
                   {/* People who understood the story author */}
                   <MobileTooltip content={`${author?.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
-                    <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-full">
-                      <Mic size={14} />
-                      {story.verificationCount}
+                    <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
+                      {story.verificationCount} understood
                     </span>
                   </MobileTooltip>
                 </div>
@@ -300,9 +315,12 @@ function QuotedPoint({
           compact
           showLabel={false}
         />
-        <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100">
-          <ExternalLink size={10} />
-          Open Point
+        {/* Arrow icon - visual hint that card is clickable (not separately interactive) */}
+        <span
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity pointer-events-none"
+          aria-hidden="true"
+        >
+          <ExternalLink size={14} />
         </span>
       </div>
       {/* Point text */}

@@ -90,17 +90,11 @@ export function PointDetail() {
         {/* Back button */}
         <div className="px-4 pt-3">
           <button
-            onClick={() => {
-              // If there's history, go back; otherwise go to explore
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate(routes.explore);
-              }
-            }}
-            className="p-1 text-gray-500 hover:text-gray-700 -ml-1"
+            onClick={() => navigate(routes.myEvents)}
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 -ml-1"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
+            My Events
           </button>
         </div>
 

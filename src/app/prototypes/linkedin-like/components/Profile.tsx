@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Globe, Users, Lock, ChevronDown, Check, Share2, Ear } from 'lucide-react';
+import { ArrowLeft, Share2, Ear, Sparkles } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
@@ -8,6 +8,7 @@ import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { getUserById, currentUser, getUserCalibration, mockPoints, mockStories, getUserCredibilityStats } from '../data/mock-data';
 import { CalibrationDisplay, InlineCalibration } from './shared/CalibrationDisplay';
 import { ShareDialog } from './shared/ShareDialog';
+import { MobileTooltip } from './shared/MobileTooltip';
 import { routes } from '../config';
 import {
   Tooltip,
@@ -15,7 +16,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-type IdeaVisibility = 'public' | 'shared' | 'private';
 type ContentTab = 'points' | 'stories';
 
 export function Profile() {
@@ -23,8 +23,6 @@ export function Profile() {
   const navigate = useNavigate();
   const [newIdeaText, setNewIdeaText] = useState('');
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
-  const [ideaVisibility, setIdeaVisibility] = useState<IdeaVisibility>('public');
-  const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
 
@@ -68,13 +66,13 @@ export function Profile() {
         <div className="relative max-w-4xl mx-auto pb-8">
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
-              {/* Back button - goes to previous page */}
+              {/* Back button - goes to My Events */}
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(routes.myEvents)}
                 className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
               >
                 <ArrowLeft size={16} className="mr-1" />
-                Back
+                My Events
               </button>
 
               {/* Profile header card - matches production compact-profile-card */}
@@ -124,13 +122,15 @@ export function Profile() {
                   </div>
 
                   {/* Share button - top right like cards */}
-                  <button
-                    onClick={() => setShowShareDialog(true)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
-                    aria-label="Share profile"
-                  >
-                    <Share2 size={16} />
-                  </button>
+                  <MobileTooltip content="Share profile">
+                    <button
+                      onClick={() => setShowShareDialog(true)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                      aria-label="Share profile"
+                    >
+                      <Share2 size={16} />
+                    </button>
+                  </MobileTooltip>
                 </div>
 
 
@@ -223,11 +223,11 @@ export function Profile() {
         <div className="max-w-lg mx-auto px-4 mt-3">
             {/* Back button - above card like production */}
             <button
-              onClick={() => navigate(routes.home)}
+              onClick={() => navigate(routes.myEvents)}
               className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
             >
               <ArrowLeft size={16} className="mr-1" />
-              Back to Dashboard
+              My Events
             </button>
 
             {/* Profile header card - matches production compact-profile-card */}
@@ -284,13 +284,18 @@ export function Profile() {
                 </div>
 
                 {/* Share button - top right like cards */}
-                <button
-                  onClick={() => setShowShareDialog(true)}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
-                  aria-label="Share profile"
-                >
-                  <Share2 size={16} />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowShareDialog(true)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                      aria-label="Share profile"
+                    >
+                      <Share2 size={16} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Share profile</TooltipContent>
+                </Tooltip>
               </div>
 
 
@@ -300,7 +305,7 @@ export function Profile() {
               )}
             </div>
 
-            {/* Inline idea composer */}
+            {/* Brain dump composer - Sifter entry point */}
             <div className="pt-3">
               <div className="bg-white rounded-lg border border-gray-200 p-3">
                 <div className="flex gap-3">
@@ -314,75 +319,25 @@ export function Profile() {
                       value={newIdeaText}
                       onChange={(e) => setNewIdeaText(e.target.value)}
                       onFocus={() => setIsComposerExpanded(true)}
-                      placeholder="Share an idea you believe in..."
+                      placeholder="What's on your mind?"
                       className={`w-full text-gray-900 placeholder:text-gray-400 resize-none focus:outline-none text-sm ${
                         isComposerExpanded ? 'h-24' : 'h-6'
                       } transition-all`}
                     />
                     {isComposerExpanded && (
-                      <div className="flex items-center justify-between pt-2">
-                        {/* Visibility selector */}
-                        <div className="relative">
-                          <button
-                            onClick={() => setShowVisibilityMenu(!showVisibilityMenu)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
-                          >
-                            {ideaVisibility === 'public' && <Globe size={14} />}
-                            {ideaVisibility === 'shared' && <Users size={14} />}
-                            {ideaVisibility === 'private' && <Lock size={14} />}
-                            <span className="capitalize">{ideaVisibility}</span>
-                            <ChevronDown size={12} />
-                          </button>
-                          {showVisibilityMenu && (
-                            <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[140px]">
-                              <button
-                                onClick={() => { setIdeaVisibility('public'); setShowVisibilityMenu(false); }}
-                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${ideaVisibility === 'public' ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}
-                              >
-                                <Globe size={16} />
-                                <div className="text-left">
-                                  <p className="font-medium">Public</p>
-                                  <p className="text-xs text-gray-500">Anyone can see</p>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => { setIdeaVisibility('shared'); setShowVisibilityMenu(false); }}
-                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${ideaVisibility === 'shared' ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}
-                              >
-                                <Users size={16} />
-                                <div className="text-left">
-                                  <p className="font-medium">Shared</p>
-                                  <p className="text-xs text-gray-500">Select people</p>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => { setIdeaVisibility('private'); setShowVisibilityMenu(false); }}
-                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${ideaVisibility === 'private' ? 'text-blue-600 bg-blue-50' : 'text-gray-700'}`}
-                              >
-                                <Lock size={16} />
-                                <div className="text-left">
-                                  <p className="font-medium">Private</p>
-                                  <p className="text-xs text-gray-500">Only you</p>
-                                </div>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Agree button - creator always agrees with their idea */}
+                      <div className="flex justify-end pt-2">
                         <button
                           onClick={() => {
                             if (!newIdeaText.trim()) return;
-                            // In a real app, this would create the idea with position: 'agree'
+                            // TODO: Open Sifter flow with this text as brain dump
                             setIsComposerExpanded(false);
                             setNewIdeaText('');
-                            setShowVisibilityMenu(false);
                           }}
                           disabled={!newIdeaText.trim()}
                           className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-full transition-colors"
                         >
-                          <Check size={16} />
-                          Agree
+                          <Sparkles size={16} />
+                          Create Stories & Points
                         </button>
                       </div>
                     )}

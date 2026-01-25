@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, CalendarDays, User } from 'lucide-react';
+import { CalendarDays, User } from 'lucide-react';
 import { routes } from '../config';
 
 interface NavItem {
@@ -9,7 +9,6 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: routes.home, label: 'Home', icon: <Home size={20} /> },
   { path: routes.myEvents, label: 'My Events', icon: <CalendarDays size={20} /> },
   { path: routes.profile, label: 'My Profile', icon: <User size={20} /> },
 ];
@@ -19,13 +18,12 @@ export function BottomNav() {
   const navigate = useNavigate();
 
   const isActive = (path: string) => {
-    // Home is active for home, story, and point detail pages
-    if (path === routes.home && (
-      location.pathname.includes('/home') ||
+    // My Events is active for my-events, story, and point detail pages
+    if (path === routes.myEvents && (
+      location.pathname.includes('/my-events') ||
       location.pathname.includes('/story/') ||
       location.pathname.includes('/point/')
     )) return true;
-    if (path === routes.myEvents && location.pathname.includes('/my-events')) return true;
     if (path === routes.profile && location.pathname.includes('/profile')) return true;
     return location.pathname === path;
   };

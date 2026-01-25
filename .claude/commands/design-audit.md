@@ -183,9 +183,9 @@ grep -rn "ArrowLeft\|navigate" src/app/prototypes/linkedin-like/components/
 
 | Pattern | Reference Implementation | Current Implementation | Issue |
 |---------|-------------------------|------------------------|-------|
-| Back button | StoryDetail: `<div className="px-4 pt-3">` | ExploreFeed: `<div className="mb-4">` | ❌ Different container styling |
-| Back icon | PointDetail: `<ArrowLeft size={18} />` | ExploreFeed: `<ArrowLeft size={18} />` | ✅ Matches |
-| Back behavior | PointDetail: conditional navigate | ExploreFeed: direct to routes.home | ⚠️ Different but intentional |
+| Back button | StoryDetail: `<div className="px-4 pt-3">` | MyEvents: N/A (is home) | N/A - MyEvents is the landing page |
+| Back icon | PointDetail: `<ArrowLeft size={16} />` | All detail pages: same | ✅ Matches |
+| Back behavior | All detail pages: `navigate(routes.myEvents)` | Consistent across pages | ✅ Unified navigation |
 ```
 
 ### E. Component Reuse Check:

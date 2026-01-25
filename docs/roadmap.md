@@ -19,7 +19,7 @@ Build sequence and priorities. What we're building and in what order.
 
 A platform where people **sift** messy thoughts into protected **Stories** (for empathy) and sharpened **Points** (for truth), then **verify understanding** across disagreement.
 
-**Core concepts (Stories, Points, Position Scale, Calibration):** See [domain-model.md](domain-model.md)
+**Core concepts (Stories, Points, Position Scale, Calibration):** See [definitions.md](definitions.md)
 
 ---
 

@@ -46,10 +46,11 @@ export function IdeaDetail() {
         {/* Back button - outside the card */}
         <div className="px-4 pt-3">
           <button
-            onClick={() => navigate(-1)}
-            className="p-1 text-gray-500 hover:text-gray-700 -ml-1"
+            onClick={() => navigate(routes.myEvents)}
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 -ml-1"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
+            My Events
           </button>
         </div>
 

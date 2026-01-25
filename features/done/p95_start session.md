@@ -78,12 +78,16 @@ UI per card:
 
 ✅ PointDetail now shows all position holders (with and without stories)
 
-## Still To Do
+## Completed
 
-- [ ] Add "Start Session" button to StoryCard (always show — yours or theirs)
-- [ ] Replace "Open Story" text with ↗ icon (`ArrowUpRight`) in StoryCard
-- [ ] Add "Start Session" button to PointCard (only when `profileOwnerId` is set)
-- [ ] Replace "Open Point" text with ↗ icon in PointCard
-- [ ] Replace "Open Point/Story" in QuotedPoint/QuotedStory with just ↗ icon
-- [ ] Add `aria-label` to all icon-only buttons
-- [ ] Test all pages (feed, profile, point-detail, story-detail)
+- [x] Add "Start Session" button to StoryCard (always show — yours or theirs)
+- [x] Replace "Open Story" text with ↗ icon (`ArrowUpRight`) in StoryCard
+- [x] Add "Start Session" button to PointCard (only when `profileOwnerId` is set)
+- [x] Replace "Open Point" text with ↗ icon in PointCard
+- [x] Replace "Open Point/Story" in QuotedPoint/QuotedStory with just ↗ icon
+- [x] Add `aria-label` to all icon-only buttons
+- [x] Test all pages (feed, profile, point-detail, story-detail)
+
+## Known Limitations
+
+**Auto-select first story:** When clicking "Start Session" on a PointCard, the button navigates to `/prototype/live/new?with={userId}&story={filteredStories[0].id}` — automatically selecting the first linked story. If the user has multiple stories linked to a point, they can't choose which one to verify. Acceptable for MVP; future enhancement could show a story picker.

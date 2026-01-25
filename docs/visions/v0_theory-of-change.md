@@ -174,6 +174,8 @@ A global network where:
 
 ## The Facilitation Ladder
 
+> **Note:** This describes the END STATE vision for group scaling, not the current build sequence. See [roadmap.md](../roadmap.md) for what we're building now.
+
 The cascade requires building in a specific sequence. Each level builds on the previous.
 
 ```

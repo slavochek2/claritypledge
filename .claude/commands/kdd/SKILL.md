@@ -7,31 +7,45 @@ description: Record decisions to docs/decisions.md. Run manually after finishing
 
 Capture knowledge that matters. Git tracks *what* changed; this captures *why* and keeps docs current.
 
-## Scope
+## Doc Architecture
 
-This skill manages two categories of documentation:
+**Source of truth docs** (concepts live here, one place only):
 
-### Strategic Docs (the "why")
+| Knowledge type | Goes in |
+|----------------|---------|
+| Concepts (Stories, Points, Verification, etc.) | `docs/definitions.md` |
+| Problem/solution/business model | `docs/lean-canvas.md` |
+| What we're testing | `docs/hypotheses.md` |
+| Build sequence, priorities | `docs/roadmap.md` |
+| Trade-offs, "why X over Y" | `docs/decisions.md` |
+| Philosophy, end-state vision | `docs/visions/*.md` |
+| Schema, RLS, data model | `docs/technical/database.md` |
+| Auth flows, session handling | `docs/technical/authentication.md` |
+| Test patterns, helpers | `docs/technical/e2e-testing.md` |
 
-| Doc | What goes there | Update when... |
-|-----|-----------------|----------------|
-| `docs/DECISIONS.md` | Technical/product trade-offs | You chose X over Y for a reason |
-| `docs/hypotheses.md` | What we're testing, validation status | Hypothesis validated, invalidated, or added |
-| `docs/roadmap.md` | Build phases, current focus | Phase complete, priorities shift |
-| `docs/lean-canvas.md` | Business model, customer segments | Business model changes |
-
-### Technical Docs (the "how")
-
-| Doc | What goes there | Update when... |
-|-----|-----------------|----------------|
-| `docs/technical/database.md` | Schema, RLS, data model | Schema changes implemented |
-| `docs/technical/authentication.md` | Auth flows, session handling | Auth patterns change |
-| `docs/technical/e2e-testing.md` | Test patterns, helpers | Testing approach evolves |
-| `docs/domain-model.md` | Core concepts (Stories, Points, etc.) | Domain model changes |
+**Consumer docs** (link only, never duplicate):
+- `README.md` — Setup for humans
+- `CLAUDE.md` — Instructions for AI
 
 **Don't update via /kdd:**
 - Philosophy/vision docs (`docs/visions/`) — rarely change
 - Feature specs (`features/`) — managed separately
+
+## Guardrails
+
+1. **Never add concept explanations to README.md or CLAUDE.md** — these are consumer docs that link to source docs
+2. **Warn if knowledge would duplicate existing content** — check source docs first
+3. **Suggest consolidation when detecting drift** — if same concept appears in multiple places, propose moving to single source
+
+**Example of drift detection:**
+```
+⚠️ Drift detected: "Stories vs Points" explained in:
+  - docs/definitions.md (source)
+  - README.md lines 15-20 (duplicate)
+  - docs/roadmap.md lines 8-12 (duplicate)
+
+Recommendation: Remove from README.md and roadmap.md, link to definitions.md instead.
+```
 
 ## Workflow
 
@@ -41,12 +55,12 @@ This skill manages two categories of documentation:
    ```
 
 2. **Analyze and classify** — what type of knowledge was created?
-   - Decision made? → `DECISIONS.md`
+   - Decision made? → `decisions.md`
    - Hypothesis validated/added? → `hypotheses.md`
    - Phase complete / focus shifted? → `roadmap.md`
    - Business model changed? → `lean-canvas.md`
    - Schema/auth/testing changed? → relevant technical doc
-   - Domain concepts changed? → `domain-model.md`
+   - Domain concepts changed? → `definitions.md`
 
 3. **Propose updates** — state what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
@@ -54,7 +68,7 @@ This skill manages two categories of documentation:
 
 4. **Update docs** using appropriate format:
 
-   **For DECISIONS.md** (append at TOP, after header):
+   **For decisions.md** (append at TOP, after header):
    ```markdown
    ## YYYY-MM-DD: Decision Title
 
@@ -91,7 +105,7 @@ This skill manages two categories of documentation:
 ## Rules
 
 - **Be decisive** — analyze and propose, don't repeatedly ask
-- **DECISIONS.md is append-only** — never edit old entries
+- **decisions.md is append-only** — never edit old entries
 - **Technical docs are living** — update to match current reality
 - **One commit can touch multiple docs** — that's fine
 - If user says skip, acknowledge and exit

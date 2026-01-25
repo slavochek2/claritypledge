@@ -484,7 +484,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** Documentation goes stale immediately. Feature docs are written once during planning but never updated after implementation. Trade-offs and "why" decisions are lost to git commit history where they're hard to find.
 
 **Decision:** Adopt a minimal knowledge capture system:
-- `docs/DECISIONS.md` (this file) - append-only log of trade-offs and reasoning
+- `docs/decisions.md` (this file) - append-only log of trade-offs and reasoning
 - `/kdd` skill - manual command to capture decisions when they matter
 - `features/archive/` - where completed feature docs go after merge
 

@@ -1,4 +1,4 @@
-# Domain Model
+# Definitions
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 

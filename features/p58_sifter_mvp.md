@@ -4,7 +4,7 @@
 **Created:** 2026-01-14
 **Build Phase:** Days 4-5 (after Events, /live connection, Stories/Points mockup)
 
-> **Note (2026-01-17):** Originally "Phase 0" but reprioritized — Events-first approach means Sifter comes after basic Stories/Points UI exists. First iteration is mockup + AI agent, not full implementation. See [DECISIONS.md](../docs/DECISIONS.md) entry 2026-01-17.
+> **Note (2026-01-17):** Originally "Phase 0" but reprioritized — Events-first approach means Sifter comes after basic Stories/Points UI exists. First iteration is mockup + AI agent, not full implementation. See [decisions.md](../docs/decisions.md) entry 2026-01-17.
 
 ---
 

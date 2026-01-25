@@ -59,30 +59,32 @@ The goal: surface improvements proactively with ready-to-apply solutions. The us
 
 ## Product Overview
 
-A **Sensemaking Platform** that reveals calibration gaps in how well people understand each other — and motivates them to close those gaps.
+**Clarity Pledge** — A sensemaking platform that reveals calibration gaps in how well people understand each other.
 
-**Core loop:**
-1. **Events** — Organizers create events, seed Stories and Points
-2. **Stories** — Personal experiences that can only be understood (not debated)
-3. **Points** — Claims about reality that can be agreed/disagreed with
-4. **Verification** — `/live` sessions where partners explain back each other's Stories
-5. **Calibration** — Profile shows understanding gap (how well you think you communicated vs. how well you actually did)
+**Core concepts:** Stories (lived experiences, verified via /live) → Points (debatable claims, positions staked) → Calibration (accuracy tracked)
 
-**Two user journeys:**
-- **Journey A:** Event attendee → verifier → maybe pledger (1%)
-- **Journey B:** Organic visitor → pledger → maybe event host
+**Core loop:** Share → Verify understanding → See gap → Close it
 
-**The Pledge** is a graduation feature — ~1% of engaged users publicly commit to clear communication, get a profile page and certificate.
+For full concepts: [definitions.md](docs/definitions.md)
+For business model: [lean-canvas.md](docs/lean-canvas.md)
 
-**Growth model:** B2B2C — event organizers bring their people. Events are the growth engine.
+**Domain:** `claritypledge.com` | **Tech Stack:** React 19 + TypeScript + Vite + Supabase + Tailwind CSS + Radix UI
 
-**Philosophy:** See [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) and [v7_communicative_critical_rationalism.md](docs/visions/v7_communicative_critical_rationalism.md) for epistemological foundations.
+## Documentation Architecture
 
-**Domain:** `claritypledge.com` (old domain `understandingpledge.com` redirects via Vercel)
+**Source of truth docs** (concepts live here, one place only):
+- `definitions.md` — Product concepts (Stories, Points, Verification)
+- `lean-canvas.md` — Business model (Problem, Solution, Customers)
+- `hypotheses.md` — What we're testing
+- `roadmap.md` — Build sequence
+- `decisions.md` — Trade-offs (why X over Y)
+- `visions/*` — Philosophy & explorations
 
-**Tech Stack:** React 19 + TypeScript + Vite + Supabase (PostgreSQL + Auth) + Tailwind CSS + Radix UI
+**Consumer docs** (link only, never duplicate):
+- `README.md` — Setup for humans
+- `CLAUDE.md` — Instructions for AI
 
-**Observability:** Mixpanel (analytics) + Sentry (error tracking) - both production-only
+**Rule:** If explaining a concept, add to source doc and link. Never duplicate.
 
 ## Development Commands
 
@@ -115,7 +117,7 @@ Load these docs when working on specific areas:
 
 | Working on... | Read |
 |---------------|------|
-| Core concepts (Stories, Points, Calibration) | [domain-model.md](docs/domain-model.md) |
+| Core concepts (Stories, Points, Calibration) | [definitions.md](docs/definitions.md) |
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
 | Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
@@ -128,7 +130,7 @@ Load these docs when working on specific areas:
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
-| Past decisions, why we chose X over Y | [DECISIONS.md](docs/DECISIONS.md) |
+| Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
 | Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
 
 ## Worktree Branch Naming
@@ -160,8 +162,8 @@ git branch -m p62-dashboard-w1  # Rename before first commit
 
 | Category | Docs |
 |----------|------|
-| Strategic (the "why") | `DECISIONS.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
-| Technical (the "how") | `database.md`, `authentication.md`, `domain-model.md`, etc. |
+| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
+| Technical (the "how") | `database.md`, `authentication.md`, `definitions.md`, etc. |
 
 **When to run:**
 - After features with interesting trade-offs

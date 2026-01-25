@@ -8,7 +8,6 @@ import { Topology } from './components/Topology';
 // P60: Story and Point exploration
 import { StoryDetail } from './components/StoryDetail';
 import { PointDetail } from './components/PointDetail';
-import { ExploreFeed } from './components/ExploreFeed';
 // New LinkedIn-style nav
 import { MyEvents } from './components/MyEvents';
 // P55.1 Variant E: Instagram Stories-inspired Ideas UX
@@ -17,11 +16,10 @@ import { StoriesDemo } from './pages/StoriesDemo';
 export function LinkedInLikePrototype() {
   return (
     <Routes>
-      {/* Default: go to Home (discovery) */}
-      <Route path="/" element={<Navigate to="home" replace />} />
+      {/* Default: go to My Events (dashboard) */}
+      <Route path="/" element={<Navigate to="my-events" replace />} />
 
       {/* Primary nav routes */}
-      <Route path="home" element={<ExploreFeed />} />
       <Route path="my-events" element={<MyEvents />} />
       <Route path="profile" element={<Profile />} />
       <Route path="profile/:id" element={<Profile />} />
@@ -38,9 +36,10 @@ export function LinkedInLikePrototype() {
       {/* Demo pages */}
       <Route path="stories-demo" element={<StoriesDemo />} />
 
-      {/* Legacy/other routes - redirect to home */}
-      <Route path="feed" element={<Navigate to="/prototype/linkedin-like/home" replace />} />
-      <Route path="explore" element={<Navigate to="/prototype/linkedin-like/home" replace />} />
+      {/* Legacy/other routes - redirect to my-events */}
+      <Route path="home" element={<Navigate to="/prototype/linkedin-like/my-events" replace />} />
+      <Route path="feed" element={<Navigate to="/prototype/linkedin-like/my-events" replace />} />
+      <Route path="explore" element={<Navigate to="/prototype/linkedin-like/my-events" replace />} />
       <Route path="chat" element={<Chat />} />
       <Route path="topology" element={<Topology />} />
 
