@@ -174,8 +174,8 @@ export function InlineCalibration({
               className="absolute -bottom-1 min-w-[44px] min-h-[44px] flex items-center justify-center -translate-x-1/2"
               style={{ left: `${speakerPos}%` }}
             >
-              <span className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                <Mic size={16} className="text-green-600" />
+              <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                <Mic size={16} className="text-blue-600" />
               </span>
             </span>
           </CalibrationTooltip>
@@ -391,7 +391,7 @@ function CalibrationBar({
   return (
     <div className="relative h-3 rounded-full overflow-hidden bg-gray-300">
       {/* Center tick mark */}
-      <div className="absolute left-1/2 top-0 w-0.5 h-full bg-green-500 -translate-x-px" />
+      <div className="absolute left-1/2 top-0 w-0.5 h-full bg-blue-500 -translate-x-px" />
 
       {/* Comparison dot (you) - smaller, lighter */}
       {comparisonPosition !== null && (

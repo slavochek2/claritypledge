@@ -67,24 +67,24 @@ const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
     shortLabel: '',
     defaultPosition: 'disagree', // -2
     positions: ['strongly_disagree', 'disagree', 'somewhat_disagree'],
-    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
+    activeClass: 'bg-blue-600 text-white',
+    inactiveClass: 'bg-white text-gray-700 hover:bg-gray-50',
   },
   unsure: {
     label: 'Unsure',
     shortLabel: '',
     defaultPosition: 'unsure', // 0
     positions: ['unsure'],
-    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
+    activeClass: 'bg-blue-600 text-white',
+    inactiveClass: 'bg-white text-gray-700 hover:bg-gray-50',
   },
   agree: {
     label: 'Agree',
     shortLabel: '',
     defaultPosition: 'agree', // +2
     positions: ['strongly_agree', 'agree', 'somewhat_agree'], // Most intense at top
-    activeClass: 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:border-blue-600',
-    inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100 hover:border-gray-300',
+    activeClass: 'bg-blue-600 text-white',
+    inactiveClass: 'bg-white text-gray-700 hover:bg-gray-50',
   },
 };
 
@@ -138,17 +138,62 @@ function getTooltipText(group: PositionButtonGroup, userPosition: Position): str
   return defaults[group];
 }
 
-function PositionButtonGroupComponent({
+/**
+ * Shared button content with tooltip - extracted to reduce duplication.
+ * Used by all segment variants (compact, simple, dropdown).
+ */
+interface SegmentButtonContentProps {
+  buttonLabel: string;
+  count: number;
+  isActive: boolean;
+  tooltipText: string;
+  onClick: (e: React.MouseEvent) => void;
+}
+
+function SegmentButtonContent({
+  buttonLabel,
+  count,
+  isActive,
+  tooltipText,
+  onClick,
+}: SegmentButtonContentProps) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={onClick}
+            className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-3 py-1.5 sm:py-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity whitespace-nowrap text-[11px] sm:text-xs"
+          >
+            <span>{buttonLabel}</span>
+            <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>{tooltipText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * Individual segment within the segmented control.
+ * Connected segments share a single outer border (no gaps).
+ */
+function PositionSegment({
   group,
   userPosition,
   count,
   onPositionClick,
   compact = false,
-}: PositionButtonGroupProps) {
+  isFirst = false,
+}: PositionButtonGroupProps & { isFirst?: boolean }) {
   const config = BUTTON_GROUPS[group];
   const isActive = userPosition ? getPositionGroup(userPosition) === group : false;
   const buttonLabel = getButtonLabel(group, userPosition);
   const hasDropdown = config.positions.length > 1;
+  const showDropdown = hasDropdown && !compact;
 
   const handleQuickClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -159,86 +204,67 @@ function PositionButtonGroupComponent({
     onPositionClick(position);
   };
 
-  // Simple button without dropdown (e.g., Unsure with only one option)
-  // Use same div wrapper structure as dropdown buttons for consistent styling
-  if (!hasDropdown) {
+  // Segment styling - flex-1 on mobile for equal width, min-width on desktop for consistency
+  // Border-l shown for all non-first segments (consistent regardless of active state)
+  const segmentClass = `
+    min-h-[32px] sm:min-h-[44px] flex flex-1 sm:flex-initial sm:min-w-[90px] items-center justify-center text-[11px] sm:text-xs font-medium transition-colors whitespace-nowrap
+    ${isActive ? config.activeClass : config.inactiveClass}
+    ${!isFirst ? 'border-l border-gray-200' : ''}
+  `.trim().replace(/\s+/g, ' ');
+
+  // Compact mode: simplified for embedded use (e.g., QuotedPoint).
+  // Intentionally only allows default position selection - users who want
+  // intensity options should tap through to the full view.
+  // Also used for Unsure (single option, no dropdown needed).
+  if (!showDropdown) {
     return (
-      <TooltipProvider delayDuration={300}>
-        <div
-          className={`inline-flex items-center rounded-full border text-xs font-medium transition-colors ${
-            isActive ? config.activeClass : config.inactiveClass
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleQuickClick}
-                className="flex items-center gap-1 px-2.5 py-1 hover:opacity-80 transition-opacity"
-              >
-                <span>{buttonLabel}</span>
-                <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>{getTooltipText(group, userPosition)}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
+      <div className={segmentClass} onClick={(e) => e.stopPropagation()}>
+        <SegmentButtonContent
+          buttonLabel={buttonLabel}
+          count={count}
+          isActive={isActive}
+          tooltipText={getTooltipText(group, userPosition)}
+          onClick={handleQuickClick}
+        />
+      </div>
     );
   }
 
-  // Button with dropdown for multiple options (Agree/Disagree)
+  // Segment with dropdown for multiple options (Agree/Disagree in full mode)
   return (
-    <TooltipProvider delayDuration={300}>
-      <div
-        className={`inline-flex items-center rounded-full border text-xs font-medium transition-colors ${
-          isActive ? config.activeClass : config.inactiveClass
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Main area - quick click with tooltip */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleQuickClick}
-              className="flex items-center gap-1 px-2.5 py-1 hover:opacity-80 transition-opacity"
-            >
-              <span>{buttonLabel}</span>
-              <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>{getTooltipText(group, userPosition)}</p>
-          </TooltipContent>
-        </Tooltip>
+    <div className={`${segmentClass} gap-0`} onClick={(e) => e.stopPropagation()}>
+      <SegmentButtonContent
+        buttonLabel={buttonLabel}
+        count={count}
+        isActive={isActive}
+        tooltipText={getTooltipText(group, userPosition)}
+        onClick={handleQuickClick}
+      />
 
-        {/* Dropdown trigger - arrow inside the same button */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="px-1.5 py-1 hover:opacity-80 transition-opacity"
-              aria-label={`${group} options`}
-              data-testid={`${group}-dropdown`}
+      {/* Dropdown trigger - separated from main button */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="pl-0.5 sm:pl-1 pr-1 sm:pr-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity"
+            aria-label={`${group} options`}
+            data-testid={`${group}-dropdown`}
+          >
+            <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center">
+          {config.positions.map((pos) => (
+            <DropdownMenuItem
+              key={pos}
+              onClick={() => handleDropdownSelect(pos)}
+              className={`min-h-[44px] ${userPosition === pos ? 'bg-blue-50' : ''}`}
             >
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {config.positions.map((pos) => (
-              <DropdownMenuItem
-                key={pos}
-                onClick={() => handleDropdownSelect(pos)}
-                className={userPosition === pos ? 'bg-blue-50' : ''}
-              >
-                {POSITION_LABELS[pos]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </TooltipProvider>
+              {POSITION_LABELS[pos]}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 
@@ -282,18 +308,18 @@ interface PositionButtonsProps {
 }
 
 export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
-  // Always use responsive layout: stack on mobile, horizontal on sm+
-  // The compact prop is preserved for potential future styling differences
+  // Segmented control: full-width on mobile, content-sized on desktop
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5">
-      {BUTTON_ORDER.map((group) => (
-        <PositionButtonGroupComponent
+    <div className="inline-flex w-full sm:w-auto rounded-lg border border-gray-200 overflow-hidden bg-white">
+      {BUTTON_ORDER.map((group, index) => (
+        <PositionSegment
           key={group}
           group={group}
           userPosition={userPosition}
           count={getGroupCount(counts, group)}
           onPositionClick={onPositionClick}
           compact={compact}
+          isFirst={index === 0}
         />
       ))}
     </div>

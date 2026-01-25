@@ -225,7 +225,7 @@ export function StoryCard({
           >
             {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <span>
-              Supports {author?.name?.split(' ')[0] || 'their'}'s positions on {linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}
+              Supports {linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}
             </span>
           </button>
 

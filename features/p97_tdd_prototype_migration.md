@@ -10,7 +10,7 @@ Migrate prototype (~8,600 lines) UI to production. Frontend first, verify, then 
 
 | Area | Take from Prototype | Notes |
 |------|---------------------|-------|
-| **Profile page** | Stories/Points tabs, CalibrationDisplay, credibility stats | Full rebuild with mock data |
+| **Profile page** | Stories/Points tabs, CalibrationDisplay, credibility stats | Full rebuild with mock data — works for own profile AND viewing others |
 | **Navigation/Menu** | **Concept only** (menu items, routes) — not component architecture | Flexible on implementation |
 | **Events** | **Minor changes only:** move "Host Event" button, add "Co-create" button | Events already in production — no rebuild |
 
@@ -42,6 +42,19 @@ For in-scope areas, all hover states, tooltips, and interactive feedback from th
 - Hover states on cards (Stories, Points, Events)
 - Tooltip explanations on position buttons (Likert scale meanings)
 - Any contextual help/info icons with hover content
+
+### Profile Works for Any User
+
+Same route `/p/:slug` handles both own profile and viewing others. One `ProfilePage` component, `isOwnProfile` controls what's editable.
+
+| Feature | Own Profile | Other's Profile |
+|---------|-------------|-----------------|
+| View Stories/Points tabs | ✅ | ✅ |
+| View CalibrationDisplay | ✅ | ✅ |
+| Take position on Points | ✅ | ✅ |
+| Start Session on Stories | ✅ | ✅ |
+| BrainDump composer | ✅ | ❌ |
+| Edit profile info | ✅ | ❌ |
 
 ## Current State
 

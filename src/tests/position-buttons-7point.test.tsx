@@ -197,7 +197,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
 
       const disagreeText = screen.getByText(/Disagree−/);
       const container = disagreeText.closest('button')?.parentElement;
-      expect(container).toHaveClass('bg-blue-500');
+      expect(container).toHaveClass('bg-blue-600');
     });
 
     it('highlights Unsure button when user position is unsure', () => {
@@ -212,7 +212,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
       // Unsure button now uses same wrapper structure as Agree/Disagree
       const unsureText = screen.getByText('Unsure');
       const container = unsureText.closest('button')?.parentElement;
-      expect(container).toHaveClass('bg-blue-500');
+      expect(container).toHaveClass('bg-blue-600');
     });
 
     it('highlights Agree group when user has any agree position', () => {
@@ -226,7 +226,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
 
       const stronglyAgreeText = screen.getByText(/Agree\+/);
       const container = stronglyAgreeText.closest('button')?.parentElement;
-      expect(container).toHaveClass('bg-blue-500');
+      expect(container).toHaveClass('bg-blue-600');
     });
 
     it('shows abbreviated position label when user selected non-default', () => {
@@ -256,7 +256,7 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
   });
 
   describe('Compact mode', () => {
-    it('renders 3 button groups in compact mode (same structure as standard)', () => {
+    it('renders 3 button groups in compact mode (no dropdown triggers)', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -266,8 +266,24 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
+      // Compact mode: 3 segments only, no dropdown triggers
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(5);
+      expect(buttons).toHaveLength(3);
+    });
+
+    it('compact mode hides dropdown chevrons (no intensity selection)', () => {
+      render(
+        <PositionButtons
+          userPosition={null}
+          counts={sevenPointCounts}
+          onPositionClick={vi.fn()}
+          compact
+        />
+      );
+
+      // Dropdown triggers should NOT be present in compact mode
+      expect(screen.queryByTestId('agree-dropdown')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('disagree-dropdown')).not.toBeInTheDocument();
     });
 
     it('compact mode shows aggregated counts in brackets', () => {
@@ -283,6 +299,25 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
       expect(screen.getByText('(14)')).toBeInTheDocument();
       expect(screen.getByText('(2)')).toBeInTheDocument();
       expect(screen.getByText('(18)')).toBeInTheDocument();
+    });
+
+    it('compact mode still calls onPositionClick with default values', async () => {
+      const user = userEvent.setup();
+      const handleClick = vi.fn();
+
+      render(
+        <PositionButtons
+          userPosition={null}
+          counts={sevenPointCounts}
+          onPositionClick={handleClick}
+          compact
+        />
+      );
+
+      // Click Agree in compact mode - should use default 'agree' value
+      const agreeBtn = screen.getByText('Agree').closest('button');
+      await user.click(agreeBtn!);
+      expect(handleClick).toHaveBeenCalledWith('agree');
     });
   });
 });

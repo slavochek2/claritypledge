@@ -188,7 +188,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
           >
             {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             <span>
-              Supported by {filteredStories.length} of {profileOwner?.name?.split(' ')[0] || 'their'}'s {filteredStories.length === 1 ? 'story' : 'stories'}
+              Supported by {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
             </span>
           </button>
 
