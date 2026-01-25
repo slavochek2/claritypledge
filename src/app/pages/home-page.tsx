@@ -25,13 +25,9 @@ export function HomePage() {
   const [peopleFromNextEvent, setPeopleFromNextEvent] = useState<EventAttendee[]>([]);
   const [registeredEvents, setRegisteredEvents] = useState<EventWithHost[]>([]);
   const [hostedEvents, setHostedEvents] = useState<EventWithHost[]>([]);
-  const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
   const [upcomingPublicEvents, setUpcomingPublicEvents] = useState<EventWithHost[]>([]);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
-
-  // P77: Tab state for Your Events section
-  const [eventsTab, setEventsTab] = useState<'upcoming' | 'past'>('upcoming');
 
   // Track page view (once per mount, after auth loaded)
   useEffect(() => {
@@ -65,20 +61,17 @@ export function HomePage() {
           nextEventResult,
           registeredEventsResult,
           hostedEventsResult,
-          pastEventsResult,
           upcomingPublicResult,
         ] = await Promise.all([
           eventsService.getUserNextEvent(user.id),
           eventsService.getUserRegisteredEvents(user.id),
           eventsService.getUserHostedEvents(user.id),
-          eventsService.getUserPastEvents(user.id),
           eventsService.getUpcomingPublicEvents(user.id, 3),
         ]);
 
         setNextEvent(nextEventResult);
         setRegisteredEvents(registeredEventsResult);
         setHostedEvents(hostedEventsResult);
-        setPastEvents(pastEventsResult);
         setUpcomingPublicEvents(upcomingPublicResult);
 
         // Fetch people from next event if we have one
@@ -117,16 +110,6 @@ export function HomePage() {
     );
     return { yourUpcomingEvents: sorted, hostedEventIds: hostedIds };
   }, [hostedEvents, registeredEvents]);
-
-  // P77: Build past events list with hosting indicator
-  const { yourPastEvents, pastHostedEventIds } = useMemo(() => {
-    // Past events are already fetched - just need to identify which ones user hosted
-    const pastHostedIds = new Set(
-      pastEvents.filter(e => e.hostId === user?.id).map(e => e.id)
-    );
-    // Already sorted by most recent first from the API
-    return { yourPastEvents: pastEvents, pastHostedEventIds: pastHostedIds };
-  }, [pastEvents, user?.id]);
 
   // Show loading state while checking auth
   if (authLoading) {
@@ -293,92 +276,24 @@ export function HomePage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* P77: Upcoming/Past Tabs */}
-              <div
-                role="tablist"
-                aria-label="Your events"
-                className="flex gap-1 mb-4"
-              >
-                <button
-                  role="tab"
-                  id="tab-upcoming"
-                  aria-selected={eventsTab === 'upcoming'}
-                  aria-controls="tabpanel-upcoming"
-                  tabIndex={eventsTab === 'upcoming' ? 0 : -1}
-                  onClick={() => setEventsTab('upcoming')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    eventsTab === 'upcoming'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  Upcoming ({yourUpcomingEvents.length})
-                </button>
-                <button
-                  role="tab"
-                  id="tab-past"
-                  aria-selected={eventsTab === 'past'}
-                  aria-controls="tabpanel-past"
-                  tabIndex={eventsTab === 'past' ? 0 : -1}
-                  onClick={() => setEventsTab('past')}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    eventsTab === 'past'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  Past ({yourPastEvents.length})
-                </button>
-              </div>
-
-              {/* Tab Panels */}
-              {eventsTab === 'upcoming' ? (
-                <div
-                  role="tabpanel"
-                  id="tabpanel-upcoming"
-                  aria-labelledby="tab-upcoming"
-                >
-                  {yourUpcomingEvents.length > 0 ? (
-                    <div className="space-y-2">
-                      {yourUpcomingEvents.map(event => (
-                        <EventRowCompact
-                          key={event.id}
-                          event={event}
-                          role={hostedEventIds.has(event.id) ? "hosting" : "attending"}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-card border border-border rounded-xl p-6 text-center shadow-sm">
-                      <p className="text-muted-foreground">No upcoming events yet</p>
-                    </div>
-                  )}
+              {/* Your Upcoming Events */}
+              {yourUpcomingEvents.length > 0 ? (
+                <div className="space-y-2">
+                  {yourUpcomingEvents.map(event => (
+                    <EventRowCompact
+                      key={event.id}
+                      event={event}
+                      role={hostedEventIds.has(event.id) ? "hosting" : "attending"}
+                    />
+                  ))}
                 </div>
               ) : (
-                <div
-                  role="tabpanel"
-                  id="tabpanel-past"
-                  aria-labelledby="tab-past"
-                >
-                  {yourPastEvents.length > 0 ? (
-                    <div className="space-y-2">
-                      {yourPastEvents.map(event => (
-                        <EventRowCompact
-                          key={event.id}
-                          event={event}
-                          role={pastHostedEventIds.has(event.id) ? "hosting" : "attending"}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="bg-card border border-border rounded-xl p-6 text-center shadow-sm">
-                      <p className="text-muted-foreground">No past events yet</p>
-                    </div>
-                  )}
+                <div className="bg-muted/30 rounded-lg p-6 text-center">
+                  <p className="text-muted-foreground">No upcoming events yet</p>
                 </div>
               )}
 
-              {/* Discover Events - P77: Only show when user has upcoming events */}
+              {/* Discover Events - Only show when user has upcoming events */}
               {yourUpcomingEvents.length > 0 && upcomingPublicEvents.length > 0 && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">

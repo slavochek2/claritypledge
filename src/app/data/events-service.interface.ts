@@ -17,9 +17,6 @@ export interface EventsService {
   getUserHostedEvents(profileId: string): Promise<EventWithHost[]>;
   getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]>;
 
-  // P77: Past events for dashboard tabs
-  getUserPastEvents(profileId: string): Promise<EventWithHost[]>;
-
   // Mutations
   createEvent(data: CreateEventInput): Promise<EventWithHost | null>;
   updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean>;

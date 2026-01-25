@@ -263,30 +263,4 @@ export const mockEventsService: EventsService = {
       .slice(0, limit)
       .map(toEventWithHost);
   },
-
-  // P77: Get user's past events (attended or hosted)
-  // Returns up to 50 most recent past events, deduplicated
-  async getUserPastEvents(profileId: string): Promise<EventWithHost[]> {
-    const now = new Date();
-    // Past events user attended or hosted
-    const pastEvents = mockEvents
-      .filter(e => {
-        if (new Date(e.datetime) >= now) return false; // Must be past
-        // User is attending or hosting
-        const isAttending = e.attendees.some(a => a.id === profileId) || mockCurrentUser.rsvpdEventIds.includes(e.id);
-        const isHosting = e.hostId === profileId;
-        return isAttending || isHosting;
-      })
-      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()); // Most recent first
-
-    // Dedupe (in case user both hosts and RSVPs to same event) and limit to 50
-    const seen = new Set<string>();
-    const deduped = pastEvents.filter(e => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
-    });
-
-    return deduped.slice(0, 50).map(toEventWithHost);
-  },
 };
