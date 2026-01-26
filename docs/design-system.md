@@ -399,6 +399,53 @@ Use Tailwind's spacing scale consistently:
 - **Section spacing:** `space-y-12` (sections), `space-y-6` (within sections)
 - **Button padding:** Use shadcn/ui Button sizes (`sm`, `default`, `lg`)
 
+### Thread Lines (Visual Hierarchy)
+
+Twitter-style vertical lines connecting parent → child relationships. Use when showing hierarchical data (Point → Position → Story).
+
+```
+Point (parent)
+│
+├─ AGREE (section)
+│  │
+│  ├─ Alice agrees:        ← position label
+│  │  ┌──────────────┐
+│  │  │ Story card   │     ← child content
+│  │  └──────────────┘
+│  │
+│  └─ Bob agrees:
+│     ┌──────────────┐
+│     │ Story card   │
+│     └──────────────┘
+```
+
+**CSS pattern:**
+```tsx
+// Container with thread line
+<div className="relative pl-4 border-l-2 border-gray-200">
+  {/* Horizontal connector */}
+  <div className="absolute left-0 top-4 w-3 h-0.5 bg-gray-200" />
+  {/* Child content */}
+  <div className="ml-2">...</div>
+</div>
+
+// Last item (no continuation line)
+<div className="relative pl-4 border-l-2 border-transparent">
+  <div className="absolute left-0 top-4 w-3 h-0.5 bg-gray-200" />
+  <div className="ml-2">...</div>
+</div>
+```
+
+**When to use:**
+- PointDetail: Stories grouped by position under a Point
+- Profile expanded views: Stories under Points, Points under Stories
+- Any parent-child relationship where visual connection matters
+
+**When NOT to use:**
+- Flat lists (no hierarchy)
+- Feed views (cards are independent)
+- Single-item views
+
 ### Excalidraw Wireframe Conventions
 
 When creating wireframes in Excalidraw (`.excalidraw` files), use these hex colors:

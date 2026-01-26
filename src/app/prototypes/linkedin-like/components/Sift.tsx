@@ -107,8 +107,9 @@ export function Sift() {
   // Read initial input from location state (when coming from Profile composer)
   const initialInput = (location.state as { initialInput?: string })?.initialInput || '';
 
+  // If initial input provided, skip entry and go straight to processing
   const [state, setState] = useState<SiftState>({
-    phase: 'entry',
+    phase: initialInput.trim() ? 'processing' : 'entry',
     rawInput: initialInput,
     storyVersions: [],
     currentRating: null,

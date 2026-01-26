@@ -33,6 +33,9 @@ interface StoryCardProps {
  * StoryCard - displays a personal experience (Story)
  * Visual: Blue left border, author avatar, linked Points shown below
  * Pattern B: Yellow border line shows linked Points
+ *
+ * Quote Pattern (P103): When context='point-detail' with authorPosition,
+ * shows "{Name} {verb}:" outside a quoted box containing the story.
  */
 export function StoryCard({
   story,
@@ -57,6 +60,132 @@ export function StoryCard({
     }
   };
 
+  // Quote pattern: show position label outside when in point-detail context with authorPosition
+  const showQuotePattern = context === 'point-detail' && authorPosition && author;
+
+  // Quote pattern rendering - when viewing Stories in a Point's position sections
+  if (showQuotePattern) {
+    return (
+      <div className="bg-white rounded-lg overflow-hidden">
+        {/* Position label OUTSIDE the quoted box */}
+        <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+          <span className="font-medium">{author.name}</span>
+          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+            {getPositionVerb(authorPosition)}
+          </span>
+          <span className="text-gray-400">:</span>
+          {authorCredibility.ear > 0 && (
+            <MobileTooltip content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+              <span className="inline-flex items-center gap-0.5 text-gray-400">
+                <Ear size={12} />
+                {authorCredibility.ear}
+              </span>
+            </MobileTooltip>
+          )}
+        </div>
+
+        {/* Quoted Story box */}
+        <div
+          className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors"
+          onClick={handleCardClick}
+        >
+          {/* Author row with avatar */}
+          <div className="flex items-start gap-3">
+            {/* Avatar column */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(routes.profileById(author.id));
+              }}
+              className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
+            >
+              <GravatarAvatar
+                name={author.name}
+                size="sm"
+                isPledger={author.hasPledged}
+              />
+            </button>
+
+            {/* Content column */}
+            <div className="flex-1 min-w-0">
+              {/* Author info row - simplified since name/position already shown outside */}
+              <div className="mb-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(author.id));
+                    }}
+                    className="font-semibold text-gray-900 hover:underline text-sm"
+                  >
+                    {author.name}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+                  <VisibilityBadge visibility={story.visibility} />
+                </p>
+              </div>
+
+              {/* Story text */}
+              <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+                {story.text}
+              </p>
+
+              {/* Stats row */}
+              <div className="flex items-center mt-3">
+                <MobileTooltip content={`${author.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
+                  <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
+                    {story.verificationCount} understood
+                  </span>
+                </MobileTooltip>
+              </div>
+            </div>
+          </div>
+
+          {/* Primary CTA */}
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/prototype/live/new?with=${story.authorId}&story=${story.id}`);
+              }}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Radio size={16} />
+              Start a Clarity Session
+            </button>
+          </div>
+
+          {/* Actions row - inside quoted box */}
+          <div
+            className="flex items-center justify-end mt-3 pt-3 border-t border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-1">
+              <ShareButton
+                type="story"
+                id={story.id}
+                title={`${author.name}'s story`}
+                description={story.text.slice(0, 100)}
+              />
+              <MobileTooltip content="Open story">
+                <button
+                  onClick={() => navigate(routes.story(story.id))}
+                  className="min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Open story"
+                >
+                  <ExternalLink size={14} />
+                </button>
+              </MobileTooltip>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Standard rendering (non-quote pattern)
   const cardClassName = isDetailView
     ? "bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden"
     : "group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all";

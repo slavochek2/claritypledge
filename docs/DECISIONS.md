@@ -14,6 +14,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-26: Thread lines for Point → Position → Story hierarchy
+
+**Context:** P103 quote pattern shows `{Name} {verb}:` labels on nested Stories under Points, but the visual connection between Point at top and Stories below wasn't clear. Users couldn't immediately see "this Story supports that Point."
+
+**Decision:** Add Twitter-style thread lines to show visual hierarchy:
+```
+Point
+│
+├─ AGREE
+│  │
+│  ├─ Alice Chen strongly agrees:
+│  │  ┌──────────────────┐
+│  │  │ Story content... │
+│  │  └──────────────────┘
+│  │
+│  └─ Carol Davis agrees:
+│     ┌──────────────────┐
+│     │ Story content... │
+│     └──────────────────┘
+```
+
+**Alternatives rejected:**
+- **Indent only** — Shows nesting but no visual "connection" between elements
+- **Keep as-is** — Position label + quoted box alone doesn't show relationship to Point above
+- **Color coding** — Would conflict with existing position-based color semantics
+
+**Consequences:**
+- New CSS pattern for thread lines (vertical line with horizontal connectors)
+- Apply to: PointDetail position sections, potentially Profile expanded views
+- Pattern documented in design-system.md under "Thread Lines"
+- Enables future use in any parent-child UI relationships
+
+**References:** [p103_point_quote_pattern.md](../features/p103_point_quote_pattern.md)
+
+---
+
 ## 2026-01-26: /live verification — Story first, Points unlock after
 
 **Context:** Designing card-based verification in /live. Stories have linked Points. Question: how do they interact during verification?

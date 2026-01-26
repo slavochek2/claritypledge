@@ -328,9 +328,10 @@ export function Profile() {
                         <button
                           onClick={() => {
                             if (!newIdeaText.trim()) return;
-                            // TODO: Open Sifter flow with this text as brain dump
-                            setIsComposerExpanded(false);
-                            setNewIdeaText('');
+                            // Navigate to Sifter with composer text as initial input
+                            navigate('/prototype/linkedin-like/sift', {
+                              state: { initialInput: newIdeaText }
+                            });
                           }}
                           disabled={!newIdeaText.trim()}
                           className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-full transition-colors"

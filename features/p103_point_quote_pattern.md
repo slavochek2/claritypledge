@@ -193,15 +193,15 @@ Note: "unsure" (not "is unsure") — matches existing label and reads naturally 
 |----------|--------|
 | Profile → Points tab | PointCard with quote pattern |
 | Profile → Stories tab → QuotedPoint | Quote pattern |
+| **PointDetail page → Stories** | StoryCard with quote pattern when `authorPosition` provided |
+| **Profile → Points tab → QuotedStory** | Added share/open actions |
 
 ### Out of Scope (but verify consistency)
 
 | Location | Reason | Verify |
 |----------|--------|--------|
 | Feed/Ideas page (standalone Points) | No profile context, Point is subject | No position label shown |
-| PointDetail page | Stories grouped by section header, Point clearly separate at top | Section headers still clear, no duplicate position display |
 | StoryDetail page | Story is subject, Points not currently shown | If Points added later, would need quote pattern |
-| QuotedStory in PointCard | Story authorship is clear (has author) | No confusion with Point authorship |
 | PositionOnlyRow (PointDetail) | Shows `Name · Badge` for people without stories | No change needed — no Point box to quote |
 
 ---
@@ -246,13 +246,33 @@ Check in browser (no code changes):
 - Mobile (360px) and desktop
 - My profile vs other profiles
 
+### T5. Add quote pattern to StoryCard in point-detail context ✓
+
+**File:** `src/app/prototypes/linkedin-like/components/StoryCard.tsx`
+
+When `context='point-detail'` and `authorPosition` is set:
+- Render `{name} {verb}:` label OUTSIDE quoted box with blue tag
+- Wrap Story content in quoted box (`bg-gray-50 border rounded-lg p-3`)
+- Include share/open actions inside quoted box
+- Keep "Start a Clarity Session" button inside
+
+### T6. Add actions to QuotedStory in PointCard ✓
+
+**File:** `src/app/prototypes/linkedin-like/components/PointCard.tsx`
+
+- Add share button and external link icon to QuotedStory
+- Add footer with border-t separator
+- Consistent with QuotedPoint action pattern
+
 ---
 
 ## Acceptance Criteria
 
-- [ ] Points tab: `{name} {verb}:` outside quoted Point box
-- [ ] Stories tab QuotedPoints: same pattern
-- [ ] Position buttons, footer, icons inside Point box
+- [x] Points tab: `{name} {verb}:` outside quoted Point box
+- [x] Stories tab QuotedPoints: same pattern
+- [x] Position buttons, footer, icons inside Point box
+- [x] **PointDetail page: Stories show quote pattern with position label**
+- [x] **QuotedStory has share/open actions**
 - [ ] Mobile (360px) works
 - [ ] No regressions on feed/detail pages
 

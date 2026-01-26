@@ -224,6 +224,8 @@ Use Ralph Orchestrator instead for reliable iteration.
 ralph run --no-tui -p "{SHORT_PROMPT}"
 ```
 
+**Stop:** `Ctrl+C` (graceful) or `pkill -f ralph` (force kill from another terminal)
+
 ---
 
 **If it fails:** Create PROMPT.md with more detail, then `ralph run --no-tui`
@@ -264,6 +266,8 @@ That's it. No long setup instructions, no heredocs, no component lists.
 ```bash
 ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Build ViewToggle, CardStack, SwipeableCard. Verify against features/p89_uat.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
 ```
+
+**Stop:** `Ctrl+C` (graceful) or `pkill -f ralph` (force kill)
 
 ---
 

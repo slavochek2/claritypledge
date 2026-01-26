@@ -321,6 +321,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 /**
  * Twitter-style quoted Story card - shows a linked story within a Point.
  * Position badge removed per P88 — position is shown in Point header, not here.
+ * Actions (share, open) added per P103 for consistency with QuotedPoint.
  */
 function QuotedStory({
   story,
@@ -332,13 +333,14 @@ function QuotedStory({
   /** Callback when author name/avatar is clicked */
   onAuthorClick?: (e: React.MouseEvent) => void;
 }) {
+  const navigate = useNavigate();
   const author = getUserById(story.authorId);
   const credibilityStats = author ? getUserCredibilityStats(author.id) : { ear: 0, mic: 0 };
 
   return (
-    <button
+    <div
       onClick={onClick}
-      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer"
     >
       {/* Author info at top */}
       <div className="flex items-center gap-2 mb-1.5">
@@ -400,14 +402,35 @@ function QuotedStory({
       </div>
       {/* Story text */}
       <p className="text-sm text-gray-800 line-clamp-2">{story.text}</p>
-      {/* Stats row - verification count only */}
-      <div className="flex items-center gap-3 mt-2">
+      {/* Footer with stats and action icons */}
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
         <MobileTooltip content={`${author?.name.split(' ')[0] || 'Author'} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
           <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
             {story.verificationCount} understood
           </span>
         </MobileTooltip>
+        {/* Action icons */}
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <ShareButton
+            type="story"
+            id={story.id}
+            title={`${author?.name}'s story`}
+            description={story.text.slice(0, 100)}
+          />
+          <MobileTooltip content="Open story">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(routes.story(story.id));
+              }}
+              className="min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Open story"
+            >
+              <ExternalLink size={14} />
+            </button>
+          </MobileTooltip>
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
