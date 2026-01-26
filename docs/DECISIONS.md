@@ -14,6 +14,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-26: Unified /dev workflow replacing /loop, /quick-dev, /bmad:dev
+
+**Context:** Three overlapping development commands existed:
+- `/loop` — 476 lines, comprehensive TDD + visual checks + debugging
+- `/quick-dev` — Thin BMAD wrapper delegating to external YAML
+- `/bmad:bmm:agents:dev` — Agent persona wrapper requiring "staying in character"
+
+Users didn't know which to use. Logic was scattered. Parallelization opportunities were missed.
+
+**Decision:** Consolidate into single `/dev` skill with:
+1. **Smart parallelization** — Analyzes task dependency graph, spawns parallel agents for independent work
+2. **UAT integration** — Auto-generates acceptance tests via `/generate-uat` subagent if missing
+3. **Subagent verification** — `/design-audit` runs in fresh context at end
+4. **Context-aware skill loading** — Auto-loads relevant skills (Vercel, Supabase) based on detected work
+5. **Built-in debugging protocol** — Root cause investigation, no separate `/debugging` needed
+6. **Wave-based execution** — Groups tasks into dependency waves, parallelizes within waves
+
+**Alternatives rejected:**
+- **Keep all three** — Confusing, duplicated logic, no parallelization
+- **Merge into /loop** — Name doesn't convey "development workflow"
+- **BMAD agent approach** — Persona overhead not needed for task execution
+
+**Consequences:**
+- `/loop`, `/quick-dev`, `/bmad:bmm:agents:dev` now redirect to `/dev`
+- Single entry point for all development work
+- Agents spawn for: UAT generation, parallel tasks, design audit
+- Skills loaded dynamically based on context (React → Vercel practices, DB → Supabase practices)
+
+**References:** [.claude/commands/dev.md](../.claude/commands/dev.md)
+
+---
+
 ## 2026-01-26: Thread lines for Point → Position → Story hierarchy
 
 **Context:** P103 quote pattern shows `{Name} {verb}:` labels on nested Stories under Points, but the visual connection between Point at top and Stories below wasn't clear. Users couldn't immediately see "this Story supports that Point."

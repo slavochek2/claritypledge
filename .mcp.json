@@ -17,6 +17,17 @@
         "-y",
         "@anthropic/mcp-server-playwright"
       ]
+    },
+    "docker": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-v",
+        "/var/run/docker.sock:/var/run/docker.sock",
+        "mcp/docker"
+      ]
     }
   }
 }

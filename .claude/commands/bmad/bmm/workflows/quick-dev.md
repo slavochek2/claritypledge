@@ -1,13 +1,40 @@
----
-description: 'Flexible development - execute tech-specs OR direct instructions with optional planning.'
+# /quick-dev (DEPRECATED)
+
+> **This command has been replaced by `/dev`.**
+
+## Migration
+
+Use `/dev` instead - it includes everything from `/quick-dev` plus:
+
+- Smart task parallelization (spawns parallel agents when beneficial)
+- UAT generation (auto-creates acceptance tests if missing)
+- Subagent verification (`/design-audit` runs in fresh context)
+- Context-aware skill loading (Vercel, Supabase, etc.)
+- Built-in debugging protocol
+- Full TDD workflow with test verification gates
+
+## Usage
+
+```bash
+# Old
+/quick-dev features/p70_spec.md
+/quick-dev refactor src/foo.ts
+
+# New
+/dev features/p70_spec.md
+/dev refactor src/foo.ts
+```
+
+## What Moved Where
+
+| /quick-dev Feature | Now in /dev |
+|--------------------|-------------|
+| Mode A: Tech-spec | Phase 0.5: Detects spec file automatically |
+| Mode B: Direct instructions | Phase 0.5: Detects direct mode |
+| Create tech-spec option | Can still use `/create-tech-spec` separately |
+| User skill level | Referenced from project config |
+| Code review prompt | Phase 3: Output section |
+
 ---
 
-IT IS CRITICAL THAT YOU FOLLOW THESE STEPS - while staying in character as the current agent persona you may have loaded:
-
-<steps CRITICAL="TRUE">
-1. Always LOAD the FULL @.bmad/core/tasks/workflow.xml
-2. READ its entire contents - this is the CORE OS for EXECUTING the specific workflow-config @.bmad/bmm/workflows/bmad-quick-flow/quick-dev/workflow.yaml
-3. Pass the yaml path .bmad/bmm/workflows/bmad-quick-flow/quick-dev/workflow.yaml as 'workflow-config' parameter to the workflow.xml instructions
-4. Follow workflow.xml instructions EXACTLY as written to process and follow the specific workflow config and its instructions
-5. Save outputs after EACH section when generating any documents from templates
-</steps>
+**Run `/dev` now.**

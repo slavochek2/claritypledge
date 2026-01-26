@@ -244,7 +244,22 @@ Honor user's choice but note the spec remains unprepped.
 
 ## Related Skills
 
+- `/lean` - **Standalone Lean Startup Coach** (can run independently)
+- `/innovate` - **Standalone Innovation Agent** (can run independently)
 - `/generate-uat` - Generate UAT file after prep
 - `/loop` - Execute implementation loop
 - `/kdd` - Record knowledge after implementation
-- `/simplify` - Strip spec to essentials (subset of Lean Startup Coach)
+- `/simplify` - Strip spec to essentials (subset of /lean)
+
+## Architecture Note
+
+**Challenge agents are standalone skills:**
+
+| Agent | Source of truth | Standalone |
+|-------|-----------------|------------|
+| Lean Startup Coach | `.claude/commands/lean/index.md` | `/lean` |
+| Innovation Agent | `.claude/commands/innovate/index.md` | `/innovate` |
+
+The `agents/*.md` files for these are just pointers. This avoids duplication — one methodology, two entry points:
+- **Standalone** — run `/lean` or `/innovate` directly anytime
+- **Via prep-spec** — they run as part of the review ensemble

@@ -307,6 +307,8 @@ If you prefer Ralph:
 ```bash
 ralph run --no-tui -p "Fix button color per features/p95_fix_button_color.md. Before complete: run /bmad:bmm:workflows:code-review, fix all issues."
 ```
+
+**Stop:** `Ctrl+C` or `pkill -f ralph`
 ```
 
 ---
