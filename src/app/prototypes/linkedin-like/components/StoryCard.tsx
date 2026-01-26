@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink, Share2 } from 'lucide-react';
+import { Mic, MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink, Ear, Pin } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
-import { OverflowMenu } from './shared/OverflowMenu';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, type SevenPointCounts } from './shared';
+import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, getPositionVerb, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
@@ -49,7 +48,7 @@ export function StoryCard({
   const author = getUserById(story.authorId);
   const authorCredibility = getUserCredibilityStats(story.authorId);
   const linkedPoints = getPointsForStory(story.id);
-  const [pointsExpanded, setPointsExpanded] = useState(false);
+  const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
   const isCurrentUserStory = story.authorId === currentUser.id;
 
   const handleCardClick = () => {
@@ -88,74 +87,17 @@ export function StoryCard({
             <div className="flex-1 min-w-0">
               {/* Author info row */}
               <div className="mb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(routes.profileById(author.id));
-                      }}
-                      className="font-semibold text-gray-900 hover:underline text-sm"
-                    >
-                      {author.name}
-                    </button>
-                    <UserCredibility userId={author.id} userName={author.name} />
-                  </div>
-                  {/* Action buttons - Share and Open only (Start Session moved to bottom) */}
-                  {!isDetailView && (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      {/* Desktop: Share and Open on hover */}
-                      <div className="hidden sm:flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
-                        <ShareButton
-                          type="story"
-                          id={story.id}
-                          title={`${author.name}'s story`}
-                          description={story.text.slice(0, 100)}
-                        />
-                        <MobileTooltip content="Open story">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(routes.story(story.id));
-                            }}
-                            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                            aria-label="Open story"
-                          >
-                            <ExternalLink size={16} />
-                          </button>
-                        </MobileTooltip>
-                      </div>
-
-                      {/* Mobile: overflow menu */}
-                      <div className="sm:hidden">
-                        <OverflowMenu
-                          items={[
-                            {
-                              icon: <Share2 size={16} />,
-                              label: 'Share',
-                              onClick: () => {
-                                const url = `${window.location.origin}${routes.story(story.id)}`;
-                                if (navigator.share) {
-                                  navigator.share({
-                                    title: `${author.name}'s story`,
-                                    text: story.text.slice(0, 100),
-                                    url,
-                                  });
-                                } else {
-                                  navigator.clipboard.writeText(url);
-                                }
-                              },
-                            },
-                            {
-                              icon: <ExternalLink size={16} />,
-                              label: 'Open story',
-                              onClick: () => navigate(routes.story(story.id)),
-                            },
-                          ]}
-                        />
-                      </div>
-                    </div>
-                  )}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(author.id));
+                    }}
+                    className="font-semibold text-gray-900 hover:underline text-sm"
+                  >
+                    {author.name}
+                  </button>
+                  <UserCredibility userId={author.id} userName={author.name} />
                 </div>
                 <p className="text-xs text-gray-500 flex items-center gap-1">
                   <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
@@ -195,45 +137,73 @@ export function StoryCard({
         )}
       </div>
 
-      {/* Primary CTA at bottom - always visible */}
-      {!isDetailView && (
-        <div className="border-t border-gray-100 px-4 py-3">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/prototype/live/new?with=${story.authorId}&story=${story.id}`);
-            }}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Radio size={16} />
-            Start a Clarity Session
-          </button>
-        </div>
-      )}
+      {/* Primary CTA at bottom */}
+      <div className="border-t border-gray-100 px-4 py-3">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/prototype/live/new?with=${story.authorId}&story=${story.id}`);
+          }}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Radio size={16} />
+          Start a Clarity Session
+        </button>
+      </div>
 
-      {/* Linked Points Footer - collapsible section */}
-      {linkedPoints.length > 0 && context !== 'point-detail' && (
+      {/* Footer row with linked points and action icons - hide in point-detail context */}
+      {context !== 'point-detail' && (
         <>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setPointsExpanded(!pointsExpanded);
-            }}
-            className="w-full flex items-center gap-2 pl-[52px] pr-4 py-3 border-t border-gray-100 text-sm text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition-colors"
-            aria-expanded={pointsExpanded}
-            aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
+          {/* Footer header row */}
+          <div
+            className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
+            onClick={(e) => e.stopPropagation()}
           >
-            {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <span>
-              Supports {linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}
-            </span>
-          </button>
+            {/* Collapsible trigger (if has linked points) */}
+            {linkedPoints.length > 0 ? (
+              <button
+                onClick={() => setPointsExpanded(!pointsExpanded)}
+                className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                aria-expanded={pointsExpanded}
+                aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
+              >
+                {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <span>
+                  Supports {linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}
+                </span>
+              </button>
+            ) : (
+              <span /> /* Empty span for flexbox spacing */
+            )}
 
-          {/* Expanded linked points */}
-          {pointsExpanded && (
+            {/* Action icons */}
+            <div className="flex items-center gap-1">
+              <ShareButton
+                type="story"
+                id={story.id}
+                title={`${author?.name}'s story`}
+                description={story.text.slice(0, 100)}
+              />
+              {/* External link - only in feed (redundant in detail view) */}
+              {!isDetailView && (
+                <MobileTooltip content="Open story">
+                  <button
+                    onClick={() => navigate(routes.story(story.id))}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Open story"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                </MobileTooltip>
+              )}
+            </div>
+          </div>
+
+          {/* Linked points - expanded content */}
+          {pointsExpanded && linkedPoints.length > 0 && (
             <div className="pl-[52px] pr-4 pb-4">
               <div className="space-y-2">
-                {linkedPoints.slice(0, 3).map(point => (
+                {linkedPoints.slice(0, isDetailView ? undefined : 3).map(point => (
                   <QuotedPoint
                     key={point.id}
                     point={point}
@@ -246,7 +216,7 @@ export function StoryCard({
                     }}
                   />
                 ))}
-                {linkedPoints.length > 3 && (
+                {!isDetailView && linkedPoints.length > 3 && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -267,7 +237,8 @@ export function StoryCard({
 }
 
 /**
- * Twitter-style quoted Point card - always visible, not expandable
+ * Twitter-style quoted Point card - Quote pattern per P103
+ * Shows "{Name} {verb}:" outside the Point box, Point content inside quoted box
  * Position buttons are interactive using same style as main PointCard
  */
 function QuotedPoint({
@@ -329,39 +300,75 @@ function QuotedPoint({
     setUserPosition(userPosition === position ? null : position);
   };
 
+  const navigate = useNavigate();
+
   return (
-    <button
-      onClick={onClick}
-      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
-    >
-      {/* Author position at top */}
-      <div className="flex items-center justify-between mb-1.5">
-        <PointHeader
-          authorPosition={authorPosition}
-          authorName={authorName}
-          authorEarCount={authorEarCount}
-          compact
-          showLabel={false}
-        />
-        {/* Arrow icon - visual hint that card is clickable (not separately interactive) */}
-        <span
-          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 opacity-100 sm:opacity-0 sm:group-hover/quote:opacity-100 transition-opacity pointer-events-none"
-          aria-hidden="true"
-        >
-          <ExternalLink size={14} />
-        </span>
-      </div>
-      {/* Point text */}
-      <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
-      {/* Position buttons - compact */}
-      <div className="mt-2">
-        <PositionButtons
-          userPosition={userPosition}
-          counts={counts}
-          onPositionClick={handlePositionClick}
-          compact
-        />
-      </div>
-    </button>
+    <div className="w-full text-left">
+      {/* Position label OUTSIDE the quoted box - Quote pattern per P103 */}
+      {authorPosition && (
+        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
+          <span className="font-medium">{authorName}</span>
+          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">{getPositionVerb(authorPosition)}</span>
+          <span className="text-gray-400">:</span>
+          {authorEarCount && authorEarCount > 0 && (
+            <MobileTooltip content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+              <span className="inline-flex items-center gap-0.5 text-gray-400">
+                <Ear size={12} />
+                {authorEarCount}
+              </span>
+            </MobileTooltip>
+          )}
+        </div>
+      )}
+
+      {/* Quoted Point box */}
+      <button
+        onClick={onClick}
+        className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+      >
+        {/* Point text with pin icon */}
+        <p className="text-sm text-gray-800 line-clamp-2 flex items-start gap-1.5">
+          <Pin size={14} className="text-blue-500 flex-shrink-0 mt-0.5 rotate-45" />
+          <span>{point.text}</span>
+        </p>
+        {/* Position buttons - compact, inside quoted box */}
+        <div className="mt-2">
+          <PositionButtons
+            userPosition={userPosition}
+            counts={counts}
+            onPositionClick={handlePositionClick}
+            compact
+          />
+        </div>
+        {/* Footer with story count and action icons - inside quoted box */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
+          {linkedStories.length > 0 ? (
+            <span className="text-xs text-gray-500">{linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}</span>
+          ) : (
+            <span />
+          )}
+          {/* Action icons */}
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <ShareButton
+              type="point"
+              id={point.id}
+              description={point.text.slice(0, 100)}
+            />
+            <MobileTooltip content="Open point">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(routes.point(point.id));
+                }}
+                className="min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Open point"
+              >
+                <ExternalLink size={14} />
+              </button>
+            </MobileTooltip>
+          </div>
+        </div>
+      </button>
+    </div>
   );
 }

@@ -19,24 +19,16 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
   return (
     <Link
       to={`${linkPrefix}/${event.slug}`}
-      className={`group block border border-border rounded-xl overflow-hidden bg-card transition-all duration-200 ${
+      className={`group block rounded-xl overflow-hidden bg-card transition-all duration-200 border-l-4 border border-gray-200 ${
         isCancelled
-          ? 'opacity-60 hover:opacity-80'
-          : 'hover:shadow-lg hover:border-blue-500/50'
+          ? 'opacity-60 hover:opacity-80 border-l-gray-400'
+          : 'hover:shadow-lg hover:border-blue-300 border-l-blue-500'
       }`}
       data-testid="event-card"
     >
-      {/* Cover gradient - Mesh style, uses host avatar color for variety */}
-      <div
-        className="h-24 relative"
-        style={{
-          background: isCancelled
-            ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`
-            : `radial-gradient(at 0% 0%, ${event.hostAvatarColor}50 0%, transparent 50%), radial-gradient(at 100% 100%, ${event.hostAvatarColor}30 0%, transparent 50%), linear-gradient(135deg, ${event.hostAvatarColor}15 0%, ${event.hostAvatarColor}08 100%)`,
-        }}
-      >
-        {/* Status badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1">
+      {/* Status badges row */}
+      {(userIsHost || isUserGoing || isCancelled) && (
+        <div className="px-4 pt-3 flex flex-wrap gap-1">
           {/* Relationship badge - show for both upcoming and cancelled */}
           {userIsHost && (
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${
@@ -66,7 +58,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
             </span>
           )}
         </div>
-      </div>
+      )}
 
       {/* Content */}
       <div className="p-4">

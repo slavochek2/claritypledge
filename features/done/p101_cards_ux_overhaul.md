@@ -14,8 +14,9 @@ Consolidate all card UX improvements into one consistent system.
 |----------|--------|-----------|
 | Primary CTA placement | Bottom of card, always visible | Thumb-friendly, clear action |
 | Primary CTA style | Full-width, blue, `py-2.5`, `rounded-lg` | Consistent, prominent |
-| Secondary actions (mobile) | Overflow menu (•••) | Saves space, groups actions |
-| Secondary actions (desktop) | Icon-only on hover | Clean, discoverable |
+| Secondary actions location | Footer row (same row as collapsible trigger) | Consistent across all cards |
+| Secondary actions visibility | Always visible (mobile & desktop) | No hover tricks, simpler |
+| Subcard actions | No icons, whole card clickable | Clean, less clutter |
 | Position selection | Segmented control | It's a choice, not 3 buttons |
 | Touch targets | 44px minimum | Mobile accessibility |
 | Calibration display | Inline with label, no text legend | KISS, tooltips sufficient |
@@ -29,8 +30,8 @@ Consolidate all card UX improvements into one consistent system.
 ```
 ┌─────────────────────────────────────────┐
 │ ┌──┐                                    │
-│ │🔵│ Jordan Taylor 👂3           [•••] │  ← Mobile: overflow menu
-│ └──┘ PM at Acme · 2h ago                │     Desktop: hover icons
+│ │🔵│ Jordan Taylor 👂3                  │  ← Clean header (no icons)
+│ └──┘ PM at Acme · 2h ago                │
 │                                         │
 │      "When I switched to remote         │
 │      work, my deep focus time           │
@@ -44,14 +45,8 @@ Consolidate all card UX improvements into one consistent system.
 │ │   📻  Start a Clarity Session       │ │  ← Primary CTA (always visible)
 │ └─────────────────────────────────────┘ │
 │                                         │
-│ ▸ Supports positions on 2 points       │
+│ ▸ Supports 2 points           [🔗][↗️] │  ← Icons in footer, always visible
 └─────────────────────────────────────────┘
-
-Overflow menu (mobile):
-┌─────────────────┐
-│ 🔗 Share        │
-│ ↗️ Open story    │
-└─────────────────┘
 ```
 
 ### PointCard
@@ -59,7 +54,7 @@ Overflow menu (mobile):
 ```
 ┌─────────────────────────────────────────┐
 │ ┌──┐                                    │
-│ │📌│ Point                    [🔗] [↗️] │  ← Inline icons (2 fit)
+│ │📌│ Point                              │  ← Clean header (no icons)
 │ └──┘ Jordan · 👂3 · Agrees              │
 │                                         │
 │      "Remote work is more               │
@@ -69,7 +64,7 @@ Overflow menu (mobile):
 │ │ Disagree ▾ │  Unsure  │ Agree ▾ ✓  │ │  ← Segmented control
 │ └─────────────────────────────────────┘ │
 │                                         │
-│ ▸ Supported by 2 stories               │
+│ ▸ Supported by 2 stories      [🔗][↗️] │  ← Icons in footer, always visible
 └─────────────────────────────────────────┘
 
 No primary CTA - Points don't have sessions

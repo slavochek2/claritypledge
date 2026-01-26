@@ -306,9 +306,9 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   </TooltipContent>
                 </Tooltip>
               </div>
-              {/* Action buttons - appear on hover */}
+              {/* Action buttons - always visible on mobile, hover on desktop */}
               {!isDetailView && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

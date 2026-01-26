@@ -14,6 +14,158 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-26: /live verification — Story first, Points unlock after
+
+**Context:** Designing card-based verification in /live. Stories have linked Points. Question: how do they interact during verification?
+
+**Decision:** Story → Verified (≥8/10) → Points unlocked for position staking.
+
+- Partner must understand Story before staking positions on linked Points
+- Points are "locked" until Story verification passes
+- Enforces "can't disagree until you acknowledge their Story"
+
+**Alternatives rejected:**
+- Points and Story separate (verify independently) — Loses the "understand WHY before reacting to WHAT"
+- Points first, Story optional — Backwards; claims without context invite shallow reactions
+- Points always visible — No incentive to actually understand the Story
+
+**Consequences:**
+- UI shows Points as "locked, will unlock after understanding"
+- <8/10 rating keeps Points locked, offers "try again"
+- Creates meaningful sequence: listen → understand → react
+
+**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+
+---
+
+## 2026-01-26: /live card selection — you only see your own cards
+
+**Context:** In /live with cards, should you see your cards, their cards, or both?
+
+**Decision:** You only see YOUR cards. Partner sees THEIR cards on their device.
+
+- No "shared deck" to manage
+- No browsing partner's cards
+- Speaker picks their own card to verify
+
+**Alternatives rejected:**
+- Shared deck with suggestions — Coordination overhead, who picks next?
+- See both (my cards / their cards tabs) — Unnecessary; they pick theirs, you pick yours
+- System suggests cards — Over-engineered for MVP
+
+**Consequences:**
+- Simpler UI: just "My Cards" list
+- No negotiation about what to verify
+- Clear ownership: your card = your verification to initiate
+
+**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+
+---
+
+## 2026-01-26: /live works without cards (cardless mode)
+
+**Context:** What if someone has no sifted Stories/Points yet? Can they still use /live?
+
+**Decision:** Yes. Cardless mode = existing /live flow (explain-back, rating) without a linked card.
+
+**Alternatives rejected:**
+- Require cards to use /live — Blocks new users, adds friction
+- Auto-create card from conversation — Complex, AI mid-session
+
+**Consequences:**
+- [Pick cards] and [Just talk] both available
+- Cardless verifications still captured (rating without card reference)
+- Low barrier to entry; cards enhance but don't gate
+
+**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+
+---
+
+## 2026-01-26: "Speak freely" as escape hatch at every step
+
+**Context:** The card verification flow has multiple steps (explain-back, rating, position staking). What if someone wants to exit?
+
+**Decision:** "Speak freely" available at every step. Returns to open conversation.
+
+**Alternatives rejected:**
+- No escape (must complete flow) — Too rigid, people leave
+- "Cancel" that aborts entirely — Too harsh; "speak freely" keeps session alive
+
+**Consequences:**
+- Every verification screen has [Speak freely] option
+- Session continues even if formal flow is skipped
+- Respects that conversations are fluid, not always structured
+
+**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+
+---
+
+## 2026-01-26: Session history only (not full history) for MVP
+
+**Context:** Should /live show history of all past verifications, or just this session?
+
+**Decision:** Session history only — shows cards verified in current /live session.
+
+**Alternatives rejected:**
+- Full history (all past sessions) — Needs UI for browsing, filtering; complexity
+- No history — Loses context of what we've verified together
+
+**Consequences:**
+- Bottom of /live shows "This Session" with verified cards + ratings
+- Full history is future enhancement
+- Keeps /live focused on current conversation
+
+**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+
+---
+
+## 2026-01-26: Sifter-first model — sift before /live, not unified
+
+**Context:** Designing P98 Sifter Prototype. Three models emerged:
+- Model A: Two separate flows (/sift standalone, /live with partner)
+- Model B: /live IS the sifter (AI partner mode if no human joins)
+- Model C: Sifter-first, then optionally invite to /live
+
+**Decision:** Model C — Sifter-first, /live optional.
+
+User journey: **Clarify → Share → Verify**
+1. User dumps thoughts → AI extracts Stories/Points → refine to 10/10
+2. Sifted content saved to profile
+3. User can then "Invite someone to verify" → starts /live with that content as context
+
+**Alternatives rejected:**
+- Model A (two separate flows) — Duplication, users confused about when to use which
+- Model B (/live IS sifter) — Mixes mental models (verification vs extraction). /live is for human connection, not AI chat.
+
+**Consequences:**
+- Sifting is valuable solo (even without /live)
+- /live becomes verification of *sifted* content, not raw thoughts
+- Higher quality inputs to verification (already 10/10 understood by AI)
+- Existing Stories/Points on profile are "already sifted" — skip to invite
+
+**References:** [p98_sifter_prototype.md](../features/p98_sifter_prototype.md) | [p58_sifter_mvp.md](../features/p58_sifter_mvp.md)
+
+---
+
+## 2026-01-26: Existing profile content treated as "already sifted"
+
+**Context:** If user has Stories/Points on their profile, should they re-sift before inviting someone to verify?
+
+**Decision:** No. Content on profile is already sifted (reached 10/10 during original creation). User can go directly to "Invite to verify."
+
+**Alternatives rejected:**
+- Require re-sifting — Unnecessary friction; content already went through 10/10 process
+- Optional re-sift — Adds UI complexity for edge case
+
+**Consequences:**
+- Profile content has two CTAs: "Invite to verify" (primary), "Refine" (secondary, if they want to re-sift)
+- New content goes through Sifter; existing content skips it
+- Simplifies the "what do I do with my content" decision
+
+**References:** [p98_sifter_prototype.md](../features/p98_sifter_prototype.md)
+
+---
+
 ## 2026-01-23: Story-Point display — cards show counts, detail pages show grouped content
 
 **Context:** Reviewing LinkedIn-like prototype UX. The 2026-01-22 decision said "show linked items inline, not counts" but applying this everywhere created visual overload. StoryCards showed full Point position breakdowns; PointCards showed all quoted Stories; Point detail pages showed Stories flat without position grouping.

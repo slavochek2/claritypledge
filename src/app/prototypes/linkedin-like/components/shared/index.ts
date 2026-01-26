@@ -1,6 +1,6 @@
 export { FilterTabs, type PositionFilter } from './FilterTabs';
 export { PointHeader } from './PointHeader';
-export { PositionBadge } from './PositionBadge';
+export { PositionBadge, getPositionVerb } from './PositionBadge';
 export { PositionBanner } from './PositionBanner';
 export { PositionButton, PositionButtons, type SevenPointCounts, type FivePointCounts } from './PositionButton';
 export { RatingDots, RatingDotsPending } from './RatingDots';

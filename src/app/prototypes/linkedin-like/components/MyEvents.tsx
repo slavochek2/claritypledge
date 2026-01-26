@@ -56,33 +56,33 @@ export function MyEvents() {
         <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
           <h1 className="text-2xl font-bold mb-4">Events</h1>
 
-          {/* Tabs + Actions row */}
-          <div className="flex items-center justify-between">
+          {/* Tabs + Actions - stacked on mobile, inline on desktop */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
-            <button
-              role="tab"
-              aria-selected={activeTab === 'upcoming'}
-              onClick={() => setActiveTab('upcoming')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'upcoming'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Upcoming ({upcomingEvents.length})
-            </button>
-            <button
-              role="tab"
-              aria-selected={activeTab === 'past'}
-              onClick={() => setActiveTab('past')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'past'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Past ({pastEvents.length})
-            </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === 'upcoming'}
+                onClick={() => setActiveTab('upcoming')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'upcoming'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Upcoming ({upcomingEvents.length})
+              </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === 'past'}
+                onClick={() => setActiveTab('past')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'past'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Past ({pastEvents.length})
+              </button>
             </div>
 
             {/* Action buttons */}

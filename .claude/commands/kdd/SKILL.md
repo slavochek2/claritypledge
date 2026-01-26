@@ -32,6 +32,27 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 - Historical explorations (`docs/visions/`) — archived, rarely change
 - Feature specs (`features/`) — managed separately
 
+## Feature-level vs Product-level Decisions
+
+**Use /kdd (global docs):**
+- Affects multiple features or establishes reusable pattern
+- Changes product direction or mental model
+- "Future me will wonder why we did this"
+
+**Use feature spec "Decisions Made" section:**
+- Only matters within this feature
+- Implementation details
+- Won't be referenced elsewhere
+
+| Decision | Level | Destination |
+|----------|-------|-------------|
+| "Sifter-first model" | Product | `/kdd` → decisions.md |
+| "Journey position above content" | Feature | feature spec |
+| "N:N Story-Point relationship" | Product | `/kdd` → decisions.md |
+| "Mock data for prototype" | Feature | feature spec |
+
+---
+
 ## Guardrails
 
 1. **Never add concept explanations to README.md or CLAUDE.md** — these are consumer docs that link to source docs

@@ -37,6 +37,19 @@ const POSITION_FULL_LABELS: Record<PositionType, string> = {
 };
 
 /**
+ * Returns the lowercase verb form for a position.
+ * Used in quote pattern: "{Name} agrees:" outside the Point box.
+ *
+ * Examples:
+ * - 'agree' → 'agrees'
+ * - 'strongly_agree' → 'strongly agrees'
+ * - 'unsure' → 'unsure' (no "is" prefix for natural reading)
+ */
+export function getPositionVerb(position: PositionType): string {
+  return POSITION_FULL_LABELS[position].toLowerCase();
+}
+
+/**
  * Displays a position as inline colored text with optional name.
  *
  * Format: "{Name} Agrees+/Agrees/Agrees−/Unsure/Disagrees−/Disagrees/Disagrees+"
