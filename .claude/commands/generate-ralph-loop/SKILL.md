@@ -126,15 +126,15 @@ Read the spec file and extract:
 
 | Condition | Recommendation |
 |-----------|----------------|
-| Requirements < 8 AND no risk keywords AND integrations < 2 | `/loop` (simple, interactive) |
-| Requirements < 15 AND minimal risk | Ralph Orchestrator |
+| Requirements < 8 AND no risk keywords AND integrations < 2 | `/dev` (simple, interactive) |
+| Requirements < 15 AND minimal risk | `/dev` or Ralph Orchestrator |
 | Complex (15+ req, risk keywords, many integrations) | Ralph Orchestrator + suggest chunking |
 
 **Output order (most to least recommended):**
 
-1. **Simple specs:** `/loop` first, then Ralph Orchestrator as alternative
-2. **Medium specs:** Ralph Orchestrator (primary), internal /ralph-loop (deprecated fallback)
-3. **Complex specs:** Ralph Orchestrator only, with suggestion to chunk into smaller specs
+1. **Simple specs:** `/dev` (unified workflow, auto-finds UAT)
+2. **Medium specs:** `/dev` or Ralph Orchestrator (both work well)
+3. **Complex specs:** Ralph Orchestrator (fresh context each iteration)
 
 ### Step 2: Read and Parse Input File
 
@@ -212,23 +212,31 @@ Use Ralph Orchestrator instead for reliable iteration.
 **Keep output minimal:**
 
 ```
-# {FEATURE_NAME} — Ralph Command
+# {FEATURE_NAME} — Development Command
 
-**Requirements:** {N} | **Risk:** {keywords or "none"} | **Recommendation:** {/loop | Ralph}
+**Requirements:** {N} | **Risk:** {keywords or "none"} | **Recommendation:** {/dev | Ralph}
 
 ---
 
-## Run
+## Option 1: /dev (recommended for most cases)
+
+```
+/dev {SPEC_PATH}
+```
+
+Auto-finds UAT, runs verification, handles parallelization.
+
+## Option 2: Ralph (for long/complex features)
 
 ```bash
 ralph run --no-tui -p "{SHORT_PROMPT}"
 ```
 
-**Stop:** `Ctrl+C` (graceful) or `pkill -f ralph` (force kill from another terminal)
+**Stop:** `Ctrl+C` (graceful) or `pkill -f ralph` (force kill)
 
 ---
 
-**If it fails:** Create PROMPT.md with more detail, then `ralph run --no-tui`
+**When to use Ralph over /dev:** 10+ iterations expected, context might degrade.
 ```
 
 That's it. No long setup instructions, no heredocs, no component lists.
@@ -239,9 +247,10 @@ That's it. No long setup instructions, no heredocs, no component lists.
 |----------|----------|
 | Spec not found | Error with suggestion to check path |
 | No success criteria in spec | Warning: "No explicit success criteria found. Consider adding a Success Criteria section." Generate command anyway using inferred criteria from description. |
-| Very simple spec (<8 req) | Recommend `/loop` first, Ralph as alternative |
-| Very complex spec (20+ req) | Recommend chunking: "Consider breaking into smaller features for better iteration." |
-| Ralph not installed | Include installation instructions: `npm install -g @ralph-orchestrator/ralph-cli` |
+| Very simple spec (<8 req) | Recommend `/dev` (auto-finds UAT, interactive) |
+| Medium spec (8-15 req) | Recommend `/dev` or Ralph (both work well) |
+| Very complex spec (20+ req) | Recommend Ralph + chunking: "Consider breaking into smaller features." |
+| Ralph not installed | Include installation instructions: `npm install -g @anthropic-ai/ralph-cli` |
 | `--internal` flag | Output internal /ralph-loop command (with deprecation warning) |
 | `--prompt-file` flag | Generate PROMPT.md file in project root instead of inline command |
 | UAT file provided | Use UAT for structured tracking (update scorecard during iteration) |
@@ -255,23 +264,27 @@ That's it. No long setup instructions, no heredocs, no component lists.
 
 **Output:**
 ```
-# P89 Swipeable Card View — Ralph Command
+# P89 Swipeable Card View
 
-**Requirements:** 12 | **Risk:** none | **Recommendation:** Ralph
+**Requirements:** 12 | **Risk:** none | **Recommendation:** /dev
 
 ---
 
-## Run
+## Option 1: /dev (recommended)
 
-```bash
-ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Build ViewToggle, CardStack, SwipeableCard. Verify against features/p89_uat.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
+```
+/dev features/p89_swipeable_card_view.md
 ```
 
-**Stop:** `Ctrl+C` (graceful) or `pkill -f ralph` (force kill)
+Auto-finds `features/p89_uat.md`, runs verification.
 
----
+## Option 2: Ralph (if expecting many iterations)
 
-**If it fails:** Create PROMPT.md with more detail, then `ralph run --no-tui`
+```bash
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Verify against features/p89_uat.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
+```
+
+**Stop:** `Ctrl+C` or `pkill -f ralph`
 ```
 
 ## Example 2: Spec without UAT
@@ -297,18 +310,17 @@ ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipea
 ```
 # P95 Fix Button Color
 
-**Requirements:** 3 | **Risk:** none | **Recommendation:** /loop
+**Requirements:** 3 | **Risk:** none | **Recommendation:** /dev
 
 ---
 
-This is simple. Just run `/loop` interactively.
+## Run
 
-If you prefer Ralph:
-```bash
-ralph run --no-tui -p "Fix button color per features/p95_fix_button_color.md. Before complete: run /bmad:bmm:workflows:code-review, fix all issues."
+```
+/dev features/p95_fix_button_color.md
 ```
 
-**Stop:** `Ctrl+C` or `pkill -f ralph`
+Simple task — `/dev` will handle it interactively.
 ```
 
 ---
