@@ -1,5 +1,7 @@
 # Theory of Change Review
 
+> **DEPRECATED:** Merged into `business.md` (v2.0). Use Business agent instead.
+
 ## Your Role
 Evaluate spec for network effects, viral potential, and spread mechanics.
 

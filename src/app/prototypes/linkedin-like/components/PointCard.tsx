@@ -282,9 +282,9 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
         </div>
       )}
 
-      {/* Expanded linked stories - only in feed view, consistent pl-[52px] indent like QuotedPoints in StoryCard */}
+      {/* Expanded linked stories - only in feed view */}
       {!isDetailView && storiesExpanded && profileOwnerId && storiesToShow.length > 0 && (
-        <div className="pl-[52px] pr-4 pb-4">
+        <div className={showQuotePattern ? "px-4 pb-4" : "pl-[52px] pr-4 pb-4"}>
           <div className="space-y-2">
             {storiesToShow.map(story => (
               <QuotedStory

@@ -1,5 +1,7 @@
 # Lean Canvas Review
 
+> **DEPRECATED:** Merged into `business.md` (v2.0). Use Business agent instead.
+
 ## Your Role
 Evaluate spec against business model - does it serve customers, solve problems, affect metrics?
 

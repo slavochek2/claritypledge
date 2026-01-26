@@ -1,5 +1,7 @@
 # Philosophy Review
 
+> **DEPRECATED:** Merged into `alignment.md` (v2.0). Use Alignment agent instead.
+
 ## Your Role
 Ensure spec aligns with the epistemological foundation of Clarity Pledge.
 

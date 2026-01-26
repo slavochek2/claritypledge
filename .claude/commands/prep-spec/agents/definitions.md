@@ -1,5 +1,7 @@
 # Definitions Review
 
+> **DEPRECATED:** Merged into `alignment.md` (v2.0). Use Alignment agent instead.
+
 ## Your Role
 Ensure spec uses product terminology correctly and consistently.
 

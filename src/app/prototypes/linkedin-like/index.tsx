@@ -4,6 +4,7 @@ import { IdeaDetail } from './components/IdeaDetail';
 import { Profile } from './components/Profile';
 import { Chat } from './components/Chat';
 import { Live } from './components/Live';
+import { Sift } from './components/Sift';
 import { Topology } from './components/Topology';
 // P60: Story and Point exploration
 import { StoryDetail } from './components/StoryDetail';
@@ -32,6 +33,9 @@ export function LinkedInLikePrototype() {
       {/* Live sessions */}
       <Route path="live" element={<Live />} />
       <Route path="live/:ideaId" element={<Live />} />
+
+      {/* P98: Sifter */}
+      <Route path="sift" element={<Sift />} />
 
       {/* Demo pages */}
       <Route path="stories-demo" element={<StoriesDemo />} />

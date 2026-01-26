@@ -2,7 +2,7 @@
 name: prep-spec
 description: Prepare a spec for implementation with agent reviews and execution recommendations. Runs parallel subagents for multi-perspective review.
 when_to_use: before implementing any feature spec, when spec status is not "prepped"
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Prep Spec
@@ -21,14 +21,14 @@ Multi-perspective spec review with parallel subagents. Each agent reviews the sp
 
 ```
 ┌─────────────────────────────────────┐
-│  PHASE 1: TRIAGE                    │
-│  Quick scan → recommend reviewers   │
+│  PHASE 1: QUICK SCAN                │
+│  Read spec → detect signals         │
 └─────────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────┐
-│  PHASE 2: USER SELECTION            │
-│  Checkboxes with recommendations    │
+│  PHASE 2: SHOW DEFAULTS             │
+│  Tiered agents with opt-out         │
 └─────────────────────────────────────┘
                  │
                  ▼
@@ -40,7 +40,7 @@ Multi-perspective spec review with parallel subagents. Each agent reviews the sp
                  ▼
 ┌─────────────────────────────────────┐
 │  PHASE 4: SYNTHESIS                 │
-│  Combine feedback, flag conflicts   │
+│  Light (<5 agents) or Full (5+)     │
 └─────────────────────────────────────┘
                  │
                  ▼
@@ -52,86 +52,99 @@ Multi-perspective spec review with parallel subagents. Each agent reviews the sp
 
 ---
 
-## Phase 1: Triage
+## Phase 1: Quick Scan (Inline)
 
-Read the spec file and do a quick analysis (30 seconds) to determine which agents are relevant.
+Read the spec file and detect signals. No separate triage agent needed — just pattern match.
 
 **Read:**
 1. The spec file provided
-2. `docs/definitions.md` (for terminology context)
+2. Skim `docs/definitions.md` if spec mentions core concepts
 
-**Analyze:**
-- What kind of feature is this? (UI, backend, data model, integration, etc.)
-- What's the scope? (small tweak, medium feature, large system)
-- Does it touch core concepts? (Stories, Points, Verification, Calibration)
-- Does it involve user-facing flows?
-- Does it make architectural choices?
-- Is this a significant product decision?
-
-**Output:** Recommended agent set with rationale.
+**Detect signals:**
+| Signal | Look for | Triggers |
+|--------|----------|----------|
+| Core concepts | Stories, Points, Verification, Calibration | Alignment agent |
+| Business impact | Revenue, customers, metrics, network effects | Business agent |
+| Trade-offs | "Chose X over Y", alternatives discussed | Decisions agent |
+| Hypothesis testing | "Validates", "tests", "learns" | Hypotheses agent |
 
 ---
 
-## Phase 2: Agent Selection
+## Phase 2: Show Defaults (Tiered)
 
-Present the full agent roster with recommendations highlighted.
+Present agents in tiers. **Core and Challenge agents are ON by default.**
 
 ```
-Spec Analysis: features/p104_feature.md
+Spec: features/p104_feature.md
 
-Detected: [Medium feature] [UI-facing] [Touches core concepts]
-
-Recommended reviewers:
+═══ CORE (always run) ═══
   [x] Architect - technical feasibility, patterns
   [x] UX - user flows, edge cases
-  [x] Definitions - terminology alignment
   [x] Execution Scout - tools and approaches
-  [ ] Decisions - (no obvious trade-offs detected)
-  [ ] Hypotheses - (doesn't test specific hypothesis)
-  [ ] Philosophy - (doesn't touch epistemology)
-  [ ] Theory of Change - (no network effects)
-  [ ] Lean Canvas - (no business model impact)
-  [ ] KDD Scout - (can run post-implementation)
-  [ ] Innovation Agent - (straightforward approach)
-  [ ] Lean Startup Coach - (scope seems right)
+
+═══ CHALLENGE (default on — opt out if confident) ═══
+  [x] Lean Startup Coach - "Can we build less?"
+  [x] Innovation Agent - "Is there a better way?"
+
+═══ ALIGNMENT (based on signals) ═══
+  [x] Alignment - terminology + philosophy check
+      (triggered: spec mentions "Verification")
+  [ ] Business - lean canvas + theory of change
+      (no business impact detected)
+
+═══ SPECIALIST (add if needed) ═══
+  [ ] Decisions - check against past choices
+  [ ] Hypotheses - connect to learning plan
+  [ ] KDD Scout - plan post-impl knowledge capture
+
+Running: 6 agents
 
 Options:
-1. Run recommended set (4 agents)
-2. Run all agents (12 agents)
-3. Custom selection
+1. Run as shown (recommended)
+2. Skip Challenge agents (if confident about scope)
+3. Add all agents
+4. Custom selection
 ```
 
-Wait for user selection before proceeding.
+**Key change from v1:** Challenge agents (Lean Startup Coach, Innovation) are **opt-out, not opt-in**. Their value is catching what you didn't see — you can't detect when you need them.
 
 ---
 
 ## Phase 3: Parallel Agent Review
 
-Launch selected agents in parallel using the Task tool. Each agent has a specific prompt file in `agents/` subdirectory.
+Launch selected agents in parallel using the Task tool.
 
-### Agent Roster
+### Agent Roster (8 agents, down from 12)
 
-#### Review Agents (spec ↔ docs)
+#### Core Agents (always run)
 
-| Agent | File | Reviews Against | Key Question |
-|-------|------|-----------------|--------------|
-| Architect | `agents/architect.md` | Codebase patterns | "How do we build this cleanly?" |
-| UX | `agents/ux.md` | Design system, flows | "How does this feel to use?" |
-| Definitions | `agents/definitions.md` | `definitions.md` | "Are we using terms correctly?" |
-| Decisions | `agents/decisions.md` | `decisions.md` | "Does this conflict with past choices?" |
-| Hypotheses | `agents/hypotheses.md` | `hypotheses.md` | "What hypothesis does this test?" |
-| Philosophy | `agents/philosophy.md` | `philosophy.md` | "Does this align with why we exist?" |
-| Theory of Change | `agents/theory-of-change.md` | `theory-of-change.md` | "How does this spread?" |
-| Lean Canvas | `agents/lean-canvas.md` | `lean-canvas.md` | "How does this affect business model?" |
+| Agent | File | Key Question |
+|-------|------|--------------|
+| Architect | `agents/architect.md` | "How do we build this cleanly?" |
+| UX | `agents/ux.md` | "How does this feel to use?" |
+| Execution Scout | `agents/execution-scout.md` | "What tools and patterns help?" |
 
-#### Forward-Looking Agents
+#### Challenge Agents (default on)
 
-| Agent | File | Purpose | Output |
-|-------|------|---------|--------|
-| Execution Scout | `agents/execution-scout.md` | MCPs, skills, patterns | "Use Supabase MCP, similar to P87" |
-| KDD Scout | `agents/kdd-scout.md` | Future knowledge capture | "Record decision about X after" |
-| Innovation Agent | `agents/innovation.md` | 30 ideas → criteria → pick | "Consider this alternative..." |
-| Lean Startup Coach | `agents/lean-startup-coach.md` | Strip to essential | "You could skip X and still validate Y" |
+| Agent | File | Key Question |
+|-------|------|--------------|
+| Lean Startup Coach | `agents/lean-startup-coach.md` | "Can we build less and still learn?" |
+| Innovation Agent | `agents/innovation.md` | "Is there a better approach?" |
+
+#### Signal-Based Agents
+
+| Agent | File | Trigger | Key Question |
+|-------|------|---------|--------------|
+| Alignment | `agents/alignment.md` | Core concepts mentioned | "Terms correct? Philosophy aligned?" |
+| Business | `agents/business.md` | Business impact detected | "How does this affect model/spread?" |
+
+#### Specialist Agents (on request)
+
+| Agent | File | Key Question |
+|-------|------|--------------|
+| Decisions | `agents/decisions.md` | "Does this conflict with past choices?" |
+| Hypotheses | `agents/hypotheses.md` | "What hypothesis does this test?" |
+| KDD Scout | `agents/kdd-scout.md` | "What knowledge to capture after?" |
 
 ### Parallel Dispatch
 
@@ -139,7 +152,7 @@ Launch selected agents in parallel using the Task tool. Each agent has a specifi
 // All selected agents run simultaneously
 Task("Architect review", { prompt: architectPrompt + specContent })
 Task("UX review", { prompt: uxPrompt + specContent })
-Task("Definitions review", { prompt: definitionsPrompt + specContent })
+Task("Lean Startup Coach", { prompt: leanStartupPrompt + specContent })
 // ... etc
 ```
 
@@ -147,28 +160,25 @@ Task("Definitions review", { prompt: definitionsPrompt + specContent })
 
 ## Phase 4: Synthesis
 
-After all agents return, synthesize their feedback.
+Use **light synthesis** for <5 agents, **full synthesis** for 5+.
 
-**Synthesizer responsibilities:**
-1. **Group by type:**
-   - Blockers (must address before implementation)
-   - Suggestions (worth considering)
-   - FYIs (informational only)
+### Light Synthesis (<5 agents)
 
-2. **Flag conflicts:**
-   - If agents disagree, surface the tension
-   - Example: "Architect suggests X, Lean Startup Coach suggests skipping X"
+```markdown
+## Review Summary
 
-3. **Extract decisions:**
-   - Any choice that was made (explicitly or implicitly)
-   - These may need recording in decisions.md
+**Agents:** Architect ✓, UX ✓, Execution Scout ✓
 
-4. **Surface /kdd opportunities:**
-   - New hypothesis to add?
-   - Definition to clarify?
-   - Decision to record?
+### Issues
+- [Architect] Missing loading state
 
-**Output format:**
+### Suggestions
+- [UX] Consider empty state design
+
+### Ready to build: Yes, address loading state first
+```
+
+### Full Synthesis (5+ agents)
 
 ```markdown
 ## Prep-Spec Review Summary
@@ -182,19 +192,16 @@ After all agents return, synthesize their feedback.
 - [ ] [Lean Startup Coach] Could validate with mock data first
 
 ### FYIs
-- [Definitions] Terms used correctly
-- [Philosophy] Aligns with calibration principles
+- [Alignment] Terms used correctly, philosophy aligned
 
 ### Conflicts to Resolve
 - Architect wants abstraction, Lean Startup says YAGNI - discuss
 
 ### Post-Implementation /kdd
 - Record decision about component reuse
-- Update hypotheses.md with H7 test plan
 
 ### Execution Recommendation
 - Use /loop with features/p104_uat.md
-- Leverage Supabase MCP for migrations
 - Similar to P87 implementation
 ```
 
@@ -212,15 +219,14 @@ prepped_date: 2026-01-26
 reviews:
   architect: passed
   ux: passed-with-notes
-  definitions: passed
-  execution-scout: completed
+  lean-startup-coach: passed
 execution: loop
 ---
 ```
 
 2. **Add "Prep Notes" section** to spec if blockers/suggestions exist
 
-3. **Offer to generate UAT** if execution recommendation is loop or ralph-loop:
+3. **Offer to generate UAT** if execution recommendation is loop:
    - "Want me to run /generate-uat for this spec?"
 
 ---
@@ -229,6 +235,7 @@ execution: loop
 
 User can always skip:
 - "just review architecture" → only architect agent
+- "skip challenge agents" → core only, no scope questioning
 - "skip prep, I know what I'm doing" → proceed without review
 
 Honor user's choice but note the spec remains unprepped.

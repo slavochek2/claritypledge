@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink, Ear, Pin } from 'lucide-react';
+import { MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink, Ear, Pin } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
-import { PointHeader, PositionBadge, PositionButtons, ShareButton, UserCredibility, VisibilityBadge, getPositionVerb, type SevenPointCounts } from './shared';
+import { PositionButtons, ShareButton, UserCredibility, VisibilityBadge, getPositionVerb, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
@@ -332,7 +332,7 @@ function QuotedPoint({
           <span>{point.text}</span>
         </p>
         {/* Position buttons - compact, inside quoted box */}
-        <div className="mt-2">
+        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
           <PositionButtons
             userPosition={userPosition}
             counts={counts}
