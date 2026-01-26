@@ -11,9 +11,9 @@
 ## Test Scoring
 
 ```
-Score = passed_tests / 11 (shown as X/11 or N%)
-Total tests: 11
-Pass threshold: 11/11 (100% — all tests must pass)
+Score = passed_tests / 13 (shown as X/13 or N%)
+Total tests: 13
+Pass threshold: 13/13 (100% — all tests must pass)
 ```
 
 ---
@@ -110,6 +110,21 @@ npm test              # All unit tests pass
 
 ---
 
+## Category 5: Entry Points (2 tests)
+
+### UAT-5.1: Entry from StoryCard pre-selects Story
+**Given:** User is viewing a StoryCard
+**When:** User clicks "Start a Clarity Session" (navigates to `/prototype/live/new?story={id}&with={authorId}`)
+**Then:** /live opens with that Story pre-selected, showing "Does [Partner] understand?" (skip card picker)
+**Verify:** Click "Start a Clarity Session" on any StoryCard, verify Story is pre-selected
+
+### UAT-5.2: Entry without context shows idle state
+**Given:** User navigates directly to `/prototype/live` or `/prototype/live/new` (no query params)
+**Then:** Shows idle state with [Pick cards] and [Just talk] buttons
+**Verify:** Navigate to `/prototype/live`, verify idle state with both buttons
+
+---
+
 ## Test Execution Log
 
 | Test | Status | Notes |
@@ -125,6 +140,8 @@ npm test              # All unit tests pass
 | UAT-3.1 | ⬜ | |
 | UAT-3.2 | ⬜ | |
 | UAT-4.1 | ⬜ | |
+| UAT-5.1 | ⬜ | |
+| UAT-5.2 | ⬜ | |
 
 **Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked — add note)
 
@@ -133,7 +150,7 @@ npm test              # All unit tests pass
 ## Success Criteria
 
 Implementation is complete when:
-1. All 11 UAT tests show ✅
+1. All 13 UAT tests show ✅
 2. `./scripts/pre-commit-checks.sh` passes
 3. No console errors during testing
 

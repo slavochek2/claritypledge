@@ -408,6 +408,29 @@ Future: Replace mocked timeouts with real WebSocket sync.
 9. Session history shows verified cards + positions (hidden when empty)
 10. Session history persists on page refresh (sessionStorage)
 11. "Speak freely" available at every step
+12. Entry from StoryCard (`?story={id}`) pre-selects that Story (skip picker, go to "selected" phase)
+13. Entry without context shows idle state with [Pick cards] button
+
+---
+
+## Entry Points
+
+| Source | URL | Behavior |
+|--------|-----|----------|
+| **StoryCard** "Start a Clarity Session" | `/prototype/live/new?with={authorId}&story={storyId}` | Pre-select Story, set partner, skip to "selected" phase |
+| **BottomNav** button | `/prototype/live/new` | Idle state → [Pick cards] or [Just talk] |
+| **Direct navigation** | `/prototype/live` | Same as BottomNav |
+
+### Query Parameters
+
+Live.tsx must read and handle:
+
+| Param | Purpose | Effect |
+|-------|---------|--------|
+| `story` | Story ID to verify | Pre-select in card picker, skip to "selected" phase |
+| `with` | Partner user ID | Set partner name in UI |
+
+If `?story=` is provided but Story not found → fall back to idle state with warning toast.
 
 ---
 
@@ -423,6 +446,7 @@ Future: Replace mocked timeouts with real WebSocket sync.
 
 | Date | Change |
 |------|--------|
+| 2026-01-26 | **Entry points:** Added AC 12-13 for StoryCard entry (pre-select) vs direct entry (idle). Added Entry Points section with query param handling. |
 | 2026-01-26 | **Prep-spec review:** Simplified position UI (use existing PositionButtons), added empty states, deferred "I have a Story" link, hide empty session history, simplified state machine, mock partner sync with timeouts. |
 | 2026-01-26 | **Complete rewrite:** Focused on card verification only. Removed event container (separate spec). Added Story → Points unlock flow. Added session history. KISS wireframes. |
 | 2026-01-23 | Original version (mixed event + verification concerns) |
