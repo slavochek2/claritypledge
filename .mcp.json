@@ -36,6 +36,14 @@
         "mcp-remote@latest",
         "https://mcp.sentry.dev/mcp"
       ]
+    },
+    "mixpanel": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp-eu.mixpanel.com/mcp"
+      ]
     }
   }
 }

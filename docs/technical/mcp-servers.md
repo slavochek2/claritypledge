@@ -93,9 +93,11 @@ Check Docker Desktop → MCP Toolkit → server settings if tools fail.
 
 ---
 
-## Project-Specific: Supabase MCP
+## Project-Specific MCP Servers
 
-Supabase MCP is configured **per-project** in `.mcp.json` (not Docker MCP):
+These servers are configured **per-project** in `.mcp.json` (not Docker MCP):
+
+### Supabase MCP
 
 ```json
 {
@@ -109,6 +111,51 @@ Supabase MCP is configured **per-project** in `.mcp.json` (not Docker MCP):
 ```
 
 See [database.md](database.md) for Supabase usage.
+
+### Mixpanel MCP
+
+Analytics server for querying Mixpanel data:
+
+```json
+{
+  "mcpServers": {
+    "mixpanel": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "https://mcp-eu.mixpanel.com/mcp"]
+    }
+  }
+}
+```
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__mixpanel__get_events` | List tracked events |
+| `mcp__mixpanel__run_segmentation_query` | Query event data |
+| `mcp__mixpanel__run_funnels_query` | Funnel analysis |
+| `mcp__mixpanel__run_retention_query` | Retention analysis |
+
+See [analytics.md](analytics.md) for tracked events catalog.
+
+### Sentry MCP
+
+Error monitoring server:
+
+```json
+{
+  "mcpServers": {
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote@latest", "https://mcp.sentry.dev/mcp"]
+    }
+  }
+}
+```
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__sentry__search_issues` | Search for errors |
+| `mcp__sentry__get_issue_details` | Get error details |
+| `mcp__sentry__analyze_issue_with_seer` | AI-powered analysis |
 
 ---
 

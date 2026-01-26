@@ -32,6 +32,7 @@ export function LinkedInLikePrototype() {
 
       {/* Live sessions */}
       <Route path="live" element={<Live />} />
+      <Route path="live/new" element={<Live />} />
       <Route path="live/:ideaId" element={<Live />} />
 
       {/* P98: Sifter */}

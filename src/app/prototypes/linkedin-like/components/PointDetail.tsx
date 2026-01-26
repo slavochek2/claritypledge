@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
-import { FilterTabs, PositionBadge, UserCredibility, type PositionFilter } from './shared';
+import { FilterTabs, PositionBadge, UserCredibility, ThreadLineGroup, ThreadLineItem, type PositionFilter } from './shared';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import {
@@ -172,22 +172,36 @@ function PositionSection({
         <p className="text-center text-gray-400 text-sm py-3">
           (no positions yet)
         </p>
+      ) : holders.length === 1 ? (
+        // Single item - no thread lines
+        holders[0].story ? (
+          <StoryCard
+            story={holders[0].story}
+            compact
+            context="point-detail"
+            authorPosition={holders[0].position}
+          />
+        ) : (
+          <PositionOnlyRow holder={holders[0]} />
+        )
       ) : (
-        <div className="space-y-3">
-          {holders.map(holder =>
-            holder.story ? (
-              <StoryCard
-                key={holder.user.id}
-                story={holder.story}
-                compact
-                context="point-detail"
-                authorPosition={holder.position}
-              />
-            ) : (
-              <PositionOnlyRow key={holder.user.id} holder={holder} />
-            )
+        // 2+ items - show thread lines
+        <ThreadLineGroup>
+          {holders.map((holder, index) =>
+            <ThreadLineItem key={holder.user.id} isLast={index === holders.length - 1}>
+              {holder.story ? (
+                <StoryCard
+                  story={holder.story}
+                  compact
+                  context="point-detail"
+                  authorPosition={holder.position}
+                />
+              ) : (
+                <PositionOnlyRow holder={holder} />
+              )}
+            </ThreadLineItem>
           )}
-        </div>
+        </ThreadLineGroup>
       )}
     </div>
   );

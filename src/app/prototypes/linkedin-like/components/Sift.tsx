@@ -2,23 +2,14 @@
  * @file Sift.tsx
  * @description P98 Sifter Prototype - AI-powered thought clarification
  *
- * Flow:
- * 1. Entry - User dumps thoughts in text input
- * 2. Processing - Fake 2-3 sec loading animation
- * 3. Story Review - Live StoryCard preview, rate how well AI understood, refine until 10/10
- * 4. Done - Celebration, invite to verify or back to profile
+ * ChatGPT-style chat interface where user talks to AI to articulate their Story.
+ * 0-10 rating (like /live) for how well AI captured their meaning.
+ * Final StoryCard shown only at completion.
  *
- * All state is local - no backend, no real AI calls.
- *
- * Design patterns borrowed from /live:
- * - Drawer for focused rating UX
- * - JourneyToUnderstanding-style history (only when ratings exist)
- * - RatingCard with select + submit pattern
- * - Easy exit at every step
+ * Reuses /live header pattern for consistency.
  */
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { X, Sparkles, MessageCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,41 +19,59 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { PrototypeLayout } from './PrototypeLayout';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { VisibilityBadge } from './shared';
+import { Send } from 'lucide-react';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type SiftPhase = 'entry' | 'processing' | 'story-review' | 'done';
+type MessageRole = 'user' | 'ai';
 
-interface StoryVersion {
-  text: string;
-  rating: number | null; // null = current (not yet rated)
-  aiMessage?: string; // AI's message for this version
+interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  showRating?: boolean; // AI can request rating
 }
+
+type SiftPhase = 'entry' | 'chat' | 'done';
 
 interface SiftState {
   phase: SiftPhase;
-  rawInput: string;
-  storyVersions: StoryVersion[];
+  messages: ChatMessage[];
+  currentStoryText: string;
+  refinementCount: number;
   currentRating: number | null;
-  selectedOption: string | null;
-  customInput: string;
-  points: string[];
-  showRatingDrawer: boolean; // Show rating drawer
-  showOptionsDrawer: boolean; // Show refinement options drawer
 }
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-6 p-4 space-y-4 max-w-lg mx-auto w-full";
-const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-4 pb-6 space-y-6 max-w-lg mx-auto w-full";
+// Mock user for preview
+const MOCK_USER = {
+  name: "Sarah Chen",
+  hasPledged: true,
+};
 
+// Mock AI responses (simulating refinement)
+const MOCK_AI_RESPONSES = [
+  {
+    interpretation: "So you're saying the commute was draining you both physically and emotionally, affecting your family time?",
+    storyText: "I commuted 2 hours daily and felt exhausted.",
+  },
+  {
+    interpretation: "Ah, so the guilt about missing your kids was the real pain, not just the exhaustion. The commute was taking away irreplaceable moments.",
+    storyText: "I commuted 2 hours daily. The exhaustion was physical, but the real pain was guilt about missing my kids.",
+  },
+  {
+    interpretation: "I understand now. The physical exhaustion combined with guilt about missing your children made the situation unsustainable.",
+    storyText: "I commuted 2 hours daily. I was exhausted, couldn't see my kids, and felt overwhelming guilt.",
+  },
+];
+
+// Rating options (same as /live)
 const RATING_OPTIONS = [
   { value: 0, label: '0' },
   { value: 1, label: '1' },
@@ -77,59 +86,11 @@ const RATING_OPTIONS = [
   { value: 10, label: '10' },
 ] as const;
 
-// Mock AI conversation
-const MOCK_AI_MESSAGES = [
-  "I think I understand. You're saying that your commute was draining both physically and emotionally, affecting your family time?",
-  "Ah, so the guilt about missing your kids was the real pain point, not just the exhaustion itself. The commute was taking away irreplaceable moments.",
-  "I understand now. The physical exhaustion combined with the guilt of missing your children created a situation that was unsustainable for your wellbeing.",
-];
+// Rating threshold for "understood"
+const UNDERSTOOD_THRESHOLD = 8;
 
-// Mock data for prototype
-const MOCK_REFINEMENTS = [
-  {
-    text: "I commuted 2 hours daily and felt exhausted.",
-    aiMessage: MOCK_AI_MESSAGES[0],
-    aiUncertainty: "I'm uncertain whether the core issue was physical exhaustion or guilt about missing family time.",
-    options: [
-      "It was mainly about guilt for not being present",
-      "The exhaustion was physical, not emotional",
-      "There's a work culture element I missed",
-    ]
-  },
-  {
-    text: "I commuted 2 hours daily. The exhaustion was physical, but the real pain was guilt about missing my kids.",
-    aiMessage: MOCK_AI_MESSAGES[1],
-    aiUncertainty: "Did I capture the health impact correctly?",
-    options: [
-      "Yes, add that my health suffered",
-      "The phrasing could be stronger",
-    ]
-  },
-  {
-    text: "I commuted 2 hours daily. I was exhausted, couldn't see my kids, and my health suffered. The guilt was overwhelming.",
-    aiMessage: MOCK_AI_MESSAGES[2],
-    aiUncertainty: null,
-    options: []
-  }
-];
-
-const MOCK_POINTS = [
-  "Remote work improves wellbeing for knowledge workers",
-  "Long commutes negatively impact family life and health"
-];
-
-const PROCESSING_STEPS = [
-  { text: "Reading your thoughts...", delay: 500 },
-  { text: "Finding the core experience...", delay: 600 },
-  { text: "Extracting claims...", delay: 500 },
-  { text: "Preparing to verify understanding...", delay: 500 },
-];
-
-// Mock user for preview
-const MOCK_USER = {
-  name: "Sarah Chen",
-  hasPledged: true,
-};
+// Max refinement attempts before showing "use anyway" option
+const MAX_REFINEMENTS = 3;
 
 // ============================================================================
 // MAIN COMPONENT
@@ -138,129 +99,144 @@ const MOCK_USER = {
 export function Sift() {
   const navigate = useNavigate();
   const location = useLocation();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Read initial input from location state (when coming from Profile composer)
   const initialInput = (location.state as { initialInput?: string })?.initialInput || '';
 
-  // If initial input provided, skip entry and go straight to processing
   const [state, setState] = useState<SiftState>({
-    phase: initialInput.trim() ? 'processing' : 'entry',
-    rawInput: initialInput,
-    storyVersions: [],
+    phase: 'entry',
+    messages: [],
+    currentStoryText: '',
+    refinementCount: 0,
     currentRating: null,
-    selectedOption: null,
-    customInput: '',
-    points: [],
-    showRatingDrawer: false,
-    showOptionsDrawer: false,
   });
 
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
-  const [processingStep, setProcessingStep] = useState(0);
+  const [inputValue, setInputValue] = useState(initialInput);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isAiTyping, setIsAiTyping] = useState(false);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
-  // Processing animation
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (state.phase !== 'processing') return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [state.messages, isAiTyping]);
 
-    if (processingStep < PROCESSING_STEPS.length) {
-      const timer = setTimeout(() => {
-        setProcessingStep(prev => prev + 1);
-      }, PROCESSING_STEPS[processingStep].delay);
-      return () => clearTimeout(timer);
-    } else {
-      // Processing complete - transition to story-review
-      const timer = setTimeout(() => {
-        setState(prev => ({
-          ...prev,
-          phase: 'story-review',
-          storyVersions: [{
-            text: MOCK_REFINEMENTS[0].text,
-            rating: null,
-            aiMessage: MOCK_REFINEMENTS[0].aiMessage,
-          }],
-          points: MOCK_POINTS,
-          showRatingDrawer: true,
-        }));
-      }, 400);
-      return () => clearTimeout(timer);
+  // If initial input provided, auto-submit (with guard for Strict Mode)
+  const hasAutoSubmitted = useRef(false);
+  useEffect(() => {
+    if (initialInput.trim() && state.phase === 'entry' && !hasAutoSubmitted.current) {
+      hasAutoSubmitted.current = true;
+      handleSendMessage(initialInput);
     }
-  }, [state.phase, processingStep]);
+  }, []);
+
+  // Auto-resize textarea
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
+  };
 
   // ============================================================================
   // HANDLERS
   // ============================================================================
 
-  const handleStartSift = () => {
-    if (!state.rawInput.trim()) return;
-    setProcessingStep(0);
-    setState(prev => ({ ...prev, phase: 'processing' }));
+  const handleSendMessage = (text: string) => {
+    if (!text.trim()) return;
+    if (isAiTyping) return; // Prevent double-send while AI is responding
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: text,
+    };
+
+    setState(prev => ({
+      ...prev,
+      phase: 'chat',
+      messages: [...prev.messages, userMessage],
+    }));
+
+    setInputValue('');
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
+    setIsAiTyping(true);
+
+    // Simulate AI response after delay
+    setTimeout(() => {
+      const responseIndex = Math.min(state.refinementCount, MOCK_AI_RESPONSES.length - 1);
+      const response = MOCK_AI_RESPONSES[responseIndex];
+
+      const aiMessage: ChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'ai',
+        content: response.interpretation,
+        showRating: true,
+      };
+
+      setState(prev => ({
+        ...prev,
+        messages: [...prev.messages, aiMessage],
+        currentStoryText: response.storyText,
+        currentRating: null,
+      }));
+
+      setSelectedRating(null);
+      setIsAiTyping(false);
+    }, 1000);
   };
 
   const handleRatingSubmit = () => {
     if (selectedRating === null) return;
 
-    // Update current version with rating
-    const updatedVersions = [...state.storyVersions];
-    const currentIndex = updatedVersions.length - 1;
-    updatedVersions[currentIndex] = {
-      ...updatedVersions[currentIndex],
-      rating: selectedRating,
-    };
-
-    if (selectedRating === 10) {
-      // Perfect! Go to done phase
-      setState(prev => ({
-        ...prev,
-        phase: 'done',
-        storyVersions: updatedVersions,
-        currentRating: selectedRating,
-        showRatingDrawer: false,
-        showOptionsDrawer: false,
-      }));
+    if (selectedRating >= UNDERSTOOD_THRESHOLD) {
+      // Done - show final story
+      setState(prev => ({ ...prev, phase: 'done' }));
     } else {
-      // Show options for refinement
+      // Not understood well - AI asks for clarification
+      setIsAiTyping(true);
+
+      // Mark previous message as no longer needing rating
       setState(prev => ({
         ...prev,
-        storyVersions: updatedVersions,
-        currentRating: selectedRating,
-        showRatingDrawer: false,
-        showOptionsDrawer: true,
+        messages: prev.messages.map((m, i) =>
+          i === prev.messages.length - 1 ? { ...m, showRating: false } : m
+        ),
       }));
+
+      setTimeout(() => {
+        const aiMessage: ChatMessage = {
+          id: `ai-${Date.now()}`,
+          role: 'ai',
+          content: `You rated ${selectedRating}/10. What did I miss? Tell me more about what you meant.`,
+        };
+
+        setState(prev => ({
+          ...prev,
+          messages: [...prev.messages, aiMessage],
+          refinementCount: prev.refinementCount + 1,
+          currentRating: null,
+        }));
+
+        setSelectedRating(null);
+        setIsAiTyping(false);
+      }, 500);
     }
-    setSelectedRating(null);
   };
 
-  const handleOptionSelect = (option: string) => {
-    setState(prev => ({ ...prev, selectedOption: option }));
+  const handleUseAnyway = () => {
+    // User accepts current story even with low rating
+    setState(prev => ({ ...prev, phase: 'done' }));
   };
 
-  const handleContinueRefinement = () => {
-    // Get next mock refinement or use final one
-    const nextIndex = Math.min(state.storyVersions.length, MOCK_REFINEMENTS.length - 1);
-    const nextRefinement = MOCK_REFINEMENTS[nextIndex];
-
-    setState(prev => ({
-      ...prev,
-      storyVersions: [...prev.storyVersions, {
-        text: nextRefinement.text,
-        rating: null,
-        aiMessage: nextRefinement.aiMessage,
-      }],
-      selectedOption: null,
-      customInput: '',
-      showOptionsDrawer: false,
-      showRatingDrawer: true,
-    }));
-  };
-
-  const handleSpeakFreely = () => {
-    // Close drawer and continue without rating
-    setState(prev => ({
-      ...prev,
-      showRatingDrawer: false,
-      showOptionsDrawer: false,
-    }));
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(inputValue);
+    }
   };
 
   const handleInviteToVerify = () => {
@@ -271,7 +247,7 @@ export function Sift() {
     navigate('/prototype/linkedin-like/profile');
   };
 
-  const handleExit = () => {
+  const handleLeave = () => {
     if (state.phase === 'entry' || state.phase === 'done') {
       navigate('/prototype/linkedin-like/profile');
     } else {
@@ -279,26 +255,55 @@ export function Sift() {
     }
   };
 
-  const handleConfirmExit = () => {
+  const handleConfirmLeave = () => {
     setShowExitConfirm(false);
     navigate('/prototype/linkedin-like/profile');
   };
 
   // ============================================================================
-  // SHARED COMPONENTS
+  // COMPONENTS
   // ============================================================================
 
-  // Rating buttons (reused from Live.tsx pattern)
-  const RatingButtons = ({ selectedValue, onSelect }: { selectedValue: number | null; onSelect: (v: number) => void }) => (
-    <div className="flex gap-1 w-full max-w-sm">
+  // Header - matches /live's LiveMeetingHeader pattern
+  const SiftHeader = () => (
+    <div className="h-14 border-b bg-white shrink-0">
+      <div className="max-w-3xl mx-auto px-4 h-full">
+        <div className="flex items-center justify-between h-full">
+          {/* Logo */}
+          <Link to="/prototype/linkedin-like/profile" className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity">
+            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+              C
+            </div>
+          </Link>
+
+          {/* Badge - matches /live pattern */}
+          <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-900">
+            Clarity AI
+          </span>
+
+          {/* Leave button - matches /live */}
+          <button
+            className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            onClick={handleLeave}
+          >
+            Leave
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Rating buttons - matches /live's RatingButtons pattern exactly
+  const RatingButtons = () => (
+    <div className="flex gap-1 w-full">
       {RATING_OPTIONS.map((option) => (
         <button
           key={option.value}
-          onClick={() => onSelect(option.value)}
+          onClick={() => setSelectedRating(option.value)}
           className={`
             flex-1 min-w-0 py-2.5 rounded-md text-xs font-medium transition-all
             ${
-              selectedValue === option.value
+              selectedRating === option.value
                 ? 'bg-blue-500 text-white ring-2 ring-blue-500 ring-offset-1'
                 : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200'
             }
@@ -310,32 +315,130 @@ export function Sift() {
     </div>
   );
 
-  // Rating display dots
-  const RatingDisplay = ({ rating }: { rating: number }) => {
-    const filledDots = rating;
-    const emptyDots = 10 - rating;
+  // ChatGPT-style message (no bubbles)
+  const Message = ({ message }: { message: ChatMessage }) => {
+    const isUser = message.role === 'user';
+    const showUseAnyway = message.showRating && state.refinementCount >= MAX_REFINEMENTS;
 
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex gap-0.5">
-          {Array.from({ length: filledDots }).map((_, i) => (
-            <span key={`filled-${i}`} className="w-2 h-2 rounded-full bg-foreground" />
-          ))}
-          {Array.from({ length: emptyDots }).map((_, i) => (
-            <span key={`empty-${i}`} className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-          ))}
+      <div className={`py-6 ${isUser ? 'bg-white' : 'bg-gray-50'}`}>
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="flex gap-4">
+            {/* Avatar */}
+            <div className="shrink-0">
+              {isUser ? (
+                <GravatarAvatar name={MOCK_USER.name} size="sm" />
+              ) : (
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  C
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-sm text-gray-900 mb-1">
+                {isUser ? 'You' : 'Clarity AI'}
+              </div>
+              <div className="text-gray-700 text-[15px] leading-relaxed whitespace-pre-wrap">
+                {message.content}
+              </div>
+
+              {/* Rating UI (matches /live pattern) */}
+              {message.showRating && (
+                <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-3">
+                    How well does this capture what you meant?
+                  </p>
+                  <RatingButtons />
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      onClick={handleRatingSubmit}
+                      disabled={selectedRating === null}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600"
+                      size="sm"
+                    >
+                      Submit
+                    </Button>
+                    {showUseAnyway && (
+                      <Button
+                        onClick={handleUseAnyway}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Use this anyway
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-        <span className="text-sm font-semibold tabular-nums w-5 text-right">{rating}</span>
       </div>
     );
   };
 
-  // Story Card Preview - matches actual StoryCard styling (simplified for preview)
-  const StoryCardPreview = ({ text, isLive = false }: { text: string; isLive?: boolean }) => (
-    <div className={`bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden ${isLive ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}>
+  // Typing indicator
+  const TypingIndicator = () => (
+    <div className="py-6 bg-gray-50">
+      <div className="max-w-3xl mx-auto px-4">
+        <div className="flex gap-4">
+          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
+            C
+          </div>
+          <div className="flex-1">
+            <div className="font-medium text-sm text-gray-900 mb-1">Clarity AI</div>
+            <div className="flex gap-1 pt-1">
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ChatGPT-style input bar
+  const InputBar = () => (
+    <div className="shrink-0 border-t bg-white">
+      <div className="max-w-3xl mx-auto px-4 py-3">
+        <div className="relative flex items-end gap-2 bg-gray-100 rounded-2xl border border-gray-200 focus-within:border-gray-300 focus-within:ring-1 focus-within:ring-gray-300">
+          <textarea
+            ref={inputRef}
+            value={inputValue}
+            onChange={handleTextareaChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Share what's on your mind..."
+            rows={1}
+            className="flex-1 bg-transparent px-4 py-3 text-[15px] resize-none focus:outline-none max-h-[200px]"
+          />
+          <button
+            onClick={() => handleSendMessage(inputValue)}
+            disabled={!inputValue.trim()}
+            aria-label="Send message"
+            className={`m-1.5 p-2 rounded-full transition-colors ${
+              inputValue.trim()
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-gray-300 text-gray-500'
+            }`}
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 text-center mt-2">
+          Clarity AI helps you articulate your thoughts clearly
+        </p>
+      </div>
+    </div>
+  );
+
+  // Story Card Preview (shown only at end)
+  const StoryCardPreview = ({ text }: { text: string }) => (
+    <div className="bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden">
       <div className="p-4">
         <div className="flex items-start gap-3">
-          {/* Avatar */}
           <div className="flex-shrink-0">
             <GravatarAvatar
               name={MOCK_USER.name}
@@ -343,81 +446,11 @@ export function Sift() {
               isPledger={MOCK_USER.hasPledged}
             />
           </div>
-
-          {/* Content */}
           <div className="flex-1 min-w-0">
-            {/* Author info */}
-            <div className="mb-2">
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-gray-900 text-sm">{MOCK_USER.name}</span>
-              </div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <span>Just now</span>
-                <VisibilityBadge visibility="public" />
-              </p>
-            </div>
-
-            {/* Story text */}
-            <p className="text-gray-900 text-base">{text}</p>
+            <span className="font-semibold text-gray-900 text-sm">{MOCK_USER.name}</span>
+            <p className="text-gray-900 text-base mt-1">{text}</p>
           </div>
         </div>
-      </div>
-    </div>
-  );
-
-  // AI Message bubble
-  const AIMessageBubble = ({ message }: { message: string }) => (
-    <div className="flex gap-3 items-start">
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-        <Sparkles size={16} className="text-white" />
-      </div>
-      <div className="flex-1 bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3">
-        <p className="text-sm text-gray-800">{message}</p>
-      </div>
-    </div>
-  );
-
-  // Journey history - only shown when there are completed ratings
-  const JourneyHistory = ({ versions }: { versions: StoryVersion[] }) => {
-    // Only show versions with ratings
-    const ratedVersions = versions.filter(v => v.rating !== null);
-    if (ratedVersions.length === 0) return null;
-
-    return (
-      <div className="bg-muted/50 border border-border rounded-lg p-4 w-full">
-        <p className="text-sm font-medium text-muted-foreground text-center mb-3 pb-2 border-b border-border">
-          AI Journey to understand you
-        </p>
-        <div className="space-y-2">
-          {ratedVersions.map((version, index) => (
-            <div key={index} className="flex items-center gap-3">
-              <div className="w-6 shrink-0 text-xs text-muted-foreground text-right">
-                {index + 1}
-              </div>
-              <div className="flex-1 flex items-center justify-between">
-                <RatingDisplay rating={version.rating!} />
-                {version.rating === 10 && <span className="text-green-500">✓</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Header with exit button
-  const SiftHeader = ({ title, onExit }: { title: string; onExit: () => void }) => (
-    <div className="bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between px-4 py-3 max-w-4xl mx-auto">
-        <button
-          onClick={onExit}
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
-        >
-          <X className="w-4 h-4" />
-          Exit
-        </button>
-        <span className="text-sm font-medium text-gray-900">{title}</span>
-        <div className="w-12" /> {/* Spacer for centering */}
       </div>
     </div>
   );
@@ -427,7 +460,7 @@ export function Sift() {
     <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Exit Sifter?</DialogTitle>
+          <DialogTitle>Leave session?</DialogTitle>
           <DialogDescription>
             Your progress will be lost. You can start over anytime.
           </DialogDescription>
@@ -436,8 +469,8 @@ export function Sift() {
           <Button variant="outline" onClick={() => setShowExitConfirm(false)}>
             Keep going
           </Button>
-          <Button variant="destructive" onClick={handleConfirmExit}>
-            Exit
+          <Button variant="destructive" onClick={handleConfirmLeave}>
+            Leave
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -445,251 +478,116 @@ export function Sift() {
   );
 
   // ============================================================================
-  // PHASE RENDERING
+  // RENDER
   // ============================================================================
 
-  // ENTRY PHASE
+  // ENTRY PHASE - Initial input (ChatGPT style)
   if (state.phase === 'entry') {
     return (
-      <PrototypeLayout>
-        <SiftHeader title="Clarity Sifter" onExit={handleExit} />
-        <div className={CONTENT_LAYOUT_CENTERED}>
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
-              <Sparkles size={24} className="text-white" />
+      <div className="flex flex-col h-screen bg-white">
+        <SiftHeader />
+
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="w-full max-w-xl text-center mb-8">
+            <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
+              C
             </div>
-            <h1 className="text-xl font-semibold text-gray-900">AI Journey to understand you</h1>
-            <p className="text-gray-500 text-sm">
-              Dump your thoughts. I'll help untangle them<br />
-              until I understand you perfectly.
+            <h1 className="text-2xl font-semibold text-gray-900 mb-2">
+              What's on your mind?
+            </h1>
+            <p className="text-gray-500">
+              I'll help you articulate your thoughts into a clear Story
             </p>
           </div>
-
-          <div className="w-full max-w-sm space-y-4">
-            <textarea
-              value={state.rawInput}
-              onChange={(e) => setState(prev => ({ ...prev, rawInput: e.target.value }))}
-              placeholder={`e.g., "I've been thinking about remote work. I used to commute 2 hours daily and it was killing me..."`}
-              className="w-full h-32 p-4 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              autoFocus
-            />
-            <Button
-              onClick={handleStartSift}
-              disabled={!state.rawInput.trim()}
-              className="w-full bg-blue-500 hover:bg-blue-600"
-            >
-              Start the journey
-            </Button>
-          </div>
         </div>
-        {exitConfirmDialog}
-      </PrototypeLayout>
-    );
-  }
 
-  // PROCESSING PHASE
-  if (state.phase === 'processing') {
-    return (
-      <PrototypeLayout>
-        <SiftHeader title="Processing..." onExit={handleExit} />
-        <div className={CONTENT_LAYOUT_CENTERED}>
-          <div className="text-center space-y-6">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mx-auto animate-pulse">
-              <Sparkles size={24} className="text-white" />
-            </div>
-
-            <div className="space-y-3 text-left max-w-xs mx-auto">
-              {PROCESSING_STEPS.map((step, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  {index < processingStep ? (
-                    <span className="text-green-500 w-4">✓</span>
-                  ) : index === processingStep ? (
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse ml-1" />
-                  ) : (
-                    <span className="w-2 h-2 bg-gray-300 rounded-full ml-1" />
-                  )}
-                  <span className={index <= processingStep ? 'text-gray-900 text-sm' : 'text-gray-400 text-sm'}>
-                    {step.text}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {exitConfirmDialog}
-      </PrototypeLayout>
-    );
-  }
-
-  // Get current refinement data
-  const currentVersionIndex = state.storyVersions.length - 1;
-  const mockIndex = Math.min(currentVersionIndex, MOCK_REFINEMENTS.length - 1);
-  const currentRefinement = MOCK_REFINEMENTS[mockIndex];
-  const currentVersion = state.storyVersions[currentVersionIndex];
-
-  // STORY REVIEW PHASE
-  if (state.phase === 'story-review') {
-    // Check if we have any completed ratings to show history
-    const hasHistory = state.storyVersions.some(v => v.rating !== null);
-
-    return (
-      <PrototypeLayout>
-        <SiftHeader title="Story Review" onExit={handleExit} />
-
-        <div className={CONTENT_LAYOUT}>
-          {/* Journey history - only show when there are completed ratings */}
-          {hasHistory && (
-            <JourneyHistory versions={state.storyVersions} />
-          )}
-
-          {/* AI conversation */}
-          {currentVersion?.aiMessage && (
-            <AIMessageBubble message={currentVersion.aiMessage} />
-          )}
-
-          {/* Story Card Preview - exactly as it will appear on profile */}
-          <div className="w-full">
-            <StoryCardPreview text={currentVersion?.text || ''} isLive={state.showRatingDrawer} />
-          </div>
-
-          {/* Rating UI - inline below card */}
-          {state.showRatingDrawer && (
-            <div className="w-full bg-muted/30 rounded-lg p-4 space-y-4">
-              <div className="text-center">
-                <h2 className="text-base font-semibold">
-                  How well does this capture what you meant?
-                </h2>
-              </div>
-              <div className="flex flex-col items-center space-y-3">
-                <div className="flex justify-between text-xs text-muted-foreground w-full max-w-sm">
-                  <span>Not at all</span>
-                  <span>Perfectly understood</span>
-                </div>
-                <RatingButtons selectedValue={selectedRating} onSelect={setSelectedRating} />
-                <Button
-                  className="bg-blue-500 hover:bg-blue-600 w-full max-w-[200px] mt-2"
-                  disabled={selectedRating === null}
-                  onClick={handleRatingSubmit}
-                >
-                  Submit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSpeakFreely}
-                  className="text-muted-foreground"
-                >
-                  Skip for now
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Refinement Options - inline below card */}
-          {state.showOptionsDrawer && (
-            <div className="w-full space-y-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">
-                  You rated {state.currentRating}/10
-                </p>
-                <h2 className="text-base font-semibold">
-                  What did I miss?
-                </h2>
-              </div>
-
-              {/* AI uncertainty */}
-              {currentRefinement.aiUncertainty && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-700">"{currentRefinement.aiUncertainty}"</p>
-                </div>
-              )}
-
-              {/* Options */}
-              <div className="space-y-2">
-                {currentRefinement.options.map((option, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleOptionSelect(option)}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors text-sm ${
-                      state.selectedOption === option
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom input */}
-              <input
-                type="text"
-                value={state.customInput}
-                onChange={(e) => setState(prev => ({ ...prev, customInput: e.target.value, selectedOption: null }))}
-                placeholder="Or tell me what's off..."
-                className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        {/* Input at bottom */}
+        <div className="shrink-0 border-t bg-white">
+          <div className="max-w-3xl mx-auto px-4 py-3">
+            <div className="relative flex items-end gap-2 bg-gray-100 rounded-2xl border border-gray-200 focus-within:border-gray-300 focus-within:ring-1 focus-within:ring-gray-300">
+              <textarea
+                value={inputValue}
+                onChange={handleTextareaChange}
+                onKeyDown={handleKeyDown}
+                placeholder="e.g., I've been thinking about remote work. I used to commute 2 hours daily..."
+                rows={1}
+                className="flex-1 bg-transparent px-4 py-3 text-[15px] resize-none focus:outline-none max-h-[200px]"
+                autoFocus
               />
-
-              <Button
-                onClick={handleContinueRefinement}
-                disabled={!state.selectedOption && !state.customInput.trim()}
-                className="w-full bg-blue-500 hover:bg-blue-600"
+              <button
+                onClick={() => handleSendMessage(inputValue)}
+                disabled={!inputValue.trim()}
+                aria-label="Send message"
+                className={`m-1.5 p-2 rounded-full transition-colors ${
+                  inputValue.trim()
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-300 text-gray-500'
+                }`}
               >
-                Help AI understand better
-              </Button>
+                <Send className="w-4 h-4" />
+              </button>
             </div>
-          )}
+            <p className="text-xs text-gray-400 text-center mt-2">
+              Clarity AI helps you articulate your thoughts clearly
+            </p>
+          </div>
         </div>
 
         {exitConfirmDialog}
-      </PrototypeLayout>
+      </div>
     );
   }
 
-  // DONE PHASE
-  if (state.phase === 'done') {
-    const roundCount = state.storyVersions.length;
-    const finalVersion = state.storyVersions[state.storyVersions.length - 1];
-
+  // CHAT PHASE - Conversation with AI
+  if (state.phase === 'chat') {
     return (
-      <PrototypeLayout>
-        <SiftHeader title="Complete!" onExit={handleExit} />
+      <div className="flex flex-col h-screen bg-white">
+        <SiftHeader />
 
-        <div className={CONTENT_LAYOUT}>
-          {/* Celebration */}
-          <div className="text-center space-y-2">
-            <div className="text-4xl">🎉</div>
-            <h2 className="text-xl font-semibold text-green-600">AI understood you perfectly!</h2>
-            <p className="text-sm text-muted-foreground">
-              Achieved in {roundCount} {roundCount === 1 ? 'round' : 'rounds'}
-            </p>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto">
+          {state.messages.map((message) => (
+            <Message key={message.id} message={message} />
+          ))}
+          {isAiTyping && <TypingIndicator />}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input area - only show if last message doesn't need rating */}
+        {state.messages.length > 0 && !state.messages[state.messages.length - 1].showRating && (
+          <InputBar />
+        )}
+
+        {exitConfirmDialog}
+      </div>
+    );
+  }
+
+  // DONE PHASE - Show final story
+  if (state.phase === 'done') {
+    return (
+      <div className="flex flex-col h-screen bg-white">
+        <SiftHeader />
+
+        <div className="flex-1 flex flex-col items-center justify-center px-4 pb-6 space-y-6">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-gray-600 text-sm">Your Story is ready</p>
           </div>
 
-          {/* Journey summary */}
-          <JourneyHistory versions={state.storyVersions} />
-
-          {/* Final Story Card */}
-          <div className="w-full">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 text-center">
-              Your Story (Ready to share)
-            </p>
-            <StoryCardPreview text={finalVersion?.text || ''} />
+          <div className="w-full max-w-sm">
+            <StoryCardPreview text={state.currentStoryText} />
           </div>
 
-          {/* Points extracted */}
-          {state.points.length > 0 && (
-            <p className="text-sm text-muted-foreground text-center">
-              {state.points.length} Points extracted (you can review these later)
-            </p>
-          )}
-
-          {/* Action buttons */}
           <div className="w-full max-w-sm space-y-3">
             <Button
               onClick={handleInviteToVerify}
               className="w-full bg-blue-500 hover:bg-blue-600"
             >
-              <MessageCircle size={16} className="mr-2" />
               Invite someone to verify
             </Button>
             <Button
@@ -703,19 +601,10 @@ export function Sift() {
         </div>
 
         {exitConfirmDialog}
-      </PrototypeLayout>
+      </div>
     );
   }
 
   // Fallback
-  return (
-    <PrototypeLayout>
-      <SiftHeader title="Sifter" onExit={handleExit} />
-      <div className={CONTENT_LAYOUT_CENTERED}>
-        <p>Unknown state</p>
-        <Button onClick={() => setState(prev => ({ ...prev, phase: 'entry' }))}>Reset</Button>
-      </div>
-      {exitConfirmDialog}
-    </PrototypeLayout>
-  );
+  return null;
 }

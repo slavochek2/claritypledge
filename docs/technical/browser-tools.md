@@ -2,36 +2,44 @@
 
 This guide covers browser automation tools available to Claude agents.
 
-## Browser Tools (via Docker MCP)
-
-All browser tools are provided by **Docker MCP Toolkit** - no manual configuration needed.
-
-### Playwright MCP (Default)
-
-Tools: `mcp__MCP_DOCKER__browser_*`
-
-- Navigate to pages, take screenshots, interact with elements
-- Runs **headless by default** (containerized)
-- **Inherently isolated** (each container is fresh)
-- Parallel-safe for multiple agents
-
-**Common tools:**
-- `browser_navigate` - Go to URL
-- `browser_snapshot` - Get accessibility tree (better than screenshot for actions)
-- `browser_take_screenshot` - Visual capture
-- `browser_click`, `browser_type`, `browser_fill_form` - Interactions
-- `browser_console_messages` - Check for errors
-
-### Chrome DevTools MCP
+## Chrome DevTools MCP (Default)
 
 Tools: `mcp__chrome-devtools__*`
 
-For deep browser debugging:
+**Primary tool for browser automation.** Connects to a real Chrome browser.
+
+- Navigate to pages, take screenshots, interact with elements
 - Network inspection (headers, timing, failures)
 - Performance traces and profiling
 - Console messages with full context
+- More reliable for visual testing (real browser rendering)
 
-**Note:** Currently disabled to test Docker MCP. Re-enable in `~/.claude/settings.json` if needed.
+**Common tools:**
+- `list_pages` - See open tabs
+- `navigate_page` - Go to URL
+- `take_screenshot` - Visual capture
+- `get_console_logs` - Check for errors
+
+**Session management:** If you get "browser already running" error, the previous session may still be active. Use `list_pages` to reconnect to existing session.
+
+---
+
+## Docker MCP Playwright (Backup)
+
+Tools: `mcp__MCP_DOCKER__browser_eval`
+
+**Backup option** when Chrome DevTools unavailable or for parallel-safe isolated testing.
+
+- Runs **headless** in container
+- **Inherently isolated** (each container is fresh)
+- Parallel-safe for multiple agents
+- May have environment setup issues
+
+**Usage:** Single tool with `action` parameter:
+- `action: "start"` - Start browser
+- `action: "navigate"` - Go to URL
+- `action: "screenshot"` - Visual capture
+- `action: "console_messages"` - Check for errors
 
 ### Chrome Integration (`claude --chrome`)
 

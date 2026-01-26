@@ -11,7 +11,7 @@ import {
   currentUser,
   getUserCredibilityStats,
 } from '../data/mock-data';
-import { PointHeader, PositionButtons, ShareButton, getPositionVerb, type SevenPointCounts } from './shared';
+import { PointHeader, PositionButtons, ShareButton, ThreadLineGroup, ThreadLineItem, getPositionVerb, type SevenPointCounts } from './shared';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
 
@@ -117,57 +117,75 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
         {showQuotePattern ? (
           // Quote pattern: "{Name} {verb}:" outside, Point content in quoted box
           <>
-            {/* Position label OUTSIDE the quoted box */}
+            {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped */}
             <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+              <GravatarAvatar
+                name={profileOwner.name}
+                size="sm"
+                isPledger={profileOwner.hasPledged}
+                className="!w-5 !h-5 !text-[10px]"
+              />
               <span className="font-medium">{profileOwner.name}</span>
-              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">{getPositionVerb(profileOwnerPosition)}</span>
-              <span className="text-gray-400">:</span>
               {profileOwnerCredibility && profileOwnerCredibility.ear > 0 && (
                 <MobileTooltip content={`${profileOwner.name.split(' ')[0]} understood ${profileOwnerCredibility.ear} ${profileOwnerCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-                  <span className="inline-flex items-center gap-0.5 text-gray-400">
+                  <span className="inline-flex items-center gap-0.5 text-gray-600">
                     <Ear size={14} />
                     {profileOwnerCredibility.ear}
                   </span>
                 </MobileTooltip>
               )}
+              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">{getPositionVerb(profileOwnerPosition)}</span>
             </div>
 
             {/* Quoted Point box */}
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              {/* Point text with pin emoji */}
-              <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'} flex items-start gap-1.5`}>
-                <Pin size={16} className="text-blue-500 flex-shrink-0 mt-0.5 rotate-45" />
-                <span>{point.text}</span>
-              </p>
+              {/* Two-column layout matching StoryCard structure */}
+              <div className="flex items-start gap-3">
+                {/* Pin icon column - matches StoryCard avatar width */}
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
+                  <Pin size={16} className="rotate-45" />
+                </div>
 
-              {/* Position buttons - inside quoted box */}
-              <div
-                className="mt-3"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <PositionButtons
-                  userPosition={userPosition}
-                  counts={counts}
-                  onPositionClick={handlePositionClick}
-                />
+                {/* Content column */}
+                <div className="flex-1 min-w-0">
+                  {/* Point label */}
+                  <p className="text-xs text-gray-500 mb-2">Point</p>
+
+                  {/* Point text */}
+                  <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+                    {point.text}
+                  </p>
+
+                  {/* Position buttons */}
+                  <div
+                    className="mt-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <PositionButtons
+                      userPosition={userPosition}
+                      counts={counts}
+                      onPositionClick={handlePositionClick}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Footer - inside quoted box */}
+              {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
-                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200"
+                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-[44px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) */}
                 {!isDetailView && filteredStories.length > 0 ? (
                   <button
                     onClick={() => setStoriesExpanded(!storiesExpanded)}
-                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                     aria-expanded={storiesExpanded}
                     aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
                   >
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>
-                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                      Supported by {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
                     </span>
                   </button>
                 ) : (
@@ -246,7 +264,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
           {!isDetailView && profileOwnerId && filteredStories.length > 0 ? (
             <button
               onClick={() => setStoriesExpanded(!storiesExpanded)}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
               aria-expanded={storiesExpanded}
               aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
             >
@@ -285,33 +303,52 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
       {/* Expanded linked stories - only in feed view */}
       {!isDetailView && storiesExpanded && profileOwnerId && storiesToShow.length > 0 && (
         <div className={showQuotePattern ? "px-4 pb-4" : "pl-[52px] pr-4 pb-4"}>
-          <div className="space-y-2">
-            {storiesToShow.map(story => (
-              <QuotedStory
-                key={story.id}
-                story={story}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(routes.story(story.id));
-                }}
-                onAuthorClick={(e) => {
-                  e.stopPropagation();
-                  navigate(routes.profileById(story.authorId));
-                }}
-              />
-            ))}
-            {filteredStories.length > 3 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(routes.point(point.id));
-                }}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                +{filteredStories.length - 3} more stories
-              </button>
-            )}
-          </div>
+          {storiesToShow.length === 1 ? (
+            // Single story - no thread lines
+            <QuotedStory
+              story={storiesToShow[0]}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(routes.story(storiesToShow[0].id));
+              }}
+              onAuthorClick={(e) => {
+                e.stopPropagation();
+                navigate(routes.profileById(storiesToShow[0].authorId));
+              }}
+            />
+          ) : (
+            // 2+ stories - show thread lines
+            <ThreadLineGroup>
+              {storiesToShow.map((story, index) => (
+                <ThreadLineItem key={story.id} isLast={index === storiesToShow.length - 1 && filteredStories.length <= 3}>
+                  <QuotedStory
+                    story={story}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.story(story.id));
+                    }}
+                    onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.profileById(story.authorId));
+                    }}
+                  />
+                </ThreadLineItem>
+              ))}
+              {filteredStories.length > 3 && (
+                <ThreadLineItem isLast>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(routes.point(point.id));
+                    }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    +{filteredStories.length - 3} more stories
+                  </button>
+                </ThreadLineItem>
+              )}
+            </ThreadLineGroup>
+          )}
         </div>
       )}
     </div>
@@ -393,7 +430,7 @@ function QuotedStory({
         {/* Ear indicator - understanding credibility */}
         {author && credibilityStats.ear > 0 && (
           <MobileTooltip content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-            <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
+            <span className="inline-flex items-center gap-0.5 text-xs text-gray-600">
               <Ear size={12} />
               {credibilityStats.ear}
             </span>

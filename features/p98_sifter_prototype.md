@@ -1,7 +1,8 @@
 # P98: Sifter Prototype (AI-powered /live)
 
-**Status:** Ready to Build
+**Status:** Implemented
 **Created:** 2026-01-26
+**Updated:** 2026-01-26
 **Parent:** [P58 Sifter MVP](./done/p58_sifter_mvp.md) (archived)
 **Location:** `/prototype/linkedin-like/sift`
 
@@ -9,42 +10,39 @@
 
 ## One-Sentence Description
 
-Sifter-first flow: user dumps thoughts → AI extracts Story/Points → refine to 10/10 → optionally invite someone to verify via /live.
+ChatGPT-style AI chat where user articulates their Story, rates understanding 0-10, refines until ≥8.
 
 ---
 
-## Core Model: Sifter-first, /live optional
+## Core Model: Chat-based Sifting
 
 ```
 User has thought
       │
       ▼
 ┌─────────────┐
-│   SIFT IT   │  ← Entry: type (voice later)
+│   ENTRY     │  ← Type initial thought
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
-│ Processing  │  ← 2-3 sec fake loading
+│    CHAT     │  ← AI interprets → User rates 0-10 → Refine
 └──────┬──────┘
        │
-       ▼
-┌─────────────┐
-│ Story 10/10 │  ← Refinement until understood
-└──────┬──────┘
+       ≥8 rating (or "Use this anyway" after 3 attempts)
        │
        ▼
 ┌─────────────────────────────────┐
 │ Done: "Invite to verify" or     │
-│ "Back to profile" → My Events   │
+│ "Back to profile"               │
 └─────────────────────────────────┘
 ```
 
 **Why this model:**
-1. Sifting is ALWAYS valuable (even solo)
-2. /live becomes verification of SIFTED content (not raw thoughts)
-3. Clear user journey: clarify → share → verify
-4. Existing Stories/Points from profile = already sifted, skip to invite
+1. ChatGPT-style chat is universally understood
+2. No "processing screens" - typing indicator is enough
+3. ≥8 threshold matches /live's "understood" standard
+4. Escape hatch prevents infinite refinement frustration
 
 ---
 
@@ -52,13 +50,13 @@ User has thought
 
 | In Scope | Out of Scope |
 |----------|--------------|
-| Entry screen (text input) | Real AI/LLM calls |
-| Processing screen (fake loading) | Database persistence |
-| Story review with text evolution | Points review flow |
-| Mock/canned AI responses | Voice input (future) |
-| Reuse Live.tsx patterns | Meeting codes |
+| ChatGPT-style chat interface | Real AI/LLM calls |
+| 0-10 rating (like /live) | Database persistence |
+| Entry → Chat → Done phases | Points extraction flow |
+| Mock AI responses | Voice input (future) |
+| Reuse /live header pattern | Meeting codes |
 | "Invite to verify" CTA | Full /live integration |
-| "Back to profile" → My Events | Dashboard screen |
+| "Use this anyway" escape (3 attempts) | — |
 
 ---
 
@@ -66,63 +64,42 @@ User has thought
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Journey position | **Above** current story | Progress-first, then "rate this" |
-| Text evolution | **Show versions** (collapsed) | Users see HOW it improved, not just ratings |
-| "Other" option | **Direct input field** | Fewer clicks, KISS |
-| Existing profile content | **Already sifted** | Skip to invite, no re-sifting |
+| Interface pattern | **ChatGPT-style chat** | Universal pattern users already understand |
+| Rating threshold | **≥8 = understood** | Matches /live; strict 10/10 is too hard |
+| Refinement escape | **"Use this anyway" after 3 attempts** | Prevents infinite loop frustration |
+| Header | **Reuse /live pattern** | Logo \| Badge \| Leave button — consistency |
+| Processing | **None — typing indicator** | Fake loading screens feel artificial |
+| Options A/B/C | **Removed — direct input only** | Fewer clicks, more natural conversation |
 
 ---
 
 ## User Flow
 
 ```
-1. ENTRY
-   └── User types brain dump
-   └── Taps "Sift my thoughts"
-   └── (Disable button if input empty)
+1. ENTRY (centered, ChatGPT welcome style)
+   └── "What's on your mind?"
+   └── Textarea with placeholder
+   └── Send button (disabled when empty)
 
-2. PROCESSING (2-3 sec fake loading)
-   └── "Sifting your thoughts..."
-   └── ✓ Finding your Stories...
-   └── ✓ Finding your Points...
-   └── ✓ Hardening claims...
-   └── ● Preparing overview...
+2. CHAT (scrolling conversation)
+   └── User message appears
+   └── AI typing indicator (bouncing dots)
+   └── AI interpretation: "So you're saying..."
+   └── Rating UI: "How well does this capture your meaning?"
+   └── [0][1][2][3][4][5][6][7][8][9][10] + [Submit]
 
-3. STORY REVIEW
-   ┌─────────────────────────────────┐
-   │  JOURNEY (above, collapsed)     │
-   │  ───────────────────────────    │
-   │  0  "I commuted 2 hours..."  7  │  ← tap to expand text
-   │  1  "...guilt about kids..." 8  │
-   │  2  ← rating now                │
-   └─────────────────────────────────┘
-   ┌─────────────────────────────────┐
-   │  CURRENT VERSION                │
-   │  "I commuted 2 hours daily.     │
-   │   The exhaustion was physical,  │
-   │   but the real pain was guilt   │
-   │   about missing my kids."       │
-   └─────────────────────────────────┘
+   If rating < 8:
+   └── AI: "You rated X/10. What did I miss?"
+   └── User types clarification
+   └── AI responds with refined interpretation
+   └── Rating UI again
+   └── (Repeat until ≥8, or after 3 attempts show "Use this anyway")
 
-   Do you feel understood? [0-10]
-
-   If <10 → show options + input:
-   ┌─────────────────────────────────┐
-   │  AI: "Here's what I'm unsure:"  │
-   │  ───────────────────────────    │
-   │  A. Guilt about missing time    │
-   │  B. Physical exhaustion         │
-   │  C. Work culture element        │
-   │  ┌───────────────────────────┐  │
-   │  │ Tell me what's off...     │  │  ← direct input
-   │  └───────────────────────────┘  │
-   └─────────────────────────────────┘
-
-4. DONE (10/10)
-   └── Celebration 🎉
-   └── Journey summary (all versions)
-   └── [ Invite someone to verify → ] ← starts /live
-   └── [ Back to profile ] ← returns to /profile → My Events
+3. DONE (≥8 rating)
+   └── "Your Story is ready" with checkmark
+   └── StoryCard preview (user name, story text)
+   └── [ Invite someone to verify ] ← primary CTA
+   └── [ Back to profile ] ← secondary
 ```
 
 ---
@@ -131,44 +108,47 @@ User has thought
 
 ### Reuse from Live.tsx
 
-| Component | Adapt? |
+| Component | Status |
 |-----------|--------|
-| `RatingButtons` (0-10) | As-is |
-| `RatingDisplay` (dots) | As-is |
-| `JourneyToUnderstanding` | **Adapt**: single column, show text versions |
-| `ActionArea`, buttons | As-is |
-| `PrototypeLayout` | As-is |
-| Phase state machine | **Adapt**: new phases |
+| Header pattern (Logo \| Badge \| Leave) | ✓ Reused exactly |
+| RatingButtons (0-10, blue theme) | ✓ Reused styling |
+| Exit confirmation dialog | ✓ Reused pattern |
 
-### New Components
+### Sift.tsx Structure (~400 lines)
 
-| Component | Lines (est.) |
-|-----------|--------------|
-| `Sift.tsx` | ~300 |
-| `JourneyWithVersions` (inline) | ~50 |
-| `OptionPickerWithInput` (inline) | ~40 |
+| Section | Purpose |
+|---------|---------|
+| `SiftHeader` | Logo + "Clarity AI" badge + Leave button |
+| `ChatMessage` | User/AI message with alternating backgrounds |
+| `RatingButtons` | 0-10 inline buttons matching /live |
+| `ChatInput` | Textarea + Send button |
+| `DoneScreen` | StoryCard preview + CTAs |
 
 ---
 
 ## State Machine
 
 ```typescript
-type SiftPhase = 'entry' | 'processing' | 'story-review' | 'done';
+type SiftPhase = 'entry' | 'chat' | 'done';
 
-interface StoryVersion {
-  text: string;
-  rating: number | null;  // null = current (not yet rated)
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'ai';
+  content: string;
+  showRating?: boolean;  // AI can request rating
 }
 
 interface SiftState {
   phase: SiftPhase;
-  rawInput: string;
-  storyVersions: StoryVersion[];  // [v0, v1, v2...] — text evolves
+  messages: ChatMessage[];
+  currentStoryText: string;
+  refinementCount: number;  // For "Use this anyway" escape
   currentRating: number | null;
-  selectedOption: string | null;
-  customInput: string;
-  points: string[];  // display only
 }
+
+// Constants
+const UNDERSTOOD_THRESHOLD = 8;
+const MAX_REFINEMENTS = 3;
 ```
 
 ---
@@ -176,37 +156,19 @@ interface SiftState {
 ## Mock Data
 
 ```typescript
-const MOCK_REFINEMENTS = [
+const MOCK_AI_RESPONSES = [
   {
-    // After initial sift (user will rate this)
-    text: "I commuted 2 hours daily and felt exhausted.",
-    aiUncertainty: "I'm uncertain whether the core issue was physical exhaustion or guilt about missing family time.",
-    options: [
-      "A. It was mainly about guilt for not being present",
-      "B. The exhaustion was physical, not emotional",
-      "C. There's a work culture element I missed",
-    ]
+    interpretation: "So you're saying the commute was draining you both physically and emotionally, affecting your family time?",
+    storyText: "I commuted 2 hours daily and felt exhausted.",
   },
   {
-    // After first refinement
-    text: "I commuted 2 hours daily. The exhaustion was physical, but the real pain was guilt about missing my kids.",
-    aiUncertainty: "Did I capture the health impact correctly?",
-    options: [
-      "A. Yes, add that my health suffered",
-      "B. The phrasing could be stronger",
-    ]
+    interpretation: "Ah, so the guilt about missing your kids was the real pain, not just the exhaustion.",
+    storyText: "I commuted 2 hours daily. The exhaustion was physical, but the real pain was guilt about missing my kids.",
   },
   {
-    // Final version (when user rates 10)
-    text: "I commuted 2 hours daily. I was exhausted, couldn't see my kids, and my health suffered. The guilt was overwhelming.",
-    aiUncertainty: null,
-    options: []
-  }
-];
-
-const MOCK_POINTS = [
-  "Remote work improves wellbeing for knowledge workers",
-  "Long commutes negatively impact family life and health"
+    interpretation: "I understand now. The physical exhaustion combined with guilt about missing your children made the situation unsustainable.",
+    storyText: "I commuted 2 hours daily. I was exhausted, couldn't see my kids, and felt overwhelming guilt.",
+  },
 ];
 ```
 
@@ -214,149 +176,90 @@ const MOCK_POINTS = [
 
 ## UI Wireframes
 
-### Entry Screen
+### Entry Screen (ChatGPT welcome style)
 
 ```
 ┌─────────────────────────────────┐
-│  CLARITY SIFTER                 │
+│ [C]    Clarity AI      [Leave]  │  ← Header matches /live
 ├─────────────────────────────────┤
 │                                 │
-│     Dump your thoughts.         │
-│     I'll help untangle them.    │
+│            [C]                  │  ← Centered logo
+│                                 │
+│     What's on your mind?        │
 │                                 │
 │  ┌───────────────────────────┐  │
 │  │ e.g., "I've been thinking │  │
-│  │ about remote work. I used │  │
-│  │ to commute 2 hours..."    │  │
-│  │                           │  │
-│  │                           │  │
+│  │ about remote work..."     │  │
 │  └───────────────────────────┘  │
-│                                 │
-│     [ Sift my thoughts ]        │  ← Blue CTA
-│                                 │
+│           [→]                   │  ← Send button (disabled)
 └─────────────────────────────────┘
 ```
 
-### Processing Screen
+### Chat Phase (scrolling conversation)
 
 ```
 ┌─────────────────────────────────┐
-│  CLARITY SIFTER                 │
+│ [C]    Clarity AI      [Leave]  │
 ├─────────────────────────────────┤
+│ ┌───────────────────────────┐   │
+│ │ You                       │   │  ← White bg
+│ │ I commuted 2 hours daily  │   │
+│ │ and felt exhausted...     │   │
+│ └───────────────────────────┘   │
 │                                 │
-│     Sifting your thoughts...    │
+│ ┌───────────────────────────┐   │
+│ │ [C] Clarity AI            │   │  ← Gray bg
+│ │ So you're saying the      │   │
+│ │ commute was draining you  │   │
+│ │ physically and affecting  │   │
+│ │ your family time?         │   │
+│ └───────────────────────────┘   │
 │                                 │
-│     ✓ Finding your Stories...   │
-│     ✓ Finding your Points...    │
-│     ✓ Hardening claims...       │
-│     ● Preparing overview...     │
+│ How well does this capture...?  │
+│ [0][1][2][3][4][5][6][7][8][9][10]
+│           [ Submit ]            │
 │                                 │
-│     [pulse animation]           │
-│                                 │
+├─────────────────────────────────┤
+│ ┌───────────────────────────┐   │
+│ │ Share what's on your mind │   │
+│ └─────────────────────[→]───┘   │
 └─────────────────────────────────┘
 ```
 
-### Story Review Screen
+### Clarification (after rating < 8)
 
 ```
-┌─────────────────────────────────┐
-│  ← Back       STORY REVIEW      │
-├─────────────────────────────────┤
+│ ┌───────────────────────────┐   │
+│ │ [C] Clarity AI            │   │
+│ │ You rated 5/10. What did  │   │
+│ │ I miss? Tell me more...   │   │
+│ └───────────────────────────┘   │
 │                                 │
-│  ┌───────────────────────────┐  │
-│  │ Your journey to feel      │  │
-│  │ understood                │  │
-│  │ ─────────────────────────│  │
-│  │ 0 ●●●●●●●○○○ 7            │  │
-│  │   "I commuted 2 hours..." │  │  ← collapsed, tap to expand
-│  │ 1 ●●●●●●●●○○ 8            │  │
-│  │   "...guilt about kids.." │  │
-│  │ 2 ← rating now            │  │
-│  └───────────────────────────┘  │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ CURRENT VERSION           │  │
-│  │ "I commuted 2 hours       │  │
-│  │  daily. The exhaustion    │  │
-│  │  was physical, but the    │  │
-│  │  real pain was guilt      │  │
-│  │  about missing my kids."  │  │
-│  └───────────────────────────┘  │
-│                                 │
-│  Do you feel understood?        │
-│  [0][1][2][3][4][5][6][7][8][9][10]
-│                                 │
-│        [ Submit ]               │
-└─────────────────────────────────┘
-```
-
-### Options Screen (after rating <10)
-
-```
-┌─────────────────────────────────┐
-│  You rated 8/10                 │
-├─────────────────────────────────┤
-│                                 │
-│  Here's what I'm uncertain about│
-│  ─────────────────────────────  │
-│  "Did I capture the health      │
-│   impact correctly?"            │
-│                                 │
-│  What's closer?                 │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ A. Yes, add that my       │  │
-│  │    health suffered        │  │
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ B. The phrasing could     │  │
-│  │    be stronger            │  │
-│  └───────────────────────────┘  │
-│  ┌───────────────────────────┐  │
-│  │ Tell me what's off...     │  │  ← Direct input field
-│  └───────────────────────────┘  │
-│                                 │
-│        [ Continue ]             │
-│                                 │
-└─────────────────────────────────┘
+│ (After 3 attempts, show:)       │
+│ [Use this anyway]               │  ← Escape hatch
 ```
 
 ### Done Screen
 
 ```
 ┌─────────────────────────────────┐
+│ [C]    Clarity AI      [Leave]  │
+├─────────────────────────────────┤
 │                                 │
-│            🎉                   │
+│            ✓                    │
 │                                 │
-│   AI understood you perfectly!  │
-│   Achieved in 3 rounds          │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ Your journey              │  │
-│  │ 0 ●●●●●●●○○○ 7            │  │
-│  │   "I commuted 2 hours..." │  │
-│  │ 1 ●●●●●●●●○○ 8            │  │
-│  │   "...guilt about kids.." │  │
-│  │ 2 ●●●●●●●●●○ 9            │  │
-│  │   "...health suffered..." │  │
-│  │ 3 ●●●●●●●●●● 10 ✓         │  │
-│  │   "...guilt overwhelming" │  │
-│  └───────────────────────────┘  │
+│     Your Story is ready         │
 │                                 │
 │  ┌───────────────────────────┐  │
-│  │ FINAL STORY               │  │
+│  │ Sarah Chen           ✓    │  │  ← StoryCard preview
 │  │ "I commuted 2 hours       │  │
-│  │  daily. I was exhausted,  │  │
-│  │  couldn't see my kids,    │  │
-│  │  and my health suffered.  │  │
-│  │  The guilt was            │  │
-│  │  overwhelming."           │  │
+│  │  daily. The exhaustion    │  │
+│  │  was physical, but the    │  │
+│  │  real pain was guilt..."  │  │
 │  └───────────────────────────┘  │
 │                                 │
-│  2 Points extracted (unreviewed)│
-│                                 │
-│  [ Invite someone to verify → ] │  ← Blue CTA → /live
-│  [ Back to profile ]            │  ← Gray secondary → /profile
+│  [ Invite someone to verify ]   │  ← Primary CTA
+│  [ Back to profile ]            │  ← Secondary
 │                                 │
 └─────────────────────────────────┘
 ```
@@ -406,32 +309,36 @@ const initialInput = (location.state as { initialInput?: string })?.initialInput
 
 ## Success Criteria
 
-| Criteria | Target |
+| Criteria | Status |
 |----------|--------|
-| Flow completable | Entry → Processing → Story 10/10 → Done |
-| Text evolution visible | Each round shows version + rating |
-| Options + direct input | Both work (when rating <10) |
-| Invite CTA | Navigates to `/live` (stub) |
-| Back to profile | Navigates to `/profile` |
-| Empty input | Button disabled |
+| Entry → Chat → Done flow | ✓ Implemented |
+| ChatGPT-style chat interface | ✓ Implemented |
+| 0-10 rating matching /live | ✓ Implemented |
+| ≥8 threshold for "understood" | ✓ Implemented |
+| "Use this anyway" after 3 attempts | ✓ Implemented |
+| Exit confirmation (mid-chat) | ✓ Implemented |
+| Invite CTA → /live | ✓ Navigates |
+| Back to profile → /profile | ✓ Navigates |
+| Empty input → button disabled | ✓ Implemented |
+| 22 tests passing | ✓ Verified |
 
 ---
 
-## Implementation Order
+## Learnings (Post-Implementation)
 
-1. **Create `Sift.tsx`** — copy Live.tsx structure, strip partner logic
-2. **Entry phase** — text input + button (disabled when empty)
-3. **Processing phase** — fake loading animation (2-3 sec)
-4. **Story Review phase** — journey with versions above, rating below
-5. **Options phase** — A/B/C buttons + direct input field (when <10)
-6. **Done phase** — celebration + "Invite to verify" / "Back to profile"
-7. **Wire up route**
+| What we planned | What we built | Lesson |
+|-----------------|---------------|--------|
+| Processing screen | No processing | Typing indicator is enough |
+| Options A/B/C | Direct text input | Fewer clicks, more natural |
+| Journey with versions | Chat messages | ChatGPT pattern is universal |
+| 10/10 target | ≥8 threshold | Strict 10/10 is too hard |
+| No escape | "Use this anyway" | Critical for UX |
 
 ---
 
 ## Open Questions
 
-None — ready to build.
+None — implemented and tested.
 
 ---
 
@@ -453,4 +360,15 @@ See [P85: /live Verification with Cards](./p85_live_verification_with_cards.md) 
 
 - [P85 /live Verification](./p85_live_verification_with_cards.md) — How sifted cards are verified in /live
 - [P58 Sifter MVP](./done/p58_sifter_mvp.md) — full spec (archived, for future reference)
-- [Live.tsx](../src/app/prototypes/linkedin-like/components/Live.tsx) — patterns to reuse
+- [Live.tsx](../src/app/prototypes/linkedin-like/components/Live.tsx) — patterns reused
+- [Sift.tsx](../src/app/prototypes/linkedin-like/components/Sift.tsx) — implementation
+- [sift.test.tsx](../src/tests/sift.test.tsx) — 22 tests
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-01-26 | **Implemented:** ChatGPT-style chat replaces processing+versions UI. Added ≥8 threshold (not 10/10). Added "Use this anyway" escape. Removed options A/B/C. Updated spec to reflect learnings. |
+| 2026-01-26 | **Original spec:** Entry → Processing → Story Review → Done with versions and options |

@@ -4,11 +4,17 @@ This file provides guidance for AI agents working with code in this repository.
 
 **For humans:** See [README.md](./README.md) for setup instructions and deployment guide.
 
-## Agent Behavior Rules — Transparency Contract
+**For agent philosophy:** See [.claude/commands/slava/PRINCIPLES.md](.claude/commands/slava/PRINCIPLES.md) — principles scale, rules don't.
 
-**Core principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
+## Agent Behavior — Transparency Principle
 
-### Always report these issues:
+> **Principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
+
+This isn't a list of rules to memorize — it's about transparency. When something feels off, say so. The examples below illustrate the principle:
+
+### Examples of What to Report
+
+These aren't exhaustive rules — they're illustrations of the transparency principle:
 
 **Broken tooling**
 - Scripts producing incorrect results (false positives/negatives)
@@ -56,6 +62,30 @@ Examples:
 - Confusing instructions → write clearer version, ask if it captures intent
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
+
+## Tool Preferences
+
+### Browser Automation
+
+**Priority order:**
+1. **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) — Primary, always try first
+2. **Docker MCP Playwright** (`mcp__MCP_DOCKER__browser_eval`) — Backup only
+
+**Why Chrome DevTools first:**
+- Connects to real browser (more reliable rendering)
+- Better for visual verification
+- Maintains session state
+
+**When to use Docker MCP Playwright:**
+- Chrome DevTools unavailable or disabled
+- Need isolated/parallel-safe testing
+- Chrome DevTools session has unrecoverable errors
+
+**If Chrome DevTools shows "browser already running" error:**
+- Try `list_pages` to reconnect to existing session
+- Don't immediately fall back to Docker MCP
+
+For full details: [browser-tools.md](docs/technical/browser-tools.md)
 
 ## Product Overview
 
@@ -125,7 +155,7 @@ Load these docs when working on specific areas:
 | Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
-| Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
+| Browser automation (Chrome DevTools, screenshots) | [browser-tools.md](docs/technical/browser-tools.md) |
 | All MCP servers (Notion, Maps, LinkedIn, etc.) | [mcp-servers.md](docs/technical/mcp-servers.md) |
 | E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
 | /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
@@ -289,12 +319,12 @@ For detailed architecture docs, see the [Deep Dive References](#deep-dive-refere
 
 4. **Email verification**: Users aren't "verified" until they click the magic link. Profile creation happens on callback, not during signup.
 
-5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check [clarity-navigation.tsx](src/app/components/clarity-navigation.tsx) for current implementation.
+5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check [simple-navigation.tsx](src/app/components/layout/simple-navigation.tsx) for current implementation.
 
 ## Testing
 
 **Unit Tests** (Vitest + React Testing Library + jsdom):
-- Setup: [src/tests/setup.ts](src/tests/setup.ts)
+- Setup: [src/tests/setup.tsx](src/tests/setup.tsx)
 - Location: `src/tests/` or colocated with components
 - Critical tests: [critical-auth-flow.test.tsx](src/tests/critical-auth-flow.test.tsx)
 
@@ -437,12 +467,17 @@ Consider using these for features requiring cloud infrastructure (compute, stora
   - `src/hooks/` - Shared React hooks
   - `src/components/ui/` - Base UI components
   - `src/app/components/` - Feature components
+- **For skills and agents**, also check:
+  - `.claude/commands/slava/` - **Slava's custom skills and agents (check here FIRST)**
+  - `.claude/commands/awesome/` - Community skills
+  - `.claude/commands/bmad/**/agents/` - BMAD agents
 
 ### Avoid Duplication Checklist
-Before creating a new function, hook, or component:
+Before creating a new function, hook, component, **skill, or agent**:
 1. Search the codebase for similar functionality using grep/glob
-2. Check if an existing utility can be extended rather than duplicated
-3. If similar code exists in 2+ places, refactor into a shared location
+2. Check if an existing file can be extended rather than duplicated
+3. If similar concept exists, add to the source of truth (don't create parallel definitions)
+4. **For agent personas**: check if `/prep-spec/agents/` or `/bmad/**/agents/` already has it
 
 ### KISS (Keep It Simple)
 - Prefer straightforward solutions over clever ones
@@ -453,6 +488,64 @@ Before creating a new function, hook, or component:
 - Only implement what's currently needed
 - Don't add "just in case" features or configuration
 - Delete unused code rather than commenting it out
+
+## Pre-Creation Gate (MANDATORY)
+
+**Before creating ANY new file**, you MUST complete this checklist:
+
+### Step 1: Search for Existing Alternatives
+
+```bash
+# Search for similar concepts/names
+grep -ri "{concept}" .claude/commands/ docs/ src/
+
+# Check existing skills
+ls .claude/commands/**/
+
+# Check existing agents
+ls .claude/commands/**/agents/
+```
+
+**Ask yourself:**
+- Does something similar already exist?
+- Can an existing file be extended instead?
+- Is this concept already defined elsewhere (single source of truth)?
+
+### Step 2: Justify the New File
+
+If you still want to create a new file, you must answer:
+
+| Question | Your Answer |
+|----------|-------------|
+| What existing files did you check? | {list them} |
+| Why can't those be extended/reused? | {specific reason} |
+| Where is the canonical home for this concept? | {path} |
+| Will this create duplication? | {yes/no + explanation} |
+
+### Step 3: Get Approval
+
+**For these file types, STOP and ask the user:**
+- Skills (`.claude/commands/**/*.md`)
+- Agent definitions
+- Documentation (`docs/**/*.md`)
+- New directories
+
+**Show the user:**
+1. What you searched for
+2. What you found (or didn't find)
+3. Why you believe a new file is needed
+4. Where it would go
+
+### Common Violations to Avoid
+
+| Violation | Instead |
+|-----------|---------|
+| Creating new agent inline in a skill | Reference existing agent OR create in shared location |
+| Duplicating concept in multiple docs | Add to source doc, link from others |
+| New utility when similar exists | Extend existing utility |
+| New skill when existing skill could have a flag | Add flag/mode to existing skill |
+
+---
 
 ## File Creation Rules
 
@@ -481,6 +574,7 @@ Before creating a new function, hook, or component:
 | UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
+| **Slava's custom skills** | `.claude/commands/slava/` |
 | Source code | `src/app/` |
 | Unit tests | `src/tests/` or colocated |
 | E2E tests | `e2e/` |

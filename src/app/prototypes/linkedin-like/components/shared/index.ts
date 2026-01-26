@@ -11,3 +11,4 @@ export { ShareButton, ShareDialog } from './ShareDialog';
 export { VisibilityBadge } from './VisibilityBadge';
 export { UserCredibility } from './UserCredibility';
 export { MobileTooltip } from './MobileTooltip';
+export { ThreadLineItem, ThreadLineGroup } from './ThreadLine';
