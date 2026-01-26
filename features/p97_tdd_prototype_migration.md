@@ -2,9 +2,80 @@
 
 ## Overview
 
-Migrate prototype (~8,600 lines) UI to production. Frontend first, verify, then backend later.
+Migrate prototype (~8,600 lines) UI to production.
 
 **Scope:** Profile (Stories/Points/Calibration) + Events + Navigation
+
+### Frontend Only — Mock Data
+
+**P97 is frontend-only.** All data comes from mock files, not the database.
+
+| What | P97 (this spec) | P98 (future spec) |
+|------|-----------------|-------------------|
+| Data source | `mock-stories.ts` | Supabase API |
+| Persistence | None (state resets on refresh) | Real database |
+| Focus | UI fidelity, responsive behavior, interactions | Schema, API, data flow |
+
+**Why frontend first:**
+- Validate UI with real users/devices before backend work
+- Catch layout/responsive issues early
+- Components are props-only — easy to swap mock → API later
+- De-risks backend phase (UI already validated)
+
+**Backend (P98) comes after P97 frontend is verified in production.**
+
+### Reuse Existing Components
+
+**Maximize reuse of production components.** Don't rebuild what already exists.
+
+| Use From Production | Don't Rebuild |
+|---------------------|---------------|
+| `src/components/ui/*` (shadcn/ui) | Button, Dialog, Dropdown, Tooltip, etc. |
+| `GravatarAvatar` | Avatar with pledge ring |
+| `SimpleNavigation` | Navigation wrapper |
+| Existing layout components | Header structure, page wrappers |
+| Tailwind utilities | All styling |
+
+**From prototype, take only:**
+- Component logic/behavior patterns
+- Responsive breakpoint decisions
+- Interaction patterns (hover vs tap)
+- Content structure (what goes where)
+
+**Prototype components to extract (not copy wholesale):**
+- `CalibrationDisplay` → new, uses existing Tooltip
+- `PositionButtons` → new, uses existing Button/Dropdown
+- `StoryCard`/`PointCard` → new, uses existing Avatar/Tooltip
+- `BottomNav` → new, uses existing patterns
+
+**Rule:** If a shadcn/ui or existing component can do it, use it. Only create new components for domain-specific UI (calibration bars, position buttons, story/point cards).
+
+### TDD Methodology
+
+**Every component follows Red-Green-Refactor:**
+
+1. **Red:** Write a failing test that describes expected behavior (from prototype analysis)
+2. **Green:** Write minimal code to make the test pass
+3. **Refactor:** Clean up while keeping tests green
+
+**Test-first order for each component:**
+```
+1. Write unit test (what it renders, props, interactions)
+2. Run test → see it fail (red)
+3. Create component file
+4. Implement until test passes (green)
+5. Refactor if needed (keep green)
+6. Repeat for next behavior
+```
+
+**What tests verify (derived from prototype):**
+- Renders expected elements (avatar, text, buttons)
+- Responds to interactions (click, hover, tap)
+- Desktop vs mobile behavior (breakpoint-dependent rendering)
+- Tooltip content matches prototype
+- Touch targets meet 44px minimum on mobile
+
+**No implementation without a failing test first.**
 
 ### What We Take from Prototype
 
@@ -31,6 +102,7 @@ Secondary links (Pledgers, Manifesto, About) move to Settings > "About Clarity P
 - Settings page
 - Pledge flow
 - Auth flow
+- **Live sessions (`/live`)** — already in production, no changes needed
 - Any other production pages not listed above
 
 **If the prototype has changes to these areas, we ignore them.**
@@ -569,3 +641,358 @@ After each phase:
 |-----|-------------------|
 | [decisions.md](../docs/decisions.md) | Story-Point N:N, calibration display, story visibility |
 | [definitions.md](../docs/definitions.md) | Position scale, verification threshold, visibility model |
+
+---
+
+## Mobile Requirements (Prototype Analysis)
+
+Extracted from `src/app/prototypes/linkedin-like/` on 2026-01-25.
+
+### Responsive Breakpoint
+
+**Single breakpoint:** `lg:` (1024px) — used consistently throughout prototype.
+
+| Viewport | Classification | Key Behavior |
+|----------|----------------|--------------|
+| < 1024px | Mobile | Bottom nav, compact buttons, tap tooltips |
+| ≥ 1024px | Desktop | Header nav, hover states, dropdown tooltips |
+
+### Bottom Navigation
+
+**File:** `PrototypeLayout.tsx:18-25`, `BottomNav.tsx`
+
+| Property | Value | Notes |
+|----------|-------|-------|
+| Visibility | `lg:hidden` | Hidden on desktop |
+| Position | `fixed bottom-0 left-0 right-0` | Fixed to bottom |
+| Height | `h-14` (56px) | Nav bar height |
+| Safe area | `pb-[env(safe-area-inset-bottom)]` | iOS notch/home indicator |
+| Z-index | `z-50` | Above content |
+| Background | `bg-white border-t border-gray-200` | With shadow |
+| Items | 3 buttons: My Events, Start Session, My Profile | Equal width |
+
+**Main content padding:** `pb-20` (80px) when bottom nav visible.
+
+### Touch Targets
+
+All interactive elements on mobile use minimum 44x44px:
+
+```tsx
+// Pattern from prototype
+className="min-w-[44px] min-h-[44px] flex items-center justify-center"
+```
+
+| Element | Desktop | Mobile |
+|---------|---------|--------|
+| Position buttons | `sm:min-h-[44px]` | `min-h-[32px]` |
+| Icon buttons | Standard | `min-w-[44px] min-h-[44px]` |
+| Dropdown items | Standard | `min-h-[44px]` |
+| Tooltip triggers | Standard | 44x44px touch area |
+
+### Header Differences
+
+**Desktop (PrototypeHeader.tsx:77-141):**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [Logo] Clarity Pledge    [📅 My Events] [👤 My Profile]  [CTA] [▼] │
+└─────────────────────────────────────────────────────────────┘
+```
+- Height: `h-20` (80px)
+- Icon nav: `flex flex-col items-center px-4 py-2`
+- CTA button visible in header
+
+**Mobile (PrototypeHeader.tsx:143-184):**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [Logo]                                              [▼]     │
+└─────────────────────────────────────────────────────────────┘
+```
+- Height: `h-16` (64px)
+- Avatar dropdown only (nav moves to bottom)
+- CTA moved inside avatar dropdown menu
+
+### Tooltip Behavior
+
+**File:** `MobileTooltip.tsx`, `CalibrationDisplay.tsx:15-74`
+
+| Behavior | Desktop | Mobile |
+|----------|---------|--------|
+| Trigger | Hover | Tap/click |
+| Show delay | 100-300ms | Immediate |
+| Auto-dismiss | On mouse leave | After 2-3 seconds |
+| Click lock | N/A | Prevents hover-close during auto-dismiss |
+
+```tsx
+// Click-lock pattern (MobileTooltip.tsx:35-51)
+const handleClick = useCallback((e: React.MouseEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setOpen(true);
+  setClickLocked(true);
+  timeoutRef.current = setTimeout(() => {
+    setOpen(false);
+    setClickLocked(false);
+  }, AUTO_DISMISS_MS); // 2000-3000ms
+}, []);
+```
+
+### Card Actions (Desktop vs Mobile)
+
+**Desktop (StoryCard.tsx:105-127):**
+- Hover-revealed: `sm:opacity-0 sm:group-hover:opacity-100`
+- Share button + Open button inline
+
+**Mobile (StoryCard.tsx:129-156):**
+- Overflow menu: `<OverflowMenu items={[...]} />`
+- Always visible (no hover state)
+- 44px touch target
+
+### Position Buttons
+
+**File:** `PositionButton.tsx:184-269`
+
+| Property | Desktop | Mobile |
+|----------|---------|--------|
+| Container | `sm:w-auto` | `w-full` (full width) |
+| Button height | `sm:min-h-[44px]` | `min-h-[32px]` |
+| Font size | `sm:text-xs` | `text-[11px]` |
+| Dropdown | Visible on Agree/Disagree | Hidden in compact mode |
+| Spacing | `sm:gap-1 sm:px-3` | `gap-0.5 px-1.5` |
+
+### Content Layout
+
+| Element | Value | Notes |
+|---------|-------|-------|
+| Max width | `max-w-lg` (512px) | Centered on all viewports |
+| Side padding | `px-4` | 16px on both sides |
+| Card spacing | `space-y-3` | 12px between cards |
+| Profile top margin | `mt-3` | 12px below header |
+
+---
+
+## Desktop/Mobile Verification Checklist
+
+Use this checklist when testing production against prototype.
+
+### Breakpoints to Test
+
+| Viewport | Width | Device Example |
+|----------|-------|----------------|
+| Mobile (small) | 375px | iPhone SE/13 mini |
+| Mobile (large) | 428px | iPhone 14 Pro Max |
+| Tablet | 768px | iPad Mini |
+| Desktop (small) | 1024px | Breakpoint boundary |
+| Desktop (large) | 1440px | MacBook Pro |
+
+### Navigation Checklist
+
+| Test | Desktop | Mobile | Pass? |
+|------|---------|--------|-------|
+| Header shows icon nav | ✓ | ✗ | |
+| Header shows avatar dropdown | ✓ | ✓ | |
+| Bottom nav visible | ✗ | ✓ | |
+| Bottom nav has safe area padding | N/A | ✓ | |
+| Active nav item highlighted (blue) | ✓ | ✓ | |
+| CTA button in header | ✓ | ✗ (in dropdown) | |
+| Logo visible | ✓ | ✓ | |
+
+### Profile Page Checklist
+
+| Test | Desktop | Mobile | Pass? |
+|------|---------|--------|-------|
+| Back button visible | ✓ | ✓ | |
+| Profile card renders | ✓ | ✓ | |
+| Calibration bar shows | ✓ | ✓ | |
+| Calibration tooltips work | Hover | Tap | |
+| Stories/Points tabs work | ✓ | ✓ | |
+| Brain dump composer (own profile) | ✓ | ✓ | |
+| Share button works | Hover | Overflow menu | |
+
+### Card Behavior Checklist
+
+| Test | Desktop | Mobile | Pass? |
+|------|---------|--------|-------|
+| StoryCard blue left border | ✓ | ✓ | |
+| PointCard gray left border | ✓ | ✓ | |
+| Action buttons visible | On hover | In overflow menu | |
+| Position buttons work | ✓ | ✓ | |
+| Position dropdown (intensity) | ✓ | Hidden (compact) | |
+| Linked content expands | ✓ | ✓ | |
+| "Start Session" CTA visible | ✓ | ✓ | |
+
+### Touch Target Checklist (Mobile Only)
+
+| Element | Min Size | Pass? |
+|---------|----------|-------|
+| Bottom nav buttons | 44x44px | |
+| Avatar dropdown trigger | 44x44px | |
+| Position buttons | 32px height | |
+| Overflow menu button | 44x44px | |
+| Overflow menu items | 44px height | |
+| Tooltip triggers | 44x44px | |
+
+### Tooltip Checklist
+
+| Test | Desktop | Mobile | Pass? |
+|------|---------|--------|-------|
+| Calibration icons show tooltip | Hover | Tap | |
+| Ear credibility shows tooltip | Hover | Tap | |
+| Position buttons show tooltip | Hover | Tap | |
+| Auto-dismiss after tap | N/A | 2-3s | |
+
+---
+
+## Architecture Improvements
+
+Changes from prototype patterns for cleaner production code.
+
+### 1. Extract QuotedCard Component
+
+**Current (prototype):** `QuotedPoint` nested in StoryCard.tsx:269-367, `QuotedStory` nested in PointCard.tsx:233-335
+
+**Proposed:** `src/app/components/content/quoted-card.tsx`
+
+```tsx
+// Single component handles both types
+interface QuotedCardProps {
+  type: 'story' | 'point';
+  // ... shared props
+}
+
+export function QuotedCard({ type, ...props }: QuotedCardProps) {
+  return type === 'story' ? <QuotedStory {...props} /> : <QuotedPoint {...props} />;
+}
+```
+
+**Why:** Testable independently, reduces StoryCard/PointCard file size by ~200 lines each.
+
+### 2. Extract usePositionCounts Hook
+
+**Current (prototype):** Duplicated in StoryCard.tsx:292-327, PointCard.tsx:44-74, QuotedPoint
+
+**Proposed:** `src/app/hooks/use-position-counts.ts`
+
+```tsx
+export function usePositionCounts(
+  baseCounts: SevenPointCounts,
+  initialPosition: PositionType | null,
+  currentPosition: PositionType | null
+): SevenPointCounts {
+  return useMemo(() => {
+    // Adjust counts based on position change
+  }, [baseCounts, initialPosition, currentPosition]);
+}
+```
+
+**Why:** Single source of truth, easier to test count adjustment logic.
+
+### 3. Extract ResponsiveActions Component
+
+**Current (prototype):** Duplicated pattern in StoryCard.tsx:105-157, PointCard.tsx:129-154
+
+**Proposed:** `src/app/components/shared/responsive-actions.tsx`
+
+```tsx
+interface ResponsiveActionsProps {
+  items: { icon: ReactNode; label: string; onClick: () => void }[];
+}
+
+export function ResponsiveActions({ items }: ResponsiveActionsProps) {
+  return (
+    <>
+      {/* Desktop: hover-revealed buttons */}
+      <div className="hidden sm:flex sm:opacity-0 sm:group-hover:opacity-100">
+        {items.map(item => <IconButton ... />)}
+      </div>
+      {/* Mobile: overflow menu */}
+      <div className="sm:hidden">
+        <OverflowMenu items={items} />
+      </div>
+    </>
+  );
+}
+```
+
+**Why:** Consistent desktop/mobile action pattern across all cards.
+
+### 4. Unify Tooltip Components
+
+**Current (prototype):** `MobileTooltip.tsx`, `CalibrationTooltip` in CalibrationDisplay.tsx
+
+**Proposed:** Single `HybridTooltip` in `src/app/components/shared/hybrid-tooltip.tsx`
+
+```tsx
+interface HybridTooltipProps {
+  content: ReactNode;
+  children: ReactNode;
+  side?: 'top' | 'bottom' | 'left' | 'right';
+  delayDuration?: number;
+  autoDismissMs?: number;
+}
+```
+
+**Why:** One component for all tooltip use cases, configurable behavior.
+
+---
+
+## Prototype Component Inventory
+
+Complete list of components in `src/app/prototypes/linkedin-like/` for migration reference.
+
+### Layout (3 files)
+
+| File | Lines | Migrate? | Notes |
+|------|-------|----------|-------|
+| `PrototypeLayout.tsx` | 29 | Pattern only | Main layout structure |
+| `PrototypeHeader.tsx` | 190 | Pattern only | Desktop/mobile header |
+| `BottomNav.tsx` | 77 | **Yes** | Mobile bottom nav |
+
+### Pages (5 files)
+
+| File | Lines | Migrate? | Notes |
+|------|-------|----------|-------|
+| `Profile.tsx` | 433 | Split | Too large, extract reusable parts |
+| `MyEvents.tsx` | 145 | **No** | Events already in production |
+| `StoryDetail.tsx` | 209 | Pattern | Detail page structure |
+| `PointDetail.tsx` | 253 | Pattern | Detail page structure |
+| `index.tsx` | 51 | **No** | Route config only |
+
+### Content (3 files)
+
+| File | Lines | Migrate? | Notes |
+|------|-------|----------|-------|
+| `StoryCard.tsx` | 368 | **Yes** | Extract QuotedPoint |
+| `PointCard.tsx` | 336 | **Yes** | Extract QuotedStory |
+| `IdeaCard.tsx` | — | **No** | Legacy, not in P97 scope |
+
+### Shared (14 files)
+
+| File | Lines | Migrate? | Notes |
+|------|-------|----------|-------|
+| `CalibrationDisplay.tsx` | 412 | **Yes** | InlineCalibration, CalibrationDisplay |
+| `PositionButton.tsx` | 328 | **Yes** | PositionButtons, SevenPointCounts |
+| `PositionBadge.tsx` | 97 | **Yes** | Position display badge |
+| `MobileTooltip.tsx` | 89 | **Yes** | → HybridTooltip |
+| `UserCredibility.tsx` | 38 | **Yes** | Ear count display |
+| `PointHeader.tsx` | 61 | **Yes** | Header for Points |
+| `VisibilityBadge.tsx` | 41 | **Yes** | Public/private indicator |
+| `ShareDialog.tsx` | 217 | **Yes** | Share dialog + button |
+| `OverflowMenu.tsx` | 54 | **Yes** | Mobile overflow menu |
+| `FilterTabs.tsx` | — | **Yes** | Position filter tabs |
+| `RatingDots.tsx` | — | Defer | For verification display (P98) |
+| `VerifyButton.tsx` | — | Defer | For verification flow (P98) |
+| `VerificationStatusDialog.tsx` | — | Defer | For verification (P98) |
+| `VerificationStatusPanel.tsx` | — | Defer | For verification (P98) |
+
+### Types (shared/types.ts)
+
+| Type | Lines | Migrate? | Notes |
+|------|-------|----------|-------|
+| `PositionType` | 19-27 | **Yes** | 7-point Likert |
+| `Position` | 28 | **Yes** | PositionType | null |
+| `POSITION_VALUES` | 40-48 | **Yes** | Numeric mapping |
+| `getPositionGroup()` | 54-67 | **Yes** | Button group helper |
+| `Story` | 315-326 | **Yes** | Story interface |
+| `Point` | 331-338 | **Yes** | Point interface |
+| `UserCalibration` | 297-300 | **Yes** | Calibration metrics |
+| `RoleCalibration` | 281-285 | **Yes** | Per-role metrics |

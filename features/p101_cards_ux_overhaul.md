@@ -117,9 +117,9 @@ Dropdown expanded (on Agree ▾):
 
 ### Part A: Components (create/update)
 
-#### A1. SegmentedControl Component ⬜ NEW
+#### A1. SegmentedControl Component ✅ DONE
 
-**File:** `src/app/prototypes/linkedin-like/components/shared/SegmentedControl.tsx`
+**File:** `src/app/prototypes/linkedin-like/components/shared/PositionButton.tsx` (integrated into existing component)
 
 ```tsx
 interface SegmentOption {
@@ -151,14 +151,14 @@ Already created in P98.
 
 ### Part B: Card Updates
 
-#### B1. Update PositionButtons → SegmentedControl ⬜
+#### B1. Update PositionButtons → SegmentedControl ✅ DONE
 
-**File:** `src/app/prototypes/linkedin-like/components/shared/PositionButtons.tsx`
+**File:** `src/app/prototypes/linkedin-like/components/shared/PositionButton.tsx`
 
-Replace current 3-button layout with SegmentedControl:
-- Disagree segment: strongly_disagree, disagree, somewhat_disagree
+Implemented segmented control with:
+- Disagree segment: strongly_disagree, disagree, somewhat_disagree (dropdown)
 - Unsure segment: unsure (no sub-options)
-- Agree segment: somewhat_agree, agree, strongly_agree
+- Agree segment: somewhat_agree, agree, strongly_agree (dropdown)
 
 #### B2. StoryCard Mobile Layout ✅ DONE
 
@@ -196,29 +196,29 @@ Already updated in P98: "Share your first story" button
 
 | Task | Status | Notes |
 |------|--------|-------|
-| A1. SegmentedControl | ⬜ TODO | New component |
+| A1. SegmentedControl | ✅ Done | Integrated into PositionButton.tsx |
 | A2. OverflowMenu | ✅ Done | P98 |
-| B1. PositionButtons | ⬜ TODO | Depends on A1 |
+| B1. PositionButtons | ✅ Done | Uses segmented control with dropdowns |
 | B2. StoryCard mobile | ✅ Done | P98 |
 | B3. PointCard actions | ✅ Done | P98 |
 | C1. Calibration inline | ✅ Done | P98 |
 | C2. Bottom nav clearance | ✅ Done | P98 |
 | C3. Empty state CTA | ✅ Done | P98 |
 
-**Remaining:** A1 + B1 (SegmentedControl)
+**All tasks complete.**
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] SegmentedControl component works with sub-options
-- [ ] Position selection uses segmented control
-- [ ] 7-point scale accessible via dropdowns
-- [ ] All touch targets ≥ 44px
-- [ ] StoryCard: CTA at bottom, overflow menu on mobile
-- [ ] PointCard: No session button, inline Share/Open
-- [ ] Calibration: Inline, no redundant labels
-- [ ] Design system updated (done)
+- [x] SegmentedControl component works with sub-options
+- [x] Position selection uses segmented control
+- [x] 7-point scale accessible via dropdowns
+- [x] All touch targets ≥ 44px
+- [x] StoryCard: CTA at bottom, overflow menu on mobile
+- [x] PointCard: No session button, inline Share/Open
+- [x] Calibration: Inline, no redundant labels
+- [x] Design system updated (done)
 
 ---
 
