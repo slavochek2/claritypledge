@@ -28,6 +28,14 @@
         "/var/run/docker.sock:/var/run/docker.sock",
         "mcp/docker"
       ]
+    },
+    "sentry": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp.sentry.dev/mcp"
+      ]
     }
   }
 }

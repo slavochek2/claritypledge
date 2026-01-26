@@ -18,7 +18,7 @@
  */
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { X, Sparkles, MessageCircle, Radio } from 'lucide-react';
+import { X, Sparkles, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -30,7 +30,6 @@ import {
 } from '@/components/ui/dialog';
 import { PrototypeLayout } from './PrototypeLayout';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
-import { MobileTooltip } from './shared/MobileTooltip';
 import { VisibilityBadge } from './shared';
 
 // ============================================================================
@@ -128,8 +127,7 @@ const PROCESSING_STEPS = [
 
 // Mock user for preview
 const MOCK_USER = {
-  name: "You",
-  role: "Sharing your experience",
+  name: "Sarah Chen",
   hasPledged: true,
 };
 
@@ -332,7 +330,7 @@ export function Sift() {
     );
   };
 
-  // Story Card Preview - matches actual StoryCard styling
+  // Story Card Preview - matches actual StoryCard styling (simplified for preview)
   const StoryCardPreview = ({ text, isLive = false }: { text: string; isLive?: boolean }) => (
     <div className={`bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden ${isLive ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}>
       <div className="p-4">
@@ -354,35 +352,15 @@ export function Sift() {
                 <span className="font-semibold text-gray-900 text-sm">{MOCK_USER.name}</span>
               </div>
               <p className="text-xs text-gray-500 flex items-center gap-1">
-                <span>{MOCK_USER.role} · Just now</span>
+                <span>Just now</span>
                 <VisibilityBadge visibility="public" />
               </p>
             </div>
 
             {/* Story text */}
             <p className="text-gray-900 text-base">{text}</p>
-
-            {/* Stats row */}
-            <div className="flex items-center mt-3">
-              <MobileTooltip content="No one has verified understanding yet">
-                <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
-                  0 understood
-                </span>
-              </MobileTooltip>
-            </div>
           </div>
         </div>
-      </div>
-
-      {/* CTA */}
-      <div className="border-t border-gray-100 px-4 py-3">
-        <button
-          disabled
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-400 rounded-lg cursor-not-allowed opacity-75"
-        >
-          <Radio size={16} />
-          Start a Clarity Session
-        </button>
       </div>
     </div>
   );
@@ -555,10 +533,10 @@ export function Sift() {
     const hasHistory = state.storyVersions.some(v => v.rating !== null);
 
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <PrototypeLayout>
         <SiftHeader title="Story Review" onExit={handleExit} />
 
-        <div className={`${CONTENT_LAYOUT} pb-80`}>
+        <div className={CONTENT_LAYOUT}>
           {/* Journey history - only show when there are completed ratings */}
           {hasHistory && (
             <JourneyHistory versions={state.storyVersions} />
@@ -569,24 +547,16 @@ export function Sift() {
             <AIMessageBubble message={currentVersion.aiMessage} />
           )}
 
-          {/* Story Card Preview - live updating */}
+          {/* Story Card Preview - exactly as it will appear on profile */}
           <div className="w-full">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 text-center">
-              Your Story (Preview)
-            </p>
-            <StoryCardPreview text={currentVersion?.text || ''} isLive={true} />
+            <StoryCardPreview text={currentVersion?.text || ''} isLive={state.showRatingDrawer} />
           </div>
-        </div>
 
-        {/* Fixed bottom panel - Rating */}
-        {state.showRatingDrawer && (
-          <div className="fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-2xl shadow-lg z-50">
-            <div className="p-4 pb-8 max-w-lg mx-auto">
-              <div className="text-center mb-4">
-                <p className="text-sm text-muted-foreground">
-                  AI is trying to understand your experience
-                </p>
-                <h2 className="text-lg font-semibold">
+          {/* Rating UI - inline below card */}
+          {state.showRatingDrawer && (
+            <div className="w-full bg-muted/30 rounded-lg p-4 space-y-4">
+              <div className="text-center">
+                <h2 className="text-base font-semibold">
                   How well does this capture what you meant?
                 </h2>
               </div>
@@ -613,69 +583,66 @@ export function Sift() {
                 </Button>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Fixed bottom panel - Refinement Options */}
-        {state.showOptionsDrawer && (
-          <div className="fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-2xl shadow-lg z-50 max-h-[70vh] overflow-y-auto">
-            <div className="p-4 pb-8 max-w-lg mx-auto">
-              <div className="text-center mb-4">
+          {/* Refinement Options - inline below card */}
+          {state.showOptionsDrawer && (
+            <div className="w-full space-y-4">
+              <div className="text-center">
                 <p className="text-sm text-muted-foreground">
                   You rated {state.currentRating}/10
                 </p>
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-base font-semibold">
                   What did I miss?
                 </h2>
               </div>
-              <div className="space-y-4">
-                {/* AI uncertainty */}
-                {currentRefinement.aiUncertainty && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-700">"{currentRefinement.aiUncertainty}"</p>
-                  </div>
-                )}
 
-                {/* Options */}
-                <div className="space-y-2">
-                  {currentRefinement.options.map((option, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleOptionSelect(option)}
-                      className={`w-full text-left p-3 rounded-lg border transition-colors text-sm ${
-                        state.selectedOption === option
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
+              {/* AI uncertainty */}
+              {currentRefinement.aiUncertainty && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-700">"{currentRefinement.aiUncertainty}"</p>
                 </div>
+              )}
 
-                {/* Custom input */}
-                <input
-                  type="text"
-                  value={state.customInput}
-                  onChange={(e) => setState(prev => ({ ...prev, customInput: e.target.value, selectedOption: null }))}
-                  placeholder="Or tell me what's off..."
-                  className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
-                <Button
-                  onClick={handleContinueRefinement}
-                  disabled={!state.selectedOption && !state.customInput.trim()}
-                  className="w-full bg-blue-500 hover:bg-blue-600"
-                >
-                  Help AI understand better
-                </Button>
+              {/* Options */}
+              <div className="space-y-2">
+                {currentRefinement.options.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleOptionSelect(option)}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors text-sm ${
+                      state.selectedOption === option
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
               </div>
+
+              {/* Custom input */}
+              <input
+                type="text"
+                value={state.customInput}
+                onChange={(e) => setState(prev => ({ ...prev, customInput: e.target.value, selectedOption: null }))}
+                placeholder="Or tell me what's off..."
+                className="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+
+              <Button
+                onClick={handleContinueRefinement}
+                disabled={!state.selectedOption && !state.customInput.trim()}
+                className="w-full bg-blue-500 hover:bg-blue-600"
+              >
+                Help AI understand better
+              </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {exitConfirmDialog}
-      </div>
+      </PrototypeLayout>
     );
   }
 
