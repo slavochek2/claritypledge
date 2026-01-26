@@ -67,13 +67,13 @@ export function Profile() {
         <div className="relative max-w-4xl mx-auto pb-20">
           {/* Main profile content - centered */}
           <div className="max-w-lg mx-auto px-4 mt-3">
-              {/* Back button - goes to My Events */}
+              {/* Back button - dynamic navigation */}
               <button
-                onClick={() => navigate(routes.myEvents)}
+                onClick={() => window.history.length > 1 ? navigate(-1) : navigate(routes.myEvents)}
                 className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
               >
                 <ArrowLeft size={16} className="mr-1" />
-                My Events
+                Back
               </button>
 
               {/* Profile header card - matches production compact-profile-card */}
@@ -222,13 +222,13 @@ export function Profile() {
       <div className="relative max-w-4xl mx-auto pb-20">
         {/* Main profile content - centered */}
         <div className="max-w-lg mx-auto px-4 mt-3">
-            {/* Back button - above card like production */}
+            {/* Back button - dynamic navigation */}
             <button
-              onClick={() => navigate(routes.myEvents)}
+              onClick={() => window.history.length > 1 ? navigate(-1) : navigate(routes.myEvents)}
               className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 transition-colors mb-4"
             >
               <ArrowLeft size={16} className="mr-1" />
-              My Events
+              Back
             </button>
 
             {/* Profile header card - matches production compact-profile-card */}

@@ -80,9 +80,9 @@ describe('P103: Point Quote Pattern', () => {
       );
 
       // Position label should be outside the quoted box
-      // Format: "Jordan Taylor" name + "agrees" badge + ":"
+      // Format: "Jordan Taylor" name + "Agrees" badge (PositionBadge with capitalized label)
       expect(screen.getByText('Jordan Taylor')).toBeInTheDocument();
-      expect(screen.getByText('agrees')).toBeInTheDocument();
+      expect(screen.getByText('Agrees')).toBeInTheDocument();
     });
 
     it('wraps Point content in a quoted box (bg-gray-50) when profileOwnerId is set', () => {

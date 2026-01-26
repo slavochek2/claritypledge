@@ -266,12 +266,13 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Compact mode: 3 segments only, no dropdown triggers
+      // Compact mode: 3 segments + 2 dropdown triggers (agree/disagree)
+      // Note: Dropdown triggers are now always shown for multi-option groups
       const buttons = screen.getAllByRole('button');
-      expect(buttons).toHaveLength(3);
+      expect(buttons).toHaveLength(5);
     });
 
-    it('compact mode hides dropdown chevrons (no intensity selection)', () => {
+    it('compact mode still shows dropdown chevrons for intensity selection', () => {
       render(
         <PositionButtons
           userPosition={null}
@@ -281,9 +282,9 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      // Dropdown triggers should NOT be present in compact mode
-      expect(screen.queryByTestId('agree-dropdown')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('disagree-dropdown')).not.toBeInTheDocument();
+      // Dropdown triggers ARE present - behavior changed to always allow intensity selection
+      expect(screen.queryByTestId('agree-dropdown')).toBeInTheDocument();
+      expect(screen.queryByTestId('disagree-dropdown')).toBeInTheDocument();
     });
 
     it('compact mode shows aggregated counts in brackets', () => {

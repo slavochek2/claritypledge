@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, ChevronDown, ChevronRight, Radio, ExternalLink, Ear, Pin } from 'lucide-react';
+import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Ear, Pin } from 'lucide-react';
 import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
-import { getUserById, formatTimeAgo, getPointsForStory, getStoriesForPoint, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
-import { PositionButtons, ShareButton, UserCredibility, VisibilityBadge, ThreadLineGroup, ThreadLineItem, getPositionVerb, type SevenPointCounts } from './shared';
+import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
+import { PositionButtons, PositionBadge, ShareButton, UserCredibility, VisibilityBadge, ThreadLineGroup, ThreadLineItem, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
@@ -23,8 +23,6 @@ interface StoryCardProps {
   showVerifyButton?: boolean;
   /** Callback for verify button */
   onVerify?: (e: React.MouseEvent) => void;
-  /** Override "Start a Clarity Session" button behavior (used in /live to select in-place) */
-  onStartSession?: (e: React.MouseEvent) => void;
   /** Show thread line styling (used in point-detail hierarchy) */
   showThreadLine?: boolean;
   /** Author's position on the Point (used for data context, display removed to reduce redundancy since position sections already group by stance) */
@@ -46,7 +44,6 @@ export function StoryCard({
   context,
   showVerifyButton = false,
   onVerify,
-  onStartSession,
   showThreadLine = true,
   authorPosition,
 }: StoryCardProps) {
@@ -70,8 +67,14 @@ export function StoryCard({
   if (showQuotePattern) {
     return (
       <div className="bg-white rounded-lg overflow-hidden">
-        {/* Position label OUTSIDE the quoted box - Name → Ear → Badge */}
+        {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
         <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+          <GravatarAvatar
+            name={author.name}
+            size="sm"
+            isPledger={author.hasPledged}
+            className="!w-5 !h-5 !text-[10px]"
+          />
           <span className="font-medium">{author.name}</span>
           {authorCredibility.ear > 0 && (
             <MobileTooltip content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
@@ -81,9 +84,7 @@ export function StoryCard({
               </span>
             </MobileTooltip>
           )}
-          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">
-            {getPositionVerb(authorPosition)}
-          </span>
+          <PositionBadge position={authorPosition} />
         </div>
 
         {/* Quoted Story box */}
@@ -91,101 +92,16 @@ export function StoryCard({
           className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors"
           onClick={handleCardClick}
         >
-          {/* Author row with avatar */}
-          <div className="flex items-start gap-3">
-            {/* Avatar column */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(routes.profileById(author.id));
-              }}
-              className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
-            >
-              <GravatarAvatar
-                name={author.name}
-                size="sm"
-                isPledger={author.hasPledged}
-              />
-            </button>
+          {/* Role + date (name/avatar already shown outside) */}
+          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+            <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+            <VisibilityBadge visibility={story.visibility} />
+          </p>
 
-            {/* Content column */}
-            <div className="flex-1 min-w-0">
-              {/* Author info row - simplified since name/position already shown outside */}
-              <div className="mb-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.profileById(author.id));
-                    }}
-                    className="font-semibold text-gray-900 hover:underline text-sm"
-                  >
-                    {author.name}
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                  <VisibilityBadge visibility={story.visibility} />
-                </p>
-              </div>
-
-              {/* Story text */}
-              <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-                {story.text}
-              </p>
-
-              {/* Stats row */}
-              <div className="flex items-center mt-3">
-                <MobileTooltip content={`${author.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
-                  <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
-                    {story.verificationCount} understood
-                  </span>
-                </MobileTooltip>
-              </div>
-            </div>
-          </div>
-
-          {/* Primary CTA */}
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onStartSession) {
-                  onStartSession(e);
-                } else {
-                  navigate(`/prototype/linkedin-like/live/new?with=${story.authorId}&story=${story.id}`);
-                }
-              }}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Radio size={16} />
-              Start a Clarity Session
-            </button>
-          </div>
-
-          {/* Actions row - inside quoted box */}
-          <div
-            className="flex items-center justify-end mt-3 pt-3 border-t border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-1">
-              <ShareButton
-                type="story"
-                id={story.id}
-                title={`${author.name}'s story`}
-                description={story.text.slice(0, 100)}
-              />
-              <MobileTooltip content="Open story">
-                <button
-                  onClick={() => navigate(routes.story(story.id))}
-                  className="min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Open story"
-                >
-                  <ExternalLink size={14} />
-                </button>
-              </MobileTooltip>
-            </div>
-          </div>
+          {/* Story text */}
+          <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+            {story.text}
+          </p>
         </div>
       </div>
     );
@@ -272,24 +188,6 @@ export function StoryCard({
         )}
       </div>
 
-      {/* Primary CTA at bottom */}
-      <div className="border-t border-gray-100 px-4 py-3">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (onStartSession) {
-              onStartSession(e);
-            } else {
-              navigate(`/prototype/linkedin-like/live/new?with=${story.authorId}&story=${story.id}`);
-            }
-          }}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Radio size={16} />
-          Start a Clarity Session
-        </button>
-      </div>
-
       {/* Footer row with linked points and action icons - hide in point-detail context */}
       {context !== 'point-detail' && (
         <>
@@ -308,7 +206,7 @@ export function StoryCard({
               >
                 {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span>
-                  Supports {linkedPoints.length} point{linkedPoints.length !== 1 ? 's' : ''}
+                  {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'} by {author?.name}
                 </span>
               </button>
             ) : (
@@ -344,7 +242,7 @@ export function StoryCard({
             const hasMorePoints = !isDetailView && linkedPoints.length > 3;
 
             return (
-              <div className="pl-[52px] pr-4 pb-4">
+              <div className="pl-[68px] pr-4 pb-4">
                 {pointsToShow.length === 1 ? (
                   // Single point - no thread lines
                   <QuotedPoint
@@ -420,7 +318,6 @@ function QuotedPoint({
     point.positions['current']?.position || null
   );
   const authorPosition = point.positions[authorId]?.position;
-  const linkedStories = getStoriesForPoint(point.id);
   const baseCounts = getPointPositionCounts(point);
 
   // Track initial position from mock data
@@ -488,7 +385,7 @@ function QuotedPoint({
               </span>
             </MobileTooltip>
           )}
-          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">{getPositionVerb(authorPosition)}</span>
+          <PositionBadge position={authorPosition} />
         </div>
       )}
 
@@ -506,9 +403,6 @@ function QuotedPoint({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            {/* Point label */}
-            <p className="text-xs text-gray-500 mb-2">Point</p>
-
             {/* Point text */}
             <p className="text-sm text-gray-800 line-clamp-2">
               {point.text}
@@ -526,34 +420,6 @@ function QuotedPoint({
           </div>
         </div>
 
-        {/* Footer - pl-[44px] aligns with content column */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200 pl-[44px]">
-          {linkedStories.length > 0 ? (
-            <span className="text-xs text-gray-600">Supported by {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}</span>
-          ) : (
-            <span />
-          )}
-          {/* Action icons */}
-          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-            <ShareButton
-              type="point"
-              id={point.id}
-              description={point.text.slice(0, 100)}
-            />
-            <MobileTooltip content="Open point">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(routes.point(point.id));
-                }}
-                className="min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                aria-label="Open point"
-              >
-                <ExternalLink size={14} />
-              </button>
-            </MobileTooltip>
-          </div>
-        </div>
       </button>
     </div>
   );

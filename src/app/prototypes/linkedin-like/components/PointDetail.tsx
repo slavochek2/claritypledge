@@ -90,11 +90,11 @@ export function PointDetail() {
         {/* Back button */}
         <div className="px-4 pt-3">
           <button
-            onClick={() => navigate(routes.myEvents)}
+            onClick={() => window.history.length > 1 ? navigate(-1) : navigate(routes.myEvents)}
             className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 -ml-1"
           >
             <ArrowLeft size={16} />
-            My Events
+            Back
           </button>
         </div>
 

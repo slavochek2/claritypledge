@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { IdeaCard } from './IdeaCard';
-import { FilterTabs, type PositionFilter, RatingDots, PositionBadge } from './shared';
+import { FilterTabs, type PositionFilter, RatingDots, PositionBadge, UserCredibility } from './shared';
 import { routes } from '../config';
 import {
   getIdeaById,
@@ -47,11 +47,11 @@ export function IdeaDetail() {
         {/* Back button - outside the card */}
         <div className="px-4 pt-3">
           <button
-            onClick={() => navigate(routes.myEvents)}
+            onClick={() => window.history.length > 1 ? navigate(-1) : navigate(routes.myEvents)}
             className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 -ml-1"
           >
             <ArrowLeft size={16} />
-            My Events
+            Back
           </button>
         </div>
 
@@ -131,7 +131,10 @@ export function IdeaDetail() {
                         {user.avatar}
                       </div>
                       <div className="flex-1 text-left min-w-0">
-                        <p className="font-medium text-gray-900">{user.name}</p>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-gray-900">{user.name}</span>
+                          <UserCredibility userId={user.id} userName={user.name} />
+                        </div>
                         <p className="text-xs text-gray-500">{user.role} · {formatTimeAgo(entry.timestamp)}</p>
                       </div>
                       <PositionBadge position={entry.position} />

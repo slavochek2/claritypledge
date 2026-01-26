@@ -15,13 +15,17 @@
  * 7. Rating <8 → Try again or Speak freely
  * 8. Session history tracks verified cards
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { X, Volume2, VolumeX, ArrowLeft, Copy, Check, Users, Plus, LogIn, BookOpen, CheckCircle2, Sparkles, Search } from 'lucide-react';
+import { X, Volume2, VolumeX, ArrowLeft, Copy, Check, Users, Plus, LogIn, BookOpen, CheckCircle2, Sparkles, Search, Pin } from 'lucide-react';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
-import { mockUsers, currentUser, getStories, getStoryById, getPointsForStory, getUserById } from '../data/mock-data';
+import { PointCard } from './PointCard';
+import { mockUsers, currentUser, getStories, getStoryById, getPointsForStory, getStoriesForPoint, getUserById, getPoints } from '../data/mock-data';
+import { PositionButtons } from './shared';
+import type { PositionType } from '../../shared/types';
 import { QRCodeSVG } from 'qrcode.react';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
@@ -39,8 +43,19 @@ type GapType = 'overconfidence' | 'underconfidence' | 'none';
 
 // P85: Card verification state machine
 type CardPhase =
-  | 'idle'              // Show Stories with search
+  | 'idle'              // Show Stories/Points with search
+  | 'story-selected'    // Story selected, showing rating inline
+  | 'point-selected'    // Point selected, showing position + CTA
   | 'in-legacy-flow';   // Card active, using legacy /live flow
+
+// Type of card being discussed
+type CardType = 'story' | 'point';
+
+// Perspective toggle for prototype testing
+type Perspective = 'checker' | 'partner';
+
+// Partner's view state (expanded for Points)
+type PartnerPhase = 'waiting' | 'story-received' | 'point-received';
 
 // P85: Verified card in session history
 interface VerifiedCard {
@@ -53,9 +68,12 @@ interface VerifiedCard {
 // P85: Card verification state
 interface CardState {
   phase: CardPhase;
-  activeCard: Story | null;
+  activeStory: Story | null;
+  activePoint: Point | null;
   linkedPoints: Point[];
   sessionHistory: VerifiedCard[];
+  // For Point flow - checker's position
+  myPosition: PositionType | null;
 }
 
 interface MockLiveState {
@@ -78,6 +96,7 @@ interface MockLiveState {
 const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
 const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 space-y-8 max-w-lg mx-auto w-full";
 const SESSION_STORAGE_KEY = 'clarity:live:session';
+const PARTNER_SIMULATION_DELAY_MS = 1500;
 
 const RATING_OPTIONS = [
   { value: 0, label: '0' },
@@ -180,10 +199,12 @@ export function Live() {
       if (story) {
         const points = getPointsForStory(story.id);
         return {
-          phase: 'selected',
-          activeCard: story,
+          phase: 'story-selected',
+          activeStory: story,
+          activePoint: null,
           linkedPoints: points,
           sessionHistory: history,
+          myPosition: null,
         };
       } else {
         // Story not found - show toast after mount
@@ -193,9 +214,11 @@ export function Live() {
 
     return {
       phase: 'idle',
-      activeCard: null,
+      activeStory: null,
+      activePoint: null,
       linkedPoints: [],
       sessionHistory: history,
+      myPosition: null,
     };
   });
 
@@ -217,6 +240,21 @@ export function Live() {
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // DEV: Perspective toggle to test both views
+  const [perspective, setPerspective] = useState<Perspective>('checker');
+  const [partnerPhase, setPartnerPhase] = useState<PartnerPhase>('waiting');
+  const [incomingStory, setIncomingStory] = useState<Story | null>(null);
+  const [incomingPoint, setIncomingPoint] = useState<Point | null>(null);
+  const [partnerPosition, setPartnerPosition] = useState<PositionType | null>(null);
+
+  // Track simulation timeouts for cleanup
+  const simulationTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+
+  // Get current user's points (points they have a position on)
+  const userPoints = useMemo(() => {
+    return getPoints().filter(p => p.positions[currentUser.id]);
+  }, []);
+
   // Get current user's stories
   const userStories = useMemo(() => getStories(currentUser.id), []);
 
@@ -234,6 +272,13 @@ export function Live() {
   useEffect(() => {
     saveSessionHistory(cardState.sessionHistory);
   }, [cardState.sessionHistory]);
+
+  // Cleanup simulation timeouts on unmount
+  useEffect(() => {
+    return () => {
+      simulationTimeoutsRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
   // ============================================================================
   // MEETING HANDLERS
@@ -272,17 +317,149 @@ export function Live() {
   // P85: CARD VERIFICATION HANDLERS
   // ============================================================================
 
-  const handleSelectCard = (story: Story) => {
-    // Select card AND start verification directly (no confirmation dialog)
+  // STORY handlers
+  const handleSelectStory = (story: Story) => {
     const points = getPointsForStory(story.id);
     setCardState(prev => ({
       ...prev,
-      phase: 'in-legacy-flow',
-      activeCard: story,
+      phase: 'story-selected',
+      activeStory: story,
+      activePoint: null,
       linkedPoints: points,
     }));
-    // Trigger the existing /live rating flow
-    handleStartCheck();
+    setSelectedRating(null);
+  };
+
+  // POINT handlers
+  const handleSelectPoint = (point: Point) => {
+    // Get user's existing position on this point
+    const myExistingPosition = point.positions[currentUser.id]?.position || null;
+    setCardState(prev => ({
+      ...prev,
+      phase: 'point-selected',
+      activeStory: null,
+      activePoint: point,
+      linkedPoints: [],
+      myPosition: myExistingPosition,
+    }));
+  };
+
+  const handleDeselect = () => {
+    setCardState(prev => ({
+      ...prev,
+      phase: 'idle',
+      activeStory: null,
+      activePoint: null,
+      linkedPoints: [],
+      myPosition: null,
+    }));
+    setSelectedRating(null);
+  };
+
+  // Story: Start verification with rating
+  const handleStartWithRating = (rating: number) => {
+    setCardState(prev => ({ ...prev, phase: 'in-legacy-flow' }));
+    setState(prev => ({
+      ...prev,
+      ratingPhase: 'waiting',
+      flowType: 'check',
+      checkerName: currentUser.name,
+      responderName: partnerName,
+      checkerRating: rating,
+      checkerSubmitted: true,
+    }));
+
+    // Trigger partner's view
+    if (cardState.activeStory) {
+      setIncomingStory(cardState.activeStory);
+      setPartnerPhase('story-received');
+    }
+
+    // Simulate partner response
+    const timeoutId = setTimeout(() => {
+      const partnerRating = Math.floor(Math.random() * 4) + 6;
+      setState(prev => ({
+        ...prev,
+        responderRating: partnerRating,
+        responderSubmitted: true,
+        ratingPhase: 'revealed',
+      }));
+    }, PARTNER_SIMULATION_DELAY_MS);
+    simulationTimeoutsRef.current.push(timeoutId);
+  };
+
+  // Point: Ask partner's position
+  const handleAskPosition = () => {
+    if (!cardState.activePoint) return;
+
+    // Trigger partner's view to show Point
+    setIncomingPoint(cardState.activePoint);
+    setPartnerPhase('point-received');
+    setPartnerPosition(null);
+
+    // Move to waiting state
+    setCardState(prev => ({ ...prev, phase: 'in-legacy-flow' }));
+    setState(prev => ({
+      ...prev,
+      ratingPhase: 'waiting',
+      flowType: 'check',
+      checkerName: currentUser.name,
+      responderName: partnerName,
+    }));
+
+    // Simulate partner's position response after delay
+    const timeoutId = setTimeout(() => {
+      // Random position: 60% same as checker, 40% different
+      const positions: PositionType[] = ['agree', 'disagree', 'unsure'];
+      const sameAsChecker = Math.random() < 0.6;
+      let simulatedPosition: PositionType;
+
+      if (sameAsChecker && cardState.myPosition) {
+        simulatedPosition = cardState.myPosition;
+      } else {
+        // Pick a random different position
+        const otherPositions = positions.filter(p => p !== cardState.myPosition);
+        simulatedPosition = otherPositions[Math.floor(Math.random() * otherPositions.length)];
+      }
+
+      setPartnerPosition(simulatedPosition);
+      setPartnerPhase('waiting');
+      setIncomingPoint(null);
+      setState(prev => ({
+        ...prev,
+        ratingPhase: 'revealed',
+      }));
+    }, PARTNER_SIMULATION_DELAY_MS);
+    simulationTimeoutsRef.current.push(timeoutId);
+  };
+
+  // Partner: Submit confidence rating (Story)
+  const handlePartnerStoryRatingSubmit = (rating: number) => {
+    setState(prev => ({
+      ...prev,
+      responderRating: rating,
+      responderSubmitted: true,
+      ratingPhase: 'revealed',
+    }));
+    setPartnerPhase('waiting');
+    setIncomingStory(null);
+    setSelectedRating(null);
+  };
+
+  // Partner: Submit position (Point)
+  const handlePartnerPositionSubmit = (position: PositionType) => {
+    setPartnerPosition(position);
+    setPartnerPhase('waiting');
+    setIncomingPoint(null);
+
+    // Simulate revealing both positions
+    const timeoutId = setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        ratingPhase: 'revealed',
+      }));
+    }, 500);
+    simulationTimeoutsRef.current.push(timeoutId);
   };
 
   const handleSpeakFreely = () => {
@@ -290,10 +467,17 @@ export function Live() {
     setCardState(prev => ({
       ...prev,
       phase: 'idle',
-      activeCard: null,
+      activeStory: null,
+      activePoint: null,
       linkedPoints: [],
+      myPosition: null,
     }));
-    // Also reset legacy state
+    // Reset partner state
+    setIncomingStory(null);
+    setIncomingPoint(null);
+    setPartnerPosition(null);
+    setPartnerPhase('waiting');
+    // Reset legacy state
     setState({
       ratingPhase: 'idle',
       flowType: null,
@@ -350,7 +534,7 @@ export function Live() {
 
     setSelectedRating(null);
 
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       const partnerRating = Math.floor(Math.random() * 4) + 5;
       setState(prev => ({
         ...prev,
@@ -360,7 +544,8 @@ export function Live() {
         responderSubmitted: true,
         ratingPhase: 'revealed',
       }));
-    }, 1500);
+    }, PARTNER_SIMULATION_DELAY_MS);
+    simulationTimeoutsRef.current.push(timeoutId);
   };
 
   const handleExplainBackStart = () => {
@@ -401,13 +586,13 @@ export function Live() {
 
   const handleContinue = () => {
     // If we had an active card, save to session history
-    if (cardState.activeCard && cardState.phase === 'in-legacy-flow') {
+    if (cardState.activeStory && cardState.phase === 'in-legacy-flow') {
       const lastRating = state.explainBackRatings.length > 0
         ? state.explainBackRatings[state.explainBackRatings.length - 1]
         : state.checkerRating ?? 0;
 
       const verifiedCard: VerifiedCard = {
-        storyId: cardState.activeCard.id,
+        storyId: cardState.activeStory.id,
         rating: lastRating,
         verified: lastRating >= 8,
         timestamp: new Date().toISOString(),
@@ -416,7 +601,7 @@ export function Live() {
       setCardState(prev => ({
         ...prev,
         phase: 'idle',
-        activeCard: null,
+        activeStory: null,
         linkedPoints: [],
         sessionHistory: [...prev.sessionHistory, verifiedCard],
       }));
@@ -425,7 +610,7 @@ export function Live() {
       setCardState(prev => ({
         ...prev,
         phase: 'idle',
-        activeCard: null,
+        activeStory: null,
         linkedPoints: [],
       }));
     }
@@ -469,8 +654,23 @@ export function Live() {
               </div>
             </Link>
 
-            {/* Spacer for centering */}
-            <div />
+            {/* DEV: Perspective toggle - only shown in development */}
+            {import.meta.env.DEV && (
+              <button
+                onClick={() => {
+                  setPerspective(p => p === 'checker' ? 'partner' : 'checker');
+                  // Reset partner state when switching
+                  setPartnerPhase('waiting');
+                  setIncomingStory(null);
+                  setIncomingPoint(null);
+                  setPartnerPosition(null);
+                  setSelectedRating(null);
+                }}
+                className="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
+              >
+                View as: {perspective === 'checker' ? 'You' : displayPartnerName}
+              </button>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -560,8 +760,8 @@ export function Live() {
     const bothSubmitted = state.checkerSubmitted && state.responderSubmitted;
 
     const headerText = isChecker
-      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">understand you</span></>
-      : <>Your journey to <span className="font-semibold text-foreground">understand {getFirstName(state.checkerName || partnerName)}</span></>;
+      ? <>{displayPartnerName}'s journey to <span className="font-semibold text-foreground">understand your story</span></>
+      : <>Your journey to <span className="font-semibold text-foreground">understand {getFirstName(state.checkerName || partnerName)}'s story</span></>;
 
     return (
       <div className={`${bgClass} rounded-lg p-4 min-h-[180px] text-left w-full max-w-sm`}>
@@ -697,6 +897,7 @@ export function Live() {
   // P85: Story Card Preview (compact for picker/selected display)
   const StoryCardPreview = ({ story, onClick, showLinkedPoints = true }: { story: Story; onClick?: () => void; showLinkedPoints?: boolean }) => {
     const points = getPointsForStory(story.id);
+    const storyAuthor = getUserById(story.authorId);
 
     return (
       <button
@@ -704,7 +905,11 @@ export function Live() {
         className={`w-full text-left p-4 rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white ${onClick ? 'hover:bg-gray-50 hover:border-gray-300' : ''} transition-colors`}
       >
         <div className="flex items-start gap-3">
-          <BookOpen className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          {storyAuthor ? (
+            <GravatarAvatar name={storyAuthor.name} size="sm" isPledger={storyAuthor.hasPledged} />
+          ) : (
+            <BookOpen className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm text-gray-900 line-clamp-2">{story.text}</p>
             {showLinkedPoints && (
@@ -885,59 +1090,363 @@ export function Live() {
   // LIVE PHASE - P85 Card Verification Flow
   // ============================================================================
 
-  // P85: IDLE - Show Stories with search, tap to start verification directly
-  if (cardState.phase === 'idle' && state.ratingPhase === 'idle') {
-    // Filter stories based on search query
-    const filteredStories = searchQuery.trim()
+  // PARTNER'S PERSPECTIVE - Show what partner sees
+  if (perspective === 'partner' && meetingPhase === 'live') {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <LiveMeetingHeader />
+
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Partner's idle view - waiting for request */}
+          {partnerPhase === 'waiting' && (
+            <div className="flex-1 flex flex-col items-center justify-center px-4">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+                  <Users className="w-8 h-8 text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-lg text-gray-600">Waiting for {getFirstName(currentUser.name)} to share a story</p>
+                  <p className="text-sm text-gray-400 mt-1">You'll be asked to confirm your understanding</p>
+                </div>
+
+                {/* DEV: Simulate receiving a Story request - only shown in development */}
+                {import.meta.env.DEV && (
+                  <div className="flex flex-col gap-2 mt-4">
+                    <Button
+                      onClick={() => {
+                        // Pick a random story from current user's stories
+                        const stories = getStories(currentUser.id);
+                        if (stories.length > 0) {
+                          const randomStory = stories[Math.floor(Math.random() * stories.length)];
+                          setIncomingStory(randomStory);
+                          setPartnerPhase('story-received');
+                        } else {
+                          toast.error('No stories to simulate');
+                        }
+                      }}
+                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                    >
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Simulate: Receive Story
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        // Pick a random point from current user's points
+                        if (userPoints.length > 0) {
+                          const randomPoint = userPoints[Math.floor(Math.random() * userPoints.length)];
+                          setIncomingPoint(randomPoint);
+                          setPartnerPhase('point-received');
+                        } else {
+                          toast.error('No points to simulate');
+                        }
+                      }}
+                      variant="outline"
+                      className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                    >
+                      <Pin className="w-4 h-4 mr-2 rotate-45" />
+                      Simulate: Receive Point
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Partner received a Story request - story above, drawer below */}
+          {partnerPhase === 'story-received' && incomingStory && (
+            <>
+              {/* Story card in main area - using actual StoryCard component */}
+              <div className="flex-1 bg-gray-100 p-4 flex items-center justify-center overflow-auto">
+                <div className="w-full max-w-lg">
+                  <StoryCard story={incomingStory} compact context="profile" />
+                </div>
+              </div>
+
+              {/* Bottom drawer with rating only */}
+              <div className="bg-white border-t rounded-t-2xl shadow-lg p-6 pb-8">
+                <div className="max-w-lg mx-auto space-y-3">
+                  <p className="text-sm font-medium text-center">
+                    How confident are you that you understand their story?
+                  </p>
+                  <div className="flex justify-center gap-1">
+                    {RATING_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setSelectedRating(option.value)}
+                        className={`w-7 h-7 rounded text-xs font-medium transition-all ${
+                          selectedRating === option.value
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white border border-gray-200 hover:border-blue-300 text-gray-700'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => selectedRating !== null && handlePartnerStoryRatingSubmit(selectedRating)}
+                    disabled={selectedRating === null}
+                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
+                  >
+                    Submit
+                  </button>
+                  <button
+                    onClick={handleSpeakFreely}
+                    className="w-full text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Speak freely
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Partner received a Point request - point above, position buttons in drawer */}
+          {partnerPhase === 'point-received' && incomingPoint && (
+            <>
+              {/* Point card in main area - using actual PointCard component */}
+              <div className="flex-1 bg-gray-100 p-4 flex items-center justify-center overflow-auto">
+                <div className="w-full max-w-lg">
+                  <PointCard point={incomingPoint} compact />
+                </div>
+              </div>
+
+              {/* Bottom drawer with position buttons only */}
+              <div className="bg-white border-t rounded-t-2xl shadow-lg p-6 pb-8">
+                <div className="max-w-lg mx-auto space-y-4">
+                  <p className="text-sm font-medium text-center">
+                    What's your position on this point?
+                  </p>
+                  <PositionButtons
+                    userPosition={partnerPosition}
+                    onPositionClick={(pos) => setPartnerPosition(pos)}
+                  />
+                  <button
+                    onClick={() => partnerPosition && handlePartnerPositionSubmit(partnerPosition)}
+                    disabled={!partnerPosition}
+                    className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
+                  >
+                    Submit
+                  </button>
+                  <button
+                    onClick={handleSpeakFreely}
+                    className="w-full text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Speak freely
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <Toaster position="top-center" />
+      </div>
+    );
+  }
+
+  // P85: IDLE or SELECTED - Search at top, results below (CHECKER'S VIEW)
+  if ((cardState.phase === 'idle' || cardState.phase === 'story-selected' || cardState.phase === 'point-selected') && state.ratingPhase === 'idle') {
+    // Filter stories and points based on search query
+    const hasSearch = searchQuery.trim().length > 0;
+    const filteredStories = hasSearch
       ? userStories.filter(story =>
           story.text.toLowerCase().includes(searchQuery.toLowerCase())
         )
-      : userStories;
+      : [];
+    const filteredPoints = hasSearch
+      ? userPoints.filter(point =>
+          point.text.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : [];
+
+    const hasContent = userStories.length > 0 || userPoints.length > 0;
+    const hasResults = filteredStories.length > 0 || filteredPoints.length > 0;
 
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
-            {/* Session history (only shown after first verification) */}
-            <SessionHistoryPanel />
 
-            {/* Search input */}
-            {userStories.length > 0 && (
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search your stories..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            )}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Top area: Instructions + Search */}
+          <div className="px-4 pt-24 pb-4">
+            <div className="max-w-lg mx-auto space-y-4">
+              {/* Instructions */}
+              {hasContent && (
+                <p className="text-lg text-gray-600 text-center">
+                  Search stories or points to discuss with {displayPartnerName}
+                </p>
+              )}
 
-            {/* Stories list */}
-            {userStories.length === 0 ? (
-              <div className="text-center py-8 space-y-4">
-                <p className="text-gray-500">You don't have any Stories yet.</p>
-                <p className="text-sm text-gray-400">Share a lived experience first, then ask {displayPartnerName} to understand it.</p>
-              </div>
-            ) : filteredStories.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">No stories match "{searchQuery}"</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredStories.map(story => (
-                  <StoryCard
-                    key={story.id}
-                    story={story}
-                    context="profile"
-                    onStartSession={() => handleSelectCard(story)}
+              {/* Search input */}
+              {hasContent && (
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search stories and points..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                    className="w-full pl-12 pr-4 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm bg-white"
                   />
-                ))}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Results area */}
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="max-w-lg mx-auto space-y-3">
+              {/* Session history (when no search) */}
+              {!hasSearch && cardState.sessionHistory.length > 0 && (
+                <SessionHistoryPanel />
+              )}
+
+              {/* No content state */}
+              {!hasContent && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">You don't have any Stories or Points yet.</p>
+                  <p className="text-sm text-gray-400 mt-1">Create content first to discuss.</p>
+                </div>
+              )}
+
+              {/* No results */}
+              {hasSearch && !hasResults && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No matches for "{searchQuery}"</p>
+                </div>
+              )}
+
+              {/* STORIES section */}
+              {hasSearch && filteredStories.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Stories</p>
+                  {filteredStories.map(story => {
+                    const isSelected = cardState.activeStory?.id === story.id && cardState.phase === 'story-selected';
+                    const points = getPointsForStory(story.id);
+
+                    return (
+                      <div key={story.id} className={`bg-white rounded-lg border-l-4 border-l-blue-500 border shadow-sm overflow-hidden transition-all ${
+                        isSelected ? 'border-blue-300 ring-2 ring-blue-200' : 'border-gray-200'
+                      }`}>
+                        {/* Story content */}
+                        <div className="p-4">
+                          <p className="text-sm text-gray-900">{story.text}</p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {points.length} {points.length === 1 ? 'point' : 'points'} · {story.verificationCount} understood
+                          </p>
+                        </div>
+
+                        {/* CTA or Rating UI */}
+                        {isSelected ? (
+                          <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50">
+                            <p className="text-sm font-medium text-center mb-3">
+                              How well do you believe {displayPartnerName} understands you?
+                            </p>
+                            <div className="flex justify-center gap-1 mb-3">
+                              {RATING_OPTIONS.map((option) => (
+                                <button
+                                  key={option.value}
+                                  onClick={() => setSelectedRating(option.value)}
+                                  className={`w-7 h-7 rounded text-xs font-medium transition-all ${
+                                    selectedRating === option.value
+                                      ? 'bg-blue-500 text-white'
+                                      : 'bg-white border border-gray-200 hover:border-blue-300 text-gray-700'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => selectedRating !== null && handleStartWithRating(selectedRating)}
+                              disabled={selectedRating === null}
+                              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
+                            >
+                              Submit
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="px-4 pb-4">
+                            <button
+                              onClick={() => handleSelectStory(story)}
+                              className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                            >
+                              Does {displayPartnerName} understand you?
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* POINTS section */}
+              {hasSearch && filteredPoints.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4">Points</p>
+                  {filteredPoints.map(point => {
+                    const isSelected = cardState.activePoint?.id === point.id && cardState.phase === 'point-selected';
+                    const myPosition = point.positions[currentUser.id]?.position || null;
+                    const partnerExistingPosition = point.positions[partner.id]?.position || null;
+
+                    return (
+                      <div key={point.id} className={`bg-white rounded-lg border-l-4 border-l-amber-500 border shadow-sm overflow-hidden transition-all ${
+                        isSelected ? 'border-amber-300 ring-2 ring-amber-200' : 'border-gray-200'
+                      }`}>
+                        {/* Point content */}
+                        <div className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Pin className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5 rotate-45" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-900">{point.text}</p>
+                              {partnerExistingPosition && (
+                                <p className="text-xs text-gray-500 mt-2">
+                                  {displayPartnerName}: {partnerExistingPosition}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CTA or Position UI */}
+                        {isSelected ? (
+                          <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50">
+                            <p className="text-sm font-medium text-center mb-3">
+                              Your position:
+                            </p>
+                            <div className="mb-3">
+                              <PositionButtons
+                                userPosition={cardState.myPosition}
+                                onPositionClick={(pos) => setCardState(prev => ({ ...prev, myPosition: pos }))}
+                                compact
+                              />
+                            </div>
+                            <button
+                              onClick={handleAskPosition}
+                              disabled={!cardState.myPosition}
+                              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
+                            >
+                              Does {displayPartnerName} agree?
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="px-4 pb-4">
+                            <button
+                              onClick={() => handleSelectPoint(point)}
+                              className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                            >
+                              Does {displayPartnerName} agree?
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
           </div>
         </div>
         <Toaster position="top-center" />
@@ -946,7 +1455,146 @@ export function Live() {
   }
 
   // ============================================================================
-  // LEGACY RATING PHASES - Now with optional card at top (P85)
+  // POINT FLOW - Position comparison (P85)
+  // ============================================================================
+
+  // Point flow: Waiting for partner's position
+  if (state.ratingPhase === 'waiting' && cardState.activePoint) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <LiveMeetingHeader />
+        <div className={CONTENT_LAYOUT}>
+          {/* Show the Point being discussed */}
+          <div className="w-full max-w-sm">
+            <PointCard point={cardState.activePoint} compact />
+          </div>
+
+          {/* Your position indicator */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm">
+            <p className="text-sm text-blue-700 text-center">
+              Your position: <span className="font-semibold">{cardState.myPosition}</span>
+            </p>
+          </div>
+
+          <ActionArea>
+            <WaitingIndicator
+              message={`Waiting for ${displayPartnerName} to share their position...`}
+              onSkip={handleSpeakFreely}
+              skipLabel="Cancel"
+            />
+          </ActionArea>
+        </div>
+        <Toaster position="top-center" />
+      </div>
+    );
+  }
+
+  // Point flow: Positions revealed - comparison
+  // Also handle edge case where activePoint is set but partnerPosition is missing
+  if (state.ratingPhase === 'revealed' && cardState.activePoint) {
+    // If partnerPosition is missing, show loading or reset
+    if (!partnerPosition) {
+      return (
+        <div className="flex flex-col min-h-screen bg-background">
+          <LiveMeetingHeader />
+          <div className={CONTENT_LAYOUT}>
+            <div className="w-full max-w-sm">
+              <PointCard point={cardState.activePoint} compact />
+            </div>
+            <ActionArea>
+              <WaitingIndicator
+                message={`Loading ${displayPartnerName}'s position...`}
+                onSkip={handleSpeakFreely}
+                skipLabel="Cancel"
+              />
+            </ActionArea>
+          </div>
+          <Toaster position="top-center" />
+        </div>
+      );
+    }
+    const positionsMatch = cardState.myPosition === partnerPosition;
+    const linkedStories = getStoriesForPoint(cardState.activePoint.id);
+
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <LiveMeetingHeader />
+        <div className={CONTENT_LAYOUT}>
+          {/* Show the Point being discussed */}
+          <div className="w-full max-w-sm">
+            <PointCard point={cardState.activePoint} compact />
+          </div>
+
+          {/* Position comparison */}
+          <div className="w-full max-w-sm space-y-3">
+            <div className="flex gap-3">
+              {/* Your position */}
+              <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500 mb-1">You</p>
+                <p className="font-semibold text-blue-700">{cardState.myPosition}</p>
+              </div>
+              {/* Partner's position */}
+              <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                <p className="text-xs text-gray-500 mb-1">{displayPartnerName}</p>
+                <p className="font-semibold text-gray-700">{partnerPosition}</p>
+              </div>
+            </div>
+
+            {/* Result banner */}
+            <div className={`border rounded-lg px-4 py-3 text-center ${
+              positionsMatch
+                ? 'border-green-200 bg-green-50'
+                : 'border-amber-200 bg-amber-50'
+            }`}>
+              {positionsMatch ? (
+                <>
+                  <span className="text-green-600 font-semibold">🎉 You both {cardState.myPosition}!</span>
+                  <p className="text-sm text-green-700 mt-1">No calibration gap on this point.</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-amber-600 font-semibold">📊 Different positions</span>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Explore linked stories to understand each other's perspective.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <ActionArea>
+            {!positionsMatch && linkedStories.length > 0 ? (
+              <>
+                <PrimaryButton onClick={() => {
+                  // Reset state before exploring linked stories
+                  setState(prev => ({
+                    ...prev,
+                    ratingPhase: 'idle',
+                  }));
+                  setPartnerPosition(null);
+                  // Switch to exploring linked stories
+                  const firstStory = linkedStories[0];
+                  handleSelectStory(firstStory);
+                }}>
+                  Explore {linkedStories.length} linked {linkedStories.length === 1 ? 'story' : 'stories'}
+                </PrimaryButton>
+                <GhostButton onClick={handleSpeakFreely}>Done with this point</GhostButton>
+              </>
+            ) : (
+              <PrimaryButton onClick={handleSpeakFreely}>
+                Continue
+              </PrimaryButton>
+            )}
+          </ActionArea>
+        </div>
+        <Toaster position="top-center" />
+      </div>
+    );
+  }
+
+  // ============================================================================
+  // LEGACY RATING PHASES - Story flow with optional card at top (P85)
   // ============================================================================
 
   if (state.ratingPhase === 'rating') {
@@ -959,8 +1607,8 @@ export function Live() {
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
           {/* Show active card at top if present (P85) */}
-          {cardState.activeCard && (
-            <StoryCardPreview story={cardState.activeCard} showLinkedPoints />
+          {cardState.activeStory && (
+            <StoryCardPreview story={cardState.activeStory} showLinkedPoints />
           )}
         </div>
 
@@ -995,8 +1643,8 @@ export function Live() {
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
           {/* Show active card at top if present (P85) */}
-          {cardState.activeCard && (
-            <StoryCardPreview story={cardState.activeCard} showLinkedPoints />
+          {cardState.activeStory && (
+            <StoryCardPreview story={cardState.activeStory} showLinkedPoints />
           )}
           <JourneyToUnderstanding />
           <ActionArea>
@@ -1028,8 +1676,8 @@ export function Live() {
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
           {/* Show active card at top if present (P85) */}
-          {cardState.activeCard && (
-            <StoryCardPreview story={cardState.activeCard} showLinkedPoints />
+          {cardState.activeStory && (
+            <StoryCardPreview story={cardState.activeStory} showLinkedPoints />
           )}
           <JourneyToUnderstanding />
 
@@ -1071,7 +1719,7 @@ export function Live() {
           <div className="flex flex-col min-h-screen bg-background">
             <LiveMeetingHeader />
             <div className={CONTENT_LAYOUT}>
-              {cardState.activeCard && <StoryCardPreview story={cardState.activeCard} showLinkedPoints />}
+              {cardState.activeStory && <StoryCardPreview story={cardState.activeStory} showLinkedPoints />}
               <JourneyToUnderstanding />
               <ActionArea icon="👂" title="Hear what's missing for a perfect 10">
                 <WaitingIndicator
@@ -1090,7 +1738,7 @@ export function Live() {
         <div className="flex flex-col min-h-screen bg-background">
           <LiveMeetingHeader />
           <div className={CONTENT_LAYOUT}>
-            {cardState.activeCard && <StoryCardPreview story={cardState.activeCard} showLinkedPoints />}
+            {cardState.activeStory && <StoryCardPreview story={cardState.activeStory} showLinkedPoints />}
             <JourneyToUnderstanding />
           </div>
 
@@ -1123,7 +1771,7 @@ export function Live() {
         <div className="flex flex-col min-h-screen bg-background">
           <LiveMeetingHeader />
           <div className={CONTENT_LAYOUT}>
-            {cardState.activeCard && <StoryCardPreview story={cardState.activeCard} showLinkedPoints />}
+            {cardState.activeStory && <StoryCardPreview story={cardState.activeStory} showLinkedPoints />}
             <JourneyToUnderstanding />
             <ActionArea>
               <WaitingIndicator
@@ -1140,7 +1788,7 @@ export function Live() {
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
-          {cardState.activeCard && <StoryCardPreview story={cardState.activeCard} showLinkedPoints />}
+          {cardState.activeStory && <StoryCardPreview story={cardState.activeStory} showLinkedPoints />}
           <JourneyToUnderstanding />
           <ActionArea icon="🎤" title={<>Explain back what you heard<br />OR ask a clarifying question</>}>
             <PrimaryButton onClick={handleExplainBackDone}>
@@ -1158,7 +1806,7 @@ export function Live() {
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
-          {cardState.activeCard && <StoryCardPreview story={cardState.activeCard} showLinkedPoints />}
+          {cardState.activeStory && <StoryCardPreview story={cardState.activeStory} showLinkedPoints />}
           <JourneyToUnderstanding />
           <ActionArea
             title={!isChecker ? `Help ${getFirstName(state.checkerName || partnerName)} understand you better. Withhold premature judgment.` : undefined}
@@ -1198,7 +1846,7 @@ export function Live() {
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
-          {cardState.activeCard && <StoryCardPreview story={cardState.activeCard} showLinkedPoints />}
+          {cardState.activeStory && <StoryCardPreview story={cardState.activeStory} showLinkedPoints />}
           <div className="text-center space-y-2">
             <div className="text-4xl">🎉</div>
             <h2 className="text-xl font-semibold text-green-600">{headline}</h2>

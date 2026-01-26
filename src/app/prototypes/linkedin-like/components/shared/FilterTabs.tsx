@@ -28,25 +28,28 @@ export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsP
   };
 
   return (
-    <div className="flex border-b border-gray-200">
-      <FilterTab
-        label="Agree"
-        count={counts.agree}
-        active={activeFilter === 'agree'}
-        onClick={() => handleTabClick('agree')}
-      />
-      <FilterTab
-        label="Disagree"
-        count={counts.disagree}
-        active={activeFilter === 'disagree'}
-        onClick={() => handleTabClick('disagree')}
-      />
-      <FilterTab
-        label="Unsure"
-        count={counts.unsure}
-        active={activeFilter === 'unsure'}
-        onClick={() => handleTabClick('unsure')}
-      />
+    <div>
+      <p className="px-4 pt-3 pb-1 text-xs text-gray-500">Filter by position:</p>
+      <div className="flex border-b border-gray-200">
+        <FilterTab
+          label="Agree"
+          count={counts.agree}
+          active={activeFilter === 'agree'}
+          onClick={() => handleTabClick('agree')}
+        />
+        <FilterTab
+          label="Disagree"
+          count={counts.disagree}
+          active={activeFilter === 'disagree'}
+          onClick={() => handleTabClick('disagree')}
+        />
+        <FilterTab
+          label="Unsure"
+          count={counts.unsure}
+          active={activeFilter === 'unsure'}
+          onClick={() => handleTabClick('unsure')}
+        />
+      </div>
     </div>
   );
 }

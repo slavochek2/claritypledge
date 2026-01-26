@@ -123,11 +123,20 @@ interface PositionButtonGroupProps {
   compact?: boolean;
 }
 
-// Tooltip text - shows current position if selected, or default action
+// Tooltip text - shows "You [position]" if selected, or default action
 function getTooltipText(group: PositionButtonGroup, userPosition: Position): string {
-  // If user has a position in this group, show the full label of their selection
+  // If user has a position in this group, show "You [position]"
   if (userPosition && getPositionGroup(userPosition) === group) {
-    return POSITION_LABELS[userPosition];
+    const youLabels: Record<PositionType, string> = {
+      strongly_disagree: 'You strongly disagree',
+      disagree: 'You disagree',
+      somewhat_disagree: 'You somewhat disagree',
+      unsure: "You're unsure",
+      somewhat_agree: 'You somewhat agree',
+      agree: 'You agree',
+      strongly_agree: 'You strongly agree',
+    };
+    return youLabels[userPosition];
   }
   // Default: show the group name (what clicking will do)
   const defaults: Record<PositionButtonGroup, string> = {
@@ -193,7 +202,7 @@ function PositionSegment({
   const isActive = userPosition ? getPositionGroup(userPosition) === group : false;
   const buttonLabel = getButtonLabel(group, userPosition);
   const hasDropdown = config.positions.length > 1;
-  const showDropdown = hasDropdown && !compact;
+  const showDropdown = hasDropdown; // Always show dropdown when multiple options exist
 
   const handleQuickClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -212,10 +221,7 @@ function PositionSegment({
     ${!isFirst ? 'border-l border-gray-200' : ''}
   `.trim().replace(/\s+/g, ' ');
 
-  // Compact mode: simplified for embedded use (e.g., QuotedPoint).
-  // Intentionally only allows default position selection - users who want
-  // intensity options should tap through to the full view.
-  // Also used for Unsure (single option, no dropdown needed).
+  // Single-option groups (Unsure) don't need a dropdown
   if (!showDropdown) {
     return (
       <div className={segmentClass} onClick={(e) => e.stopPropagation()}>

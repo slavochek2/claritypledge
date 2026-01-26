@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { HelpCircle, Ear, Mic, Lock } from 'lucide-react';
+import { HelpCircle, Ear } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -98,7 +98,7 @@ function getCalibrationLabel(gap: number): string {
 
 /**
  * Inline calibration display for embedding in profile cards.
- * Single bar with ear (listener) and mic (speaker) icons.
+ * Shows only listener calibration (how well they understand others).
  */
 export function InlineCalibration({
   calibration,
@@ -113,9 +113,7 @@ export function InlineCalibration({
   };
 
   const listenerPos = gapToPosition(calibration.listener.avgGap);
-  const speakerPos = gapToPosition(calibration.speaker.avgGap);
   const listenerLabel = getCalibrationLabel(calibration.listener.avgGap);
-  const speakerLabel = getCalibrationLabel(calibration.speaker.avgGap);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -123,62 +121,35 @@ export function InlineCalibration({
         {/* Label and bar on same row */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 shrink-0">
-            <Lock size={12} className="text-gray-400" />
-            <span className="text-xs font-medium text-gray-600">Calibration</span>
+            <Ear size={12} className="text-gray-400" />
+            <span className="text-xs font-medium text-gray-600">Listener Calibration</span>
           </div>
 
-          {/* Bar with icons */}
-          <div className="relative h-10 flex-1 max-w-[160px]">
-            {/* Bar - increased contrast with border */}
+          {/* Bar with indicator dot */}
+          <div className="relative h-6 flex-1 max-w-[140px]">
+            {/* Bar */}
             <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-gray-300 border border-gray-400" />
-            {/* Center tick mark */}
-            <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3 bg-gray-500 -translate-x-px rounded-full" />
+            {/* Center tick mark - the goal */}
+            <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-gray-500 -translate-x-px rounded-full" />
 
-            {/* Listener icon (ear) - above the bar, 44px touch target */}
-          <CalibrationTooltip
-            side="top"
-            content={
-              <>
-                <p className="text-xs font-medium">{listenerLabel} as Listener</p>
-                <p className="text-xs text-gray-500">{TOOLTIP_TEXT.listener}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
-                </p>
-              </>
-            }
-          >
-            <span
-              className="absolute -top-1 min-w-[44px] min-h-[44px] flex items-center justify-center -translate-x-1/2"
-              style={{ left: `${listenerPos}%` }}
+            {/* Indicator dot with tooltip */}
+            <CalibrationTooltip
+              side="top"
+              content={
+                <>
+                  <p className="text-xs font-medium">{listenerLabel}</p>
+                  <p className="text-xs text-gray-500">{TOOLTIP_TEXT.listener}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
+                  </p>
+                </>
+              }
             >
-              <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                <Ear size={16} className="text-blue-600" />
-              </span>
-            </span>
-          </CalibrationTooltip>
-
-          {/* Speaker icon (mic) - below the bar, 44px touch target */}
-          <CalibrationTooltip
-            side="bottom"
-            content={
-              <>
-                <p className="text-xs font-medium">{speakerLabel} as Speaker</p>
-                <p className="text-xs text-gray-500">{TOOLTIP_TEXT.speaker}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Avg (their understanding − your estimate) over {calibration.speaker.sessionCount} session{calibration.speaker.sessionCount !== 1 ? 's' : ''}
-                </p>
-              </>
-            }
-          >
-            <span
-              className="absolute -bottom-1 min-w-[44px] min-h-[44px] flex items-center justify-center -translate-x-1/2"
-              style={{ left: `${speakerPos}%` }}
-            >
-              <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                <Mic size={16} className="text-blue-600" />
-              </span>
-            </span>
-          </CalibrationTooltip>
+              <span
+                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
+                style={{ left: `${listenerPos}%` }}
+              />
+            </CalibrationTooltip>
           </div>
         </div>
       </div>

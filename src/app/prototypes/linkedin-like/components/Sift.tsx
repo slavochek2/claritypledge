@@ -484,7 +484,7 @@ export function Sift() {
   // ENTRY PHASE - Initial input (ChatGPT style)
   if (state.phase === 'entry') {
     return (
-      <div className="flex flex-col h-screen bg-white">
+      <div className="flex flex-col min-h-screen bg-white">
         <SiftHeader />
 
         <div className="flex-1 flex flex-col items-center justify-center px-4">
@@ -540,6 +540,8 @@ export function Sift() {
 
   // CHAT PHASE - Conversation with AI
   if (state.phase === 'chat') {
+    const showingRating = state.messages.length > 0 && state.messages[state.messages.length - 1].showRating;
+
     return (
       <div className="flex flex-col h-screen bg-white">
         <SiftHeader />
@@ -554,9 +556,7 @@ export function Sift() {
         </div>
 
         {/* Input area - only show if last message doesn't need rating */}
-        {state.messages.length > 0 && !state.messages[state.messages.length - 1].showRating && (
-          <InputBar />
-        )}
+        {!showingRating && <InputBar />}
 
         {exitConfirmDialog}
       </div>
@@ -566,7 +566,7 @@ export function Sift() {
   // DONE PHASE - Show final story
   if (state.phase === 'done') {
     return (
-      <div className="flex flex-col h-screen bg-white">
+      <div className="flex flex-col min-h-screen bg-white">
         <SiftHeader />
 
         <div className="flex-1 flex flex-col items-center justify-center px-4 pb-6 space-y-6">

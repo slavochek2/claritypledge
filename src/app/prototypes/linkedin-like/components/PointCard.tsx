@@ -11,7 +11,7 @@ import {
   currentUser,
   getUserCredibilityStats,
 } from '../data/mock-data';
-import { PointHeader, PositionButtons, ShareButton, ThreadLineGroup, ThreadLineItem, getPositionVerb, type SevenPointCounts } from './shared';
+import { PointHeader, PositionButtons, PositionBadge, ShareButton, ThreadLineGroup, ThreadLineItem, type SevenPointCounts } from './shared';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
 
@@ -134,7 +134,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   </span>
                 </MobileTooltip>
               )}
-              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded">{getPositionVerb(profileOwnerPosition)}</span>
+              <PositionBadge position={profileOwnerPosition} />
             </div>
 
             {/* Quoted Point box */}
@@ -148,9 +148,6 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
-                  {/* Point label */}
-                  <p className="text-xs text-gray-500 mb-2">Point</p>
-
                   {/* Point text */}
                   <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
                     {point.text}
@@ -185,7 +182,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   >
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>
-                      Supported by {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'} by {profileOwner?.name}
                     </span>
                   </button>
                 ) : (
@@ -270,7 +267,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
             >
               {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span>
-                Supported by {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'} by {profileOwner?.name}
               </span>
             </button>
           ) : (
@@ -302,7 +299,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
       {/* Expanded linked stories - only in feed view */}
       {!isDetailView && storiesExpanded && profileOwnerId && storiesToShow.length > 0 && (
-        <div className={showQuotePattern ? "px-4 pb-4" : "pl-[52px] pr-4 pb-4"}>
+        <div className={showQuotePattern ? "pl-[60px] pr-4 pb-4" : "pl-[68px] pr-4 pb-4"}>
           {storiesToShow.length === 1 ? (
             // Single story - no thread lines
             <QuotedStory
@@ -439,35 +436,6 @@ function QuotedStory({
       </div>
       {/* Story text */}
       <p className="text-sm text-gray-800 line-clamp-2">{story.text}</p>
-      {/* Footer with stats and action icons */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200">
-        <MobileTooltip content={`${author?.name.split(' ')[0] || 'Author'} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
-          <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
-            {story.verificationCount} understood
-          </span>
-        </MobileTooltip>
-        {/* Action icons */}
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <ShareButton
-            type="story"
-            id={story.id}
-            title={`${author?.name}'s story`}
-            description={story.text.slice(0, 100)}
-          />
-          <MobileTooltip content="Open story">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(routes.story(story.id));
-              }}
-              className="min-w-[36px] min-h-[36px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Open story"
-            >
-              <ExternalLink size={14} />
-            </button>
-          </MobileTooltip>
-        </div>
-      </div>
     </div>
   );
 }
