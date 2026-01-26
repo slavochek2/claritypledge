@@ -14,6 +14,43 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-26: Standalone skills as source of truth, prep-spec agents as pointers
+
+**Context:** `/prep-spec` had 12 agent prompt files in `agents/` directory. Two issues emerged:
+1. "Challenge" agents (Lean Startup Coach, Innovation) were opt-in and rarely ran — but their value is catching what you *don't* see
+2. Agent prompts duplicated content that could be standalone skills
+
+**Decision:**
+1. **Challenge agents default ON** — Lean Startup Coach and Innovation Agent are now opt-out, not opt-in
+2. **Standalone skills as source of truth** — Created `/lean` and `/innovate` as standalone skills
+3. **Agents as pointers** — `agents/lean-startup-coach.md` and `agents/innovation.md` just say "read from /lean" or "/innovate"
+4. **Merged overlapping agents** — Definitions + Philosophy → `alignment.md`, Lean Canvas + Theory of Change → `business.md`
+
+**Pattern established:**
+```
+/lean           ← standalone, source of truth, invokable directly
+/innovate       ← standalone, source of truth, invokable directly
+/prep-spec      ← orchestrator, agents are pointers to standalone skills
+```
+
+**Alternatives rejected:**
+- **Keep agents as full prompts** — Duplication, can't invoke directly
+- **Delete agents entirely** — Breaks prep-spec's roster table
+- **Keep Challenge agents opt-in** — Defeats their purpose (catching blind spots)
+
+**Consequences:**
+- Agent count reduced 14 → 10 (with 4 redirect files)
+- `/lean` and `/innovate` can be run standalone anytime
+- Future agents that make sense standalone should follow this pattern
+- Challenge agents run by default in prep-spec
+
+**References:**
+- [.claude/commands/lean/index.md](../.claude/commands/lean/index.md)
+- [.claude/commands/innovate/index.md](../.claude/commands/innovate/index.md)
+- [.claude/commands/prep-spec/SKILL.md](../.claude/commands/prep-spec/SKILL.md)
+
+---
+
 ## 2026-01-26: Unified /dev workflow replacing /loop, /quick-dev, /bmad:dev
 
 **Context:** Three overlapping development commands existed:
