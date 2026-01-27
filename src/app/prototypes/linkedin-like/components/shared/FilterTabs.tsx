@@ -1,4 +1,4 @@
-type PositionFilter = 'all' | 'agree' | 'disagree' | 'dont_know';
+type PositionFilter = 'all' | 'agree' | 'disagree' | 'unsure';
 
 interface FilterTabsProps {
   activeFilter: PositionFilter;
@@ -7,43 +7,49 @@ interface FilterTabsProps {
     all: number;
     agree: number;
     disagree: number;
-    dont_know: number;
+    unsure: number;
   };
 }
 
+/**
+ * FilterTabs - Position filter for Point detail page
+ *
+ * No "All" tab - click active tab again to deselect (shows all)
+ * No icons - cleaner appearance
+ */
 export function FilterTabs({ activeFilter, onFilterChange, counts }: FilterTabsProps) {
+  const handleTabClick = (filter: PositionFilter) => {
+    // Toggle: clicking active tab deselects it (shows all)
+    if (activeFilter === filter) {
+      onFilterChange('all');
+    } else {
+      onFilterChange(filter);
+    }
+  };
+
   return (
-    <div className="flex border-b border-gray-200">
-      <FilterTab
-        label="All"
-        count={counts.all}
-        active={activeFilter === 'all'}
-        onClick={() => onFilterChange('all')}
-      />
-      <FilterTab
-        label="Agreed"
-        count={counts.agree}
-        active={activeFilter === 'agree'}
-        onClick={() => onFilterChange('agree')}
-        activeColor="text-emerald-600"
-        underlineColor="bg-emerald-600"
-      />
-      <FilterTab
-        label="Disagreed"
-        count={counts.disagree}
-        active={activeFilter === 'disagree'}
-        onClick={() => onFilterChange('disagree')}
-        activeColor="text-blue-600"
-        underlineColor="bg-blue-600"
-      />
-      <FilterTab
-        label="Unsure"
-        count={counts.dont_know}
-        active={activeFilter === 'dont_know'}
-        onClick={() => onFilterChange('dont_know')}
-        activeColor="text-gray-500"
-        underlineColor="bg-gray-500"
-      />
+    <div>
+      <p className="px-4 pt-3 pb-1 text-xs text-gray-500">Filter by position:</p>
+      <div className="flex border-b border-gray-200">
+        <FilterTab
+          label="Agree"
+          count={counts.agree}
+          active={activeFilter === 'agree'}
+          onClick={() => handleTabClick('agree')}
+        />
+        <FilterTab
+          label="Disagree"
+          count={counts.disagree}
+          active={activeFilter === 'disagree'}
+          onClick={() => handleTabClick('disagree')}
+        />
+        <FilterTab
+          label="Unsure"
+          count={counts.unsure}
+          active={activeFilter === 'unsure'}
+          onClick={() => handleTabClick('unsure')}
+        />
+      </div>
     </div>
   );
 }
@@ -66,7 +72,7 @@ function FilterTab({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
+      className={`flex-1 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-1 ${
         active ? activeColor : 'text-gray-500 hover:text-gray-700'
       }`}
     >

@@ -510,6 +510,22 @@ User attempted to join a session but was blocked.
 | `session_code` | string | Attempted room code |
 | `reason` | string | Why blocked: `session_full`, `session_not_found`, etc. |
 
+#### `live_invite_shared`
+Host shared/copied the invite link (P106 - tracks join funnel).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | Room code |
+| `method` | string | How shared: `native_share` (mobile) or `clipboard_copy` (desktop) |
+
+#### `live_session_abandoned`
+Host left waiting room before partner joined (P106 - tracks join funnel).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `session_code` | string | Room code |
+| `waited_seconds` | number | How long host waited before abandoning |
+
 ### Understanding Flow
 
 #### `live_check_started`

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Send, Radio, MoreHorizontal } from 'lucide-react';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 import {
   mockMessages,
   mockUsers,
@@ -88,7 +89,7 @@ export function Chat() {
           ) : (
             <>
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(routes.myEvents)}
                 className="p-1 text-gray-600 hover:text-gray-900"
               >
                 <ArrowLeft size={22} />

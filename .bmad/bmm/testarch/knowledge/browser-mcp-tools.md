@@ -4,7 +4,25 @@ TEA has access to two MCP-based browser automation tools for interactive testing
 
 ## Available Tools
 
-### 1. Chrome DevTools MCP (`mcp__chrome-devtools__*`)
+### 1. Docker MCP Browser Tools (`mcp__MCP_DOCKER__browser_*`) — Primary
+
+Browser automation via Docker MCP Toolkit. Best for:
+- Multi-tab scenarios
+- Form filling
+- E2E test exploration
+- Screenshots and visual verification
+
+**Key commands:**
+- `mcp__MCP_DOCKER__browser_navigate` — Navigate to URL
+- `mcp__MCP_DOCKER__browser_snapshot` — A11y snapshot (preferred)
+- `mcp__MCP_DOCKER__browser_take_screenshot` — Visual screenshot
+- `mcp__MCP_DOCKER__browser_click`, `browser_type`, `browser_hover` — Interactions
+- `mcp__MCP_DOCKER__browser_fill_form` — Fill multiple fields at once
+- `mcp__MCP_DOCKER__browser_tabs` — Multi-tab management
+- `mcp__MCP_DOCKER__browser_network_requests` — Network inspection
+- `mcp__MCP_DOCKER__browser_console_messages` — Console capture
+
+### 2. Chrome DevTools MCP (`mcp__chrome-devtools__*`)
 
 Direct Chrome DevTools Protocol access. Best for:
 - Debugging existing pages
@@ -22,41 +40,11 @@ Direct Chrome DevTools Protocol access. Best for:
 - `mcp__chrome-devtools__performance_start_trace` — Performance profiling
 - `mcp__chrome-devtools__evaluate_script` — Run JS in page context
 
-### 2. Playwright MCP (`mcp__playwright__*`)
-
-Playwright automation via MCP. Best for:
-- Multi-tab scenarios
-- Form filling
-- E2E test exploration
-- Cross-browser testing
-
-**Key commands:**
-- `mcp__playwright__browser_navigate` — Navigate to URL
-- `mcp__playwright__browser_snapshot` — A11y snapshot (preferred)
-- `mcp__playwright__browser_take_screenshot` — Visual screenshot
-- `mcp__playwright__browser_click`, `browser_type`, `browser_hover` — Interactions
-- `mcp__playwright__browser_fill_form` — Fill multiple fields at once
-- `mcp__playwright__browser_tabs` — Multi-tab management
-- `mcp__playwright__browser_network_requests` — Network inspection
-- `mcp__playwright__browser_console_messages` — Console capture
-
-## Session Modes
-
-### Headless vs Headed
-
-| Mode | Flag | Use Case |
-|------|------|----------|
-| **Headless** | `--headless` (default) | CI, automated runs, faster |
-| **Headed** | `--headed` | Debugging, visual inspection |
-
-### Isolated vs Persistent
-
-| Mode | Flag | Use Case |
-|------|------|----------|
-| **Isolated** | `--isolated` | Clean state, no cookies/storage carried over |
-| **Persistent** | `--persistent` | Reuse auth state, continue previous session |
-
 ## Starting a Browser Session
+
+### Docker MCP Browser (Primary)
+
+Managed by Docker Desktop MCP Toolkit. Just use `mcp__MCP_DOCKER__browser_navigate` to open a page — Docker handles the browser lifecycle.
 
 ### Chrome DevTools (requires Chrome with remote debugging)
 
@@ -66,10 +54,6 @@ Playwright automation via MCP. Best for:
 ```
 
 Then use `mcp__chrome-devtools__*` tools directly.
-
-### Playwright
-
-Use `mcp__playwright__browser_navigate` to open a page. Playwright manages browser lifecycle automatically.
 
 ## Recommended Workflow
 
@@ -113,19 +97,18 @@ Use `mcp__playwright__browser_navigate` to open a page. Playwright manages brows
 
 | Need | Use |
 |------|-----|
-| Quick page inspection | Chrome DevTools |
-| Multi-tab testing | Playwright |
+| Quick page inspection | Docker MCP Browser |
+| Multi-tab testing | Docker MCP Browser |
 | Performance profiling | Chrome DevTools |
-| Form automation | Playwright |
+| Form automation | Docker MCP Browser |
 | Network mocking | Either (both support it) |
 | Console debugging | Chrome DevTools |
-| Cross-browser | Playwright |
+| Screenshots | Docker MCP Browser |
 
 ## Integration with TEA Workflows
 
 When TEA runs `*browser-session`:
-1. Asks for tool preference (playwright/chrome-devtools)
-2. Asks for mode (headless/headed, isolated/persistent)
-3. Starts appropriate session
-4. Provides interactive testing environment
-5. Can capture results for test generation
+1. Uses Docker MCP Browser tools by default (`mcp__MCP_DOCKER__browser_*`)
+2. Falls back to Chrome DevTools for performance profiling
+3. Provides interactive testing environment
+4. Can capture results for test generation

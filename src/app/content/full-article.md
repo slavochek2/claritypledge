@@ -1,5 +1,16 @@
 # The Clarity Tax: A Coordination Failure Externality
 
+> **Note:** This is the public manifesto — written for external audiences as a persuasive narrative. For internal working docs, see:
+> - [philosophy.md](../../../docs/philosophy.md) — Epistemological foundation
+> - [theory-of-change.md](../../../docs/theory-of-change.md) — Cascade mechanism
+> - [lean-canvas.md](../../../docs/lean-canvas.md) — Problem/solution/business model
+>
+> Unique frameworks in this article (not duplicated in docs): Three Asymmetries, Implementation Levels, Celebration Engine concept.
+>
+> ⚠️ **File location:** This file must stay at `src/app/content/full-article.md` for relative links to work.
+
+---
+
 ## I. The Frustration: When Humility is Blocked by Unwillingness to Cooperate
 
 You've just explained a critical point. To ensure you're aligned, you ask a simple, collaborative question: "Can you play back what you understood from that?" Instead of partnership, you get a wall of defensiveness: "I got it. We don't need to waste time on this."

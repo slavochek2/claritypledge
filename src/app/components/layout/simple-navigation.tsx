@@ -114,6 +114,7 @@ export function SimpleNavigation() {
             {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
             <Link
               to="/live"
+              title="Start a live clarity session"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
               onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
             >
@@ -199,6 +200,7 @@ export function SimpleNavigation() {
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
               <Link
                 to="/live"
+                title="Start a live clarity session"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
                 onClick={() => {
                   analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });

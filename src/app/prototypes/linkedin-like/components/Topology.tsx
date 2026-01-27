@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Filter, Info, ChevronDown } from 'lucide-react';
 import { BottomNav } from './BottomNav';
+import { routes } from '../config';
 import {
   mockUsers,
   mockIdeas,
@@ -89,7 +90,7 @@ export function Topology() {
       <header className="sticky top-0 bg-white border-b border-gray-200 z-40">
         <div className="flex items-center gap-3 px-4 py-3 max-w-lg mx-auto">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(routes.myEvents)}
             className="p-1 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft size={22} />

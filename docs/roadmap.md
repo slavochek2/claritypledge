@@ -3,13 +3,13 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-01-20
+**Last Updated:** 2026-01-23
 **North Star:** First 30-person Clarity Event (H2 validation)
 
-> **Current Focus:** P60 Exploration UX → Manual seed → H2 test event
+> **Current Focus:** P85 Event Verification Flow → Connect /live to content → H2 test event
 >
-> **What's done:** Events backend, /live verification
-> **What's next:** P60 (Story/Point navigation UI) — mockup/frontend only
+> **What's done:** Events backend, /live verification, 7-point position scale UI
+> **What's next:** Card selection inside /live, verification logging, event outcomes display
 > **Then:** Manually seed Stories/Points → Run 30-person event → Validate H2
 > **After H2:** Sifter (P58) automates seeding
 
@@ -19,93 +19,7 @@ Build sequence and priorities. What we're building and in what order.
 
 A platform where people **sift** messy thoughts into protected **Stories** (for empathy) and sharpened **Points** (for truth), then **verify understanding** across disagreement.
 
----
-
-## Core Concepts
-
-### Stories vs Points
-
-| Type | Nature | User Action | Verification |
-|------|--------|-------------|--------------|
-| **Story** | Lived experience, the "why" behind a position | Can only be understood | /live explain-back (≥8/10 = verified) |
-| **Point** | Logical claim, something debatable | Position on -3 to +3 scale | Position staking |
-
-**Position Scale (7-point Likert):**
-| Score | Meaning |
-|-------|---------|
-| -3 | Strongly disagree |
-| -2 | Disagree |
-| -1 | Slightly disagree |
-| 0 | Unsure / No opinion |
-| +1 | Slightly agree |
-| +2 | Agree |
-| +3 | Strongly agree |
-
-**The relationship (bidirectional):**
-```
-POINT: "Remote work is more productive"
-   ↕
-   │ bidirectional linking
-   ↕
-STORY: "I burned out commuting 2 hours daily"
-   ↑
-   │ leads to
-   ↓
-POSITION: "+2 (Agree) on this Point"
-```
-
-- **Point → Story:** A Point can link to Stories that support or oppose it
-- **Story → Point:** A Story can link to Points it explains your position on
-
-**Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point.
-
-### Verification Threshold
-
-**≥8/10 = Verified Understanding**
-
-When both parties rate understanding ≥8/10 in a /live session, the understanding is "verified."
-
-| Score | Status | Display |
-|-------|--------|---------|
-| 10/10 | Perfect | Green badge |
-| 8-9/10 | Verified | Green badge |
-| <8/10 | In Progress | Amber/gray |
-
-### Calibration Badge (Public Reputation)
-
-Users earn a public "Calibrated" badge when:
-- **≥10 clarity sessions completed** AND
-- **avgGap within ±0.5** (self-assessment matches reality)
-
-This badge appears next to their name across the platform, rewarding epistemic humility while preserving privacy (exact calibration numbers stay private on their dashboard).
-
-### The User Flow (Integrated)
-
-```
-1. BRAIN DUMP
-   User talks/types messy thoughts
-        ↓
-2. AI SIFTS
-   Story (blue) vs Point (yellow)
-        ↓
-3. HARDENER
-   AI sharpens Point into falsifiable claim
-        ↓
-4. MIRROR TEST
-   AI plays back understanding, user confirms
-        ↓
-5. STAKE POSITION
-   User agrees/disagrees on Points
-        ↓
-6. FIND DISAGREER
-   See who has opposite position
-        ↓
-7. VERIFY STORY
-   /live explain-back on their Story
-        ↓
-8. INFORMED DISAGREEMENT
-   Still disagree, but understand WHY
-```
+**Core concepts (Stories, Points, Position Scale, Calibration):** See [definitions.md](definitions.md)
 
 ---
 
@@ -143,28 +57,31 @@ This badge appears next to their name across the platform, rewarding epistemic h
 
 ## Build Phases
 
-### Phase 0: Exploration UX (P60) ✅ CURRENT
+### Phase 0: Event Verification Flow (P85) ✅ CURRENT
 
-**Goal:** Users can navigate between Stories and Points, filter by position, initiate verification.
+**Goal:** Connect /live to Stories/Points, log verifications, display event outcomes.
 
-See [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_and_points.md) for full spec.
+See [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) for full spec.
 
 ```
-□ StoryDetail screen (blue card + linked Points)
-□ PointDetail screen (yellow card + linked Stories with position filter)
-□ Pattern B cards (collapse/expand, position badges)
-□ "Verify Understanding" button → /live
-□ Feed with Story/Point cards
+□ Card selection inside /live (browse your cards + partner's cards)
+□ Simplified card component (collapsed linked content)
+□ Stance prompt after verification (position on linked Points)
+□ VerificationEvent logging (positions before/after)
+□ Event outcomes section (verification count, leaderboard)
+□ Ears (👂) count on participant list
 ```
 
 **Why first:**
-- Can't test H2 without visible Stories/Points
-- Manual seeding sufficient — Sifter comes later
-- Frontend mockup, backend schema exists
+- /live exists but isn't connected to content
+- Need verification logging before H2 test
+- Event outcomes create visibility (H2) and FOMO (H0b)
+
+**Key insight:** No "feed" needed. At physical events, people match in person. Card selection happens inside /live, not on event page.
 
 ### Phase 1: Points + Positions Backend ✅ DONE
 
-**Goal:** Points can be shared, positions can be staked on -3 to +3 scale.
+**Goal:** Points can be shared, positions can be staked on -3 to +3 scale. 7-point UI completed.
 
 ```
 □ Points table (from sifted content or manual entry)
@@ -176,62 +93,7 @@ See [p60_navigating_stories_and_points.md](../features/p60_navigating_stories_an
 □ Basic points feed page
 ```
 
-**Schema:**
-```sql
--- Points table
-points (
-  id uuid primary key,
-  event_id uuid,                    -- null = global
-  text text not null,
-  hardened_text text,               -- AI-refined version
-  created_by uuid references profiles(id),
-  created_at timestamp
-)
-
--- Stories table
-stories (
-  id uuid primary key,
-  user_id uuid references profiles(id),
-  text text not null,
-  created_at timestamp
-)
-
--- Story-Point links (bidirectional)
-story_point_links (
-  id uuid primary key,
-  story_id uuid references stories(id),
-  point_id uuid references points(id),
-  link_type text,                   -- 'supports' | 'opposes' | 'explains'
-  created_at timestamp
-)
-
--- Positions table (current position)
-positions (
-  id uuid primary key,
-  point_id uuid references points(id),
-  user_id uuid references profiles(id),
-  position integer,                 -- -3 to +3 scale
-  story_id uuid references stories(id),  -- why they hold this position
-  created_at timestamp,
-  updated_at timestamp,
-  unique(point_id, user_id)
-)
-
--- Position history (for conversion tracking)
-position_history (
-  id uuid primary key,
-  position_id uuid references positions(id),
-  old_position integer,
-  new_position integer,
-  changed_at timestamp,
-  -- Context: what triggered the change?
-  after_session_id uuid references clarity_sessions(id),  -- if changed after verification
-  after_session_score integer       -- the understanding score when changed
-)
-
--- Link sessions to points
-ALTER TABLE clarity_sessions ADD COLUMN point_id uuid references points(id);
-```
+**Schema:** See [database.md](technical/database.md) for implemented schemas, feature specs for planned schemas.
 
 ### Phase 2: Event Container ✅ DONE
 
@@ -246,59 +108,9 @@ ALTER TABLE clarity_sessions ADD COLUMN point_id uuid references points(id);
 □ "See my events" on profile
 ```
 
-**Schema:**
-```sql
-events (
-  id uuid primary key,
-  name text not null,
-  description text,
-  created_by uuid references profiles(id),
-  created_at timestamp
-)
+### Phase 3: Sifter (P58)
 
-event_participants (
-  event_id uuid references events(id),
-  user_id uuid references profiles(id),
-  joined_at timestamp,
-  primary key (event_id, user_id)
-)
-```
-
-### Phase 3: Quick-Pair /live
-
-**Goal:** Instant verification from event context.
-
-```
-□ Modify /live: accept ?with=userId&point=pointId params
-□ Skip code/QR flow when params present
-□ Show Point context + both parties' Stories
-□ Link session to point_id in DB
-□ "Verify with [person]" button on attendee list
-```
-
-**Current vs Event flow:**
-| Current /live | Event /live |
-|---------------|-------------|
-| Create session, get code | No code — partner known |
-| Share QR, wait for join | Both in same room |
-| Unknown partner | Picked from attendee list |
-
-### Phase 4: First Event (H2 Validation)
-
-**Goal:** Run 30-person event to validate H2 (visibility changes behavior).
-
-```
-□ Manually seed 3-5 Stories/Points for test event
-□ End-to-end test with P60 UI
-□ Run event, observe verification behavior
-□ Post-event survey: >50% verify, >60% "worth it"
-```
-
-**Success criteria:** See [hypotheses.md](hypotheses.md) H2 definition.
-
-### Phase 5: Sifter (P58)
-
-**Goal:** Automate Story/Point creation (only after H2 validated).
+**Goal:** Automate Story/Point creation (manual seeding works but is friction).
 
 See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
 
@@ -309,9 +121,23 @@ See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
 □ Mirror Test: AI plays back, user confirms
 ```
 
-**Why after H2:** Don't automate seeding until manual seeding proves the loop works.
+**Why after verification flow:** Don't automate seeding until verification loop is connected. Manual seeding sufficient for H2 test.
 
-### Phase 6: AI Synthesis + Context Portal
+### Phase 4: First Event (H2 Validation)
+
+**Goal:** Run 30-person event to validate H2 (visibility changes behavior) and H0b (social FOMO).
+
+```
+□ Manually seed 3-5 Stories/Points for test event
+□ End-to-end test with verification flow
+□ Run event, observe verification behavior
+□ Post-event survey: >50% verify, >60% "worth it"
+□ Track: Did seeing others' ears (👂) drive participation?
+```
+
+**Success criteria:** See [hypotheses.md](hypotheses.md) H2 and H0b definitions.
+
+### Phase 5: AI Synthesis + Context Portal
 
 **Goal:** Post-verification learning extraction.
 
@@ -406,7 +232,7 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 ## Related Documents
 
 **Current Work:**
-- [P60: Exploration UX](../features/p60_navigating_stories_and_points.md) — Story/Point navigation (CURRENT)
+- [P85: Event Verification Flow](../features/p85_event_verification_flow.md) — Card selection in /live, verification logging, event outcomes (CURRENT)
 - [P78: User Personas](../features/p78_user_personas.md) — Event organizer + other personas
 - [P79: Consulting Revenue](../features/p79_consulting_revenue_model.md) — Bootstrap revenue model
 
@@ -418,8 +244,8 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 **Foundation:**
 - [hypotheses.md](hypotheses.md) — What we're testing (H-Core, H0-H5)
-- [v0_theory-of-change.md](visions/v0_theory-of-change.md) — Cascade mechanism
-- [v7_communicative_critical_rationalism.md](visions/v7_communicative_critical_rationalism.md) — Epistemology
+- [theory-of-change.md](theory-of-change.md) — Cascade mechanism, √N
+- [philosophy.md](philosophy.md) — Epistemology
 
 ---
 
@@ -427,6 +253,7 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 | Date | Change |
 |------|--------|
+| 2026-01-23 | **Major restructure:** P85 Event Verification Flow is now Phase 0. Sifter moved to Phase 3. Added H0b to H2 test criteria. Key insight: no "feed" needed — card selection happens inside /live, event page shows outcomes only. |
 | 2026-01-20 | Restructured phases: P60 (exploration) now Phase 0, Sifter moved to Phase 5 (after H2). Marked Events backend done. Deleted duplicate hypotheses, linked to hypotheses.md. Added P78/P79 references. |
 | 2026-01-18 | v7 alignment: -3 to +3 position scale, ≥8/10 verification threshold, calibration badge (≥10 sessions + ±0.5 gap), Story↔Point bidirectional linking, position_history table for conversion tracking, new open questions Q4/Q5 |
 | 2026-01-14 | Refactored from p57, integrated v6 Story/Point model, added Sifter as Phase 0 |

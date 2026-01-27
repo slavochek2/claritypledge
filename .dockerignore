@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.env.local
+.env.test.local
+*.md
+.vscode
+.cursor
+.claude
+.playwright-mcp
+playwright-report
+test-results
+e2e

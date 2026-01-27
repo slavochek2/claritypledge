@@ -12,7 +12,20 @@ Ordered list of assumptions we're testing. Each must be validated before the nex
 
 **What we're testing:** Does the Point closest to truth exhibit asymmetric conversion — opponents move toward it after verified understanding, but holders don't move away?
 
-This is the foundational claim of [Communicative Critical Rationalism](visions/v7_communicative_critical_rationalism.md). If false, the entire epistemological framework needs revision.
+This is the foundational claim of [Communicative Critical Rationalism](philosophy.md). If false, the entire epistemological framework needs revision.
+
+### The Two Components
+
+Asymmetric conversion requires BOTH:
+
+| Metric | Definition | Measures |
+|--------|------------|----------|
+| **Retention** | Holders stay after understanding opposing Stories | Conviction stability |
+| **Conversion** | Opponents flip toward after understanding supporting Stories | Persuasive power |
+
+**Asymmetry Score** = Conversion Rate − (1 − Retention Rate)
+
+A truly "strong" Point has high retention AND high conversion — it holds believers and wins converts.
 
 ### The Four States of Agreement
 
@@ -141,6 +154,27 @@ Asymmetric conversion (H-Core) applies to **True Disagreements** — cases where
 
 ---
 
+## H0b: Social FOMO drives adoption 🔄
+
+**What we're testing:** When non-participants see others with calibration scores (ears 👂) and verification history, does social FOMO motivate them to participate?
+
+This is distinct from H0 (self-revelation) — H0b is about seeing *others'* calibration creating desire to join.
+
+**How to test:**
+- Show calibration leaderboard at events (ears count on participant list)
+- Show event outcomes (verification count, top calibrated)
+- Track: Do unverified attendees seek verification after seeing others' scores?
+- Survey: "Did seeing others' calibration make you want to participate?"
+
+**Success criteria:**
+- Non-verified attendees request verification after seeing leaderboard
+- Return rate higher for events with visible calibration outcomes
+- Users mention "I saw [person] had high ears, wanted that too"
+
+**Status:** **CURRENT FOCUS** — Part of H2 event visibility test (P85 event outcomes section).
+
+---
+
 # Assumption Hierarchy (MVP Validation Order)
 
 These assumptions must be validated in order. A1-A5 are validated by MVP (human loop). A6-A7 are automation layers.
@@ -162,6 +196,6 @@ These assumptions must be validated in order. A1-A5 are validated by MVP (human 
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Product overview and business model
-- [v0_theory-of-change.md](visions/v0_theory-of-change.md) — Full validation strategy and cascade theory
+- [theory-of-change.md](theory-of-change.md) — Cascade mechanism, √N
 - [decisions.md](decisions.md) — Why we're testing in this order
 - [p69_product_vision_consolidation.md](../features/p69_product_vision_consolidation.md) — Documentation consolidation

@@ -14,7 +14,7 @@ Two calibration failures:
 
 No feedback loop exists — conversations end without checking if understanding actually happened.
 
-*For the cognitive science behind this, see [v7_communicative_critical_rationalism.md](visions/v7_communicative_critical_rationalism.md)*
+*For the cognitive science behind this, see [philosophy.md](philosophy.md)*
 
 ---
 
@@ -198,5 +198,5 @@ Core insight came from personally experiencing the gap between "we talked" and "
 ## Related Documents
 
 - [hypotheses.md](hypotheses.md) — What we're testing
-- [v0_theory-of-change.md](visions/v0_theory-of-change.md) — Theory of change
-- [v7_communicative_critical_rationalism.md](visions/v7_communicative_critical_rationalism.md) — Philosophy deep-dive
+- [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N)
+- [philosophy.md](philosophy.md) — WHY this works (epistemology)

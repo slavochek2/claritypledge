@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Zap } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { IdeaCard } from './IdeaCard';
-import { FilterTabs, type PositionFilter, RatingDots } from './shared';
+import { FilterTabs, type PositionFilter, RatingDots, PositionBadge, UserCredibility } from './shared';
 import { routes } from '../config';
 import {
   getIdeaById,
@@ -12,6 +12,7 @@ import {
   getAllVerificationSessionsForIdea,
   Position,
   formatTimeAgo,
+  currentUser,
 } from '../data/mock-data';
 
 export function IdeaDetail() {
@@ -19,7 +20,7 @@ export function IdeaDetail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const idea = getIdeaById(id || '');
-  const counts = idea ? getPositionCounts(idea) : { agree: 0, disagree: 0, dont_know: 0 };
+  const counts = idea ? getPositionCounts(idea) : { agree: 0, disagree: 0, unsure: 0 };
 
   // Check if this was shared by someone (from=userId)
   const fromUserId = searchParams.get('from');
@@ -38,7 +39,7 @@ export function IdeaDetail() {
     );
   }
 
-  const totalPositions = counts.agree + counts.disagree + counts.dont_know;
+  const totalPositions = counts.agree + counts.disagree + counts.unsure;
 
   return (
     <PrototypeLayout>
@@ -46,10 +47,11 @@ export function IdeaDetail() {
         {/* Back button - outside the card */}
         <div className="px-4 pt-3">
           <button
-            onClick={() => navigate(-1)}
-            className="p-1 text-gray-500 hover:text-gray-700 -ml-1"
+            onClick={() => window.history.length > 1 ? navigate(-1) : navigate(routes.myEvents)}
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 -ml-1"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
+            Back
           </button>
         </div>
 
@@ -75,12 +77,12 @@ export function IdeaDetail() {
                 </p>
                 <p className="text-xs text-blue-700 flex items-center gap-1 mt-0.5">
                   Their stance:
-                  <span className={`font-medium ${
-                    sharedByPosition === 'agree' ? 'text-emerald-600' :
-                    sharedByPosition === 'disagree' ? 'text-blue-600' :
-                    'text-gray-600'
+                  <span className={`font-medium px-1.5 py-0.5 rounded ${
+                    sharedByPosition === 'agree' ? 'bg-blue-100 text-blue-700' :
+                    sharedByPosition === 'disagree' ? 'bg-slate-100 text-slate-700' :
+                    'bg-white text-gray-600 ring-1 ring-gray-300'
                   }`}>
-                    {sharedByPosition === 'agree' ? '✓ Agreed' : sharedByPosition === 'disagree' ? '✗ Disagreed' : '? Unsure'}
+                    {sharedByPosition === 'agree' ? 'Agrees' : sharedByPosition === 'disagree' ? 'Disagrees' : 'Unsure'}
                   </span>
                 </p>
               </div>
@@ -129,7 +131,10 @@ export function IdeaDetail() {
                         {user.avatar}
                       </div>
                       <div className="flex-1 text-left min-w-0">
-                        <p className="font-medium text-gray-900">{user.name}</p>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-gray-900">{user.name}</span>
+                          <UserCredibility userId={user.id} userName={user.name} />
+                        </div>
                         <p className="text-xs text-gray-500">{user.role} · {formatTimeAgo(entry.timestamp)}</p>
                       </div>
                       <PositionBadge position={entry.position} />
@@ -147,37 +152,6 @@ export function IdeaDetail() {
   );
 }
 
-// Position badge for user list - simple icon + text, no avatar (already shown on left)
-function PositionBadge({ position }: { position: Position }) {
-  const config = {
-    agree: {
-      label: 'Agreed',
-      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      icon: '✓',
-    },
-    disagree: {
-      label: 'Disagreed',
-      className: 'bg-blue-50 text-blue-700 border-blue-200',
-      icon: '✗',
-    },
-    dont_know: {
-      label: 'Unsure',
-      className: 'bg-gray-100 text-gray-600 border-gray-300',
-      icon: '?',
-    },
-  };
-
-  const c = config[position as keyof typeof config];
-  if (!c) return null;
-
-  return (
-    <span className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${c.className}`}>
-      <span>{c.icon}</span>
-      <span>{c.label}</span>
-    </span>
-  );
-}
-
 // Clarity Sessions section - shows all verifications with rating dots
 interface ClaritySessionsSectionProps {
   ideaId: string;
@@ -189,10 +163,12 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
   const sessions = getAllVerificationSessionsForIdea(ideaId);
 
   // Extract individual verifications from sessions
+  // Semantics: verifier = speaker (gave rating), verified = listener (demonstrated understanding)
+  // Display shows: "{verifiedId} understands {verifierId}" (listener understands speaker)
   type Verification = {
     sessionId: string;
-    verifierId: string;
-    verifiedId: string;
+    verifierId: string;  // speaker who confirmed understanding
+    verifiedId: string;  // listener who demonstrated understanding
     rating: number;
     isAcrossDisagreement: boolean;
   };
@@ -209,18 +185,20 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
     const p2Position = idea?.positions[p2]?.position;
     const isDifferentPosition = p1Position && p2Position && p1Position !== p2Position;
 
-    // Add verification for p1 → p2 (p1 understands p2)
+    // If p1 gave a rating, they're the speaker confirming p2 (listener) understood them
+    // Display: "p2 understands p1" (verified understands verifier)
     if (verifiedBy.includes(p1) && ratings[p1] !== undefined) {
       verifications.push({
         sessionId: session.id,
-        verifierId: p1,
-        verifiedId: p2,
+        verifierId: p1,  // speaker (gave the rating)
+        verifiedId: p2,  // listener (demonstrated understanding)
         rating: ratings[p1],
         isAcrossDisagreement: !!isDifferentPosition,
       });
     }
 
-    // Add verification for p2 → p1 (p2 understands p1)
+    // If p2 gave a rating, they're the speaker confirming p1 (listener) understood them
+    // Display: "p1 understands p2" (verified understands verifier)
     if (verifiedBy.includes(p2) && ratings[p2] !== undefined) {
       verifications.push({
         sessionId: session.id,
@@ -236,15 +214,19 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
 
   const acrossDisagreementCount = verifications.filter(v => v.isAcrossDisagreement).length;
 
+  const getUser = (userId: string) => {
+    if (userId === 'current') return currentUser;
+    return getUserById(userId);
+  };
+
   const getName = (userId: string) => {
-    if (userId === 'current') return 'You';
-    const user = getUserById(userId);
+    // Always use actual name in Clarity Sessions log (third-person narrative context)
+    const user = getUser(userId);
     return user?.name || 'Unknown';
   };
 
   const getAvatar = (userId: string) => {
-    if (userId === 'current') return '👤';
-    const user = getUserById(userId);
+    const user = getUser(userId);
     return user?.avatar || '?';
   };
 
@@ -273,17 +255,17 @@ function ClaritySessionsSection({ ideaId, idea, navigate }: ClaritySessionsSecti
             onClick={() => navigate(routes.liveSession(v.sessionId))}
             className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
           >
-            {/* Verifier avatar */}
+            {/* Avatar of person who demonstrated understanding */}
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm flex-shrink-0">
-              {getAvatar(v.verifierId)}
+              {getAvatar(v.verifiedId)}
             </div>
 
-            {/* Text: "X understands Y" */}
+            {/* Text: "X understands Y" - verified demonstrates understanding of verifier */}
             <div className="flex-1 min-w-0">
               <p className="text-sm">
-                <span className="font-medium text-gray-900">{getName(v.verifierId)}</span>
-                <span className="text-gray-500"> understands </span>
                 <span className="font-medium text-gray-900">{getName(v.verifiedId)}</span>
+                <span className="text-gray-500"> understands </span>
+                <span className="font-medium text-gray-900">{getName(v.verifierId)}</span>
               </p>
             </div>
 

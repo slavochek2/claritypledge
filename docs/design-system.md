@@ -162,6 +162,23 @@ When showing content from multiple users in the same interface:
 - "You're speaking..." → Blue background (#eff6ff)
 - "Gosha finished speaking" → Gray background (#f5f5f5)
 
+#### Copy/Text Convention: "You" vs Actual Name
+
+**Rule:** In **third-person narrative contexts** (logs, history, relationship statements), always use the actual user name. In **direct address contexts**, "You" is fine.
+
+| Context | Use | Example |
+|---------|-----|---------|
+| Clarity Sessions log | Real name | "Alice Chen understands **Jordan Taylor**" ✓ |
+| Relationship statements | Real name | "**Jordan** verified **Alice**'s understanding" ✓ |
+| Historical records | Real name | "**Jordan Taylor** staked a position on Jan 5" ✓ |
+| Network graph labels | "You" | Node labeled "You" (personal view) ✓ |
+| Possessive phrases | "You/Your" | "Your profile", "Your idea" ✓ |
+| Participant lists | "You" | Showing "You" in a list of participants ✓ |
+| Notifications (in-app) | "You" | "You have a new verification" ✓ |
+| Notifications (email/push) | Real name | "Jordan, Alice verified understanding of your story" ✓ |
+
+**Why:** Third-person narratives read like historical records. "Alice understands You" is grammatically awkward and unclear when viewed later or by others. Real names create a clear, professional ledger.
+
 ### Component Patterns
 
 #### Buttons
@@ -175,14 +192,66 @@ Always use shadcn/ui `<Button>` component with variants. Don't create custom but
 - `destructive` - Delete, remove, disconnect
 - `link` - Text link style
 
-**Common patterns:**
+##### Button Hierarchy
+
+| Level | Use Case | Style | Example |
+|-------|----------|-------|---------|
+| **Primary CTA** | One main action per card/section | Full-width, `bg-blue-600`, `rounded-lg`, `py-2.5` | "Start a Clarity Session" |
+| **Secondary** | Supporting actions | Icon-only, gray, `rounded-full`, 44px touch target | Share, Open icons |
+| **Tertiary** | Less important actions | `variant="ghost"` or `variant="outline"` | Cancel, Skip |
+| **Destructive** | Dangerous actions | `variant="destructive"` or red styling | Delete, Remove |
+
+##### Primary CTA Pattern
+
+Primary CTAs should be **prominent and consistent** across the app:
+
 ```tsx
-// Primary CTA (blue)
-<Button className="bg-blue-500 hover:bg-blue-600 text-white">
-  Get Started
+// Card CTA - full width at bottom of card
+<button className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+  <Icon size={16} />
+  Action Label
+</button>
+```
+
+**Placement rules:**
+- One primary CTA per card/section (avoid competing actions)
+- Position at bottom of cards for easy thumb reach on mobile
+- Always visible (not hidden behind hover states)
+
+##### Secondary Actions Pattern
+
+Secondary actions should be **subtle and non-competing**:
+
+```tsx
+// Icon-only button with tooltip
+<button className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+  <ShareIcon size={16} />
+</button>
+```
+
+**On desktop:** Can appear on hover (opacity-0 → opacity-100)
+**On mobile:** Use overflow menu (•••) to group secondary actions
+
+##### Touch Targets
+
+All interactive elements must have **minimum 44px touch target** on mobile:
+
+```tsx
+// Icon button - explicit 44px
+<button className="min-w-[44px] min-h-[44px] ...">
+
+// Text button - padding achieves 44px height
+<button className="px-4 py-2.5 ...">  // ~40px + border = 44px
+```
+
+##### Common patterns:
+```tsx
+// Primary CTA (blue, full-width)
+<Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5">
+  Start a Clarity Session
 </Button>
 
-// Secondary action
+// Secondary action (outline)
 <Button variant="outline">Learn More</Button>
 
 // Destructive action
@@ -191,6 +260,52 @@ Always use shadcn/ui `<Button>` component with variants. Don't create custom but
 // Ghost button (minimal)
 <Button variant="ghost">Cancel</Button>
 ```
+
+#### Choice Controls (Segmented Control)
+
+**Position selection (Agree/Unsure/Disagree) is NOT 3 buttons** — it's a single-select choice control.
+
+Use **segmented control pattern** for mutually exclusive options:
+
+```
+┌─────────────────────────────────────────────────┐
+│  Disagree ▾  │   Unsure   │   Agree (2) ▾ ✓   │
+└─────────────────────────────────────────────────┘
+```
+
+**Structure:**
+- Connected segments (no gaps between options)
+- Selected segment: `bg-blue-600 text-white`
+- Unselected segment: `bg-white text-gray-700 hover:bg-gray-50`
+- Border: `border border-gray-200 rounded-lg overflow-hidden`
+
+**With sub-options (7-point scale):**
+- Disagree/Agree segments have dropdown arrow (▾)
+- Dropdown shows: Strongly, Default, Somewhat
+- Unsure has no sub-options
+
+```tsx
+// Segmented control structure
+<div className="flex rounded-lg border border-gray-200 overflow-hidden">
+  <button className={cn(
+    "flex-1 px-3 py-2 text-sm font-medium transition-colors",
+    selected === 'disagree' ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+  )}>
+    Disagree {hasSubOptions && "▾"}
+  </button>
+  <button className="flex-1 px-3 py-2 text-sm font-medium border-x border-gray-200 ...">
+    Unsure
+  </button>
+  <button className="flex-1 px-3 py-2 text-sm font-medium ...">
+    Agree (2) ▾
+  </button>
+</div>
+```
+
+**Rationale:**
+- Visually communicates "pick one" instead of "here are 3 buttons"
+- Reduces visual noise
+- Consistent with iOS/Android segmented controls
 
 #### Status Badges
 
@@ -212,6 +327,21 @@ Two main patterns:
   Draft
 </span>
 ```
+
+#### Position Badges (Prototype)
+
+Position badges (Agrees/Disagrees/Unsure) use **uniform blue styling** regardless of position type:
+
+```tsx
+// All positions use same blue styling
+<span className="bg-blue-100 text-blue-700 text-xs font-medium px-1.5 py-0.5 rounded">
+  Agrees
+</span>
+```
+
+**Rationale:** Visual consistency — the badge indicates someone took a position, not the position's "value". Disagree isn't negative, Agree isn't positive. They're equal actions.
+
+**Implementation:** See `PositionBadge.tsx` in linkedin-like prototype.
 
 #### Message Bubbles (Chat Pattern)
 
@@ -268,6 +398,53 @@ Use Tailwind's spacing scale consistently:
 - **Card padding:** `p-6` (medium cards), `p-8` (large cards)
 - **Section spacing:** `space-y-12` (sections), `space-y-6` (within sections)
 - **Button padding:** Use shadcn/ui Button sizes (`sm`, `default`, `lg`)
+
+### Thread Lines (Visual Hierarchy)
+
+Twitter-style vertical lines connecting parent → child relationships. Use when showing hierarchical data (Point → Position → Story).
+
+```
+Point (parent)
+│
+├─ AGREE (section)
+│  │
+│  ├─ Alice agrees:        ← position label
+│  │  ┌──────────────┐
+│  │  │ Story card   │     ← child content
+│  │  └──────────────┘
+│  │
+│  └─ Bob agrees:
+│     ┌──────────────┐
+│     │ Story card   │
+│     └──────────────┘
+```
+
+**CSS pattern:**
+```tsx
+// Container with thread line
+<div className="relative pl-4 border-l-2 border-gray-200">
+  {/* Horizontal connector */}
+  <div className="absolute left-0 top-4 w-3 h-0.5 bg-gray-200" />
+  {/* Child content */}
+  <div className="ml-2">...</div>
+</div>
+
+// Last item (no continuation line)
+<div className="relative pl-4 border-l-2 border-transparent">
+  <div className="absolute left-0 top-4 w-3 h-0.5 bg-gray-200" />
+  <div className="ml-2">...</div>
+</div>
+```
+
+**When to use:**
+- PointDetail: Stories grouped by position under a Point
+- Profile expanded views: Stories under Points, Points under Stories
+- Any parent-child relationship where visual connection matters
+
+**When NOT to use:**
+- Flat lists (no hierarchy)
+- Feed views (cards are independent)
+- Single-item views
 
 ### Excalidraw Wireframe Conventions
 

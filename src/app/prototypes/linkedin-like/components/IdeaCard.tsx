@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Share2, Check, Copy, Zap, Users, ExternalLink, Globe, Lock } from 'lucide-react';
+import { Share2, Check, Copy, Zap, Users, ExternalLink } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
-import { PositionButtons } from './shared';
+import { PositionButtons, VisibilityBadge, UserCredibility, type SevenPointCounts } from './shared';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { getPositionGroup } from '../../shared/types';
+import type { PositionType, PositionButtonGroup } from '../../shared/types';
 import { routes } from '../config';
 import {
   Dialog,
@@ -36,7 +39,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   const [showDeleteIdeaConfirm, setShowDeleteIdeaConfirm] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   // Check if we're on a profile page
   const isOnProfilePage = location.pathname.includes('/profile');
@@ -47,7 +49,48 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   const profileUserPosition = profileUserEntry?.position || null;
   const profileUser = profileUserId ? getUserById(profileUserId) : null;
 
-  const counts = getPositionCounts(idea);
+  const baseCounts = getPositionCounts(idea);
+
+  // Track initial position from mock data
+  const initialPosition = idea.positions['current']?.position || null;
+
+  // Compute adjusted counts based on user's current position vs initial
+  const counts = useMemo((): SevenPointCounts => {
+    // Start with base counts distributed to default positions
+    const adjusted: SevenPointCounts = {
+      strongly_agree: 0,
+      agree: baseCounts.agree,
+      somewhat_agree: 0,
+      unsure: baseCounts.unsure,
+      somewhat_disagree: 0,
+      disagree: baseCounts.disagree,
+      strongly_disagree: 0,
+    };
+
+    // Helper to get the group for a position
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+
+    const initialGroup = getGroup(initialPosition as PositionType | null);
+    const currentGroup = getGroup(userPosition as PositionType | null);
+
+    // Adjust counts based on position change
+    if (initialGroup !== currentGroup) {
+      // Decrease count for initial group (if any)
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      // Increase count for current group (if any)
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
+
+    return adjusted;
+  }, [baseCounts, initialPosition, userPosition]);
 
   // Get ALL verification sessions for the panel
   const allVerificationSessions = getAllVerificationSessionsForIdea(idea.id);
@@ -133,7 +176,7 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
   // Card styling - clickable in list view, static in detail view
   const cardClassName = isDetailView
     ? "bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative"
-    : "bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all relative";
+    : "group bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all relative";
 
   const handleCardClick = () => {
     if (!isDetailView) {
@@ -143,9 +186,9 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
 
   // Helper for profile user's position text
   const getPositionLabel = (pos: Position) => {
-    if (pos === 'agree') return { text: 'Agreed', icon: '✓', color: 'text-emerald-600' };
-    if (pos === 'disagree') return { text: 'Disagreed', icon: '✗', color: 'text-blue-600' };
-    return { text: 'Unsure', icon: '?', color: 'text-gray-500' };
+    if (pos === 'agree') return { text: 'Agreed', icon: '✓', color: 'text-blue-600' };
+    if (pos === 'disagree') return { text: 'Disagreed', icon: '✗', color: 'text-slate-600' };
+    return { text: 'Unsure', icon: '−', color: 'text-gray-500' };
   };
 
   return (
@@ -153,8 +196,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
       <div
         className={cardClassName}
         onClick={handleCardClick}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Twitter-style layout: avatar on left, content indented */}
         <div className="flex gap-3 px-4 pt-3">
@@ -165,9 +206,13 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                 e.stopPropagation();
                 navigate(`/prototype/linkedin-like/profile/${author.id}`);
               }}
-              className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg flex-shrink-0 hover:ring-2 hover:ring-blue-200 transition-all self-start"
+              className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
             >
-              {author.avatar}
+              <GravatarAvatar
+                name={author.name}
+                size="sm"
+                isPledger={author.hasPledged}
+              />
             </button>
           )}
 
@@ -185,25 +230,13 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                 >
                   {author.name}
                 </button>
+                <UserCredibility userId={author.id} userName={author.name} />
                 <span className="text-gray-400">·</span>
                 <span className="text-gray-500">
                   {idea.createdAt ? formatTimeAgo(idea.createdAt) : ''}
                 </span>
                 {/* Visibility badge */}
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-gray-400 cursor-default">
-                        {idea.visibility === 'public' && <Globe size={14} />}
-                        {idea.visibility === 'shared' && <Users size={14} />}
-                        {idea.visibility === 'private' && <Lock size={14} />}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Visibility: {idea.visibility === 'public' ? 'Public' : idea.visibility === 'shared' ? 'Shared' : 'Private'}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <VisibilityBadge visibility={idea.visibility} size={14} />
                 {/* Show profile user's position inline when on their profile */}
                 {isOtherUserProfile && profileUser && profileUserPosition && (
                   <>
@@ -242,11 +275,11 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   <TooltipTrigger asChild>
                     <span className="flex items-center gap-1.5 text-sm cursor-default">
                       <Users size={16} />
-                      <span>{counts.agree + counts.disagree + counts.dont_know}</span>
+                      <span>{counts.agree + counts.disagree + counts.unsure}</span>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{counts.agree + counts.disagree + counts.dont_know} positions taken</p>
+                    <p>{counts.agree + counts.disagree + counts.unsure} positions taken</p>
                   </TooltipContent>
                 </Tooltip>
                 {/* Clarity sessions */}
@@ -274,39 +307,37 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                   </TooltipContent>
                 </Tooltip>
               </div>
-              {/* Right side buttons */}
-              <div className="flex items-center gap-1">
-                {/* Open button - visible on hover (not in detail view) */}
-                {isHovered && !isDetailView && (
+              {/* Action buttons - always visible on mobile, hover on desktop */}
+              {!isDetailView && (
+                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(routes.idea(idea.id));
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-full hover:bg-blue-600 transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors"
                   >
-                    <ExternalLink size={14} />
+                    <ExternalLink size={12} />
                     Open
                   </button>
-                )}
-                {/* Share button */}
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowShareDialog(true);
-                      }}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                    >
-                      <Share2 size={16} />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Share this idea</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowShareDialog(true);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Share this idea</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
             </div>
             </TooltipProvider>
           </div>
@@ -430,11 +461,11 @@ function ShareDialog({
           {userPosition && (
             <div className="mt-2">
               <span className={`inline-flex items-center text-xs font-medium px-2 py-1 rounded-full ${
-                userPosition === 'agree' ? 'bg-emerald-100 text-emerald-700' :
-                userPosition === 'disagree' ? 'bg-blue-100 text-blue-700' :
+                userPosition === 'agree' ? 'bg-blue-100 text-blue-700' :
+                userPosition === 'disagree' ? 'bg-slate-100 text-slate-700' :
                 'bg-gray-200 text-gray-600'
               }`}>
-                {userPosition === 'agree' ? '✓ You agreed' : userPosition === 'disagree' ? '✗ You disagreed' : '? You\'re unsure'}
+                {userPosition === 'agree' ? '✓ You agreed' : userPosition === 'disagree' ? '✗ You disagreed' : '− You\'re unsure'}
               </span>
             </div>
           )}
@@ -465,7 +496,7 @@ function ShareDialog({
             )}
           </Button>
           {hasNativeShare && (
-            <Button onClick={handleNativeShare} className="flex-1">
+            <Button onClick={handleNativeShare} className="flex-1 bg-blue-500 hover:bg-blue-600">
               <Share2 size={16} className="mr-2" />
               Share
             </Button>

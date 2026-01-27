@@ -33,6 +33,7 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
           or{" "}
           <Link
             to="/live"
+            title="Start a live clarity session"
             className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
           >
             Start a Clarity Session
@@ -46,6 +47,7 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
     <div className={`flex flex-col items-center gap-3 ${className}`}>
       <Link
         to="/live"
+        title="Start a live clarity session"
         className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
       >
         Start a Clarity Session

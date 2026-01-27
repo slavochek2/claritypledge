@@ -57,12 +57,12 @@ prompts:
 
       ## After collecting preferences:
 
-      ### For Playwright (`mcp__playwright__*`):
+      ### For Docker MCP Browser (`mcp__MCP_DOCKER__browser_*`) — Primary:
       - Use `browser_navigate` to open the URL
       - Use `browser_snapshot` to see elements (returns refs for interaction)
       - Interact using refs from snapshot
 
-      ### For Chrome DevTools (`mcp__chrome-devtools__*`):
+      ### For Chrome DevTools (`mcp__chrome-devtools__*`) — Performance/Debugging:
       - Remind user to start Chrome with `--remote-debugging-port=9222` if not running
       - Use `navigate_page` to open the URL
       - Use `take_snapshot` to see elements (returns uids for interaction)

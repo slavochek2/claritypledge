@@ -8,12 +8,62 @@
 // Position Types
 // -----------------------------------------------------------------------------
 
-export type PositionType = 'agree' | 'disagree' | 'dont_know';
+// 7-point Likert scale: -3 to +3
+// Enables tracking position *magnitude* changes for V7 vision's Asymmetric Conversion Hypothesis
+//
+// Scale values:
+//   strongly_disagree (-3), disagree (-2), somewhat_disagree (-1),
+//   unsure (0),
+//   somewhat_agree (+1), agree (+2), strongly_agree (+3)
+//
+export type PositionType =
+  | 'strongly_disagree'  // -3
+  | 'disagree'           // -2
+  | 'somewhat_disagree'  // -1
+  | 'unsure'             // 0
+  | 'somewhat_agree'     // +1
+  | 'agree'              // +2
+  | 'strongly_agree';    // +3
+
 export type Position = PositionType | null;
+
+// Legacy 3-point positions for backwards compatibility (migrate to moderate values)
+// agree → agree (+2), disagree → disagree (-2), dont_know → unsure (0)
+export type LegacyPositionType = 'agree' | 'disagree' | 'dont_know';
 
 export interface PositionEntry {
   position: PositionType;
   timestamp: string;
+}
+
+// Position value mapping for numeric operations
+export const POSITION_VALUES: Record<PositionType, number> = {
+  strongly_disagree: -3,
+  disagree: -2,
+  somewhat_disagree: -1,
+  unsure: 0,
+  somewhat_agree: 1,
+  agree: 2,
+  strongly_agree: 3,
+};
+
+// Button groups for 3-button UI
+export type PositionButtonGroup = 'disagree' | 'unsure' | 'agree';
+
+// Map position type to its button group
+export function getPositionGroup(position: PositionType): PositionButtonGroup {
+  switch (position) {
+    case 'strongly_disagree':
+    case 'disagree':
+    case 'somewhat_disagree':
+      return 'disagree';
+    case 'unsure':
+      return 'unsure';
+    case 'somewhat_agree':
+    case 'agree':
+    case 'strongly_agree':
+      return 'agree';
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -30,6 +80,8 @@ export interface User {
   role?: string;
   company?: string;
   connections?: number;
+  // Pledge status - determines blue ring and pledge CTA visibility
+  hasPledged?: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -192,6 +244,26 @@ export interface IdeasTabState {
 }
 
 // -----------------------------------------------------------------------------
+// Notification Types
+// -----------------------------------------------------------------------------
+
+export type NotificationType = 'verification_request' | 'verification_accepted' | 'verification_declined';
+
+/**
+ * A notification for in-app alerts (bell icon).
+ * First type: verification requests from other users.
+ */
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  fromUserId: string;         // Who triggered this notification
+  storyId?: string;           // Story they want to verify (for verification_request)
+  eventId?: string;           // Event context (if applicable)
+  createdAt: string;
+  read: boolean;
+}
+
+// -----------------------------------------------------------------------------
 // Calibration Types (P56.1)
 // -----------------------------------------------------------------------------
 
@@ -204,6 +276,15 @@ export interface IdeasTabState {
 export type CalibrationState = 'underconfident' | 'calibrated' | 'overconfident';
 
 /**
+ * Calibration metrics for a single role (listener or speaker).
+ */
+export interface RoleCalibration {
+  avgGap: number;          // Negative = overconfident, Positive = underconfident
+  state: CalibrationState;
+  sessionCount: number;    // How many data points
+}
+
+/**
  * User calibration metrics.
  * Tracks the gap between self-estimated understanding and actual ratings.
  *
@@ -214,16 +295,54 @@ export type CalibrationState = 'underconfident' | 'calibrated' | 'overconfident'
  *   - You estimate 7, they actually got 6 → -1 (overconfident as speaker)
  */
 export interface UserCalibration {
-  // Listener: how well you predict your own understanding
-  listener: {
-    avgGap: number;          // Negative = overconfident, Positive = underconfident
-    state: CalibrationState;
-    sessionCount: number;    // How many data points
-  };
-  // Speaker: how well you predict others' understanding of you
-  speaker: {
-    avgGap: number;
-    state: CalibrationState;
-    sessionCount: number;
-  };
+  listener: RoleCalibration;
+  speaker: RoleCalibration;
+}
+
+// -----------------------------------------------------------------------------
+// P60: Story and Point Types (Exploration UX)
+// -----------------------------------------------------------------------------
+
+/**
+ * A Story is a personal experience that can only be understood (not debated).
+ * Stories have an author and are shown with blue styling.
+ *
+ * Visibility:
+ * - 'private': Only author sees (drafts)
+ * - 'shared': Event participants see (requires eventId)
+ * - 'public': Everyone sees (global feed, profile)
+ */
+export interface Story {
+  id: string;
+  text: string;
+  authorId: string;           // Who wrote this story
+  createdAt: string;
+  visibility: IdeaVisibility;
+  eventId?: string;           // Required when visibility='shared' - which event this is shared with
+  linkedPointIds: string[];   // Points this story relates to
+  verificationCount: number;  // How many people verified understanding
+  crossDisagreementCount?: number; // How many cross-disagreement verifications
+}
+
+/**
+ * A Point is a claim about reality that can be agreed/disagreed with.
+ * Points are ownerless/global - shown with yellow styling, no avatar.
+ */
+export interface Point {
+  id: string;
+  text: string;
+  createdAt: string;
+  positions: Record<string, PositionEntry | null>;  // User positions on this point
+  linkedStoryIds: string[];   // Stories that relate to this point
+}
+
+/**
+ * Position on a Story - includes the author's position on linked Points
+ * and whether the viewer agrees/disagrees with the linked Points.
+ */
+export interface StoryPosition {
+  storyId: string;
+  authorId: string;
+  authorPositionOnPoint: PositionType | null;  // Author's stance
+  viewerPositionOnPoint: PositionType | null;  // Current user's stance
 }

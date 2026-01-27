@@ -4,11 +4,17 @@ This file provides guidance for AI agents working with code in this repository.
 
 **For humans:** See [README.md](./README.md) for setup instructions and deployment guide.
 
-## Agent Behavior Rules — Transparency Contract
+**For agent philosophy:** See [.claude/commands/slava/PRINCIPLES.md](.claude/commands/slava/PRINCIPLES.md) — principles scale, rules don't.
 
-**Core principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
+## Agent Behavior — Transparency Principle
 
-### Always report these issues:
+> **Principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
+
+This isn't a list of rules to memorize — it's about transparency. When something feels off, say so. The examples below illustrate the principle:
+
+### Examples of What to Report
+
+These aren't exhaustive rules — they're illustrations of the transparency principle:
 
 **Broken tooling**
 - Scripts producing incorrect results (false positives/negatives)
@@ -57,32 +63,60 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## Tool Preferences
+
+### Browser Automation
+
+**Priority order:**
+1. **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) — Primary, always try first
+2. **Docker MCP Playwright** (`mcp__MCP_DOCKER__browser_eval`) — Backup only
+
+**Why Chrome DevTools first:**
+- Connects to real browser (more reliable rendering)
+- Better for visual verification
+- Maintains session state
+
+**When to use Docker MCP Playwright:**
+- Chrome DevTools unavailable or disabled
+- Need isolated/parallel-safe testing
+- Chrome DevTools session has unrecoverable errors
+
+**If Chrome DevTools shows "browser already running" error:**
+- Try `list_pages` to reconnect to existing session
+- Don't immediately fall back to Docker MCP
+
+For full details: [browser-tools.md](docs/technical/browser-tools.md)
+
 ## Product Overview
 
-A **Sensemaking Platform** that reveals calibration gaps in how well people understand each other — and motivates them to close those gaps.
+**Clarity Pledge** — A sensemaking platform that reveals calibration gaps in how well people understand each other.
 
-**Core loop:**
-1. **Events** — Organizers create events, seed Stories and Points
-2. **Stories** — Personal experiences that can only be understood (not debated)
-3. **Points** — Claims about reality that can be agreed/disagreed with
-4. **Verification** — `/live` sessions where partners explain back each other's Stories
-5. **Calibration** — Profile shows understanding gap (how well you think you communicated vs. how well you actually did)
+**Core concepts:** Stories (lived experiences, verified via /live) → Points (debatable claims, positions staked) → Calibration (accuracy tracked)
 
-**Two user journeys:**
-- **Journey A:** Event attendee → verifier → maybe pledger (1%)
-- **Journey B:** Organic visitor → pledger → maybe event host
+**Core loop:** Share → Verify understanding → See gap → Close it
 
-**The Pledge** is a graduation feature — ~1% of engaged users publicly commit to clear communication, get a profile page and certificate.
+For full concepts: [definitions.md](docs/definitions.md)
+For business model: [lean-canvas.md](docs/lean-canvas.md)
 
-**Growth model:** B2B2C — event organizers bring their people. Events are the growth engine.
+**Domain:** `claritypledge.com` | **Tech Stack:** React 19 + TypeScript + Vite + Supabase + Tailwind CSS + Radix UI
 
-**Philosophy:** See [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) and [v7_communicative_critical_rationalism.md](docs/visions/v7_communicative_critical_rationalism.md) for epistemological foundations.
+## Documentation Architecture
 
-**Domain:** `claritypledge.com` (old domain `understandingpledge.com` redirects via Vercel)
+**Source of truth docs** (concepts live here, one place only):
+- `definitions.md` — Product concepts (Stories, Points, Verification)
+- `lean-canvas.md` — Business model (Problem, Solution, Customers)
+- `hypotheses.md` — What we're testing
+- `roadmap.md` — Build sequence
+- `decisions.md` — Trade-offs (why X over Y)
+- `philosophy.md` — WHY this works (epistemology)
+- `theory-of-change.md` — HOW change spreads (cascade, √N)
+- `visions/*` — Historical explorations
 
-**Tech Stack:** React 19 + TypeScript + Vite + Supabase (PostgreSQL + Auth) + Tailwind CSS + Radix UI
+**Consumer docs** (link only, never duplicate):
+- `README.md` — Setup for humans
+- `CLAUDE.md` — Instructions for AI
 
-**Observability:** Mixpanel (analytics) + Sentry (error tracking) - both production-only
+**Rule:** If explaining a concept, add to source doc and link. Never duplicate.
 
 ## Development Commands
 
@@ -115,15 +149,22 @@ Load these docs when working on specific areas:
 
 | Working on... | Read |
 |---------------|------|
+| Core concepts (Stories, Points, Calibration) | [definitions.md](docs/definitions.md) |
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
+| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
-| Playwright, screenshots, browser MCP tools | [browser-tools.md](docs/technical/browser-tools.md) |
+| Browser automation (Chrome DevTools, screenshots) | [browser-tools.md](docs/technical/browser-tools.md) |
+| All MCP servers (Notion, Maps, LinkedIn, etc.) | [mcp-servers.md](docs/technical/mcp-servers.md) |
 | E2E tests, Playwright test suite | [e2e-testing.md](docs/technical/e2e-testing.md) |
 | /live session testing, two-party simulation | [live-session-testing.md](docs/technical/live-session-testing.md) |
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
+| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+| Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
+| Epistemology (WHY this works) | [philosophy.md](docs/philosophy.md) |
+| Cascade, √N, network effects | [theory-of-change.md](docs/theory-of-change.md) |
 
 ## Worktree Branch Naming
 
@@ -145,15 +186,23 @@ git branch -m w1  # Reset to generic name
 # Later, starting feature p62:
 git branch -m p62-dashboard-w1  # Rename before first commit
 ```
-| Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
-| Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
-| Philosophy, theory of change | [v0_theory-of-change.md](docs/visions/v0_theory-of-change.md) |
-| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 
 ## Knowledge-Driven Development
 
-- `/kdd` - Record decisions (run after features with interesting trade-offs)
-- [decisions.md](docs/decisions.md) - Why we chose things (append-only, newest at top)
+`/kdd` — Run after finishing features to capture knowledge and keep docs current.
+
+**What it manages:**
+
+| Category | Docs |
+|----------|------|
+| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
+| Technical (the "how") | `database.md`, `authentication.md`, `definitions.md`, etc. |
+
+**When to run:**
+- After features with interesting trade-offs
+- When hypothesis validated/invalidated
+- When priorities shift
+- When confusion about past decisions signals one should have been recorded
 
 ## Configuration
 
@@ -167,6 +216,32 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 - `@/*` → `src/*`
 - `@components/*` → `src/components/*`
 - `@lib/*` → `src/lib/*`
+
+## Database Access Policy
+
+**Agents have TEST database access only. No production database access.**
+
+| Environment | MCP Access | Purpose |
+|-------------|------------|---------|
+| Test (`gfjctyxqlwexxwsmkakq`) | ✅ Full access | Development, testing, experimentation |
+| Production | ❌ No access | Protected from agent modifications |
+
+**Workflow for production changes:**
+1. Develop and test changes on test database
+2. Capture changes as SQL migrations in `supabase/migrations/`
+3. Human reviews migration files
+4. Human applies to production via `supabase db push` or Supabase dashboard
+
+**Why this policy:**
+- Agents can experiment freely on test without risk
+- Production data is protected from accidental modifications
+- Changes are auditable through migration files
+- Human approval required before production deployment
+
+**MCP Configuration:**
+- `.mcp.json` contains test Supabase credentials only (gitignored)
+- Works consistently across all worktrees
+- Never add production credentials to any config file
 
 ## Project Structure
 
@@ -244,12 +319,12 @@ For detailed architecture docs, see the [Deep Dive References](#deep-dive-refere
 
 4. **Email verification**: Users aren't "verified" until they click the magic link. Profile creation happens on callback, not during signup.
 
-5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check [clarity-navigation.tsx](src/app/components/clarity-navigation.tsx) for current implementation.
+5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check [simple-navigation.tsx](src/app/components/layout/simple-navigation.tsx) for current implementation.
 
 ## Testing
 
 **Unit Tests** (Vitest + React Testing Library + jsdom):
-- Setup: [src/tests/setup.ts](src/tests/setup.ts)
+- Setup: [src/tests/setup.tsx](src/tests/setup.tsx)
 - Location: `src/tests/` or colocated with components
 - Critical tests: [critical-auth-flow.test.tsx](src/tests/critical-auth-flow.test.tsx)
 
@@ -315,6 +390,29 @@ For full event catalog and patterns, see [docs/technical/analytics.md](docs/tech
 ```
 
 This script runs automatically if installed as a git hook, but Claude should run it explicitly before committing to catch issues early.
+
+### Git Safety Rules (CRITICAL)
+
+**NEVER use these commands:**
+- `git add .` — can stage secrets and ignored files
+- `git add -A` — same problem
+- `git add -f <file>` — forces adding ignored files
+
+**ALWAYS use explicit file names:**
+```bash
+git add src/app/pages/MyPage.tsx src/components/Button.tsx
+```
+
+**Files that MUST NEVER be committed:**
+- `.mcp.json` — contains API tokens
+- `.env.local` — contains secrets
+- Any file with `token`, `secret`, `key`, `password` in content
+
+**If you accidentally stage a secret:**
+```bash
+git reset HEAD <file>        # Unstage
+git rm --cached <file>       # Untrack (if already tracked)
+```
 
 ### What it checks:
 
@@ -392,12 +490,17 @@ Consider using these for features requiring cloud infrastructure (compute, stora
   - `src/hooks/` - Shared React hooks
   - `src/components/ui/` - Base UI components
   - `src/app/components/` - Feature components
+- **For skills and agents**, also check:
+  - `.claude/commands/slava/` - **Slava's custom skills and agents (check here FIRST)**
+  - `.claude/commands/awesome/` - Community skills
+  - `.claude/commands/bmad/**/agents/` - BMAD agents
 
 ### Avoid Duplication Checklist
-Before creating a new function, hook, or component:
+Before creating a new function, hook, component, **skill, or agent**:
 1. Search the codebase for similar functionality using grep/glob
-2. Check if an existing utility can be extended rather than duplicated
-3. If similar code exists in 2+ places, refactor into a shared location
+2. Check if an existing file can be extended rather than duplicated
+3. If similar concept exists, add to the source of truth (don't create parallel definitions)
+4. **For agent personas**: check if `/prep-spec/agents/` or `/bmad/**/agents/` already has it
 
 ### KISS (Keep It Simple)
 - Prefer straightforward solutions over clever ones
@@ -408,6 +511,64 @@ Before creating a new function, hook, or component:
 - Only implement what's currently needed
 - Don't add "just in case" features or configuration
 - Delete unused code rather than commenting it out
+
+## Pre-Creation Gate (MANDATORY)
+
+**Before creating ANY new file**, you MUST complete this checklist:
+
+### Step 1: Search for Existing Alternatives
+
+```bash
+# Search for similar concepts/names
+grep -ri "{concept}" .claude/commands/ docs/ src/
+
+# Check existing skills
+ls .claude/commands/**/
+
+# Check existing agents
+ls .claude/commands/**/agents/
+```
+
+**Ask yourself:**
+- Does something similar already exist?
+- Can an existing file be extended instead?
+- Is this concept already defined elsewhere (single source of truth)?
+
+### Step 2: Justify the New File
+
+If you still want to create a new file, you must answer:
+
+| Question | Your Answer |
+|----------|-------------|
+| What existing files did you check? | {list them} |
+| Why can't those be extended/reused? | {specific reason} |
+| Where is the canonical home for this concept? | {path} |
+| Will this create duplication? | {yes/no + explanation} |
+
+### Step 3: Get Approval
+
+**For these file types, STOP and ask the user:**
+- Skills (`.claude/commands/**/*.md`)
+- Agent definitions
+- Documentation (`docs/**/*.md`)
+- New directories
+
+**Show the user:**
+1. What you searched for
+2. What you found (or didn't find)
+3. Why you believe a new file is needed
+4. Where it would go
+
+### Common Violations to Avoid
+
+| Violation | Instead |
+|-----------|---------|
+| Creating new agent inline in a skill | Reference existing agent OR create in shared location |
+| Duplicating concept in multiple docs | Add to source doc, link from others |
+| New utility when similar exists | Extend existing utility |
+| New skill when existing skill could have a flag | Add flag/mode to existing skill |
+
+---
 
 ## File Creation Rules
 
@@ -436,6 +597,7 @@ Before creating a new function, hook, or component:
 | UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
+| **Slava's custom skills** | `.claude/commands/slava/` |
 | Source code | `src/app/` |
 | Unit tests | `src/tests/` or colocated |
 | E2E tests | `e2e/` |
@@ -445,7 +607,7 @@ Before creating a new function, hook, or component:
 ```
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
-├── visions/            # Philosophy docs (v0, v7)
+├── visions/            # Historical explorations (v1-v8)
 ├── bmad/               # BMAD workflow status files
 ├── archive/            # Archived docs (superseded)
 ├── hypotheses.md       # What we're testing

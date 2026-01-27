@@ -1451,6 +1451,13 @@ export function ClarityLivePage() {
 
   // Cancel waiting and go back to start
   const handleCancelWaiting = () => {
+    // P106: Track session abandoned before partner joined
+    if (session) {
+      analytics.track('live_session_abandoned', {
+        session_code: session.code,
+        waited_seconds: Math.floor((Date.now() - new Date(session.created_at).getTime()) / 1000),
+      });
+    }
     clearStoredSession();
     setSession(null);
     setView('start');
@@ -2151,6 +2158,11 @@ export function ClarityLivePage() {
           text: `Join my Clarity Session`,
           url: shareLink,
         });
+        // P106: Track successful native share
+        analytics.track('live_invite_shared', {
+          session_code: session.code,
+          method: 'native_share',
+        });
         return;
       } catch (err) {
         // User cancelled or share failed, fall through to copy
@@ -2163,6 +2175,11 @@ export function ClarityLivePage() {
       await navigator.clipboard.writeText(shareLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      // P106: Track link copied
+      analytics.track('live_invite_shared', {
+        session_code: session.code,
+        method: 'clipboard_copy',
+      });
     } catch (err) {
       console.error('Failed to copy:', err);
     }

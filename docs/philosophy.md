@@ -1,0 +1,315 @@
+# Philosophy: Communicative Critical Rationalism
+
+**A Meta-Epistemology Based on Understanding**
+
+**Status:** Source of truth — epistemological foundation for Clarity Pledge
+**Origin:** Synthesis of Popper, Deutsch, Habermas, and communication science
+**See also:** [theory-of-change.md](theory-of-change.md) for HOW change spreads
+
+---
+
+## The Problem
+
+Epistemology asks: *How do we distinguish false beliefs from knowledge?*
+
+Religious and ideological conflicts are fundamentally fights over epistemology - disagreements about the *source* of truth (this book, that person, empirical observation, etc.).
+
+We have many epistemologies: empiricism, pragmatism, constructivism, critical rationalism (Popper), and its refinements (Deutsch). But people don't agree on which is best.
+
+**The deeper question:** Can we agree on a *meta-epistemology* - a method for determining which epistemology is better?
+
+---
+
+## The Core Theory
+
+### Definition: Communicative Critical Rationalism
+
+A **methodological meta-epistemology** based not on *what* is true, but on a *protocol of engagement* that allows truth to emerge through error correction and mutual understanding.
+
+This is not a theory about the nature of knowledge — it's the "rules of the game" for how people with different epistemologies can resolve disputes without first agreeing on what constitutes evidence.
+
+### The Central Hypothesis
+
+> If two people both practice active listening, they have agreed on a meta-epistemology. They have agreed on *how* they will resolve epistemological disputes, even if they haven't yet resolved them.
+
+---
+
+## Core Postulates
+
+### 1. The Understanding Imbalance Postulate
+
+If Person A understands Person B's worldview better than Person B understands Person A's, Person A's worldview is more likely to possess higher explanatory power (be closer to "truth").
+
+**The logic:** If your explanation of the world can account for your opponent's perspective *and its flaws*, while theirs cannot account for yours, your explanation is more robust - harder to vary - and therefore closer to truth.
+
+**Connection to Deutsch:** In *The Beginning of Infinity*, David Deutsch argues that good explanations are "hard to vary." The Understanding Imbalance extends this from internal logic to social verification.
+
+### 2. The Active Listening Postulate
+
+Active listening (paraphrasing + open questions) is not just a social skill - it is a **falsification tool**.
+
+**The Popperian link:** Critical rationalism requires bold proposals and rigorous falsification. But most people fail because they attack strawman versions of ideas.
+
+**Active listening's role:** It ensures that when we reject an idea, we reject the *actual* idea, not a misunderstanding of it. It prevents us from wasting time fighting ghosts.
+
+### 3. The Point/Story Distinction
+
+Knowledge consists of two elements:
+
+| Element | Description | Properties |
+|---------|-------------|------------|
+| **Points** | Falsifiable claims (the "what") | Can agree/disagree; hard to vary; counter-factual; antifragile |
+| **Stories** | Experiences and explanations (the "why/how") | Cannot agree/disagree with directly; provide context for points |
+
+A story relates to points. People hold positions on points, and their stories explain *why* they hold those positions.
+
+---
+
+## The Asymmetric Conversion Hypothesis
+
+The core measurable claim of this framework:
+
+> In a network of calibrated active listeners, the Point closest to truth is the one that exhibits the highest **Asymmetric Conversion Rate**: the statistical likelihood that an opponent moves their position toward the Point after achieving verified understanding (≥8/10) of its supporting Stories, while the inverse does not occur.
+
+### The Two Components of Asymmetric Conversion
+
+A truly "strong" Point exhibits BOTH metrics:
+
+| Metric | Definition | What it measures |
+|--------|------------|------------------|
+| **Retention Rate** | Holders who stay after understanding opposing Stories | Conviction stability — the Point survives exposure to counter-narratives |
+| **Conversion Rate** | Opponents who flip toward after understanding supporting Stories | Persuasive power — the Point wins converts through understanding |
+
+**Asymmetry Score** = Conversion Rate − (1 − Retention Rate)
+
+- **High asymmetry** → Strong truth signal: opponents convert, believers stay
+- **Zero asymmetry** → Value conflict or both partially right
+- **Negative asymmetry** → The Point may be wrong: believers leave, opponents don't join
+
+### Why BOTH Matter
+
+A Point with only high conversion but low retention is "viral but unstable" — it recruits but can't hold.
+
+A Point with only high retention but low conversion is "tribal" — preaching to the choir.
+
+The truth-seeking sweet spot requires BOTH: a Point that retains believers who encounter criticism AND converts opponents who truly understand it.
+
+### Why Asymmetry Matters
+
+| Pattern | Interpretation |
+|---------|----------------|
+| **Asymmetric conversion** (opponents flip toward, holders stay) | Signal toward truth |
+| **Symmetric conversion** (both sides move equally) | Genuine value conflict or both partially right |
+| **No conversion despite understanding** | Incommensurable axioms — the disagreement is about values, not facts |
+| **Reverse asymmetry** (holders leave, opponents don't join) | The Point may be wrong |
+
+### What This Enables
+
+This hypothesis makes truth **measurable** without requiring anyone to be the arbiter. The network itself reveals which points survive contact with understanding.
+
+---
+
+## The Measurement Stack
+
+How to operationalize this framework:
+
+### 1. Point Quality (AI-Evaluated)
+
+AI assesses whether a Point meets the criteria for a good explanation:
+
+- **Falsifiable** — Can be proven wrong in principle
+- **Hard to vary** — Changing one detail breaks the explanation
+- **Counter-factual** — Explains what would be different if false
+- **Antifragile** — Strengthened by criticism
+
+### 2. Position Scale
+
+Track positions on Points using a 7-point Likert scale:
+
+| Score | Meaning |
+|-------|---------|
+| -3 | Strongly disagree |
+| -2 | Disagree |
+| -1 | Slightly disagree |
+| 0 | Unsure / No opinion |
+| +1 | Slightly agree |
+| +2 | Agree |
+| +3 | Strongly agree |
+
+### 3. Understanding Verification
+
+Partners verify understanding through the paraphrase-and-confirm cycle:
+- Partner A shares their Story
+- Partner B paraphrases back
+- Partner A scores: "How understood do I feel?" (0-10)
+- Threshold for "verified understanding": ≥8/10
+
+### 4. Conversion Analysis
+
+Compare position changes against **personal baseline**:
+- Track each user's typical conversion rate across all Points
+- If User X converts on 20% of Points generally, but 80% on Point A after understanding Story S, that's signal
+- No need for global baselines — each person is their own control
+
+### 5. Calibration (Emergent)
+
+No gatekeeping. Calibration emerges from the network:
+- Weight contributions by track record
+- "This understanding was verified by Person X, Y, Z. Here's their history."
+- Anyone can participate; data quality emerges from patterns
+
+### Story-Point Coherence
+
+A Story "supports" a Point if understanding the Story predictably leads to position change on that Point. This is **empirical coherence** — we measure it, not judge it.
+
+Future enhancement: AI could flag Stories that are emotionally compelling but logically disconnected from their claimed Points.
+
+---
+
+## The Recursively Teachable Metric
+
+### Definition
+
+An idea (point) is "recursively teachable" if:
+
+> When people understand the stories of those who agree with this point, they tend to agree with the point themselves.
+
+### Properties of Good Points
+
+Drawing from Popper and Deutsch, plus this framework:
+
+1. **Hard to vary** - Changing one detail breaks the explanation
+2. **Falsifiable** - Can be proven wrong in principle
+3. **Counter-factual** - Explains what would be different if false
+4. **Antifragile** - Strengthened by criticism
+5. **Recursively teachable** - Survives transmission through active listeners
+
+### The "Telephone Game" Test
+
+In meme theory terms, this is about **fidelity**. If a point is true and clear, it should pass from Person A to B to C without losing its core logic.
+
+A manipulated story usually fails recursive teachability - it degrades when passed through a network of expert active listeners.
+
+---
+
+## The Scaling Vision
+
+### The Problem of Two People
+
+Two skilled active listeners can:
+- Give each other the feeling of being understood
+- Still disagree on points
+
+**Why?** They lack visibility into how well ideas spread among field experts who are good active listeners.
+
+### The Solution: Collective Intelligence
+
+Use AI to visualize:
+- How points and stories evolve over time
+- Understanding scores between experts
+- Which points survive recursive teachability across networks
+- Patterns in agreement/disagreement after mutual understanding
+
+This creates a "market for understanding" rather than a "market for ideas" (who shouts loudest).
+
+---
+
+## Related Theories and Unique Contributions
+
+### Intellectual Ancestors
+
+| Thinker/Theory | Connection | Difference |
+|----------------|------------|------------|
+| **Habermas** (Discourse Ethics) | Truth through "ideal speech situation" | Habermas focused on *consensus*; this focuses on *understanding* as the metric, even without agreement |
+| **Rapoport's Rules** | Must paraphrase opponent before disagreeing | Rapoport saw this as diplomatic; this proposes it as *measurement* of explanatory power |
+| **Davidson** (Principle of Charity) | Must assume rationality to understand | Davidson says assume they're right to understand; this says understanding them *better than they understand you* indicates who is right |
+| **Deutsch** (Beginning of Infinity) | Good explanations are hard to vary | This extends "hard to vary" from internal logic to social verification |
+| **Steelman Technique** | Build strongest version of opponent's argument | This adds quantification and scaling |
+
+### What's Unique
+
+1. **Understanding Imbalance as Truth Metric** - The person with the better "simulator" of the other's mind likely has the better grip on reality
+
+2. **Quantifying "Feeling Understood"** - 0-10 scores as data for epistemological exchange success
+
+3. **Recursive Teachability** - Using "how well a story explains a point to third parties" as a truth metric
+
+4. **AI Visualization of Epistemic Flows** - Using AI not to tell us answers, but to visualize how points and stories move through networks
+
+5. **Active Listening as Meta-Epistemological Agreement** - We don't need to agree on Bible vs. Science; we need to agree on the *protocol*. If both practice active listening, the truer point will emerge through falsification of lesser stories.
+
+---
+
+## Open Questions and Challenges
+
+### Resolved in This Framework
+
+**The Expert Filter** — Solved by decentralized calibration. No gatekeeping needed; weight contributions by track record. The network self-calibrates.
+
+**Deep Pluralism** — The Asymmetric Conversion Hypothesis distinguishes fact-disagreements from value-disagreements. If two people understand each other perfectly but still disagree, and conversion is symmetric or absent, that's signal of incommensurable values — not a failure of the framework.
+
+### Partially Addressed
+
+**The Sophist Problem** — Someone could manipulate through active listening. Defenses:
+1. Recursive teachability — manipulated stories degrade through networks
+2. Empirical Story-Point coherence — emotionally compelling but logically disconnected stories should show weaker conversion patterns
+3. Future: AI flagging of logical disconnects
+
+**Feeling vs. Fact** — Does "feeling understood" correlate with "being accurately represented"? Partially addressed by requiring both self-report (feeling) and partner confirmation (paraphrase accuracy). Could be strengthened with third-party verification.
+
+### Still Open
+
+**The Cost of Scaling** — Active listening is expensive (time, cognitive energy). The measurement stack reduces this by making each exchange count as data, but we need more exchanges than traditional surveys. Can AI assistance reduce the cognitive load without biasing outcomes?
+
+**AI Bias** — How do we ensure AI evaluates Point quality fairly? Current approach: AI only evaluates structural properties (falsifiable, hard to vary) not content truth. But training data bias could still affect what's considered "well-formed."
+
+**Threshold Sensitivity** — Why 8/10 for verified understanding? Is this the right threshold? Different thresholds might produce different conversion patterns. Needs empirical validation.
+
+**Time Horizon** — When do we measure conversion? Immediately after? A week later? People might "snap back" to original positions under social pressure. The measurement timing affects what we're actually measuring.
+
+---
+
+## Connection to Clarity Pledge
+
+The Clarity Pledge operationalizes this philosophy:
+
+### Current Implementation
+
+1. **Active listening as commitment** — Signers pledge to practice the protocol
+2. **Verification through understanding** — The `/live` sessions implement the paraphrase-and-confirm cycle
+3. **Scaling through network** — Events bring people who've agreed to the meta-epistemology
+
+### Future Implementation (The Measurement Stack)
+
+4. **Points and Stories** — Events seed Points (claims) and Stories (experiences). Users take positions (-3 to +3) on Points.
+5. **Understanding verification** — Partners verify understanding (0-10 score) during live sessions
+6. **Conversion tracking** — System tracks position changes before/after verified understanding
+7. **Asymmetric conversion visualization** — Show which Points exhibit asymmetric conversion patterns
+8. **Calibration profiles** — Users build track records as listeners; contributions weighted by history
+
+### The Goal
+
+The pledge isn't about being right — it's about agreeing to the *method* by which truth can emerge. The platform doesn't tell you what's true; it shows you what happens when people truly understand each other.
+
+---
+
+## Summary
+
+> We don't need to agree on what is true. We need to agree on *how we will find out* what is true. Active listening is that agreement.
+
+The person who understands others better than they are understood is likely closer to truth — not because understanding makes you right, but because the ability to model diverse perspectives indicates a more robust, harder-to-vary explanation of reality.
+
+**The key insight:** Truth can be measured by tracking what happens when people truly understand each other. If Point A converts opponents who understand it, while Point B doesn't convert opponents who understand it, Point A is closer to truth — and we can see this in the data without anyone being the arbiter.
+
+Truth emerges through error correction. Active listening ensures we correct *actual* errors, not misunderstandings. Scale this through networks of skilled listeners, track the patterns, and let the asymmetrically converting ideas surface.
+
+---
+
+## Related Documents
+
+- [theory-of-change.md](theory-of-change.md) — HOW change spreads (cascade, √N)
+- [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article with tactical frameworks (Three Asymmetries, Implementation Levels, Celebration Engine)
+
+## Historical Note
+
+This document is the canonical source for Clarity Pledge's epistemological foundation. It was promoted from `docs/visions/v7_communicative_critical_rationalism.md` as part of the documentation architecture refactor (P96).
