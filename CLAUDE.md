@@ -446,13 +446,24 @@ The linter catches common accessibility issues:
 
 If issues are found, ask the user how to proceed before committing.
 
-## Available Cloud Credits
+## Cloud Infrastructure
 
-| Provider | Credit | Source | Expires |
-|----------|--------|--------|---------|
-| **Google Cloud** | $25 | GFS 2024 Ecosystem Partner | TBD (check account) |
+### Google Cloud Platform
 
-Consider using these for features requiring cloud infrastructure (compute, storage, background jobs).
+**Credits:** €25,000 (GFS Ecosystem Partner program)
+
+**Existing infrastructure:**
+- **GCS Bucket:** `[TBD - add bucket name]` — used for voice recordings, event banners
+- **Project ID:** `[TBD - add project ID]`
+
+**When to use GCS over alternatives:**
+- File uploads (images, audio, documents) → GCS bucket
+- Prefer GCS over Supabase Storage — we have credits and it's already set up
+
+**Future uses to consider:**
+- Background jobs (Cloud Run)
+- AI/ML workloads (Vertex AI)
+- CDN for static assets
 
 ## Technical Debt / Intentional Decisions
 
@@ -473,6 +484,7 @@ Consider using these for features requiring cloud infrastructure (compute, stora
 
 ## Code Style Conventions
 
+- **Never put dates in documentation** — Claude often hallucinates the year. Use relative terms ("current", "recent") or omit dates entirely. Status fields and git history provide temporal context.
 - React 19 patterns (no more FC type annotation needed)
 - Hooks at component top
 - Server state via Supabase queries (no global state library)
