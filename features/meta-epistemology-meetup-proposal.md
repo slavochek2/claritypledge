@@ -8,7 +8,7 @@
 
 **For context on the problem and approach** (choose your preferred format):
 - [Read the manifesto online](https://claritypledge.com/manifesto) (~15 min)
-- [Or use the raw text with your AI](https://github.com/[your-repo]/blob/main/src/app/content/full-article.md) — ask it to summarize or discuss with you
+- [Or use the raw text with your AI](https://github.com/slavochek2/claritypledge/blob/main/src/app/content/full-article.md) — ask it to summarize or discuss with you
 
 This doc is our meeting agenda.
 
@@ -103,18 +103,6 @@ Theory of change: You don't need everyone to verify with everyone. You need √N
 **For this meeting**: Your honest critique and help thinking through Meeting 1.
 
 **Longer term**: If this resonates, I'd value ongoing dialogue as the group develops.
-
----
-
-## Why Me
-
-[TODO: 2-3 sentences on your background and what led you to this]
-
----
-
-## Timeline
-
-[TODO: Target date for Meeting 1]
 
 ---
 
