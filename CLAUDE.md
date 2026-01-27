@@ -391,6 +391,29 @@ For full event catalog and patterns, see [docs/technical/analytics.md](docs/tech
 
 This script runs automatically if installed as a git hook, but Claude should run it explicitly before committing to catch issues early.
 
+### Git Safety Rules (CRITICAL)
+
+**NEVER use these commands:**
+- `git add .` — can stage secrets and ignored files
+- `git add -A` — same problem
+- `git add -f <file>` — forces adding ignored files
+
+**ALWAYS use explicit file names:**
+```bash
+git add src/app/pages/MyPage.tsx src/components/Button.tsx
+```
+
+**Files that MUST NEVER be committed:**
+- `.mcp.json` — contains API tokens
+- `.env.local` — contains secrets
+- Any file with `token`, `secret`, `key`, `password` in content
+
+**If you accidentally stage a secret:**
+```bash
+git reset HEAD <file>        # Unstage
+git rm --cached <file>       # Untrack (if already tracked)
+```
+
 ### What it checks:
 
 | Check | Blocks commit? | Purpose |
