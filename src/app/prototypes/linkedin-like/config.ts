@@ -19,6 +19,9 @@ export const routes = {
   liveWithIdea: (ideaId: string) => `${ROUTE_BASE}/live/${ideaId}`,
   liveHistory: (ideaId: string) => `${ROUTE_BASE}/live/${ideaId}/history`,
 
+  // Create flow
+  sift: `${ROUTE_BASE}/sift`,
+
   // Legacy/other
   chat: `${ROUTE_BASE}/chat`,
   topology: `${ROUTE_BASE}/topology`,

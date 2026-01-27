@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CalendarDays, User, Radio } from 'lucide-react';
+import { CalendarDays, User, Radio, PenLine } from 'lucide-react';
 import { routes } from '../config';
 
 interface NavItem {
@@ -10,6 +10,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: routes.myEvents, label: 'My Events', icon: <CalendarDays size={20} /> },
+  { path: routes.sift, label: 'Create', icon: <PenLine size={20} /> },
   { path: routes.profile, label: 'My Profile', icon: <User size={20} /> },
 ];
 
@@ -25,6 +26,7 @@ export function BottomNav() {
       location.pathname.includes('/point/')
     )) return true;
     if (path === routes.profile && location.pathname.includes('/profile')) return true;
+    if (path === routes.sift && location.pathname.includes('/sift')) return true;
     return location.pathname === path;
   };
 
@@ -52,23 +54,33 @@ export function BottomNav() {
           <span className="text-xs mt-1 font-medium">{navItems[0].label}</span>
         </button>
 
-        {/* Start Session - Center CTA */}
-        <button
-          onClick={handleStartSession}
-          className={getButtonClasses(false)}
-          aria-label="Start a Clarity Session"
-        >
-          <Radio size={20} />
-          <span className="text-xs mt-1 font-medium">Start Session</span>
-        </button>
-
-        {/* My Profile */}
+        {/* Create - Center */}
         <button
           onClick={() => navigate(navItems[1].path)}
           className={getButtonClasses(isActive(navItems[1].path))}
         >
           {navItems[1].icon}
           <span className="text-xs mt-1 font-medium">{navItems[1].label}</span>
+        </button>
+
+        {/* Start Session */}
+        <button
+          onClick={handleStartSession}
+          className={getButtonClasses(false)}
+          aria-label="Start Live"
+          title="Start a live clarity session"
+        >
+          <Radio size={20} />
+          <span className="text-xs mt-1 font-medium">Live</span>
+        </button>
+
+        {/* My Profile */}
+        <button
+          onClick={() => navigate(navItems[2].path)}
+          className={getButtonClasses(isActive(navItems[2].path))}
+        >
+          {navItems[2].icon}
+          <span className="text-xs mt-1 font-medium">{navItems[2].label}</span>
         </button>
       </div>
     </nav>

@@ -299,7 +299,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
 
       {/* Expanded linked stories - only in feed view */}
       {!isDetailView && storiesExpanded && profileOwnerId && storiesToShow.length > 0 && (
-        <div className={showQuotePattern ? "pl-[60px] pr-4 pb-4" : "pl-[68px] pr-4 pb-4"}>
+        <div className={showQuotePattern ? "pl-4 sm:pl-[60px] pr-4 pb-4" : "pl-4 sm:pl-[68px] pr-4 pb-4"}>
           {storiesToShow.length === 1 ? (
             // Single story - no thread lines
             <QuotedStory

@@ -7,6 +7,9 @@
 **Revised:** 2026-01-09 (merged email flow + page into single story)
 **Depends On:** P50 Phase 1 (has_pledged infrastructure)
 
+note to self: - [***https://www.assemblyai.com/pricing](https://www.assemblyai.com/pricing)***
+- Whisper - cloud run for whisper on google cloud
+
 ---
 
 ## Goal

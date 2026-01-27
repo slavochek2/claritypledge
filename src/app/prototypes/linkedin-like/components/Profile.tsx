@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Ear, Sparkles, PenLine } from 'lucide-react';
+import { ArrowLeft, Share2, Ear, Sparkles } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
@@ -21,11 +21,8 @@ type ContentTab = 'points' | 'stories';
 export function Profile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [newIdeaText, setNewIdeaText] = useState('');
-  const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
-  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOwnProfile = !id || id === 'current';
   const user = isOwnProfile ? currentUser : getUserById(id || '');
@@ -303,47 +300,15 @@ export function Profile() {
               )}
             </div>
 
-            {/* Brain dump composer - Sifter entry point */}
+            {/* Create Stories & Points CTA */}
             <div className="pt-3">
-              <div className="bg-white rounded-lg border border-gray-200 p-3">
-                <div className="flex gap-3">
-                  <GravatarAvatar
-                    name={user.name}
-                    size="sm"
-                    isPledger={user.hasPledged}
-                  />
-                  <div className="flex-1">
-                    <textarea
-                      ref={composerTextareaRef}
-                      value={newIdeaText}
-                      onChange={(e) => setNewIdeaText(e.target.value)}
-                      onFocus={() => setIsComposerExpanded(true)}
-                      placeholder="What's on your mind?"
-                      className={`w-full text-gray-900 placeholder:text-gray-400 resize-none focus:outline-none text-sm ${
-                        isComposerExpanded ? 'h-24' : 'h-6'
-                      } transition-all`}
-                    />
-                    {isComposerExpanded && (
-                      <div className="flex justify-end pt-2">
-                        <button
-                          onClick={() => {
-                            if (!newIdeaText.trim()) return;
-                            // Navigate to Sifter with composer text as initial input
-                            navigate('/prototype/linkedin-like/sift', {
-                              state: { initialInput: newIdeaText }
-                            });
-                          }}
-                          disabled={!newIdeaText.trim()}
-                          className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-full transition-colors"
-                        >
-                          <Sparkles size={16} />
-                          Create Stories & Points
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <button
+                onClick={() => navigate('/prototype/linkedin-like/sift')}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors"
+              >
+                <Sparkles size={18} />
+                <span className="text-sm font-medium">Create Stories & Points</span>
+              </button>
             </div>
 
             {/* Content tab selector */}
@@ -386,16 +351,10 @@ export function Profile() {
                   <div className="bg-white rounded-lg p-8 text-center">
                     <p className="text-gray-500 mb-4">No stories shared yet</p>
                     <button
-                      onClick={() => {
-                        composerTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        setTimeout(() => {
-                          composerTextareaRef.current?.focus();
-                          setIsComposerExpanded(true);
-                        }, 300);
-                      }}
+                      onClick={() => navigate('/prototype/linkedin-like/sift')}
                       className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      <PenLine size={16} />
+                      <Sparkles size={16} />
                       Share your first story
                     </button>
                   </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Settings, LogOut, CalendarDays, User, Radio, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, CalendarDays, User, Radio, PenLine, type LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,7 @@ export function PrototypeHeader() {
 
   const navItems: NavItem[] = [
     { path: routes.myEvents, label: 'My Events', icon: CalendarDays },
+    { path: routes.sift, label: 'Create', icon: PenLine },
     { path: routes.profile, label: 'My Profile', icon: User },
   ];
 
@@ -96,13 +97,14 @@ export function PrototypeHeader() {
               );
             })}
 
-            {/* Start a Clarity Session CTA */}
+            {/* Start Live CTA */}
             <Link
               to={routes.live}
+              title="Start a live clarity session"
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
             >
               <Radio size={16} />
-              Start a Clarity Session
+              Start Live
             </Link>
 
             {/* Avatar dropdown */}
@@ -159,9 +161,15 @@ export function PrototypeHeader() {
               <DropdownMenuContent align="end" sideOffset={8} className="w-48">
                 {/* CTA on mobile */}
                 <DropdownMenuItem asChild>
-                  <Link to={routes.live} className="cursor-pointer font-medium text-blue-600 flex items-center gap-2">
+                  <Link to={routes.live} title="Start a live clarity session" className="cursor-pointer font-medium text-blue-600 flex items-center gap-2">
                     <Radio size={16} />
-                    Start a Clarity Session
+                    Start Live
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to={routes.sift} className="cursor-pointer flex items-center gap-2">
+                    <PenLine size={16} />
+                    Create Stories & Points
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

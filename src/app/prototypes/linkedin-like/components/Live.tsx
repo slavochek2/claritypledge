@@ -98,6 +98,17 @@ const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-cente
 const SESSION_STORAGE_KEY = 'clarity:live:session';
 const PARTNER_SIMULATION_DELAY_MS = 1500;
 
+// Empty counts for position selection (when we don't need to show counts)
+const EMPTY_POSITION_COUNTS = {
+  strongly_agree: 0,
+  agree: 0,
+  somewhat_agree: 0,
+  unsure: 0,
+  somewhat_disagree: 0,
+  disagree: 0,
+  strongly_disagree: 0,
+};
+
 const RATING_OPTIONS = [
   { value: 0, label: '0' },
   { value: 1, label: '1' },
@@ -273,6 +284,11 @@ export function Live() {
     saveSessionHistory(cardState.sessionHistory);
   }, [cardState.sessionHistory]);
 
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('[Live] State:', { meetingPhase, ratingPhase: state.ratingPhase, cardPhase: cardState.phase, activePoint: !!cardState.activePoint });
+  }, [meetingPhase, state.ratingPhase, cardState.phase, cardState.activePoint]);
+
   // Cleanup simulation timeouts on unmount
   useEffect(() => {
     return () => {
@@ -384,6 +400,8 @@ export function Live() {
         responderSubmitted: true,
         ratingPhase: 'revealed',
       }));
+      // Show toast to indicate simulation completed
+      toast.success(`${displayPartnerName} responded: ${partnerRating}/10 confidence`);
     }, PARTNER_SIMULATION_DELAY_MS);
     simulationTimeoutsRef.current.push(timeoutId);
   };
@@ -408,17 +426,20 @@ export function Live() {
     }));
 
     // Simulate partner's position response after delay
+    // Capture myPosition in closure to avoid stale state
+    const checkerPosition = cardState.myPosition;
+
     const timeoutId = setTimeout(() => {
       // Random position: 60% same as checker, 40% different
       const positions: PositionType[] = ['agree', 'disagree', 'unsure'];
       const sameAsChecker = Math.random() < 0.6;
       let simulatedPosition: PositionType;
 
-      if (sameAsChecker && cardState.myPosition) {
-        simulatedPosition = cardState.myPosition;
+      if (sameAsChecker && checkerPosition) {
+        simulatedPosition = checkerPosition;
       } else {
         // Pick a random different position
-        const otherPositions = positions.filter(p => p !== cardState.myPosition);
+        const otherPositions = positions.filter(p => p !== checkerPosition);
         simulatedPosition = otherPositions[Math.floor(Math.random() * otherPositions.length)];
       }
 
@@ -429,6 +450,9 @@ export function Live() {
         ...prev,
         ratingPhase: 'revealed',
       }));
+
+      // Show toast to indicate simulation completed
+      toast.success(`${displayPartnerName} responded: ${simulatedPosition}`);
     }, PARTNER_SIMULATION_DELAY_MS);
     simulationTimeoutsRef.current.push(timeoutId);
   };
@@ -1219,6 +1243,7 @@ export function Live() {
                   </p>
                   <PositionButtons
                     userPosition={partnerPosition}
+                    counts={EMPTY_POSITION_COUNTS}
                     onPositionClick={(pos) => setPartnerPosition(pos)}
                   />
                   <button
@@ -1245,7 +1270,8 @@ export function Live() {
   }
 
   // P85: IDLE or SELECTED - Search at top, results below (CHECKER'S VIEW)
-  if ((cardState.phase === 'idle' || cardState.phase === 'story-selected' || cardState.phase === 'point-selected') && state.ratingPhase === 'idle') {
+  // Must be in live meeting phase
+  if (meetingPhase === 'live' && (cardState.phase === 'idle' || cardState.phase === 'story-selected' || cardState.phase === 'point-selected') && state.ratingPhase === 'idle') {
     // Filter stories and points based on search query
     const hasSearch = searchQuery.trim().length > 0;
     const filteredStories = hasSearch
@@ -1359,6 +1385,7 @@ export function Live() {
                               ))}
                             </div>
                             <button
+                              type="button"
                               onClick={() => selectedRating !== null && handleStartWithRating(selectedRating)}
                               disabled={selectedRating === null}
                               className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
@@ -1369,6 +1396,7 @@ export function Live() {
                         ) : (
                           <div className="px-4 pb-4">
                             <button
+                              type="button"
                               onClick={() => handleSelectStory(story)}
                               className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
                             >
@@ -1419,11 +1447,13 @@ export function Live() {
                             <div className="mb-3">
                               <PositionButtons
                                 userPosition={cardState.myPosition}
+                                counts={EMPTY_POSITION_COUNTS}
                                 onPositionClick={(pos) => setCardState(prev => ({ ...prev, myPosition: pos }))}
                                 compact
                               />
                             </div>
                             <button
+                              type="button"
                               onClick={handleAskPosition}
                               disabled={!cardState.myPosition}
                               className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
@@ -1434,6 +1464,7 @@ export function Live() {
                         ) : (
                           <div className="px-4 pb-4">
                             <button
+                              type="button"
                               onClick={() => handleSelectPoint(point)}
                               className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
                             >
@@ -1459,7 +1490,7 @@ export function Live() {
   // ============================================================================
 
   // Point flow: Waiting for partner's position
-  if (state.ratingPhase === 'waiting' && cardState.activePoint) {
+  if (meetingPhase === 'live' && state.ratingPhase === 'waiting' && cardState.activePoint) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
@@ -1474,6 +1505,23 @@ export function Live() {
             <p className="text-sm text-blue-700 text-center">
               Your position: <span className="font-semibold">{cardState.myPosition}</span>
             </p>
+          </div>
+
+          {/* Show what partner is seeing */}
+          <div className="w-full max-w-sm border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+            <p className="text-xs text-gray-500 text-center mb-3">
+              What {displayPartnerName} sees:
+            </p>
+            <div className="bg-white rounded-lg p-3 border border-gray-200">
+              <p className="text-sm text-gray-700 text-center mb-2">
+                "{cardState.activePoint.text.slice(0, 60)}..."
+              </p>
+              <div className="flex justify-center gap-2">
+                <span className="px-3 py-1 text-xs bg-gray-100 rounded-full animate-pulse">Agree</span>
+                <span className="px-3 py-1 text-xs bg-gray-100 rounded-full animate-pulse">Disagree</span>
+                <span className="px-3 py-1 text-xs bg-gray-100 rounded-full animate-pulse">Unsure</span>
+              </div>
+            </div>
           </div>
 
           <ActionArea>
@@ -1491,7 +1539,7 @@ export function Live() {
 
   // Point flow: Positions revealed - comparison
   // Also handle edge case where activePoint is set but partnerPosition is missing
-  if (state.ratingPhase === 'revealed' && cardState.activePoint) {
+  if (meetingPhase === 'live' && state.ratingPhase === 'revealed' && cardState.activePoint) {
     // If partnerPosition is missing, show loading or reset
     if (!partnerPosition) {
       return (
@@ -1597,7 +1645,7 @@ export function Live() {
   // LEGACY RATING PHASES - Story flow with optional card at top (P85)
   // ============================================================================
 
-  if (state.ratingPhase === 'rating') {
+  if (meetingPhase === 'live' && state.ratingPhase === 'rating') {
     const prompt = isChecker
       ? `How well do you believe ${displayPartnerName} understands you?`
       : `How confident are you that you understand ${getFirstName(state.checkerName || partnerName)}?`;
@@ -1633,7 +1681,7 @@ export function Live() {
     );
   }
 
-  if (state.ratingPhase === 'waiting') {
+  if (meetingPhase === 'live' && state.ratingPhase === 'waiting') {
     const waitingMessage = isChecker
       ? `Waiting for ${displayPartnerName} to share their confidence...`
       : `Waiting for ${getFirstName(state.checkerName || partnerName)} to share their belief...`;
@@ -1647,6 +1695,28 @@ export function Live() {
             <StoryCardPreview story={cardState.activeStory} showLinkedPoints />
           )}
           <JourneyToUnderstanding />
+
+          {/* Show what partner is seeing (only for checker) */}
+          {isChecker && cardState.activeStory && (
+            <div className="w-full max-w-sm border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+              <p className="text-xs text-gray-500 text-center mb-3">
+                What {displayPartnerName} sees:
+              </p>
+              <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <p className="text-sm text-gray-700 text-center mb-2">
+                  "How confident are you that you understand?"
+                </p>
+                <div className="flex justify-center gap-0.5">
+                  {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+                    <span key={n} className="w-5 h-5 text-[10px] bg-gray-100 rounded flex items-center justify-center animate-pulse">
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <ActionArea>
             <WaitingIndicator message={waitingMessage} onSkip={handleContinue} skipLabel="Cancel" />
           </ActionArea>
@@ -1655,7 +1725,7 @@ export function Live() {
     );
   }
 
-  if (state.ratingPhase === 'revealed') {
+  if (meetingPhase === 'live' && state.ratingPhase === 'revealed') {
     const isCalibrated = gapPoints === 0;
     const pointLabel = gapPoints === 1 ? 'point' : 'points';
 
@@ -1712,7 +1782,7 @@ export function Live() {
     );
   }
 
-  if (state.ratingPhase === 'explain-back') {
+  if (meetingPhase === 'live' && state.ratingPhase === 'explain-back') {
     if (isChecker) {
       if (!state.explainBackDone) {
         return (
@@ -1801,7 +1871,7 @@ export function Live() {
     );
   }
 
-  if (state.ratingPhase === 'results') {
+  if (meetingPhase === 'live' && state.ratingPhase === 'results') {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
@@ -1832,7 +1902,7 @@ export function Live() {
     );
   }
 
-  if (state.ratingPhase === 'perfect') {
+  if (meetingPhase === 'live' && state.ratingPhase === 'perfect') {
     const roundCount = state.explainBackRatings.length;
     const headline = isChecker
       ? `${displayPartnerName} understood you perfectly!`

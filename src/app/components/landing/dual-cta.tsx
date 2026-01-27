@@ -5,14 +5,14 @@ interface DualCTAProps {
   size?: "section" | "hero";
   /** Additional CSS classes for the container */
   className?: string;
-  /** Reverse the hierarchy: "Take the Pledge" becomes primary, "Start a Clarity Session" becomes secondary */
+  /** Reverse the hierarchy: "Take the Pledge" becomes primary, "Start Live" becomes secondary */
   reversed?: boolean;
 }
 
 /**
  * Reusable dual CTA component used across landing pages.
- * Default: Primary = "Start a Clarity Session", Secondary = "Take the Pledge"
- * Reversed: Primary = "Take the Pledge", Secondary = "Start a Clarity Session"
+ * Default: Primary = "Start Live", Secondary = "Take the Pledge"
+ * Reversed: Primary = "Take the Pledge", Secondary = "Start Live"
  */
 export function DualCTA({ size = "section", className = "", reversed = false }: DualCTAProps) {
   const buttonClasses =
@@ -33,9 +33,10 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
           or{" "}
           <Link
             to="/live"
+            title="Start a live clarity session"
             className="text-blue-500 hover:text-blue-600 underline underline-offset-4"
           >
-            Start a Clarity Session
+            Start Live
           </Link>
         </p>
       </div>
@@ -46,9 +47,10 @@ export function DualCTA({ size = "section", className = "", reversed = false }: 
     <div className={`flex flex-col items-center gap-3 ${className}`}>
       <Link
         to="/live"
+        title="Start a live clarity session"
         className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-blue-500 hover:bg-blue-600 text-white font-semibold h-auto shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all ${buttonClasses}`}
       >
-        Start a Clarity Session
+        Start Live
       </Link>
       <p className="text-muted-foreground">
         or{" "}

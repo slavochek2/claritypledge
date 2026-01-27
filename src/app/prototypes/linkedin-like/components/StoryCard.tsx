@@ -242,7 +242,7 @@ export function StoryCard({
             const hasMorePoints = !isDetailView && linkedPoints.length > 3;
 
             return (
-              <div className="pl-[68px] pr-4 pb-4">
+              <div className="pl-4 sm:pl-[68px] pr-4 pb-4">
                 {pointsToShow.length === 1 ? (
                   // Single point - no thread lines
                   <QuotedPoint

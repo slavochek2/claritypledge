@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { PrototypeLayout } from './PrototypeLayout';
 import { PointCard } from './PointCard';
 import { StoryCard } from './StoryCard';
-import { FilterTabs, PositionBadge, UserCredibility, ThreadLineGroup, ThreadLineItem, type PositionFilter } from './shared';
+import { FilterTabs, PositionBadge, UserCredibility, type PositionFilter } from './shared';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import {
@@ -113,13 +113,12 @@ export function PointDetail() {
           />
 
           {/* Position-grouped holders */}
-          <div className="p-4 space-y-6">
-            {positionsToShow.map(position => (
+          <div className="p-4 space-y-3">
+            {positionsToShow.map(positionGroup => (
               <PositionSection
-                key={position}
-                position={position}
-                holders={holdersByPosition[position]}
-                showHeader={positionFilter === 'all'}
+                key={positionGroup}
+                holders={holdersByPosition[positionGroup]}
+                showEmptyState={positionFilter !== 'all'}
               />
             ))}
           </div>
@@ -133,75 +132,46 @@ type PositionHolder = { user: User; position: PositionType; story?: Story };
 
 /**
  * Section for a single position group (Agree/Disagree/Unsure)
- * Shows header only when viewing all positions (showHeader=true)
+ * No headers - position already shown in filter tabs + on each card
  * Shows all position holders - those with stories get StoryCard, others get a compact row
  */
 function PositionSection({
-  position,
   holders,
-  showHeader,
+  showEmptyState,
 }: {
-  position: PositionButtonGroup;
   holders: PositionHolder[];
-  /** Show position label header (when viewing all positions) */
-  showHeader: boolean;
+  /** Show empty state message (only when filtering to specific position) */
+  showEmptyState: boolean;
 }) {
-  const labels: Record<PositionButtonGroup, string> = {
-    agree: 'Agree',
-    disagree: 'Disagree',
-    unsure: 'Unsure',
-  };
-
   // When viewing all positions, hide empty sections entirely
-  // Only show "(no positions yet)" when explicitly filtering to an empty category
-  if (holders.length === 0 && showHeader) {
+  if (holders.length === 0 && !showEmptyState) {
     return null;
   }
 
-  return (
-    <div>
-      {/* Position label - shown when viewing all positions */}
-      {showHeader && holders.length > 0 && (
-        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-          {labels[position]}
-        </div>
-      )}
+  // Empty state when filtering to specific position
+  if (holders.length === 0) {
+    return (
+      <p className="text-center text-gray-400 text-sm py-3">
+        (no positions yet)
+      </p>
+    );
+  }
 
-      {/* Position holders or empty state */}
-      {holders.length === 0 ? (
-        <p className="text-center text-gray-400 text-sm py-3">
-          (no positions yet)
-        </p>
-      ) : holders.length === 1 ? (
-        // Single item - no thread lines
-        holders[0].story ? (
+  // Render cards as simple list - no thread lines, no headers
+  return (
+    <div className="space-y-3">
+      {holders.map((holder) =>
+        holder.story ? (
           <StoryCard
-            story={holders[0].story}
+            key={holder.user.id}
+            story={holder.story}
             compact
             context="point-detail"
-            authorPosition={holders[0].position}
+            authorPosition={holder.position}
           />
         ) : (
-          <PositionOnlyRow holder={holders[0]} />
+          <PositionOnlyRow key={holder.user.id} holder={holder} />
         )
-      ) : (
-        // 2+ items - show thread lines
-        <ThreadLineGroup>
-          {holders.map((holder, index) =>
-            <ThreadLineItem key={holder.user.id} isLast={index === holders.length - 1}>
-              {holder.story ? (
-                <StoryCard
-                  story={holder.story}
-                  compact
-                  context="point-detail"
-                  authorPosition={holder.position}
-                />
-              ) : (
-                <PositionOnlyRow holder={holder} />
-              )}
-            </ThreadLineItem>
-          )}
-        </ThreadLineGroup>
       )}
     </div>
   );
@@ -232,6 +202,7 @@ function PositionOnlyRow({ holder }: { holder: PositionHolder }) {
           name={user.name}
           size="sm"
           isPledger={user.hasPledged}
+          className="!w-5 !h-5 !text-[10px]"
         />
       </button>
 
