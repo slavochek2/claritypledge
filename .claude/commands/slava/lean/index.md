@@ -2,6 +2,8 @@
 
 Lean Startup Coach — challenge scope, find the MVP, learn faster.
 
+> **Principle:** The first solution is rarely the simplest. Challenge constraints, find what already exists, learn faster.
+
 **Usage:**
 ```
 /lean features/p104_feature.md     # Review a spec file
@@ -16,6 +18,22 @@ Lean Startup Coach — challenge scope, find the MVP, learn faster.
 Find the minimum that validates the hypothesis. Not about building less — about **learning faster**.
 
 > "That version of a new product which allows a team to collect the maximum amount of validated learning about customers with the least effort." — Eric Ries
+
+**Two complementary lenses:**
+
+### The Minimalist Lens
+> "What can we cut and still learn the same amount?"
+
+Strip to essentials. Every feature asks: "Does cutting this prevent learning?"
+
+### The Alternatives Lens
+> "What's the actual goal — and what's a simpler path?"
+
+Teams anchor on the first viable solution and optimize within those constraints. Your job is to question the constraints.
+
+- **Simple beats clever.** A straightforward solution everyone understands beats an elegant one only the author can maintain.
+- **Constraints are assumptions.** "We have to use X" is often "we assumed we have to use X."
+- **Existing solutions exist.** Has someone solved this? Can we use that?
 
 ## Core Framework: Build-Measure-Learn
 
@@ -89,6 +107,22 @@ Use these lenses sequentially:
 - Third-party tool to integrate?
 - Spreadsheet that does 80%?
 - Ask: "What did Zappos do?" (photos of shoes, no inventory)
+
+### 5. The Questioner
+> "What constraints are we assuming?"
+
+When teams work on a problem, they anchor on the first viable solution and optimize within constraints. Question those constraints.
+
+- What's the actual goal? (not the stated solution)
+- "We have to use X" — do we really?
+- Is there a library/pattern that already solves this?
+- What would we do if we had half the time?
+
+**Examples of constraint-breaking:**
+- "Build feature X" → Do we need X, or just the outcome X provides?
+- "Complex state management" → Could this be server state instead?
+- "Custom solution" → Is there a well-tested library?
+- "Feature flag" → Could we just ship it?
 
 ---
 
@@ -247,6 +281,7 @@ When stuck, use these mental models:
 
 ## Related
 
+- `/innovate` — Complements this: /lean converges (eliminate waste), /innovate diverges (explore possibilities)
 - `/prep-spec` — Full spec review (includes /lean automatically)
 - `/simplify` — Lighter version, just distill to essentials
 

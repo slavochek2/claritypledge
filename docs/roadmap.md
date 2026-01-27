@@ -3,15 +3,15 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-01-23
+**Last Updated:** 2026-01-27
 **North Star:** First 30-person Clarity Event (H2 validation)
 
-> **Current Focus:** P85 Event Verification Flow → Connect /live to content → H2 test event
+> **Current Focus:** P97 Profile/Nav Migration → Foundation for Sifter and Verification
 >
-> **What's done:** Events backend, /live verification, 7-point position scale UI
-> **What's next:** Card selection inside /live, verification logging, event outcomes display
-> **Then:** Manually seed Stories/Points → Run 30-person event → Validate H2
-> **After H2:** Sifter (P58) automates seeding
+> **What's done:** Events backend, /live verification, 7-point position scale UI, prototype components
+> **What's next:** P97 TDD rebuild (Profile + Nav frontend with mock data)
+> **Then:** Profile backend → Sifter (P98) → Verification (P85) → First Event
+> **Sequence:** Profiles are foundation that Sifter and Verification depend on
 
 ---
 
@@ -57,73 +57,71 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 ## Build Phases
 
-### Phase 0: Event Verification Flow (P85) ✅ CURRENT
+### Phase 0: Profile/Nav Migration (P97) ✅ CURRENT
+
+**Goal:** Migrate prototype UI to production with TDD approach. Frontend-only with mock data.
+
+See [p97_tdd_prototype_migration.md](../features/p97_tdd_prototype_migration.md) for full spec.
+See [p97_uat.md](../features/p97_uat.md) for acceptance tests (38 tests).
+
+```
+□ Types + mock data (stories.ts, mock-stories.ts)
+□ Shared components (CalibrationDisplay, PositionButtons, HybridTooltip)
+□ Content components (StoryCard, PointCard, QuotedCard, ContentTabs)
+□ Profile page integration (Stories/Points tabs, calibration display)
+□ Navigation (desktop icon nav, mobile bottom nav, avatar dropdown)
+```
+
+**Why first:**
+- Profile is foundation for Sifter (creates Stories) and Verification (uses Stories)
+- Prototype exists but isn't in production
+- Frontend-first validates UI before backend work
+
+**Approach:** TDD — write failing tests first, then implement.
+
+### Phase 0.5: Profile Backend
+
+**Goal:** Connect Profile UI to real database.
+
+```
+□ Stories table + API (createStory, getStoriesByAuthor)
+□ story_point_links table (N:N relationship)
+□ Swap mock-stories.ts → real API calls
+□ Position persistence (optimistic UI)
+```
+
+### Phase 1: Sifter (P98)
+
+**Goal:** ChatGPT-style Story creation. Fix mockup issues, migrate, connect backend.
+
+See [p98_sifter_prototype.md](../features/p98_sifter_prototype.md) for current spec.
+
+```
+□ Fix Sifter mockup (interpretation selection flow)
+□ Migrate Sifter frontend to production
+□ Connect to Stories API
+□ AI integration (interpretation generation)
+```
+
+**Note:** Originally P58, prototype is P98. Spec needs revision to match current implementation.
+
+### Phase 2: Verification Flow (P85)
 
 **Goal:** Connect /live to Stories/Points, log verifications, display event outcomes.
 
-See [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) for full spec.
+See [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md) for spec.
 
 ```
-□ Card selection inside /live (browse your cards + partner's cards)
-□ Simplified card component (collapsed linked content)
-□ Stance prompt after verification (position on linked Points)
+□ Fix Verification mockup (card selection flow)
+□ Migrate Verification frontend to production
 □ VerificationEvent logging (positions before/after)
 □ Event outcomes section (verification count, leaderboard)
 □ Ears (👂) count on participant list
 ```
 
-**Why first:**
-- /live exists but isn't connected to content
-- Need verification logging before H2 test
-- Event outcomes create visibility (H2) and FOMO (H0b)
+**Why after Sifter:** Verification uses Stories created by Sifter. Need content to verify.
 
-**Key insight:** No "feed" needed. At physical events, people match in person. Card selection happens inside /live, not on event page.
-
-### Phase 1: Points + Positions Backend ✅ DONE
-
-**Goal:** Points can be shared, positions can be staked on -3 to +3 scale. 7-point UI completed.
-
-```
-□ Points table (from sifted content or manual entry)
-□ Positions table (-3 to +3 per user per point)
-□ Position history table (track changes for conversion analysis)
-□ Link Position to Story (why user holds this position)
-□ API: createPoint(), stakePosition(), getPositions()
-□ Port IdeaCard + PositionButtons from prototype (update to 7-point scale)
-□ Basic points feed page
-```
-
-**Schema:** See [database.md](technical/database.md) for implemented schemas, feature specs for planned schemas.
-
-### Phase 2: Event Container ✅ DONE
-
-**Goal:** Self-service event creation, scoped points.
-
-```
-✓ Events table + API
-✓ Simple event creation (name + description)
-✓ Event registration (magic link → add to event)
-□ Event feed (points scoped to event) — needs P60
-□ Attendee list with positions — needs P60
-□ "See my events" on profile
-```
-
-### Phase 3: Sifter (P58)
-
-**Goal:** Automate Story/Point creation (manual seeding works but is friction).
-
-See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
-
-```
-□ Chat interface for brain dump
-□ AI Sifter: detect Story vs Point
-□ Hardener: make Points falsifiable
-□ Mirror Test: AI plays back, user confirms
-```
-
-**Why after verification flow:** Don't automate seeding until verification loop is connected. Manual seeding sufficient for H2 test.
-
-### Phase 4: First Event (H2 Validation)
+### Phase 3: First Event (H2 Validation)
 
 **Goal:** Run 30-person event to validate H2 (visibility changes behavior) and H0b (social FOMO).
 
@@ -137,7 +135,7 @@ See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
 
 **Success criteria:** See [hypotheses.md](hypotheses.md) H2 and H0b definitions.
 
-### Phase 5: AI Synthesis + Context Portal
+### Phase 4: AI Synthesis + Context Portal
 
 **Goal:** Post-verification learning extraction.
 
@@ -232,14 +230,18 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 ## Related Documents
 
 **Current Work:**
-- [P85: Event Verification Flow](../features/p85_event_verification_flow.md) — Card selection in /live, verification logging, event outcomes (CURRENT)
+- [P97: TDD Rebuild](../features/p97_tdd_prototype_migration.md) — Profile/Nav migration with TDD (CURRENT)
+- [P97 UAT](../features/p97_uat.md) — Acceptance tests for P97 (38 tests)
+- [P98: Sifter Prototype](../features/p98_sifter_prototype.md) — ChatGPT-style Story creation (after P97)
+- [P85: Verification Flow](../features/p85_live_verification_with_cards.md) — Card selection in /live (after Sifter)
+
+**Supporting:**
 - [P78: User Personas](../features/p78_user_personas.md) — Event organizer + other personas
 - [P79: Consulting Revenue](../features/p79_consulting_revenue_model.md) — Bootstrap revenue model
 
 **Core Specs:**
 - [P55: Understanding Verification Loop](../features/done/p55_understanding_verification_loop.md) — /live mechanism
 - [P56: Event as Clarity Container](../features/p56_event_as_clarity_container.md) — Event mechanics
-- [P58: Sifter MVP](../features/p58_sifter_mvp.md) — AI Sifter (after H2)
 - [P59: Context Portal](../features/p59_context_portal_design.md) — Catch-up feature
 
 **Foundation:**
@@ -253,6 +255,7 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 | Date | Change |
 |------|--------|
+| 2026-01-27 | **Sequence change:** P97 (Profile/Nav TDD migration) is now Phase 0. Sequence: P97 → Profile Backend → Sifter (P98) → Verification (P85) → First Event. Profiles are foundation that Sifter and Verification depend on. |
 | 2026-01-23 | **Major restructure:** P85 Event Verification Flow is now Phase 0. Sifter moved to Phase 3. Added H0b to H2 test criteria. Key insight: no "feed" needed — card selection happens inside /live, event page shows outcomes only. |
 | 2026-01-20 | Restructured phases: P60 (exploration) now Phase 0, Sifter moved to Phase 5 (after H2). Marked Events backend done. Deleted duplicate hypotheses, linked to hypotheses.md. Added P78/P79 references. |
 | 2026-01-18 | v7 alignment: -3 to +3 position scale, ≥8/10 verification threshold, calibration badge (≥10 sessions + ±0.5 gap), Story↔Point bidirectional linking, position_history table for conversion tracking, new open questions Q4/Q5 |

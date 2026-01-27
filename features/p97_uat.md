@@ -11,10 +11,25 @@
 ## Test Scoring
 
 ```
-Score = passed_tests / 38 (shown as X/38 or N%)
-Total tests: 38
-Pass threshold: 38/38 (100% — all tests must pass)
+Score = passed_tests / 32 (shown as X/32 or N%)
+Total tests: 32
+Pass threshold: 32/32 (100% — all tests must pass)
 ```
+
+---
+
+## Route Clarification
+
+**All verification happens on prototype routes** (not main app routes):
+
+| Feature | Route | Notes |
+|---------|-------|-------|
+| Profile | `/proto/profile` | Mock user profile |
+| My Events | `/proto/my-events` | Dashboard |
+| Stories/Points | `/proto/story/:id`, `/proto/point/:id` | Detail pages |
+| Settings | `/proto/settings` or check avatar dropdown | |
+
+**Why prototype routes:** P97 is frontend-only with mock data. Prototype already has the UI we're migrating. Verify there, then move to production routes.
 
 ---
 
@@ -218,41 +233,12 @@ npm test              # All unit tests pass
 
 ---
 
-## Category 7: Unit Tests (3 tests)
+## Category 7: Final Verification (1 test)
 
-### UAT-7.1: CalibrationDisplay unit test exists
-**Given:** CalibrationDisplay component implemented
-**Then:** `src/tests/components/calibration-display.test.tsx` tests rendering, props, tooltip behavior
-**Verify:** `npm test -- calibration-display` passes
-
-### UAT-7.2: PositionButtons unit test exists
-**Given:** PositionButtons component implemented
-**Then:** `src/tests/components/position-buttons.test.tsx` tests button clicks, dropdown, visual states
-**Verify:** `npm test -- position-buttons` passes
-
-### UAT-7.3: ContentTabs unit test exists
-**Given:** ContentTabs component implemented
-**Then:** `src/tests/components/content-tabs.test.tsx` tests tab switching, content display
-**Verify:** `npm test -- content-tabs` passes
-
----
-
-## Category 8: E2E Tests (3 tests)
-
-### UAT-8.1: Profile tabs E2E test exists
-**Given:** Profile page implemented
-**Then:** `e2e/profile-tabs.spec.ts` tests Stories/Points tab switching
-**Verify:** `npm run test:e2e -- profile-tabs` passes
-
-### UAT-8.2: Calibration display E2E test exists
-**Given:** CalibrationDisplay on profile
-**Then:** `e2e/calibration-display.spec.ts` tests rendering and tooltip interactions
-**Verify:** `npm run test:e2e -- calibration-display` passes
-
-### UAT-8.3: Navigation E2E test exists
-**Given:** Navigation refactored
-**Then:** `e2e/navigation.spec.ts` tests logged-in vs logged-out nav, mobile bottom nav
-**Verify:** `npm run test:e2e -- navigation` passes
+### UAT-7.1: All checks pass
+**Given:** All components implemented
+**Then:** Pre-commit checks pass
+**Verify:** `./scripts/pre-commit-checks.sh` exits 0 (lint, build, tests all pass)
 
 ---
 
@@ -260,44 +246,39 @@ npm test              # All unit tests pass
 
 | Test | Status | Notes |
 |------|--------|-------|
-| UAT-1.1 | ⬜ | |
-| UAT-1.2 | ⬜ | |
-| UAT-1.3 | ⬜ | |
-| UAT-1.4 | ⬜ | |
-| UAT-2.1 | ⬜ | |
-| UAT-2.2 | ⬜ | |
-| UAT-2.3 | ⬜ | |
-| UAT-2.4 | ⬜ | |
-| UAT-2.5 | ⬜ | |
-| UAT-2.6 | ⬜ | |
-| UAT-3.1 | ⬜ | |
-| UAT-3.2 | ⬜ | |
-| UAT-3.3 | ⬜ | |
-| UAT-3.4 | ⬜ | |
-| UAT-3.5 | ⬜ | |
-| UAT-4.1 | ⬜ | |
-| UAT-4.2 | ⬜ | |
-| UAT-4.3 | ⬜ | |
-| UAT-4.4 | ⬜ | |
-| UAT-4.5 | ⬜ | |
-| UAT-4.6 | ⬜ | |
-| UAT-5.1 | ⬜ | |
-| UAT-5.2 | ⬜ | |
-| UAT-5.3 | ⬜ | |
-| UAT-5.4 | ⬜ | |
-| UAT-5.5 | ⬜ | |
-| UAT-5.6 | ⬜ | |
-| UAT-6.1 | ⬜ | |
-| UAT-6.2 | ⬜ | |
-| UAT-6.3 | ⬜ | |
-| UAT-6.4 | ⬜ | |
-| UAT-6.5 | ⬜ | |
-| UAT-7.1 | ⬜ | |
-| UAT-7.2 | ⬜ | |
-| UAT-7.3 | ⬜ | |
-| UAT-8.1 | ⬜ | |
-| UAT-8.2 | ⬜ | |
-| UAT-8.3 | ⬜ | |
+| UAT-1.1 | ⬜ | Types file |
+| UAT-1.2 | ⬜ | Mock data file |
+| UAT-1.3 | ⬜ | Position values |
+| UAT-1.4 | ⬜ | Story interface |
+| UAT-2.1 | ⬜ | CalibrationDisplay |
+| UAT-2.2 | ⬜ | InlineCalibration |
+| UAT-2.3 | ⬜ | PositionButtons |
+| UAT-2.4 | ⬜ | PositionBadge |
+| UAT-2.5 | ⬜ | HybridTooltip |
+| UAT-2.6 | ⬜ | Calibration tooltips |
+| UAT-3.1 | ⬜ | StoryCard |
+| UAT-3.2 | ⬜ | PointCard |
+| UAT-3.3 | ⬜ | QuotedCard |
+| UAT-3.4 | ⬜ | ContentTabs |
+| UAT-3.5 | ⬜ | Props-only components |
+| UAT-4.1 | ⬜ | Profile CalibrationDisplay |
+| UAT-4.2 | ⬜ | Profile ContentTabs |
+| UAT-4.3 | ⬜ | Profile own vs other |
+| UAT-4.4 | ⬜ | BrainDump own only |
+| UAT-4.5 | ⬜ | Credibility stats |
+| UAT-4.6 | ⬜ | Position buttons work |
+| UAT-5.1 | ⬜ | Non-logged-in header |
+| UAT-5.2 | ⬜ | Logged-in desktop nav |
+| UAT-5.3 | ⬜ | Logged-in mobile bottom nav |
+| UAT-5.4 | ⬜ | Avatar dropdown |
+| UAT-5.5 | ⬜ | Settings secondary links |
+| UAT-5.6 | ⬜ | Co-create button |
+| UAT-6.1 | ⬜ | 1024px breakpoint |
+| UAT-6.2 | ⬜ | 44px touch targets |
+| UAT-6.3 | ⬜ | Bottom nav safe area |
+| UAT-6.4 | ⬜ | Mobile tooltip auto-dismiss |
+| UAT-6.5 | ⬜ | Mobile overflow menu |
+| UAT-7.1 | ⬜ | Pre-commit checks pass |
 
 **Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked — add note)
 
@@ -306,20 +287,19 @@ npm test              # All unit tests pass
 ## Success Criteria
 
 Ralph Loop completes when:
-1. All 38 UAT tests show ✅
+1. All 32 UAT tests show ✅
 2. `./scripts/pre-commit-checks.sh` passes
-3. No console errors during Playwright verification
 
-Output `<promise>P97 UAT COMPLETE</promise>` when done.
+Output `LOOP_COMPLETE` when done.
 
 ---
 
 ## Notes for Agent
 
-- **Use Playwright MCP** for visual verification
-- **Use Chrome DevTools MCP** if network issues
+- **Verify on prototype routes** — `/proto/profile`, `/proto/my-events`, etc.
+- **Use Chrome DevTools MCP** for visual verification (primary)
 - **Commit after each category passes** — Progress is preserved
 - **Update scorecard** after each test — This file is your state
-- **TDD required** — Write failing test first, then implement
-- **Mock data only** — No database calls in P97; components receive props
+- **Mock data only** — No database calls; components receive props
 - **Reuse existing components** — Check `src/components/ui/` before creating new ones
+- **Save memories when stuck** — `ralph tools memory add "title" "details"`

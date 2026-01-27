@@ -248,10 +248,14 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 /
 ├── docs/                     # Documentation (not deployed)
-│   └── technical/            # Technical guides (auth, db, testing, e2e)
+│   ├── technical/            # Technical guides (auth, db, testing, e2e)
+│   ├── learnings/            # Project learnings and retrospectives
+│   └── visions/              # Historical explorations and proposals
 │
 ├── features/                 # Feature planning
 │   ├── done/                 # Completed feature docs
+│   ├── archive/              # Archived/deprioritized features
+│   ├── drafts/               # Early-stage drafts and ideas
 │   ├── p{N}_uat.md           # UAT files for ralph-loop
 │   └── *.md                  # Active features (p{N}_{name}.md)
 │
@@ -335,17 +339,22 @@ For detailed architecture docs, see the [Deep Dive References](#deep-dive-refere
 - Requires: `.env.test.local` with `SUPABASE_SERVICE_ROLE_KEY`
 - Full guide: [docs/technical/e2e-testing.md](docs/technical/e2e-testing.md)
 
-### Test Modification Rules (IMPORTANT)
+### Test Integrity Principle
 
-**NEVER do these without explicit user approval:**
-- Uncomment or enable skipped tests (`.skip`, `skip()`, commented-out tests)
-- Use `.only` or `only()` to isolate tests (this breaks CI)
-- Delete or disable failing tests to make the suite pass
-- Modify test assertions to match broken behavior
+> **Principle:** Tests are executable specifications. Modifying tests to pass means changing the spec.
 
-**Skipped tests exist for a reason** - usually a known limitation, flaky behavior, or pending fix. If a skipped test is relevant to your work, ask the user before enabling it.
+If tests fail, the code is wrong (not the test). If you believe a test is genuinely incorrect, explain why and ask before changing it.
 
-**If tests fail:** Fix the code, not the tests. If you believe a test is wrong, explain why and ask before modifying it.
+**Why this matters:**
+- Tests define correct behavior — they're the specification
+- Modifying a test to match broken code means accepting the bug
+- Skipped tests exist for documented reasons (flakiness, known limitations)
+
+**Examples of test manipulation to avoid:**
+- Enabling skipped tests without understanding why they're skipped
+- Using `.only()` (breaks CI — other tests won't run)
+- Deleting failing tests to make the suite green
+- Changing assertions to match buggy output
 
 ## Known Issues
 
@@ -382,18 +391,20 @@ analytics.track('feature_used', { feature: 'live_meeting' });
 
 For full event catalog and patterns, see [docs/technical/analytics.md](docs/technical/analytics.md).
 
-## Pre-Commit Checks (MUST RUN)
+## Pre-Commit Checks
 
-**Before creating any commit, Claude MUST run:**
+Before creating any commit, run:
 ```bash
 ./scripts/pre-commit-checks.sh
 ```
 
-This script runs automatically if installed as a git hook, but Claude should run it explicitly before committing to catch issues early.
+This catches issues before they reach the commit. Run it explicitly rather than relying on git hooks.
 
-### Git Safety Rules (CRITICAL)
+### Git Safety (Firewall)
 
-**NEVER use these commands:**
+These are hard rules, not principles to reason about. Leaking secrets to git history is catastrophic and irreversible — there's no "it depends."
+
+**Never use these commands:**
 - `git add .` — can stage secrets and ignored files
 - `git add -A` — same problem
 - `git add -f <file>` — forces adding ignored files
@@ -512,88 +523,50 @@ Before creating a new function, hook, component, **skill, or agent**:
 - Don't add "just in case" features or configuration
 - Delete unused code rather than commenting it out
 
-## Pre-Creation Gate (MANDATORY)
+## Single Source of Truth Principle
 
-**Before creating ANY new file**, you MUST complete this checklist:
+> **Principle:** Every concept has one canonical home. Extend it, don't duplicate it.
 
-### Step 1: Search for Existing Alternatives
+Duplication creates drift — two versions of the truth that eventually contradict each other. Before creating any new file, ask: "Does this concept already exist somewhere?"
 
-```bash
-# Search for similar concepts/names
-grep -ri "{concept}" .claude/commands/ docs/ src/
+### How to Apply
 
-# Check existing skills
-ls .claude/commands/**/
+1. **Search first** — grep for the concept in `.claude/commands/`, `docs/`, and `src/`
+2. **Extend, don't duplicate** — If similar exists, add to it rather than creating parallel
+3. **Link, don't copy** — Reference the source of truth; don't repeat content
 
-# Check existing agents
-ls .claude/commands/**/agents/
-```
+### When to Ask
 
-**Ask yourself:**
-- Does something similar already exist?
-- Can an existing file be extended instead?
-- Is this concept already defined elsewhere (single source of truth)?
-
-### Step 2: Justify the New File
-
-If you still want to create a new file, you must answer:
-
-| Question | Your Answer |
-|----------|-------------|
-| What existing files did you check? | {list them} |
-| Why can't those be extended/reused? | {specific reason} |
-| Where is the canonical home for this concept? | {path} |
-| Will this create duplication? | {yes/no + explanation} |
-
-### Step 3: Get Approval
-
-**For these file types, STOP and ask the user:**
-- Skills (`.claude/commands/**/*.md`)
-- Agent definitions
+For these file types, **ask before creating:**
+- Skills and agents (`.claude/commands/**/*.md`)
 - Documentation (`docs/**/*.md`)
 - New directories
 
-**Show the user:**
-1. What you searched for
-2. What you found (or didn't find)
-3. Why you believe a new file is needed
-4. Where it would go
+### Examples of Violations
 
-### Common Violations to Avoid
+These aren't exhaustive rules — they illustrate the principle:
 
-| Violation | Instead |
-|-----------|---------|
-| Creating new agent inline in a skill | Reference existing agent OR create in shared location |
-| Duplicating concept in multiple docs | Add to source doc, link from others |
-| New utility when similar exists | Extend existing utility |
-| New skill when existing skill could have a flag | Add flag/mode to existing skill |
+| Pattern | Why it's a problem |
+|---------|-------------------|
+| Creating agent inline in a skill | Duplicates agent definition |
+| Same concept in multiple docs | Which version is correct? |
+| New utility when similar exists | Maintenance burden |
+| New skill when existing could have a flag | Unnecessary fragmentation |
 
 ---
 
-## File Creation Rules
-
-### NEVER create without asking:
-- README.md files in subdirectories
-- New documentation files (*.md)
-- New folders or directories
-- Configuration files
-
-### Generated artifacts (gitignored, OK to create):
-- `test-results/` - Playwright test output
-- `playwright-report/` - Playwright HTML reports
-- `dist/` - Build output
-
-### Temporary/Debug files
-- Do NOT create log files, debug dumps, or temporary output files anywhere
-- Terminal output is sufficient for debugging — no need to capture to files
-- Test artifacts go to existing gitignored folders: `test-results/`, `playwright-report/`
+## File Locations
 
 ### Where files go:
 | Type | Location |
 |------|----------|
 | Technical docs | `docs/technical/` |
-| Product docs (learnings, plans) | `docs/` |
-| Feature planning (specs) | `features/p{N}_{name}.md` |
+| Product learnings | `docs/learnings/` |
+| Historical explorations | `docs/visions/` |
+| Feature planning (active) | `features/p{N}_{name}.md` |
+| Feature drafts (early ideas) | `features/drafts/` |
+| Completed features | `features/done/` |
+| Archived features | `features/archive/` |
 | UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
@@ -603,25 +576,36 @@ If you still want to create a new file, you must answer:
 | E2E tests | `e2e/` |
 | UI components | `src/components/ui/` |
 
-### Documentation Folder Structure
+### Folder Structure Reference
+
 ```
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
-├── visions/            # Historical explorations (v1-v8)
+├── learnings/          # Project learnings and retrospectives
+├── visions/            # Historical explorations and proposals
 ├── bmad/               # BMAD workflow status files
 ├── archive/            # Archived docs (superseded)
 ├── hypotheses.md       # What we're testing
 ├── plan.md             # Product planning
-└── learnings.md        # Project learnings
+└── learnings.md        # Project learnings (legacy, use learnings/ for new)
 
 bmad/
 └── artifacts/          # Tech-specs and sprint artifacts
 
 features/               # Feature planning docs
-├── p{N}_{name}.md      # Tech specs
-├── p{N}_uat.md                 # UAT files for ralph-loop
-└── done/               # Completed features
+├── p{N}_{name}.md      # Active specs (root = current work)
+├── p{N}_uat.md         # UAT files for ralph-loop
+├── done/               # Completed features
+├── archive/            # Archived/deprioritized features
+└── drafts/             # Early-stage drafts and ideas
 ```
 
-### When unsure:
-Ask the user before creating any new file or folder.
+### Generated artifacts (OK to create)
+
+These are gitignored and expected:
+- `test-results/`, `playwright-report/` — Test output
+- `dist/` — Build output
+
+### When unsure
+
+Ask the user. It's better to ask than to create a file in the wrong place or duplicate an existing concept.
