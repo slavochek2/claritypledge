@@ -53,7 +53,15 @@ The cloud agent and telegram bot have become unmanageably complex:
 
 ## Decision
 
-TBD after P50 ships. For now: **work locally on worktree-1**.
+TBD. **Trying Clawdbot first** (Jan 2026).
+
+If Clawdbot handles cloud dev tasks well → deprecate current `/c` system entirely.
+If not → proceed with Option A (KISS single worktree).
+
+### Clawdbot Experiment
+- Install on existing `clarity-agent` VM (separate user for isolation)
+- Use Gemini API with Google Cloud quotas (hard cap)
+- Evaluate if it replaces need for custom cloud agent scripts
 
 ---
 

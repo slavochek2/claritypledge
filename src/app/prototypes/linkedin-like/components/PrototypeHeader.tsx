@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Settings, LogOut, CalendarDays, User, Radio, PenLine, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, CalendarDays, User, Radio, Sparkles, type LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +47,7 @@ export function PrototypeHeader() {
 
   const navItems: NavItem[] = [
     { path: routes.myEvents, label: 'My Events', icon: CalendarDays },
-    { path: routes.sift, label: 'Create', icon: PenLine },
+    { path: routes.sift, label: 'Create', icon: Sparkles },
     { path: routes.profile, label: 'My Profile', icon: User },
   ];
 
@@ -168,7 +168,7 @@ export function PrototypeHeader() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to={routes.sift} className="cursor-pointer flex items-center gap-2">
-                    <PenLine size={16} />
+                    <Sparkles size={16} />
                     Create Stories & Points
                   </Link>
                 </DropdownMenuItem>

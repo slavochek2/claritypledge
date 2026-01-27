@@ -10,8 +10,8 @@ Migrate prototype (~8,600 lines) UI to production.
 
 **P97 is frontend-only.** All data comes from mock files, not the database.
 
-| What | P97 (this spec) | P98 (future spec) |
-|------|-----------------|-------------------|
+| What | P97 (this spec) | Backend phase (future) |
+|------|-----------------|------------------------|
 | Data source | `mock-stories.ts` | Supabase API |
 | Persistence | None (state resets on refresh) | Real database |
 | Focus | UI fidelity, responsive behavior, interactions | Schema, API, data flow |
@@ -22,7 +22,7 @@ Migrate prototype (~8,600 lines) UI to production.
 - Components are props-only — easy to swap mock → API later
 - De-risks backend phase (UI already validated)
 
-**Backend (P98) comes after P97 frontend is verified in production.**
+**Backend phase comes after P97 frontend is verified in production.**
 
 ### Reuse Existing Components
 
@@ -535,7 +535,7 @@ Settings
 
 ---
 
-## Future: Backend (Separate Spec — P98)
+## Future: Backend (Separate Spec)
 
 Once frontend is verified in production, create separate spec for backend:
 
@@ -565,7 +565,7 @@ getPointsWithUserPositions(userId) → PointWithPosition[]
 getUserCalibration(userId) → { listener, speaker, avgGap }
 ```
 
-**This will be a separate feature spec (P98 or similar) after P97 frontend is complete.**
+**This will be a separate feature spec after P97 frontend is complete.**
 
 ---
 
