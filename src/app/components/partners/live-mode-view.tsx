@@ -599,7 +599,7 @@ function IdleScreen({
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-check"
           >
-            Did <span className="font-bold">you</span> understand me?
+            Did <span className="font-bold">{displayPartnerName}</span> understand you?
           </Button>
 
           <Button
@@ -610,7 +610,7 @@ function IdleScreen({
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-prove"
           >
-            Did <span className="font-bold">I</span> understand you?
+            Did you understand <span className="font-bold">{displayPartnerName}</span>?
           </Button>
 
           {/* Waiting for partner to continue indicator */}

@@ -3,15 +3,16 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-01-23
-**North Star:** First 30-person Clarity Event (H2 validation)
+**Last Updated:** 2026-01-28
+**North Star:** Spread calibrated communication + sustainable revenue
 
-> **Current Focus:** P85 Event Verification Flow → Connect /live to content → H2 test event
+> **Current Focus:** Validate coach hypothesis before building more
 >
-> **What's done:** Events backend, /live verification, 7-point position scale UI
-> **What's next:** Card selection inside /live, verification logging, event outcomes display
-> **Then:** Manually seed Stories/Points → Run 30-person event → Validate H2
-> **After H2:** Sifter (P58) automates seeding
+> **Key insight (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot (coaches) will pay.
+>
+> **What's done:** /live verification (production), Events backend, deep understanding of model
+> **What's next:** 5 coach discovery conversations → validate pain + willingness to pay
+> **Key hypothesis:** H-Biz — will coaches pay $50-100/month for calibration diagnostic tool?
 
 ---
 
@@ -55,89 +56,185 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 ---
 
-## Build Phases
+## Build Phases (Revenue-Integrated)
 
-### Phase 0: Event Verification Flow (P85) ✅ CURRENT
+### Phase 0: Coach Hypothesis Validation 🔄 CURRENT
+
+**Goal:** Validate that coaches will pay for calibration diagnostic tool
+
+**Revenue:** $0 during validation, then $50-100/coach/month
+
+**Why coaches:** They see the blindspot in clients that clients can't see themselves. The person who's blind won't pay — the person who sees the blindspot will.
+
+```
+□ Online research: understand coach landscape (30-60 min)
+□ Find 10-15 executive/leadership/communication coaches on LinkedIn
+□ Send outreach messages (15 messages)
+□ Have 5 discovery conversations
+□ Ask: Pain? Trust? Retention? Would pay?
+□ If 3+ confirm pain + 2+ would pay → pilot with real coach + client
+```
+
+**Questions to validate:**
+- H-Biz-1: Coaches have clients with listener miscalibration
+- H-Biz-2: This is a problem they want to solve
+- H-Biz-3: They lack objective proof tools
+- H-Biz-4: Clients would trust the tool (or: events needed for neutral proof?)
+- H-Biz-5: Coaches would use ongoing, not just once (retention)
+- H-Biz-6: Would pay $50-100/month
+- H-Biz-7: Provides differentiation vs other coaches
+
+**Success criteria:**
+- 5 conversations completed
+- 3+ coaches confirm pain exists (H-Biz-1 to H-Biz-3)
+- 2+ coaches would pay (H-Biz-6)
+- Clear signal on trust (H-Biz-4) and retention (H-Biz-5)
+
+**What we're NOT building:**
+- Profile redesign (P97) — deferred
+- Sifter (P98) — deferred
+- Stories, Points, reputation — deferred
+- Event features beyond current — deferred
+- Anything until coach hypothesis validated
+
+**Full validation plan:** [p_coach_validation.md](../features/p_coach_validation.md)
+
+### Phase 1: First Business Conversion
+
+**Goal:** 1 team paying for business license
+
+**Revenue:** $100-500/month
+
+```
+□ Someone from workshop wants team use
+□ Build minimal business features they need
+□ Charge for: team dashboard, calibration history, admin
+□ Prove: businesses will pay
+```
+
+**Success criteria:**
+- 1 paying team
+- They keep using it (retention)
+- Learn what business features matter
+
+**Build only what first customer needs.** Don't speculate.
+
+### Phase 2: Repeatable Funnel
+
+**Goal:** 5-10 paying teams, repeatable workshop → conversion
+
+**Revenue:** $1,000-5,000/month
+
+```
+□ Refine workshop based on learnings
+□ Self-serve upgrade path (free → business)
+□ Basic business feature set
+□ Maybe: train other facilitators
+```
+
+**Success criteria:**
+- Predictable conversion rate
+- Retention > 80%
+- Can describe the funnel clearly
+
+### Phase 3: Scale
+
+**Goal:** $10k+/month, not dependent on your time
+
+**Revenue:** Growing
+
+```
+□ Facilitator network (others run workshops)
+□ Self-serve team signup (no workshop required)
+□ Enterprise deals
+□ Maybe: Stories/Points for power users
+```
+
+**Success criteria:**
+- Revenue not bottlenecked by you
+- Protocol spreading through multiple channels
+
+---
+
+## Product Features by Tier
+
+| Feature | Free (individuals) | Business ($100-500/mo) |
+|---------|-------------------|------------------------|
+| /live sessions | ✅ | ✅ |
+| Personal calibration | ✅ | ✅ |
+| Basic history | ✅ | ✅ |
+| **Team dashboard** | ❌ | ✅ |
+| **Team calibration** | ❌ | ✅ |
+| **History & trends** | ❌ | ✅ |
+| **Admin controls** | ❌ | ✅ |
+| **Export/reporting** | ❌ | ✅ |
+
+Build business features only when you have a paying customer asking for them.
+
+---
+
+## Deprioritized (was planned, now deferred)
+
+### P97: Profile/Nav Migration — ON HOLD
+
+**Original goal:** Migrate prototype UI (Stories + Points tabs) to production.
+
+**Why deprioritized:** Profile redesign doesn't solve the trigger problem. Users need a reason to CREATE Stories before they need a place to VIEW them.
+
+**Revisit when:** First Event validates H2.
+
+### P98: Sifter — ON HOLD
+
+**Original goal:** ChatGPT-style Story creation with AI polish.
+
+**Why deprioritized:** Sifter creates content, but the problem isn't content — it's the trigger. Users can create Stories in /live directly (speak → transcript). AI polish is nice-to-have.
+
+**Revisit when:** Users are actively creating Stories and want better authoring tools.
+
+### P85: Verification with Cards — ON HOLD
+
+**Original goal:** Select Story cards inside /live for structured verification.
+
+**Why deprioritized:** /live already works without cards. Cards add structure but don't solve "on what?" — that comes from organizer-provided topics.
+
+**Revisit when:** Event validates and users want more structured verification.
+
+---
+
+## Historical Context
+
+**2026-01-27 pivot:** Realized through simplification that the core problem is cold start (no trigger), not features. 10 days spent on prototype was valuable learning — now we know what's NOT needed. See [decisions.md](decisions.md) "Cold Start Problem" entry.
+
+---
+
+## Previous Build Phases (archived for reference)
+
+<details>
+<summary>Click to expand previous plan</summary>
+
+### Phase 0: Profile/Nav Migration (P97) — was CURRENT
+
+**Goal:** Migrate prototype UI to production with TDD approach. Frontend-only with mock data.
+
+See [p97_tdd_prototype_migration.md](../features/p97_tdd_prototype_migration.md) for full spec.
+
+### Phase 0.5: Profile Backend
+
+**Goal:** Connect Profile UI to real database.
+
+### Phase 1: Sifter (P98)
+
+**Goal:** ChatGPT-style Story creation.
+
+### Phase 2: Verification Flow (P85)
 
 **Goal:** Connect /live to Stories/Points, log verifications, display event outcomes.
 
-See [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) for full spec.
+**Goal:** Run 30-person event to validate H4 (visibility) and H3 (social FOMO).
 
-```
-□ Card selection inside /live (browse your cards + partner's cards)
-□ Simplified card component (collapsed linked content)
-□ Stance prompt after verification (position on linked Points)
-□ VerificationEvent logging (positions before/after)
-□ Event outcomes section (verification count, leaderboard)
-□ Ears (👂) count on participant list
-```
+</details>
 
-**Why first:**
-- /live exists but isn't connected to content
-- Need verification logging before H2 test
-- Event outcomes create visibility (H2) and FOMO (H0b)
-
-**Key insight:** No "feed" needed. At physical events, people match in person. Card selection happens inside /live, not on event page.
-
-### Phase 1: Points + Positions Backend ✅ DONE
-
-**Goal:** Points can be shared, positions can be staked on -3 to +3 scale. 7-point UI completed.
-
-```
-□ Points table (from sifted content or manual entry)
-□ Positions table (-3 to +3 per user per point)
-□ Position history table (track changes for conversion analysis)
-□ Link Position to Story (why user holds this position)
-□ API: createPoint(), stakePosition(), getPositions()
-□ Port IdeaCard + PositionButtons from prototype (update to 7-point scale)
-□ Basic points feed page
-```
-
-**Schema:** See [database.md](technical/database.md) for implemented schemas, feature specs for planned schemas.
-
-### Phase 2: Event Container ✅ DONE
-
-**Goal:** Self-service event creation, scoped points.
-
-```
-✓ Events table + API
-✓ Simple event creation (name + description)
-✓ Event registration (magic link → add to event)
-□ Event feed (points scoped to event) — needs P60
-□ Attendee list with positions — needs P60
-□ "See my events" on profile
-```
-
-### Phase 3: Sifter (P58)
-
-**Goal:** Automate Story/Point creation (manual seeding works but is friction).
-
-See [p58_sifter_mvp.md](../features/p58_sifter_mvp.md) for full spec.
-
-```
-□ Chat interface for brain dump
-□ AI Sifter: detect Story vs Point
-□ Hardener: make Points falsifiable
-□ Mirror Test: AI plays back, user confirms
-```
-
-**Why after verification flow:** Don't automate seeding until verification loop is connected. Manual seeding sufficient for H2 test.
-
-### Phase 4: First Event (H2 Validation)
-
-**Goal:** Run 30-person event to validate H2 (visibility changes behavior) and H0b (social FOMO).
-
-```
-□ Manually seed 3-5 Stories/Points for test event
-□ End-to-end test with verification flow
-□ Run event, observe verification behavior
-□ Post-event survey: >50% verify, >60% "worth it"
-□ Track: Did seeing others' ears (👂) drive participation?
-```
-
-**Success criteria:** See [hypotheses.md](hypotheses.md) H2 and H0b definitions.
-
-### Phase 5: AI Synthesis + Context Portal
+### Phase 4: AI Synthesis + Context Portal (future)
 
 **Goal:** Post-verification learning extraction.
 
@@ -170,7 +267,7 @@ See [p59_context_portal_design.md](../features/p59_context_portal_design.md) for
 
 **Source of truth:** [hypotheses.md](hypotheses.md)
 
-**Current focus:** H2 (visibility changes behavior) and H0 (calibration revelation motivates action)
+**Current focus:** H2-H4 (calibration, FOMO, visibility) — see [hypotheses.md](hypotheses.md)
 
 **First Event success criteria:** See H2 in hypotheses.md — >50% verify, >60% "worth it"
 
@@ -231,19 +328,22 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 ## Related Documents
 
-**Current Work:**
-- [P85: Event Verification Flow](../features/p85_event_verification_flow.md) — Card selection in /live, verification logging, event outcomes (CURRENT)
+**On Hold (deprioritized 2026-01-27):**
+- [P97: Profile Integration](../features/p97_tdd_prototype_migration.md) — Wire prototype into production (ON HOLD)
+- [P98: Sifter Prototype](../features/p98_sifter_prototype.md) — ChatGPT-style Story creation (ON HOLD)
+- [P85: Verification Flow](../features/p85_live_verification_with_cards.md) — Card selection in /live (ON HOLD)
+
+**Supporting:**
 - [P78: User Personas](../features/p78_user_personas.md) — Event organizer + other personas
 - [P79: Consulting Revenue](../features/p79_consulting_revenue_model.md) — Bootstrap revenue model
 
 **Core Specs:**
 - [P55: Understanding Verification Loop](../features/done/p55_understanding_verification_loop.md) — /live mechanism
 - [P56: Event as Clarity Container](../features/p56_event_as_clarity_container.md) — Event mechanics
-- [P58: Sifter MVP](../features/p58_sifter_mvp.md) — AI Sifter (after H2)
 - [P59: Context Portal](../features/p59_context_portal_design.md) — Catch-up feature
 
 **Foundation:**
-- [hypotheses.md](hypotheses.md) — What we're testing (H-Core, H0-H5)
+- [hypotheses.md](hypotheses.md) — What we're testing (H1-H7, H-Core)
 - [theory-of-change.md](theory-of-change.md) — Cascade mechanism, √N
 - [philosophy.md](philosophy.md) — Epistemology
 
@@ -253,7 +353,8 @@ Stories + Points bidirectional linking is the full vision. For MVP mockup:
 
 | Date | Change |
 |------|--------|
-| 2026-01-23 | **Major restructure:** P85 Event Verification Flow is now Phase 0. Sifter moved to Phase 3. Added H0b to H2 test criteria. Key insight: no "feed" needed — card selection happens inside /live, event page shows outcomes only. |
+| 2026-01-27 | **Sequence change:** P97 (Profile/Nav TDD migration) is now Phase 0. Sequence: P97 → Profile Backend → Sifter (P98) → Verification (P85) → First Event. Profiles are foundation that Sifter and Verification depend on. |
+| 2026-01-23 | **Major restructure:** P85 Event Verification Flow is now Phase 0. Sifter moved to Phase 3. Added H0b to H2 test criteria (note: old numbering, now H3/H4). Key insight: no "feed" needed — card selection happens inside /live, event page shows outcomes only. |
 | 2026-01-20 | Restructured phases: P60 (exploration) now Phase 0, Sifter moved to Phase 5 (after H2). Marked Events backend done. Deleted duplicate hypotheses, linked to hypotheses.md. Added P78/P79 references. |
 | 2026-01-18 | v7 alignment: -3 to +3 position scale, ≥8/10 verification threshold, calibration badge (≥10 sessions + ±0.5 gap), Story↔Point bidirectional linking, position_history table for conversion tracking, new open questions Q4/Q5 |
 | 2026-01-14 | Refactored from p57, integrated v6 Story/Point model, added Sifter as Phase 0 |

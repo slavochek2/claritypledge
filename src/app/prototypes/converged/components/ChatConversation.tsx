@@ -13,9 +13,10 @@ interface ChatMessageProps {
   message: Message;
   isOwn: boolean;
   otherUserId: string;
+  otherUserName: string;
 }
 
-function ChatMessage({ message, isOwn, otherUserId }: ChatMessageProps) {
+function ChatMessage({ message, isOwn, otherUserId, otherUserName }: ChatMessageProps) {
   const navigate = useNavigate();
   const [showVerifyButton, setShowVerifyButton] = useState(false);
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -109,7 +110,7 @@ function ChatMessage({ message, isOwn, otherUserId }: ChatMessageProps) {
               onClick={handleVerify}
               className="text-xs text-blue-600 hover:underline self-start px-2"
             >
-              {isOwn ? 'Did you understand me?' : 'Did I understand you?'}
+              {isOwn ? `Did ${otherUserName} understand you?` : `Did you understand ${otherUserName}?`}
             </button>
 
             {/* First-time tooltip */}
@@ -128,6 +129,7 @@ function ChatMessage({ message, isOwn, otherUserId }: ChatMessageProps) {
         <MessageContextMenu
           message={message}
           isOwn={isOwn}
+          otherUserName={otherUserName}
           onVerify={handleVerify}
           onClose={() => setShowContextMenu(false)}
         />
@@ -294,6 +296,7 @@ export function ChatConversation() {
               message={message}
               isOwn={isOwn}
               otherUserId={userId || ''}
+              otherUserName={otherUser.name}
             />
           );
         })}

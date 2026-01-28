@@ -10,44 +10,87 @@ A rule says "don't do X". A principle says "we value Y, which means X is usually
 
 Engineers who understand principles make better decisions in novel situations. Engineers who only follow rules get stuck when the checklist doesn't cover their case.
 
-## How These Agents Work
+---
 
-Each agent embodies ONE key question:
+## Standalone Agents (4)
 
-| Agent | Key Question | Principle |
-|-------|--------------|-----------|
-| UX | "How does this affect real users?" | Protect the user |
-| Sustainability | "Will we regret this in 6 months?" | Think long-term |
-| Alternatives | "What's a simpler way?" | Challenge assumptions |
-| Devil's Advocate | "Why will this fail?" | Find weaknesses early |
+Use these anytime — they're invocable skills, not just prep-spec components.
+
+| Agent | Command | Key Question | Principle |
+|-------|---------|--------------|-----------|
+| **UX** | `/ux` | "How does this affect real users?" | Protect the user |
+| **Dev** | `/dev` | "Will we regret this? Why will this fail?" | Think long-term, find weaknesses early |
+| **Lean** | `/lean` | "What's the simplest thing that validates?" | Build less, learn faster |
+| **Innovation** | `/innovate` | "What possibilities are we not seeing?" | Diverge before converging |
+
+### Two Pairs, Two Modes
+
+```
+┌─────────────────────────────────────────────┐
+│         EXECUTION QUALITY                   │
+│   UX (protect users) + Dev (production)     │
+├─────────────────────────────────────────────┤
+│         STRATEGIC THINKING                  │
+│   Lean (converge) + Innovation (diverge)    │
+└─────────────────────────────────────────────┘
+```
+
+- **UX + Dev**: Catch issues before they ship (user friction, tech debt, failure modes)
+- **Lean + Innovation**: Converge (eliminate waste) and diverge (explore possibilities)
+
+### When to Use Each
+
+| Situation | Use |
+|-----------|-----|
+| About to write code | `/dev` — TDD + sustainability thinking |
+| Reviewing UI/flow | `/ux` — User perspective |
+| Scope feels bloated | `/lean` — Challenge, find MVP |
+| Feeling stuck on approach | `/innovate` — Explore 30 alternatives |
+| Full spec review | `/prep-spec` — All perspectives |
+
+---
+
+## prep-spec Agents (4)
+
+When you run `/prep-spec`, these four perspectives review the spec:
+
+| Agent | Key Question | Absorbs |
+|-------|--------------|---------|
+| **UX** | "How does this feel to use?" | — |
+| **Architect** | "Will we regret this in 6 months?" | sustainability, devils-advocate, execution-scout |
+| **Lean Coach** | "Are we building the right thing simply?" | lean-startup-coach, business, alternatives |
+| **Alignment** | "Does this fit our strategy?" | hypotheses, decisions, definitions, philosophy, kdd-scout |
+
+---
 
 ## Structure of a Principle-Based Agent
 
 ```
 1. PRINCIPLE — One sentence, the "why"
 2. KEY QUESTION — Keep asking this
-3. FOCUS AREAS — Not a checklist, but "think about..."
-4. EXAMPLES — Red flags as illustrations, not exhaustive rules
-5. OUTPUT — Keep it focused
+3. HOW TO THINK — Teach reasoning, not rules
+4. FOCUS AREAS — Not a checklist, but "think about..."
+5. EXAMPLES — Red flags as illustrations, not exhaustive rules
+6. OUTPUT — Keep it focused
 ```
 
 ## Anti-Patterns (What We Avoid)
 
 - **Exhaustive checklists** — Creates false sense of completeness
 - **Rules without reasoning** — "Don't do X" without explaining why
-- **Prescriptive output formats** — Trust the agent to communicate clearly
+- **Many small agents** — Each babysitting one document (consolidate!)
 - **Feature creep** — Each agent does ONE thing well
 
-## Extending Agents
+---
 
-When creating project-specific agents (like `prep-spec/agents/architect.md`):
+## Firewalls vs Principles
 
-1. Reference the base agent: `**Base agent:** [sustainability.md](../../sustainability.md)`
-2. Add project-specific context, not more rules
-3. Keep the same key question — it's the soul of the agent
+Not everything is a principle. Some things are **firewalls** — non-negotiable rules:
 
-## Related Reading
+| Firewalls (Hard Rules) | Principles (Teach Reasoning) |
+|------------------------|------------------------------|
+| Never commit secrets | Test integrity |
+| No destructive git without asking | Single source of truth |
+| No production database access | Sustainability thinking |
 
-- **TDD thinking**: "What test would prove this works?" (not yet an agent)
-- **Don't swallow errors**: Transparency over convenience
-- **Separation of concerns**: One agent, one perspective
+Firewalls protect against catastrophic, irreversible harm. Principles guide everyday decisions.

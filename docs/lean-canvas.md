@@ -1,6 +1,6 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-01-18
+**Last updated:** 2026-01-28
 
 ---
 
@@ -36,19 +36,26 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Primary: Event Organizers (B2B2C)
-- Workshop facilitators
-- Conference organizers
-- Team leads running offsites
-- Community builders
+### Primary: Individuals who bring tools to work
+- Workshop attendees who try /live
+- Professionals who want better communication
+- People who experience calibration gap and want to improve
 
-**Job to be done:** Run events where participants actually understand each other, not just talk past each other.
+**Job to be done:** Improve my communication, see my blind spots, bring value to my team.
 
-### Secondary: Individual Pledgers
-- Professionals who want to signal they're good listeners
-- People building trust/credibility in their field
+### Secondary: Business teams (PAYING)
+- Teams that want calibrated communication
+- Managers who want visibility into team understanding
+- Companies reducing miscommunication costs
 
-**Job to be done:** Stand out as someone who verifies understanding, not just assumes it.
+**Job to be done:** Reduce miscommunication, improve team effectiveness, track progress.
+
+### Tertiary: Facilitators / Event Organizers
+- Run workshops using the protocol
+- Use /live at their events
+- Spread the protocol to their audiences
+
+**Job to be done:** Deliver better workshops, differentiate their offering.
 
 ---
 
@@ -69,7 +76,7 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Solution
 
-A **constructive dialogue tool** with three components:
+A **practice system for calibrated communication** — not a one-time workshop, but ongoing use in real meetings.
 
 ### 1. The Pledge (Brand & Identity)
 A social contract that makes verification acceptable:
@@ -80,18 +87,22 @@ A social contract that makes verification acceptable:
 This removes the social friction of checking understanding. It's not just marketing — it's a public identity commitment.
 
 ### 2. /live — Real-time Verification (Core Product)
-The core interaction:
+The core interaction, used in **any meeting**:
 1. Speaker shares an idea
 2. Listener plays back their understanding
 3. Both rate: listener's confidence vs. speaker's accuracy rating
 4. The gap = **Understanding Gap**
 5. Speaker certifies when satisfied
 
+**Key insight (2026-01-27):** /live isn't for special "Clarity events" — it's for any meeting where a team commits to verified understanding. Team standup, 1:1, board meeting, workshop — any meeting can be an "event."
+
 ### 3. Calibration Profile
 Track your accuracy over time:
 - How often your confidence matches reality
 - Your verified understanding score
 - Public credential for professional reputation
+
+**Behavior change is proven by ongoing use:** Teams that keep using /live in their regular meetings, with calibration improving over time = success.
 
 **Scope:** We focus on Layer 1 (understanding) and Layer 2 (agreement check). We don't try to resolve disagreements — just verify people understand what they're disagreeing about.
 
@@ -134,9 +145,10 @@ Track your accuracy over time:
 
 ## Channels
 
-- **B2B2C:** Event organizers bring their audiences
-- **Organic:** Pledgers share profiles, certificates
-- **Content:** Articles on the cost of miscommunication
+- **Free workshops:** You run free/PWYW workshops → attendees use free tool → some bring to work → business conversion
+- **Facilitator network:** Other facilitators run workshops → their attendees use tool → business conversions
+- **Organic/viral:** Free users share calibration scores → others try tool → spread
+- **Content:** Articles on miscommunication cost → free tool signups → business conversions
 
 ---
 
@@ -144,35 +156,40 @@ Track your accuracy over time:
 
 | Metric | Estimate |
 |--------|----------|
-| Price per event | $50-200 |
-| Events per organizer/year | 4-12 |
-| LTV per organizer | $200-2,400 |
-| CAC target | <$100 (content/referral) |
+| Workshop cost to run | ~$0 (your time) |
+| Workshop → free tool conversion | Target: 20%+ |
+| Free tool → business inquiry | Target: 5%+ |
+| Business team price | $100-500/team/month |
+| Business retention | Target: 80%+ |
+| CAC | ~$0 (workshops are free marketing) |
 
 ---
 
 ## Cost Structure
 
 - Engineering (primary)
-- Hosting (Supabase, Vercel)
-- Event facilitation support
+- Hosting (Supabase, Vercel — scales with users)
+- Your time (workshops, support)
 
 ---
 
 ## Revenue Streams
 
-*Pre-revenue — validating product-market fit*
+**Free tier (adoption & spread):**
+- Workshops: free or pay-what-you-can
+- Individual /live use: free
+- Non-profit use: free
 
-Potential:
-- Event organizer subscriptions (per-event or monthly)
-- Enterprise team licenses
-- Premium profile/certification features
+**Paid tier (revenue):**
+- Business team license: $100-500/team/month
+- Enterprise: custom pricing (multiple teams, SSO, analytics)
+- (Future) Facilitator certification: one-time fee + royalty
 
 ---
 
 ## Validation Status
 
-**Problem hypothesis** (not yet validated with target customers):
+**Problem hypothesis** (partially validated):
 
 Events and workshops often fail to achieve real knowledge exchange because:
 - People avoid vulnerability (don't admit confusion)
@@ -180,10 +197,25 @@ Events and workshops often fail to achieve real knowledge exchange because:
 - Miscalibration (everyone assumes understanding happened)
 - Low trust (why expose that I didn't get it?)
 
+**Validation results (2026-01-28):**
+
+| Hypothesis | Status | Learning |
+|------------|--------|----------|
+| People fail at dialogue | ✅ Confirmed | Core problem is real |
+| /live reduces gap in-session | ✅ Confirmed | Tool works, gaps close |
+| Pledge identity changes behavior | ❌ Not validated | People sign, don't act differently |
+| Individual users seek verification | ❌ Not validated | No trigger — "on what? when?" |
+| /live is sticky/retained | ❌ Not validated | Praised but not returned to |
+| Event organizers can provide trigger | ⏸️ Paused | Pivoted to coach hypothesis first |
+| **Coaches will pay for diagnostic tool** | 🔄 Testing now | They see blindspot clients can't see |
+
+**Key learning (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot will. Coaches see their clients' miscalibration. Testing this hypothesis via discovery conversations.
+
 **Current status:**
-- Early interest from one event organizer wanting to run pilots
-- Hypothesis validation in progress
-- Tracking experiments in [hypotheses.md](hypotheses.md)
+- Testing coach hypothesis via discovery conversations
+- Target: 5 conversations with executive/leadership/communication coaches
+- Questions: Pain? Trust? Retention? Would pay?
+- Full plan in [p_coach_validation.md](../features/p_coach_validation.md)
 
 ---
 

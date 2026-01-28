@@ -34,7 +34,7 @@ I read all the sources silently:
 | `features/*.md` | Active specs |
 | `features/done/*.md` | Completed specs |
 | `docs/roadmap.md` | What phases exist, what's current focus |
-| `docs/hypotheses.md` | H0-H5 and their validation status |
+| `docs/hypotheses.md` | H1-H7 and their validation status |
 | `docs/theory-of-change.md` | Key mechanisms that need implementation |
 
 ### Phase 2: Find Issues (Prioritized)
@@ -108,13 +108,13 @@ After sync issues, I show strategic gaps:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [10/12] 🟡 Blindspot: Hypothesis Gap
 
-H0b (social FOMO drives participation) has no validation plan.
+H3 (social FOMO drives participation) has no validation plan.
 
-Your roadmap says to test this at the "First Event" (Phase 4),
+Your roadmap says to test this at the "First Event" (Phase 0),
 but there's no item tracking how you'll measure it.
 
 Should I create one?
-  → Yes, create "[US] H0b validation — measure FOMO effect"
+  → Yes, create "[US] H3 validation — measure FOMO effect"
   → No, it's covered elsewhere (tell me where)
   → Add to P85 success criteria instead
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -198,7 +198,7 @@ You can always say "skip" — I'll note it and move on.
 | Doc | What I Look For |
 |-----|-----------------|
 | `docs/roadmap.md` | Current phase, upcoming phases, dependencies |
-| `docs/hypotheses.md` | H0-H5, which need validation |
+| `docs/hypotheses.md` | H1-H7, which need validation |
 | `docs/theory-of-change.md` | Key mechanisms (√N, cascade, etc.) |
 | `docs/decisions.md` | Prior decisions on similar topics |
 | `docs/lean-canvas.md` | Problem/solution alignment |

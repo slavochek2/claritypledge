@@ -4,11 +4,12 @@ import { type Message } from '../data/mock-data';
 interface MessageContextMenuProps {
   message: Message;
   isOwn: boolean;
+  otherUserName: string;
   onVerify: () => void;
   onClose: () => void;
 }
 
-export function MessageContextMenu({ onVerify, onClose }: Omit<MessageContextMenuProps, 'message' | 'isOwn'>) {
+export function MessageContextMenu({ isOwn, otherUserName, onVerify, onClose }: Omit<MessageContextMenuProps, 'message'>) {
   return (
     <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose}>
       <div
@@ -24,7 +25,7 @@ export function MessageContextMenu({ onVerify, onClose }: Omit<MessageContextMen
         >
           <Mic className="w-5 h-5 text-blue-600" />
           <span className="font-medium">
-            {isOwn ? 'Did you understand me?' : 'Did I understand you?'}
+            {isOwn ? `Did ${otherUserName} understand you?` : `Did you understand ${otherUserName}?`}
           </span>
         </button>
 

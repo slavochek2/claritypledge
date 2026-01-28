@@ -82,8 +82,8 @@ These are anti-patterns, not rules to memorize:
 Run these separately if you want additional lenses:
 
 - `/slava:ux` — User experience
-- `/slava:devils-advocate` — Challenge assumptions
-- `/slava:alternatives` — Find simpler approaches
+- `/slava:lean` — Challenge scope, find the MVP
+- `/slava:innovate` — Explore alternative approaches
 
 ---
 

@@ -2,6 +2,8 @@
 
 Brainstorm 30 alternatives, score them, pick the best. Structured divergence → convergence.
 
+> **Principle:** Your first idea is rarely your best. Force divergence before committing.
+
 **Usage:**
 ```
 /innovate features/p104_feature.md     # Challenge a spec's approach
@@ -16,6 +18,8 @@ Brainstorm 30 alternatives, score them, pick the best. Structured divergence →
 Find better approaches by forcing divergent thinking, then systematically converging on the best option.
 
 > "The best way to have a good idea is to have lots of ideas." — Linus Pauling
+
+**This is divergent thinking.** Generate many possibilities before evaluating. Complements `/lean` (convergent thinking — eliminate waste, find MVP). Use /innovate when stuck on "the only way" or when the approach feels unconsidered.
 
 ---
 

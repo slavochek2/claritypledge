@@ -14,6 +14,111 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-28: Coaches as first paying customer hypothesis
+
+**Context:** Founder was paralyzed by uncertainty about revenue. Previous plan (free workshops → hope → business conversion) had too many uncertain steps. Psychological profile revealed: intolerance of uncertainty, avoidance of situations where value is subjectively evaluated, preference for fixed transactions.
+
+**The insight:** The tool reveals a blindspot people don't know they have (listener miscalibration). The person who's blind won't pay — but the person who SEES the blindspot in someone else will pay. Coaches see their clients' blindspots.
+
+**Decision:** Test hypothesis that executive/leadership/communication coaches will pay $50-100/month for a diagnostic tool that objectively measures their clients' communication calibration gap.
+
+**Why coaches:**
+- They see the blindspot in clients (so they'll pay, not the blind person)
+- They already charge money (understand paying for tools)
+- Tool is diagnostic infrastructure, not "selling yourself"
+- Sale is fixed transaction: "here's a tool, $50/month"
+- Aligned with mission (coaches spread calibrated communication through clients)
+
+**Path from coaches to vision:**
+- Coaches → use tool with clients
+- Clients → experience calibration revelation → some bring to teams
+- Teams → organizational adoption
+- Organizations → institutions
+- Institutions → democratic deliberation infrastructure
+
+This is staged ambition, not selling out. The protocol is the same at all scales.
+
+**Validation plan:**
+- 5 coach conversations in 2 weeks
+- Ask: Do you have clients with listener miscalibration? Would you pay for proof tool?
+- Success: 3+ confirm pain, 2+ would pay
+
+**Alternatives rejected:**
+- Individuals (end users) — won't pay for problem they don't know they have
+- Businesses/teams directly — diffuse pain, requires enterprise sales
+- Facilitators — need to run workshops (extra effort)
+- Keep building features and hope — maximum uncertainty over maximum time
+
+**What's deferred:**
+- Stories, Points, Sifter, reputation systems, event features, community features
+- All Phase 2+ until coach hypothesis validated
+
+**Concerns to validate:**
+- Trust: Will clients believe a tool the coach uses? (Or need neutral/group proof?)
+- Retention: Will coaches use ongoing or just once per client?
+
+**References:**
+- [p_coach_validation.md](../features/p_coach_validation.md) — full validation plan
+- [hypotheses.md](hypotheses.md) — H-Biz hypothesis
+
+---
+
+## 2026-01-27: Product reframe — "Event" = any meeting with protocol commitment
+
+**Context:** Following the Cold Start insight, explored what actually proves behavior change. Workshops alone don't prove anything — behavior change is proven by ongoing use. Realized "events" shouldn't mean "special workshops" but any meeting where people commit to using the protocol.
+
+**Decision:** The product is:
+> **Any meeting where people commit to verified understanding.**
+
+- "Event" = team standup, 1:1, board meeting, workshop, any meeting
+- Workshop is one entry point (training), not the product itself
+- Behavior change measured by: do teams keep using /live in their own meetings?
+- Calibration over time proves the protocol works
+
+**Alternatives rejected:**
+- Workshop as product — doesn't prove ongoing behavior change, not scalable, consulting trap
+- /live only for "special occasions" — limits adoption, no habit formation
+- Separate "workshop mode" vs "meeting mode" — unnecessary complexity, same protocol
+
+**Consequences:**
+- Product positioning shifts: "/live for your team's meetings" not "/live for Clarity workshops"
+- Success metric: teams create recurring events and keep using /live
+- Workshop becomes onboarding/training, not the core product
+- Event model already supports this (any meeting can be an "event")
+- Revenue path: teams pay for ongoing calibration tracking, not one-time workshops
+
+**References:** Conversation on 2026-01-27 about behavior change measurement
+
+---
+
+## 2026-01-27: Cold Start Problem — Trigger, Not Tool
+
+**Context:** Through iterative simplification of P98 (Sifter) and P97 (Profile), discovered that the core problem isn't the tool or content complexity — it's that /live has no trigger. Users like /live, praise it, but say "on what? when?" The tool works but sits unused.
+
+Prior attempts:
+- Pledge as identity → people sign but don't act differently
+- /live as tool → interesting, not sticky, no retention
+- Stories/Points as content → supposed to be "the what" but became too complex
+
+**Decision:** The trigger must come from OUTSIDE the product, not inside. Event organizers provide the "when" (event) and "what" (topics). Individual users don't have intrinsic triggers. This confirms B2B2C as the right model.
+
+**Alternatives rejected:**
+- Stories/Points as trigger — too complex, still requires users to create content first (chicken-egg)
+- Calibration revelation as trigger — requires /live sessions first to have calibration data (chicken-egg)
+- Pledge identity as trigger — tested and failed; people sign but behavior doesn't change
+- Building more product — the problem isn't features, it's the cold start loop
+
+**Consequences:**
+- B2B2C (Event Organizers) confirmed as primary customer — they provide the trigger individuals lack
+- Individual pledger features (Profile redesign, Sifter) deprioritized until event loop validated
+- Next step: Run ONE event with organizer-provided topics, manual facilitation, no new code
+- P97 and P98 scope dramatically reduced or deferred
+- 10 days spent on prototype was "tuition" — deep understanding of model, knowledge of what's NOT needed
+
+**References:** Conversation on 2026-01-27 about simplification spiral and cold start realization
+
+---
+
 ## 2026-01-26: Standalone skills as source of truth, prep-spec agents as pointers
 
 **Context:** `/prep-spec` had 12 agent prompt files in `agents/` directory. Two issues emerged:
@@ -334,21 +439,21 @@ User journey: **Clarify → Share → Verify**
 **Consequences:**
 - Event page is simpler (one view)
 - Card selection UI component shared between profiles and /live
-- Event outcomes section drives H2 (visibility) and H0b (FOMO)
+- Event outcomes section drives H4 (visibility, was H2) and H3 (FOMO, was H0b)
 - No presence system needed — link/QR sufficient for /live pairing
 
 **References:** [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) | [hypotheses.md](hypotheses.md#h2-visibility-changes-group-behavior-)
 
 ---
 
-## 2026-01-23: H0b hypothesis — Social FOMO drives adoption
+## 2026-01-23: H3 hypothesis — Social FOMO drives adoption (was H0b)
 
-**Context:** Realized that showing calibration scores (ears 👂) on participant lists serves dual purpose: visibility (H2) and social FOMO (new hypothesis).
+**Context:** Realized that showing calibration scores (ears 👂) on participant lists serves dual purpose: visibility (now H4) and social FOMO (new hypothesis, now H3).
 
-**Decision:** Added H0b hypothesis to test whether seeing others' calibration motivates non-participants to verify.
+**Decision:** Added H3 hypothesis (was H0b) to test whether seeing others' calibration motivates non-participants to verify.
 
 **Alternatives rejected:**
-- Merging with H0 — H0 is self-revelation ("I didn't realize I was miscalibrated"), H0b is social ("others have it, I want it")
+- Merging with H2 (now H2) — H2 is self-revelation ("I didn't realize I was miscalibrated"), H3 is social ("others have it, I want it")
 - Deferring — FOMO is core to event outcomes design, need to track it from first event
 
 **Consequences:**

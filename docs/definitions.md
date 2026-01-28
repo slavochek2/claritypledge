@@ -2,7 +2,7 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-01-23
+**Last Updated:** 2026-01-27
 
 ---
 
@@ -127,5 +127,5 @@ The real value is in detecting **false states**:
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
-- [hypotheses.md](hypotheses.md) — What we're testing (H-Core, H0-H5)
+- [hypotheses.md](hypotheses.md) — What we're testing (H1-H7, H-Core)
 - [philosophy.md](philosophy.md) — Epistemological foundations

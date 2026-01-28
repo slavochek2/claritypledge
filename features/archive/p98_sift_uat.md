@@ -1,5 +1,7 @@
 # P98 Sift UAT - Manual Testing Checklist
 
+> **⚠️ ARCHIVED 2026-01-27:** Feature deprioritized due to cold start problem pivot. See [roadmap.md](../docs/roadmap.md) and [decisions.md](../docs/decisions.md) for context.
+
 **URL:** `http://localhost:5173/prototype/linkedin-like/sift`
 **Related:** Profile page at `/prototype/linkedin-like/profile`
 
