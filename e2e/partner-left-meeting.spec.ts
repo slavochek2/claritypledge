@@ -69,8 +69,8 @@ test.describe('Partner Left Meeting Notification', () => {
         await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
 
         // Both should see the idle state buttons (the live meeting view)
-        await expect(creatorPage.getByText('Did you understand me?')).toBeVisible();
-        await expect(joinerPage.getByText('Did you understand me?')).toBeVisible();
+        await expect(creatorPage.getByText('Did Bob understand you?')).toBeVisible();
+        await expect(joinerPage.getByText('Did Alice understand you?')).toBeVisible();
 
         // Step 3: Joiner clicks "Leave" button via menu
         await joinerPage.getByRole('button', { name: 'Menu' }).click();
@@ -145,8 +145,8 @@ test.describe('Partner Left Meeting Notification', () => {
         await expect(joinerPage.getByText('Charlie')).toBeVisible({ timeout: 10000 });
 
         // Both should see the idle state buttons (the live meeting view)
-        await expect(creatorPage.getByText('Did you understand me?')).toBeVisible();
-        await expect(joinerPage.getByText('Did you understand me?')).toBeVisible();
+        await expect(creatorPage.getByText('Did Diana understand you?')).toBeVisible();
+        await expect(joinerPage.getByText('Did Charlie understand you?')).toBeVisible();
 
         // Step 3: Creator clicks "Leave" button via menu
         await creatorPage.getByRole('button', { name: 'Menu' }).click();
