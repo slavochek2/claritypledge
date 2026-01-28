@@ -2,6 +2,25 @@
 
 This guide covers browser automation tools available to Claude agents.
 
+---
+
+## Default Behavior: Headless + Isolated
+
+> **Principle:** Browser automation should always run **headless** and **isolated** by default.
+
+| Mode | Why Default |
+|------|-------------|
+| **Headless** | Faster, no visual distraction, works in CI, doesn't steal focus |
+| **Isolated** | No session conflicts between agents, clean state, auto-cleanup |
+
+**Exception:** If an agent needs visual debugging (to see what's happening), they must explicitly request headed mode and explain why.
+
+**Configuration:**
+- Chrome DevTools MCP: `--headless --isolated` flags in `~/.claude/settings.json`
+- Playwright: Defaults to headless; use `--headed` flag only when debugging
+
+---
+
 ## Chrome DevTools MCP (Default)
 
 Tools: `mcp__chrome-devtools__*`
@@ -20,7 +39,7 @@ Tools: `mcp__chrome-devtools__*`
 - `take_screenshot` - Visual capture
 - `get_console_logs` - Check for errors
 
-**Session management:** If you get "browser already running" error, the previous session may still be active. Use `list_pages` to reconnect to existing session.
+**Troubleshooting:** With `--isolated` mode, each session gets a fresh profile. If you still get "browser already running" errors, kill stale processes: `pkill -f "chrome-devtools-mcp"`
 
 ---
 

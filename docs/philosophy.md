@@ -5,6 +5,7 @@
 **Status:** Source of truth — epistemological foundation for Clarity Pledge
 **Origin:** Synthesis of Popper, Deutsch, Habermas, and communication science
 **See also:** [theory-of-change.md](theory-of-change.md) for HOW change spreads
+**Academic foundation:** [Intuitive Trust-Building Framework](https://doi.org/10.5281/zenodo.14548583) (Ladischenski, 2024)
 
 ---
 

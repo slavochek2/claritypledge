@@ -1,16 +1,5 @@
 # The Clarity Tax: A Coordination Failure Externality
 
-> **Note:** This is the public manifesto — written for external audiences as a persuasive narrative. For internal working docs, see:
-> - [philosophy.md](../../../docs/philosophy.md) — Epistemological foundation
-> - [theory-of-change.md](../../../docs/theory-of-change.md) — Cascade mechanism
-> - [lean-canvas.md](../../../docs/lean-canvas.md) — Problem/solution/business model
->
-> Unique frameworks in this article (not duplicated in docs): Three Asymmetries, Implementation Levels, Celebration Engine concept.
->
-> ⚠️ **File location:** This file must stay at `src/app/content/full-article.md` for relative links to work.
-
----
-
 ## I. The Frustration: When Humility is Blocked by Unwillingness to Cooperate
 
 You've just explained a critical point. To ensure you're aligned, you ask a simple, collaborative question: "Can you play back what you understood from that?" Instead of partnership, you get a wall of defensiveness: "I got it. We don't need to waste time on this."
@@ -548,20 +537,6 @@ This is not hyperbole. The question of whether humanity can successfully coordin
 
 **The stakes could not be higher. The Clarity Principle is not a nice-to-have communication improvement. It is a foundational capacity for civilization-level coordination in an age of existential risk.**
 
-### Take Action Now
-
-**Primary Action:** Take the Public Pledge
-
-Commit publicly to operating under the Clarity Principle in your professional and personal life. Let others know they have the right to ask you to verify your understanding, and that you'll honor that right or explain why you can't in a specific instance.
-
-[Link to Public Pledge Platform]
-
-**Secondary Action:** Help Shape the Tools
-
-We're exploring what technological support would be most valuable for those committed to the Clarity Principle. Share your experience: What would help you and your team sustain this practice?
-
-[Link to Tool Development Survey]
-
 ---
 
 The Clarity Tax has persisted because it was invisible, distributed, and unaccountable. The Clarity Principle makes it visible, localized, and accountable. 
@@ -666,7 +641,7 @@ This concept would require:
 
 The goal is not surveillance or compliance scoring. It's celebration and learning. The system exists to support those committed to the Clarity Principle, not to police them.
 
-**Status:** This is a speculative concept. We're gathering feedback from those who adopt the Clarity Principle to understand if and how such tools would provide value. [Link to feedback survey]
+**Status:** This is a speculative concept.
 
 ---
 
@@ -774,6 +749,10 @@ The Clarity Principle provides the cultural foundation that makes these practice
 
 ## References
 
+### Foundational Theory
+
+- Ladischenski, V. (2024). *Intuitive Trust-Building Framework Grounded in Moral and Epistemic Impartiality*. Zenodo. [DOI: 10.5281/zenodo.14548583](https://doi.org/10.5281/zenodo.14548583) | [Formatted version](https://docs.google.com/document/d/1kGMJGx4Vrzi9WACDVPcFq5oxaww3oydHV54CgS6Zhmc/edit)
+
 ### Evidence from Business
 
 1. Grammarly & The Harris Poll. (2022). *The State of Business Communication: The Backbone of Business Is Broken*. [Link](https://www.businesswire.com/news/home/20220125005525/en/)
@@ -789,6 +768,16 @@ The Clarity Principle provides the cultural foundation that makes these practice
 - Mathieu, J. E., Heffner, T. S., Goodwin, G. F., Salas, E., & Cannon-Bowers, J. A. (2000). The influence of shared mental models on team process and performance. *Journal of Applied Psychology*, 85(2), 273–283.
 
 - Salas, E., Cooke, N. J., & Rosen, M. A. (2008). On teams, teamwork, and team performance: Discoveries and developments. *Human Factors*, 50(3), 540–547.
+
+---
+
+## Further Reading
+
+For those who want to go deeper:
+
+- [Why this works — the epistemological foundation](/docs/philosophy.md)
+- [How change spreads — cascade and √N effects](/docs/theory-of-change.md)
+- [What we're testing — current hypotheses](/docs/hypotheses.md)
 
 ---
 

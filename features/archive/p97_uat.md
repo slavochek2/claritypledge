@@ -1,5 +1,7 @@
 # P97: TDD Rebuild - LinkedIn-Like Prototype to Production — Acceptance Tests
 
+> **⚠️ ARCHIVED 2026-01-27:** Feature deprioritized due to cold start problem pivot. See [roadmap.md](../docs/roadmap.md) and [decisions.md](../docs/decisions.md) for context.
+
 **Purpose:** Testable acceptance criteria for P97 frontend migration implementation.
 **Usage:** Ralph Loop iterates until ALL tests pass (score 100%).
 **Source:** features/p97_tdd_prototype_migration.md

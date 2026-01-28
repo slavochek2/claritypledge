@@ -1,368 +1,274 @@
-# P98: Sifter Prototype (AI-powered /live)
+# P98: Sifter (Revised Spec)
 
-**Status:** Implemented
+**Status:** On Hold (deprioritized 2026-01-27 — see roadmap)
 **Created:** 2026-01-26
-**Updated:** 2026-01-26
-**Parent:** [P58 Sifter MVP](./done/p58_sifter_mvp.md) (archived)
-**Location:** `/prototype/linkedin-like/sift`
+**Updated:** 2026-01-27
+**Location:** `/prototype/linkedin-like/sift` (within LinkedIn prototype)
+
+---
+
+## Scope: Frontend Mockup Only
+
+This is a **UI prototype** within the LinkedIn-like prototype tree. No real backend.
+
+| In Scope | Out of Scope (Later) |
+|----------|----------------------|
+| Chat UI with all phases | Real AI/LLM backend |
+| Mock AI responses | Database persistence |
+| 0-10 rating interactions | Stories/Points saved to DB |
+| Story → Points flow (mocked) | Real user profiles |
+| Standard app navigation | /live integration |
+| Mobile-responsive | Verification flow |
+
+**Goal:** Validate the UX flow with mocked data before building real backend.
 
 ---
 
 ## One-Sentence Description
 
-ChatGPT-style AI chat where user articulates their Story, rates understanding 0-10, refines until ≥8.
+AI-guided chat where user brain-dumps → gets polished Story → rates/refines → extracts Points → rates/refines each → ends with verified Story + linked Points.
 
 ---
 
-## Core Model: Chat-based Sifting
+## Jobs to Be Done
+
+| Job | Success Outcome |
+|-----|-----------------|
+| Articulate my thought | Fuzzy brain dump → clear, polished Story |
+| Know if AI understood me | Rate 0-10, see where it missed |
+| Refine until satisfied | Iterate with options or details until 10 (or "good enough") |
+| Extract my positions | Story → discrete Points I can stake |
+| Agree with each Point | Rate each Point, refine until accurate |
+| Have something usable | Story + Points shown as complete (mocked) |
+
+---
+
+## Flow
 
 ```
-User has thought
-      │
-      ▼
-┌─────────────┐
-│   ENTRY     │  ← Type initial thought
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│    CHAT     │  ← AI interprets → User rates 0-10 → Refine
-└──────┬──────┘
-       │
-       ≥8 rating (or "Use this anyway" after 3 attempts)
-       │
-       ▼
-┌─────────────────────────────────┐
-│ Done: "Invite to verify" or     │
-│ "Back to profile"               │
-└─────────────────────────────────┘
-```
-
-**Why this model:**
-1. ChatGPT-style chat is universally understood
-2. No "processing screens" - typing indicator is enough
-3. ≥8 threshold matches /live's "understood" standard
-4. Escape hatch prevents infinite refinement frustration
-
----
-
-## Scope: Prototype Only
-
-| In Scope | Out of Scope |
-|----------|--------------|
-| ChatGPT-style chat interface | Real AI/LLM calls |
-| 0-10 rating (like /live) | Database persistence |
-| Entry → Chat → Done phases | Points extraction flow |
-| Mock AI responses | Voice input (future) |
-| Reuse /live header pattern | Meeting codes |
-| "Invite to verify" CTA | Full /live integration |
-| "Use this anyway" escape (3 attempts) | — |
-
----
-
-## Key UX Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Interface pattern | **ChatGPT-style chat** | Universal pattern users already understand |
-| Rating threshold | **≥8 = understood** | Matches /live; strict 10/10 is too hard |
-| Refinement escape | **"Use this anyway" after 3 attempts** | Prevents infinite loop frustration |
-| Header | **Reuse /live pattern** | Logo \| Badge \| Leave button — consistency |
-| Processing | **None — typing indicator** | Fake loading screens feel artificial |
-| Options A/B/C | **Removed — direct input only** | Fewer clicks, more natural conversation |
-
----
-
-## User Flow
-
-```
-1. ENTRY (centered, ChatGPT welcome style)
-   └── "What's on your mind?"
-   └── Textarea with placeholder
-   └── Send button (disabled when empty)
-
-2. CHAT (scrolling conversation)
-   └── User message appears
-   └── AI typing indicator (bouncing dots)
-   └── AI interpretation: "So you're saying..."
-   └── Rating UI: "How well does this capture your meaning?"
-   └── [0][1][2][3][4][5][6][7][8][9][10] + [Submit]
-
-   If rating < 8:
-   └── AI: "You rated X/10. What did I miss?"
-   └── User types clarification
-   └── AI responds with refined interpretation
-   └── Rating UI again
-   └── (Repeat until ≥8, or after 3 attempts show "Use this anyway")
-
-3. DONE (≥8 rating)
-   └── "Your Story is ready" with checkmark
-   └── StoryCard preview (user name, story text)
-   └── [ Invite someone to verify ] ← primary CTA
-   └── [ Back to profile ] ← secondary
+┌─────────────────────────────────────────────────────────────┐
+│ 1. BRAIN DUMP                                               │
+│    User types raw thought (any length, messy is fine)       │
+│    [Text input] → [Submit]                                  │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 2. STORY PRESENTED                                          │
+│    AI shows polished Story version                          │
+│    "Here's what I understood..."                            │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 3. STORY RATING (loop)                                      │
+│    "How well does this represent what you meant?" [0-10]    │
+│                                                             │
+│    If 10 → proceed to Points                                │
+│    If < 10 → AI shows interpretation options + "add more"   │
+│    If stuck → "Good enough" escape after 3 attempts         │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 4. POINTS EXTRACTION                                        │
+│    AI extracts discrete Points from Story                   │
+│    Presents one at a time in conversation                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 5. POINT RATING (loop, per Point)                           │
+│    "How much do you agree with this Point?" [0-10]          │
+│                                                             │
+│    If 10 → Point confirmed, next Point                      │
+│    If < 10 → revise wording until accurate                  │
+│    If stuck → "Good enough" or skip Point                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 6. DONE                                                     │
+│    Show Story card with linked Points (mocked)              │
+│    [Back to profile]                                        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Components
+## Interface: Chat-Based (Like ChatGPT)
 
-### Reuse from Live.tsx
+**Single scrolling conversation** — not separate screens per phase.
 
-| Component | Status |
-|-----------|--------|
-| Header pattern (Logo \| Badge \| Leave) | ✓ Reused exactly |
-| RatingButtons (0-10, blue theme) | ✓ Reused styling |
-| Exit confirmation dialog | ✓ Reused pattern |
+```
+┌─────────────────────────────────────────────────────────────┐
+│ [←]  [Logo]  [Home]  [Profile]  [Create]           [•••]   │  ← Standard app nav
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─ You ─────────────────────────────────────────────────┐  │
+│  │ I've been commuting 2 hours daily and feeling         │  │
+│  │ exhausted, missing my kids...                         │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌─ Clarity AI ──────────────────────────────────────────┐  │
+│  │ Here's what I understood:                             │  │
+│  │ "I commuted 2 hours daily. The exhaustion was         │  │
+│  │ physical, but the real pain was guilt about           │  │
+│  │ missing my kids."                                     │  │
+│  │                                                       │  │
+│  │ How well does this represent what you meant?          │  │
+│  │ [0][1][2][3][4][5][6][7][8][9][10]                    │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌─ You ─────────────────────────────────────────────────┐  │
+│  │ 7/10 — missing the part about guilt toward my spouse  │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌─ Clarity AI ──────────────────────────────────────────┐  │
+│  │ Got it. Which resonates more?                         │  │
+│  │ ○ A) Guilt was mainly about missing the kids          │  │
+│  │ ○ B) Guilt was about letting down my spouse too       │  │
+│  │ ○ C) The guilt affected my whole family dynamic       │  │
+│  │ [+ Add more details...]                               │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ... conversation continues ...                             │
+│                                                             │
+│  ┌─ Clarity AI ──────────────────────────────────────────┐  │
+│  │ ✓ Story complete (10/10)                              │  │
+│  │                                                       │  │
+│  │ Now let's extract your Points. Here's the first:      │  │
+│  │ "Long commutes damage family relationships"           │  │
+│  │                                                       │  │
+│  │ How much do you agree? [0-10]                         │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ Type here to add more details...              [→]    │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Sift.tsx Structure (~400 lines)
-
-| Section | Purpose |
-|---------|---------|
-| `SiftHeader` | Logo + "Clarity AI" badge + Leave button |
-| `ChatMessage` | User/AI message with alternating backgrounds |
-| `RatingButtons` | 0-10 inline buttons matching /live |
-| `ChatInput` | Textarea + Send button |
-| `DoneScreen` | StoryCard preview + CTAs |
+**Key UI behaviors:**
+- Conversation scrolls up as new messages appear
+- Input field always visible at bottom
+- User can scroll back to see full history
+- Ratings appear inline in AI messages
+- Progress subtly indicated (e.g., "Story complete, now Points")
 
 ---
 
-## State Machine
+## Usability Principles
 
-```typescript
-type SiftPhase = 'entry' | 'chat' | 'done';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'ai';
-  content: string;
-  showRating?: boolean;  // AI can request rating
-}
-
-interface SiftState {
-  phase: SiftPhase;
-  messages: ChatMessage[];
-  currentStoryText: string;
-  refinementCount: number;  // For "Use this anyway" escape
-  currentRating: number | null;
-}
-
-// Constants
-const UNDERSTOOD_THRESHOLD = 8;
-const MAX_REFINEMENTS = 3;
-```
+| Principle | Implementation |
+|-----------|----------------|
+| **Never trap the user** | "Good enough" escape after 3 attempts; can always exit |
+| **Show progress** | User knows where they are (Story → Points → Done) |
+| **Preserve context** | Chat history visible; user can scroll back |
+| **Input always available** | Text input never disappears; user can always add more |
+| **Clear what's happening** | Typing indicator when AI working; no mystery loading |
+| **Undo-friendly** | Can go back to previous interpretation; nothing destructive |
+| **Mobile-first** | Works on small screens; touch-friendly rating buttons |
 
 ---
 
-## Mock Data
+## Navigation & Chrome
 
-```typescript
-const MOCK_AI_RESPONSES = [
-  {
-    interpretation: "So you're saying the commute was draining you both physically and emotionally, affecting your family time?",
-    storyText: "I commuted 2 hours daily and felt exhausted.",
-  },
-  {
-    interpretation: "Ah, so the guilt about missing your kids was the real pain, not just the exhaustion.",
-    storyText: "I commuted 2 hours daily. The exhaustion was physical, but the real pain was guilt about missing my kids.",
-  },
-  {
-    interpretation: "I understand now. The physical exhaustion combined with guilt about missing your children made the situation unsustainable.",
-    storyText: "I commuted 2 hours daily. I was exhausted, couldn't see my kids, and felt overwhelming guilt.",
-  },
-];
-```
+**Keep standard app navigation** — no special header. Sift is just another page, not a "meeting."
 
----
+| Element | Decision |
+|---------|----------|
+| Header | Same as rest of app (standard nav) |
+| Back | Browser back / nav link → previous page |
+| Exit warning | Yes, if mid-flow: "Progress will be lost" |
+| Progress indicator | Subtle inline: "Story" → "Points" → "Done" |
 
-## UI Wireframes
+**Entry points:**
+- Profile → "Create Story" button
+- Top menu (desktop) → "Create"
+- Bottom menu (mobile) → "Create"
 
-### Entry Screen (ChatGPT welcome style)
+**Back behavior:** Always goes to previous page (browser history). No special logic.
 
-```
-┌─────────────────────────────────┐
-│ [C]    Clarity AI      [Leave]  │  ← Header matches /live
-├─────────────────────────────────┤
-│                                 │
-│            [C]                  │  ← Centered logo
-│                                 │
-│     What's on your mind?        │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ e.g., "I've been thinking │  │
-│  │ about remote work..."     │  │
-│  └───────────────────────────┘  │
-│           [→]                   │  ← Send button (disabled)
-└─────────────────────────────────┘
-```
-
-### Chat Phase (scrolling conversation)
-
-```
-┌─────────────────────────────────┐
-│ [C]    Clarity AI      [Leave]  │
-├─────────────────────────────────┤
-│ ┌───────────────────────────┐   │
-│ │ You                       │   │  ← White bg
-│ │ I commuted 2 hours daily  │   │
-│ │ and felt exhausted...     │   │
-│ └───────────────────────────┘   │
-│                                 │
-│ ┌───────────────────────────┐   │
-│ │ [C] Clarity AI            │   │  ← Gray bg
-│ │ So you're saying the      │   │
-│ │ commute was draining you  │   │
-│ │ physically and affecting  │   │
-│ │ your family time?         │   │
-│ └───────────────────────────┘   │
-│                                 │
-│ How well does this capture...?  │
-│ [0][1][2][3][4][5][6][7][8][9][10]
-│           [ Submit ]            │
-│                                 │
-├─────────────────────────────────┤
-│ ┌───────────────────────────┐   │
-│ │ Share what's on your mind │   │
-│ └─────────────────────[→]───┘   │
-└─────────────────────────────────┘
-```
-
-### Clarification (after rating < 8)
-
-```
-│ ┌───────────────────────────┐   │
-│ │ [C] Clarity AI            │   │
-│ │ You rated 5/10. What did  │   │
-│ │ I miss? Tell me more...   │   │
-│ └───────────────────────────┘   │
-│                                 │
-│ (After 3 attempts, show:)       │
-│ [Use this anyway]               │  ← Escape hatch
-```
-
-### Done Screen
-
-```
-┌─────────────────────────────────┐
-│ [C]    Clarity AI      [Leave]  │
-├─────────────────────────────────┤
-│                                 │
-│            ✓                    │
-│                                 │
-│     Your Story is ready         │
-│                                 │
-│  ┌───────────────────────────┐  │
-│  │ Sarah Chen           ✓    │  │  ← StoryCard preview
-│  │ "I commuted 2 hours       │  │
-│  │  daily. The exhaustion    │  │
-│  │  was physical, but the    │  │
-│  │  real pain was guilt..."  │  │
-│  └───────────────────────────┘  │
-│                                 │
-│  [ Invite someone to verify ]   │  ← Primary CTA
-│  [ Back to profile ]            │  ← Secondary
-│                                 │
-└─────────────────────────────────┘
-```
+**No drafts:** If user exits mid-flow, progress is lost (after warning). Nothing persists (mockup only).
 
 ---
 
-## Route Setup
+## Current State vs Target
 
-```typescript
-// In linkedin-like/index.tsx, add:
-import { Sift } from './components/Sift';
-
-// Add route:
-<Route path="sift" element={<Sift />} />
-```
-
----
-
-## Entry Points
-
-| Entry | Behavior |
-|-------|----------|
-| `/prototype/linkedin-like/sift` | Fresh sift (empty input) |
-| Profile "Share what you believe" | Opens `/sift` with pre-filled text |
-| Existing Story/Point on profile | Already sifted → show "Invite to verify" directly |
-
-### Profile Integration
-
-In `Profile.tsx`, the "Create Stories & Points" button navigates with state:
-
-```typescript
-const handleCreateStoriesAndPoints = () => {
-  navigate('/prototype/linkedin-like/sift', {
-    state: { initialInput: composerText }
-  });
-};
-```
-
-In `Sift.tsx`, read initial input from location state:
-
-```typescript
-const location = useLocation();
-const initialInput = (location.state as { initialInput?: string })?.initialInput || '';
-```
+| Component | Current | Target |
+|-----------|---------|--------|
+| Entry (brain dump) | ✓ Exists | ✓ Keep |
+| AI paraphrase | ✓ Mock | Real backend (later) |
+| Story rating 0-10 | ✓ Exists | ✓ Keep (fix threshold flexibility) |
+| Interpretation options | ✓ Exists | ✓ Keep |
+| "Good enough" escape | ❌ Missing | Add after 3 attempts |
+| Chat history visible | ❌ Separate screens | Single scrolling chat |
+| Input always visible | ❌ Disappears | Always at bottom |
+| **Points extraction** | ❌ Missing | New phase (mocked) |
+| **Per-Point rating** | ❌ Missing | New phase (mocked) |
+| **Done with linked Points** | ❌ Just Story | Story + Points card (mocked) |
 
 ---
 
-## Success Criteria
+## Open Decisions
 
-| Criteria | Status |
-|----------|--------|
-| Entry → Chat → Done flow | ✓ Implemented |
-| ChatGPT-style chat interface | ✓ Implemented |
-| 0-10 rating matching /live | ✓ Implemented |
-| ≥8 threshold for "understood" | ✓ Implemented |
-| "Use this anyway" after 3 attempts | ✓ Implemented |
-| Exit confirmation (mid-chat) | ✓ Implemented |
-| Invite CTA → /live | ✓ Navigates |
-| Back to profile → /profile | ✓ Navigates |
-| Empty input → button disabled | ✓ Implemented |
-| 22 tests passing | ✓ Verified |
+1. **Points: one at a time or show list?**
+   - One at a time = focused, conversational
+   - List = faster overview
 
----
+2. **Can user delete/skip a Point?**
+   - Probably yes — not all extracted Points may be relevant
 
-## Learnings (Post-Implementation)
+3. **What if user disagrees with all Points?**
+   - Re-extract with different framing?
+   - Allow manual Point creation?
 
-| What we planned | What we built | Lesson |
-|-----------------|---------------|--------|
-| Processing screen | No processing | Typing indicator is enough |
-| Options A/B/C | Direct text input | Fewer clicks, more natural |
-| Journey with versions | Chat messages | ChatGPT pattern is universal |
-| 10/10 target | ≥8 threshold | Strict 10/10 is too hard |
-| No escape | "Use this anyway" | Critical for UX |
+4. **Rating threshold:**
+   - Strict 10? Or "good enough" at any rating?
 
 ---
 
-## Open Questions
+## Acceptance Tests
 
-None — implemented and tested.
+### Functional Test
+
+> Agent can complete full flow (with mocked AI):
+> 1. Enter brain dump
+> 2. See AI interpretation, rate it
+> 3. Refine until satisfied (or "good enough")
+> 4. See Points extracted
+> 5. Rate each Point, refine until satisfied
+> 6. End on Done screen with Story + Points displayed
+
+### Usability Test
+
+> Agent verifies:
+> - [ ] Chat history stays visible (can scroll back)
+> - [ ] Input field never disappears
+> - [ ] Can exit at any point (with confirmation if mid-flow)
+> - [ ] "Good enough" escape appears after 3 attempts
+> - [ ] Progress is clear (user knows where they are)
+> - [ ] Works on mobile viewport (375px width)
+> - [ ] No dead ends (always a next action available)
+
+### Visual Test
+
+> Screenshot at each phase looks polished and consistent with app design system.
 
 ---
 
-## /live Integration
+## Future: Real Integration (Out of Scope)
 
-Sifted Stories/Points flow into /live verification:
-
-| Where | What happens |
-|-------|--------------|
-| **Sifter "Done" screen** | "Invite to verify" → opens /live with card pre-selected |
-| **/live card picker** | Shows all sifted Stories from profile |
-| **Verification flow** | Story verified → linked Points unlock for position staking |
-
-See [P85: /live Verification with Cards](./p85_live_verification_with_cards.md) for the full /live spec.
+After this mockup is validated, future work includes:
+1. Real AI backend (LLM for paraphrasing/extraction)
+2. Database persistence (Stories + Points linked to user)
+3. Profile integration (Stories appear on profile)
+4. /live verification flow
 
 ---
 
 ## Related Documents
 
-- [P85 /live Verification](./p85_live_verification_with_cards.md) — How sifted cards are verified in /live
-- [P58 Sifter MVP](./done/p58_sifter_mvp.md) — full spec (archived, for future reference)
-- [Live.tsx](../src/app/prototypes/linkedin-like/components/Live.tsx) — patterns reused
-- [Sift.tsx](../src/app/prototypes/linkedin-like/components/Sift.tsx) — implementation
-- [sift.test.tsx](../src/tests/sift.test.tsx) — 22 tests
+- [P85 /live Verification](./p85_live_verification_with_cards.md) — How sifted cards are verified
+- [definitions.md](../docs/definitions.md) — Story and Point concepts
+- [Sift.tsx](../src/app/prototypes/linkedin-like/components/Sift.tsx) — Current implementation
 
 ---
 
@@ -370,5 +276,6 @@ See [P85: /live Verification with Cards](./p85_live_verification_with_cards.md) 
 
 | Date | Change |
 |------|--------|
-| 2026-01-26 | **Implemented:** ChatGPT-style chat replaces processing+versions UI. Added ≥8 threshold (not 10/10). Added "Use this anyway" escape. Removed options A/B/C. Updated spec to reflect learnings. |
-| 2026-01-26 | **Original spec:** Entry → Processing → Story Review → Done with versions and options |
+| 2026-01-27 | **Revised:** Added Points extraction phase, chat-based UI, usability principles, acceptance tests. Marked current gaps. |
+| 2026-01-26 | **Implemented:** Story phase only (Entry → Rating → Options → Done) |
+| 2026-01-26 | **Original spec:** Entry → Processing → Story Review → Done |

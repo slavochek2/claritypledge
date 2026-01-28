@@ -63,6 +63,20 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## Working Style — Founder Pattern
+
+> **Pattern to watch:** When facing uncertainty, the founder tends to expand scope (add features, explore adjacent ideas, ask more "what about X?" questions) as a way to create false certainty.
+
+**If you notice:**
+- Lots of "what about X?" questions instead of validating the core hypothesis
+- Adding features/ideas before current hypothesis is validated
+- Exploring adjacent markets before current one is proven
+- Wanting to "solve" trust/retention/scale before proving basic demand
+
+**Then flag it directly:** "This looks like scope expansion under uncertainty. The lean path is to validate [current hypothesis] first. Should we stay focused?"
+
+This isn't criticism — it's a known pattern that delays validation. The fastest path to certainty is testing, not thinking.
+
 ## Tool Preferences
 
 ### Browser Automation
@@ -89,14 +103,17 @@ For full details: [browser-tools.md](docs/technical/browser-tools.md)
 
 ## Product Overview
 
-**Clarity Pledge** — A sensemaking platform that reveals calibration gaps in how well people understand each other.
+**Clarity Pledge** — A practice system for calibrated communication. Use /live in any meeting to verify understanding and track calibration over time.
 
-**Core concepts:** Stories (lived experiences, verified via /live) → Points (debatable claims, positions staked) → Calibration (accuracy tracked)
+**Core insight:** The product isn't workshops or special events. It's /live embedded in teams' regular meetings. "Event" = any meeting where people commit to verified understanding (standup, 1:1, board meeting, workshop).
 
-**Core loop:** Share → Verify understanding → See gap → Close it
+**Core loop:** Meet → Verify understanding via /live → See calibration gap → Improve over time
+
+**Current focus:** Validate that ongoing use changes behavior (not just workshop attendance).
 
 For full concepts: [definitions.md](docs/definitions.md)
 For business model: [lean-canvas.md](docs/lean-canvas.md)
+For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 
 **Domain:** `claritypledge.com` | **Tech Stack:** React 19 + TypeScript + Vite + Supabase + Tailwind CSS + Radix UI
 

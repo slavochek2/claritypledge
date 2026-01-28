@@ -119,7 +119,7 @@ This feature requires:
 | Session history | Exists | Who verified whom on what |
 | Group/event context | Not built | Who's in the same coordination context |
 | Centrality scoring | Not built | Network position data |
-| H2 validation | Current focus | Must prove visibility changes behavior first |
+| H4 validation | Current focus | Must prove visibility changes behavior first |
 
 ---
 
@@ -131,7 +131,7 @@ From [v0 Theory of Change](../docs/visions/v0_theory-of-change.md):
 
 The routing intelligence is valuable, but:
 1. We don't have the data inputs yet (ideas, positions, group context)
-2. H2 (visibility changes behavior) is unvalidated
+2. H4 (visibility changes behavior) is unvalidated
 3. A skilled facilitator can do this manually for now
 
 **When to build:** After H2 validates and we have 100+ sessions with idea/position data.
