@@ -63,6 +63,16 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## Skills & Plugins — Approval Required
+
+**NEVER** without explicit user approval:
+- Create new skills (`.claude/commands/`)
+- Install skills (`git clone` to `~/.claude/skills/`)
+- Delete or modify existing skills
+- Install plugins or MCP servers
+
+**Always ask first:** "I'd like to install/create [X] for [reason]. OK?"
+
 ## AI-Era Task Duration
 
 > **Principle:** Time estimates should reflect AI speed, not pre-AI human estimates.
