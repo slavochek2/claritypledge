@@ -18,6 +18,18 @@ Previous plan (free workshops → hope → business conversion) had too many unc
 
 Each step requires subjective evaluation of value. This triggered paralysis.
 
+### Why Events > 1-on-1 Calls for Validation
+
+| 1-on-1 Calls | Events with Coaches |
+|--------------|---------------------|
+| Discovery conversation only | Coaches EXPERIENCE being coached |
+| Coach hears about tool | Coach USES tool, sees their own gap |
+| Trust issue: "Is he selling me?" | Third-party validation: multiple coaches verify each other |
+| Passive feedback | Active participation + real improvement |
+| Registration = nothing | Registration = user on platform |
+
+**Key insight:** The trust problem (clients won't trust calibration from their coach) applies to us too. If we just TELL coaches about the tool, they may not believe it. If they EXPERIENCE their own calibration gap with peers, they're convinced.
+
 ### The Insight
 
 > **The tool reveals a blindspot people don't know they have.**
@@ -69,48 +81,104 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 
 > Executive/leadership/communication coaches will pay $50-100/month for a tool that objectively measures their clients' listener calibration gap, because it proves the blindspot that clients otherwise dismiss.
 
-### Sub-Hypotheses
+### Hypothesis Hierarchy
 
-| # | Hypothesis | Status | Question to Ask |
-|---|------------|--------|-----------------|
-| H-Biz-1 | Coaches have clients with listener miscalibration | ⬜ | "Do you have clients who think they understand others well but actually don't?" |
-| H-Biz-2 | This is a problem coaches want to solve | ⬜ | "Is this something you try to address? How important is it?" |
-| H-Biz-3 | Coaches lack objective proof tools | ⬜ | "How do you currently show them the gap? What's missing?" |
-| H-Biz-4 | Clients would trust a tool the coach uses | ⬜ | "If you showed them data from a tool, would they believe it?" |
-| H-Biz-5 | Coaches would use ongoing (retention) | ⬜ | "Would you use this once per client or ongoing?" |
-| H-Biz-6 | Would pay $50-100/month | ⬜ | "Would you pay for this? How much?" |
-| H-Biz-7 | Provides differentiation | ⬜ | "Would having objective measurement help you win clients?" |
+**Tier 1: Pain (Must Validate)**
+
+| # | Hypothesis | Status | How Event Validates |
+|---|------------|--------|---------------------|
+| H-Biz-1 | Coaches have clients with listener miscalibration | ⬜ | Coaches say "yes, huge problem" during intro |
+| H-Biz-2 | This is a priority, not nice-to-have | ⬜ | They describe specific painful situations |
+| H-Biz-3 | Current tools are insufficient | ⬜ | They can't name a good alternative |
+
+*If Tier 1 fails: Stop. Problem doesn't exist or isn't painful enough.*
+
+**Tier 2: Pay (Validate If Tier 1 Passes)**
+
+| # | Hypothesis | Status | How Event Validates |
+|---|------------|--------|---------------------|
+| H-Biz-4 | Would pay $50-100/month | ⬜ | Direct ask after they experience the tool |
+| H-Biz-5 | Ongoing use (retention) | ⬜ | "With every client" or "monthly check-ins" |
+
+*If Tier 2 fails but Tier 1 passes: Pivot pricing or model, don't abandon.*
+
+**Tier 3: Explore (Learn, Don't Validate)**
+
+| # | Question | Status | Why It Matters |
+|---|----------|--------|----------------|
+| H-Biz-6 | Would clients trust coach-provided data? | ⬜ | Informs if events needed for neutral proof |
+| H-Biz-7 | Would clients want for their teams? | ⬜ | Informs coach-free vs coach-paid model |
+| H-Biz-8 | Does this differentiate vs other coaches? | ⬜ | Informs marketing message |
+
+*Tier 3 is intelligence gathering, not hypothesis validation.*
 
 ### Concerns to Validate
 
-**Trust Problem:**
-- If coaches say "clients would believe it" → Trust isn't a blocker
-- If coaches say "clients would think I'm selling them" → Need neutral/group proof (events)
+**Trust Problem (clarified):**
+The trust problem is NOT "does explain-back work?" (research validates it does).
+
+The trust problem IS: **Will clients trust calibration feedback that comes from their coach?**
+- Coach has a stake in the outcome
+- Client might think "coach is just selling me their coaching"
+- Calibration from a single source (coach) may not be believed
+
+**Solution:** Third-party verification solves this:
+- Events with multiple coaches (peers verify each other)
+- Client accumulates calibration from many partners over time
+- The metric becomes credible through volume, not single source
 
 **Retention Problem:**
 - If coaches say "I'd use it ongoing with same client" → Retention exists
-- If coaches say "just once per client" → Retention problem to solve later
+- If coaches say "just once per client" → But protocol-led growth creates ongoing value:
+  - Client teaches team → ongoing team use
+  - Calibration history becomes trust signal → ongoing value
+  - Platform membership = psychological safety → ongoing membership
 
 ---
 
-## Conversation Guide
+## Event Guide
 
-### Outreach Message
+### Event Format
+
+**Online event (Zoom/Meet), 60-90 minutes, 5-8 coaches**
+
+### Event Invite Message
 
 ```
 Hi [Name],
 
-I'm building a tool that helps coaches show clients their communication
-blind spots objectively — the gap between "I think I'm clear" and reality.
+I'm running a free online session for executive/leadership coaches
+on "calibrated listening" — specifically, how to show clients their
+listening blind spots objectively.
 
-Curious if this resonates with your practice. Would you have 15 minutes
-to share your experience? I'd love to learn how you currently help clients
-see patterns they can't see themselves.
+We'll practice a protocol where you experience your own calibration
+gap, then discuss how this could help with resistant clients who
+dismiss feedback.
+
+[Date/Time] | 60-90 min | Free
+
+Interested?
 
 — Slava
 ```
 
-### Conversation Flow
+| Step | Time | What Happens |
+|------|------|--------------|
+| 1. Welcome + context | 10 min | Why calibrated listening matters for coaching |
+| 2. Teach protocol | 10 min | Explain-back protocol theory |
+| 3. Demo /live | 15 min | You share idea, one coach plays back, show the gap |
+| 4. Coaches pair up | 20 min | They verify each other, experience their own gap |
+| 5. Debrief | 15 min | What did you notice? How does this compare? |
+| 6. Ask | 10 min | "Would you pay $50-100/month for this with clients?" |
+
+**Why event > 1-on-1:**
+- Coaches experience their OWN miscalibration (not just hear about it)
+- Third-party verification (peers, not you) solves trust problem
+- Multiple data points in one session
+- Registration = users on platform
+- You're facilitating, not selling
+
+### Alternative: 1-on-1 Discovery (if events don't work)
 
 | Step | What You Do |
 |------|-------------|
@@ -121,7 +189,8 @@ see patterns they can't see themselves.
 | **5. Ask about trust** | "If you showed them this data, would they believe it?" |
 | **6. Ask about retention** | "Would you use this once per client or ongoing?" |
 | **7. Ask willingness to pay** | "Would you pay for this? How much?" |
-| **8. If yes, propose pilot** | "Would you try it with one client? I'd love to see if it helps." |
+| **8. Ask about spread** | "If this helped your client, would they want it for their team?" |
+| **9. If yes, propose pilot** | "Would you try it with one client? I'd love to see if it helps." |
 
 ### What NOT to Say
 
@@ -141,6 +210,15 @@ see patterns they can't see themselves.
 | "Can I try it now?" | Strong interest |
 | "Interesting but..." | Polite no, probe deeper |
 | "My bigger problem is X" | Potential pivot signal |
+
+### If Asked About Evidence
+
+| If They Ask | Say |
+|-------------|-----|
+| "Is this proven?" | "Meta-analysis of 400K observations: listening → outcomes at r=.39. Strongest for sales and burnout reduction." |
+| "I use Gong" | "Gong measures talk-time ratio. This measures whether they actually understood." |
+| "360 covers this" | "In 360, listening is 1 checkbox of 30, rated once a year. This is focused, real-time, speaker-verified." |
+| "How is this different?" | "Everyone believes listening matters. No one measures whether understanding actually happened. We do." |
 
 ---
 

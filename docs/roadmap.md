@@ -58,93 +58,157 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 ## Build Phases (Revenue-Integrated)
 
-### Phase 0: Coach Hypothesis Validation 🔄 CURRENT
+### Revenue Timeline (Hard Caps)
 
-**Goal:** Validate that coaches will pay for calibration diagnostic tool
+| Phase | Deadline | Revenue Target |
+|-------|----------|----------------|
+| 0.0: Foundation | Week 2 | $0 |
+| 0.1: Validation | Week 3-4 | $0 |
+| 1.0: First Payment | Week 8 | $50-100 |
+| 1.5: Proof | Month 3 | $250-500 |
+| 2.0: Funnel | Month 6 | $1,000-2,000 |
+| 3.0: Scale | Month 12 | $5,000 |
 
-**Revenue:** $0 during validation, then $50-100/coach/month
+---
 
-**Why coaches:** They see the blindspot in clients that clients can't see themselves. The person who's blind won't pay — the person who sees the blindspot will.
+### Phase 0.0: Foundation 🔄 CURRENT
+
+**Deadline:** Week 2
+**Goal:** Demo Kit ready, /live tested, newsletter live, event scheduled
 
 ```
-□ Online research: understand coach landscape (30-60 min)
-□ Find 10-15 executive/leadership/communication coaches on LinkedIn
-□ Send outreach messages (15 messages)
-□ Have 5 discovery conversations
-□ Ask: Pain? Trust? Retention? Would pay?
-□ If 3+ confirm pain + 2+ would pay → pilot with real coach + client
+□ Create Demo Kit (3-5 prepared ideas for /live)
+□ Test /live flow with a friend
+□ Set up Ghost self-hosted (Google Cloud)
+□ Write first newsletter issue
+□ Announce on LinkedIn
+□ Find 10-15 coaches on LinkedIn
+□ Send event invites
+□ Schedule online event for Week 3
 ```
 
-**Questions to validate:**
-- H-Biz-1: Coaches have clients with listener miscalibration
-- H-Biz-2: This is a problem they want to solve
-- H-Biz-3: They lack objective proof tools
-- H-Biz-4: Clients would trust the tool (or: events needed for neutral proof?)
-- H-Biz-5: Coaches would use ongoing, not just once (retention)
-- H-Biz-6: Would pay $50-100/month
-- H-Biz-7: Provides differentiation vs other coaches
+**Feature docs:**
+- [p106_demo_kit.md](../features/p106_demo_kit.md)
+- [p107_live_readiness.md](../features/p107_live_readiness.md)
+- [p108_newsletter_automation.md](../features/p108_newsletter_automation.md)
 
 **Success criteria:**
-- 5 conversations completed
-- 3+ coaches confirm pain exists (H-Biz-1 to H-Biz-3)
-- 2+ coaches would pay (H-Biz-6)
-- Clear signal on trust (H-Biz-4) and retention (H-Biz-5)
+- Can demo /live with prepared content
+- Newsletter exists with 1 issue published
+- Event scheduled with 5-8 coaches confirmed
+
+---
+
+### Phase 0.1: Coach Hypothesis Validation
+
+**Deadline:** Week 4
+**Goal:** Validate coach pain + willingness to pay + spread signal via online event
+
+**Research:** ✅ Complete. See [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md)
+
+**Approach:** Online event with 5-8 coaches (not 1-on-1 calls)
+
+```
+□ Run online event (60-90 min)
+□ Teach explain-back protocol (10 min)
+□ Demo /live with one coach (they experience gap)
+□ Coaches pair up, verify each other
+□ Debrief + ask willingness to pay
+□ If 3+ confirm pain + 2+ would pay → pilot
+```
+
+**Why event > 1-on-1:**
+- Coaches EXPERIENCE their own calibration gap
+- Third-party validation (peers verify each other)
+- More data points in one session
+- Registration = users on platform
+
+**Hypothesis hierarchy:**
+
+| Tier | Hypotheses | Must Validate? |
+|------|------------|----------------|
+| **Tier 1: Pain** | H-Biz-1: Clients have miscalibration, H-Biz-2: Priority problem, H-Biz-3: Lack tools | Yes |
+| **Tier 2: Pay** | H-Biz-4: Would pay $50-100/month, H-Biz-5: Ongoing use (retention) | Yes |
+| **Tier 3: Explore** | H-Biz-6: Trust coach-provided data?, H-Biz-7: Spread to teams?, H-Biz-8: Differentiation? | Learn, don't validate |
+
+**Success criteria:**
+- Event completed with 5+ coaches
+- 3+ coaches confirm pain (Tier 1)
+- 2+ coaches would pay (Tier 2)
+- Clear signal on spread potential (Tier 3)
 
 **What we're NOT building:**
 - Profile redesign (P97) — deferred
 - Sifter (P98) — deferred
 - Stories, Points, reputation — deferred
-- Event features beyond current — deferred
 - Anything until coach hypothesis validated
 
-**Full validation plan:** [p_coach_validation.md](../features/p_coach_validation.md)
+**Full validation plan:** [p105_coach_validation.md](../features/p105_coach_validation.md)
 
-### Phase 1: First Business Conversion
+### Phase 1.0: First Paying Coach
 
-**Goal:** 1 team paying for business license
-
-**Revenue:** $100-500/month
-
-```
-□ Someone from workshop wants team use
-□ Build minimal business features they need
-□ Charge for: team dashboard, calibration history, admin
-□ Prove: businesses will pay
-```
-
-**Success criteria:**
-- 1 paying team
-- They keep using it (retention)
-- Learn what business features matter
-
-**Build only what first customer needs.** Don't speculate.
-
-### Phase 2: Repeatable Funnel
-
-**Goal:** 5-10 paying teams, repeatable workshop → conversion
-
-**Revenue:** $1,000-5,000/month
+**Deadline:** Week 8
+**Goal:** 1 coach paying for diagnostic tool
+**Revenue:** $50-100/month
 
 ```
-□ Refine workshop based on learnings
-□ Self-serve upgrade path (free → business)
-□ Basic business feature set
-□ Maybe: train other facilitators
+□ Coach validation succeeds (Phase 0)
+□ Pilot with real coach + client
+□ Coach finds it valuable
+□ Convert pilot coach to paid subscription
+□ Learn what features coaches actually need
 ```
 
 **Success criteria:**
-- Predictable conversion rate
-- Retention > 80%
-- Can describe the funnel clearly
+- 1 paying coach
+- They use it with multiple clients
+- Clear retention signal
 
-### Phase 3: Scale
+**Build only what pilot coach needs.** Don't speculate.
 
-**Goal:** $10k+/month, not dependent on your time
+### Phase 1.5: Coach → Client → Team Spread
 
-**Revenue:** Growing
+**Deadline:** Month 3
+**Goal:** Validate spread mechanism + 5 coaches
+**Revenue:** $375/month (5 coaches)
 
 ```
-□ Facilitator network (others run workshops)
+□ Coach's clients experience calibration revelation
+□ Some clients want tool for their teams
+□ Track: Does coach → client → team progression happen?
+□ If yes: team features become relevant
+```
+
+**Success criteria:**
+- At least 1 client asks about team use
+- Signal that spread mechanism works
+
+### Phase 2.0: Repeatable Coach Funnel
+
+**Deadline:** Month 6
+**Goal:** 20 paying coaches, repeatable acquisition
+**Revenue:** $1,500/month
+
+```
+□ Refine coach outreach and onboarding
+□ Self-serve coach signup
+□ Features coaches asked for in Phase 1
+□ Maybe: coach community / association
+```
+
+**Success criteria:**
+- Predictable coach conversion rate
+- Coach retention > 80%
+- Clear value proposition validated
+
+### Phase 3.0: Scale
+
+**Deadline:** Month 12
+**Goal:** 50+ coaches OR enterprise/team conversions
+**Revenue:** $5,000/month
+
+```
+□ Coach network (coaches run similar events)
 □ Self-serve team signup (no workshop required)
 □ Enterprise deals
 □ Maybe: Stories/Points for power users

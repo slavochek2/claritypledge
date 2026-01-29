@@ -14,6 +14,8 @@ Two calibration failures:
 
 No feedback loop exists — conversations end without checking if understanding actually happened.
 
+**The measurement problem:** Existing tools don't help. 75% of listening research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries listening as 1 item among 30.
+
 *For the cognitive science behind this, see [philosophy.md](philosophy.md)*
 
 ---
@@ -36,35 +38,47 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Primary: Individuals who bring tools to work
-- Workshop attendees who try /live
-- Professionals who want better communication
-- People who experience calibration gap and want to improve
+### Currently Validating: Coaches (First Paying Customer Hypothesis)
+- Executive coaches
+- Leadership coaches
+- Communication coaches
 
-**Job to be done:** Improve my communication, see my blind spots, bring value to my team.
+**Job to be done:** Prove to clients they have listening blind spots they can't see themselves. Differentiate from other coaches with objective measurement.
 
-### Secondary: Business teams (PAYING)
+**Why coaches:** They see the blindspot in clients that clients can't see. The person who's blind won't pay — the person who sees the blindspot will.
+
+### Future: Business teams (via coach → client → team spread)
 - Teams that want calibrated communication
 - Managers who want visibility into team understanding
 - Companies reducing miscommunication costs
 
 **Job to be done:** Reduce miscommunication, improve team effectiveness, track progress.
 
-### Tertiary: Facilitators / Event Organizers
-- Run workshops using the protocol
-- Use /live at their events
-- Spread the protocol to their audiences
+**Path:** Coach uses tool → Client experiences calibration revelation → Client brings to team → Team pays.
 
-**Job to be done:** Deliver better workshops, differentiate their offering.
+### Future: Individuals (organic)
+- Professionals who want better communication
+- People who experience calibration gap and want to improve
+
+**Job to be done:** Improve my communication, see my blind spots.
+
+**Note:** Individuals won't pay for a problem they don't know they have. Coaches/managers who SEE the problem in others are the entry point.
 
 ---
 
 ## Market Size
 
-- 1.8M+ professional event organizers in US alone
-- Average $500/year potential = $900M addressable in US
-- Global facilitation/workshop market significantly larger
-- Start with workshops/offsites, expand to conferences and enterprise
+**Coaching market (current focus):**
+- 71,000+ ICF-credentialed coaches worldwide
+- Executive coaching: $15B+ global market
+- Leadership development: $60B+ global market
+
+**Adjacent markets (future):**
+- Sales training: $4.6B US market (active listening = core skill)
+- Team communication tools: Growing category
+- Enterprise learning & development
+
+**Path:** Coaches → Clients → Teams → Enterprise
 
 ---
 
@@ -116,8 +130,11 @@ Track your accuracy over time:
 - **Polling tools** (Slido, Mentimeter) — collect opinions, don't check comprehension
 - **Hire facilitators** — expensive, doesn't scale, no persistent data
 - **Communication training** (Crucial Conversations, etc.) — teaches skills, doesn't measure outcomes
+- **Conversation intelligence** (Gong, Chorus) — measures talk-time ratio, not whether they understood
+- **360 feedback** — listening is 1 checkbox of 30, rated once a year, generic
+- **Self-assessment** — people overestimate; that's the whole problem
 
-**Gap:** No one treats understanding as something you can measure and certify.
+**Gap:** No one treats understanding as something you can measure and certify. Everyone believes listening matters. No one measures whether understanding actually happened.
 
 ---
 
@@ -133,11 +150,15 @@ Track your accuracy over time:
 
 ## Unfair Advantage
 
-1. **Data moat** — Every /live session generates calibration data. Over time, we build the largest dataset on human understanding gaps. This powers insights, benchmarks, and better matching.
+1. **First to productize listening fidelity** — Academic scales (AELS, ALOS, Listening Fidelity) exist but aren't productized. We're building what research validated but no one built.
 
-2. **Network effects** — Your verified listener reputation only has value if others recognize it. The more people on the platform, the more valuable each profile becomes.
+2. **Data moat** — Every /live session generates calibration data. Over time, we build the largest dataset on human understanding gaps. This powers insights, benchmarks, and better matching.
 
-3. **Brand as standard** — "Clarity Pledge" can become the default certification for good-faith dialogue (like Creative Commons for content licensing).
+3. **Network effects** — Your verified listener reputation only has value if others recognize it. The more people on the platform, the more valuable each profile becomes.
+
+4. **Protocol-led growth** — The explain-back protocol spreads free (coaches → clients → teams). The measurement captures value. Protocol is the distribution; product is the proof.
+
+5. **Brand as standard** — "Clarity Pledge" can become the default certification for good-faith dialogue (like Creative Commons for content licensing).
 
 **On open source:** The code is open, but the moat is the network + data + brand, not the software. Open source actually accelerates adoption and builds trust.
 
@@ -145,10 +166,11 @@ Track your accuracy over time:
 
 ## Channels
 
-- **Free workshops:** You run free/PWYW workshops → attendees use free tool → some bring to work → business conversion
-- **Facilitator network:** Other facilitators run workshops → their attendees use tool → business conversions
+- **Newsletter:** Weekly insights on calibration/communication → builds audience → warm leads for coach outreach → documents validation journey
+- **Protocol propagation:** Coaches teach explain-back to clients → clients practice with teams → teams spread protocol → some convert to paid measurement
+- **Coach network:** Coaches use tool with clients → clients bring to their teams → business conversions
+- **Content:** Articles on miscommunication cost / measurement gap → free tool signups → business conversions
 - **Organic/viral:** Free users share calibration scores → others try tool → spread
-- **Content:** Articles on miscommunication cost → free tool signups → business conversions
 
 ---
 
@@ -215,7 +237,7 @@ Events and workshops often fail to achieve real knowledge exchange because:
 - Testing coach hypothesis via discovery conversations
 - Target: 5 conversations with executive/leadership/communication coaches
 - Questions: Pain? Trust? Retention? Would pay?
-- Full plan in [p_coach_validation.md](../features/p_coach_validation.md)
+- Full plan in [p105_coach_validation.md](../features/p105_coach_validation.md)
 
 ---
 

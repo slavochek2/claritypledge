@@ -39,24 +39,19 @@ export function ClarityTaxSection() {
       <div className="container mx-auto max-w-4xl">
         {/* Centered Single-Column Layout */}
         <div className="text-center space-y-10">
-          {/* Headline - Emotional Hook */}
+          {/* Headline */}
           <div className="space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              We all crave being understood.
+              Everyone believes listening matters.
               <br className="hidden sm:block" />
               <span
                 className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                {" "}Let's commit to listen.
+                {" "}No one measures it.
               </span>
             </h1>
-
-            {/* Sub-headline - Consequence */}
-            <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              Stop sacrificing truth for the sake of comfort.
-            </p>
           </div>
 
           {/* CTA - Primary + Secondary */}

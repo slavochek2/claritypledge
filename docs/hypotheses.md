@@ -28,6 +28,45 @@ Ordered by validation sequence. Numbers now follow logical order.
 
 ---
 
+## H-Foundation: Calibration Drives Outcomes 🔄
+
+**What we're testing:** Does verified understanding (calibration) actually cause better business outcomes?
+
+**Why this matters:** We validated that /live reveals miscalibration (H1). But we've been ASSUMING that closing the gap matters. If calibration doesn't connect to outcomes people care about, the entire product thesis is wrong.
+
+**Claims to validate:**
+
+| Outcome | Question |
+|---------|----------|
+| Sales | Does listening skill drive conversion? Is it #1 or #10? |
+| Retention | Do employees stay because they feel understood? |
+| Collaboration | Does mutual understanding improve team performance? |
+| Innovation | Does understanding customers lead to better products? |
+| Wellbeing | Does feeling heard improve job satisfaction? |
+
+**How to test:**
+- Literature review (research on active listening outcomes)
+- Competitive landscape (how is this measured today?)
+- Counter-evidence search (why might this NOT matter?)
+
+**Sub-questions:**
+- H-Found-1: Is there causal evidence or just correlation?
+- H-Found-2: What are the effect sizes? (significant but tiny = not meaningful)
+- H-Found-3: Does MEASURING add value, or just the conversation?
+
+**Status:** **SUPPORTED (Mixed-to-Strong)** — Research complete. See [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md).
+
+**Findings (2026-01-28):**
+- Meta-analysis: r=.39 for perceived listening → work outcomes (N=400K observations)
+- Strongest links: sales (r=.38-.50), wellbeing (r=.28 burnout reduction)
+- Weakest link: innovation (speculative)
+- Healthcare teach-back: 60% readmission reduction (experimental)
+- Caveat: 75% of research is self-report; correlational not causal
+
+**Implications:** Proceed with confidence. Don't oversell causal claims. Measurement itself is our moat — no one else measures actual understanding.
+
+---
+
 ## H-Biz: Coaches as First Paying Customer 🔄
 
 **What we're testing:** Will coaches pay for a diagnostic tool that proves client miscalibration?
@@ -51,6 +90,8 @@ Ordered by validation sequence. Numbers now follow logical order.
 - H-Biz-5: Coaches would use ongoing (not just once)
 - H-Biz-6: Would pay $50-100/month
 - H-Biz-7: Provides differentiation
+- H-Biz-8: Coach is open to own measurement (not just clients)
+- H-Biz-9: **Spread signal** — clients would want this for their teams
 
 **Success criteria:**
 - 5 conversations completed
@@ -60,11 +101,11 @@ Ordered by validation sequence. Numbers now follow logical order.
 
 **Status:** **CURRENT FOCUS** — Validating in conversations before building more.
 
-**Full plan:** [p_coach_validation.md](../features/p_coach_validation.md)
+**Full plan:** [p105_coach_validation.md](../features/p105_coach_validation.md)
 
 ---
 
-## H2: Calibration revelation motivates action 🔄
+## H2: Calibration revelation motivates action ⏸️
 
 **What we're testing:** When users see their calibration gap (how well they THINK they communicate vs how well they ACTUALLY do), does this motivate them to:
 1. Improve their own communication
@@ -81,11 +122,11 @@ Ordered by validation sequence. Numbers now follow logical order.
 - Verification rate higher for users who saw their gap
 - **Ongoing use:** They use /live in their own meetings after workshop
 
-**Status:** **CURRENT FOCUS** — Part of first event test.
+**Status:** **PAUSED** — Blocked until coach hypothesis validates. Will test with coach's clients first (smaller scale) before events.
 
 ---
 
-## H3: Social FOMO drives adoption 🔄
+## H3: Social FOMO drives adoption ⏸️
 
 **What we're testing:** When non-participants see others with calibration scores (ears 👂) and verification history, does social FOMO motivate them to participate?
 
@@ -97,15 +138,15 @@ This is distinct from H2 (self-revelation) — H3 is about seeing *others'* cali
 - Track: Do unverified attendees seek verification after seeing others' scores?
 - Survey: "Did seeing others' calibration make you want to participate?"
 
+**Status:** **PAUSED** — Requires events with multiple participants. Blocked until coach hypothesis validates and we have enough users for group dynamics.
+
 **Success criteria:**
 - Non-verified attendees request verification after seeing leaderboard
 - Users mention "I saw [person] had high ears, wanted that too"
 
-**Status:** **CURRENT FOCUS** — Part of first event test.
-
 ---
 
-## H4: Visibility changes group behavior 🔄
+## H4: Visibility changes group behavior ⏸️
 
 **What we're testing:** When a group can SEE who verified understanding with whom (on which topics), does their behavior change? Do they seek verification? Do they trust verified listeners more?
 
@@ -120,9 +161,44 @@ This is distinct from H2 (self-revelation) — H3 is about seeing *others'* cali
 - >60% report "worth it" post-event
 - Qualitative: Room rewards "I was wrong" over "I won"
 
-**Status:** **CURRENT FOCUS** — But blocked by prerequisite: need a TRIGGER for verification.
+**Status:** **PAUSED** — Blocked until coach hypothesis validates. Requires enough users for group dynamics.
 
 **Critical observation (2026-01-27):** Cannot test H4 until we solve the cold start problem. Users need content (topics) or organizer-provided prompts to verify understanding ABOUT. The "what" must exist before visibility can change behavior around it. Event organizers provide this trigger — individuals don't have it intrinsically.
+
+---
+
+## H-Safety: Calibration History Creates Psychological Safety ⏳
+
+**What we're testing:** Does visible calibration history (ears count, calibration score) create psychological safety for future conversation partners, even before the conversation begins?
+
+**The mechanism:**
+```
+Person has 50 verified listens with low gap
+    ↓
+Others see this history before talking to them
+    ↓
+"This person has proven they try to understand"
+    ↓
+I feel safer being vulnerable with them
+    ↓
+The metric becomes a TRUST SIGNAL
+```
+
+**At scale:**
+- Joining a "Clarity Pledge meeting" = pre-existing psychological safety
+- Everyone is registered, everyone has committed to verification
+- The platform membership itself signals safety
+
+**Why this matters:** Currently, psychological safety must be built in each new conversation. If calibration history creates portable trust, the protocol becomes more valuable over time — and retention improves.
+
+**How to test:**
+- Survey: "Did seeing their calibration score make you feel safer?"
+- Compare: Conversations with visible history vs. no history
+- Track: Do people with higher scores get more verification requests?
+
+**Status:** **BLOCKED** — Requires enough calibration data to be meaningful. Test after H-Biz validates and users accumulate history.
+
+**Connection to retention:** This hypothesis, if validated, explains why ongoing use creates value — the history IS the product.
 
 ---
 
