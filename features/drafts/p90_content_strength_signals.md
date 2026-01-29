@@ -88,5 +88,5 @@ interface VerificationEvent {
 
 ## Related
 
-- [v7_communicative_critical_rationalism.md](../docs/visions/v7_communicative_critical_rationalism.md)
+- [philosophy.md](../../docs/philosophy.md) — Asymmetric Conversion theory
 - [p89_swipeable_card_view.md](p89_swipeable_card_view.md)
