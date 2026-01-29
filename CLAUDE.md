@@ -63,6 +63,26 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## Skills — Local Only
+
+**All skills live in `.claude/commands/`** (no global `~/.claude/skills/`).
+
+Benefits: One folder to navigate, visible in IDE, version controlled with project.
+
+| Folder | Purpose |
+|--------|---------|
+| `slava/` | Slava's custom skills (check first) |
+| `awesome/` | Community skills |
+| `bmad/` | BMAD framework |
+| Others | Domain-specific (deep-research, scientific, etc.) |
+
+**Approval required** before:
+- Creating new skills
+- Deleting or modifying existing skills
+- Installing plugins or MCP servers
+
+**Always ask first:** "I'd like to create [X] for [reason]. OK?"
+
 ## AI-Era Task Duration
 
 > **Principle:** Time estimates should reflect AI speed, not pre-AI human estimates.
@@ -672,6 +692,7 @@ When documenting any concept (decisions, learnings, hypotheses):
 | Feature drafts (early ideas) | `features/drafts/` |
 | Completed features | `features/done/` |
 | Archived features | `features/archive/` |
+| Research results | `features/research/` |
 | UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
@@ -706,7 +727,8 @@ features/               # Feature planning docs
 ├── p{N}_uat.md         # UAT files for ralph-loop
 ├── done/               # Completed features
 ├── archive/            # Archived/deprioritized features
-└── drafts/             # Early-stage drafts and ideas
+├── drafts/             # Early-stage drafts and ideas
+└── research/           # Research results (permanent reference)
 ```
 
 ### Generated artifacts (OK to create)
