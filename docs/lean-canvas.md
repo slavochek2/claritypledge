@@ -45,9 +45,18 @@ The tools for talking got better. The tools for understanding didn't.
 - Leadership coaches
 - Communication coaches
 
-**Job to be done:** Prove to clients they have listening blind spots they can't see themselves. Differentiate from other coaches with objective measurement.
+**Jobs to be done:**
 
-**Why coaches:** They see the blindspot in clients that clients can't see. The person who's blind won't pay — the person who sees the blindspot will.
+| Stage | Job | Value |
+|-------|-----|-------|
+| **1. Prove the gap** | Show clients their understanding calibration gap (speaker-verified) | Revelation — "I didn't know I had this blindspot" |
+| **2. Track improvement** | Measure calibration accuracy over time with same client | Progress — "I'm getting better, here's proof" |
+| **3. Enable spread** | Client proves gap to their team, tracks team improvement | Scale — "My team is transforming" |
+| **4. Prove business value** | Connect calibration improvement to outcomes (retention, sales, collaboration) | ROI — "This transformation matters for business" |
+
+This measurement didn't exist before. Coaches differentiate with objective data at every stage.
+
+**Why coaches:** They see the blindspot in clients that clients can't see. The person who's blind won't pay — the person who sees the blindspot will. And coaches benefit from proving their coaching impact with data.
 
 ### Future: Business teams (via coach → client → team spread)
 - Teams that want calibrated communication
@@ -199,15 +208,35 @@ Track your accuracy over time:
 
 ## Revenue Streams
 
+### Pricing Model Question (Under Validation)
+
+**Are coaches customers or distributors?**
+
+| Model | Who Pays | Path to $5K/month | Pros | Cons |
+|-------|----------|-------------------|------|------|
+| **Coaches = customers** | Coaches ($75/mo) | 67 coaches | Simple, validates WTP | Low ceiling, hard to scale |
+| **Coaches = distributors** | Businesses ($500/team/mo) | 10 teams | Higher ACV, bigger budgets | Longer cycle, unvalidated |
+| **Hybrid** | Both | Mix | Multiple streams | Complex |
+
+**Value quantification:**
+- Miscommunication costs ~$12,500/employee/year ($1.2T ÷ 96M US knowledge workers)
+- 10-person team loses ~$125K/year to miscommunication
+- Even 10% improvement = $12.5K value → $500/month ($6K/year) is easy to justify
+- Coaches have smaller budgets (~$900/year = 0.3-0.9% of solo coach revenue)
+
+**Current hypothesis:** Validate with coaches first. If spread happens (coach → client → team), businesses become the paying customer and coaches become distribution channel.
+
+### Tiers
+
 **Free tier (adoption & spread):**
-- Workshops: free or pay-what-you-can
 - Individual /live use: free
+- Coach use with clients: free (they're distributors)
 - Non-profit use: free
 
 **Paid tier (revenue):**
-- Business team license: $100-500/team/month
+- Business team license: $500/team/month (primary target)
 - Enterprise: custom pricing (multiple teams, SSO, analytics)
-- (Future) Facilitator certification: one-time fee + royalty
+- (Maybe) Coach subscription: $50-75/month for advanced features (if they're customers, not distributors)
 
 ---
 

@@ -37,9 +37,13 @@ Each step requires subjective evaluation of value. This triggered paralysis.
 > The person who's blind won't pay — but the person who SEES the blindspot in someone else will pay.
 
 Coaches see their clients' blindspots. Specifically:
-- **Listener miscalibration:** Client thinks "I understood you" but actually didn't
-- **Proof problem:** Coach sees the gap but can't prove it objectively
-- **Consequence:** Client resists feedback, doesn't see their blindspot
+- **Understanding miscalibration:** Client thinks "I understood you" but actually didn't
+- **Proof problem:** Coach sees the gap but can't measure or prove it objectively
+- **Improvement problem:** Even if client believes, can't track improvement over time
+- **Spread problem:** Client can't prove it to their team or measure team transformation
+- **Consequence:** Client resists feedback, coaching impact is hard to prove
+
+**Terminology note:** With coaches, use "listening" (their entry-point word). Internally, we say "understanding calibration" (precise term). See [definitions.md](../docs/definitions.md).
 
 ### Why Coaches
 
@@ -79,38 +83,46 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 
 ### Core Hypothesis
 
-> Executive/leadership/communication coaches will pay $50-100/month for a tool that objectively measures their clients' listener calibration gap, because it proves the blindspot that clients otherwise dismiss.
+> Coaches will USE a tool that measures their clients' understanding calibration gap (proves blindspot + tracks improvement). If clients spread it to teams, BUSINESSES pay. If not, coaches may pay.
+
+**Pricing model question:** Are coaches **customers** or **distributors**? Validation will answer this.
 
 ### Hypothesis Hierarchy
 
 **Tier 1: Pain (Must Validate)**
 
-| # | Hypothesis | Status | How Event Validates |
-|---|------------|--------|---------------------|
-| H-Biz-1 | Coaches have clients with listener miscalibration | ⬜ | Coaches say "yes, huge problem" during intro |
-| H-Biz-2 | This is a priority, not nice-to-have | ⬜ | They describe specific painful situations |
-| H-Biz-3 | Current tools are insufficient | ⬜ | They can't name a good alternative |
+| # | Hypothesis | Status | How to Validate |
+|---|------------|--------|-----------------|
+| H-Biz-1 | Coaches have clients with understanding miscalibration | ⬜ | "Do you have clients who think they understand but don't?" |
+| H-Biz-2 | This is a priority problem | ⬜ | They describe specific painful situations |
+| H-Biz-3 | No tool measures it (measurement was impossible) | ⬜ | "Have you ever been able to MEASURE that gap?" |
 
 *If Tier 1 fails: Stop. Problem doesn't exist or isn't painful enough.*
 
-**Tier 2: Pay (Validate If Tier 1 Passes)**
+**Tier 2: Usage (Validates Distribution)**
 
-| # | Hypothesis | Status | How Event Validates |
-|---|------------|--------|---------------------|
-| H-Biz-4 | Would pay $50-100/month | ⬜ | Direct ask after they experience the tool |
-| H-Biz-5 | Ongoing use (retention) | ⬜ | "With every client" or "monthly check-ins" |
+| # | Hypothesis | Status | How to Validate |
+|---|------------|--------|-----------------|
+| H-Biz-4 | Clients would trust coach-provided data | ⬜ | "Would your client believe the data?" |
+| H-Biz-5 | Coaches would use ongoing (retention) | ⬜ | "Every client, or just once?" |
+| H-Biz-6 | Coach open to own measurement | ⬜ | "Would you want to see YOUR calibration too?" |
 
-*If Tier 2 fails but Tier 1 passes: Pivot pricing or model, don't abandon.*
+*If Tier 2 passes: Coaches will use it. Now validate who pays.*
 
-**Tier 3: Explore (Learn, Don't Validate)**
+**Tier 3: Spread & Revenue (Determines Business Model)**
 
-| # | Question | Status | Why It Matters |
-|---|----------|--------|----------------|
-| H-Biz-6 | Would clients trust coach-provided data? | ⬜ | Informs if events needed for neutral proof |
-| H-Biz-7 | Would clients want for their teams? | ⬜ | Informs coach-free vs coach-paid model |
-| H-Biz-8 | Does this differentiate vs other coaches? | ⬜ | Informs marketing message |
+| # | Hypothesis | Status | How to Validate |
+|---|------------|--------|-----------------|
+| H-Biz-7 | **Spread signal** — clients want for teams | ⬜ | "Would your client want this for their team?" |
+| H-Biz-8 | **Business WTP** — company would pay $500/team/mo | ⬜ | "Would their company pay $500/month for the team?" |
+| H-Biz-9 | **Coach WTP** — coaches would pay $50-100/mo | ⬜ | "Would YOU pay $75/month for this?" |
+| H-Biz-10 | Provides differentiation | ⬜ | "Would this help you win clients?" |
 
-*Tier 3 is intelligence gathering, not hypothesis validation.*
+**Decision logic:**
+- If H-Biz-7 (spread) = YES → Coaches are distributors, businesses pay (H-Biz-8)
+- If H-Biz-7 (spread) = NO → Coaches are customers (H-Biz-9)
+
+*Tier 3 determines the entire business model.*
 
 ### Concerns to Validate
 
@@ -183,14 +195,17 @@ Interested?
 | Step | What You Do |
 |------|-------------|
 | **1. Ask about pain** | "Do you have clients who think they understand others well but actually don't?" |
+| **1b. Ask about measurement** | "Have you ever been able to MEASURE that gap — not their listening behavior, but whether they actually understood? Or can you only assert it?" |
 | **2. Listen** | Let them talk. Take notes. Don't pitch. |
 | **3. Explore current solutions** | "How do you currently show them the gap?" |
 | **4. If pain exists, demo** | "Can I show you something I'm building? 2 minutes." |
 | **5. Ask about trust** | "If you showed them this data, would they believe it?" |
 | **6. Ask about retention** | "Would you use this once per client or ongoing?" |
-| **7. Ask willingness to pay** | "Would you pay for this? How much?" |
-| **8. Ask about spread** | "If this helped your client, would they want it for their team?" |
-| **9. If yes, propose pilot** | "Would you try it with one client? I'd love to see if it helps." |
+| **7. Ask about spread** | "If this helped your client, would they want it for their team?" |
+| **8. Ask business WTP** | "Would their company pay $500/month for the team to use this?" |
+| **9. Ask coach WTP** | "Would YOU pay $75/month for this with your clients?" |
+| **10. Pricing model signal** | If spread (7) = yes → business pays. If spread = no → coach pays. |
+| **11. If positive, propose pilot** | "Would you try it with one client? I'd love to see if it helps." |
 
 ### What NOT to Say
 
@@ -241,22 +256,34 @@ Interested?
 | Metric | Target | Status |
 |--------|--------|--------|
 | Conversations completed | 5 | ⬜ 0/5 |
-| Coaches confirm pain (H-Biz-1 to H-Biz-3) | 3+ | ⬜ |
-| Coaches would pay (H-Biz-6) | 2+ | ⬜ |
-| Clear signal on trust (H-Biz-4) | Yes/No | ⬜ |
-| Clear signal on retention (H-Biz-5) | Yes/No | ⬜ |
+| Coaches confirm pain (Tier 1) | 3+ | ⬜ |
+| Coaches would USE it (Tier 2) | 3+ | ⬜ |
+| **Spread signal** (H-Biz-7) | Clear yes/no | ⬜ |
+| Business WTP signal (H-Biz-8) | If spread=yes | ⬜ |
+| Coach WTP signal (H-Biz-9) | If spread=no | ⬜ |
 | Pilot with real coach + client | 1 | ⬜ |
 
 ### Decision Points
 
-**If validation succeeds (3+ pain, 2+ pay):**
-- Proceed to pilot with real coach + client
-- Build only what pilot reveals as needed
-- First paying customer target: 1 coach at $50-100/month
+**If Tier 1 fails (no pain):**
+- Stop. Problem doesn't exist or isn't painful enough.
+- Pivot to different customer segment.
 
-**If validation fails:**
-- Document what we learned
-- Consider pivot: different coach type? different customer entirely?
+**If Tier 2 fails (won't use):**
+- Pain exists but tool doesn't solve it.
+- Investigate why. Maybe trust issue or UX issue.
+
+**If spread signal = YES (H-Biz-7):**
+- Coaches are DISTRIBUTORS (free for them)
+- Validate business WTP ($500/team/month)
+- First paying customer = business via coach
+- Revenue target: 10 teams × $500 = $5K/month
+
+**If spread signal = NO:**
+- Coaches are CUSTOMERS
+- Validate coach WTP ($50-100/month)
+- First paying customer = coach
+- Revenue target: 67 coaches × $75 = $5K/month (harder)
 - Do NOT build more features hoping they'll help
 
 ---

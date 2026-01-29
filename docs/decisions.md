@@ -14,6 +14,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-29: Problem reframe — measurement impossible, not training expensive
+
+**Context:** Clarifying what problem we solve for coaches. Initial framing was "calibration training is too expensive/slow." After reflection, realized this was imprecise.
+
+**The insight:** The problem isn't "training is expensive." The problem is **understanding calibration was unmeasurable**.
+
+**What we measure:** Understanding calibration — the gap between listener's confidence ("I understood") and speaker's verification ("they actually understood"). This is metacomprehension accuracy via speaker verification.
+
+**Why this was impossible before:**
+- Self-reports don't work (metacomprehension accuracy is only r=0.24 — people don't know what they don't know)
+- Talk-time ratios (Gong, Chorus) measure behavior, not comprehension
+- 360 feedback buries listening as 1 item of 30, rated by people guessing
+- No tool asked the speaker to verify understanding
+
+**What we do differently:** Speaker verification — the only person who knows if you understood is the person you were trying to understand.
+
+**Implication for coach pitch:**
+- OLD: "Help clients improve faster" (efficiency play, competes with training)
+- NEW: "Prove what you can only assert" (new capability that didn't exist)
+
+**Consequences:**
+- Updated lean-canvas.md job-to-be-done
+- Updated hypotheses.md H-Biz-3
+- Updated p105_coach_validation.md validation questions
+- This is category creation, not competition with training companies
+
+**References:** [definitions.md](definitions.md) — Understanding Calibration section
+
+---
+
 ## 2026-01-28: Monetization strategy — consulting as customer discovery
 
 **Context:** Need $5K/month eventually, but also need to validate coach hypothesis. Tension between "make money now" and "validate before building."

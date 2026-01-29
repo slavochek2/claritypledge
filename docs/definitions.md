@@ -63,6 +63,8 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 
 ## Understanding Calibration (Core Construct)
 
+> **One-liner:** Knowing how well you understood — do you know when you "got it" vs. missed something?
+
 **What we measure — precisely:**
 
 ```

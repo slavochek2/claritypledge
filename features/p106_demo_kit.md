@@ -54,7 +54,7 @@ For coach validation and demos, we need ready-to-use ideas that:
 > "The Understanding Gap is the difference between how confident you are that you understood someone, and how accurate your understanding actually was. Most people are overconfident — they rate themselves 8/10 when the speaker would rate them 5/10. Seeing this number is often a surprise."
 
 **Common misunderstandings:**
-- "This measures how well someone explains" (No — it measures listener calibration)
+- "This measures how well someone explains" (No — it measures understanding calibration)
 - "Lower gap is always better" (Nuance: gap direction matters too)
 
 **Good playback sounds like:**

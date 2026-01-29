@@ -167,8 +167,8 @@ export function InlineCalibration({
  * not the behavior (listening). See definitions.md for full explanation.
  */
 const TOOLTIP_TEXT = {
-  listener: 'How well you predict you understood others (your confidence vs their verification)',
-  speaker: 'How well you predict others understood you (their confidence vs your verification)',
+  listener: 'Knowing how well you understood — do you know when you "got it" vs. missed something? (your confidence vs. speaker\'s verification)',
+  speaker: 'Knowing how well others understood you — do they know when they got it? (their confidence vs. your verification)',
 };
 
 interface CalibrationDisplayProps {

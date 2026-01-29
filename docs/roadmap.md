@@ -58,16 +58,28 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 ## Build Phases (Revenue-Integrated)
 
-### Revenue Timeline (Hard Caps)
+### Revenue Timeline (Depends on Pricing Model)
 
-| Phase | Deadline | Revenue Target |
-|-------|----------|----------------|
-| 0.0: Foundation | Week 2 | $0 |
-| 0.1: Validation | Week 3-4 | $0 |
-| 1.0: First Payment | Week 8 | $50-100 |
-| 1.5: Proof | Month 3 | $250-500 |
-| 2.0: Funnel | Month 6 | $1,000-2,000 |
-| 3.0: Scale | Month 12 | $5,000 |
+**If coaches = distributors (spread signal = yes):**
+
+| Phase | Deadline | Revenue Target | Who Pays |
+|-------|----------|----------------|----------|
+| 0.0-0.1: Validation | Week 4 | $0 | — |
+| 1.0: First Team | Week 8 | $500 | 1 business team |
+| 1.5: Proof | Month 3 | $2,500 | 5 teams |
+| 2.0: Scale | Month 6 | $5,000 | 10 teams |
+
+**If coaches = customers (spread signal = no):**
+
+| Phase | Deadline | Revenue Target | Who Pays |
+|-------|----------|----------------|----------|
+| 0.0-0.1: Validation | Week 4 | $0 | — |
+| 1.0: First Coach | Week 8 | $75 | 1 coach |
+| 1.5: Proof | Month 3 | $375 | 5 coaches |
+| 2.0: Scale | Month 6 | $1,500 | 20 coaches |
+| 3.0: Scale | Month 12 | $5,000 | 67 coaches |
+
+**Note:** Business path reaches $5K faster (10 teams vs 67 coaches). Validation will determine which path.
 
 ---
 
@@ -102,9 +114,12 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 ### Phase 0.1: Coach Hypothesis Validation
 
 **Deadline:** Week 4
-**Goal:** Validate coach pain + willingness to pay + spread signal via online event
+**Goal:** Validate coach pain + usage + spread signal (determines pricing model)
 
 **Research:** ✅ Complete. See [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md)
+
+**Value chain to validate** (see [lean-canvas.md](lean-canvas.md) jobs-to-be-done):
+1. Prove the gap → 2. Track improvement → 3. Enable spread → 4. Prove business value
 
 **Approach:** Online event with 5-8 coaches (not 1-on-1 calls)
 
@@ -127,15 +142,19 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 | Tier | Hypotheses | Must Validate? |
 |------|------------|----------------|
-| **Tier 1: Pain** | H-Biz-1: Clients have miscalibration, H-Biz-2: Priority problem, H-Biz-3: Lack tools | Yes |
-| **Tier 2: Pay** | H-Biz-4: Would pay $50-100/month, H-Biz-5: Ongoing use (retention) | Yes |
-| **Tier 3: Explore** | H-Biz-6: Trust coach-provided data?, H-Biz-7: Spread to teams?, H-Biz-8: Differentiation? | Learn, don't validate |
+| **Tier 1: Pain** | H-Biz-1: Clients have miscalibration, H-Biz-2: Priority problem, H-Biz-3: No tool measures it | Yes |
+| **Tier 2: Usage** | H-Biz-4: Trust, H-Biz-5: Retention, H-Biz-6: Coach own measurement | Yes |
+| **Tier 3: Revenue** | H-Biz-7: Spread signal, H-Biz-8: Business WTP, H-Biz-9: Coach WTP | Determines model |
+
+**Pricing model question:** Are coaches **customers** or **distributors**?
+- If spread (H-Biz-7) = YES → Coaches distribute, businesses pay ($500/team)
+- If spread = NO → Coaches pay ($50-100/month)
 
 **Success criteria:**
-- Event completed with 5+ coaches
-- 3+ coaches confirm pain (Tier 1)
-- 2+ coaches would pay (Tier 2)
-- Clear signal on spread potential (Tier 3)
+- 5 conversations completed
+- 3+ confirm pain (Tier 1)
+- 3+ would use it (Tier 2)
+- Clear signal on spread (H-Biz-7) — this determines pricing model
 
 **What we're NOT building:**
 - Profile redesign (P97) — deferred
@@ -145,43 +164,50 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 **Full validation plan:** [p105_coach_validation.md](../features/p105_coach_validation.md)
 
-### Phase 1.0: First Paying Coach
+### Phase 1.0: First Paying Customer
 
 **Deadline:** Week 8
-**Goal:** 1 coach paying for diagnostic tool
-**Revenue:** $50-100/month
+**Goal:** First payment (path depends on spread signal from Phase 0.1)
 
+**Path A: If spread signal = YES (businesses pay)**
 ```
-□ Coach validation succeeds (Phase 0)
-□ Pilot with real coach + client
-□ Coach finds it valuable
-□ Convert pilot coach to paid subscription
-□ Learn what features coaches actually need
+□ Pilot coach introduces tool to client
+□ Client experiences calibration revelation
+□ Client wants for their team
+□ Sell team license: $500/team/month
+□ First paying customer = 1 business team
 ```
+**Revenue:** $500/month
 
-**Success criteria:**
-- 1 paying coach
-- They use it with multiple clients
-- Clear retention signal
+**Path B: If spread signal = NO (coaches pay)**
+```
+□ Pilot with coach + client
+□ Coach finds ongoing value
+□ Convert to paid: $75/month
+□ First paying customer = 1 coach
+```
+**Revenue:** $75/month
 
-**Build only what pilot coach needs.** Don't speculate.
+**Build only what paying customer needs.** Don't speculate.
 
-### Phase 1.5: Coach → Client → Team Spread
+### Phase 1.5: Prove the Model
 
 **Deadline:** Month 3
-**Goal:** Validate spread mechanism + 5 coaches
-**Revenue:** $375/month (5 coaches)
+**Goal:** Validate revenue model scales
 
-```
-□ Coach's clients experience calibration revelation
-□ Some clients want tool for their teams
-□ Track: Does coach → client → team progression happen?
-□ If yes: team features become relevant
-```
+**Path A (businesses pay):**
+- 5 teams × $500 = $2,500/month
+- Track: coach → client → team conversion rate
+- Learn what team features matter
+
+**Path B (coaches pay):**
+- 5 coaches × $75 = $375/month
+- Track: coach retention and usage
+- Learn what coach features matter
 
 **Success criteria:**
-- At least 1 client asks about team use
-- Signal that spread mechanism works
+- Revenue matches target for chosen path
+- Clear signal on scalability
 
 ### Phase 2.0: Repeatable Coach Funnel
 

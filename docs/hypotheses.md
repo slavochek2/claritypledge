@@ -74,7 +74,7 @@ Ordered by validation sequence. Numbers now follow logical order.
 **The insight (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot (the coach) will pay.
 
 **Specific hypothesis:**
-> Executive/leadership/communication coaches will pay $50-100/month for a tool that objectively measures their clients' listener calibration gap, because it proves the blindspot that clients otherwise dismiss.
+> Executive/leadership/communication coaches will pay $50-100/month for a tool that objectively measures their clients' understanding calibration gap, because it proves the blindspot that clients otherwise dismiss — and tracks improvement over time.
 
 **How to test:**
 - Find 10-15 coaches on LinkedIn
@@ -83,21 +83,31 @@ Ordered by validation sequence. Numbers now follow logical order.
 - If positive signal → pilot with real coach + client
 
 **Sub-hypotheses to validate:**
-- H-Biz-1: Coaches have clients with listener miscalibration
+
+*Tier 1: Pain (must validate)*
+- H-Biz-1: Coaches have clients with understanding miscalibration
 - H-Biz-2: This is a problem coaches want to solve
-- H-Biz-3: Coaches lack objective proof tools
+- H-Biz-3: No tool measures understanding calibration (measurement was impossible)
+
+*Tier 2: Usage (validates distribution)*
 - H-Biz-4: Clients would trust a tool the coach uses
 - H-Biz-5: Coaches would use ongoing (not just once)
-- H-Biz-6: Would pay $50-100/month
-- H-Biz-7: Provides differentiation
-- H-Biz-8: Coach is open to own measurement (not just clients)
-- H-Biz-9: **Spread signal** — clients would want this for their teams
+- H-Biz-6: Coach is open to own measurement (not just clients)
+
+*Tier 3: Spread & Revenue (validates business model)*
+- H-Biz-7: **Spread signal** — clients would want this for their teams
+- H-Biz-8: **Business WTP** — would client's company pay $500/team/month?
+- H-Biz-9: **Coach WTP** — would coaches pay $50-100/month? (or are they distributors?)
+- H-Biz-10: Provides differentiation vs other coaches
+
+**Pricing model question:** Are coaches **customers** (they pay) or **distributors** (free for them, businesses pay)? Validation will answer this.
 
 **Success criteria:**
 - 5 conversations completed
-- 3+ confirm pain (H-Biz-1 to H-Biz-3)
-- 2+ would pay (H-Biz-6)
-- Clear signal on trust and retention
+- 3+ confirm pain (Tier 1)
+- Clear signal on spread (H-Biz-7) — this determines pricing model
+- If spread signal: validate business WTP (H-Biz-8)
+- If no spread signal: validate coach WTP (H-Biz-9)
 
 **Status:** **CURRENT FOCUS** — Validating in conversations before building more.
 
