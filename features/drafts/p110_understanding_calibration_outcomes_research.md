@@ -1,75 +1,387 @@
 # P110: Understanding Calibration Outcomes Research
 
-**Status:** Draft (not started)
+**Status:** Draft (ready for execution)
 **Created:** 2026-01-29
 **Depends on:** P104 (Calibration Outcomes Research)
+**Goal:** Validate that understanding calibration (not just listening) links to outcomes
 
 ---
 
-## Research Question
+## Executive Summary
 
-**If people become better calibrated on understanding, what improves?**
+P104 validated: **Listening → Outcomes** (sales, wellbeing, retention)
 
-P104 researched "does listening matter for outcomes?" This research asks the more precise question: what are the outcomes of improved **understanding calibration** (metacomprehension accuracy)?
+This research validates: **Understanding Calibration → Outcomes**
+
+**The distinction:**
+```
+Listening (behavior) → Understanding (outcome) → Calibration (metacognition)
+     ↑                                                    ↑
+  P104 researched                               P110 researches
+```
+
+**Core claims to validate:**
+1. The understanding calibration gap was not measurable until now (market gap)
+2. Higher calibration → better outcomes (and which outcomes?)
+3. How calibration relates to listening and its outcomes
+4. Interventions exist for measuring and improving calibration
 
 ---
 
-## Background
+## Phase 0: Terminology Mapping
 
-We discovered that our product measures **understanding calibration**, not listening:
-- Listening = behavior (paying attention, paraphrasing, etc.)
-- Understanding = outcome (did comprehension happen?)
-- Understanding calibration = metacognitive accuracy (do you know how well you understood?)
+**Goal:** Map the linguistic space before searching. Catch all variants of "understanding calibration" across fields.
 
-See [definitions.md](../../docs/definitions.md) for full construct mapping.
+### Candidate Terms to Map
+
+| Term | Field | Definition (to verify) |
+|------|-------|------------------------|
+| Metacomprehension accuracy | Educational psych | Correlation between predicted and actual comprehension |
+| Metacognitive calibration | Cognitive psych | Accuracy of confidence judgments |
+| Judgment of learning (JOL) | Learning science | Prediction of future recall/performance |
+| Calibration (general) | Decision science | Correspondence between confidence and accuracy |
+| Illusion of knowing | Cognitive psych | Belief that comprehension happened when it failed |
+| Illusion of explanatory depth | Cognitive psych | Overestimating understanding of causal systems |
+| Illusion of transparency | Social psych | Overestimating how well others understand you |
+| Listening fidelity | Communication | Congruence between listener's and speaker's cognitions |
+| Common ground / Grounding | Linguistics | Mutual knowledge established in conversation |
+| Shared mental models | Org behavior | Degree of overlap in team members' understanding |
+| Comprehension monitoring | Reading research | Awareness of one's own understanding while reading |
+| Epistemic calibration | Philosophy/Forecasting | Accuracy of confidence in one's beliefs |
+| Overconfidence bias | Behavioral econ | Excessive confidence in one's judgments |
+| Dunning-Kruger effect | Social psych | Low performers overestimate; high performers underestimate |
+
+### Questions for Phase 0
+
+1. **Which terms describe the SAME construct?** (synonyms to search together)
+2. **Which terms describe RELATED but DIFFERENT constructs?** (nuances matter)
+3. **Which fields use which terms?** (know where to search)
+4. **What's the closest academic term to "understanding calibration"?**
+5. **How close is this space to "listening" research?** (can we borrow P104 evidence?)
+
+### Expected Output
+
+| Cluster | Terms | Fields | Relation to Our Construct |
+|---------|-------|--------|---------------------------|
+| Exact match | (TBD) | (TBD) | Direct evidence applies |
+| Close match | (TBD) | (TBD) | Evidence likely applies |
+| Related | (TBD) | (TBD) | May inform, needs interpretation |
+| Listening-adjacent | (TBD) | (TBD) | P104 evidence, bridging needed |
 
 ---
 
-## Research Questions
+## Track A: Measurement Gap Validation
+
+**Claim:** "No one measures understanding calibration in conversations."
+
+### Research Questions
+
+1. **Are there existing tools that measure understanding calibration?**
+   - Not just listening behavior (P104 covered this)
+   - Specifically: gap between confidence and verified accuracy
+
+2. **How do researchers currently measure this construct?**
+   - Lab methods (text comprehension tests)
+   - Field methods (if any exist)
+   - Self-report limitations
+
+3. **Why hasn't this been productized?**
+   - Technical barriers?
+   - Market reasons?
+   - Academic vs. applied gap?
+
+### What Would Validate
+
+- No existing SaaS/tool measures listener confidence vs. speaker verification
+- Academic measures exist but are not real-time/productized
+- Clear market gap for conversational understanding calibration
+
+### What Would Invalidate
+
+- Existing tool already does this (competitor we missed)
+- Technical reason this can't work in real conversations
+
+---
+
+## Track B: Calibration → Outcomes
+
+**Claim:** "Higher understanding calibration leads to better outcomes."
+
+### Research Questions
 
 1. **What outcomes are linked to metacomprehension accuracy?**
-   - Learning outcomes
+   - Learning outcomes (retention, transfer, application)
    - Decision-making quality
+   - Work/task performance
    - Interpersonal/relational outcomes
-   - Work performance
-   - Trust
+   - Trust and collaboration
+   - Error reduction
 
-2. **Does improving calibration improve these outcomes?**
-   - Are there intervention studies?
-   - What's the causal direction?
+2. **What's the effect size?**
+   - How strong is the correlation?
+   - Comparable to listening → outcomes (r=.39)?
 
-3. **What improves when people get better at "knowing what they know"?**
-   - Dunning-Kruger remediation
-   - Self-regulated learning
-   - Collaboration effectiveness
+3. **Is the relationship causal?**
+   - Correlational studies only?
+   - Any experimental/intervention evidence?
 
-4. **Connection to superforecaster calibration**
-   - Is understanding calibration trainable the same way prediction calibration is?
-   - Do the same interventions work?
+4. **What's the direction?**
+   - Does calibration cause outcomes, or do outcomes cause calibration?
+   - (e.g., experts are more calibrated because they're experts)
+
+### Outcome Categories to Search
+
+| Category | Specific Outcomes | Why It Matters |
+|----------|-------------------|----------------|
+| Learning | Test scores, retention, transfer | Educational market |
+| Work performance | Task accuracy, productivity | Business market |
+| Decision-making | Decision quality, error rates | Leadership/coaching |
+| Relationships | Trust, satisfaction, conflict | Team effectiveness |
+| Collaboration | Team performance, coordination | Enterprise value prop |
+
+### What Would Validate
+
+- Meta-analyses or multiple studies showing calibration → outcomes
+- Effect sizes comparable to listening research
+- Some experimental evidence (not just correlational)
+
+### What Would Invalidate
+
+- No evidence that calibration matters for outcomes
+- Calibration is just an effect of expertise, not a lever
 
 ---
 
-## Why This Matters
+## Track C: Construct Relationships
 
-If we can show that understanding calibration → better outcomes, we can:
-1. Strengthen the coach pitch (not just "see the gap" but "closing the gap improves X")
-2. Design product features that target improvement, not just diagnosis
-3. Measure success beyond engagement (did calibration actually improve outcomes?)
+**Claim:** "Understanding calibration relates to listening and its outcomes."
+
+### The Question
+
+```
+Listening (behavior) ──→ Outcomes
+         │                  ↑
+         ↓                  │
+Understanding (outcome)     │
+         │                  │
+         ↓                  │
+Calibration (meta) ─────────┘
+```
+
+**Does P104's evidence (listening → outcomes) apply to calibration?**
+
+### Research Questions
+
+1. **Is calibration a mediator?**
+   - Listening → Calibration → Outcomes?
+   - If so, P104 evidence partially transfers
+
+2. **Is calibration a separate path?**
+   - Calibration → Outcomes (independent of listening)?
+   - If so, we need separate evidence
+
+3. **Is calibration a moderator?**
+   - Listening + Good Calibration → Better Outcomes?
+   - Calibration amplifies listening's effect?
+
+4. **What's the overlap between fields?**
+   - Do listening researchers cite metacognition researchers?
+   - Are these separate silos or connected?
+
+### What Would Validate
+
+- Clear theoretical link between listening fidelity and metacomprehension
+- Studies that measure both constructs
+- Shared citations between fields
+
+### What Would Invalidate
+
+- Completely separate research traditions with no connection
+- Listening research doesn't touch metacognition
 
 ---
 
-## Potential Sources
+## Track D: Interventions
 
-- Educational psychology: metacognition, self-regulated learning
-- Superforecasting literature (Tetlock)
-- Organizational behavior: shared mental models
-- Communication studies: grounding, common ground
+**Claim:** "Understanding calibration can be measured and improved."
+
+### Research Questions
+
+1. **What interventions improve calibration?**
+   - Feedback interventions
+   - Delayed judgment (waiting before rating confidence)
+   - Generation/testing effects
+   - Explain-back / teach-back (our mechanism!)
+   - Calibration training (superforecaster-style)
+
+2. **Is calibration trainable?**
+   - Effect sizes of training
+   - Transfer to new domains
+   - Persistence over time
+
+3. **What works in forecasting?**
+   - Tetlock's superforecaster calibration training
+   - Does it transfer to understanding calibration?
+   - Similar mechanisms?
+
+4. **What works in healthcare?**
+   - Teach-back effectiveness (P104 found 60% reduction in readmissions)
+   - Is this calibration training or just comprehension checking?
+
+### Intervention Categories
+
+| Intervention | Mechanism | Evidence Level (TBD) |
+|--------------|-----------|---------------------|
+| Immediate feedback | Shows gap, triggers correction | |
+| Delayed JOL | Wait before rating confidence | |
+| Generation effect | Producing vs. receiving info | |
+| Explain-back / Teach-back | Listener articulates understanding | |
+| Calibration training | Explicit training on accuracy | |
+| Social verification | Others verify your understanding | |
+
+### What Would Validate
+
+- Multiple interventions shown to improve calibration
+- Explain-back/teach-back specifically improves calibration
+- Calibration training transfers across domains
+
+### What Would Invalidate
+
+- Calibration is fixed / not trainable
+- Interventions don't transfer to real conversations
 
 ---
 
-## Output
+## Track E: Synthesis — Compare to P104
 
-- Summary table of outcomes linked to calibration
-- Key studies with citations
-- Implications for product and positioning
-- What's proven vs. hypothesized
+**Goal:** How does this evidence compare to listening → outcomes evidence?
+
+### Comparison Table (to fill)
+
+| Dimension | Listening (P104) | Understanding Calibration (P110) |
+|-----------|------------------|----------------------------------|
+| Key meta-analysis | Kluger et al. 2023 (N=400K, r=.39) | (TBD) |
+| Strongest outcome link | Sales, wellbeing | (TBD) |
+| Weakest outcome link | Innovation | (TBD) |
+| Evidence quality | 75% self-report | (TBD) |
+| Causal evidence | Mostly correlational | (TBD) |
+| Best proof point | Teach-back (60% fewer readmissions) | (TBD) |
+| Intervention evidence | Training transfer fails (12%) | (TBD) |
+| Market gap | No understanding verification tools | (TBD) |
+
+### Bridge Questions
+
+1. **Can we use P104 evidence?**
+   - If constructs are linked, P104 strengthens our case
+   - If separate, we need P110's own evidence base
+
+2. **What's the combined pitch?**
+   - "Listening matters (P104) AND calibration matters (P110)"
+   - Or: "Calibration is what makes listening work"
+
+3. **Where do we have evidence gaps?**
+   - What claims are proven?
+   - What claims are hypothesized?
+   - What should we NOT claim?
+
+---
+
+## Research Method
+
+### Execution Strategy
+
+```
+┌─────────────────────┐
+│  Phase 0: Terms     │  ← Sequential (must complete first)
+│  (terminology map)  │
+└──────────┬──────────┘
+           │
+           ▼
+┌──────┬──────┬──────┬──────┐
+│ A    │ B    │ C    │ D    │  ← Parallel (4 agents)
+│ Gap  │ Out- │ Rel- │ Int- │
+│      │comes │ ships│ ervs │
+└──┬───┴──┬───┴──┬───┴──┬───┘
+   │      │      │      │
+   └──────┴──────┴──────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Track E: Synthesis │  ← Sequential (needs all results)
+│  (compare to P104)  │
+└─────────────────────┘
+```
+
+### Phase 0: Terminology Mapping (Sequential)
+1. Web search for each candidate term + "definition"
+2. Find key papers that define each term
+3. Map synonyms, related terms, field boundaries
+4. Identify which terms to search together
+5. **Output:** Keyword clusters for parallel agents
+
+### Tracks A-D: Parallel Execution (4 Agents)
+
+Each agent receives:
+- The terminology map from Phase 0
+- Their specific track questions
+- Shared search method below
+
+**Agent prompts:**
+- **Agent A:** "Using these keyword clusters, validate: Is understanding calibration measurable? Is there a market gap?"
+- **Agent B:** "Using these keyword clusters, find: What outcomes are linked to calibration? Effect sizes? Causal evidence?"
+- **Agent C:** "Using these keyword clusters, determine: How does calibration relate to listening? Can we borrow P104 evidence?"
+- **Agent D:** "Using these keyword clusters, catalogue: What interventions improve calibration? Is it trainable?"
+
+**Shared search method:**
+1. Search academic databases (Google Scholar, PubMed, PsycINFO)
+2. Find meta-analyses first (highest evidence level)
+3. Follow citations to key studies
+4. Search for counter-evidence explicitly
+5. Document effect sizes, sample sizes, limitations
+
+### Track E: Synthesis (Sequential)
+1. Collect results from all 4 agents
+2. Compare findings to P104 structure
+3. Rate evidence strength for each claim
+4. Identify gaps and risks
+5. Write implications for product/pitch
+
+---
+
+## Output Format
+
+### Summary Table
+| Claim | Evidence Level | Key Finding | Implication |
+|-------|----------------|-------------|-------------|
+| 1. Gap not measurable | (TBD) | (TBD) | (TBD) |
+| 2. Calibration → outcomes | (TBD) | (TBD) | (TBD) |
+| 3. Relates to listening | (TBD) | (TBD) | (TBD) |
+| 4. Interventions work | (TBD) | (TBD) | (TBD) |
+
+### Strategic Verdict
+- Proceed with confidence / Proceed with caveats / Pivot needed
+- What to claim
+- What NOT to claim
+- Implications for coach pitch
+
+---
+
+## Success Criteria
+
+**Research is complete when:**
+- [ ] Phase 0: Terminology map complete with clusters
+- [ ] Track A: Measurement gap validated or invalidated
+- [ ] Track B: Outcomes table filled with evidence levels
+- [ ] Track C: Construct relationship clarified
+- [ ] Track D: Interventions catalogued with effectiveness
+- [ ] Track E: Comparison to P104 complete
+- [ ] Strategic verdict written
+
+---
+
+## Related Documents
+
+- [p104_calibration_outcomes_research.md](../done/p104_calibration_outcomes_research.md) — Listening → outcomes evidence
+- [definitions.md](../../docs/definitions.md) — Understanding Calibration construct
+- [lean-canvas.md](../../docs/lean-canvas.md) — Problem statement
+- [hypotheses.md](../../docs/hypotheses.md) — What we're testing
