@@ -7,12 +7,18 @@ import { DualCTA } from "./dual-cta";
 import { CheckCircle } from "lucide-react";
 
 export function ClarityTaxSection() {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [showLine2, setShowLine2] = useState(false);
+  const [showLine3, setShowLine3] = useState(false);
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
-    setIsLoaded(true);
+    const timer1 = setTimeout(() => setShowLine2(true), 425);   // 0.425s
+    const timer2 = setTimeout(() => setShowLine3(true), 1400);  // 1.4s - punch after pause
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
   }, []);
 
   useEffect(() => {
@@ -42,23 +48,24 @@ export function ClarityTaxSection() {
           {/* Headline */}
           <div className="space-y-4">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
-              Feeling misunderstood hurts.
-              <br className="hidden sm:block" />
+              Everyone assumes understanding.
+              <br />
               <span
-                className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
-                  isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
+                className={`inline-block transition-all duration-700 text-blue-500 ${
+                  showLine2 ? "opacity-100 blur-0" : "opacity-0 blur-sm"
                 }`}
               >
-                {" "}Misunderstanding hurts others.
+                Nobody measures.
+              </span>
+              <br />
+              <span
+                className={`inline-block transition-opacity duration-300 text-muted-foreground ${
+                  showLine3 ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                Trust dies.
               </span>
             </h1>
-            <p
-              className={`text-xl sm:text-2xl lg:text-3xl font-medium text-muted-foreground transition-all duration-700 delay-1000 ${
-                isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-              }`}
-            >
-              No one sees both sides. Until now.
-            </p>
           </div>
 
           {/* CTA - Primary + Secondary */}
