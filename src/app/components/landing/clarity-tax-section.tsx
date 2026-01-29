@@ -36,22 +36,29 @@ export function ClarityTaxSection() {
       {/* Subtle Background Grid */}
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
 
-      <div className="container mx-auto max-w-4xl">
+      <div className="container mx-auto max-w-5xl">
         {/* Centered Single-Column Layout */}
         <div className="text-center space-y-10">
           {/* Headline */}
-          <div className="space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              Everyone believes listening matters.
+          <div className="space-y-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+              Feeling misunderstood hurts.
               <br className="hidden sm:block" />
               <span
                 className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
                   isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
                 }`}
               >
-                {" "}No one measures it.
+                {" "}Misunderstanding hurts others.
               </span>
             </h1>
+            <p
+              className={`text-xl sm:text-2xl lg:text-3xl font-medium text-muted-foreground transition-all duration-700 delay-1000 ${
+                isLoaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
+            >
+              No one sees both sides. Until now.
+            </p>
           </div>
 
           {/* CTA - Primary + Secondary */}

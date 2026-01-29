@@ -61,6 +61,41 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 
 ---
 
+## Understanding Calibration (Core Construct)
+
+**What we measure — precisely:**
+
+```
+Listening (behavior) → Understanding (outcome) → Confidence (metacognition) → Gap to reality (calibration)
+                                                        ↑                              ↑
+                                                   WE MEASURE THIS              AND THIS
+```
+
+**The measurement:**
+- **Listener rates:** "How well do I think I understood?" (confidence/self-estimate)
+- **Speaker rates:** "How well did they actually understand?" (verification)
+- **Gap:** Speaker's rating − Listener's confidence = **Understanding Calibration**
+
+**Key distinction:** We measure **understanding** (an outcome), not **listening** (a behavior). Listening is what you do; understanding is what results. We measure whether you *know* how well you understood — metacognitive accuracy.
+
+**Academic terms for this construct:**
+| Term | Definition | Source |
+|------|------------|--------|
+| **Metacomprehension accuracy** | Correlation between predicted and actual comprehension | Yang et al. (2023) meta-analysis: r=0.24 |
+| **Illusion of knowing** | Belief that comprehension happened when it failed | Glenberg, Wilkinson & Epstein (1982) |
+| **Illusion of explanatory depth** | Thinking you understand causal systems better than you do | Sloman & Fernbach (2017) |
+| **Listening fidelity** | Congruence between listener's and speaker's cognitions | Powers & Lowry (1984) |
+
+**Why "understanding" not "listening":**
+- "Listening" is the entry-point word people use ("they don't listen")
+- But we measure the *outcome* (did understanding happen?) not the *behavior* (did they pay attention?)
+- More precise: "understanding calibration" or "metacomprehension accuracy"
+
+**Teach-back = Explain-back:**
+The mechanism we use (listener plays back understanding, speaker verifies) is called "teach-back" in healthcare literature. We call it "explain-back." Same mechanism, proven effective (60% reduction in hospital readmissions).
+
+---
+
 ## Calibration Badge (Public Reputation)
 
 Users earn a public "Calibrated" badge when:
