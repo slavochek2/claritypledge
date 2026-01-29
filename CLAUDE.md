@@ -628,6 +628,22 @@ These aren't exhaustive rules — they illustrate the principle:
 | New utility when similar exists | Maintenance burden |
 | New skill when existing could have a flag | Unnecessary fragmentation |
 
+### Before Writing Content
+
+> **Principle:** Search before writing. Link before duplicating.
+
+When documenting any concept (decisions, learnings, hypotheses):
+
+1. **Extract key phrases** from what you're about to write
+2. **Search the codebase** for those phrases
+3. **If found elsewhere:**
+   - Same concept, same doc type → update the existing entry
+   - Same concept, different purpose → link to source, add minimal context
+   - Related but distinct → proceed, note the relationship
+4. **If not found** → add to the appropriate source of truth doc
+
+**The test:** If you're writing more than one sentence explaining a concept that exists elsewhere, you're probably duplicating. Link instead.
+
 ---
 
 ## File Locations
