@@ -77,6 +77,36 @@ The goal: surface improvements proactively with ready-to-apply solutions. The us
 
 This isn't criticism — it's a known pattern that delays validation. The fastest path to certainty is testing, not thinking.
 
+## Risky Operations — Worktree Protection
+
+> **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
+
+**Before these operations, ask:** "This is risky/experimental. Want to switch to another worktree first?"
+
+- Installing new global tools that modify repo files (like `backlog init`)
+- Major refactors touching 10+ files
+- Trying new frameworks, build systems, or architectures
+- Database migrations or schema changes
+- Anything labeled "experimental" or "let's try this"
+
+**Why:** Easy rollback. If experiment fails, the main worktree stays clean.
+
+## Commit Discipline — Checkpoint Prompts
+
+> **Pattern to watch:** The founder tends to accumulate changes, then commit everything at once. This makes rollback hard and history unclear.
+
+**Agent behavior:**
+- After completing a logical unit of work (feature, fix, refactor), prompt: "This is a good commit checkpoint. Want to commit now?"
+- If 30+ minutes pass with uncommitted changes, remind: "You have uncommitted work. Commit before continuing?"
+- Before starting something new (new feature, experiment, tool install), check for uncommitted changes first
+
+**Signs to watch for:**
+- Multiple unrelated changes in `git status`
+- Mix of "done" work and "in progress" work
+- About to context-switch to something different
+
+**Goal:** Small, atomic commits. Each commit = one logical change.
+
 ## Tool Preferences
 
 ### Browser Automation
