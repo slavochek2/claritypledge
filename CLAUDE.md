@@ -472,7 +472,7 @@ This repo is public. Before creating or updating files — especially in `conten
 
 **High-risk file types:**
 - `content/events/` — may contain local community details
-- `docs/stories/` — personal narratives may reveal too much
+- `content/stories/` — personal narratives may reveal too much
 
 ### ESLint includes accessibility checks (jsx-a11y):
 
@@ -596,7 +596,7 @@ These aren't exhaustive rules — they illustrate the principle:
 |------|----------|
 | Technical docs | `docs/technical/` |
 | Product learnings | `docs/learnings/` |
-| Founder stories / newsletter drafts | `docs/stories/` |
+| Founder stories / newsletter drafts | `content/stories/` |
 | Discussion group topics | `content/events/` |
 | Historical explorations | `docs/visions/` |
 | Feature planning (active) | `features/p{N}_{name}.md` |
@@ -616,12 +616,12 @@ These aren't exhaustive rules — they illustrate the principle:
 
 ```
 content/
-└── events/             # Discussion group topics (reading + questions + discussion)
+├── events/             # Discussion group topics (reading + questions + discussion)
+└── stories/            # Founder stories, newsletter drafts
 
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
 ├── learnings/          # Project learnings and retrospectives
-├── stories/            # Founder stories and newsletter drafts
 ├── visions/            # Historical explorations and proposals
 ├── bmad/               # BMAD workflow status files
 ├── archive/            # Archived docs (superseded)
