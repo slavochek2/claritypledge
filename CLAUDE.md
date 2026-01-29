@@ -680,6 +680,7 @@ When documenting any concept (decisions, learnings, hypotheses):
 | Feature drafts (early ideas) | `features/drafts/` |
 | Completed features | `features/done/` |
 | Archived features | `features/archive/` |
+| Research results | `features/research/` |
 | UAT files (ralph-loop) | `features/p{N}_uat.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
@@ -714,7 +715,8 @@ features/               # Feature planning docs
 ├── p{N}_uat.md         # UAT files for ralph-loop
 ├── done/               # Completed features
 ├── archive/            # Archived/deprioritized features
-└── drafts/             # Early-stage drafts and ideas
+├── drafts/             # Early-stage drafts and ideas
+└── research/           # Research results (permanent reference)
 ```
 
 ### Generated artifacts (OK to create)
