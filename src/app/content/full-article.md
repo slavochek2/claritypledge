@@ -800,13 +800,5 @@ The Clarity Principle provides the cultural foundation that makes these practice
 
 ---
 
-## Further Reading
-
-For those who want to go deeper:
-
-- [Why this works — the epistemological foundation](/docs/philosophy.md)
-- [How change spreads — cascade and √N effects](/docs/theory-of-change.md)
-- [What we're testing — current hypotheses](/docs/hypotheses.md)
-
 ---
 

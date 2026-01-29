@@ -6,15 +6,17 @@
 
 ## Problem
 
-**People fail to have constructive dialogues.**
+**People are miscalibrated about their understanding of each other.**
 
 Two calibration failures:
 1. **Speakers** overestimate how clearly they communicated
 2. **Listeners** overestimate how well they understood
 
-No feedback loop exists — conversations end without checking if understanding actually happened.
+No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out.
 
-**The measurement problem:** Existing tools don't help. 75% of listening research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries listening as 1 item among 30.
+**The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis shows metacomprehension accuracy is only r=0.24 — people are poor at knowing what they know.
+
+**What we measure:** Not listening (a behavior), but understanding calibration (metacognitive accuracy). The gap between "how well I think I understood" and "how well I actually understood" — as verified by the speaker.
 
 *For the cognitive science behind this, see [philosophy.md](philosophy.md)*
 
@@ -134,7 +136,7 @@ Track your accuracy over time:
 - **360 feedback** — listening is 1 checkbox of 30, rated once a year, generic
 - **Self-assessment** — people overestimate; that's the whole problem
 
-**Gap:** No one treats understanding as something you can measure and certify. Everyone believes listening matters. No one measures whether understanding actually happened.
+**Gap:** No one treats understanding as something you can measure and certify. Everyone thinks they understand. No one checks whether understanding actually happened.
 
 ---
 
@@ -211,33 +213,7 @@ Track your accuracy over time:
 
 ## Validation Status
 
-**Problem hypothesis** (partially validated):
-
-Events and workshops often fail to achieve real knowledge exchange because:
-- People avoid vulnerability (don't admit confusion)
-- No feedback loop (speakers don't know if they landed)
-- Miscalibration (everyone assumes understanding happened)
-- Low trust (why expose that I didn't get it?)
-
-**Validation results (2026-01-28):**
-
-| Hypothesis | Status | Learning |
-|------------|--------|----------|
-| People fail at dialogue | ✅ Confirmed | Core problem is real |
-| /live reduces gap in-session | ✅ Confirmed | Tool works, gaps close |
-| Pledge identity changes behavior | ❌ Not validated | People sign, don't act differently |
-| Individual users seek verification | ❌ Not validated | No trigger — "on what? when?" |
-| /live is sticky/retained | ❌ Not validated | Praised but not returned to |
-| Event organizers can provide trigger | ⏸️ Paused | Pivoted to coach hypothesis first |
-| **Coaches will pay for diagnostic tool** | 🔄 Testing now | They see blindspot clients can't see |
-
-**Key learning (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot will. Coaches see their clients' miscalibration. Testing this hypothesis via discovery conversations.
-
-**Current status:**
-- Testing coach hypothesis via discovery conversations
-- Target: 5 conversations with executive/leadership/communication coaches
-- Questions: Pain? Trust? Retention? Would pay?
-- Full plan in [p105_coach_validation.md](../features/p105_coach_validation.md)
+**See [hypotheses.md](hypotheses.md)** — single source of truth for what we're testing and validation status.
 
 ---
 
