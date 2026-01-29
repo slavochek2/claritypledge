@@ -79,6 +79,39 @@ Gap_Value(A, B, Idea) =
 
 ## The Cascade
 
+### Stage 0: Protocol Propagation (Protocol-Led Growth)
+
+Before the verification cascade can begin, the **explain-back protocol** must spread. This happens independently of the product.
+
+```
+STAGE 0: PROTOCOL PROPAGATION
+─────────────────────────────
+Coach learns explain-back protocol
+Coach teaches clients as part of coaching
+Clients practice with their teams
+Teams teach colleagues
+Protocol spreads WITHOUT measurement tool
+        ↓
+Some practitioners want to MEASURE:
+- "Am I actually improving?"
+- "Can I prove this to my manager?"
+- "How does my team compare?"
+        ↓
+They discover /live (measurement layer)
+        ↓
+Stage 1 begins (The Proof)
+```
+
+**Key insight:** The protocol is free and valuable without the product. The product captures value by measuring what the protocol enables.
+
+This is **Protocol-Led Growth** — distinct from Product-Led Growth:
+- PLG: Product spreads because using it is valuable
+- Protocol-Led: Protocol spreads free; product captures value from protocol users
+
+**The healthcare parallel:** Hospitals use "teach-back" (same mechanism as explain-back). Meta-analysis shows it reduces readmissions by 60%. We're applying proven verification loops to workplace communication.
+
+---
+
 ### The √N Mathematics
 
 > "The √N rule comes from the Birthday Paradox in mathematics... To ensure that 'understanding' overlaps across 8 billion people, you don't need 8 billion verifications. You need enough 'verified bridges' (≈89,000) so that any random person on Earth is only 1 or 2 steps away from a verified truth."
@@ -286,6 +319,28 @@ LAYER 4: TOPOLOGY MAP
 
 ---
 
+---
+
+## Evidence Base
+
+The theory of change is supported by research:
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| Listening → outcomes | r=.39 meta-analytic correlation (N=400K) | Kluger et al. 2023 |
+| Verification loops work | 60% fewer hospital readmissions with teach-back | Heart failure meta-analysis |
+| Training alone fails | Only 12% apply skills learned in training | ATD research |
+| Measurement gap exists | 75% of listening research relies on self-reports | Kluger et al. 2023 |
+
+**Implication:** The theory depends on:
+1. Listening actually mattering (✅ validated)
+2. Verification working better than assumption (✅ validated in healthcare)
+3. Measurement providing value beyond just practice (testing via H-Biz)
+
+Full research: [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md)
+
+---
+
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
@@ -298,6 +353,7 @@ LAYER 4: TOPOLOGY MAP
 
 ## Changelog
 
+- **2026-01-28:** Added Stage 0 (Protocol Propagation / Protocol-Led Growth), Evidence Base section with research citations
 - **2026-01-25:** Promoted from `docs/visions/v0_theory-of-change.md` to source of truth doc (P96)
 - **2026-01-18:** Refactored — extracted problem/solution to lean-canvas.md, validation to hypotheses.md. This doc now focuses purely on the cascade mechanism.
 - **2026-01-11:** Added Section 3.1 "Routing Intelligence: Which Gaps Matter Most"

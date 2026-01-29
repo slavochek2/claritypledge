@@ -313,4 +313,4 @@ Truth emerges through error correction. Active listening ensures we correct *act
 
 ## Historical Note
 
-This document is the canonical source for Clarity Pledge's epistemological foundation. It was promoted from `docs/visions/v7_communicative_critical_rationalism.md` as part of the documentation architecture refactor (P96).
+This document is the canonical source for Clarity Pledge's epistemological foundation. It was promoted from the original vision doc (now archived in `docs/archive/`) as part of the documentation architecture refactor (P96).

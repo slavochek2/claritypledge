@@ -7,12 +7,18 @@ import { DualCTA } from "./dual-cta";
 import { CheckCircle } from "lucide-react";
 
 export function ClarityTaxSection() {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [showLine2, setShowLine2] = useState(false);
+  const [showLine3, setShowLine3] = useState(false);
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
-    setIsLoaded(true);
+    const timer1 = setTimeout(() => setShowLine2(true), 425);   // 0.425s
+    const timer2 = setTimeout(() => setShowLine3(true), 1400);  // 1.4s - punch after pause
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
   }, []);
 
   useEffect(() => {
@@ -36,27 +42,30 @@ export function ClarityTaxSection() {
       {/* Subtle Background Grid */}
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
 
-      <div className="container mx-auto max-w-4xl">
+      <div className="container mx-auto max-w-5xl">
         {/* Centered Single-Column Layout */}
         <div className="text-center space-y-10">
-          {/* Headline - Emotional Hook */}
-          <div className="space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight">
-              We all crave being understood.
-              <br className="hidden sm:block" />
+          {/* Headline */}
+          <div className="space-y-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
+              Everyone assumes understanding.
+              <br />
               <span
-                className={`inline-block transition-all duration-1000 delay-300 text-blue-500 ${
-                  isLoaded ? "blur-0 opacity-100" : "blur-lg opacity-0"
+                className={`inline-block transition-all duration-700 text-blue-500 ${
+                  showLine2 ? "opacity-100 blur-0" : "opacity-0 blur-sm"
                 }`}
               >
-                {" "}Let's commit to listen.
+                Nobody measures.
+              </span>
+              <br />
+              <span
+                className={`inline-block transition-opacity duration-300 text-muted-foreground ${
+                  showLine3 ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                Trust dies.
               </span>
             </h1>
-
-            {/* Sub-headline - Consequence */}
-            <p className="text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
-              Stop sacrificing truth for the sake of comfort.
-            </p>
           </div>
 
           {/* CTA - Primary + Secondary */}

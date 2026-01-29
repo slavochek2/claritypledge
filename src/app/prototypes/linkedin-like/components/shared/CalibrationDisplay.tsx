@@ -23,15 +23,14 @@ function CalibrationTooltip({
 }) {
   const [open, setOpen] = useState(false);
   const [clickLocked, setClickLocked] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Shared activation logic for both click and keyboard
+  const handleActivate = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    // On click: always show for 3s (don't toggle - more predictable UX)
+    // On activation: always show for 3s (don't toggle - more predictable UX)
     setOpen(true);
     setClickLocked(true);
     timeoutRef.current = setTimeout(() => {
@@ -52,14 +51,18 @@ function CalibrationTooltip({
     <Tooltip open={open} onOpenChange={handleOpenChange}>
       <TooltipTrigger asChild>
         <span
-          onClick={handleClick}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleActivate();
+          }}
           className="cursor-pointer"
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              handleClick(e as unknown as React.MouseEvent);
+              handleActivate();
             }
           }}
         >
@@ -122,7 +125,7 @@ export function InlineCalibration({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 shrink-0">
             <Ear size={12} className="text-gray-400" />
-            <span className="text-xs font-medium text-gray-600">Listener Calibration</span>
+            <span className="text-xs font-medium text-gray-600">Understanding Calibration</span>
           </div>
 
           {/* Bar with indicator dot */}
@@ -159,10 +162,13 @@ export function InlineCalibration({
 
 /**
  * Tooltip text for each calibration role.
+ *
+ * Note: We use "Understanding Calibration" because we measure the outcome (understanding)
+ * not the behavior (listening). See definitions.md for full explanation.
  */
 const TOOLTIP_TEXT = {
-  listener: 'How well you predict you understand others',
-  speaker: 'How well you predict others understand you',
+  listener: 'Knowing how well you understood — do you know when you "got it" vs. missed something? (your confidence vs. speaker\'s verification)',
+  speaker: 'Knowing how well others understood you — do they know when they got it? (their confidence vs. your verification)',
 };
 
 interface CalibrationDisplayProps {
@@ -190,7 +196,7 @@ export function CalibrationDisplay({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-gray-800">
-            {userLabel ? `${userLabel}'s` : 'Your'} Calibration
+            {userLabel ? `${userLabel}'s` : 'Your'} Understanding Calibration
           </h3>
         </div>
 

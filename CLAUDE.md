@@ -63,6 +63,17 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## AI-Era Task Duration
+
+> **Principle:** Time estimates should reflect AI speed, not pre-AI human estimates.
+
+Tasks that took humans days now take minutes with AI assistance:
+- **Research tasks:** Minutes, not days (web search + synthesis)
+- **Documentation updates:** Hours, not weeks
+- **Code exploration:** Minutes, not hours
+
+When estimating task duration, account for AI capabilities. Don't give estimates that assume manual human work when AI can accelerate.
+
 ## Working Style — Founder Pattern
 
 > **Pattern to watch:** When facing uncertainty, the founder tends to expand scope (add features, explore adjacent ideas, ask more "what about X?" questions) as a way to create false certainty.
@@ -76,6 +87,36 @@ The goal: surface improvements proactively with ready-to-apply solutions. The us
 **Then flag it directly:** "This looks like scope expansion under uncertainty. The lean path is to validate [current hypothesis] first. Should we stay focused?"
 
 This isn't criticism — it's a known pattern that delays validation. The fastest path to certainty is testing, not thinking.
+
+## Risky Operations — Worktree Protection
+
+> **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
+
+**Before these operations, ask:** "This is risky/experimental. Want to switch to another worktree first?"
+
+- Installing new global tools that modify repo files (like `backlog init`)
+- Major refactors touching 10+ files
+- Trying new frameworks, build systems, or architectures
+- Database migrations or schema changes
+- Anything labeled "experimental" or "let's try this"
+
+**Why:** Easy rollback. If experiment fails, the main worktree stays clean.
+
+## Commit Discipline — Checkpoint Prompts
+
+> **Pattern to watch:** The founder tends to accumulate changes, then commit everything at once. This makes rollback hard and history unclear.
+
+**Agent behavior:**
+- After completing a logical unit of work (feature, fix, refactor), prompt: "This is a good commit checkpoint. Want to commit now?"
+- If 30+ minutes pass with uncommitted changes, remind: "You have uncommitted work. Commit before continuing?"
+- Before starting something new (new feature, experiment, tool install), check for uncommitted changes first
+
+**Signs to watch for:**
+- Multiple unrelated changes in `git status`
+- Mix of "done" work and "in progress" work
+- About to context-switch to something different
+
+**Goal:** Small, atomic commits. Each commit = one logical change.
 
 ## Tool Preferences
 
@@ -103,13 +144,15 @@ For full details: [browser-tools.md](docs/technical/browser-tools.md)
 
 ## Product Overview
 
-**Clarity Pledge** — A practice system for calibrated communication. Use /live in any meeting to verify understanding and track calibration over time.
+**Clarity Pledge** — A practice system for calibrated communication. Use /live to verify understanding and reveal the gap between "I think I understood" and reality.
 
-**Core insight:** The product isn't workshops or special events. It's /live embedded in teams' regular meetings. "Event" = any meeting where people commit to verified understanding (standup, 1:1, board meeting, workshop).
+**Core insight (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot (coaches, managers) will pay. Coaches are the first customer hypothesis.
 
-**Core loop:** Meet → Verify understanding via /live → See calibration gap → Improve over time
+**Core loop:** Verify understanding via /live → See calibration gap → Improve over time
 
-**Current focus:** Validate that ongoing use changes behavior (not just workshop attendance).
+**Current focus:** Validate coach hypothesis — will executive/leadership/communication coaches pay $50-100/month for a diagnostic tool that proves their clients' listening miscalibration?
+
+**Validation plan:** [p_coach_validation.md](features/p_coach_validation.md)
 
 For full concepts: [definitions.md](docs/definitions.md)
 For business model: [lean-canvas.md](docs/lean-canvas.md)
@@ -457,6 +500,21 @@ git rm --cached <file>       # Untrack (if already tracked)
 | **debugger** | Yes | Leftover debug statements |
 | **any types** | Warning | New `any` types in non-test code |
 
+### Open Source Safety (PII Protection)
+
+This repo is public. Before creating or updating files — especially in `content/`, `docs/stories/` — check for:
+
+- Personal addresses, phone numbers, private contacts
+- Information that could enable identity theft or harassment
+- Private business details (revenue, contracts, bank info)
+- Location patterns that reveal daily routines
+
+**When in doubt, ask:** "Is this safe to publish openly?"
+
+**High-risk file types:**
+- `content/events/` — may contain local community details
+- `content/stories/` — personal narratives may reveal too much
+
 ### ESLint includes accessibility checks (jsx-a11y):
 
 The linter catches common accessibility issues:
@@ -476,9 +534,9 @@ If issues are found, ask the user how to proceed before committing.
 
 ## Cloud Infrastructure
 
-### Google Cloud Platform
-
-**Credits:** €25,000 (GFS Ecosystem Partner program)
+| Provider | Credit | Source | Expires |
+|----------|--------|--------|---------|
+| **Google Cloud** | $25K | GFS 2024 Ecosystem Partner | TBD (check account) |
 
 **Existing infrastructure:**
 - **GCS Bucket:** `[TBD - add bucket name]` — used for voice recordings, event banners
@@ -582,6 +640,22 @@ These aren't exhaustive rules — they illustrate the principle:
 | New utility when similar exists | Maintenance burden |
 | New skill when existing could have a flag | Unnecessary fragmentation |
 
+### Before Writing Content
+
+> **Principle:** Search before writing. Link before duplicating.
+
+When documenting any concept (decisions, learnings, hypotheses):
+
+1. **Extract key phrases** from what you're about to write
+2. **Search the codebase** for those phrases
+3. **If found elsewhere:**
+   - Same concept, same doc type → update the existing entry
+   - Same concept, different purpose → link to source, add minimal context
+   - Related but distinct → proceed, note the relationship
+4. **If not found** → add to the appropriate source of truth doc
+
+**The test:** If you're writing more than one sentence explaining a concept that exists elsewhere, you're probably duplicating. Link instead.
+
 ---
 
 ## File Locations
@@ -591,6 +665,8 @@ These aren't exhaustive rules — they illustrate the principle:
 |------|----------|
 | Technical docs | `docs/technical/` |
 | Product learnings | `docs/learnings/` |
+| Founder stories / newsletter drafts | `content/stories/` |
+| Discussion group topics | `content/events/` |
 | Historical explorations | `docs/visions/` |
 | Feature planning (active) | `features/p{N}_{name}.md` |
 | Feature drafts (early ideas) | `features/drafts/` |
@@ -608,6 +684,10 @@ These aren't exhaustive rules — they illustrate the principle:
 ### Folder Structure Reference
 
 ```
+content/
+├── events/             # Discussion group topics (reading + questions + discussion)
+└── stories/            # Founder stories, newsletter drafts
+
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
 ├── learnings/          # Project learnings and retrospectives
@@ -638,3 +718,4 @@ These are gitignored and expected:
 ### When unsure
 
 Ask the user. It's better to ask than to create a file in the wrong place or duplicate an existing concept.
+

@@ -14,9 +14,178 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-01-29: Problem reframe — measurement impossible, not training expensive
+
+**Context:** Clarifying what problem we solve for coaches. Initial framing was "calibration training is too expensive/slow." After reflection, realized this was imprecise.
+
+**The insight:** The problem isn't "training is expensive." The problem is **understanding calibration was unmeasurable**.
+
+**What we measure:** Understanding calibration — the gap between listener's confidence ("I understood") and speaker's verification ("they actually understood"). This is metacomprehension accuracy via speaker verification.
+
+**Why this was impossible before:**
+- Self-reports don't work (metacomprehension accuracy is only r=0.24 — people don't know what they don't know)
+- Talk-time ratios (Gong, Chorus) measure behavior, not comprehension
+- 360 feedback buries listening as 1 item of 30, rated by people guessing
+- No tool asked the speaker to verify understanding
+
+**What we do differently:** Speaker verification — the only person who knows if you understood is the person you were trying to understand.
+
+**Implication for coach pitch:**
+- OLD: "Help clients improve faster" (efficiency play, competes with training)
+- NEW: "Prove what you can only assert" (new capability that didn't exist)
+
+**Consequences:**
+- Updated lean-canvas.md job-to-be-done
+- Updated hypotheses.md H-Biz-3
+- Updated p105_coach_validation.md validation questions
+- This is category creation, not competition with training companies
+
+**References:** [definitions.md](definitions.md) — Understanding Calibration section
+
+---
+
+## 2026-01-28: Monetization strategy — consulting as customer discovery
+
+**Context:** Need $5K/month eventually, but also need to validate coach hypothesis. Tension between "make money now" and "validate before building."
+
+**Decision:** Revenue activities MUST align with product validation. Consulting/coaching becomes customer discovery for Clarity Pledge, not a separate income stream.
+
+**Key insight:** Every paid session is:
+- Revenue ($)
+- Customer research (insights)
+- Case study material (proof)
+- Testimonial (social proof)
+- Newsletter content (distribution)
+
+**Alternatives rejected:**
+- Separate consulting track (splits focus, delays product)
+- Build first, monetize later (runs out of runway)
+- Skip validation, charge coaches immediately (might build wrong thing)
+
+**Consequences:**
+- Demo Kit created to enable /live demos during coach conversations
+- Newsletter started to document journey + warm leads
+- Free pilots with coaches OK (validate usage before asking for payment)
+- Pricing decision deferred until spread signal validated
+
+**References:** [p106_demo_kit.md](../features/p106_demo_kit.md), [p105_coach_validation.md](../features/p105_coach_validation.md)
+
+---
+
+## 2026-01-28: Newsletter infrastructure — Ghost self-hosted + n8n
+
+**Context:** Need newsletter for audience building and coach outreach. Wanted independence and automation potential.
+
+**Decision:** Ghost self-hosted + n8n for automation. Start manual, automate after validation.
+
+**Alternatives rejected:**
+- Substack (easy but walled garden, limited API)
+- Buttondown (good API but less features)
+- Build custom (too much effort before validation)
+
+**Consequences:**
+- Use $25K Google Cloud credits for hosting
+- Phase 1: Manual posting (validates content resonates)
+- Phase 2: n8n automation (after 10 coaches)
+- Phase 3: Full pipeline with Whisper transcription, auto-posting (after PMF)
+- Subscriber = User sync deferred until 100+ subscribers
+
+**References:** [p108_newsletter_automation.md](../features/p108_newsletter_automation.md)
+
+---
+
+## 2026-01-28: Pricing model — validate both, decide later
+
+**Context:** Should coaches pay ($75/month) or be free (growth engine) while teams pay ($500/month)?
+
+**Decision:** Don't commit to pricing model yet. Validate both signals first:
+1. Will coaches USE the tool? (even if free)
+2. Does spread happen? (coach → client → team)
+
+**Math reality:**
+- At $75/coach, need 67 coaches for $5K/month
+- Unlikely in 6 months with organic growth
+- Either: higher price, add high-ticket, or accept longer timeline
+
+**Timeline accepted:**
+- Month 3: $300-500 (3-5 coaches)
+- Month 6: $1,500 (20 coaches)
+- Month 12: $5,000 (50+ coaches OR team tier)
+
+**Alternatives rejected:**
+- Commit to $75/coach now (might be wrong price)
+- Free forever for coaches (delays all revenue)
+- Skip coaches, go direct to teams (no distribution channel)
+
+**Consequences:**
+- Offer coaches FREE pilot (remove barrier to validation)
+- ASK "would you pay $75/month?" but don't require it
+- Add H-Biz-9 (spread signal) to validation questions
+- Pricing decision after Phase 1.5 (spread validated or not)
+
+**References:** [roadmap.md](roadmap.md), [p105_coach_validation.md](../features/p105_coach_validation.md)
+
+---
+
+## 2026-01-28: Demo Kit — /live needs prepared content
+
+**Context:** /live works for 1-on-1 when ideas are prepared. Doesn't work well for ad-hoc conversations.
+
+**Decision:** Create Demo Kit with 3-5 prepared ideas from the article. Use these in coach demos.
+
+**Why this matters:**
+- Without prepared content, demos fail
+- Demo failure = can't validate coach hypothesis
+- This was a blocking issue
+
+**Consequences:**
+- Created [p106_demo_kit.md](../features/p106_demo_kit.md) with 5 demo ideas
+- Created [p107_live_readiness.md](../features/p107_live_readiness.md) to verify flow works
+- Must test /live with Demo Kit before coach outreach
+
+**References:** [p106_demo_kit.md](../features/p106_demo_kit.md), [p107_live_readiness.md](../features/p107_live_readiness.md)
+
+---
+
+## 2026-01-28: Research validates thesis, identifies market gap
+
+**Context:** Before investing more time, we needed to validate the foundational assumption: does calibration (verified understanding) actually matter for business outcomes? And what's the competitive landscape?
+
+**Research conducted:**
+- Phase 0: Terminology mapping across 10+ fields
+- Track A: Value of calibration (literature review)
+- Track B: Competitive landscape
+
+**Key findings:**
+
+| Finding | Source |
+|---------|--------|
+| r=.39 listening → work outcomes (N=400K) | Kluger et al. 2023 meta-analysis |
+| r=.47 listening → sales performance | Kluger et al. 2023 |
+| r=.28 listening → reduced burnout | Kluger et al. 2023 |
+| 60% fewer hospital readmissions with teach-back | Heart failure meta-analysis |
+| 75% of listening research relies on self-reports | Kluger et al. 2023 |
+| No tool measures whether listener actually understood | Competitive research |
+
+**Decision:** Proceed with confidence. The foundational thesis is validated (mixed-to-strong evidence). The market gap is real — everyone believes listening matters, no one measures whether understanding actually happened.
+
+**Strategic implications:**
+1. Don't oversell causal claims (say "associated with" not "causes")
+2. Healthcare teach-back is our strongest proof point
+3. Measurement IS the moat (we're first to productize listening fidelity)
+4. Training fails (12% transfer) — we're a practice system, not training
+
+**New concept documented:** Protocol-Led Growth — the explain-back protocol spreads free (coaches → clients → teams); the measurement captures value.
+
+**References:**
+- [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md)
+- [Kluger et al. 2023](https://link.springer.com/article/10.1007/s10869-023-09897-5)
+
+---
+
 ## 2026-01-28: Coaches as first paying customer hypothesis
 
-**Context:** Founder was paralyzed by uncertainty about revenue. Previous plan (free workshops → hope → business conversion) had too many uncertain steps. Psychological profile revealed: intolerance of uncertainty, avoidance of situations where value is subjectively evaluated, preference for fixed transactions.
+**Context:** Founder was paralyzed by uncertainty about revenue. Previous plan (free workshops → hope → business conversion) had too many uncertain steps. 
 
 **The insight:** The tool reveals a blindspot people don't know they have (listener miscalibration). The person who's blind won't pay — but the person who SEES the blindspot in someone else will pay. Coaches see their clients' blindspots.
 
@@ -58,7 +227,7 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 - Retention: Will coaches use ongoing or just once per client?
 
 **References:**
-- [p_coach_validation.md](../features/p_coach_validation.md) — full validation plan
+- [p105_coach_validation.md](../features/p105_coach_validation.md) — full validation plan
 - [hypotheses.md](hypotheses.md) — H-Biz hypothesis
 
 ---

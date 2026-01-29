@@ -6,13 +6,17 @@
 
 ## Problem
 
-**People fail to have constructive dialogues.**
+**People are miscalibrated about their understanding of each other.**
 
 Two calibration failures:
 1. **Speakers** overestimate how clearly they communicated
 2. **Listeners** overestimate how well they understood
 
-No feedback loop exists — conversations end without checking if understanding actually happened.
+No feedback loop exists — conversations end without checking if understanding actually happened. People think they understood, but didn't — and never find out.
+
+**The measurement problem:** Existing tools don't help. 75% of research relies on self-reports (the miscalibration we're trying to fix). Gong measures talk-time ratio, not comprehension. 360 feedback buries "listening" as 1 item among 30. Meta-analysis shows metacomprehension accuracy is only r=0.24 — people are poor at knowing what they know.
+
+**What we measure:** Not listening (a behavior), but understanding calibration (metacognitive accuracy). The gap between "how well I think I understood" and "how well I actually understood" — as verified by the speaker.
 
 *For the cognitive science behind this, see [philosophy.md](philosophy.md)*
 
@@ -36,35 +40,56 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Primary: Individuals who bring tools to work
-- Workshop attendees who try /live
-- Professionals who want better communication
-- People who experience calibration gap and want to improve
+### Currently Validating: Coaches (First Paying Customer Hypothesis)
+- Executive coaches
+- Leadership coaches
+- Communication coaches
 
-**Job to be done:** Improve my communication, see my blind spots, bring value to my team.
+**Jobs to be done:**
 
-### Secondary: Business teams (PAYING)
+| Stage | Job | Value |
+|-------|-----|-------|
+| **1. Prove the gap** | Show clients their understanding calibration gap (speaker-verified) | Revelation — "I didn't know I had this blindspot" |
+| **2. Track improvement** | Measure calibration accuracy over time with same client | Progress — "I'm getting better, here's proof" |
+| **3. Enable spread** | Client proves gap to their team, tracks team improvement | Scale — "My team is transforming" |
+| **4. Prove business value** | Connect calibration improvement to outcomes (retention, sales, collaboration) | ROI — "This transformation matters for business" |
+
+This measurement didn't exist before. Coaches differentiate with objective data at every stage.
+
+**Why coaches:** They see the blindspot in clients that clients can't see. The person who's blind won't pay — the person who sees the blindspot will. And coaches benefit from proving their coaching impact with data.
+
+### Future: Business teams (via coach → client → team spread)
 - Teams that want calibrated communication
 - Managers who want visibility into team understanding
 - Companies reducing miscommunication costs
 
 **Job to be done:** Reduce miscommunication, improve team effectiveness, track progress.
 
-### Tertiary: Facilitators / Event Organizers
-- Run workshops using the protocol
-- Use /live at their events
-- Spread the protocol to their audiences
+**Path:** Coach uses tool → Client experiences calibration revelation → Client brings to team → Team pays.
 
-**Job to be done:** Deliver better workshops, differentiate their offering.
+### Future: Individuals (organic)
+- Professionals who want better communication
+- People who experience calibration gap and want to improve
+
+**Job to be done:** Improve my communication, see my blind spots.
+
+**Note:** Individuals won't pay for a problem they don't know they have. Coaches/managers who SEE the problem in others are the entry point.
 
 ---
 
 ## Market Size
 
-- 1.8M+ professional event organizers in US alone
-- Average $500/year potential = $900M addressable in US
-- Global facilitation/workshop market significantly larger
-- Start with workshops/offsites, expand to conferences and enterprise
+**Coaching market (current focus):**
+- 71,000+ ICF-credentialed coaches worldwide
+- Executive coaching: $15B+ global market
+- Leadership development: $60B+ global market
+
+**Adjacent markets (future):**
+- Sales training: $4.6B US market (active listening = core skill)
+- Team communication tools: Growing category
+- Enterprise learning & development
+
+**Path:** Coaches → Clients → Teams → Enterprise
 
 ---
 
@@ -116,8 +141,11 @@ Track your accuracy over time:
 - **Polling tools** (Slido, Mentimeter) — collect opinions, don't check comprehension
 - **Hire facilitators** — expensive, doesn't scale, no persistent data
 - **Communication training** (Crucial Conversations, etc.) — teaches skills, doesn't measure outcomes
+- **Conversation intelligence** (Gong, Chorus) — measures talk-time ratio, not whether they understood
+- **360 feedback** — listening is 1 checkbox of 30, rated once a year, generic
+- **Self-assessment** — people overestimate; that's the whole problem
 
-**Gap:** No one treats understanding as something you can measure and certify.
+**Gap:** No one treats understanding as something you can measure and certify. Everyone thinks they understand. No one checks whether understanding actually happened.
 
 ---
 
@@ -133,11 +161,15 @@ Track your accuracy over time:
 
 ## Unfair Advantage
 
-1. **Data moat** — Every /live session generates calibration data. Over time, we build the largest dataset on human understanding gaps. This powers insights, benchmarks, and better matching.
+1. **First to productize listening fidelity** — Academic scales (AELS, ALOS, Listening Fidelity) exist but aren't productized. We're building what research validated but no one built.
 
-2. **Network effects** — Your verified listener reputation only has value if others recognize it. The more people on the platform, the more valuable each profile becomes.
+2. **Data moat** — Every /live session generates calibration data. Over time, we build the largest dataset on human understanding gaps. This powers insights, benchmarks, and better matching.
 
-3. **Brand as standard** — "Clarity Pledge" can become the default certification for good-faith dialogue (like Creative Commons for content licensing).
+3. **Network effects** — Your verified listener reputation only has value if others recognize it. The more people on the platform, the more valuable each profile becomes.
+
+4. **Protocol-led growth** — The explain-back protocol spreads free (coaches → clients → teams). The measurement captures value. Protocol is the distribution; product is the proof.
+
+5. **Brand as standard** — "Clarity Pledge" can become the default certification for good-faith dialogue (like Creative Commons for content licensing).
 
 **On open source:** The code is open, but the moat is the network + data + brand, not the software. Open source actually accelerates adoption and builds trust.
 
@@ -145,10 +177,11 @@ Track your accuracy over time:
 
 ## Channels
 
-- **Free workshops:** You run free/PWYW workshops → attendees use free tool → some bring to work → business conversion
-- **Facilitator network:** Other facilitators run workshops → their attendees use tool → business conversions
+- **Newsletter:** Weekly insights on calibration/communication → builds audience → warm leads for coach outreach → documents validation journey
+- **Protocol propagation:** Coaches teach explain-back to clients → clients practice with teams → teams spread protocol → some convert to paid measurement
+- **Coach network:** Coaches use tool with clients → clients bring to their teams → business conversions
+- **Content:** Articles on miscommunication cost / measurement gap → free tool signups → business conversions
 - **Organic/viral:** Free users share calibration scores → others try tool → spread
-- **Content:** Articles on miscommunication cost → free tool signups → business conversions
 
 ---
 
@@ -175,47 +208,41 @@ Track your accuracy over time:
 
 ## Revenue Streams
 
+### Pricing Model Question (Under Validation)
+
+**Are coaches customers or distributors?**
+
+| Model | Who Pays | Path to $5K/month | Pros | Cons |
+|-------|----------|-------------------|------|------|
+| **Coaches = customers** | Coaches ($75/mo) | 67 coaches | Simple, validates WTP | Low ceiling, hard to scale |
+| **Coaches = distributors** | Businesses ($500/team/mo) | 10 teams | Higher ACV, bigger budgets | Longer cycle, unvalidated |
+| **Hybrid** | Both | Mix | Multiple streams | Complex |
+
+**Value quantification:**
+- Miscommunication costs ~$12,500/employee/year ($1.2T ÷ 96M US knowledge workers)
+- 10-person team loses ~$125K/year to miscommunication
+- Even 10% improvement = $12.5K value → $500/month ($6K/year) is easy to justify
+- Coaches have smaller budgets (~$900/year = 0.3-0.9% of solo coach revenue)
+
+**Current hypothesis:** Validate with coaches first. If spread happens (coach → client → team), businesses become the paying customer and coaches become distribution channel.
+
+### Tiers
+
 **Free tier (adoption & spread):**
-- Workshops: free or pay-what-you-can
 - Individual /live use: free
+- Coach use with clients: free (they're distributors)
 - Non-profit use: free
 
 **Paid tier (revenue):**
-- Business team license: $100-500/team/month
+- Business team license: $500/team/month (primary target)
 - Enterprise: custom pricing (multiple teams, SSO, analytics)
-- (Future) Facilitator certification: one-time fee + royalty
+- (Maybe) Coach subscription: $50-75/month for advanced features (if they're customers, not distributors)
 
 ---
 
 ## Validation Status
 
-**Problem hypothesis** (partially validated):
-
-Events and workshops often fail to achieve real knowledge exchange because:
-- People avoid vulnerability (don't admit confusion)
-- No feedback loop (speakers don't know if they landed)
-- Miscalibration (everyone assumes understanding happened)
-- Low trust (why expose that I didn't get it?)
-
-**Validation results (2026-01-28):**
-
-| Hypothesis | Status | Learning |
-|------------|--------|----------|
-| People fail at dialogue | ✅ Confirmed | Core problem is real |
-| /live reduces gap in-session | ✅ Confirmed | Tool works, gaps close |
-| Pledge identity changes behavior | ❌ Not validated | People sign, don't act differently |
-| Individual users seek verification | ❌ Not validated | No trigger — "on what? when?" |
-| /live is sticky/retained | ❌ Not validated | Praised but not returned to |
-| Event organizers can provide trigger | ⏸️ Paused | Pivoted to coach hypothesis first |
-| **Coaches will pay for diagnostic tool** | 🔄 Testing now | They see blindspot clients can't see |
-
-**Key learning (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot will. Coaches see their clients' miscalibration. Testing this hypothesis via discovery conversations.
-
-**Current status:**
-- Testing coach hypothesis via discovery conversations
-- Target: 5 conversations with executive/leadership/communication coaches
-- Questions: Pain? Trust? Retention? Would pay?
-- Full plan in [p_coach_validation.md](../features/p_coach_validation.md)
+**See [hypotheses.md](hypotheses.md)** — single source of truth for what we're testing and validation status.
 
 ---
 
