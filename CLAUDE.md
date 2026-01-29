@@ -63,15 +63,25 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
-## Skills & Plugins — Approval Required
+## Skills — Local Only
 
-**NEVER** without explicit user approval:
-- Create new skills (`.claude/commands/`)
-- Install skills (`git clone` to `~/.claude/skills/`)
-- Delete or modify existing skills
-- Install plugins or MCP servers
+**All skills live in `.claude/commands/`** (no global `~/.claude/skills/`).
 
-**Always ask first:** "I'd like to install/create [X] for [reason]. OK?"
+Benefits: One folder to navigate, visible in IDE, version controlled with project.
+
+| Folder | Purpose |
+|--------|---------|
+| `slava/` | Slava's custom skills (check first) |
+| `awesome/` | Community skills |
+| `bmad/` | BMAD framework |
+| Others | Domain-specific (deep-research, scientific, etc.) |
+
+**Approval required** before:
+- Creating new skills
+- Deleting or modifying existing skills
+- Installing plugins or MCP servers
+
+**Always ask first:** "I'd like to create [X] for [reason]. OK?"
 
 ## AI-Era Task Duration
 
