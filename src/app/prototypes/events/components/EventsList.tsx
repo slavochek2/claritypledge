@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, CalendarDays } from 'lucide-react';
+import { Plus, CalendarDays, Users } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
@@ -52,20 +52,12 @@ export function EventsList() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Events</h1>
-          {isLoggedIn && (
-            <Link to="/events/new">
-              <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
-                <Plus className="w-4 h-4" />
-                Host Event
-              </Button>
-            </Link>
-          )}
-        </div>
+        <h1 className="text-2xl font-bold mb-4">Events</h1>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
+        {/* Tabs and Action Buttons Row */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* Tabs */}
+          <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
             <button
               role="tab"
               aria-selected={activeTab === 'upcoming'}
@@ -91,6 +83,25 @@ export function EventsList() {
               Past ({pastEvents.length})
             </button>
           </div>
+
+          {/* Action Buttons */}
+          {isLoggedIn && (
+            <div className="flex gap-2">
+              <Link to="/co-create">
+                <Button variant="outline" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  Co-create
+                </Button>
+              </Link>
+              <Link to="/events/new">
+                <Button className="gap-2 bg-blue-500 hover:bg-blue-600 text-white">
+                  <Plus className="w-4 h-4" />
+                  Host Event
+                </Button>
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Events Grid */}
