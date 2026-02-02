@@ -10,6 +10,36 @@ tags: [tooling, dx]
 
 ---
 
+## Why This, Why Now
+
+**The problem:** Information is scattered and disconnected.
+- Hypotheses live in `docs/hypotheses.md` (one big file)
+- Milestones live in `docs/roadmap.md` (another big file)
+- Features live in `features/*.md` (separate files)
+- No explicit links between them
+
+**What breaks:**
+- "Which features validate H-Biz?" → Manual grep
+- "What's left for first-revenue milestone?" → Mental tracking
+- "Why are we building this?" → Context lost, motivation unclear
+- Prioritization happens in your head, not in the system
+
+**Why Notion-style solves this:**
+- Everything is a card = everything is linkable
+- Features point to hypotheses → see what you're validating
+- Milestones contain features → see progress toward outcomes
+- One view (kanban) shows the work; relations show the why
+
+**Why now:**
+- Kanban tool exists (P111 done) — foundation is there
+- Current Eisenhower matrix is too simple — no types, no relations
+- About to do roadmap distillation — need a place for that content to live
+- Switching to "be your own coach" phase — need clear visibility into what validates the hypothesis
+
+**The unlock:** When you drag a card to "Done", you should see which hypothesis got evidence and which milestone got closer. Not just "task complete."
+
+---
+
 ## Philosophy: Everything is a Card
 
 **Notion's core insight:** Everything is a page. Pages can contain pages. Pages can reference pages. Views (kanban, table, calendar) are just different ways to see the same pages.
