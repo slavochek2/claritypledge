@@ -14,6 +14,91 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-03: Be your own coach first (supersedes coach partnership model)
+
+**Context:** Mentor conversation with Andy. Realized the "coaches as partners" model still had a dependency — convincing coaches to participate. Andy validated: be your own first user, learn what works, build case studies.
+
+**Decision:** Stop trying to sell to or partner with coaches. BE the coach yourself.
+
+**The model:**
+```
+You (as coach/trainer) → Run events (donation-based) → Participants get value →
+  → Prove tool works → Subscription revenue from participants/teams/businesses
+```
+
+**Why this is different from 6 months ago:**
+- Then: Rejected coaching because "must think big as a company"
+- Now: Psychologically freed after company bankruptcy. Coaching = learning path, not compromise.
+
+**Key insight from Andy:** Being your own first user is the best way to identify real problems while having income.
+
+**Consequences:**
+- Updated H-Biz hypothesis (no longer about coach WTP)
+- Updated lean-canvas customer segments
+- Updated roadmap current focus
+- Added Open Questions section to hypotheses.md
+- Revenue model: donation-based events now, subscription later (if tool value proven)
+
+**Open questions this creates:** (See hypotheses.md "Open Questions" section)
+- What exactly do people pay for?
+- What proves TOOL adds value vs YOU?
+- Retention mechanism?
+
+**References:** [hypotheses.md](hypotheses.md), [lean-canvas.md](lean-canvas.md), [roadmap.md](roadmap.md)
+
+---
+
+## 2026-01-29: Coaches as partners, not customers (SUPERSEDED by 2026-02-03)
+
+**Context:** Evaluating coach hypothesis. Realized €100/month subscription from coaches proves nothing and is hard to sell. Need a model that validates while building relationships.
+
+**Decision:** Reframe coaches as **partners/founding members**, not customers. Revenue comes from participants (clients, businesses), not coaches.
+
+**The model:**
+```
+Coach (partner) + You → Co-organize events → Participants get value →
+  → Participants/companies pay
+  → Coach gets: case study, better delivery, learning
+  → You get: validation, distribution, learning
+```
+
+**Alternatives rejected:**
+- Coaches as customers ($75/mo): Small signal, hard to sell, doesn't prove value chain
+- Coaches as pure distributors: Still feels like "selling to" rather than "building with"
+
+**Consequences:**
+- p105 renamed to "Sales Playbook" with partnership model
+- lean-canvas updated with new revenue model
+- "Founding members" program for early coaches
+- Charge where value lands (participants/businesses), not where relationships exist (coaches)
+- GTM is "do things that don't scale" — co-organize events, learn together
+
+**References:** [p105_sales_playbook.md](../features/p105_sales_playbook.md), [lean-canvas.md](lean-canvas.md)
+
+---
+
+## 2026-01-29: Documentation organization — GTM in feature docs, pivots in lean-canvas
+
+**Context:** Needed clarity on where different types of knowledge live. GTM tactics, sales playbooks, and pivot options were unclear.
+
+**Decision:**
+- GTM/sales playbooks → feature docs (`features/p{N}_sales_playbook.md`)
+- Pivot options → lean-canvas "Alternative Approaches" section
+- Evidence base → hypotheses.md
+
+**Alternatives rejected:**
+- Separate docs for GTM, pivots, evidence: Too many docs to maintain
+- Everything in lean-canvas: Makes it too long
+
+**Consequences:**
+- CLAUDE.md updated with doc organization
+- lean-canvas gets "Alternative Approaches" section
+- hypotheses.md gets "Evidence Base" section (added)
+
+**References:** [CLAUDE.md](../CLAUDE.md), updated documentation sections
+
+---
+
 ## 2026-01-29: Problem reframe — measurement impossible, not training expensive
 
 **Context:** Clarifying what problem we solve for coaches. Initial framing was "calibration training is too expensive/slow." After reflection, realized this was imprecise.
@@ -37,7 +122,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:**
 - Updated lean-canvas.md job-to-be-done
 - Updated hypotheses.md H-Biz-3
-- Updated p105_coach_validation.md validation questions
+- Updated p105_sales_playbook.md validation questions
 - This is category creation, not competition with training companies
 
 **References:** [definitions.md](definitions.md) — Understanding Calibration section
@@ -68,7 +153,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 - Free pilots with coaches OK (validate usage before asking for payment)
 - Pricing decision deferred until spread signal validated
 
-**References:** [p106_demo_kit.md](../features/p106_demo_kit.md), [p105_coach_validation.md](../features/p105_coach_validation.md)
+**References:** [p106_demo_kit.md](../features/p106_demo_kit.md), [p105_sales_playbook.md](../features/p105_sales_playbook.md)
 
 ---
 
@@ -123,7 +208,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 - Add H-Biz-9 (spread signal) to validation questions
 - Pricing decision after Phase 1.5 (spread validated or not)
 
-**References:** [roadmap.md](roadmap.md), [p105_coach_validation.md](../features/p105_coach_validation.md)
+**References:** [roadmap.md](roadmap.md), [p105_sales_playbook.md](../features/p105_sales_playbook.md)
 
 ---
 
@@ -227,7 +312,7 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 - Retention: Will coaches use ongoing or just once per client?
 
 **References:**
-- [p105_coach_validation.md](../features/p105_coach_validation.md) — full validation plan
+- [p105_sales_playbook.md](../features/p105_sales_playbook.md) — full validation plan
 - [hypotheses.md](hypotheses.md) — H-Biz hypothesis
 
 ---

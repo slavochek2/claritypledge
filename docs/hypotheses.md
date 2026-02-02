@@ -6,6 +6,151 @@ Ordered by validation sequence. Numbers now follow logical order.
 
 ---
 
+# Evidence Base (Validated Assumptions)
+
+These are research-backed facts we're building on — not hypotheses to test.
+
+## The Problem (Pain)
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| Miscommunication costs money | $1.2 trillion/year US; $12,506/employee/year (~21% of salary) | Grammarly & Harris Poll 2024 |
+| People are poorly calibrated | Baseline accuracy r=.178-.24 (predictions barely match reality) | Yang et al. 2023 meta-analysis (N=15,889) |
+| Speakers can't detect the gap | Listeners' minds wander 24% of time; speakers think they're heard when they're not | Collins et al. 2022 (Harvard/UCLA) |
+| Current tools don't measure understanding | Gong: talk ratios. 360: 1 checkbox of 30. All: no speaker verification | P110 competitive analysis |
+
+## The Mechanism (Solution Works)
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| Calibration is trainable | Interventions show g=0.46-0.72 effect sizes | Meta-analyses (Yang et al., situation-model studies) |
+| Teach-back/explain-back works | 45-60% fewer hospital readmissions | Healthcare RCTs (systematic review) |
+| Feedback loops improve accuracy | Accurate calibration → strategic correction → better learning | Thiede et al. 2003; AI calibration RCT 2025 |
+
+## The Outcomes (Why It Matters)
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| Listening → work outcomes | r=.39 overall (medium-strong effect) | Kluger et al. 2023 meta-analysis (N=400K) |
+| Listening → sales | r=.47 (strong effect) | Kluger et al. 2023 |
+| Listening → reduced burnout | r=.28 | Kluger et al. 2023 |
+| Psychological safety → performance | 43% of team performance variance; +17% vs -19% on targets | Google Project Aristotle |
+| Feeling heard → engagement | 40% engagement increase | Gallup 2024 |
+
+## What We Uniquely Do
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| No commercial tool measures conversational understanding calibration | All tools measure speaker behavior or self-report; none verify listener understanding via speaker | P110 research |
+| Explain-back is core active listening technique | Teach-back = explain-back; proven mechanism in healthcare and education | Literature review |
+| We measure + create feedback loop | Listener confidence vs speaker verification = calibration gap revealed | Our product |
+
+## ROI Framework
+
+```
+Cost of miscommunication:     $12,506/employee/year
+10-person team:               $125,060/year
+Even 10% improvement:         $12,506 saved
+Tool cost:                    $6,000/year ($500/month)
+Minimum ROI:                  2x
+```
+
+**Caveat:** $12,506 figure is survey-based (Grammarly), not measured. Directionally correct, precision uncertain.
+
+## Evidence Gaps (What We Can't Claim Yet)
+
+| Claim We'd Like to Make | Why We Can't Yet |
+|-------------------------|------------------|
+| Our tool improves business outcomes | Healthcare proves mechanism; workplace outcomes need our own data |
+| Conversational calibration → general metacognition | Transfer not tested |
+| Specific ROI from our tool | Need case studies |
+
+**Full research:** [P104](../features/done/p104_calibration_outcomes_research.md) (listening outcomes) | [P110](../features/research/p110_results.md) (calibration outcomes)
+
+---
+
+# Open Questions
+
+Questions we need to answer through experimentation. Updated 2026-02-03.
+
+## OQ-1: What exactly do people pay for?
+
+**The tension:** Events are donation-based. Revenue goal is software subscription. But subscription for what?
+
+**Options being considered:**
+- Pay for coaching/training (services, doesn't scale)
+- Pay for membership/pledge status (identity + community)
+- Pay for team calibration dashboard (B2B SaaS)
+- Pay per high-stakes decision (occasional high-value use)
+
+**How we'll answer:** Run events, observe what value people articulate, test WTP at different framings.
+
+---
+
+## OQ-2: What are the KPIs?
+
+**The tension:** Without clear KPIs, can't know if succeeding or failing.
+
+**Proposed KPIs:**
+- Repeat usage: % of users who do second /live session within 30 days
+- Calibration improvement: Do gaps shrink over time?
+- WTP signal: % who say yes to paying at various price points
+
+**How we'll answer:** Define and track from first event onward.
+
+---
+
+## OQ-3: How do we validate retention?
+
+**The tension:** If tool builds culture and culture self-sustains, tool becomes unnecessary.
+
+**Possible retention mechanisms:**
+- Data/history is irreplaceable (like Strava for running)
+- New contexts require re-calibration (new team members, new projects)
+- Tool is the venue, not just the skill (like Clubhouse)
+
+**How we'll answer:** Track month 2+ usage without active invitation.
+
+---
+
+## OQ-4: Online-only or also in-person?
+
+**The tension:** Andy tested — tool breaks flow in physical meetings.
+
+**Options:**
+- Accept online-only constraint, target remote-first
+- Async mode: verify understanding AFTER meeting, not during
+- Meeting bookends: use before/after meetings, not during
+
+**How we'll answer:** Experiment with different modes in events.
+
+---
+
+## OQ-5: What proves TOOL adds value vs YOU?
+
+**The tension:** When you facilitate, magic happens. Is it you or the tool?
+
+**How to test:**
+- Have someone else run event with your tool
+- Create self-serve path, track if strangers get value without you
+
+**Critical:** If value = you, this is a coaching business, not SaaS.
+
+---
+
+## OQ-6: What's the internal trigger?
+
+**The tension:** External triggers work (invitations). Internal triggers don't exist.
+
+**Possible triggers:**
+- Post-frustration: "I wish I'd verified" → prevent next time
+- Scheduled ritual: Weekly clarity check (calendar-based)
+- Integrated: End of meeting prompt in Slack/Teams
+
+**How we'll answer:** Observe when people spontaneously want to use tool.
+
+---
+
 # Validated
 
 ## H1: /live reduces Understanding Gap ✅
@@ -67,51 +212,42 @@ Ordered by validation sequence. Numbers now follow logical order.
 
 ---
 
-## H-Biz: Coaches as First Paying Customer 🔄
+## H-Biz: Be Your Own Coach First 🔄
 
-**What we're testing:** Will coaches pay for a diagnostic tool that proves client miscalibration?
+**What we're testing:** Can calibrated communication events create value that leads to software subscriptions?
 
-**The insight (2026-01-28):** The tool reveals a blindspot people don't know they have. The person who's blind won't pay — but the person who SEES the blindspot (the coach) will pay.
+**Key pivot (2026-02-03):** Stopped trying to sell to/through coaches. Instead: BE the coach yourself, run events, learn what works, build case studies.
 
-**Specific hypothesis:**
-> Executive/leadership/communication coaches will pay $50-100/month for a tool that objectively measures their clients' understanding calibration gap, because it proves the blindspot that clients otherwise dismiss — and tracks improvement over time.
+**Why this pivot:**
+- Coaches don't buy much software
+- $75/month from coaches isn't meaningful business
+- Selling TO coaches requires convincing them to convince their clients (double sales problem)
+- Being the coach yourself = fastest learning, direct feedback, build playbook first
 
-**How to test:**
-- Find 10-15 coaches on LinkedIn
-- Have 5 discovery conversations
-- Ask about pain, trust, retention, willingness to pay
-- If positive signal → pilot with real coach + client
+**The model:**
+```
+You (as coach/trainer) → Run events (donation-based) → Participants get value →
+  → Prove tool works → Subscription revenue from participants/teams/businesses
+```
 
-**Sub-hypotheses to validate:**
+**What we're validating:**
 
-*Tier 1: Pain (must validate)*
-- H-Biz-1: Coaches have clients with understanding miscalibration
-- H-Biz-2: This is a problem coaches want to solve
-- H-Biz-3: No tool measures understanding calibration (measurement was impossible)
-
-*Tier 2: Usage (validates distribution)*
-- H-Biz-4: Clients would trust a tool the coach uses
-- H-Biz-5: Coaches would use ongoing (not just once)
-- H-Biz-6: Coach is open to own measurement (not just clients)
-
-*Tier 3: Spread & Revenue (validates business model)*
-- H-Biz-7: **Spread signal** — clients would want this for their teams
-- H-Biz-8: **Business WTP** — would client's company pay $500/team/month?
-- H-Biz-9: **Coach WTP** — would coaches pay $50-100/month? (or are they distributors?)
-- H-Biz-10: Provides differentiation vs other coaches
-
-**Pricing model question:** Are coaches **customers** (they pay) or **distributors** (free for them, businesses pay)? Validation will answer this.
+| Hypothesis | How to Test |
+|------------|-------------|
+| H-Biz-1: Events create measurable value | Participants report value, come back, calibration improves |
+| H-Biz-2: Tool adds value beyond facilitation | Someone else runs event with tool, still works |
+| H-Biz-3: People will pay for software | WTP signal from participants after experiencing value |
+| H-Biz-4: Retention exists | Users return in month 2+ without being invited |
 
 **Success criteria:**
-- 5 conversations completed
-- 3+ confirm pain (Tier 1)
-- Clear signal on spread (H-Biz-7) — this determines pricing model
-- If spread signal: validate business WTP (H-Biz-8)
-- If no spread signal: validate coach WTP (H-Biz-9)
+- Run 5+ events as coach yourself
+- >30% repeat attendance (retention signal)
+- Someone else successfully runs event with tool (tool vs you test)
+- Clear WTP signal at some price point
 
-**Status:** **CURRENT FOCUS** — Validating in conversations before building more.
+**Status:** **CURRENT FOCUS** — Run events, validate tool value, find path to subscription revenue.
 
-**Full plan:** [p105_coach_validation.md](../features/p105_coach_validation.md)
+**Full plan:** [p105_sales_playbook.md](../features/p105_sales_playbook.md)
 
 ---
 

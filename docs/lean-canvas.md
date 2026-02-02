@@ -1,6 +1,6 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-01-28
+**Last updated:** 2026-01-29
 
 ---
 
@@ -40,40 +40,47 @@ The tools for talking got better. The tools for understanding didn't.
 
 ## Customer Segments
 
-### Currently Validating: Coaches (First Paying Customer Hypothesis)
-- Executive coaches
-- Leadership coaches
-- Communication coaches
+### Current: You as Coach → Event Participants
 
-**Jobs to be done:**
+**Pivot (2026-02-03):** Stopped trying to sell to coaches. Instead: BE the coach, run events, validate tool value first.
 
-| Stage | Job | Value |
-|-------|-----|-------|
-| **1. Prove the gap** | Show clients their understanding calibration gap (speaker-verified) | Revelation — "I didn't know I had this blindspot" |
-| **2. Track improvement** | Measure calibration accuracy over time with same client | Progress — "I'm getting better, here's proof" |
-| **3. Enable spread** | Client proves gap to their team, tracks team improvement | Scale — "My team is transforming" |
-| **4. Prove business value** | Connect calibration improvement to outcomes (retention, sales, collaboration) | ROI — "This transformation matters for business" |
+**The model:**
+```
+You (coach/trainer) → Events (donation-based) → Participants experience value →
+  → Tool subscription (if value proven)
+```
 
-This measurement didn't exist before. Coaches differentiate with objective data at every stage.
+**Who participates in events:**
+- Professionals curious about calibrated communication
+- Teams wanting better alignment
+- Leaders interested in feedback culture
+- Anyone exploring "idea meritocracy" practices
 
-**Why coaches:** They see the blindspot in clients that clients can't see. The person who's blind won't pay — the person who sees the blindspot will. And coaches benefit from proving their coaching impact with data.
+**Jobs to be done (for participants):**
 
-### Future: Business teams (via coach → client → team spread)
-- Teams that want calibrated communication
-- Managers who want visibility into team understanding
-- Companies reducing miscommunication costs
+| Job | Value |
+|-----|-------|
+| Experience my calibration gap | "I didn't know I had this blindspot" |
+| Practice explain-back with others | Skill building in safe environment |
+| Learn the theory | Understand WHY this works |
+| Track improvement over time | See progress, stay motivated |
 
-**Job to be done:** Reduce miscommunication, improve team effectiveness, track progress.
+### Future: Teams & Businesses (if tool value proven)
 
-**Path:** Coach uses tool → Client experiences calibration revelation → Client brings to team → Team pays.
+- Teams that want calibrated communication culture
+- Companies reducing miscommunication costs ($12,500/employee/year)
+- Organizations making high-stakes decisions
 
-### Future: Individuals (organic)
-- Professionals who want better communication
-- People who experience calibration gap and want to improve
+**Path:** Events → participants see value → bring to teams → teams subscribe
 
-**Job to be done:** Improve my communication, see my blind spots.
+### Promising Use Cases (to explore)
 
-**Note:** Individuals won't pay for a problem they don't know they have. Coaches/managers who SEE the problem in others are the entry point.
+| Use Case | Why Promising |
+|----------|---------------|
+| Pre-decision alignment | High stakes, clear "when" to use |
+| Hiring/interviews | Hard to fake understanding |
+| Manager feedback | Did message land as intended? |
+| Co-founder alignment | Critical relationship, high stakes |
 
 ---
 
@@ -208,35 +215,43 @@ Track your accuracy over time:
 
 ## Revenue Streams
 
-### Pricing Model Question (Under Validation)
+### Current Model: Be Your Own Coach First (2026-02-03)
 
-**Are coaches customers or distributors?**
+**Key insight:** Stop trying to sell to/through coaches. BE the coach, validate tool value, then find path to subscription.
 
-| Model | Who Pays | Path to $5K/month | Pros | Cons |
-|-------|----------|-------------------|------|------|
-| **Coaches = customers** | Coaches ($75/mo) | 67 coaches | Simple, validates WTP | Low ceiling, hard to scale |
-| **Coaches = distributors** | Businesses ($500/team/mo) | 10 teams | Higher ACV, bigger budgets | Longer cycle, unvalidated |
-| **Hybrid** | Both | Mix | Multiple streams | Complex |
+| Phase | Revenue Source | Status |
+|-------|----------------|--------|
+| **Now** | Events (donation-based) | Active |
+| **Next** | Subscription (if tool value proven) | To validate |
+| **Later** | Teams/businesses | After adoption |
+
+**The model:**
+```
+You (as coach/trainer) → Events (donation-based) → Participants get value →
+  → Prove tool works → Subscription revenue
+```
+
+**What participants might pay for (to validate):**
+- Membership/pledge status (identity + community)
+- Team calibration dashboard (B2B)
+- Per high-stakes decision (occasional use)
 
 **Value quantification:**
-- Miscommunication costs ~$12,500/employee/year ($1.2T ÷ 96M US knowledge workers)
+- Miscommunication costs ~$12,500/employee/year
 - 10-person team loses ~$125K/year to miscommunication
 - Even 10% improvement = $12.5K value → $500/month ($6K/year) is easy to justify
-- Coaches have smaller budgets (~$900/year = 0.3-0.9% of solo coach revenue)
-
-**Current hypothesis:** Validate with coaches first. If spread happens (coach → client → team), businesses become the paying customer and coaches become distribution channel.
 
 ### Tiers
 
 **Free tier (adoption & spread):**
 - Individual /live use: free
-- Coach use with clients: free (they're distributors)
+- Coach use with clients: free (they're partners)
 - Non-profit use: free
 
 **Paid tier (revenue):**
 - Business team license: $500/team/month (primary target)
 - Enterprise: custom pricing (multiple teams, SSO, analytics)
-- (Maybe) Coach subscription: $50-75/month for advanced features (if they're customers, not distributors)
+- Event participants: TBD (per-event or subscription)
 
 ---
 
@@ -254,8 +269,49 @@ Core insight came from personally experiencing the gap between "we talked" and "
 
 ---
 
+## Alternative Approaches
+
+If current approach doesn't validate, these are pivot options to consider:
+
+### Customer Segment Pivots
+
+| If... | Then Consider... |
+|-------|------------------|
+| Coaches don't want to partner | Direct-to-business (skip coach channel) |
+| Coaches partner but clients don't pay | Different client segment (sales teams, customer success) |
+| B2B too slow | B2C (individuals who self-identify as poor listeners) |
+
+### Value Prop Pivots
+
+| If... | Then Consider... |
+|-------|------------------|
+| Calibration measurement isn't enough | Add training/curriculum component |
+| One-time use (no retention) | Gamification, team leaderboards, ongoing challenges |
+| Tool feels evaluative/threatening | Position as "practice" not "measurement" |
+
+### Pricing Pivots
+
+| If... | Then Consider... |
+|-------|------------------|
+| $500/team too high | Per-seat pricing ($50/person/month) |
+| Subscription resistance | Pay-per-event or pay-per-session |
+| No one pays | Freemium with premium analytics |
+
+### Channel Pivots
+
+| If... | Then Consider... |
+|-------|------------------|
+| Coaches don't have reach | HR/L&D departments directly |
+| Events don't scale | Self-serve onboarding |
+| Enterprise sales too slow | SMB focus (faster decisions) |
+
+**Note:** These are options, not plans. Only pivot after current hypothesis fails.
+
+---
+
 ## Related Documents
 
-- [hypotheses.md](hypotheses.md) — What we're testing
+- [hypotheses.md](hypotheses.md) — What we're testing + evidence base
+- [p105_sales_playbook.md](../features/p105_sales_playbook.md) — GTM tactics and pitches
 - [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N)
 - [philosophy.md](philosophy.md) — WHY this works (epistemology)
