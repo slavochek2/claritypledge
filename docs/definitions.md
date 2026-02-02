@@ -2,7 +2,7 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-01-27
+**Last Updated:** 2026-02-03
 
 ---
 
@@ -65,7 +65,26 @@ When both parties rate understanding ≥8/10 in a /live session, the understandi
 
 > **One-liner:** Knowing how well you understood — do you know when you "got it" vs. missed something?
 
-**What we measure — precisely:**
+### Conceptual Hierarchy
+
+```
+Metacognition (knowing what you know)
+  └── Calibration (accuracy of knowing what you know)
+        └── Conversational calibration (in dialogue)
+              └── Understanding calibration (did I understand what they meant?)
+```
+
+**We measure:** Understanding calibration in conversations — the most specific level.
+
+**Terminology for different audiences:**
+
+| Audience | Term to Use | Why |
+|----------|-------------|-----|
+| Coaches | "Listening calibration" or "calibrated listening" | Their entry-point word |
+| Science/Research | "Metacomprehension accuracy in dialogue" | Matches literature |
+| Internal/Precise | "Understanding calibration" | Our technical term |
+
+### What We Measure — Precisely
 
 ```
 Listening (behavior) → Understanding (outcome) → Confidence (metacognition) → Gap to reality (calibration)
