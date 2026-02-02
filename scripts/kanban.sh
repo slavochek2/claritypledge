@@ -1,10 +1,11 @@
 #!/bin/bash
 # Kanban manager - start/stop across worktrees
-# Usage: ./scripts/kanban.sh [start|stop] [worktree]
+# Usage: kanban [w1|w2|main|stop]
 # Examples:
-#   ./scripts/kanban.sh start w1    # Stop all, start from w1
-#   ./scripts/kanban.sh start       # Stop all, start from current dir
-#   ./scripts/kanban.sh stop        # Stop all
+#   kanban w1    - Stop all, start from w1
+#   kanban main  - Stop all, start from main
+#   kanban stop  - Stop all
+#   kanban       - Stop all, start from current dir
 
 set -e
 
@@ -39,21 +40,28 @@ start_kanban() {
     npm run kanban
 }
 
-case "${1:-start}" in
+case "${1:-}" in
     stop)
         stop_kanban
         ;;
-    start)
+    w[0-9]|w[0-9][0-9]|main|[0-9]|[0-9][0-9])
+        # Direct worktree: kanban w1, kanban main, kanban 1
+        stop_kanban
+        sleep 1
+        start_kanban "$1"
+        ;;
+    ""|start)
+        # No arg or "start": start from current dir
         stop_kanban
         sleep 1
         start_kanban "$2"
         ;;
     *)
-        echo "Usage: $0 [start|stop] [worktree]"
-        echo "  start w1    - Stop all, start from worktree 1"
-        echo "  start main  - Stop all, start from main"
-        echo "  start       - Stop all, start from current dir"
-        echo "  stop        - Stop all kanban instances"
+        echo "Usage: kanban [w1|w2|main|stop]"
+        echo "  kanban w1    - Stop all, start from worktree 1"
+        echo "  kanban main  - Stop all, start from main"
+        echo "  kanban stop  - Stop all"
+        echo "  kanban       - Stop all, start from current dir"
         exit 1
         ;;
 esac
