@@ -1,7 +1,12 @@
-# P: /live Demo Readiness
+---
+status: backlog
+priority: important
+hypothesis: H-Biz
+tags: [testing, demo]
+---
 
-**Status:** Draft
-**Created:** 2026-01-28
+# P107: /live Demo Readiness
+
 **Goal:** Ensure /live is ready for coach validation demos
 
 ---

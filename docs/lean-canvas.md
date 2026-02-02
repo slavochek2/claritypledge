@@ -1,6 +1,6 @@
 # Lean Canvas: Clarity Pledge
 
-**Last updated:** 2026-01-29
+**Last updated:** 2026-02-03
 
 ---
 
@@ -68,7 +68,7 @@ You (coach/trainer) → Events (donation-based) → Participants experience valu
 ### Future: Teams & Businesses (if tool value proven)
 
 - Teams that want calibrated communication culture
-- Companies reducing miscommunication costs ($12,500/employee/year)
+- Companies reducing miscommunication costs ($12,506/employee/year)
 - Organizations making high-stakes decisions
 
 **Path:** Events → participants see value → bring to teams → teams subscribe
@@ -237,7 +237,7 @@ You (as coach/trainer) → Events (donation-based) → Participants get value �
 - Per high-stakes decision (occasional use)
 
 **Value quantification:**
-- Miscommunication costs ~$12,500/employee/year
+- Miscommunication costs ~$12,506/employee/year
 - 10-person team loses ~$125K/year to miscommunication
 - Even 10% improvement = $12.5K value → $500/month ($6K/year) is easy to justify
 

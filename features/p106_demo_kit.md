@@ -1,7 +1,12 @@
-# P: Demo Kit
+---
+status: backlog
+priority: urgent-important
+hypothesis: H-Biz
+tags: [content, demo]
+---
 
-**Status:** Draft
-**Created:** 2026-01-28
+# P106: Demo Kit
+
 **Goal:** 3-5 prepared ideas for /live demos that work without prior context
 
 ---

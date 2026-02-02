@@ -1,8 +1,12 @@
+---
+status: in-progress
+priority: urgent-important
+hypothesis: H-Biz
+tags: [validation, gtm]
+---
+
 # P105: Sales Playbook
 
-**Status:** 🔄 Active
-**Created:** 2026-01-28
-**Updated:** 2026-02-03
 **Goal:** Run events as coach yourself, validate tool value, find path to subscription revenue
 
 ---

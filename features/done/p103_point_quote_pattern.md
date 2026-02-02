@@ -273,8 +273,8 @@ When `context='point-detail'` and `authorPosition` is set:
 - [x] Position buttons, footer, icons inside Point box
 - [x] **PointDetail page: Stories show quote pattern with position label**
 - [x] **QuotedStory has share/open actions**
-- [ ] Mobile (360px) works
-- [ ] No regressions on feed/detail pages
+- [x] Mobile (360px) works
+- [x] No regressions on feed/detail pages
 
 ---
 

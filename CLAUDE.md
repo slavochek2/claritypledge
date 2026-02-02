@@ -221,6 +221,9 @@ npm run test:e2e:headed  # Run in headed browser
 
 # Pre-commit Checks (REQUIRED before committing)
 ./scripts/pre-commit-checks.sh
+
+# Kanban (feature prioritization)
+npm run kanban           # Opens http://localhost:5050
 ```
 
 ## Deep Dive References
@@ -233,6 +236,7 @@ Load these docs when working on specific areas:
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
 | Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
+| Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Browser automation (Chrome DevTools, screenshots) | [browser-tools.md](docs/technical/browser-tools.md) |

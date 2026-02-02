@@ -1,7 +1,12 @@
-# P: Newsletter Automation
+---
+status: backlog
+priority: important
+hypothesis: H-Biz
+tags: [marketing, automation]
+---
 
-**Status:** Active (Phase 0.0)
-**Created:** 2026-01-28
+# P108: Newsletter Automation
+
 **Goal:** Automated content pipeline from creation to multi-platform distribution
 
 ---

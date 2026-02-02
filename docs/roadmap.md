@@ -10,8 +10,6 @@ Build sequence and priorities. What we're building and in what order.
 >
 > **Key pivot (2026-02-03):** Stopped trying to sell to coaches. BE the coach yourself — run events, build case studies, prove tool value, then find path to subscription revenue.
 >
-> **What's done:** /live verification (production), Events backend, research foundation (P104, P110)
-> **What's next:** Finish minimum /live (Stories), run first events, start newsletter
 > **Key hypothesis:** Events using /live create measurable value (calibration improves, people return, WTP signal emerges)
 
 ---
@@ -24,55 +22,37 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 ---
 
-## Current State
+## Current Status
 
-### What Exists (Production)
-
-| Component | Location | State |
-|-----------|----------|-------|
-| `/live` verification | `clarity-live-page.tsx` | Production |
-| Explain-back flow | `live-mode-view.tsx` | Production |
-| Audio recording | `use-audio-recorder.ts` | Production |
-| Transcript storage | Supabase | Production |
-
-### What Exists (Prototype)
-
-| Component | Location | State |
-|-----------|----------|-------|
-| Ideas feed | `converged/Feed.tsx` | Mock data |
-| Position staking | `converged/IdeaCard.tsx` | Mock data |
-| Engager list | `converged/EngagerList.tsx` | Mock data |
-
-### What's Missing
-
-| Component | Gap |
-|-----------|-----|
-| AI Sifter | No Story/Point separation |
-| Hardener | No Point refinement |
-| Points + Stories backend | No data model |
-| Position staking backend | Prototype only |
-| Quick-pair /live | Code/QR flow, not instant |
-| Event container | No scoping mechanism |
+**For feature status:** Run `npm run kanban` or check `features/*.md` frontmatter
 
 ---
 
 ## Current Phase: Validate Tool Value
 
+> **Testing:** H-Biz (Be Your Own Coach First) — see [hypotheses.md](hypotheses.md)
+
 **Goal:** Run events, prove /live creates measurable value
 
-**What's done:**
-- /live verification (production)
-- Events backend
-- Research foundation (P104, P110)
-
-**What's next:**
-- Finish minimum /live (Stories)
-- Run first events
-- Start newsletter
+**Todos:**
+```
+□ Create Demo Kit (3-5 prepared ideas) — p106
+□ Test /live flow with a friend — p107 checklist
+□ Set up Ghost self-hosted (Google Cloud) — p108
+□ Write first newsletter issue
+□ Announce on LinkedIn
+□ Schedule first event
+□ Run first event
+```
 
 **Success:** Calibration improves, people return, WTP signal emerges
 
-**Future phases:** TBD after open questions answered — see [hypotheses.md](hypotheses.md) "Open Questions" section
+**Open questions:** See [hypotheses.md](hypotheses.md) "Open Questions" section (OQ-1 through OQ-6)
+
+**Feature docs:**
+- [p106_demo_kit.md](../features/p106_demo_kit.md) — Demo content
+- [p107_live_readiness.md](../features/p107_live_readiness.md) — /live testing checklist
+- [p108_newsletter_automation.md](../features/p108_newsletter_automation.md) — Newsletter setup
 
 ---
 
