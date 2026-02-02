@@ -252,6 +252,11 @@ interface Feature {
 
 ## Notion UX Benchmarks
 
+**Visual references:** `docs/reference/notion-kanban/`
+- `notion-kanban-board.png` — Column layout, card stacking, badges
+- `notion-card-modal.png` — Card properties (Type, Status, Prio, Size, Tags, Blocking)
+- `notion-card-sidepanel.png` — Side panel detail view
+
 These patterns from Notion's kanban should be matched:
 
 | Pattern | Notion Behavior | Our Implementation |
@@ -263,6 +268,8 @@ These patterns from Notion's kanban should be matched:
 | **Empty state** | Muted text in column | "No items" placeholder |
 | **Loading** | Skeleton shimmer | Skeleton columns |
 | **Hover** | Subtle background change | Lighter background on hover |
+| **Card badges** | Colored pills (see notion-card-modal.png) | Match: Type, Prio, Size as colored badges |
+| **"+ New page"** | At bottom of each column | Skip (non-goal) |
 
 **Differences from Notion (intentional):**
 - No inline editing (use Cursor)
