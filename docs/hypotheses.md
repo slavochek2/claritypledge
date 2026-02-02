@@ -147,7 +147,29 @@ Questions we need to answer through experimentation. Updated 2026-02-03.
 - Scheduled ritual: Weekly clarity check (calendar-based)
 - Integrated: End of meeting prompt in Slack/Teams
 
-**How we'll answer:** Observe when people spontaneously want to use tool.
+**Update (2026-02-02):** Stories may solve this. "I have a story to share" or "Someone shared a story with me" are clearer triggers than "let's verify understanding of... something."
+
+**How we'll answer:** Observe when people spontaneously want to use tool. Test with Stories: do they create triggers?
+
+---
+
+## OQ-7: Do we need Points for verification? (NEW)
+
+**The tension:** Points add structure to verification ("did you understand THIS claim?") but also add complexity.
+
+**Decision (2026-02-02):** Start with holistic verification (no points). Add points only if holistic proves too vague.
+
+**Holistic verification:**
+- Listener explains back the story
+- Speaker rates 0-10: "Did they get it?"
+- No specific claims to verify against
+
+**With points:**
+- Story has extracted claims (falsifiable, hard-to-vary)
+- Verification tests each claim specifically
+- Position tracking before/after understanding
+
+**How we'll answer:** Run Phase 4a (holistic human verification). If speakers can't judge understanding without structure, add points in Phase 4b.
 
 ---
 
@@ -349,6 +371,35 @@ The metric becomes a TRUST SIGNAL
 ---
 
 # Blocked (need prior validation)
+
+## H-AI: AI can verify understanding accurately ⏳
+
+**What we're testing:** Can AI assess whether someone understood a story accurately enough that authors trust it? This is the bottleneck for scaling.
+
+**Why this matters:** If AI can't verify accurately, authors must be present for every verification → no scaling → limited product value. If AI CAN verify, Stories become autonomous agents that scale the author's reach.
+
+**The verification protocol AI must execute:**
+1. Meaningful explain-back (not parroting)
+2. Test with examples and hypotheticals
+3. Probe reasoning behind agreement/disagreement
+4. Detect surface vs. deep understanding
+
+**How to test:**
+1. Run /live sessions where human rates understanding
+2. Have AI rate same explanation
+3. Compare AI score vs human score
+4. Pass criteria: >80% within 2 points of human rating
+
+**Success criteria:**
+- AI scores correlate >0.8 with human scores
+- Authors trust AI scores (don't override constantly)
+- Authors accept AI-verified understanding as "real"
+
+**Status:** **BLOCKED** — Requires Stories infrastructure (Phase 1-3 of roadmap). Test after human verification loop validated.
+
+**Added (2026-02-02):** This is the critical technical hypothesis. Everything else in the Stories vision depends on this being true.
+
+---
 
 ## H5: Status flip happens ⏳
 

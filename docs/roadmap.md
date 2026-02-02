@@ -3,14 +3,14 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-02-03
-**North Star:** Spread calibrated communication + sustainable revenue
+**Last Updated:** 2026-02-02
+**North Star:** Scale your inner world — know who understood, how well, where they diverge
 
-> **Current Focus:** Be your own coach. Run events. Validate tool creates value.
+> **Current Focus:** Stories-first. Build the human verification loop before adding AI.
 >
-> **Key pivot (2026-02-03):** Stopped trying to sell to coaches. BE the coach yourself — run events, build case studies, prove tool value, then find path to subscription revenue.
+> **Key pivot (2026-02-02):** Value prop evolved from "see your gap" (diagnostic) to "scale your inner world" (productive). Stories are how authors verify understanding at scale.
 >
-> **Key hypothesis:** Events using /live create measurable value (calibration improves, people return, WTP signal emerges)
+> **Key hypothesis:** Human-to-human story verification works and creates value. If yes, AI accelerates it. If no, AI won't save it.
 
 ---
 
@@ -28,31 +28,79 @@ A platform where people **sift** messy thoughts into protected **Stories** (for 
 
 ---
 
-## Current Phase: Validate Tool Value
+## Current Phase: Stories-First Build
 
-> **Testing:** H-Biz (Be Your Own Coach First) — see [hypotheses.md](hypotheses.md)
+> **Testing:** Can Stories solve the cold start problem? Does human verification of stories work?
 
-**Goal:** Run events, prove /live creates measurable value
+### The 6-Phase Sequence (2026-02-02)
 
-**Todos:**
 ```
-□ Create Demo Kit (3-5 prepared ideas) — p106
-□ Test /live flow with a friend — p107 checklist
-□ Set up Ghost self-hosted (Google Cloud) — p108
-□ Write first newsletter issue
-□ Announce on LinkedIn
-□ Schedule first event
-□ Run first event
+Phase 1: Stories on Profiles (Mock)
+─────────────────────────────────────
+□ Extract Stories from linkedin-prototype to profiles
+□ Story = text only (no points yet)
+□ Manual story creation
+→ Tests: Does the UI work? Is the data model right?
+
+Phase 2: Backend + Merge to Product
+─────────────────────────────────────
+□ Stories table in Supabase
+□ Connect to real product (not just prototype)
+□ Stories persist across sessions
+→ Tests: Does persistence work?
+
+Phase 3: /live with Story Context
+─────────────────────────────────────
+□ Events page shows stories
+□ Select story → Start /live
+□ /live shows the story being verified
+□ Clear purpose: "Verify THIS story"
+→ Tests: Does contextualized /live feel purposeful?
+
+Phase 4a: Human Verification (Holistic)
+─────────────────────────────────────
+□ Listener explains back the story
+□ Speaker rates 0-10 (holistic: "did they get it?")
+□ Speaker certifies understanding
+□ NO points — just "did they understand?"
+→ Tests: Can humans verify understanding without structure?
+
+Phase 4b: Add Points (IF holistic too vague)
+─────────────────────────────────────
+□ Only if Phase 4a shows we need structure
+□ Author manually adds 1-3 points to story
+□ Verification tests specific claims
+→ Tests: Do points improve verification quality?
+
+Phase 5: Sifter (AI Story Creation)
+─────────────────────────────────────
+□ AI as skilled listener
+□ AI asks probing questions
+□ AI extracts story + (optionally) points
+□ Author approves
+→ Tests: Does AI create better stories than manual?
+
+Phase 6: AI Verification
+─────────────────────────────────────
+□ AI verifies understanding (not just speaker)
+□ Author reviews edge cases
+□ Scaling achieved
+→ Tests: Does AI verify accurately? (H-AI hypothesis)
 ```
 
-**Success:** Calibration improves, people return, WTP signal emerges
+**Current:** Phase 1 — Stories on profiles (mock)
 
-**Open questions:** See [hypotheses.md](hypotheses.md) "Open Questions" section (OQ-1 through OQ-6)
+**Success criteria:**
+- Phase 4a: Humans can verify story understanding holistically
+- Phase 6: AI verification accuracy >80% vs human
 
-**Feature docs:**
-- [p106_demo_kit.md](../features/p106_demo_kit.md) — Demo content
-- [p107_live_readiness.md](../features/p107_live_readiness.md) — /live testing checklist
-- [p108_newsletter_automation.md](../features/p108_newsletter_automation.md) — Newsletter setup
+**What exists (from linkedin-prototype):**
+- Stories data model ✅
+- Points data model ✅ (deferred)
+- Profiles with Stories tab ✅ (mock)
+- Sifter UI ✅ (mock, needs real AI)
+
+**Open questions:** See [hypotheses.md](hypotheses.md) "Open Questions" section (OQ-1 through OQ-7)
 
 ---
 
@@ -73,31 +121,29 @@ Build business features only when you have a paying customer asking for them.
 
 ---
 
-## Deprioritized (was planned, now deferred)
+## Related Feature Docs (Being Reactivated)
 
-### P97: Profile/Nav Migration — ON HOLD
+### P97: Profile/Nav Migration — REACTIVATED (Phase 1)
 
 **Original goal:** Migrate prototype UI (Stories + Points tabs) to production.
 
-**Why deprioritized:** Profile redesign doesn't solve the trigger problem. Users need a reason to CREATE Stories before they need a place to VIEW them.
+**Status (2026-02-02):** Reactivated. Stories on profiles is Phase 1 of new sequence.
 
-**Revisit when:** First Event validates H2.
+**Scope change:** Stories only first (no Points). Points come in Phase 4b if needed.
 
-### P98: Sifter — ON HOLD
+### P98: Sifter — Phase 5
 
 **Original goal:** ChatGPT-style Story creation with AI polish.
 
-**Why deprioritized:** Sifter creates content, but the problem isn't content — it's the trigger. Users can create Stories in /live directly (speak → transcript). AI polish is nice-to-have.
+**Status (2026-02-02):** Moved to Phase 5. Manual story creation first, AI-assisted later.
 
-**Revisit when:** Users are actively creating Stories and want better authoring tools.
+**Why deferred:** Validate human verification loop before adding AI complexity.
 
-### P85: Verification with Cards — ON HOLD
+### P85: Verification with Cards — Phase 3
 
 **Original goal:** Select Story cards inside /live for structured verification.
 
-**Why deprioritized:** /live already works without cards. Cards add structure but don't solve "on what?" — that comes from organizer-provided topics.
-
-**Revisit when:** Event validates and users want more structured verification.
+**Status (2026-02-02):** Reactivated as Phase 3. /live with story context solves "on what?" problem.
 
 ---
 

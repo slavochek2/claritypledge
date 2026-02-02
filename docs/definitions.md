@@ -2,7 +2,41 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-02
+
+---
+
+## Story (The Scaling Mechanism)
+
+> **One-liner:** A Story is how you scale your inner world — it lets others understand you without you being present for every conversation.
+
+**Evolution (2026-02-02):** Stories aren't just narratives. They're the mechanism for scaling understanding.
+
+```
+WITHOUT Stories:
+Author explains → Listener verifies → Author must be present every time
+
+WITH Stories:
+Author creates story once → Story verifies many listeners → Author only reviews edge cases
+```
+
+**What a Story contains:**
+- **Text:** The narrative (lived experience, reasoning, context)
+- **Author:** Who created it
+- **Visibility:** Private / Shared / Public
+- **Points (optional):** Falsifiable claims extracted from the story (added later if needed)
+
+**Story lifecycle:**
+1. **Creation:** Author explains (manual or AI-assisted via Sifter)
+2. **Verification:** Others verify understanding via /live (human) or AI
+3. **Evolution:** Story improves through captured corrections
+4. **Scaling:** Eventually, AI verifies on author's behalf
+
+**Why Stories solve the cold start problem:**
+- Current /live: "Verify understanding of... what?" (no trigger)
+- With Stories: "Verify understanding of THIS story" (clear purpose)
+
+**Key insight (2026-02-02):** The value isn't the story itself — it's knowing WHO understood it, HOW WELL, and WHERE they diverged. The story is infrastructure for scaled verification.
 
 ---
 
