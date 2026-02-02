@@ -5,6 +5,40 @@
 
 ---
 
+## Hypothesis: P110 Research-Backed (Deferred)
+
+**Status:** Deferred until we have traffic data to A/B test
+**Source:** P110 research synthesis + Axios HQ + Grammarly 2022
+
+```
+8 out of 10 believe they're understood.*
+Half actually understand.*
+Trillions lost.** Trust dies.
+
+*Axios HQ
+**$1.2T in US (Grammarly 2022), extrapolated globally by GDP
+```
+
+**Story arc:**
+1. Overconfidence (80% believe they're understood)
+2. Reality (50% actually understand)
+3. Consequence (cost + trust)
+
+**Why this might win:**
+- Concrete numbers add credibility (vs. abstract "everyone/nobody")
+- Research-backed (coaches need proof to sell to executives)
+- Clear asymmetry gap (80% vs 50%)
+- Dollar figure makes it tangible
+
+**Why we're deferring:**
+- No baseline conversion data to compare against
+- Current headline isn't proven worse
+- "Rigorous" comparison is speculation without data
+
+**Test when:** We have meaningful traffic + conversion tracking in place.
+
+---
+
 ## Current Production (main)
 
 ```
