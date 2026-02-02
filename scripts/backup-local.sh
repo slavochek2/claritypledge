@@ -66,6 +66,13 @@ if [ -d "$SOURCE_DIR/.bmad" ]; then
     success ".bmad backed up"
 fi
 
+# Backup scripts/ folder
+if [ -d "$SOURCE_DIR/scripts" ]; then
+    log "Backing up scripts/..."
+    rsync -av --delete "$SOURCE_DIR/scripts/" "$BACKUP_DIR/scripts/"
+    success "scripts/ backed up"
+fi
+
 # Skip env files - regenerate from Supabase dashboard if needed
 warn "Skipping .env files (regenerate from Supabase if needed)"
 
