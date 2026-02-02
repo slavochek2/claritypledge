@@ -16,9 +16,9 @@ Build sequence and priorities. What we're building and in what order.
 
 ## The Vision (One Sentence)
 
-A platform where people **sift** messy thoughts into protected **Stories** (for empathy) and sharpened **Points** (for truth), then **verify understanding** across disagreement.
+A platform where people create **Stories** that scale their inner world — others verify understanding, and authors see WHO understood, HOW WELL, and WHERE they diverged, without being present for every conversation.
 
-**Core concepts (Stories, Points, Position Scale, Calibration):** See [definitions.md](definitions.md)
+**Core concepts (Stories, Calibration):** See [definitions.md](definitions.md). Points are deferred until Phase 4b.
 
 ---
 
@@ -98,7 +98,7 @@ Phase 6: AI Verification
 - Stories data model ✅
 - Points data model ✅ (deferred)
 - Profiles with Stories tab ✅ (mock)
-- Sifter UI ✅ (mock, needs real AI)
+- Sifter UI ⚠️ (exists but not tested/tweaked)
 
 **Open questions:** See [hypotheses.md](hypotheses.md) "Open Questions" section (OQ-1 through OQ-7)
 
@@ -213,71 +213,22 @@ See [p59_context_portal_design.md](../features/p59_context_portal_design.md) for
 
 **Source of truth:** [hypotheses.md](hypotheses.md)
 
-**Current focus:** H2-H4 (calibration, FOMO, visibility) — see [hypotheses.md](hypotheses.md)
+**Current focus:** Stories-first build, testing human verification loop. See 6-phase sequence above.
 
-**First Event success criteria:** See H2 in hypotheses.md — >50% verify, >60% "worth it"
-
----
-
-## Open Questions
-
-### Q1: Should positions require Story acknowledgment?
-
-v5.1 suggests: "Can't disagree until you acknowledge their Story."
-
-**Current decision:** No — stake first, verify later. Lower friction.
-
-**Revisit if:** Positions feel uninformed, verifications are shallow.
-
-### Q2: How do Stories link to multiple Points?
-
-One Story might explain positions on multiple Points.
-
-**For MVP:** One Story → One Position → One Point.
-**For V2:** Many-to-many relationships via `story_point_links` table.
-
-### Q3: When do Stories need privacy controls?
-
-| Context | Privacy Level |
-|---------|---------------|
-| In-person event | Implicit (same room) |
-| Async platform | Needs controls |
-| Public feed | Stories opt-in |
-
-**For MVP:** Stories shared only in verification sessions.
-
-### Q4: Conversion tracking — public or private?
-
-When a user changes position after verified understanding, should this be visible?
-
-| Option | Pros | Cons |
-|--------|------|------|
-| **Public** | Social proof, demonstrates intellectual humility | Privacy concern, might discourage position changes |
-| **Private** | Encourages honest updates | Loses social signal value |
-| **Aggregate only** | "X people changed position after verification" | Less personal, still useful signal |
-
-**Decision needed:** Before building conversion display in profile.
-
-### Q5: Stories in profile — MVP scope?
-
-Stories + Points bidirectional linking is the full vision. For MVP mockup:
-
-| Option | Scope |
-|--------|-------|
-| **A: Stories list only** | Show Stories as separate tab, no linking UI yet |
-| **B: Stories + Point links** | Show which Points each Story explains (mockup the relationship) |
-| **C: Defer Stories** | Focus on Points + conversion tracking first |
-
-**Decision needed:** Before "Stories + Points in profile" build (Day 3-4).
+**Key hypotheses:**
+- Human verification of stories works (Phase 4a)
+- H-AI: AI can verify accurately (Phase 6)
 
 ---
 
 ## Related Documents
 
-**On Hold (deprioritized 2026-01-27):**
-- [P97: Profile Integration](../features/p97_tdd_prototype_migration.md) — Wire prototype into production (ON HOLD)
-- [P98: Sifter Prototype](../features/p98_sifter_prototype.md) — ChatGPT-style Story creation (ON HOLD)
-- [P85: Verification Flow](../features/p85_live_verification_with_cards.md) — Card selection in /live (ON HOLD)
+**Being Built (2026-02-02):**
+- [P97: Profile Integration](../features/p97_tdd_prototype_migration.md) — Stories on profiles (Phase 1)
+- [P85: Verification Flow](../features/p85_live_verification_with_cards.md) — /live with story context (Phase 3)
+
+**Deferred:**
+- [P98: Sifter Prototype](../features/p98_sifter_prototype.md) — AI story creation (Phase 5)
 
 **Supporting:**
 - [P78: User Personas](../features/p78_user_personas.md) — Event organizer + other personas
