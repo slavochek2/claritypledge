@@ -48,7 +48,7 @@ export function ClarityTaxSection() {
           {/* Headline */}
           <div className="space-y-4">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight">
-              Everyone assumes understanding.
+              Everyone assumes they understand.
               <br />
               <span
                 className={`inline-block transition-all duration-700 text-blue-500 ${
