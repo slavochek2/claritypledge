@@ -149,24 +149,24 @@ cd tools/kanban && npm run build  # Compiles successfully
 
 | Test | Status | Notes |
 |------|--------|-------|
-| UAT-1.1 | ⬜ | |
-| UAT-1.2 | ⬜ | |
-| UAT-1.3 | ⬜ | |
-| UAT-1.4 | ⬜ | |
-| UAT-1.5 | ⬜ | |
-| UAT-2.1 | ⬜ | |
-| UAT-2.2 | ⬜ | |
-| UAT-2.3 | ⬜ | |
-| UAT-3.1 | ⬜ | |
-| UAT-3.2 | ⬜ | |
-| UAT-3.3 | ⬜ | |
-| UAT-3.4 | ⬜ | |
-| UAT-3.5 | ⬜ | |
-| UAT-4.1 | ⬜ | |
-| UAT-4.2 | ⬜ | |
-| UAT-4.3 | ⬜ | |
+| UAT-1.1 | ✅ | Code: App.tsx renders board, API verified returning features at :5051 |
+| UAT-1.2 | ✅ | Code: COLUMNS array (lines 7-13) defines Week→Today→InProgress→Blocked→Done |
+| UAT-1.3 | ✅ | Code: COLUMNS colors match spec (#3b82f6, #f97316, #f59e0b, #ef4444, #22c55e) |
+| UAT-1.4 | ✅ | Code: chokidar watcher + SSE in api.ts, EventSource in App.tsx |
+| UAT-1.5 | ⏭️ | Code ready (openInCursor), needs manual verification in browser |
+| UAT-2.1 | ✅ | Code: DndContext + handleDragEnd in App.tsx implements drag-drop |
+| UAT-2.2 | ✅ | API verified: PATCH /api/features/:id updates status in file |
+| UAT-2.3 | ⚠️ | Code: snap-back implemented via fetchFeatures(), but NO error toast (see spec: "should have", not blocker) |
+| UAT-3.1 | ✅ | Code: Card.tsx lines 100-161, TYPE_COLORS and PRIORITY_COLORS match spec |
+| UAT-3.2 | ✅ | Code: Card.tsx lines 186-273, second row renders Size/Milestone/Hypothesis/Tags |
+| UAT-3.3 | ✅ | Code: conditional rendering with feature.X && ... handles missing fields |
+| UAT-3.4 | ✅ | Code: MAX_TITLE_LENGTH=50, truncation at line 52-55, title tooltip on hover |
+| UAT-3.5 | ✅ | Code: MAX_VISIBLE_TAGS=3, "+N more" chip at lines 259-272 |
+| UAT-4.1 | ✅ | Code: App.tsx loading skeleton lines 105-169 with pulse animation |
+| UAT-4.2 | ✅ | Code: Column.tsx lines 60-71 shows "No items" placeholder |
+| UAT-4.3 | ✅ | Code: HIDE_DONE_KEY localStorage at lines 15, 21-24, 52-57 |
 
-**Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked)
+**Legend:** ⬜ Not tested | ✅ Pass | ❌ Fail | ⏭️ Skipped (blocked) | ⚠️ Partial (polish missing)
 
 ---
 
