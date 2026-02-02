@@ -2,7 +2,7 @@
 
 Core concepts of the Clarity Pledge platform. This is the product's conceptual foundation.
 
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-03
 
 ---
 
@@ -37,6 +37,41 @@ Author creates story once → Story verifies many listeners → Author only revi
 - With Stories: "Verify understanding of THIS story" (clear purpose)
 
 **Key insight (2026-02-02):** The value isn't the story itself — it's knowing WHO understood it, HOW WELL, and WHERE they diverged. The story is infrastructure for scaled verification.
+
+### Story Modes
+
+Users interact with Stories in two modes:
+
+| Mode | Role | Action | Value |
+|------|------|--------|-------|
+| **Listener Mode** | Author | Create stories, share your inner world | Get understood at scale |
+| **Tester Mode** | Verifier | Verify understanding of others' stories | Prove you understood |
+
+**Reciprocity flow:** Unskilled listeners often want to be heard first before they open to understanding others. Story creation (Listener Mode) invites them in through their own desire to be understood.
+
+### Verification Protocol
+
+How understanding is verified (human or AI):
+
+1. **Meaningful explain-back** — Verifier explains what they understood (not parroting words)
+2. **Examples and hypotheticals** — "If X happened, would you...?" (tests deep understanding)
+3. **Probe reasoning** — Why do they agree/disagree? (surface vs. deep)
+4. **Detect understanding depth** — Can they apply it to new situations?
+
+**Holistic rating (Phase 4a):** Speaker rates 0-10 "did they get it?" — no specific claims to verify against.
+
+**Structured rating (Phase 4b, if needed):** Story has extracted Points; verification tests each claim specifically.
+
+### Aggregated Feedback (What Authors See)
+
+Authors see verification results across all listeners:
+
+| Insight | What It Shows |
+|---------|---------------|
+| **WHO understood** | List of verifiers with scores |
+| **HOW WELL** | Distribution of understanding ratings |
+| **WHERE gaps** | Common misunderstandings, corrections given |
+| **Evolution** | How story improved through corrections |
 
 ---
 
@@ -161,32 +196,47 @@ This badge appears next to their name across the platform, rewarding epistemic h
 
 ---
 
-## The User Flow (Integrated)
+## The User Flow (Phased)
+
+**Current (Phases 1-4a):** Manual, human-to-human verification
+
+```
+1. CREATE STORY
+   Author writes story (manual text)
+        ↓
+2. SHARE
+   Story visible on profile or shared to event
+        ↓
+3. SELECT FOR VERIFICATION
+   Verifier picks a story to verify
+        ↓
+4. /LIVE EXPLAIN-BACK
+   Verifier explains understanding to author
+        ↓
+5. HOLISTIC RATING
+   Author rates 0-10: "Did they get it?"
+        ↓
+6. CERTIFICATION
+   ≥8/10 = verified understanding
+```
+
+**Future (Phases 5-6):** AI-assisted creation and verification
 
 ```
 1. BRAIN DUMP
    User talks/types messy thoughts
         ↓
 2. AI SIFTS
-   Story (blue) vs Point (yellow)
+   Extract Story + (optionally) Points
         ↓
-3. HARDENER
-   AI sharpens Point into falsifiable claim
+3. AUTHOR APPROVES
+   Author confirms AI captured their meaning
         ↓
-4. MIRROR TEST
-   AI plays back understanding, user confirms
+4. AI VERIFICATION (at scale)
+   AI verifies listener understanding
         ↓
-5. STAKE POSITION
-   User agrees/disagrees on Points
-        ↓
-6. FIND DISAGREER
-   See who has opposite position
-        ↓
-7. VERIFY STORY
-   /live explain-back on their Story
-        ↓
-8. INFORMED DISAGREEMENT
-   Still disagree, but understand WHY
+5. AUTHOR REVIEWS EDGE CASES
+   Only flags when uncertain
 ```
 
 ---

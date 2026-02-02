@@ -173,6 +173,24 @@ Questions we need to answer through experimentation. Updated 2026-02-03.
 
 ---
 
+## OQ-8: Does "Clarity Pledge" brand fit "Scale Your Inner World"?
+
+**The tension:** Original brand emphasized verification/calibration ("pledge" = commitment to verify understanding). New value prop emphasizes scaling/reach ("scale your inner world"). Are these compatible?
+
+**Arguments for keeping the brand:**
+- The pledge IS how scaling happens (commitment to verify)
+- "Clarity" fits both — clarity about understanding, clarity at scale
+- Brand equity already built
+
+**Arguments for reconsidering:**
+- "Pledge" sounds commitment-heavy, not empowering
+- "Scale your inner world" sounds expansive; "Clarity Pledge" sounds restrictive
+- May attract different audiences
+
+**How we'll answer:** Observe how new value prop lands with users. Do they understand the connection? Does the brand feel limiting?
+
+---
+
 # Validated
 
 ## H1: /live reduces Understanding Gap ✅
@@ -191,11 +209,35 @@ Questions we need to answer through experimentation. Updated 2026-02-03.
 
 # Current Focus
 
-**How we measure behavior change (2026-01-27):** Workshop attendance doesn't prove behavior changed. Ongoing use does. Success = teams keep using /live in their own meetings, calibration improves over time.
+**Stories-first (2026-02-02):** Building human verification loop for Stories before adding AI. See [roadmap.md](roadmap.md) for 6-phase sequence.
+
+**How we measure success:** Can humans verify story understanding holistically? Does Stories solve the cold start problem ("on what?")?
 
 ---
 
-## H-Foundation: Calibration Drives Outcomes 🔄
+## H-Stories: Stories solve the cold start problem 🔄
+
+**What we're testing:** Do Stories provide the trigger that /live lacks? When /live has a specific story to verify, does it feel purposeful?
+
+**The problem:** /live works but users ask "on what? when?" — no trigger.
+
+**The hypothesis:** Stories provide the "what." "Verify understanding of THIS story" is a clearer purpose than "verify understanding of... something."
+
+**How to test:**
+- Build stories on profiles (Phase 1-2)
+- Connect /live to stories (Phase 3)
+- Observe: Do users engage more? Does it feel purposeful?
+
+**Success criteria:**
+- Users select stories to verify (don't ask "on what?")
+- Verification sessions feel focused
+- Story authors see value in knowing who understood
+
+**Status:** **CURRENT FOCUS** — Building Phase 1-3.
+
+---
+
+## H-Foundation: Calibration Drives Outcomes ✅
 
 **What we're testing:** Does verified understanding (calibration) actually cause better business outcomes?
 

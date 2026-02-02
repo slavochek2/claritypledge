@@ -3,7 +3,7 @@
 Build sequence and priorities. What we're building and in what order.
 
 **Status:** Active Planning
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-03
 **North Star:** Scale your inner world — know who understood, how well, where they diverge
 
 > **Current Focus:** Stories-first. Build the human verification loop before adding AI.
@@ -209,6 +209,50 @@ See [p59_context_portal_design.md](../features/p59_context_portal_design.md) for
 
 ---
 
+## Future Vision (Phase 7+)
+
+> **Prerequisite:** Phase 6 (AI Verification) must validate H-AI first. These concepts only matter if AI can verify understanding accurately.
+
+**Source:** [v9. ai stories.md](visions/v9.%20ai%20stories.md) — full exploration
+
+### Story Evolution & Learning
+
+| Concept | Description | Value |
+|---------|-------------|-------|
+| **Story drift** | Stories learn from interactions, improve through corrections | Author sees how their thinking evolved |
+| **Version control** | Git-style versioning of stories | Track learning journey, compare v1 to v5 |
+| **Aggregated insights** | "Where do people misunderstand me most?" | Author improves communication |
+
+### Network Effects
+
+| Concept | Description | Value |
+|---------|-------------|-------|
+| **Reciprocity loop** | "I understood your story, now understand mine" | Social engine that drives engagement |
+| **Points as glue** | Points connect stories supporting same claims | Network effect for ideas |
+| **Forking/hybrids** | Others fork stories, add their own context | Collaborative knowledge building |
+
+### Story Autonomy
+
+| Concept | Description | Value |
+|---------|-------------|-------|
+| **Story-as-agent** | Story represents author, handles routine verification | Author only reviews edge cases |
+| **Pre-qualification** | Story qualifies people before deep engagement | Save time, filter for serious verifiers |
+| **Autonomous defense** | Story can "defend" points against counter-arguments | Scale influence without presence |
+
+### Ecosystem Dynamics
+
+| Concept | Description | Value |
+|---------|-------------|-------|
+| **War of memes** | Stories compete based on movement (position changes) | Truth-seeking through friction |
+| **Antifragility score** | Stories that survive counter-stories gain reputation | Identify robust ideas |
+| **Semantic convergence** | Mining verified understanding as valuable work | Attention economy → depth economy |
+
+**Critical hypothesis for Phase 7+:** Can stories become trusted autonomous agents, or do humans always need to be in the loop?
+
+**Deferred deliberately:** These concepts add complexity. Validate Phase 1-6 first.
+
+---
+
 ## Hypotheses
 
 **Source of truth:** [hypotheses.md](hypotheses.md)
@@ -250,6 +294,7 @@ See [p59_context_portal_design.md](../features/p59_context_portal_design.md) for
 
 | Date | Change |
 |------|--------|
+| 2026-02-03 | Added "Future Vision (Phase 7+)" section capturing v9 concepts: story evolution, reciprocity, forking, story-as-agent, war of memes. Deferred until H-AI validates. |
 | 2026-01-27 | **Sequence change:** P97 (Profile/Nav TDD migration) is now Phase 0. Sequence: P97 → Profile Backend → Sifter (P98) → Verification (P85) → First Event. Profiles are foundation that Sifter and Verification depend on. |
 | 2026-01-23 | **Major restructure:** P85 Event Verification Flow is now Phase 0. Sifter moved to Phase 3. Added H0b to H2 test criteria (note: old numbering, now H3/H4). Key insight: no "feed" needed — card selection happens inside /live, event page shows outcomes only. |
 | 2026-01-20 | Restructured phases: P60 (exploration) now Phase 0, Sifter moved to Phase 5 (after H2). Marked Events backend done. Deleted duplicate hypotheses, linked to hypotheses.md. Added P78/P79 references. |
