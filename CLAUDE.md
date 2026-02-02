@@ -277,6 +277,18 @@ git branch -m p62-dashboard-w1  # Rename before first commit
 |----------|------|
 | Strategic (the "why") | `decisions.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
 | Technical (the "how") | `database.md`, `authentication.md`, `definitions.md`, etc. |
+| GTM & Sales | `features/p105_sales_playbook.md` (per-segment playbooks) |
+
+**Where things go:**
+
+| Knowledge type | Location |
+|----------------|----------|
+| Business model, value prop | `lean-canvas.md` |
+| What we're testing + evidence | `hypotheses.md` |
+| Open questions (unresolved) | `hypotheses.md` "Open Questions" section |
+| Trade-offs, "why X over Y" | `decisions.md` |
+| GTM, sales tactics, pitches | `features/p{N}_sales_playbook.md` |
+| Pivot options | `lean-canvas.md` "Alternative Approaches" section |
 
 **When to run:**
 - After features with interesting trade-offs

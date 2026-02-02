@@ -15,9 +15,12 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 |----------------|---------|
 | Concepts (Stories, Points, Verification, etc.) | `docs/definitions.md` |
 | Problem/solution/business model | `docs/lean-canvas.md` |
-| What we're testing | `docs/hypotheses.md` |
+| What we're testing + evidence base | `docs/hypotheses.md` |
+| Open questions (unresolved) | `docs/hypotheses.md` "Open Questions" section |
 | Build sequence, priorities | `docs/roadmap.md` |
 | Trade-offs, "why X over Y" | `docs/decisions.md` |
+| GTM, sales tactics, pitches | `features/p{N}_sales_playbook.md` |
+| Pivot options | `docs/lean-canvas.md` "Alternative Approaches" section |
 | Epistemology (WHY this works) | `docs/philosophy.md` |
 | Cascade, √N, network effects | `docs/theory-of-change.md` |
 | Schema, RLS, data model | `docs/technical/database.md` |
@@ -79,8 +82,11 @@ Recommendation: Remove from README.md and roadmap.md, link to definitions.md ins
 2. **Analyze and classify** — what type of knowledge was created?
    - Decision made? → `decisions.md`
    - Hypothesis validated/added? → `hypotheses.md`
+   - New open question surfaced? → `hypotheses.md` "Open Questions" section
+   - Open question answered? → Update or remove from Open Questions
    - Phase complete / focus shifted? → `roadmap.md`
    - Business model changed? → `lean-canvas.md`
+   - GTM/sales approach changed? → `features/p105_sales_playbook.md`
    - Schema/auth/testing changed? → relevant technical doc
    - Domain concepts changed? → `definitions.md`
 
@@ -105,6 +111,8 @@ Recommendation: Remove from README.md and roadmap.md, link to definitions.md ins
    - Change status emoji (⏳ → 🔄 → ✅)
    - Add validation notes
    - Add new hypotheses if discovered
+   - Add/update Open Questions section when unresolved questions surface
+   - Remove/update Open Questions when answered
 
    **For roadmap.md:**
    - Update "Current Focus" quote block
