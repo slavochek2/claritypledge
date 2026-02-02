@@ -14,6 +14,49 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-02: Stories-first model with holistic verification, points deferred
+
+**Context:** Deep exploration of v9 "AI Stories" vision through Lean Startup Coach lens. The core question: what's the actual value proposition and what's the minimum needed to test it?
+
+**Key insight:** The value isn't "see your calibration gap" (diagnostic) — it's "scale your inner world" (productive). Stories let authors verify understanding at scale without repeating themselves.
+
+**Decision:** Stories-first, holistic verification, points deferred.
+
+1. **Value prop reframe:** "Scale your inner world — know who understood, how well, where they diverge — without being present for every conversation"
+
+2. **Build sequence (6 phases):**
+   - Phase 1: Stories on profiles (mock, text only)
+   - Phase 2: Backend + merge to product
+   - Phase 3: /live starts with story context (events → select story → /live)
+   - Phase 4a: Human verification (holistic — "did they get it?")
+   - Phase 4b: Add points IF holistic is too vague
+   - Phase 5: Sifter (AI story creation)
+   - Phase 6: AI verification
+
+3. **Holistic first:** Verification without points — listener explains back, speaker rates 0-10. Points add structure but aren't required for human verification. Add them only if holistic proves too vague.
+
+4. **Critical hypothesis:** H-AI — "AI can verify understanding accurately enough that authors trust it." This is the bottleneck for scaling.
+
+**Alternatives rejected:**
+- AI-first (assume AI works, validate AI before backend) — Doesn't validate human flow first
+- Points from start — Adds complexity before knowing if stories alone work
+- v9 as Phase 2 scaling — v9 is actually a different value prop, not just scaling current product
+
+**Consequences:**
+- lean-canvas.md updated with "scale your inner world" value prop
+- hypotheses.md gets H-AI hypothesis
+- roadmap.md gets 6-phase build sequence
+- definitions.md updated with Story as scaling mechanism
+- Points are enhancement, not core — add after Phase 4a proves holistic verification works
+- v9 vision stays in visions/, marked as "KISS version extracted to roadmap"
+- Brand "Clarity Pledge" still fits — pledge is commitment, stories are how you scale that commitment
+
+**The lean insight:** If human-to-human story verification doesn't work, AI won't save it. Validate the human loop first.
+
+**References:** [v9 AI Stories vision](visions/v9.%20ai%20stories.md), [roadmap.md](roadmap.md), [lean-canvas.md](lean-canvas.md)
+
+---
+
 ## 2026-02-03: Be your own coach first (supersedes coach partnership model)
 
 **Context:** Mentor conversation with Andy. Realized the "coaches as partners" model still had a dependency — convincing coaches to participate. Andy validated: be your own first user, learn what works, build case studies.

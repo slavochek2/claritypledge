@@ -74,7 +74,11 @@ The `hypothesis` field shows as a purple badge on cards, linking the feature to 
 
 ## Opening Files
 
-Click the 📝 button on any card to open in Cursor. Press `Cmd+Shift+V` in Cursor for markdown preview.
+Click the 📝 button on any card to open in Cursor.
+
+**For markdown preview:** Press `⌘⇧V` (Cmd+Shift+V) after the file opens.
+
+*Note: Cursor CLI doesn't support opening in preview mode directly.*
 
 ## Architecture
 

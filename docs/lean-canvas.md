@@ -102,13 +102,21 @@ You (coach/trainer) → Events (donation-based) → Participants experience valu
 
 ## Unique Value Proposition
 
-> **See the gap between how well you think you communicate and how well you actually do — then close it.**
+> **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**
+
+**Evolution (2026-02-02):** Original value prop was "see your gap" (diagnostic). New primary value is "scale your understanding" (productive). Stories let authors verify understanding at scale without repeating themselves.
+
+**Secondary value prop (still valid):**
+> See the gap between how well you think you communicate and how well you actually do — then close it.
 
 ---
 
 ## Solution
 
-A **practice system for calibrated communication** — not a one-time workshop, but ongoing use in real meetings.
+A **practice system for calibrated communication** — evolving toward **Stories that scale your inner world**.
+
+**Current:** Real-time verification via /live in meetings.
+**Next:** Stories that persist and can verify understanding on author's behalf.
 
 ### 1. The Pledge (Brand & Identity)
 A social contract that makes verification acceptable:
@@ -128,7 +136,35 @@ The core interaction, used in **any meeting**:
 
 **Key insight (2026-01-27):** /live isn't for special "Clarity events" — it's for any meeting where a team commits to verified understanding. Team standup, 1:1, board meeting, workshop — any meeting can be an "event."
 
-### 3. Calibration Profile
+### 3. Stories (Scaling Mechanism — Building)
+
+**The evolution (2026-02-02):** Stories aren't just narratives — they're how authors scale their inner world.
+
+```
+Author creates story (manual or AI-assisted)
+    ↓
+Story shared with others
+    ↓
+Others verify understanding via /live (human) or AI
+    ↓
+Author sees: WHO understood, HOW WELL, WHERE gaps
+    ↓
+Story evolves through corrections
+```
+
+**Why Stories solve the cold start problem:**
+- Current /live: "Verify understanding of... what?" (no trigger)
+- With Stories: "Verify understanding of THIS story" (clear purpose)
+
+**Build sequence (2026-02-02):**
+1. Stories on profiles (manual, text only)
+2. /live with story context (select story → verify)
+3. Human verification (holistic first, points later if needed)
+4. AI verification (scale without author present)
+
+See [roadmap.md](roadmap.md) for full sequence.
+
+### 4. Calibration Profile
 Track your accuracy over time:
 - How often your confidence matches reality
 - Your verified understanding score
