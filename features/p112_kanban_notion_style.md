@@ -37,6 +37,51 @@ reviews:
 
 ---
 
+## Future Direction: Agent Orchestration
+
+This kanban is foundation for **managing AI agents**, not just tasks.
+
+### The Workflow Today
+```
+You → drag cards → edit in Cursor → review changes → merge
+```
+
+### The Workflow Tomorrow
+```
+Analysis/Brainstorm → Feature Prep → Ready for Execution → Agent Works → Review → Merge/Accept
+        ↓                  ↓                ↓                  ↓           ↓
+    (you think)      (prep-spec)      (assign agent)    (agent updates)  (you approve)
+```
+
+### What This Enables
+- **Agent ownership:** Cards assigned to agents (who's working on this?)
+- **Status flow:** Agent moves card through statuses as it works
+- **Updates flow back:** Agent writes progress to frontmatter, you see it on board
+- **Orchestration:** One agent hands off to another (configurable via text or connections)
+- **Review gate:** You review agent work before merge/accept
+
+### Not Building Now
+Agent features are future. Current P112 validates the foundation:
+- Can frontmatter be the shared state between human and AI?
+- Does status-based flow match how work actually moves?
+- Is the visual + conversational model sustainable?
+
+---
+
+## Implementation Decisions
+
+Decided during prep-spec review:
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Done toggle persistence** | localStorage | Standard UX expectation, survives browser restart |
+| **Source of truth** | Frontmatter `status` field only | Ignore file location in `done/` folder; clearer ownership |
+| **Empty columns** | Show placeholder ("No items") | Prevents "is this broken?" moment |
+| **date_done** | Deferred (YAGNI) | No current use case; add when velocity tracking needed |
+| **Badge tiering** | First-class vs display-if-present | Reduces visual noise, faster to scan |
+
+---
+
 ## Current State
 
 The kanban tool (`tools/kanban/`) currently uses:
@@ -51,8 +96,7 @@ Status-based board with:
 - **5 columns:** Week, Today, In Progress, Blocked, Done
 - **Type badge** on cards (bug, task, story)
 - **Click opens Cursor** (no modal)
-- **Done column** visible by default, toggle to hide
-- **`date_done`** recorded when status → done (no auto-archive)
+- **Done column** visible by default, toggle to hide (header, right side)
 
 ---
 
@@ -62,13 +106,22 @@ Status-based board with:
 ---
 status: week | today | in-progress | blocked | done
 type: bug | task | story
-date_done: 2026-02-02  # Auto-set when status → done
+priority: p0 | p1 | p2 | p3   # AI-managed
+size: xs | s | m | l | xl     # AI-managed
+milestone: first-revenue      # AI-managed
+blocked_by: [p105, p106]      # AI-managed (display only, no computed backlinks)
 hypothesis: H-Biz
 tags: [validation, dx]
 ---
 ```
 
-**Removed from original spec:** backlog, to-groom, priority P0-P9, size, milestone, blocked_by, modal, rich editing.
+**AI-managed fields:** Priority, size, milestone, blocked_by are written by AI via frontmatter. Kanban displays them as badges (no UI editing).
+
+**Badge Tiers:**
+- **First-class** (always prominent): ID, Type, Priority, Blocked_by
+- **Display-if-present** (gray, muted): Size, Milestone, Hypothesis, Tags
+
+**Removed:** Modal, editable dropdowns, computed `blocking` backlinks, date_done (deferred).
 
 ---
 
@@ -88,27 +141,62 @@ tags: [validation, dx]
 
 ### Card Display
 
-Each card shows:
-- **Title** (from first `# ` heading)
+**First-class badges** (always prominent):
+- **Title** (from first `# ` heading, truncate at 50 chars with ellipsis)
 - **ID badge** (monospace, muted, e.g., `p112`)
-- **Type badge** (colored: bug=red, task=gray, story=blue)
-- **Hypothesis badge** (purple, if present)
-- **Tags** (blue chips)
+- **Type badge** (bug=red, task=gray, story=blue)
+- **Priority badge** (P0=orange, P1=amber, P2-P3=blue)
+- **Blocked_by chips** (red outline, shows IDs)
+
+**Display-if-present** (gray, muted):
+- **Size badge** (XS-XL)
+- **Milestone badge**
+- **Hypothesis badge**
+- **Tags** (cap at 3 visible + "+N more")
+
+**Always present:**
 - **Open in Cursor** button (📝 emoji, already exists)
 
 ### Click Behavior
 
 **Click card → Opens in Cursor** (existing behavior, no modal).
 
+### UX States
+
+| State | Behavior |
+|-------|----------|
+| **Loading** | Skeleton columns while API fetches |
+| **Empty column** | Show "No items" placeholder |
+| **Drag error** | Card snaps back to original column + toast error |
+| **Long title** | Truncate at 50 chars with "..." |
+| **Many tags** | Show 3 + "+N more" chip |
+
 ---
 
-## Type Colors
+## Badge Colors
 
-| Type | Color | Use |
-|------|-------|-----|
-| Bug | Red (#ef4444) | Defects |
-| Task | Gray (#6b7280) | Generic work |
-| Story | Blue (#3b82f6) | User-facing features |
+### Type
+| Type | Color |
+|------|-------|
+| Bug | Red (#ef4444) |
+| Task | Gray (#6b7280) |
+| Story | Blue (#3b82f6) |
+
+### Priority
+| Priority | Color |
+|----------|-------|
+| P0 | Orange (#f97316) |
+| P1 | Amber (#f59e0b) |
+| P2-P3 | Blue (#3b82f6) |
+
+### Other Badges
+| Badge | Color |
+|-------|-------|
+| Size (XS-XL) | Gray (#6b7280) |
+| Milestone | Green (#22c55e) |
+| Hypothesis | Purple (#8b5cf6) |
+| Blocked_by | Red outline (#ef4444) |
+| Tags | Blue (#3b82f6) |
 
 ---
 
@@ -125,10 +213,10 @@ Use existing stack only:
 
 | File | Changes |
 |------|---------|
-| `src/lib/types.ts` | Update `Status` enum (5 values), add `type`, `date_done` |
-| `src/App.tsx` | Replace 3 columns with 5 status columns, add Done toggle |
-| `src/components/Card.tsx` | Add type badge |
-| `server/api.ts` | Parse `type` field, auto-set `date_done` on status=done |
+| `src/lib/types.ts` | Update `Status` enum (5 values), add `type`, `priority`, `size`, `milestone`, `blocked_by` |
+| `src/App.tsx` | Replace 3 columns with 5 status columns, add Done toggle, add loading skeleton |
+| `src/components/Card.tsx` | Add badge tiers (first-class + display-if-present), truncation |
+| `server/api.ts` | Parse new fields from frontmatter |
 
 ### API Changes
 
@@ -140,17 +228,16 @@ interface Feature {
   title: string
   status: 'week' | 'today' | 'in-progress' | 'blocked' | 'done'
   type?: 'bug' | 'task' | 'story'
-  date_done?: string  // ISO date
+  priority?: 'p0' | 'p1' | 'p2' | 'p3'
+  size?: 'xs' | 's' | 'm' | 'l' | 'xl'
+  milestone?: string
+  blocked_by?: string[]  // display only, no computed backlinks
   hypothesis?: string
   tags: string[]
 }
 ```
 
-**PATCH /api/features/:id** — auto-set date_done:
-```typescript
-// When status changes to 'done', server auto-sets:
-data.date_done = new Date().toISOString().split('T')[0]
-```
+**PATCH /api/features/:id** — update status in frontmatter (no special handling needed).
 
 ---
 
@@ -163,27 +250,89 @@ data.date_done = new Date().toISOString().split('T')[0]
 
 ---
 
+## Notion UX Benchmarks
+
+These patterns from Notion's kanban should be matched:
+
+| Pattern | Notion Behavior | Our Implementation |
+|---------|-----------------|-------------------|
+| **Column headers** | Title + card count badge | Same: "Week (3)" |
+| **Card stacking** | Vertical, scrollable within column | Same |
+| **Drag preview** | Card follows cursor with slight opacity | Use @dnd-kit default |
+| **Drop indicator** | Line appears between cards | Use @dnd-kit default |
+| **Empty state** | Muted text in column | "No items" placeholder |
+| **Loading** | Skeleton shimmer | Skeleton columns |
+| **Hover** | Subtle background change | Lighter background on hover |
+
+**Differences from Notion (intentional):**
+- No inline editing (use Cursor)
+- No card creation button (use CLI/IDE)
+- No property editing dropdown (AI writes frontmatter)
+- Click opens external editor, not modal
+
+---
+
+## Success Criteria
+
+**Full acceptance tests:** [p112_uat.md](p112_uat.md) (16 tests)
+
+### Must Have (ship blocker)
+- [ ] Board loads with 5 columns in correct order
+- [ ] Drag-drop updates frontmatter `status` field
+- [ ] Cards render with first-class badges (ID, Type, Priority, Blocked_by)
+- [ ] File watcher refreshes board on external file changes
+- [ ] Click opens file in Cursor
+
+### Should Have (polish, not blocker)
+- [ ] Loading skeleton while fetching
+- [ ] Error toast on failed drag
+- [ ] Done toggle persists to localStorage
+- [ ] Empty columns show placeholder
+- [ ] Title truncation at 50 chars
+
+### Nice to Have (defer)
+- [ ] Keyboard navigation for drag-drop
+- [ ] Card count in column headers
+- [ ] Blocked_by chips clickable to scroll to card
+
+---
+
 ## Verification Checklist
 
+**Core functionality:**
 - [ ] `npm run kanban` opens board at localhost:5050
 - [ ] 5 columns visible: Week, Today, In Progress, Blocked, Done
 - [ ] Drag card between columns updates `status` in frontmatter
-- [ ] Dragging to Done auto-sets `date_done` in frontmatter
-- [ ] Card shows type badge with correct color (if type present)
-- [ ] Card shows hypothesis badge (purple) if present
 - [ ] Click 📝 button opens file in Cursor
 - [ ] File watcher auto-refreshes board on external changes
-- [ ] "Hide Done" toggle works
+
+**First-class badges:**
+- [ ] Card shows ID badge (monospace, muted)
+- [ ] Card shows type badge (bug=red, task=gray, story=blue)
+- [ ] Card shows priority badge (P0=orange, P1=amber, P2-P3=blue)
+- [ ] Card shows blocked_by chips (red outline) if present
+
+**Display-if-present badges:**
+- [ ] Card shows size badge (gray) if present
+- [ ] Card shows milestone badge (gray) if present
+- [ ] Card shows hypothesis badge (gray) if present
+- [ ] Card shows tags (gray, cap at 3) if present
+
+**UX polish:**
+- [ ] Loading skeleton displays while fetching
+- [ ] Empty columns show "No items" placeholder
+- [ ] "Hide Done" toggle works (header, right side)
+- [ ] Toggle state persists to localStorage
+- [ ] Long titles truncate at 50 chars
+- [ ] Error toast on failed PATCH (drag snaps back)
 
 ---
 
 ## Non-Goals
 
 - Modal with markdown preview (use Cursor)
-- Editable fields in UI (edit frontmatter in Cursor)
-- Priority scale (P0-P9) — keep simple
-- Size estimates — not needed
-- blocked_by relations — premature
+- Editable fields in UI (AI writes frontmatter, or edit in Cursor)
+- Computed `blocking` backlinks (display `blocked_by` only, no graph traversal)
 - Auto-archive — manual cleanup
 - Creating new cards from kanban (use CLI/IDE)
 
