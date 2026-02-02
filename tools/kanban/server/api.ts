@@ -5,6 +5,7 @@ import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
 import chokidar from 'chokidar'
 import { exec } from 'child_process'
+import type { Feature, Status, FeatureType, Priority, Size } from '../src/lib/types'
 
 const app = express()
 app.use(cors())
@@ -15,6 +16,12 @@ const FEATURES_DIR = join(process.cwd(), '..', '..', 'features')
 
 // SSE clients for file change notifications
 const sseClients: express.Response[] = []
+
+// Valid values for enum fields
+const VALID_STATUS: Status[] = ['week', 'today', 'in-progress', 'blocked', 'done']
+const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story']
+const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
+const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
 
 // Watch for file changes
 const watcher = chokidar.watch(FEATURES_DIR, {
@@ -42,17 +49,6 @@ app.get('/api/events', (req, res) => {
   })
 })
 
-interface Feature {
-  id: string
-  path: string
-  title: string
-  status: 'backlog' | 'in-progress' | 'done'
-  priority: 'urgent-important' | 'important' | 'urgent' | 'neither'
-  hypothesis?: string
-  tags: string[]
-  created?: string
-}
-
 async function parseFeatureFile(filePath: string): Promise<Feature | null> {
   try {
     const content = await readFile(filePath, 'utf-8')
@@ -63,28 +59,49 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
     const filename = basename(filePath, extname(filePath))
     const title = titleMatch?.[1] || filename
 
-    // Determine status from frontmatter or folder
-    let status: Feature['status'] = 'backlog'
-    if (data.status) {
+    // Determine status from frontmatter (default: 'week' for new items)
+    // Frontmatter is source of truth; ignore folder location
+    let status: Status = 'week'
+    if (data.status && VALID_STATUS.includes(data.status)) {
       status = data.status
     } else if (filePath.includes('/done/')) {
+      // Backward compat: files in done/ folder without status frontmatter
       status = 'done'
     } else if (filePath.includes('/archive/')) {
-      status = 'done' // Treat archived as done for kanban purposes
+      status = 'done'
     }
 
-    // Determine priority
-    let priority: Feature['priority'] = 'neither'
-    if (data.priority) {
-      priority = data.priority
-    }
+    // Parse optional type (first-class badge)
+    const type: FeatureType | undefined =
+      data.type && VALID_TYPE.includes(data.type) ? data.type : undefined
+
+    // Parse optional priority (first-class badge, AI-managed)
+    const priority: Priority | undefined =
+      data.priority && VALID_PRIORITY.includes(data.priority) ? data.priority : undefined
+
+    // Parse optional size (display-if-present, AI-managed)
+    const size: Size | undefined =
+      data.size && VALID_SIZE.includes(data.size) ? data.size : undefined
+
+    // Parse optional blocked_by (AI-managed, display only)
+    const blocked_by: string[] | undefined = Array.isArray(data.blocked_by)
+      ? data.blocked_by.filter((id: unknown) => typeof id === 'string')
+      : undefined
+
+    // Parse optional milestone (AI-managed)
+    const milestone: string | undefined =
+      typeof data.milestone === 'string' ? data.milestone : undefined
 
     return {
       id: filename,
       path: filePath,
       title,
       status,
+      type,
       priority,
+      blocked_by,
+      size,
+      milestone,
       hypothesis: data.hypothesis,
       tags: Array.isArray(data.tags) ? data.tags : [],
       created: data.created,
@@ -133,11 +150,17 @@ app.get('/api/features', async (_req, res) => {
   }
 })
 
-// PATCH /api/features/:id - update feature status/priority
+// PATCH /api/features/:id - update feature status
+// Note: Only status is user-editable via drag-drop. Other fields (priority, size, etc.) are AI-managed.
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status, priority } = req.body
+    const { status } = req.body
+
+    // Validate status
+    if (status && !VALID_STATUS.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' })
+    }
 
     // Find the feature file
     const features = await getFeatures()
@@ -151,9 +174,8 @@ app.patch('/api/features/:id', async (req, res) => {
     const content = await readFile(feature.path, 'utf-8')
     const { data, content: body } = matter(content)
 
-    // Update frontmatter
+    // Update frontmatter (only status is editable via UI)
     if (status) data.status = status
-    if (priority) data.priority = priority
 
     // Write back
     const newContent = matter.stringify(body, data)
