@@ -1,8 +1,10 @@
 ---
-status: prepped
+status: in-progress
 priority: urgent-important
-tags: [tooling, dx]
-prepped_date: 2026-02-02
+tags:
+  - tooling
+  - dx
+prepped_date: 2026-02-02T00:00:00.000Z
 reviews:
   ux: passed
   architect: passed
@@ -88,7 +90,7 @@ The kanban tool (`tools/kanban/`) currently uses:
 - Eisenhower matrix columns (Urgent+Important, Important, In Progress)
 - Priority-based organization
 - Click emoji opens file in Cursor
-- Runs on localhost:5050 (frontend) with API on :5051
+- Runs on localhost:9050 (frontend) with API on :9051
 
 ## Target State
 
@@ -307,7 +309,7 @@ These patterns from Notion's kanban should be matched:
 ## Verification Checklist
 
 **Core functionality:**
-- [ ] `npm run kanban` opens board at localhost:5050
+- [ ] `npm run kanban` opens board at localhost:9050
 - [ ] 5 columns visible: Week, Today, In Progress, Blocked, Done
 - [ ] Drag card between columns updates `status` in frontmatter
 - [ ] Click 📝 button opens file in Cursor
@@ -347,8 +349,8 @@ These patterns from Notion's kanban should be matched:
 
 ## Port Configuration
 
-- **Frontend:** http://localhost:5050 (Vite dev server)
-- **Backend API:** http://localhost:5051 (Express)
+- **Frontend:** http://localhost:9050 (Vite dev server)
+- **Backend API:** http://localhost:9051 (Express)
 - **Proxy:** Vite proxies `/api/*` to backend
 - **Command:** `npm run kanban` starts both
 

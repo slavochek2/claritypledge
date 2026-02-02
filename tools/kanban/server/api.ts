@@ -245,7 +245,7 @@ app.post('/api/open', (req, res) => {
   })
 })
 
-const PORT = 5051
+const PORT = 9051
 app.listen(PORT, () => {
   console.log(`Kanban API running on http://localhost:${PORT}`)
   console.log(`Watching: ${FEATURES_DIR}`)

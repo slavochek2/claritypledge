@@ -2,67 +2,60 @@
 
 Local feature prioritization — visual interface to `features/*.md` frontmatter.
 
-## Where to Manage Work
-
-| Question | Answer |
-|----------|--------|
-| **What should I work on?** | Open kanban → pick from Urgent+Important or Important |
-| **What's the current phase?** | `docs/roadmap.md` → Current Phase section |
-| **What hypothesis am I testing?** | `docs/hypotheses.md` → look for 🔄 Current Focus |
-| **Why was X deprioritized?** | `docs/roadmap.md` → Deprioritized section |
-| **Business model questions?** | `docs/lean-canvas.md` |
-
-## The Hierarchy
-
-```
-lean-canvas.md (WHY - business model)
-    ↓
-hypotheses.md (WHAT to validate)
-    ↓
-features/*.md (HOW - specs + status)  ← kanban reads this
-    ↓
-kanban (visual prioritization)
-```
-
-**Each doc has ONE job:**
-- `lean-canvas.md` = business model decisions
-- `hypotheses.md` = validation tracking
-- `roadmap.md` = current phase + deprioritized items (the WHY)
-- `features/*.md` = implementation specs + status
-- `kanban` = visual interface to feature status
-
-## Commands
+## Quick Start
 
 ```bash
-npm run kanban    # Opens http://localhost:5050
+npm run kanban    # Opens http://localhost:9050
 ```
 
-## Workflow
+Or use the script for worktree management:
+```bash
+kanban w1         # Start from worktree w1
+kanban stop       # Stop kanban
+kanban logs       # View logs
+```
 
-1. Open kanban: `npm run kanban` (always from main worktree)
-2. Pick task, drag to "In Progress" → updates frontmatter in `features/*.md`
-3. Switch to worktree (w1, w2, etc.) to do actual coding
-4. When finished, open kanban, drag to "Done" → card disappears
-5. Commit status change in main, merge code from worktree separately
+## Ports
 
-## Columns
+| Service | Port |
+|---------|------|
+| Frontend (Vite) | 9050 |
+| Backend API | 9051 |
 
-| Column | Color | What it shows |
-|--------|-------|---------------|
-| Urgent + Important | Red | Backlog with `priority: urgent-important` |
-| Important | Blue | Backlog with `priority: important` |
-| In Progress | Amber | Features with `status: in-progress` |
+## Process Management
 
-**No Done column** — completed tasks disappear from view.
+When killing processes to free ports, be surgical:
+
+```bash
+# NEVER - pattern matches broadly, can kill Docker Desktop
+pkill -f "9050"
+
+# ALWAYS - only kills processes on specific ports
+lsof -ti:9050,9051 | xargs kill
+```
+
+## Columns (5 total)
+
+| Column | Status Value | Color |
+|--------|--------------|-------|
+| Week | `week` | Blue |
+| Today | `today` | Orange |
+| In Progress | `in-progress` | Amber |
+| Blocked | `blocked` | Red |
+| Done | `done` | Green |
 
 ## Feature Frontmatter
 
 ```yaml
 ---
-status: backlog | in-progress | done
-priority: urgent-important | important | urgent | neither
-hypothesis: H-Biz | H2 | etc  # Links to hypotheses.md
-tags: [validation, gtm]
+status: week | today | in-progress | blocked | done
+type: bug | task | story
+priority: p0 | p1 | p2 | p3
+size: xs | s | m | l | xl
+milestone: first-revenue
+blocked_by: [p105, p106]
+hypothesis: H-Biz
+tags: [validation, dx]
 ---
 
 # P123: Feature Title
@@ -70,25 +63,29 @@ tags: [validation, gtm]
 **Goal:** One sentence description
 ```
 
-The `hypothesis` field shows as a purple badge on cards, linking the feature to what it's testing.
+## Card Badges
+
+**First-class** (always shown):
+- ID badge (monospace)
+- Type badge (bug=red, task=gray, story=blue)
+- Priority badge (P0=orange, P1=amber, P2-P3=blue)
+- Blocked_by chips (red outline)
+
+**Display-if-present** (gray):
+- Size, Milestone, Hypothesis, Tags
 
 ## Opening Files
 
-Click the 📝 button on any card to open in Cursor.
-
-**For markdown preview:** Press `⌘⇧V` (Cmd+Shift+V) after the file opens.
-
-*Note: Cursor CLI doesn't support opening in preview mode directly.*
+Click 📝 on any card to open in Cursor. Press `⌘⇧V` for markdown preview.
 
 ## Architecture
 
 ```
-~/Projects/claritypledge/           # main - source of truth
-├── features/                        # kanban reads/writes HERE
-├── tools/kanban/                    # kanban tool code
+~/Projects/claritypledge/
+├── features/              # kanban reads/writes frontmatter
+├── tools/kanban/          # kanban tool code
+└── scripts/kanban.sh      # start/stop script
 ```
-
-**Status lives in main** — worktrees don't edit frontmatter. This prevents merge conflicts.
 
 ## Location
 

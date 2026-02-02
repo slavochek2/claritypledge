@@ -122,6 +122,12 @@ This isn't criticism — it's a known pattern that delays validation. The fastes
 
 **Why:** Easy rollback. If experiment fails, the main worktree stays clean.
 
+## Process Management — Safe Port Cleanup
+
+> **Principle:** When killing processes, use `lsof -ti:PORT | xargs kill`, never `pkill -f "PORT"`.
+
+Pattern matching (`pkill -f`) can kill unintended processes like Docker Desktop. See [kanban.md](docs/technical/kanban.md#process-management) for details.
+
 ## Commit Discipline — Checkpoint Prompts
 
 > **Pattern to watch:** The founder tends to accumulate changes, then commit everything at once. This makes rollback hard and history unclear.
@@ -223,7 +229,7 @@ npm run test:e2e:headed  # Run in headed browser
 ./scripts/pre-commit-checks.sh
 
 # Kanban (feature prioritization)
-npm run kanban           # Opens http://localhost:5050
+npm run kanban           # Opens http://localhost:9050
 ```
 
 ## Deep Dive References

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core'
 import { Column } from './components/Column'
 import { Feature, ColumnId, Status } from './lib/types'
 
@@ -11,6 +11,9 @@ const COLUMNS: { id: ColumnId; title: string; color: string }[] = [
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'done', title: 'Done', color: '#22c55e' },
 ]
+
+// Valid column IDs for drop target validation
+const VALID_COLUMN_IDS = new Set(COLUMNS.map((c) => c.id))
 
 const HIDE_DONE_KEY = 'kanban-hide-done'
 
@@ -61,7 +64,12 @@ export default function App() {
     if (!over) return
 
     const featureId = active.id as string
-    const targetColumn = over.id as ColumnId
+    const targetId = over.id as string
+
+    // Validate drop target is a column, not another card
+    if (!VALID_COLUMN_IDS.has(targetId as ColumnId)) return
+
+    const targetColumn = targetId as ColumnId
 
     // Find the feature
     const feature = features.find((f) => f.id === featureId)
@@ -216,7 +224,7 @@ export default function App() {
         </label>
       </div>
 
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
         <div
           style={{
             display: 'grid',
