@@ -57,9 +57,23 @@ export function Column({ id, title, color, features }: ColumnProps) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {features.map((feature) => (
-          <Card key={feature.id} feature={feature} />
-        ))}
+        {features.length === 0 ? (
+          <div
+            style={{
+              color: 'rgba(255, 255, 255, 0.4)',
+              fontStyle: 'italic',
+              textAlign: 'center',
+              padding: '24px 12px',
+              fontSize: 13,
+            }}
+          >
+            No items
+          </div>
+        ) : (
+          features.map((feature) => (
+            <Card key={feature.id} feature={feature} />
+          ))
+        )}
       </div>
     </div>
   )
