@@ -12,13 +12,19 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, VideoIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -32,10 +38,12 @@ export function SimpleNavigation() {
   // Note: showPublicCTAs, slug, hasPledged handled by NavigationMenuItems (shared component)
   // P67: user is needed for avatar display
   // P76: hasPledged is needed for pledger distinction on avatars
+  // P113: slug is needed for icon nav profile link
   const {
     showUserMenu,
     user,
     hasPledged,
+    slug,
     signOut,
   } = useNavAuthState();
 
@@ -85,41 +93,89 @@ export function SimpleNavigation() {
 
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Visible nav links - order: Events, Pledgers, Manifesto, About, Collaborate (non-logged-in) */}
-            <Link
-              to="/events"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Events
-            </Link>
-            <Link
-              to="/pledgers"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Pledgers
-            </Link>
-            <Link
-              to="/article"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Manifesto
-            </Link>
-            <Link
-              to="/about"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              About
-            </Link>
-            {/* Start a Clarity Session CTA */}
-            {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-            <Link
-              to="/live"
-              title="Start a live clarity session"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-              onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
-            >
-              Start a Clarity Session
-            </Link>
+            {/* P113: Show icon nav for logged-in users, text links for logged-out */}
+            {showUserMenu ? (
+              /* Logged-in: Icon nav (My Events, My Profile, Start Session, Avatar) */
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      to="/events"
+                      className="flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      aria-label="My Events"
+                    >
+                      <CalendarIcon className="w-5 h-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>My Events</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      to={slug ? `/p/${slug}` : "/me"}
+                      className="flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      aria-label="My Profile"
+                    >
+                      <UserIcon className="w-5 h-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>My Profile</TooltipContent>
+                </Tooltip>
+                {/* Start a Clarity Session CTA - with icon */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      to="/live"
+                      title="Start a live clarity session"
+                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                      onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                    >
+                      <VideoIcon className="w-4 h-4" />
+                      Start Session
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>Start a Clarity Session</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              /* Logged-out: Text links - order: Events, Pledgers, Manifesto, About */
+              <>
+                <Link
+                  to="/events"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Events
+                </Link>
+                <Link
+                  to="/pledgers"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Pledgers
+                </Link>
+                <Link
+                  to="/article"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Manifesto
+                </Link>
+                <Link
+                  to="/about"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  About
+                </Link>
+                {/* Start a Clarity Session CTA */}
+                {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
+                <Link
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                >
+                  Start a Clarity Session
+                </Link>
+              </>
+            )}
             {/* Menu Trigger - P67: Avatar for verified users, hamburger for everyone else */}
             <DropdownMenu modal={false} onOpenChange={(open) => {
               if (open) {
