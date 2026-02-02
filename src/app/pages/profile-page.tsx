@@ -9,17 +9,24 @@
  * - If owner + non-pledger: "Take the Pledge" CTA button
  * - If visitor + pledger: "View their pledge" link
  * - If visitor + non-pledger: No pledge link
- * Future: Events attended, Stories/Points (P58)
+ * P113: Added Stories/Points tabs and CalibrationDisplay with mock data
  */
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, createProfile, type Profile } from "@/app/data/api";
+import { storiesService, type Story } from "@/app/data/stories-service-mock";
+import { pointsService, type Point } from "@/app/data/points-service-mock";
+import { calibrationService, type CalibrationResult } from "@/app/data/calibration-service-mock";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
-import { MailIcon, ArrowLeftIcon } from "lucide-react";
+import { MailIcon, ArrowLeftIcon, BookOpenIcon, TargetIcon, PlusIcon } from "lucide-react";
 import { CompactProfileCard } from "@/app/components/profile/compact-profile-card";
+import { toast } from "sonner";
+
+// P113: Tab types for Stories/Points
+type ProfileTab = 'stories' | 'points';
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +36,12 @@ export function ProfilePage() {
   const hasTrackedPageView = useRef(false);
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
+
+  // P113: Stories/Points state
+  const [activeTab, setActiveTab] = useState<ProfileTab>('stories');
+  const [stories, setStories] = useState<Story[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
+  const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
 
   // Track current user ID for retry logic (stable reference)
   const currentUserId = currentUser?.id;
@@ -87,6 +100,20 @@ export function ProfilePage() {
     loadProfile();
   }, [id, currentUserId, currentUserSlug, profile]);
 
+  // P113: Load stories, points, and calibration when profile is available
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    // Load mock data for the profile
+    const userStories = storiesService.getStoriesForUser(profile.id);
+    const userPoints = pointsService.getPointsForUser(profile.id);
+    const userCalibration = calibrationService.getCalibration(profile.id);
+
+    setStories(userStories);
+    setPoints(userPoints);
+    setCalibration(userCalibration);
+  }, [profile?.id]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -116,6 +143,11 @@ export function ProfilePage() {
   }
 
   const isOwner = session?.user?.id === profile.id;
+
+  // P113: Handle disabled "Create" button click
+  const handleCreateClick = () => {
+    toast.info("Coming soon");
+  };
 
   // Handle resend verification email
   const handleResendEmail = async () => {
@@ -257,6 +289,196 @@ export function ProfilePage() {
 
           {/* P75: Compact Profile Card */}
           <CompactProfileCard profile={profile} isOwner={isOwner} />
+
+          {/* P113: Calibration Display */}
+          {calibration && (
+            <div className="bg-card border rounded-lg shadow-sm p-6 mt-4">
+              <h2 className="text-lg font-semibold text-foreground mb-4">Calibration</h2>
+              {calibration.status === 'insufficient' ? (
+                <div className="text-center py-4">
+                  <p className="text-muted-foreground">
+                    Complete {calibration.sessionsRequired - calibration.sessionsCompleted} more session
+                    {calibration.sessionsRequired - calibration.sessionsCompleted !== 1 ? 's' : ''} to see calibration
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {calibration.sessionsCompleted} of {calibration.sessionsRequired} sessions completed
+                  </p>
+                </div>
+              ) : calibration.calibration ? (
+                <div className="space-y-4">
+                  {/* Overall Score */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">Overall</span>
+                      <span className="font-medium text-foreground">{calibration.calibration.overall}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${calibration.calibration.overall}%` }}
+                      />
+                    </div>
+                  </div>
+                  {/* As Listener */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">As Listener</span>
+                      <span className="font-medium text-foreground">{calibration.calibration.asListener}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${calibration.calibration.asListener}%` }}
+                      />
+                    </div>
+                  </div>
+                  {/* As Speaker */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted-foreground">As Speaker</span>
+                      <span className="font-medium text-foreground">{calibration.calibration.asSpeaker}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${calibration.calibration.asSpeaker}%` }}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Based on {calibration.sessionsCompleted} sessions
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {/* P113: Stories/Points Tabs */}
+          <div className="bg-card border rounded-lg shadow-sm mt-4 overflow-hidden">
+            {/* Tab Header */}
+            <div className="flex border-b border-border">
+              <button
+                onClick={() => setActiveTab('stories')}
+                className={`flex-1 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 ${
+                  activeTab === 'stories' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <BookOpenIcon className="w-4 h-4" />
+                Stories
+                {activeTab === 'stories' && (
+                  <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('points')}
+                className={`flex-1 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 ${
+                  activeTab === 'points' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <TargetIcon className="w-4 h-4" />
+                Points
+                {activeTab === 'points' && (
+                  <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div className="p-4">
+              {activeTab === 'stories' ? (
+                stories.length > 0 ? (
+                  <div className="space-y-4">
+                    {stories.map((story) => (
+                      <div key={story.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                        <h3 className="font-medium text-foreground">{story.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-3">{story.content}</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {story.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No stories shared yet</p>
+                    {isOwner && (
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        disabled
+                        onClick={handleCreateClick}
+                      >
+                        <PlusIcon className="w-4 h-4 mr-2" />
+                        Share your first story
+                      </Button>
+                    )}
+                  </div>
+                )
+              ) : (
+                points.length > 0 ? (
+                  <div className="space-y-4">
+                    {points.map((point) => {
+                      const userPosition = profile?.id ? point.positions[profile.id] : null;
+                      return (
+                        <div key={point.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                          <p className="font-medium text-foreground">{point.statement}</p>
+                          {point.context && (
+                            <p className="text-sm text-muted-foreground mt-1">{point.context}</p>
+                          )}
+                          {userPosition && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded-full ${
+                                  userPosition.position === 'agree'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : userPosition.position === 'disagree'
+                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {userPosition.position === 'agree' ? 'Agreed' : userPosition.position === 'disagree' ? 'Disagreed' : 'Abstained'}
+                              </span>
+                            </div>
+                          )}
+                          {userPosition?.reasoning && (
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              "{userPosition.reasoning}"
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No positions taken yet</p>
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* P113: Create Button (owner only, disabled) */}
+            {isOwner && (
+              <div className="border-t border-border p-4">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled
+                  onClick={handleCreateClick}
+                >
+                  <PlusIcon className="w-4 h-4 mr-2" />
+                  Create {activeTab === 'stories' ? 'Story' : 'Point'}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
