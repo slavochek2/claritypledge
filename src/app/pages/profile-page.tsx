@@ -146,7 +146,7 @@ export function ProfilePage() {
 
   // P113: Handle disabled "Create" button click
   const handleCreateClick = () => {
-    toast.info("Coming soon");
+    toast("Coming soon", { description: "Create feature is not yet available" });
   };
 
   // Handle resend verification email
@@ -356,8 +356,12 @@ export function ProfilePage() {
           {/* P113: Stories/Points Tabs */}
           <div className="bg-card border rounded-lg shadow-sm mt-4 overflow-hidden">
             {/* Tab Header */}
-            <div className="flex border-b border-border">
+            <div className="flex border-b border-border" role="tablist" aria-label="Profile content tabs">
               <button
+                id="stories-tab"
+                role="tab"
+                aria-selected={activeTab === 'stories'}
+                aria-controls="stories-panel"
                 onClick={() => setActiveTab('stories')}
                 className={`flex-1 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 ${
                   activeTab === 'stories' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
@@ -370,6 +374,10 @@ export function ProfilePage() {
                 )}
               </button>
               <button
+                id="points-tab"
+                role="tab"
+                aria-selected={activeTab === 'points'}
+                aria-controls="points-panel"
                 onClick={() => setActiveTab('points')}
                 className={`flex-1 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 ${
                   activeTab === 'points' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
@@ -384,7 +392,12 @@ export function ProfilePage() {
             </div>
 
             {/* Tab Content */}
-            <div className="p-4">
+            <div
+              className="p-4"
+              role="tabpanel"
+              id={activeTab === 'stories' ? 'stories-panel' : 'points-panel'}
+              aria-labelledby={activeTab === 'stories' ? 'stories-tab' : 'points-tab'}
+            >
               {activeTab === 'stories' ? (
                 stories.length > 0 ? (
                   <div className="space-y-4">
@@ -411,9 +424,9 @@ export function ProfilePage() {
                     {isOwner && (
                       <Button
                         variant="outline"
-                        className="mt-4"
-                        disabled
+                        className="mt-4 opacity-50 cursor-not-allowed"
                         onClick={handleCreateClick}
+                        aria-disabled="true"
                       >
                         <PlusIcon className="w-4 h-4 mr-2" />
                         Share your first story
@@ -464,14 +477,14 @@ export function ProfilePage() {
               )}
             </div>
 
-            {/* P113: Create Button (owner only, disabled) */}
+            {/* P113: Create Button (owner only, visually disabled but clickable for toast) */}
             {isOwner && (
               <div className="border-t border-border p-4">
                 <Button
                   variant="outline"
-                  className="w-full"
-                  disabled
+                  className="w-full opacity-50 cursor-not-allowed"
                   onClick={handleCreateClick}
+                  aria-disabled="true"
                 >
                   <PlusIcon className="w-4 h-4 mr-2" />
                   Create {activeTab === 'stories' ? 'Story' : 'Point'}
