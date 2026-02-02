@@ -13,7 +13,10 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:headed": "playwright test --headed",
-    "kanban": "cd tools/kanban && npm run dev"
+    "kanban": "cd tools/kanban && npm run dev",
+    "kanban:w1": "./scripts/kanban.sh start w1",
+    "kanban:w2": "./scripts/kanban.sh start w2",
+    "kanban:stop": "./scripts/kanban.sh stop"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
