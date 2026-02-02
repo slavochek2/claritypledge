@@ -1,71 +1,39 @@
 ---
-status: backlog
+status: prepped
 priority: urgent-important
 tags: [tooling, dx]
+prepped_date: 2026-02-02
+reviews:
+  ux: passed
+  architect: passed
+  lean_coach: passed-stripped
+  alignment: passed
 ---
 
-# P112: Notion-Style Kanban Rebuild
+# P112: Notion-Style Kanban Rebuild (Simplified)
 
-**Goal:** Transform the kanban tool from Eisenhower matrix to Notion-style board where **everything is a card** — features, hypotheses, milestones, visions — all living as markdown files with frontmatter, all linkable.
-
----
-
-## Why This, Why Now
-
-**The problem:** Information is scattered and disconnected.
-- Hypotheses live in `docs/hypotheses.md` (one big file)
-- Milestones live in `docs/roadmap.md` (another big file)
-- Features live in `features/*.md` (separate files)
-- No explicit links between them
-
-**What breaks:**
-- "Which features validate H-Biz?" → Manual grep
-- "What's left for first-revenue milestone?" → Mental tracking
-- "Why are we building this?" → Context lost, motivation unclear
-- Prioritization happens in your head, not in the system
-
-**Why Notion-style solves this:**
-- Everything is a card = everything is linkable
-- Features point to hypotheses → see what you're validating
-- Milestones contain features → see progress toward outcomes
-- One view (kanban) shows the work; relations show the why
-
-**Why now:**
-- Kanban tool exists (P111 done) — foundation is there
-- Current Eisenhower matrix is too simple — no types, no relations
-- About to do roadmap distillation — need a place for that content to live
-- Switching to "be your own coach" phase — need clear visibility into what validates the hypothesis
-
-**The unlock:** When you drag a card to "Done", you should see which hypothesis got evidence and which milestone got closer. Not just "task complete."
-
-**The AI unlock:** Markdown + frontmatter = AI-native format.
-- Talk to Claude → it updates cards, creates new ones, reorders backlog
-- Look at kanban → see what AI did, drag to adjust
-- Best of both: conversational planning + visual control
-- "Show me what's blocking first-revenue" → AI reads relations, answers
-- "Reprioritize based on coach validation" → AI updates frontmatter
-- Future: AI suggests views, identifies bottlenecks, proposes sprints
+**Goal:** Transform kanban from Eisenhower matrix to status-based columns with type badges. No modal — keep click-opens-Cursor.
 
 ---
 
-## Philosophy: Everything is a Card
+## Why This
 
-**Notion's core insight:** Everything is a page. Pages can contain pages. Pages can reference pages. Views (kanban, table, calendar) are just different ways to see the same pages.
+**The pain:** Planning tools force a choice — visual boards OR AI conversation. Not both.
+- Notion/Linear/Jira: Great visual planning, AI bolted on as afterthought
+- Claude/ChatGPT: Great conversational planning, no persistent visual state
+- Result: Context lost between modes, duplicate work
 
-**Our adaptation:**
-```
-Every .md file is a card
-├── Cards have properties (frontmatter)
-├── Cards reference cards (relations: blocked_by, hypothesis, milestone, contains)
-├── Cards have types (feature, hypothesis, milestone, vision, bug, etc.)
-└── Kanban is one view — same data could power table, timeline, etc.
-```
+**Our approach:** Markdown + frontmatter = AI-native format.
+- Talk to Claude → it updates cards (edits frontmatter)
+- Look at kanban → see what changed, drag to adjust
+- Same source of truth for both modes
 
-**Why this matters:**
-- Hypotheses shouldn't be trapped in `docs/hypotheses.md` — they're cards
-- Milestones shouldn't be trapped in `docs/roadmap.md` — they're cards
-- Everything links to everything, bidirectionally
-- Single source of truth per concept
+**The unlock:** Conversational planning + visual control, together.
+- "What's blocking first-revenue?" → AI reads relations, answers
+- "Move p105 to Today" → AI updates frontmatter OR you drag the card
+- Future: AI suggests reprioritization, you approve visually
+
+**Product hypothesis (validate later):** Solo founders and AI-native devs want this. If others ask "what tool is that?" — there's signal.
 
 ---
 
@@ -74,98 +42,63 @@ Every .md file is a card
 The kanban tool (`tools/kanban/`) currently uses:
 - Eisenhower matrix columns (Urgent+Important, Important, In Progress)
 - Priority-based organization
-- Only reads `features/*.md`
-- Click opens file in Cursor
+- Click emoji opens file in Cursor
+- Runs on localhost:5050 (frontend) with API on :5051
 
-## Target State (Phase 1)
+## Target State
 
-Notion-style board with:
-- **Status-based columns** (Backlog → Today)
-- **Rich card badges** (type, priority, size, hypothesis)
-- **Click opens modal** with markdown preview + editable fields
-- **Done column hidden** by default (toggle to show)
-- **Reads `features/*.md`** (Phase 1 — expand to other folders later)
-
-## Future State (Phase 2+)
-
-- Read from multiple folders or single `cards/` folder
-- Hypothesis cards (h-biz.md, h-ai.md)
-- Milestone cards (m-first-revenue.md)
-- Vision cards (v-stories-at-scale.md)
-- Filter by type (show only hypotheses, only features, etc.)
-- Relation graph view
+Status-based board with:
+- **5 columns:** Week, Today, In Progress, Blocked, Done
+- **Type badge** on cards (bug, task, story)
+- **Click opens Cursor** (no modal)
+- **Done column** visible by default, toggle to hide
+- **`date_done`** recorded when status → done (no auto-archive)
 
 ---
 
-## Frontmatter Schema (New)
+## Frontmatter Schema
 
 ```yaml
 ---
-status: backlog | to-groom | week | in-progress | today | blocked | done | rejected
-priority: p0 | p1 | p2 | p3 | p4 | p5 | p6 | p7 | p8 | p9 | 24h-fix
-type: bug | task | user-story | sprint | epic | question | hypothesis | milestone | vision | comment
-size: xxs | xs | s | m | l | xl  # 0.1MD to 5MD
-hypothesis: h-biz | h-ai          # relation → hypothesis card
-milestone: m-first-revenue        # relation → milestone card
-blocked_by: [p105, p106]          # relation → blocks this card
-contains: [p105, p106, p107]      # relation → children (for epics, milestones, sprints)
-tags: [validation, content, marketing]
+status: week | today | in-progress | blocked | done
+type: bug | task | story
+date_done: 2026-02-02  # Auto-set when status → done
+hypothesis: H-Biz
+tags: [validation, dx]
 ---
 ```
 
-### Relation Fields
-
-| Field | Direction | Use |
-|-------|-----------|-----|
-| `blocked_by` | This ← Other | "I can't start until these are done" |
-| `blocking` | This → Other | Computed backlink from blocked_by |
-| `hypothesis` | This → Hypothesis | "This validates hypothesis X" |
-| `milestone` | This → Milestone | "This is part of milestone Y" |
-| `contains` | Parent → Children | "This epic/milestone contains these cards" |
-| `contained_by` | Child → Parent | Computed backlink from contains |
-
-**Bidirectional links:** The API computes `blocking` and `contained_by` automatically from other cards' `blocked_by` and `contains` fields.
+**Removed from original spec:** backlog, to-groom, priority P0-P9, size, milestone, blocked_by, modal, rich editing.
 
 ---
 
 ## Board View
 
-### Columns (by Status)
+### Columns (5 total)
 
 | Column | Status Value | Color |
 |--------|--------------|-------|
-| Backlog | `backlog` | Gray (#6b7280) |
-| To Groom | `to-groom` | Cyan (#06b6d4) |
 | Week | `week` | Blue (#3b82f6) |
-| In Progress | `in-progress` | Amber (#f59e0b) |
 | Today | `today` | Orange (#f97316) |
+| In Progress | `in-progress` | Amber (#f59e0b) |
 | Blocked | `blocked` | Red (#ef4444) |
-| Done | `done` | Green (#22c55e) — **hidden by default** |
+| Done | `done` | Green (#22c55e) |
 
-### Card Display (Collapsed)
+**Layout:** Notion-style horizontal columns, cards stack vertically.
+
+### Card Display
 
 Each card shows:
 - **Title** (from first `# ` heading)
 - **ID badge** (monospace, muted, e.g., `p112`)
-- **Type badge** (colored by type)
-- **Priority badge** (P0-P9 or 24h-fix)
-- **Size badge** (XXS-XL)
+- **Type badge** (colored: bug=red, task=gray, story=blue)
 - **Hypothesis badge** (purple, if present)
 - **Tags** (blue chips)
+- **Open in Cursor** button (📝 emoji, already exists)
 
-### Card Modal (On Click)
+### Click Behavior
 
-Two-panel modal:
-- **Left side:** Rendered markdown preview (read-only, uses react-markdown)
-- **Right side:** Editable fields panel (like Notion sidebar)
-  - Status dropdown
-  - Priority dropdown
-  - Type dropdown
-  - Size dropdown
-  - Hypothesis dropdown
-  - Tags multi-select
-  - Blocked_by relation picker
-- **Footer:** "Open in Cursor" button
+**Click card → Opens in Cursor** (existing behavior, no modal).
 
 ---
 
@@ -175,241 +108,93 @@ Two-panel modal:
 |------|-------|-----|
 | Bug | Red (#ef4444) | Defects |
 | Task | Gray (#6b7280) | Generic work |
-| User Story | Blue (#3b82f6) | User-facing features |
-| Epic | Purple (#8b5cf6) | Large initiatives (contains features) |
-| Sprint | Amber (#f59e0b) | Time-boxed work (contains features) |
-| Question | Cyan (#06b6d4) | Research needed |
-| Hypothesis | Pink (#ec4899) | Validation work (features link to this) |
-| Milestone | Green (#22c55e) | Key outcomes (contains features) |
-| Vision | Indigo (#6366f1) | Long-term direction (contains milestones) |
-| Comment | Gray (#9ca3af) | Discussion/notes |
-
-## Priority Colors
-
-| Priority | Color |
-|----------|-------|
-| 24h-fix | Red (#ef4444) |
-| P0 | Orange (#f97316) |
-| P1 | Amber (#f59e0b) |
-| P2-P5 | Blue (#3b82f6) |
-| P6-P9 | Gray (#6b7280) |
+| Story | Blue (#3b82f6) | User-facing features |
 
 ---
 
 ## Implementation
 
-### Dependencies to Add
+### No New Dependencies
 
-```bash
-cd tools/kanban
-npm install react-markdown @radix-ui/react-select @radix-ui/react-dialog
-```
-
-Or use shadcn/ui if preferred (same Radix primitives).
+Use existing stack only:
+- **@dnd-kit/core** — already installed
+- **React 18** — already installed
+- No react-markdown, no Radix (no modal)
 
 ### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/lib/types.ts` | Add `type`, `size`, `blocked_by` to Feature interface |
-| `src/App.tsx` | Change columns from priority to status, add Done toggle |
-| `src/components/Card.tsx` | Add type/priority/size badges, click opens modal |
-| `src/components/CardModal.tsx` | **NEW** — markdown preview + fields panel |
-| `server/api.ts` | Parse new frontmatter fields, add blocking backlinks |
+| `src/lib/types.ts` | Update `Status` enum (5 values), add `type`, `date_done` |
+| `src/App.tsx` | Replace 3 columns with 5 status columns, add Done toggle |
+| `src/components/Card.tsx` | Add type badge |
+| `server/api.ts` | Parse `type` field, auto-set `date_done` on status=done |
 
 ### API Changes
 
-**GET /api/features** — add new fields:
+**GET /api/features** — add fields:
 ```typescript
-interface Card {
+interface Feature {
   id: string
   path: string
   title: string
-  status: Status  // expanded enum
-  priority: Priority  // P0-P9 scale
-  type: CardType  // bug, task, hypothesis, milestone, vision, etc.
-  size?: Size  // xxs-xl
-
-  // Relations (from frontmatter)
-  hypothesis?: string      // → hypothesis card id
-  milestone?: string       // → milestone card id
-  blocked_by?: string[]    // → card ids that block this
-  contains?: string[]      // → child card ids (for epics, milestones)
-
-  // Computed backlinks
-  blocking?: string[]      // ← cards that have this in blocked_by
-  contained_by?: string    // ← parent card that has this in contains
-
+  status: 'week' | 'today' | 'in-progress' | 'blocked' | 'done'
+  type?: 'bug' | 'task' | 'story'
+  date_done?: string  // ISO date
+  hypothesis?: string
   tags: string[]
 }
 ```
 
-**PATCH /api/features/:id** — support all new fields:
-```json
-{
-  "status": "in-progress",
-  "priority": "p1",
-  "type": "task",
-  "size": "m",
-  "hypothesis": "h-biz",
-  "milestone": "m-first-revenue",
-  "tags": ["validation"],
-  "blocked_by": ["p105"],
-  "contains": ["p106", "p107"]
-}
+**PATCH /api/features/:id** — auto-set date_done:
+```typescript
+// When status changes to 'done', server auto-sets:
+data.date_done = new Date().toISOString().split('T')[0]
 ```
-
-**Note:** Rename endpoint from `/api/features` to `/api/cards` in Phase 2 when expanding beyond features folder.
 
 ---
 
-## UI Stack
+## Styling
 
-Keep existing stack, add:
-- **react-markdown** for preview rendering
-- **@radix-ui/react-select** for dropdowns (or shadcn Select)
-- **@radix-ui/react-dialog** for modal (or shadcn Dialog)
-- **@dnd-kit/core** — already installed for drag-drop
-
-### Styling
-
-- Keep dark theme (`#1e1e3f` background)
-- Subtle borders (`#2a2a4a`)
-- Colored badges (per type/priority tables above)
-- Clean dropdowns matching Notion aesthetic
+- **Dark theme:** `#1e1e3f` background (keep existing)
+- **Borders:** `#2a2a4a` (keep existing)
+- **Notion UX patterns:** Column headers with count, vertical card stacking, drag-drop
+- **Our colors:** Type badges use our palette, not Notion's
 
 ---
 
 ## Verification Checklist
 
 - [ ] `npm run kanban` opens board at localhost:5050
-- [ ] Columns show status (Backlog, To Groom, Week, In Progress, Today, Blocked)
-- [ ] Done column hidden by default, toggleable via button
-- [ ] Drag card between columns updates `status` field in frontmatter
-- [ ] Card shows type badge with correct color
-- [ ] Card shows priority badge (P0-P9)
-- [ ] Card shows size badge (XXS-XL) if present
+- [ ] 5 columns visible: Week, Today, In Progress, Blocked, Done
+- [ ] Drag card between columns updates `status` in frontmatter
+- [ ] Dragging to Done auto-sets `date_done` in frontmatter
+- [ ] Card shows type badge with correct color (if type present)
 - [ ] Card shows hypothesis badge (purple) if present
-- [ ] Card shows tags as blue chips
-- [ ] Click card opens modal
-- [ ] Modal left side shows rendered markdown
-- [ ] Modal right side shows editable fields
-- [ ] Changing fields in modal saves to frontmatter
-- [ ] "Open in Cursor" button works
+- [ ] Click 📝 button opens file in Cursor
 - [ ] File watcher auto-refreshes board on external changes
+- [ ] "Hide Done" toggle works
 
 ---
 
-## Non-Goals (Phase 1)
+## Non-Goals
 
+- Modal with markdown preview (use Cursor)
+- Editable fields in UI (edit frontmatter in Cursor)
+- Priority scale (P0-P9) — keep simple
+- Size estimates — not needed
+- blocked_by relations — premature
+- Auto-archive — manual cleanup
 - Creating new cards from kanban (use CLI/IDE)
-- Complex backlog management (WSJF, MoSCoW)
-- Cloud sync — local only
-- Keyboard shortcuts (add later if needed)
-- Reading from multiple folders (Phase 2)
 
 ---
 
-## Folder Structure Evolution
+## Port Configuration
 
-### Current (Phase 1)
-```
-features/
-├── p112_kanban_notion_style.md   # type: task
-├── p105_sales_playbook.md        # type: user-story
-├── done/                         # status: done
-└── archive/                      # status: rejected
-```
-
-Kanban reads `features/*.md` only. Hypotheses and milestones still in docs/.
-
-### Future Options (Phase 2+)
-
-**Option A: Keep features/, add sibling folders**
-```
-features/                         # type: task, user-story, bug, epic
-hypotheses/                       # type: hypothesis
-├── h-biz.md
-└── h-ai.md
-milestones/                       # type: milestone
-├── m-first-revenue.md
-└── m-first-event.md
-visions/                          # type: vision
-└── v-stories-at-scale.md
-```
-
-**Option B: Single cards/ folder, type distinguishes**
-```
-cards/
-├── p112_kanban.md                # type: task
-├── h-biz.md                      # type: hypothesis
-├── m-first-revenue.md            # type: milestone
-├── v-stories-at-scale.md         # type: vision
-└── done/                         # any type, status: done
-```
-
-**Decision:** Defer to Phase 2. Phase 1 works with `features/` only.
-
----
-
-## Phased Implementation
-
-### Phase 1: Notion-Style Board (This Spec)
-- Status columns instead of Eisenhower
-- Type/priority/size badges
-- Modal with markdown preview + editable fields
-- Relations: blocked_by, hypothesis, milestone
-- Reads `features/*.md` only
-
-### Phase 2: Everything is a Card
-- Break `docs/hypotheses.md` into individual hypothesis cards
-- Break `docs/roadmap.md` into milestone cards
-- Add `contains` relation for parent cards
-- Kanban reads from multiple folders (or single cards/ folder)
-- Filter by type
-
-### Phase 3: Views Beyond Kanban
-- Table view (all properties visible)
-- Timeline view (by milestone/sprint)
-- Graph view (relations visualized)
-
----
-
-## Migration Path (After Phase 1)
-
-Once kanban works with features, migrate other content:
-
-1. **Create hypothesis cards:**
-   ```bash
-   # h-biz.md
-   ---
-   type: hypothesis
-   status: in-progress
-   ---
-   # H-Biz: Coaches will pay for calibration diagnostic
-   ...
-   ```
-
-2. **Create milestone cards:**
-   ```bash
-   # m-first-revenue.md
-   ---
-   type: milestone
-   status: backlog
-   contains: [p105, p106, p107]
-   ---
-   # First Revenue
-   ...
-   ```
-
-3. **Update features to link:**
-   ```yaml
-   # In p105_sales_playbook.md
-   hypothesis: h-biz
-   milestone: m-first-revenue
-   ```
-
-4. **Delete monolithic docs** (roadmap.md, hypotheses.md) after content migrated.
+- **Frontend:** http://localhost:5050 (Vite dev server)
+- **Backend API:** http://localhost:5051 (Express)
+- **Proxy:** Vite proxies `/api/*` to backend
+- **Command:** `npm run kanban` starts both
 
 ---
 
@@ -417,4 +202,3 @@ Once kanban works with features, migrate other content:
 
 - Current implementation: `tools/kanban/`
 - Original spec: [done/p111_kanban_view.md](done/p111_kanban_view.md)
-- Kanban docs: [docs/technical/kanban.md](../docs/technical/kanban.md)
