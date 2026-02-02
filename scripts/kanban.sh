@@ -22,9 +22,10 @@ start_kanban() {
 
     if [ -z "$worktree" ]; then
         dir="$(pwd)"
-    elif [ "$worktree" = "main" ]; then
+    elif [ "$worktree" = "main" ] || [ "$worktree" = "w0" ]; then
         dir="$BASE_DIR/claritypledge"
     else
+        # Handle both "w1" and "1" formats
         dir="$BASE_DIR/claritypledge-${worktree#w}"
     fi
 
