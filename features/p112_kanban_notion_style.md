@@ -38,6 +38,14 @@ tags: [tooling, dx]
 
 **The unlock:** When you drag a card to "Done", you should see which hypothesis got evidence and which milestone got closer. Not just "task complete."
 
+**The AI unlock:** Markdown + frontmatter = AI-native format.
+- Talk to Claude → it updates cards, creates new ones, reorders backlog
+- Look at kanban → see what AI did, drag to adjust
+- Best of both: conversational planning + visual control
+- "Show me what's blocking first-revenue" → AI reads relations, answers
+- "Reprioritize based on coach validation" → AI updates frontmatter
+- Future: AI suggests views, identifies bottlenecks, proposes sprints
+
 ---
 
 ## Philosophy: Everything is a Card
