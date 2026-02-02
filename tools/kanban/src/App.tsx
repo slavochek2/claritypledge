@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import { Column } from './components/Column'
-import { Feature, ColumnId } from './lib/types'
+import { Feature, ColumnId, Status } from './lib/types'
 
-// Only show actionable columns - done items disappear from view
+// Notion-style status columns (left-to-right workflow)
 const COLUMNS: { id: ColumnId; title: string; color: string }[] = [
-  { id: 'urgent-important', title: 'Urgent + Important', color: '#ef4444' },
-  { id: 'important', title: 'Important', color: '#3b82f6' },
+  { id: 'week', title: 'Week', color: '#3b82f6' },
+  { id: 'today', title: 'Today', color: '#f97316' },
   { id: 'in-progress', title: 'In Progress', color: '#f59e0b' },
+  { id: 'blocked', title: 'Blocked', color: '#ef4444' },
+  { id: 'done', title: 'Done', color: '#22c55e' },
 ]
+
+const HIDE_DONE_KEY = 'kanban-hide-done'
 
 export default function App() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hideDone, setHideDone] = useState(() => {
+    const stored = localStorage.getItem(HIDE_DONE_KEY)
+    return stored === 'true'
+  })
 
   const fetchFeatures = async () => {
     try {
@@ -40,6 +48,14 @@ export default function App() {
     return () => eventSource.close()
   }, [])
 
+  const toggleHideDone = () => {
+    setHideDone((prev) => {
+      const newValue = !prev
+      localStorage.setItem(HIDE_DONE_KEY, String(newValue))
+      return newValue
+    })
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over) return
@@ -51,24 +67,15 @@ export default function App() {
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
 
-    // Determine new status and priority based on column
-    let newStatus = feature.status
-    let newPriority = feature.priority
+    // Column ID is the new status (simple mapping)
+    const newStatus: Status = targetColumn
 
-    if (targetColumn === 'done') {
-      newStatus = 'done'
-    } else if (targetColumn === 'in-progress') {
-      newStatus = 'in-progress'
-    } else {
-      newStatus = 'backlog'
-      newPriority = targetColumn as 'urgent-important' | 'important'
-    }
+    // Skip if status unchanged
+    if (feature.status === newStatus) return
 
     // Optimistic update
     setFeatures((prev) =>
-      prev.map((f) =>
-        f.id === featureId ? { ...f, status: newStatus, priority: newPriority } : f
-      )
+      prev.map((f) => (f.id === featureId ? { ...f, status: newStatus } : f))
     )
 
     // Update file
@@ -76,7 +83,7 @@ export default function App() {
       const res = await fetch(`/api/features/${encodeURIComponent(featureId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, priority: newPriority }),
+        body: JSON.stringify({ status: newStatus }),
       })
       if (!res.ok) throw new Error('Failed to update')
     } catch {
@@ -86,18 +93,78 @@ export default function App() {
   }
 
   const getColumnFeatures = (columnId: ColumnId): Feature[] => {
-    return features.filter((f) => {
-      if (columnId === 'done') return f.status === 'done'
-      if (columnId === 'in-progress') return f.status === 'in-progress'
-      // Backlog columns: filter by priority
-      return f.status === 'backlog' && f.priority === columnId
-    })
+    // Simple: status matches column ID
+    return features.filter((f) => f.status === columnId)
   }
 
+  // Filter visible columns based on hideDone toggle
+  const visibleColumns = hideDone
+    ? COLUMNS.filter((col) => col.id !== 'done')
+    : COLUMNS
+
   if (loading) {
+    // Skeleton loading state
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        Loading features...
+      <div style={{ padding: 20 }}>
+        <div
+          style={{
+            marginBottom: 20,
+            height: 32,
+            width: 200,
+            background: '#2a2a4a',
+            borderRadius: 4,
+            animation: 'pulse 1.5s ease-in-out infinite',
+          }}
+        />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${visibleColumns.length}, 1fr)`,
+            gap: 16,
+          }}
+        >
+          {visibleColumns.map((col) => (
+            <div
+              key={col.id}
+              style={{
+                background: '#1a1a2e',
+                borderRadius: 8,
+                padding: 16,
+                minHeight: 300,
+              }}
+            >
+              <div
+                style={{
+                  height: 24,
+                  width: 80,
+                  background: '#2a2a4a',
+                  borderRadius: 4,
+                  marginBottom: 12,
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }}
+              />
+              {[1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    height: 80,
+                    background: '#2a2a4a',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    animation: 'pulse 1.5s ease-in-out infinite',
+                    animationDelay: `${i * 0.2}s`,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.7; }
+          }
+        `}</style>
       </div>
     )
   }
@@ -116,23 +183,49 @@ export default function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1 style={{ marginBottom: 20, fontSize: 24 }}>
-        Clarity Kanban
-        <span style={{ fontSize: 14, marginLeft: 12, opacity: 0.6 }}>
-          {features.length} features
-        </span>
-      </h1>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+        }}
+      >
+        <h1 style={{ fontSize: 24, margin: 0 }}>
+          Clarity Kanban
+          <span style={{ fontSize: 14, marginLeft: 12, opacity: 0.6 }}>
+            {features.length} features
+          </span>
+        </h1>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={hideDone}
+            onChange={toggleHideDone}
+            style={{ cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 14, opacity: 0.8 }}>Hide Done</span>
+        </label>
+      </div>
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: `repeat(${visibleColumns.length}, 1fr)`,
             gap: 16,
             alignItems: 'start',
           }}
         >
-          {COLUMNS.map((col) => (
+          {visibleColumns.map((col) => (
             <Column
               key={col.id}
               id={col.id}
