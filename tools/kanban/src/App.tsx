@@ -42,13 +42,6 @@ export default function App() {
 
   useEffect(() => {
     fetchFeatures()
-
-    // Set up SSE for file changes
-    const eventSource = new EventSource('/api/events')
-    eventSource.onmessage = () => {
-      fetchFeatures()
-    }
-    return () => eventSource.close()
   }, [])
 
   const toggleHideDone = () => {
@@ -94,6 +87,8 @@ export default function App() {
         body: JSON.stringify({ status: newStatus }),
       })
       if (!res.ok) throw new Error('Failed to update')
+      // Success - fetch fresh data to confirm
+      await fetchFeatures()
     } catch {
       // Revert on error
       fetchFeatures()
@@ -205,23 +200,40 @@ export default function App() {
             {features.length} features
           </span>
         </h1>
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            cursor: 'pointer',
-            userSelect: 'none',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={hideDone}
-            onChange={toggleHideDone}
-            style={{ cursor: 'pointer' }}
-          />
-          <span style={{ fontSize: 14, opacity: 0.8 }}>Hide Done</span>
-        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <button
+            onClick={fetchFeatures}
+            style={{
+              padding: '4px 12px',
+              fontSize: 14,
+              background: '#2a2a4a',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer',
+              opacity: 0.8,
+            }}
+            title="Refresh (R)"
+          >
+            ↻
+          </button>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={hideDone}
+              onChange={toggleHideDone}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14, opacity: 0.8 }}>Hide Done</span>
+          </label>
+        </div>
       </div>
 
       <DndContext collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>

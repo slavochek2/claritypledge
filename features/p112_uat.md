@@ -30,7 +30,7 @@ cd tools/kanban && npm run build  # Compiles successfully
 
 ### UAT-1.1: Board loads at correct URL
 **Given:** Kanban server is running
-**When:** User navigates to http://localhost:5050
+**When:** User navigates to http://localhost:9050
 **Then:** Board renders with 5 columns visible
 **Verify:** Chrome DevTools MCP navigate + screenshot
 
@@ -49,11 +49,11 @@ cd tools/kanban && npm run build  # Compiles successfully
 - Done: Green (#22c55e)
 **Verify:** Chrome DevTools MCP screenshot
 
-### UAT-1.4: File watcher refreshes board
+### UAT-1.4: Manual refresh updates board
 **Given:** Board is loaded with cards visible
 **When:** A feature file's frontmatter is edited externally (via Cursor/editor)
-**Then:** Board refreshes and shows updated status without manual reload
-**Verify:** Edit a file's `status` field, observe board updates automatically
+**Then:** User clicks refresh button (↻) and board shows updated status
+**Verify:** Edit a file's `status` field, click refresh, confirm board updates
 
 ### UAT-1.5: Click opens file in Cursor
 **Given:** Board is loaded with at least one card
@@ -149,10 +149,10 @@ cd tools/kanban && npm run build  # Compiles successfully
 
 | Test | Status | Notes |
 |------|--------|-------|
-| UAT-1.1 | ✅ | Code: App.tsx renders board, API verified returning features at :5051 |
+| UAT-1.1 | ✅ | Code: App.tsx renders board, API verified returning features at :9051 |
 | UAT-1.2 | ✅ | Code: COLUMNS array (lines 7-13) defines Week→Today→InProgress→Blocked→Done |
 | UAT-1.3 | ✅ | Code: COLUMNS colors match spec (#3b82f6, #f97316, #f59e0b, #ef4444, #22c55e) |
-| UAT-1.4 | ✅ | Code: chokidar watcher + SSE in api.ts, EventSource in App.tsx |
+| UAT-1.4 | ✅ | Code: Manual refresh button in header (App.tsx line 199-211), fetchFeatures on click |
 | UAT-1.5 | ⏭️ | Code ready (openInCursor), needs manual verification in browser |
 | UAT-2.1 | ✅ | Code: DndContext + handleDragEnd in App.tsx implements drag-drop |
 | UAT-2.2 | ✅ | API verified: PATCH /api/features/:id updates status in file |
@@ -187,5 +187,5 @@ Output `<promise>P112 UAT COMPLETE</promise>` when done.
 - **Manual test for Cursor integration** (UAT-1.5) — requires real IDE
 - **Commit after each category passes** — Progress is preserved
 - **Update scorecard** after each test — This file is your state
-- The kanban runs on localhost:5050 (frontend) and localhost:5051 (API)
+- The kanban runs on localhost:9050 (frontend) and localhost:9051 (API)
 - Start with `npm run kanban` from project root

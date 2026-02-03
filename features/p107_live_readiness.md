@@ -1,8 +1,10 @@
 ---
-status: backlog
+status: done
 priority: important
 hypothesis: H-Biz
-tags: [testing, demo]
+tags:
+  - testing
+  - demo
 ---
 
 # P107: /live Demo Readiness

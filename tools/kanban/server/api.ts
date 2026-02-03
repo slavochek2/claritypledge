@@ -1,9 +1,9 @@
 import express from 'express'
 import cors from 'cors'
-import { readdir, readFile, writeFile, rename } from 'fs/promises'
+import { readdir, readFile, rename } from 'fs/promises'
+import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
-import chokidar from 'chokidar'
 import { exec } from 'child_process'
 import type { Feature, Status, FeatureType, Priority, Size } from '../src/lib/types'
 
@@ -14,44 +14,25 @@ app.use(express.json())
 // Path to features directory (relative to project root)
 const FEATURES_DIR = join(process.cwd(), '..', '..', 'features')
 
-// SSE clients for file change notifications
-const sseClients: express.Response[] = []
-
 // Valid values for enum fields
 const VALID_STATUS: Status[] = ['week', 'today', 'in-progress', 'blocked', 'done']
 const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story']
 const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
 const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
 
-// Watch for file changes
-const watcher = chokidar.watch(FEATURES_DIR, {
-  ignored: /node_modules/,
-  persistent: true,
-})
+// In-memory cache - invalidated on PATCH
+let featuresCache: Feature[] | null = null
 
-watcher.on('all', () => {
-  // Notify all SSE clients
-  sseClients.forEach((client) => {
-    client.write('data: refresh\n\n')
-  })
-})
-
-// SSE endpoint for file change notifications
-app.get('/api/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
-
-  sseClients.push(res)
-  req.on('close', () => {
-    const index = sseClients.indexOf(res)
-    if (index !== -1) sseClients.splice(index, 1)
-  })
-})
+async function getCachedFeatures(): Promise<Feature[]> {
+  if (!featuresCache) {
+    featuresCache = await getFeatures()
+  }
+  return featuresCache
+}
 
 async function parseFeatureFile(filePath: string): Promise<Feature | null> {
   try {
-    const content = await readFile(filePath, 'utf-8')
+    const content = readFileSync(filePath, 'utf-8')
     const { data, content: body } = matter(content)
 
     // Extract title from first heading or filename
@@ -143,7 +124,7 @@ async function getFeatures(): Promise<Feature[]> {
 // GET /api/features - list all features
 app.get('/api/features', async (_req, res) => {
   try {
-    const features = await getFeatures()
+    const features = await getCachedFeatures()
     res.json(features)
   } catch {
     res.status(500).json({ error: 'Failed to read features' })
@@ -177,20 +158,35 @@ app.patch('/api/features/:id', async (req, res) => {
     // Update frontmatter (only status is editable via UI)
     if (status) data.status = status
 
-    // Write back
+    // Write to file
     const newContent = matter.stringify(body, data)
-    await writeFile(feature.path, newContent)
+    writeFileSync(feature.path, newContent)
 
-    // If status is 'done', move to done/ folder
+    // Update cache directly (faster than invalidating)
+    if (featuresCache) {
+      const cachedFeature = featuresCache.find((f) => f.id === id)
+      if (cachedFeature) {
+        cachedFeature.status = status
+      }
+    }
+
+    // Move to/from done folder based on status
     if (status === 'done' && !feature.path.includes('/done/')) {
       const newPath = join(FEATURES_DIR, 'done', basename(feature.path))
       await rename(feature.path, newPath)
-    }
-
-    // If moving out of done, move back to root
-    if (status !== 'done' && feature.path.includes('/done/')) {
+      // Update path in cache
+      if (featuresCache) {
+        const cachedFeature = featuresCache.find((f) => f.id === id)
+        if (cachedFeature) cachedFeature.path = newPath
+      }
+    } else if (status !== 'done' && feature.path.includes('/done/')) {
       const newPath = join(FEATURES_DIR, basename(feature.path))
       await rename(feature.path, newPath)
+      // Update path in cache
+      if (featuresCache) {
+        const cachedFeature = featuresCache.find((f) => f.id === id)
+        if (cachedFeature) cachedFeature.path = newPath
+      }
     }
 
     res.json({ success: true })
