@@ -12,19 +12,14 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, VideoIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, VideoIcon, SparklesIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -95,48 +90,52 @@ export function SimpleNavigation() {
           <div className="hidden lg:flex items-center gap-3">
             {/* P113: Show icon nav for logged-in users, text links for logged-out */}
             {showUserMenu ? (
-              /* Logged-in: Icon nav (My Events, My Profile, Start Session, Avatar) */
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to="/events"
-                      className="flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      aria-label="My Events"
-                    >
-                      <CalendarIcon className="w-5 h-5" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>My Events</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={slug ? `/p/${slug}` : "/me"}
-                      className="flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                      aria-label="My Profile"
-                    >
-                      <UserIcon className="w-5 h-5" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>My Profile</TooltipContent>
-                </Tooltip>
-                {/* Start a Clarity Session CTA - with icon */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to="/live"
-                      title="Start a live clarity session"
-                      className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-                      onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
-                    >
-                      <VideoIcon className="w-4 h-4" />
-                      Start Session
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>Start a Clarity Session</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              /* Logged-in: Icon nav with labels (LinkedIn-style) */
+              <>
+                {/* My Events */}
+                <Link
+                  to="/events"
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname === "/events" || location.pathname.startsWith("/events/")
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <CalendarIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">My Events</span>
+                </Link>
+                {/* Create (disabled) */}
+                <button
+                  onClick={() => toast("Coming soon", { description: "Create feature is not yet available" })}
+                  className="flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md text-muted-foreground opacity-50 cursor-not-allowed"
+                  aria-label="Create (coming soon)"
+                >
+                  <SparklesIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">Create</span>
+                </button>
+                {/* My Profile */}
+                <Link
+                  to={slug ? `/p/${slug}` : "/me"}
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname.startsWith("/p/") || location.pathname === "/me"
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <UserIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">My Profile</span>
+                </Link>
+                {/* Start Live CTA */}
+                <Link
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                >
+                  <VideoIcon className="w-4 h-4" />
+                  Start Live
+                </Link>
+              </>
             ) : (
               /* Logged-out: Text links - order: Events, Pledgers, Manifesto, About */
               <>

@@ -25,7 +25,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   // Landing page needs nav but no top padding (hero goes to top)
   const needsTopPadding = !hasOwnNavigation && !isLandingPage;
   // P113: Add bottom padding for mobile when logged in (for bottom nav)
-  const needsBottomPadding = showUserMenu && !isLiveMeetingPage;
+  const needsBottomPadding = showUserMenu;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -38,7 +38,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
       </main>
       {isLandingPage ? <ClarityFooter /> : <LegalFooter />}
       {/* P113: Mobile bottom nav for logged-in users */}
-      {!isLiveMeetingPage && <BottomNav />}
+      <BottomNav />
       <Toaster position="top-center" />
     </div>
   );
