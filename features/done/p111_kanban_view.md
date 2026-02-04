@@ -1,5 +1,6 @@
 ---
 status: done
+sort_order: 1000001
 completed_at: '2026-02-04'
 ---
 # P111: Local Kanban View for Features

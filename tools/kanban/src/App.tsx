@@ -1,10 +1,29 @@
-import { useEffect, useState, useMemo } from 'react'
-import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  PointerSensor,
+} from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Column } from './components/Column'
-import { Feature, Status } from './lib/types'
+import { Feature, FeatureType, Status } from './lib/types'
 
-// Column configuration with visibility and filter options
+export interface DropIndicator {
+  columnId: Status
+  beforeId: string | null // Show indicator before this card (null = at end of column)
+}
+
+interface Worktree {
+  path: string
+  branch: string
+  isCurrent: boolean
+}
+
 interface ColumnConfig {
   id: Status
   title: string
@@ -13,18 +32,15 @@ interface ColumnConfig {
   filter?: 'today' | 'before-today'
 }
 
-// Notion-style status columns (left-to-right workflow)
-// Order: Backlog -> Week -> Today -> Blocked -> In Progress -> Done
 const COLUMNS: ColumnConfig[] = [
   { id: 'backlog', title: 'Backlog', color: '#6b7280', defaultHidden: true },
-  { id: 'week', title: 'Week', color: '#3b82f6' },
-  { id: 'today', title: 'Today', color: '#3b82f6' },
+  { id: 'week', title: 'Week', color: '#6b7280' },
+  { id: 'today', title: 'Today', color: '#22c55e' },
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
   { id: 'done', title: 'Done', color: '#22c55e', filter: 'today' },
 ]
 
-// Virtual column for "All Done" (older completions)
 const ALL_DONE_COLUMN: ColumnConfig = {
   id: 'done',
   title: 'All Done',
@@ -33,28 +49,64 @@ const ALL_DONE_COLUMN: ColumnConfig = {
   filter: 'before-today',
 }
 
-// Valid column IDs for drop target validation
 const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done'])
 
-const SHOW_BACKLOG_KEY = 'kanban-show-backlog'
-const SHOW_ALL_DONE_KEY = 'kanban-show-all-done'
+type ViewMode = 'active' | 'backlog' | 'all-done'
+const VIEW_MODE_KEY = 'kanban-view-mode'
+const TYPE_FILTER_KEY = 'kanban-type-filter'
+const WORKTREE_KEY = 'kanban-worktree'
+
+type TypeFilter = FeatureType | 'all'
+
+const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
+  { id: 'all', label: 'All', color: 'var(--tag-gray-bg)' },
+  { id: 'bug', label: 'Bug', color: 'var(--tag-red-bg)' },
+  { id: 'task', label: 'Task', color: 'var(--tag-blue-bg)' },
+  { id: 'story', label: 'Story', color: 'var(--tag-green-bg)' },
+]
 
 export default function App() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showBacklog, setShowBacklog] = useState(() => {
-    const stored = localStorage.getItem(SHOW_BACKLOG_KEY)
-    return stored === 'true'
-  })
-  const [showAllDone, setShowAllDone] = useState(() => {
-    const stored = localStorage.getItem(SHOW_ALL_DONE_KEY)
-    return stored === 'true'
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null)
+  const [worktrees, setWorktrees] = useState<Worktree[]>([])
+  const [selectedWorktree, setSelectedWorktree] = useState<string | null>(() => {
+    return localStorage.getItem(WORKTREE_KEY)
   })
 
-  const fetchFeatures = async () => {
+  // Require 5px movement before drag starts - allows clicks to work
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  )
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const stored = localStorage.getItem(VIEW_MODE_KEY)
+    if (stored === 'backlog' || stored === 'all-done') return stored
+    return 'active'
+  })
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
+    const stored = localStorage.getItem(TYPE_FILTER_KEY)
+    if (stored === 'bug' || stored === 'task' || stored === 'story') return stored
+    return 'all'
+  })
+
+  // Build API URL with worktree param
+  const buildUrl = useCallback((path: string) => {
+    if (selectedWorktree) {
+      const separator = path.includes('?') ? '&' : '?'
+      return `${path}${separator}worktree=${encodeURIComponent(selectedWorktree)}`
+    }
+    return path
+  }, [selectedWorktree])
+
+  const fetchFeatures = useCallback(async () => {
     try {
-      const res = await fetch('/api/features')
+      const res = await fetch(buildUrl('/api/features'))
       if (!res.ok) throw new Error('Failed to fetch features')
       const data = await res.json()
       setFeatures(data)
@@ -64,237 +116,275 @@ export default function App() {
     } finally {
       setLoading(false)
     }
+  }, [buildUrl])
+
+  const fetchWorktrees = async () => {
+    try {
+      const res = await fetch('/api/worktrees')
+      if (!res.ok) throw new Error('Failed to fetch worktrees')
+      const data: Worktree[] = await res.json()
+      setWorktrees(data)
+      // If no worktree selected yet, select the current one
+      if (!selectedWorktree) {
+        const current = data.find((wt) => wt.isCurrent)
+        if (current) {
+          setSelectedWorktree(current.path)
+          localStorage.setItem(WORKTREE_KEY, current.path)
+        }
+      }
+    } catch {
+      // Ignore - worktree selection will just be disabled
+    }
   }
 
   useEffect(() => {
-    fetchFeatures()
+    fetchWorktrees()
   }, [])
 
-  const toggleShowBacklog = () => {
-    setShowBacklog((prev) => {
-      const newValue = !prev
-      localStorage.setItem(SHOW_BACKLOG_KEY, String(newValue))
-      return newValue
-    })
+  useEffect(() => {
+    fetchFeatures()
+  }, [fetchFeatures])
+
+  const changeWorktree = (path: string) => {
+    setSelectedWorktree(path)
+    localStorage.setItem(WORKTREE_KEY, path)
+    setLoading(true)
   }
 
-  const toggleShowAllDone = () => {
-    setShowAllDone((prev) => {
-      const newValue = !prev
-      localStorage.setItem(SHOW_ALL_DONE_KEY, String(newValue))
-      return newValue
-    })
+  const changeViewMode = (mode: ViewMode) => {
+    setViewMode(mode)
+    localStorage.setItem(VIEW_MODE_KEY, mode)
+  }
+
+  const changeTypeFilter = (filter: TypeFilter) => {
+    setTypeFilter(filter)
+    localStorage.setItem(TYPE_FILTER_KEY, filter)
+  }
+
+  const getEffectiveOrder = (item: Feature | undefined): number => {
+    if (!item) return 1000000
+    return item.sort_order ?? 1000000
+  }
+
+  const calculateSortOrder = (columnFeatures: Feature[], newIndex: number): number => {
+    if (columnFeatures.length === 0) return 1.0
+    if (newIndex === 0) {
+      return getEffectiveOrder(columnFeatures[0]) / 2
+    } else if (newIndex >= columnFeatures.length) {
+      return getEffectiveOrder(columnFeatures[columnFeatures.length - 1]) + 1
+    } else {
+      return (getEffectiveOrder(columnFeatures[newIndex - 1]) + getEffectiveOrder(columnFeatures[newIndex])) / 2
+    }
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over) {
+      setDropIndicator(null)
+      return
+    }
+
+    const activeFeature = features.find((f) => f.id === active.id)
+    if (!activeFeature) {
+      setDropIndicator(null)
+      return
+    }
+
+    const overId = over.id as string
+
+    // Dropping on a column directly (empty area)
+    if (VALID_COLUMN_IDS.has(overId as Status)) {
+      setDropIndicator({ columnId: overId as Status, beforeId: null })
+      return
+    }
+
+    // Dropping on a card
+    const overFeature = features.find((f) => f.id === overId)
+    if (overFeature) {
+      setDropIndicator({ columnId: overFeature.status, beforeId: overId })
+    } else {
+      setDropIndicator(null)
+    }
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    setDropIndicator(null)
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null)
+    setDropIndicator(null)
     const { active, over } = event
     if (!over) return
 
     const featureId = active.id as string
     const overId = over.id as string
-
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
 
-    // Case 1: Dropped on a column (status change)
     if (VALID_COLUMN_IDS.has(overId as Status)) {
       const newStatus = overId as Status
-      if (feature.status === newStatus) return // Same column, no change
+      if (feature.status === newStatus) return
 
-      // Optimistic update
+      const targetColumnFeatures = features
+        .filter((f) => f.status === newStatus)
+        .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+      const newSortOrder = calculateSortOrder(targetColumnFeatures, targetColumnFeatures.length)
+
       setFeatures((prev) =>
-        prev.map((f) => (f.id === featureId ? { ...f, status: newStatus } : f))
+        prev.map((f) => (f.id === featureId ? { ...f, status: newStatus, sort_order: newSortOrder } : f))
       )
 
-      // Update file
       try {
-        const res = await fetch(`/api/features/${encodeURIComponent(featureId)}`, {
+        const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({ status: newStatus, sort_order: newSortOrder }),
         })
         if (!res.ok) throw new Error('Failed to update')
-        await fetchFeatures()
       } catch {
         fetchFeatures()
       }
       return
     }
 
-    // Case 2: Dropped on another card (within-column reorder)
     const targetFeature = features.find((f) => f.id === overId)
     if (!targetFeature) return
 
-    // Only allow reordering within same column
-    if (feature.status !== targetFeature.status) return
-
-    // Get features in this column sorted by sort_order
+    const targetStatus = targetFeature.status
     const columnFeatures = features
-      .filter((f) => f.status === feature.status)
-      .sort((a, b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity))
+      .filter((f) => f.status === targetStatus && f.id !== featureId)
+      .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
 
-    const oldIndex = columnFeatures.findIndex((f) => f.id === featureId)
-    const newIndex = columnFeatures.findIndex((f) => f.id === overId)
+    const targetIndex = columnFeatures.findIndex((f) => f.id === overId)
+    const newSortOrder = calculateSortOrder(columnFeatures, targetIndex)
+
+    if (feature.status !== targetStatus) {
+      setFeatures((prev) =>
+        prev.map((f) => (f.id === featureId ? { ...f, status: targetStatus, sort_order: newSortOrder } : f))
+      )
+
+      try {
+        const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: targetStatus, sort_order: newSortOrder }),
+        })
+        if (!res.ok) throw new Error('Failed to update')
+      } catch {
+        fetchFeatures()
+      }
+      return
+    }
+
+    const currentColumnFeatures = features
+      .filter((f) => f.status === feature.status)
+      .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+
+    const oldIndex = currentColumnFeatures.findIndex((f) => f.id === featureId)
+    const newIndex = currentColumnFeatures.findIndex((f) => f.id === overId)
 
     if (oldIndex === newIndex) return
 
-    // Calculate new sort_order using fractional ordering
-    const reorderedFeatures = arrayMove(columnFeatures, oldIndex, newIndex)
+    const reorderedFeatures = arrayMove(currentColumnFeatures, oldIndex, newIndex)
     const newPosition = reorderedFeatures.findIndex((f) => f.id === featureId)
 
-    let newSortOrder: number
+    let finalSortOrder: number
     if (newPosition === 0) {
-      // First position: use half of the next item's order (or 1.0 if none)
-      const nextOrder = reorderedFeatures[1]?.sort_order ?? 2.0
-      newSortOrder = nextOrder / 2
+      finalSortOrder = getEffectiveOrder(reorderedFeatures[1]) / 2
     } else if (newPosition === reorderedFeatures.length - 1) {
-      // Last position: use prev + 1
-      const prevOrder = reorderedFeatures[newPosition - 1]?.sort_order ?? 0
-      newSortOrder = prevOrder + 1
+      finalSortOrder = getEffectiveOrder(reorderedFeatures[newPosition - 1]) + 1
     } else {
-      // Middle: average of neighbors
-      const prevOrder = reorderedFeatures[newPosition - 1]?.sort_order ?? 0
-      const nextOrder = reorderedFeatures[newPosition + 1]?.sort_order ?? prevOrder + 2
-      newSortOrder = (prevOrder + nextOrder) / 2
+      finalSortOrder =
+        (getEffectiveOrder(reorderedFeatures[newPosition - 1]) + getEffectiveOrder(reorderedFeatures[newPosition + 1])) /
+        2
     }
 
-    // Optimistic update
-    setFeatures((prev) =>
-      prev.map((f) => (f.id === featureId ? { ...f, sort_order: newSortOrder } : f))
-    )
+    setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, sort_order: finalSortOrder } : f)))
 
-    // API call
     try {
-      const res = await fetch(`/api/features/${encodeURIComponent(featureId)}`, {
+      const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sort_order: newSortOrder }),
+        body: JSON.stringify({ sort_order: finalSortOrder }),
       })
       if (!res.ok) throw new Error('Failed to update')
     } catch {
-      fetchFeatures() // Revert on error
+      fetchFeatures()
     }
   }
 
   const getColumnFeatures = (column: ColumnConfig): Feature[] => {
-    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0]
-
     return features
       .filter((f) => {
-        // Must match the column's status
         if (f.status !== column.id) return false
-
-        // Apply filter for Done columns
-        if (column.filter === 'today') {
-          // Done column: only items completed TODAY
-          return f.completed_at === today
-        } else if (column.filter === 'before-today') {
-          // All Done column: items completed before today (or no completed_at = legacy)
-          return !f.completed_at || f.completed_at < today
-        }
-
+        if (column.filter === 'today') return f.completed_at === today
+        if (column.filter === 'before-today') return !f.completed_at || f.completed_at < today
+        // Type filter
+        if (typeFilter !== 'all' && f.type !== typeFilter) return false
         return true
       })
       .sort((a, b) => {
-        // Sort by sort_order first, then by ID as tiebreaker
-        const orderA = a.sort_order ?? Infinity
-        const orderB = b.sort_order ?? Infinity
+        const orderA = a.sort_order ?? 1000000
+        const orderB = b.sort_order ?? 1000000
         if (orderA !== orderB) return orderA - orderB
         return a.id.localeCompare(b.id)
       })
   }
 
-  // Build visible columns based on toggles
   const visibleColumns = useMemo(() => {
     let cols = [...COLUMNS]
-
-    // Filter out backlog if not shown
-    if (!showBacklog) {
-      cols = cols.filter((c) => c.id !== 'backlog')
-    }
-
-    // Add "All Done" column if toggled on
-    if (showAllDone) {
-      cols.push(ALL_DONE_COLUMN)
-    }
-
+    if (viewMode !== 'backlog') cols = cols.filter((c) => c.id !== 'backlog')
+    if (viewMode === 'all-done') cols.push(ALL_DONE_COLUMN)
     return cols
-  }, [showBacklog, showAllDone])
+  }, [viewMode])
+
+  // Notion-style view tab
+  const viewTabStyle = (isActive: boolean): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    fontSize: 'var(--font-size-14)',
+    fontWeight: 'var(--font-weight-regular)',
+    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+    background: isActive ? 'var(--bg-hover)' : 'transparent',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    transition: 'background 0.1s',
+  })
 
   if (loading) {
-    // Skeleton loading state
     return (
-      <div style={{ padding: 20 }}>
-        <div
-          style={{
-            marginBottom: 20,
-            height: 32,
-            width: 200,
-            background: '#2a2a4a',
-            borderRadius: 4,
-            animation: 'pulse 1.5s ease-in-out infinite',
-          }}
-        />
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${visibleColumns.length}, 1fr)`,
-            gap: 16,
-          }}
-        >
-          {visibleColumns.map((col) => (
-            <div
-              key={`${col.id}-${col.filter ?? 'default'}`}
-              style={{
-                background: '#1a1a2e',
-                borderRadius: 8,
-                padding: 16,
-                minHeight: 300,
-              }}
-            >
-              <div
-                style={{
-                  height: 24,
-                  width: 80,
-                  background: '#2a2a4a',
-                  borderRadius: 4,
-                  marginBottom: 12,
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    height: 80,
-                    background: '#2a2a4a',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                    animation: 'pulse 1.5s ease-in-out infinite',
-                    animationDelay: `${i * 0.2}s`,
-                  }}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-        <style>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.7; }
-          }
-        `}</style>
+      <div style={{ padding: 'var(--spacing-16)', color: 'var(--text-tertiary)' }}>
+        Loading...
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#ef4444' }}>
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--tag-red-text)' }}>
         Error: {error}
         <br />
-        <button onClick={fetchFeatures} style={{ marginTop: 16 }}>
+        <button
+          onClick={fetchFeatures}
+          style={{
+            marginTop: 16,
+            padding: '6px 12px',
+            background: 'var(--bg-hover)',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+          }}
+        >
           Retry
         </button>
       </div>
@@ -302,94 +392,135 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 20,
-        }}
-      >
-        <h1 style={{ fontSize: 24, margin: 0 }}>
-          Clarity Kanban
-          <span style={{ fontSize: 14, marginLeft: 12, opacity: 0.6 }}>
-            {features.length} features
-          </span>
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <button
-            onClick={fetchFeatures}
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ padding: 'var(--spacing-12) var(--spacing-16) 0', flexShrink: 0 }}>
+        {/* Title row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-8)',
+            marginBottom: 'var(--spacing-8)',
+          }}
+        >
+          <span style={{ fontSize: 24 }}>🛹</span>
+          <h1
             style={{
-              padding: '4px 12px',
-              fontSize: 14,
-              background: '#2a2a4a',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-              opacity: 0.8,
-            }}
-            title="Refresh (R)"
-          >
-            ↻
-          </button>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              userSelect: 'none',
+              fontSize: 'var(--font-size-16)',
+              fontWeight: 'var(--font-weight-semibold)',
+              color: 'var(--text-primary)',
+              margin: 0,
             }}
           >
-            <input
-              type="checkbox"
-              checked={showBacklog}
-              onChange={toggleShowBacklog}
-              style={{ cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: 14, opacity: 0.8 }}>Backlog</span>
-          </label>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={showAllDone}
-              onChange={toggleShowAllDone}
-              style={{ cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: 14, opacity: 0.8 }}>All Done</span>
-          </label>
+            Clarity Kanban
+          </h1>
+
+          {/* Worktree selector */}
+          {worktrees.length > 1 && (
+            <select
+              value={selectedWorktree || ''}
+              onChange={(e) => changeWorktree(e.target.value)}
+              style={{
+                marginLeft: 'auto',
+                padding: '4px 8px',
+                fontSize: 'var(--font-size-14)',
+                color: 'var(--text-primary)',
+                background: 'var(--bg-hover)',
+                border: '1px solid rgba(55, 53, 47, 0.16)',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              {worktrees.map((wt) => (
+                <option key={wt.path} value={wt.path}>
+                  {wt.branch}{wt.isCurrent ? ' (current)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* View tabs row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingBottom: 'var(--spacing-12)',
+            borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+            <button style={viewTabStyle(viewMode === 'backlog')} onClick={() => changeViewMode('backlog')}>
+              Backlog
+            </button>
+            <button style={viewTabStyle(viewMode === 'active')} onClick={() => changeViewMode('active')}>
+              Main Board
+            </button>
+            <button style={viewTabStyle(viewMode === 'all-done')} onClick={() => changeViewMode('all-done')}>
+              Done
+            </button>
+          </div>
+
+          {/* Type filter chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+            {TYPE_CHIPS.map((chip) => (
+              <button
+                key={chip.id}
+                onClick={() => changeTypeFilter(chip.id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  fontSize: 'var(--font-size-12)',
+                  fontWeight: 'var(--font-weight-regular)',
+                  color: typeFilter === chip.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: typeFilter === chip.id ? chip.color : 'transparent',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s',
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <DndContext collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${visibleColumns.length}, 1fr)`,
-            gap: 16,
-            alignItems: 'start',
-          }}
-        >
-          {visibleColumns.map((col) => (
-            <Column
-              key={`${col.id}-${col.filter ?? 'default'}`}
-              id={col.id}
-              title={col.title}
-              color={col.color}
-              features={getColumnFeatures(col)}
-            />
-          ))}
-        </div>
-      </DndContext>
+      {/* Board */}
+      <div style={{ padding: 'var(--spacing-12) var(--spacing-16)', overflowX: 'auto', flex: 1 }}>
+        <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--spacing-8)',
+              alignItems: 'flex-start',
+            }}
+          >
+            {visibleColumns.map((col) => (
+              <Column
+                key={`${col.id}-${col.filter ?? 'default'}`}
+                id={col.id}
+                title={col.title}
+                color={col.color}
+                features={getColumnFeatures(col)}
+                dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
+                isDragging={activeId !== null}
+              />
+            ))}
+          </div>
+        </DndContext>
+      </div>
     </div>
   )
 }

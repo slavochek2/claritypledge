@@ -63,8 +63,12 @@ These are anti-patterns, not rules to memorize:
 **Key insight:** [Most important finding — 1 sentence]
 
 ### Decisions Needed
-| Question | Options | Recommendation |
-|----------|---------|----------------|
+| # | Question | Options | Recommendation |
+|---|----------|---------|----------------|
+| 1 | [Question] | A) ... B) ... C) ... | [Rec] |
+| 2 | [Question] | A) ... B) ... C) ... | [Rec] |
+
+Reply: "1a, 2b" etc.
 
 ### Blind Spots
 | Finding | Severity |

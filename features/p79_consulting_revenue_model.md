@@ -1,5 +1,6 @@
 ---
 status: backlog
+sort_order: 0.078125
 ---
 # P79: Consulting & Revenue Model
 

@@ -1,11 +1,11 @@
 ---
-status: backlog
+status: week
 priority: important
 hypothesis: H-Biz
 tags:
   - marketing
   - automation
-sort_order: 2.5
+sort_order: 1000003
 ---
 
 # P108: Newsletter Automation

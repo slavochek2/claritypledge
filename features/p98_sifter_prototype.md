@@ -1,5 +1,6 @@
 ---
-status: blocked
+status: in-progress
+sort_order: 1000002
 ---
 # P98: Sifter (Revised Spec)
 

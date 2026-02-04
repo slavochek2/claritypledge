@@ -372,7 +372,51 @@ export function Live() {
     setSelectedRating(null);
   };
 
-  // Story: Start verification with rating
+  // Story: Ask partner to rate their understanding (no speaker pre-rating)
+  const handleAskPartnerUnderstanding = (story?: Story) => {
+    const targetStory = story || cardState.activeStory;
+    if (!targetStory) return;
+
+    setCardState(prev => ({
+      ...prev,
+      phase: 'in-legacy-flow',
+      activeStory: targetStory,
+    }));
+    setState(prev => ({
+      ...prev,
+      ratingPhase: 'waiting',
+      flowType: 'check',
+      checkerName: currentUser.name,
+      responderName: partnerName,
+      // No checkerRating set - we're not calibrating speaker's belief
+      checkerSubmitted: false,
+    }));
+
+    // Trigger partner's view
+    setIncomingStory(targetStory);
+    setPartnerPhase('story-received');
+
+    // Simulate partner response - show toast and return to search
+    const timeoutId = setTimeout(() => {
+      const partnerRating = Math.floor(Math.random() * 4) + 6;
+      toast.success(`${displayPartnerName}: ${partnerRating}/10 confidence`);
+      // Reset to idle state
+      setCardState(prev => ({
+        ...prev,
+        phase: 'idle',
+        activeStory: null,
+      }));
+      setState(prev => ({
+        ...prev,
+        ratingPhase: 'idle',
+        responderRating: undefined,
+        responderSubmitted: false,
+      }));
+    }, PARTNER_SIMULATION_DELAY_MS);
+    simulationTimeoutsRef.current.push(timeoutId);
+  };
+
+  // Story: Start verification with rating (legacy - for explain-back flow)
   const handleStartWithRating = (rating: number) => {
     setCardState(prev => ({ ...prev, phase: 'in-legacy-flow' }));
     setState(prev => ({
@@ -1225,22 +1269,19 @@ export function Live() {
             </>
           )}
 
-          {/* Partner received a Point request - point above, position buttons in drawer */}
+          {/* Partner received a Point request - simple view with position selection */}
           {partnerPhase === 'point-received' && incomingPoint && (
             <>
-              {/* Point card in main area - using actual PointCard component */}
+              {/* Point text in main area */}
               <div className="flex-1 bg-gray-100 p-4 flex items-center justify-center overflow-auto">
-                <div className="w-full max-w-lg">
-                  <PointCard point={incomingPoint} compact />
+                <div className="w-full max-w-lg bg-white rounded-lg border border-gray-200 p-4">
+                  <p className="text-sm text-gray-900">{incomingPoint.text}</p>
                 </div>
               </div>
 
-              {/* Bottom drawer with position buttons only */}
+              {/* Bottom drawer - position selection */}
               <div className="bg-white border-t rounded-t-2xl shadow-lg p-6 pb-8">
                 <div className="max-w-lg mx-auto space-y-4">
-                  <p className="text-sm font-medium text-center">
-                    What's your position on this point?
-                  </p>
                   <PositionButtons
                     userPosition={partnerPosition}
                     counts={EMPTY_POSITION_COUNTS}
@@ -1363,44 +1404,25 @@ export function Live() {
                           </p>
                         </div>
 
-                        {/* CTA or Rating UI */}
+                        {/* CTA - sends story to partner for their confidence rating */}
                         {isSelected ? (
-                          <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50">
-                            <p className="text-sm font-medium text-center mb-3">
-                              How well do you believe {displayPartnerName} understands you?
-                            </p>
-                            <div className="flex justify-center gap-1 mb-3">
-                              {RATING_OPTIONS.map((option) => (
-                                <button
-                                  key={option.value}
-                                  onClick={() => setSelectedRating(option.value)}
-                                  className={`w-7 h-7 rounded text-xs font-medium transition-all ${
-                                    selectedRating === option.value
-                                      ? 'bg-blue-500 text-white'
-                                      : 'bg-white border border-gray-200 hover:border-blue-300 text-gray-700'
-                                  }`}
-                                >
-                                  {option.label}
-                                </button>
-                              ))}
-                            </div>
+                          <div className="px-4 pb-4">
                             <button
                               type="button"
-                              onClick={() => selectedRating !== null && handleStartWithRating(selectedRating)}
-                              disabled={selectedRating === null}
-                              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
+                              onClick={handleAskPartnerUnderstanding}
+                              className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
                             >
-                              Submit
+                              Does {displayPartnerName} understand your story?
                             </button>
                           </div>
                         ) : (
                           <div className="px-4 pb-4">
                             <button
                               type="button"
-                              onClick={() => handleSelectStory(story)}
+                              onClick={() => handleAskPartnerUnderstanding(story)}
                               className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
                             >
-                              Does {displayPartnerName} understand you?
+                              Does {displayPartnerName} understand your story?
                             </button>
                           </div>
                         )}
@@ -1458,7 +1480,7 @@ export function Live() {
                               disabled={!cardState.myPosition}
                               className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2.5 rounded-lg transition-colors"
                             >
-                              Does {displayPartnerName} agree?
+                              Does {displayPartnerName} agree with your point?
                             </button>
                           </div>
                         ) : (
@@ -1468,7 +1490,7 @@ export function Live() {
                               onClick={() => handleSelectPoint(point)}
                               className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
                             >
-                              Does {displayPartnerName} agree?
+                              Does {displayPartnerName} agree with your point?
                             </button>
                           </div>
                         )}
@@ -1681,65 +1703,44 @@ export function Live() {
     );
   }
 
-  if (meetingPhase === 'live' && state.ratingPhase === 'waiting') {
-    const waitingMessage = isChecker
-      ? `Waiting for ${displayPartnerName} to share their confidence...`
-      : `Waiting for ${getFirstName(state.checkerName || partnerName)} to share their belief...`;
-
+  if (meetingPhase === 'live' && state.ratingPhase === 'waiting' && cardState.activeStory) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <LiveMeetingHeader />
         <div className={CONTENT_LAYOUT}>
-          {/* Show active card at top if present (P85) */}
-          {cardState.activeStory && (
-            <StoryCardPreview story={cardState.activeStory} showLinkedPoints />
-          )}
-          <JourneyToUnderstanding />
+          {/* Show the story */}
+          <StoryCardPreview story={cardState.activeStory} showLinkedPoints={false} />
 
-          {/* Show what partner is seeing (only for checker) */}
-          {isChecker && cardState.activeStory && (
-            <div className="w-full max-w-sm border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-              <p className="text-xs text-gray-500 text-center mb-3">
-                What {displayPartnerName} sees:
-              </p>
-              <div className="bg-white rounded-lg p-3 border border-gray-200">
-                <p className="text-sm text-gray-700 text-center mb-2">
-                  "How confident are you that you understand?"
-                </p>
-                <div className="flex justify-center gap-0.5">
-                  {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
-                    <span key={n} className="w-5 h-5 text-[10px] bg-gray-100 rounded flex items-center justify-center animate-pulse">
-                      {n}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <ActionArea>
-            <WaitingIndicator message={waitingMessage} onSkip={handleContinue} skipLabel="Cancel" />
-          </ActionArea>
+          {/* Simple waiting indicator */}
+          <div className="flex items-center gap-2 text-gray-500">
+            <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-sm">Waiting for {displayPartnerName}...</span>
+          </div>
         </div>
       </div>
     );
   }
 
   if (meetingPhase === 'live' && state.ratingPhase === 'revealed') {
-    const isCalibrated = gapPoints === 0;
+    // If no checkerRating (new flow without speaker pre-rating), show simpler UI
+    const hasCheckerRating = state.checkerRating !== undefined;
+    const isCalibrated = hasCheckerRating && gapPoints === 0;
     const pointLabel = gapPoints === 1 ? 'point' : 'points';
 
-    const insightMessage = isCalibrated
-      ? (isChecker
-          ? <>You believe {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
-          : <>{getFirstName(state.checkerName || partnerName)} believes you understand <span className="font-bold">exactly as much</span> as you think</>)
-      : gapType === 'overconfidence'
+    // Only show gap insight if we have both ratings
+    const insightMessage = !hasCheckerRating
+      ? null
+      : isCalibrated
         ? (isChecker
-            ? <>You think {displayPartnerName} understands <span className="font-bold">less</span> than they think</>
-            : <>{getFirstName(state.checkerName || partnerName)} thinks you understand <span className="font-bold">less</span> than you think</>)
-        : (isChecker
-            ? <>You think {displayPartnerName} understands <span className="font-bold">more</span> than they think</>
-            : <>{getFirstName(state.checkerName || partnerName)} thinks you understand <span className="font-bold">more</span> than you think</>);
+            ? <>You believe {displayPartnerName} understands <span className="font-bold">exactly as much</span> as they think</>
+            : <>{getFirstName(state.checkerName || partnerName)} believes you understand <span className="font-bold">exactly as much</span> as you think</>)
+        : gapType === 'overconfidence'
+          ? (isChecker
+              ? <>You think {displayPartnerName} understands <span className="font-bold">less</span> than they think</>
+              : <>{getFirstName(state.checkerName || partnerName)} thinks you understand <span className="font-bold">less</span> than you think</>)
+          : (isChecker
+              ? <>You think {displayPartnerName} understands <span className="font-bold">more</span> than they think</>
+              : <>{getFirstName(state.checkerName || partnerName)} thinks you understand <span className="font-bold">more</span> than you think</>);
 
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -1749,34 +1750,34 @@ export function Live() {
           {cardState.activeStory && (
             <StoryCardPreview story={cardState.activeStory} showLinkedPoints />
           )}
-          <JourneyToUnderstanding />
 
-          <div className={`border rounded-lg px-4 py-3 w-full max-w-sm ${isCalibrated ? 'border-input bg-muted/50' : 'border-blue-200 bg-blue-50'}`}>
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <span className={`text-white text-xs font-semibold px-2 py-0.5 rounded-full ${isCalibrated ? 'bg-green-500' : 'bg-blue-500'}`}>
-                {isCalibrated ? 'Perfectly calibrated' : `${gapPoints} ${pointLabel} gap`}
-              </span>
+          {/* Show listener's confidence (no speaker pre-rating in new flow) */}
+          {!hasCheckerRating && state.responderRating !== undefined && (
+            <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
+              <p className="text-sm text-blue-700 text-center">
+                {displayPartnerName}'s confidence: <span className="font-bold">{state.responderRating}/10</span>
+              </p>
             </div>
-            <p className={`text-sm text-center ${isCalibrated ? 'text-muted-foreground' : 'text-blue-700'}`}>{insightMessage}</p>
-          </div>
+          )}
 
-          <ActionArea
-            title={!isChecker ? `Help ${getFirstName(state.checkerName || partnerName)} understand you better. Withhold premature judgment.` : undefined}
-          >
-            {isChecker ? (
-              <WaitingIndicator
-                message={`${displayPartnerName} is deciding whether to listen actively...`}
-                onSkip={handleSpeakFreely}
-              />
-            ) : (
-              <>
-                <PrimaryButton onClick={handleExplainBackStart}>
-                  Explain back what I heard
-                </PrimaryButton>
-                <GhostButton onClick={handleSpeakFreely}>Speak freely</GhostButton>
-              </>
-            )}
-          </ActionArea>
+          {/* Show gap comparison only if we have both ratings (legacy flow) */}
+          {hasCheckerRating && (
+            <>
+              <JourneyToUnderstanding />
+
+              <div className={`border rounded-lg px-4 py-3 w-full max-w-sm ${isCalibrated ? 'border-input bg-muted/50' : 'border-blue-200 bg-blue-50'}`}>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className={`text-white text-xs font-semibold px-2 py-0.5 rounded-full ${isCalibrated ? 'bg-green-500' : 'bg-blue-500'}`}>
+                    {isCalibrated ? 'Perfectly calibrated' : `${gapPoints} ${pointLabel} gap`}
+                  </span>
+                </div>
+                {insightMessage && (
+                  <p className={`text-sm text-center ${isCalibrated ? 'text-muted-foreground' : 'text-blue-700'}`}>{insightMessage}</p>
+                )}
+              </div>
+            </>
+          )}
+
         </div>
       </div>
     );

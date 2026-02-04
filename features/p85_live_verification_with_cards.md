@@ -1,5 +1,6 @@
 ---
-status: backlog
+status: in-progress
+sort_order: 1000001
 ---
 # P85: /live Verification with Cards
 

@@ -112,7 +112,7 @@ A valid point divides people into those who agree and those who disagree.
 
 ## Scoring Criteria (0-100 each)
 
-All 5 criteria are equally weighted. Combined score = average of all 5.
+All 4 criteria are equally weighted. Combined score = average of all 4.
 
 ### 1. Falsifiable
 Can it be proven wrong through observation or experiment?
@@ -145,16 +145,7 @@ Two tests:
 | 41-60 | Moderate — some specificity, but mechanism is generic (could apply to any domain) |
 | 81-100 | Very hard to vary — every word is load-bearing AND explains a specific mechanism |
 
-### 4. Antifragile
-Does it get stronger when challenged?
-
-| Score | Description |
-|-------|-------------|
-| 0-20 | Fragile — any counterexample destroys it |
-| 41-60 | Neutral — withstands criticism but doesn't get stronger |
-| 81-100 | Antifragile — criticism strengthens the claim |
-
-### 5. User Voice
+### 4. User Voice
 Does it sound like the user? Uses their concepts, not academic jargon?
 
 | Score | Description |
@@ -167,8 +158,8 @@ Does it sound like the user? Uses their concepts, not academic jargon?
 
 ## Combined Score
 
-**Total = average of all 5 criteria**
+**Total = average of all 4 criteria**
 
 **Target: 90+**
 
-A Point scoring 90+ is testable, non-obvious, hard-to-vary, antifragile, and sounds like the user.
+A Point scoring 90+ is testable, non-obvious, hard-to-vary, and sounds like the user.

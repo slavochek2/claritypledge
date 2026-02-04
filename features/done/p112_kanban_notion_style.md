@@ -10,6 +10,7 @@ reviews:
   architect: passed
   lean_coach: passed-stripped
   alignment: passed
+sort_order: 1000000
 completed_at: '2026-02-04'
 ---
 

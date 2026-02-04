@@ -1,40 +1,56 @@
-import { useDraggable } from '@dnd-kit/core'
+import { useState } from 'react'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Feature, FeatureType, Priority } from '../lib/types'
+import { CardDialog } from './CardDialog'
 
 interface CardProps {
   feature: Feature
 }
 
-// Badge color mappings
-const TYPE_COLORS: Record<FeatureType, string> = {
-  bug: '#ef4444',
-  task: '#6b7280',
-  story: '#3b82f6',
+// Notion's exact tag colors
+const TYPE_STYLES: Record<FeatureType, { bg: string; text: string }> = {
+  bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
+  task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
+  story: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
 }
 
-const PRIORITY_COLORS: Record<Priority, string> = {
-  p0: '#ef4444',
-  p1: '#3b82f6',
-  p2: '#6b7280',
-  p3: '#6b7280',
+const PRIORITY_STYLES: Record<Priority, { bg: string; text: string }> = {
+  p0: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
+  p1: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
+  p2: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
+  p3: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
 }
 
-// Max visible tags before showing "+N more"
+const TAG_COLORS = [
+  { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
+  { bg: 'var(--tag-purple-bg)', text: 'var(--tag-purple-text)' },
+  { bg: 'var(--tag-pink-bg)', text: 'var(--tag-pink-text)' },
+  { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
+  { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
+  { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
+]
+
+const getTagColor = (tag: string) => {
+  const hash = tag.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return TAG_COLORS[hash % TAG_COLORS.length]
+}
+
 const MAX_VISIBLE_TAGS = 3
-// Max title length before truncation
-const MAX_TITLE_LENGTH = 50
 
 export function Card({ feature }: CardProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: feature.id,
-    })
+  const [isHovered, setIsHovered] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: feature.id,
+    data: { status: feature.status },
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
 
   const openInCursor = async () => {
     try {
@@ -48,105 +64,68 @@ export function Card({ feature }: CardProps) {
     }
   }
 
-  // Truncate title if over max length
-  const displayTitle =
-    feature.title.length > MAX_TITLE_LENGTH
-      ? feature.title.slice(0, MAX_TITLE_LENGTH) + '...'
-      : feature.title
-
-  // Tags display: show first N, then "+X more" chip
   const visibleTags = feature.tags.slice(0, MAX_VISIBLE_TAGS)
   const hiddenTagCount = feature.tags.length - MAX_VISIBLE_TAGS
+
+  // Notion's exact tag style - 20px height, 12px font
+  const tagStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    height: 20,
+    fontSize: 12,
+    padding: '0 6px',
+    borderRadius: 3,
+    fontWeight: 400,
+    whiteSpace: 'nowrap',
+    lineHeight: 1,
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={{
         ...style,
-        background: isDragging ? '#3a3a5a' : '#1e1e3f',
-        borderRadius: 6,
-        padding: 10,
+        background: isDragging
+          ? 'var(--bg-card-dragging)'
+          : isHovered
+            ? 'var(--bg-card-hover)'
+            : 'var(--bg-card)',
+        borderRadius: 'var(--radius-card)',
+        padding: '10px 10px 12px',
         cursor: isDragging ? 'grabbing' : 'grab',
-        opacity: isDragging ? 0.8 : 1,
-        border: '1px solid #2a2a4a',
-        transition: isDragging ? 'none' : 'background 0.15s',
+        opacity: isDragging ? 0.9 : 1,
+        boxShadow: isDragging ? 'var(--shadow-card-dragging)' : 'var(--shadow-card)',
+        zIndex: isDragging ? 100 : 1,
+        userSelect: 'none',
+        position: 'relative',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => {
+        // Sensor has 5px activation constraint, so clicks work normally
+        if (!isDragging) {
+          setDialogOpen(true)
+        }
       }}
       {...listeners}
       {...attributes}
     >
-      {/* Title with truncation and hover tooltip */}
+      {/* Title */}
       <div
         style={{
-          fontSize: 13,
-          fontWeight: 500,
+          fontSize: 14,
+          fontWeight: 400,
+          color: 'var(--text-primary)',
+          lineHeight: 1.5,
+          wordBreak: 'break-word',
           marginBottom: 6,
-          lineHeight: 1.3,
         }}
-        title={feature.title.length > MAX_TITLE_LENGTH ? feature.title : undefined}
       >
-        {displayTitle}
+        {feature.title}
       </div>
 
-      {/* First-class badges row: Type, Priority, Blocked_by, Open button */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          flexWrap: 'wrap',
-          marginBottom: 4,
-        }}
-      >
-        {/* Type badge */}
-        {feature.type && (
-          <span
-            style={{
-              fontSize: 10,
-              background: TYPE_COLORS[feature.type],
-              color: '#fff',
-              padding: '1px 6px',
-              borderRadius: 4,
-              textTransform: 'capitalize',
-            }}
-          >
-            {feature.type}
-          </span>
-        )}
-
-        {/* Priority badge */}
-        {feature.priority && (
-          <span
-            style={{
-              fontSize: 10,
-              background: PRIORITY_COLORS[feature.priority],
-              color: '#fff',
-              padding: '1px 6px',
-              borderRadius: 4,
-              textTransform: 'uppercase',
-            }}
-          >
-            {feature.priority}
-          </span>
-        )}
-
-        {/* Blocked_by chips - red outline with blocker IDs */}
-        {feature.blocked_by?.map((blockerId) => (
-          <span
-            key={blockerId}
-            style={{
-              fontSize: 10,
-              background: 'transparent',
-              color: '#ef4444',
-              padding: '1px 6px',
-              borderRadius: 4,
-              border: '1px solid #ef4444',
-            }}
-          >
-            ⛔ {blockerId}
-          </span>
-        ))}
-
-        {/* Open in Cursor button */}
+      {/* Open button - only visible on hover, solid bg to cover text */}
+      {isHovered && (
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -155,22 +134,35 @@ export function Card({ feature }: CardProps) {
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           style={{
-            marginLeft: 'auto',
-            background: 'none',
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            width: 24,
+            height: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#f7f6f3',
             border: 'none',
             cursor: 'pointer',
-            fontSize: 14,
-            opacity: 0.6,
-            padding: '2px 4px',
+            fontSize: 12,
+            borderRadius: 4,
+            boxShadow: 'rgba(55, 53, 47, 0.1) 0px 0px 0px 1px',
           }}
-          title="Open in Cursor (⌘⇧V for preview)"
+          title="Open in Cursor"
         >
-          📝
+          <img
+            src="https://cursor.com/favicon.ico"
+            alt="Cursor"
+            width="14"
+            height="14"
+            style={{ opacity: 0.8 }}
+          />
         </button>
-      </div>
+      )}
 
-      {/* Display-if-present badges row: Size, Milestone, Hypothesis, Tags */}
-      {(feature.size || feature.milestone || feature.hypothesis || feature.tags.length > 0) && (
+      {/* Tags row - Notion style: 6px gap */}
+      {(feature.priority || feature.type || feature.size || feature.tags.length > 0 || feature.blocked_by?.length) && (
         <div
           style={{
             display: 'flex',
@@ -179,85 +171,120 @@ export function Card({ feature }: CardProps) {
             flexWrap: 'wrap',
           }}
         >
-          {/* Size badge - gray */}
+          {/* Priority */}
+          {feature.priority && (
+            <span
+              style={{
+                ...tagStyle,
+                background: PRIORITY_STYLES[feature.priority].bg,
+                color: PRIORITY_STYLES[feature.priority].text,
+              }}
+            >
+              {feature.priority}
+            </span>
+          )}
+
+          {/* Type */}
+          {feature.type && (
+            <span
+              style={{
+                ...tagStyle,
+                background: TYPE_STYLES[feature.type].bg,
+                color: TYPE_STYLES[feature.type].text,
+              }}
+            >
+              {feature.type}
+            </span>
+          )}
+
+          {/* Size */}
           {feature.size && (
             <span
               style={{
-                fontSize: 10,
-                background: '#6b7280',
-                color: '#fff',
-                padding: '1px 6px',
-                borderRadius: 4,
-                textTransform: 'uppercase',
+                ...tagStyle,
+                background: 'var(--tag-pink-bg)',
+                color: 'var(--tag-pink-text)',
               }}
             >
               {feature.size}
             </span>
           )}
 
-          {/* Milestone badge - gray */}
+          {/* Blocked_by */}
+          {feature.blocked_by?.map((blockerId) => (
+            <span
+              key={blockerId}
+              style={{
+                ...tagStyle,
+                background: 'var(--tag-red-bg)',
+                color: 'var(--tag-red-text)',
+              }}
+            >
+              ⛔ {blockerId}
+            </span>
+          ))}
+
+          {/* Tags */}
+          {visibleTags.map((tag) => {
+            const colors = getTagColor(tag)
+            return (
+              <span
+                key={tag}
+                style={{
+                  ...tagStyle,
+                  background: colors.bg,
+                  color: colors.text,
+                }}
+              >
+                {tag}
+              </span>
+            )
+          })}
+
+          {/* +N more */}
+          {hiddenTagCount > 0 && (
+            <span
+              style={{
+                ...tagStyle,
+                background: 'var(--tag-default-bg)',
+                color: 'var(--text-secondary)',
+              }}
+              title={feature.tags.slice(MAX_VISIBLE_TAGS).join(', ')}
+            >
+              +{hiddenTagCount}
+            </span>
+          )}
+
+          {/* Milestone */}
           {feature.milestone && (
             <span
               style={{
-                fontSize: 10,
-                background: '#6b7280',
-                color: '#fff',
-                padding: '1px 6px',
-                borderRadius: 4,
+                ...tagStyle,
+                background: 'var(--tag-purple-bg)',
+                color: 'var(--tag-purple-text)',
               }}
             >
               {feature.milestone}
             </span>
           )}
 
-          {/* Hypothesis badge - gray */}
+          {/* Hypothesis */}
           {feature.hypothesis && (
             <span
               style={{
-                fontSize: 10,
-                background: '#6b7280',
-                color: '#fff',
-                padding: '1px 6px',
-                borderRadius: 4,
+                ...tagStyle,
+                background: 'var(--tag-yellow-bg)',
+                color: 'var(--tag-yellow-text)',
               }}
             >
               {feature.hypothesis}
             </span>
           )}
-
-          {/* Tags - blue, capped at 3 visible */}
-          {visibleTags.map((tag) => (
-            <span
-              key={tag}
-              style={{
-                fontSize: 10,
-                background: '#3b82f6',
-                color: '#fff',
-                padding: '1px 6px',
-                borderRadius: 4,
-              }}
-            >
-              {tag}
-            </span>
-          ))}
-
-          {/* "+N more" chip if there are hidden tags */}
-          {hiddenTagCount > 0 && (
-            <span
-              style={{
-                fontSize: 10,
-                background: '#4b5563',
-                color: '#fff',
-                padding: '1px 6px',
-                borderRadius: 4,
-              }}
-              title={feature.tags.slice(MAX_VISIBLE_TAGS).join(', ')}
-            >
-              +{hiddenTagCount} more
-            </span>
-          )}
         </div>
       )}
+
+      {/* Card detail dialog */}
+      {dialogOpen && <CardDialog feature={feature} onClose={() => setDialogOpen(false)} />}
     </div>
   )
 }

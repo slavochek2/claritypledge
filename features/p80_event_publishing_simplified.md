@@ -1,5 +1,6 @@
 ---
-status: backlog
+status: week
+sort_order: 500000
 ---
 # P80: Event Publishing Simplified
 

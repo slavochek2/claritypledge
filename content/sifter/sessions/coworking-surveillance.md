@@ -37,4 +37,8 @@ I love these coworking meetups. I'm grateful for the organizer — she's put rea
 
 ## Points
 
-[Will be added by sifter-point]
+1. "The person who profits from an arrangement often can't see what makes it intolerable to others — the cost is invisible to whoever doesn't pay it." — You: +3
+
+2. "Visible tracking changes behavior even when people would have done the 'right' thing anyway — the measurement itself creates resentment." — You: +3
+
+3. "When a space stops feeling free, people leave before they can explain why — the rule-maker sees 'unreasonable' departure, not 'reasonable' response to surveillance." — You: +3

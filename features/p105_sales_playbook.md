@@ -1,10 +1,11 @@
 ---
-status: week
+status: backlog
 priority: urgent-important
 hypothesis: H-Biz
 tags:
   - validation
   - gtm
+sort_order: 0.15625
 ---
 
 # P105: Sales Playbook
