@@ -724,3 +724,321 @@ export interface DbEventRsvp {
   rsvped_at: string;
 }
 
+// ============================================================================
+// STORIES, POINTS, AND CALIBRATION TYPES (P117)
+// ============================================================================
+
+/**
+ * 7-point Likert scale for positions on Points
+ * Maps to database enum: position_type
+ */
+export type PositionType =
+  | 'strongly_disagree' // -3
+  | 'disagree' // -2
+  | 'somewhat_disagree' // -1
+  | 'unsure' // 0
+  | 'somewhat_agree' // +1
+  | 'agree' // +2
+  | 'strongly_agree'; // +3
+
+/** Numeric values for position types (for sorting/comparison) */
+export const POSITION_VALUES: Record<PositionType, number> = {
+  strongly_disagree: -3,
+  disagree: -2,
+  somewhat_disagree: -1,
+  unsure: 0,
+  somewhat_agree: 1,
+  agree: 2,
+  strongly_agree: 3,
+};
+
+/** Human-readable labels for position types */
+export const POSITION_LABELS: Record<PositionType, string> = {
+  strongly_disagree: 'Strongly Disagree',
+  disagree: 'Disagree',
+  somewhat_disagree: 'Somewhat Disagree',
+  unsure: 'Unsure',
+  somewhat_agree: 'Somewhat Agree',
+  agree: 'Agree',
+  strongly_agree: 'Strongly Agree',
+};
+
+// ----------------------------------------------------------------------------
+// Stories
+// ----------------------------------------------------------------------------
+
+export interface Story {
+  id: string;
+  authorId: string;
+  title: string;
+  content: string;
+  currentVersion: number;
+  understoodCount: number; // distinct listeners with ≥8/10 accuracy
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
+
+/** Story with author profile info for display */
+export interface StoryWithAuthor extends Story {
+  authorName: string;
+  authorSlug: string;
+  authorAvatarColor?: string;
+  authorAvatarUrl?: string;
+}
+
+/** Story with linked points */
+export interface StoryWithPoints extends StoryWithAuthor {
+  points: PointSummary[];
+}
+
+export interface DbStory {
+  id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  current_version: number;
+  understood_count: number;
+  created_at: string;
+  updated_at: string;
+  tags: string[];
+}
+
+// ----------------------------------------------------------------------------
+// Story Versions (immutable snapshots for verification tracking)
+// ----------------------------------------------------------------------------
+
+export interface StoryVersion {
+  id: string;
+  storyId: string;
+  versionNumber: number;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface DbStoryVersion {
+  id: string;
+  story_id: string;
+  version_number: number;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// Points (statements users take positions on)
+// ----------------------------------------------------------------------------
+
+export interface Point {
+  id: string;
+  statement: string;
+  context?: string;
+  firstValidatorId: string;
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
+
+/** Point summary for embedding in other views */
+export interface PointSummary {
+  id: string;
+  statement: string;
+  context?: string;
+  tags: string[];
+}
+
+/** Point with creator profile info */
+export interface PointWithCreator extends Point {
+  creatorName: string;
+  creatorSlug: string;
+  creatorAvatarColor?: string;
+  creatorAvatarUrl?: string;
+}
+
+/** Point with position counts */
+export interface PointWithCounts extends PointWithCreator {
+  positionCounts: Record<PositionType, number>;
+  totalPositions: number;
+}
+
+/** Point with user's position */
+export interface PointWithUserPosition extends PointWithCounts {
+  userPosition?: PointPosition;
+}
+
+export interface DbPoint {
+  id: string;
+  statement: string;
+  context?: string;
+  first_validator_id: string;
+  created_at: string;
+  updated_at: string;
+  tags: string[];
+}
+
+// ----------------------------------------------------------------------------
+// Story-Points junction
+// ----------------------------------------------------------------------------
+
+export interface StoryPoint {
+  storyId: string;
+  pointId: string;
+  createdAt: string;
+}
+
+export interface DbStoryPoint {
+  story_id: string;
+  point_id: string;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// Point Positions (current user positions)
+// ----------------------------------------------------------------------------
+
+export interface PointPosition {
+  id: string;
+  pointId: string;
+  userId: string;
+  position: PositionType;
+  reasoning?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Position with user profile info */
+export interface PointPositionWithUser extends PointPosition {
+  userName: string;
+  userSlug: string;
+  userAvatarColor?: string;
+  userAvatarUrl?: string;
+}
+
+export interface DbPointPosition {
+  id: string;
+  point_id: string;
+  user_id: string;
+  position: PositionType;
+  reasoning?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// Point Position History (audit log)
+// ----------------------------------------------------------------------------
+
+export interface PointPositionHistory {
+  id: string;
+  pointId: string;
+  userId: string;
+  position: PositionType | null; // null = position removed
+  reasoning?: string;
+  sessionId?: string;
+  changedAt: string;
+}
+
+export interface DbPointPositionHistory {
+  id: string;
+  point_id: string;
+  user_id: string;
+  position: PositionType | null;
+  reasoning?: string;
+  session_id?: string;
+  changed_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// Story Verifications (from /live sessions)
+// ----------------------------------------------------------------------------
+
+export interface StoryVerification {
+  id: string;
+  storyId: string;
+  versionId: string;
+  sessionId?: string;
+  speakerId: string;
+  listenerId: string;
+  speakerRating: number; // 0-10
+  listenerRating: number; // 0-10
+  accuracyAchieved: boolean; // true if speakerRating >= 8
+  createdAt: string;
+}
+
+/** Verification with profile info for display */
+export interface StoryVerificationWithProfiles extends StoryVerification {
+  speakerName: string;
+  speakerSlug: string;
+  listenerName: string;
+  listenerSlug: string;
+}
+
+export interface DbStoryVerification {
+  id: string;
+  story_id: string;
+  version_id: string;
+  session_id?: string;
+  speaker_id: string;
+  listener_id: string;
+  speaker_rating: number;
+  listener_rating: number;
+  accuracy_achieved: boolean;
+  created_at: string;
+}
+
+// ----------------------------------------------------------------------------
+// Calibration (computed from verifications)
+// ----------------------------------------------------------------------------
+
+export interface CalibrationStats {
+  /** Number of successful listener verifications (≥8/10) */
+  earsCount: number;
+  /** Total verification sessions participated in */
+  sessionCount: number;
+  /** Average rating received as listener (how well others rate their understanding) */
+  listenerCalibrationAvg: number | null;
+  /** Average self-rating as listener */
+  listenerSelfRatingAvg: number | null;
+  /** Average rating given as speaker */
+  speakerCalibrationAvg: number | null;
+  /** Average self-rating received from listeners when speaking */
+  speakerListenerSelfRatingAvg: number | null;
+  /** Calibration gap: self-rating minus actual rating (positive = overconfident) */
+  calibrationGap: number | null;
+}
+
+/** Result of calibration query with status */
+export interface CalibrationResult {
+  status: 'sufficient' | 'insufficient';
+  sessionsCompleted: number;
+  sessionsRequired: number;
+  calibration?: CalibrationStats;
+}
+
+// ----------------------------------------------------------------------------
+// Profile Extensions (added columns from P117)
+// ----------------------------------------------------------------------------
+
+/** Extended profile fields added by P117 migration */
+export interface ProfileCalibrationFields {
+  earsCount: number;
+  verificationSessionCount: number;
+}
+
+/** Extended DbProfile with calibration fields */
+export interface DbProfileWithCalibration extends DbProfile {
+  ears_count?: number;
+  verification_session_count?: number;
+}
+
+// ----------------------------------------------------------------------------
+// Session Extensions (profile linking from P117)
+// ----------------------------------------------------------------------------
+
+/** Extended session fields for profile linking */
+export interface DbClaritySessionWithProfiles extends DbClaritySession {
+  creator_profile_id?: string;
+  joiner_profile_id?: string;
+}
+

@@ -14,9 +14,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getProfile, getProfileBySlug, createProfile, type Profile } from "@/app/data/api";
-import { storiesService, type Story } from "@/app/data/stories-service-mock";
-import { pointsService, type Point } from "@/app/data/points-service-mock";
-import { calibrationService, type CalibrationResult } from "@/app/data/calibration-service-mock";
+import { storiesService } from "@/app/data/stories-service";
+import { pointsService } from "@/app/data/points-service";
+import { calibrationService } from "@/app/data/calibration-service";
+import type { StoryWithAuthor, PointWithUserPosition, CalibrationResult } from "@/app/types";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth";
@@ -39,9 +40,11 @@ export function ProfilePage() {
 
   // P113: Stories/Points state
   const [activeTab, setActiveTab] = useState<ProfileTab>('stories');
-  const [stories, setStories] = useState<Story[]>([]);
-  const [points, setPoints] = useState<Point[]>([]);
+  const [stories, setStories] = useState<StoryWithAuthor[]>([]);
+  const [points, setPoints] = useState<PointWithUserPosition[]>([]);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   // Track current user ID for retry logic (stable reference)
   const currentUserId = currentUser?.id;
@@ -104,14 +107,29 @@ export function ProfilePage() {
   useEffect(() => {
     if (!profile?.id) return;
 
-    // Load mock data for the profile
-    const userStories = storiesService.getStoriesForUser(profile.id);
-    const userPoints = pointsService.getPointsForUser(profile.id);
-    const userCalibration = calibrationService.getCalibration(profile.id);
+    const loadProfileData = async () => {
+      setContentLoading(true);
+      setContentError(null);
 
-    setStories(userStories);
-    setPoints(userPoints);
-    setCalibration(userCalibration);
+      try {
+        const [userStories, userPoints, userCalibration] = await Promise.all([
+          storiesService.getStoriesByAuthor(profile.id),
+          pointsService.getPointsWithUserPositions(profile.id),
+          calibrationService.getCalibration(profile.id),
+        ]);
+
+        setStories(userStories);
+        setPoints(userPoints);
+        setCalibration(userCalibration);
+      } catch (error) {
+        console.error('Failed to load profile content:', error);
+        setContentError('Failed to load content. Please try refreshing the page.');
+      } finally {
+        setContentLoading(false);
+      }
+    };
+
+    loadProfileData();
   }, [profile?.id]);
 
   if (loading) {
@@ -305,50 +323,72 @@ export function ProfilePage() {
                   </p>
                 </div>
               ) : calibration.calibration ? (
-                <div className="space-y-4">
-                  {/* Overall Score */}
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">Overall</span>
-                      <span className="font-medium text-foreground">{calibration.calibration.overall}%</span>
+                (() => {
+                  // Convert 0-10 scale to percentage, handle nulls
+                  const listenerPct = calibration.calibration.listenerCalibrationAvg != null
+                    ? Math.round(calibration.calibration.listenerCalibrationAvg * 10)
+                    : null;
+                  const speakerPct = calibration.calibration.speakerCalibrationAvg != null
+                    ? Math.round(calibration.calibration.speakerCalibrationAvg * 10)
+                    : null;
+                  // Overall = average of available scores
+                  const overallPct = listenerPct != null && speakerPct != null
+                    ? Math.round((listenerPct + speakerPct) / 2)
+                    : listenerPct ?? speakerPct;
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Overall Score */}
+                      {overallPct != null && (
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-muted-foreground">Overall</span>
+                            <span className="font-medium text-foreground">{overallPct}%</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all"
+                              style={{ width: `${overallPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {/* As Listener */}
+                      {listenerPct != null && (
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-muted-foreground">As Listener</span>
+                            <span className="font-medium text-foreground">{listenerPct}%</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all"
+                              style={{ width: `${listenerPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {/* As Speaker */}
+                      {speakerPct != null && (
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-muted-foreground">As Speaker</span>
+                            <span className="font-medium text-foreground">{speakerPct}%</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all"
+                              style={{ width: `${speakerPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        Based on {calibration.sessionsCompleted} sessions
+                      </p>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${calibration.calibration.overall}%` }}
-                      />
-                    </div>
-                  </div>
-                  {/* As Listener */}
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">As Listener</span>
-                      <span className="font-medium text-foreground">{calibration.calibration.asListener}%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${calibration.calibration.asListener}%` }}
-                      />
-                    </div>
-                  </div>
-                  {/* As Speaker */}
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">As Speaker</span>
-                      <span className="font-medium text-foreground">{calibration.calibration.asSpeaker}%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${calibration.calibration.asSpeaker}%` }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center pt-2">
-                    Based on {calibration.sessionsCompleted} sessions
-                  </p>
-                </div>
+                  );
+                })()
               ) : null}
             </div>
           )}
@@ -398,7 +438,15 @@ export function ProfilePage() {
               id={activeTab === 'stories' ? 'stories-panel' : 'points-panel'}
               aria-labelledby={activeTab === 'stories' ? 'stories-tab' : 'points-tab'}
             >
-              {activeTab === 'stories' ? (
+              {contentError ? (
+                <div className="text-center py-8">
+                  <p className="text-destructive">{contentError}</p>
+                </div>
+              ) : contentLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-pulse text-muted-foreground">Loading...</div>
+                </div>
+              ) : activeTab === 'stories' ? (
                 stories.length > 0 ? (
                   <div className="space-y-4">
                     {stories.map((story) => (
@@ -437,37 +485,27 @@ export function ProfilePage() {
               ) : (
                 points.length > 0 ? (
                   <div className="space-y-4">
-                    {points.map((point) => {
-                      const userPosition = profile?.id ? point.positions[profile.id] : null;
-                      return (
-                        <div key={point.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                          <p className="font-medium text-foreground">{point.statement}</p>
-                          {point.context && (
-                            <p className="text-sm text-muted-foreground mt-1">{point.context}</p>
-                          )}
-                          {userPosition && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded-full ${
-                                  userPosition.position === 'agree'
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                    : userPosition.position === 'disagree'
-                                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                    : 'bg-muted text-muted-foreground'
-                                }`}
-                              >
-                                {userPosition.position === 'agree' ? 'Agreed' : userPosition.position === 'disagree' ? 'Disagreed' : 'Abstained'}
-                              </span>
-                            </div>
-                          )}
-                          {userPosition?.reasoning && (
-                            <p className="text-sm text-muted-foreground mt-2 italic">
-                              "{userPosition.reasoning}"
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {points.map((point) => (
+                      <div key={point.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                        <p className="font-medium text-foreground">{point.statement}</p>
+                        {point.context && (
+                          <p className="text-sm text-muted-foreground mt-1">{point.context}</p>
+                        )}
+                        {point.userPosition && (
+                          <div className="flex items-center gap-2 mt-2">
+                            {/* Design system: all position badges use uniform blue regardless of position type */}
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              {point.userPosition.position.includes('agree') ? 'Agreed' : point.userPosition.position.includes('disagree') ? 'Disagreed' : 'Unsure'}
+                            </span>
+                          </div>
+                        )}
+                        {point.userPosition?.reasoning && (
+                          <p className="text-sm text-muted-foreground mt-2 italic">
+                            "{point.userPosition.reasoning}"
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
