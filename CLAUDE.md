@@ -172,8 +172,6 @@ For full details: [browser-tools.md](docs/technical/browser-tools.md)
 
 **Current focus:** Validate coach hypothesis — will executive/leadership/communication coaches pay $50-100/month for a diagnostic tool that proves their clients' listening miscalibration?
 
-**Validation plan:** [p_coach_validation.md](features/p_coach_validation.md)
-
 For full concepts: [definitions.md](docs/definitions.md)
 For business model: [lean-canvas.md](docs/lean-canvas.md)
 For current hypotheses: [hypotheses.md](docs/hypotheses.md)
@@ -223,7 +221,7 @@ npm run test:e2e:headed  # Run in headed browser
 ./scripts/pre-commit-checks.sh
 
 # Kanban (feature prioritization)
-npm run kanban           # Opens http://localhost:5050
+npm run kanban           # Opens http://localhost:9050
 ```
 
 ## Deep Dive References
@@ -408,6 +406,7 @@ For detailed architecture docs, see the [Deep Dive References](#deep-dive-refere
 | `/pledgers` | Directory of verified signatories |
 | `/about` | About page with contact form |
 | `/settings` | User settings (authenticated) |
+| `/s/:code` | Short link redirects (see `src/app/data/short-links.ts`) |
 
 ## Common Gotchas
 

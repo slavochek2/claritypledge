@@ -29,18 +29,7 @@ find docs/technical -name "*.md" -mtime +30 -exec ls -la {} \;
 
 Report any stale files with recommendation: archive or update.
 
-### 2. Worktree Sync Check
-
-```bash
-cd /Users/slavochek/Documents && \
-for d in claritypledge-{1,2,3,4,5,6,7}; do
-  echo -n "$d: "; md5 -q "$d/CLAUDE.md" 2>/dev/null || echo "missing"
-done
-```
-
-If hashes differ, offer to sync from current worktree.
-
-### 3. Sentry Health Check
+### 2. Sentry Health Check
 
 Check for unresolved production errors using the Sentry MCP:
 
@@ -58,7 +47,7 @@ Project: javascript-react
 
 Report issues found with brief assessment (code bug vs environment issue).
 
-### 4. Retrospective
+### 3. Retrospective
 
 Ask the user (one at a time, wait for answers):
 
@@ -68,7 +57,7 @@ Ask the user (one at a time, wait for answers):
 
 If user identifies improvements, implement them now (update CLAUDE.md, skills, or workflows).
 
-### 5. Update State File
+### 4. Update State File
 
 After completing the review:
 ```bash
@@ -85,7 +74,6 @@ Confirm: "Weekly review complete. Next reminder in 7 days."
 ### Context Health
 ✅ CLAUDE.md references valid (or list missing)
 ⚠️ Stale docs: X files (or ✅ all current)
-✅ Worktrees in sync (or ⚠️ X worktrees differ)
 
 ### Sentry
 ✅ No issues >10 events (or ⚠️ X issues need attention)
