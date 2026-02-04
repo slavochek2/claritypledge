@@ -1,8 +1,11 @@
 ---
-status: in-progress
+status: blocked
 priority: urgent-important
 hypothesis: H-Biz
-tags: [validation, gtm]
+tags:
+  - validation
+  - gtm
+sort_order: 1
 ---
 
 # P105: Sales Playbook

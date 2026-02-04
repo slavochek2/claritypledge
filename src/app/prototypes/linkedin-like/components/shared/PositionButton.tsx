@@ -190,6 +190,8 @@ interface SegmentButtonContentProps {
   isActive: boolean;
   tooltipText: string;
   onClick: (e: React.MouseEvent) => void;
+  /** In compact mode, hide count to save space for dropdown chevron */
+  compact?: boolean;
 }
 
 function SegmentButtonContent({
@@ -199,6 +201,7 @@ function SegmentButtonContent({
   isActive,
   tooltipText,
   onClick,
+  compact = false,
 }: SegmentButtonContentProps) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -218,7 +221,10 @@ function SegmentButtonContent({
             {/* Shorter: 320-359px */}
             <span className="hidden min-[320px]:inline min-[360px]:hidden">{buttonLabel.shorter}</span>
             {/* Below 320px: icon only, no text label */}
-            <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
+            {/* In compact mode, hide count to save space for dropdown chevron */}
+            {!compact && (
+              <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
@@ -240,12 +246,13 @@ function PositionSegment({
   onPositionClick,
   compact = false,
   isFirst = false,
-}: PositionButtonGroupProps & { isFirst?: boolean }) {
+  isLast = false,
+}: PositionButtonGroupProps & { isFirst?: boolean; isLast?: boolean }) {
   const config = BUTTON_GROUPS[group];
   const isActive = userPosition ? getPositionGroup(userPosition) === group : false;
   const buttonLabel = getButtonLabel(group, userPosition);
   const hasDropdown = config.positions.length > 1;
-  const showDropdown = hasDropdown; // Always show dropdown when multiple options exist
+  const showDropdown = hasDropdown; // Always show dropdown - intensity selection must be available everywhere
 
   const handleQuickClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -258,10 +265,13 @@ function PositionSegment({
 
   // Segment styling - flex-1 on mobile for equal width, min-width on desktop for consistency
   // Border-l shown for all non-first segments (consistent regardless of active state)
+  // Rounded corners on first/last segments (since parent removed overflow-hidden to prevent chevron clipping)
   const segmentClass = `
     min-h-[32px] sm:min-h-[44px] flex flex-1 sm:flex-initial sm:min-w-[90px] items-center justify-center text-[11px] sm:text-xs font-medium transition-colors whitespace-nowrap
     ${isActive ? config.activeClass : config.inactiveClass}
     ${!isFirst ? 'border-l border-gray-200' : ''}
+    ${isFirst ? 'rounded-l-lg' : ''}
+    ${isLast ? 'rounded-r-lg' : ''}
   `.trim().replace(/\s+/g, ' ');
 
   // Single-option groups (Unsure) don't need a dropdown
@@ -275,6 +285,7 @@ function PositionSegment({
           isActive={isActive}
           tooltipText={getTooltipText(group, userPosition)}
           onClick={handleQuickClick}
+          compact={compact}
         />
       </div>
     );
@@ -290,6 +301,7 @@ function PositionSegment({
         isActive={isActive}
         tooltipText={getTooltipText(group, userPosition)}
         onClick={handleQuickClick}
+        compact={compact}
       />
 
       {/* Dropdown trigger - separated from main button */}
@@ -360,8 +372,9 @@ interface PositionButtonsProps {
 
 export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
   // Segmented control: full-width on mobile, content-sized on desktop
+  // Note: removed overflow-hidden to prevent dropdown chevrons from being clipped on narrow viewports
   return (
-    <div className="inline-flex w-full sm:w-auto rounded-lg border border-gray-200 overflow-hidden bg-white">
+    <div className="inline-flex w-full sm:w-auto rounded-lg border border-gray-200 bg-white">
       {BUTTON_ORDER.map((group, index) => (
         <PositionSegment
           key={group}
@@ -371,6 +384,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
           onPositionClick={onPositionClick}
           compact={compact}
           isFirst={index === 0}
+          isLast={index === BUTTON_ORDER.length - 1}
         />
       ))}
     </div>
