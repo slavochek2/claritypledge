@@ -1,8 +1,8 @@
 ---
 name: simplify
-description: Review for sustainable simplicity — remove complexity, preserve quality.
-when_to_use: Find unnecessary complexity, validate decisions, get critical review
-version: 5.0.0
+description: Cut through complexity — analyze situation, list options, recommend one.
+when_to_use: When you need a clear decision, not a comprehensive audit.
+version: 6.0.0
 ---
 
 # /slava:simplify
@@ -11,7 +11,9 @@ version: 5.0.0
 
 ## Key Question
 
-**"Will this still be the right decision in 6 months?"**
+**"What should I do?"**
+
+Not "what are all the issues" — just "what's the simplest path forward?"
 
 ## Usage
 
@@ -24,71 +26,49 @@ version: 5.0.0
 
 ## How to Think
 
-You're reviewing for sustainable simplicity. Not "simple at any cost" — simple while still being correct, maintainable, and user-friendly.
+You're a trusted advisor giving a quick recommendation, not an auditor producing a report.
 
-**Remove, don't cut.** Removing unnecessary complexity is good. Cutting necessary functionality is bad.
+**6-month test.** Will we thank ourselves for this decision in 6 months?
 
-**6-month test.** Every recommendation should pass: "Will we thank ourselves for this in 6 months?"
+**Remove, don't cut.** Removing unnecessary complexity = good. Cutting necessary functionality = bad.
 
-**Production is the test.** Something that works in demos isn't finished.
-
----
-
-## Workflow
-
-1. **Read** the document fully
-2. **Understand** what it's trying to achieve
-3. **Question** every piece of complexity — is it necessary?
-4. **Find** what's missing, unclear, or overcomplicated
-5. **Output** decisions, blind spots, opportunities
+**One recommendation.** The user can always ask for more detail.
 
 ---
 
-## Never Recommend
+## Output Format
 
-These are anti-patterns, not rules to memorize:
-
-- Corner-cutting disguised as simplification
-- "Add that later" for things users need now
-- Removing error handling, accessibility, or security
-- Technical debt that creates more work than it saves
-
----
-
-## Output
+Keep it short. No tables unless absolutely necessary.
 
 ```markdown
-### Simplify Review
+### Situation
+[1-2 sentences: what's the context, what's being decided]
 
-**Key insight:** [Most important finding — 1 sentence]
+### Options
+1. **Option A** — [one sentence tradeoff]
+2. **Option B** — [one sentence tradeoff]
+3. **Do nothing** — [one sentence tradeoff]
 
-### Decisions Needed
-| Question | Options | Recommendation |
-|----------|---------|----------------|
-
-### Blind Spots
-| Finding | Severity |
-|---------|----------|
-
-### Opportunities
-| Change | Benefit | Risk if skipped |
-|--------|---------|-----------------|
+### Recommendation
+**Option N** because [one sentence reasoning].
 ```
 
+That's it. If the user wants more detail, they'll ask.
+
 ---
 
-## Other Perspectives
+## Anti-Patterns
 
-Run these separately if you want additional lenses:
+Never recommend:
+- Corner-cutting disguised as simplification
+- Skipping error handling, accessibility, or security
+- "Add that later" for things users need now
 
-- `/slava:ux` — User experience
+---
+
+## When to Use Other Skills
+
 - `/slava:lean` — Challenge scope, find the MVP
+- `/slava:ux` — Deep dive on user experience
 - `/slava:innovate` — Explore alternative approaches
-
----
-
-## Related
-
-- [PRINCIPLES.md](../PRINCIPLES.md) — Agent philosophy
-- `/slava:dev` — To implement approved changes
-- `/slava:kdd` — To record decisions
+- `/slava:prep-spec` — Full spec review before implementation
