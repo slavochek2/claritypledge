@@ -209,7 +209,7 @@ Questions we need to answer through experimentation. Updated 2026-02-03.
 
 # Current Focus
 
-**Stories-first (2026-02-02):** Building human verification loop for Stories before adding AI. See [roadmap.md](roadmap.md) for 6-phase sequence.
+**Stories-first (2026-02-02):** Building human verification loop for Stories before adding AI. See [decisions.md](decisions.md) "2026-02-02" entry for 6-phase sequence.
 
 **How we measure success:** Can humans verify story understanding holistically? Does Stories solve the cold start problem ("on what?")?
 

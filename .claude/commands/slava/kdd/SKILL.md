@@ -17,8 +17,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Problem/solution/business model | `docs/lean-canvas.md` |
 | What we're testing + evidence base | `docs/hypotheses.md` |
 | Open questions (unresolved) | `docs/hypotheses.md` "Open Questions" section |
-| Build sequence, priorities | `docs/roadmap.md` |
-| Trade-offs, "why X over Y" | `docs/decisions.md` |
+| Build sequence, priorities, trade-offs | `docs/decisions.md` |
 | GTM, sales tactics, pitches | `features/p{N}_sales_playbook.md` |
 | Pivot options | `docs/lean-canvas.md` "Alternative Approaches" section |
 | Epistemology (WHY this works) | `docs/philosophy.md` |
@@ -67,9 +66,8 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 ⚠️ Drift detected: "Stories vs Points" explained in:
   - docs/definitions.md (source)
   - README.md lines 15-20 (duplicate)
-  - docs/roadmap.md lines 8-12 (duplicate)
 
-Recommendation: Remove from README.md and roadmap.md, link to definitions.md instead.
+Recommendation: Remove from README.md, link to definitions.md instead.
 ```
 
 ## Workflow
@@ -84,7 +82,7 @@ Recommendation: Remove from README.md and roadmap.md, link to definitions.md ins
    - Hypothesis validated/added? → `hypotheses.md`
    - New open question surfaced? → `hypotheses.md` "Open Questions" section
    - Open question answered? → Update or remove from Open Questions
-   - Phase complete / focus shifted? → `roadmap.md`
+   - Phase complete / focus shifted? → `decisions.md`
    - Business model changed? → `lean-canvas.md`
    - GTM/sales approach changed? → `features/p105_sales_playbook.md`
    - Schema/auth/testing changed? → relevant technical doc
@@ -113,11 +111,6 @@ Recommendation: Remove from README.md and roadmap.md, link to definitions.md ins
    - Add new hypotheses if discovered
    - Add/update Open Questions section when unresolved questions surface
    - Remove/update Open Questions when answered
-
-   **For roadmap.md:**
-   - Update "Current Focus" quote block
-   - Mark phases ✅ DONE
-   - Update "What's done" / "What's next"
 
    **For technical docs:**
    - Keep them accurate to current implementation

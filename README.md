@@ -9,13 +9,12 @@ A sensemaking platform that reveals calibration gaps in understanding and motiva
 **Learn more:**
 - [Problem & Solution](docs/lean-canvas.md) — Why this matters
 - [Core Concepts](docs/definitions.md) — Stories, Points, Verification
-- [What We're Building](docs/roadmap.md) — Current focus and phases
 
 ## Go Deeper
 
 - [Lean Canvas](docs/lean-canvas.md) — Business model and value proposition
 - [Hypotheses](docs/hypotheses.md) — What we're testing and validation status
-- [Roadmap](docs/roadmap.md) — Build sequence and current focus
+- [Decisions](docs/decisions.md) — Build sequence, trade-offs, why X over Y
 - [Philosophy](docs/philosophy.md) — Epistemological foundations (optional deep-dive)
 - [Theory of Change](docs/theory-of-change.md) — How change spreads (cascade, √N)
 

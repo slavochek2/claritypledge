@@ -21,6 +21,10 @@ interface PointCardProps {
   isDetailView?: boolean;
   /** When viewing on someone's profile, show their linked Story */
   profileOwnerId?: string;
+  /** Hide position buttons and action icons */
+  hideActions?: boolean;
+  /** Disable click-to-navigate behavior */
+  disableNavigation?: boolean;
 }
 
 /**
@@ -28,7 +32,7 @@ interface PointCardProps {
  * Visual: Gray left border, Clarity logo avatar (platform-owned), position buttons
  * Pattern B: Shows linked Stories expandable section
  */
-export function PointCard({ point, compact = false, isDetailView = false, profileOwnerId }: PointCardProps) {
+export function PointCard({ point, compact = false, isDetailView = false, profileOwnerId, hideActions = false, disableNavigation = false }: PointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
     point.positions['current']?.position || null
@@ -90,7 +94,7 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   const profileOwnerCredibility = profileOwnerId ? getUserCredibilityStats(profileOwnerId) : null;
 
   const handleCardClick = () => {
-    if (!isDetailView) {
+    if (!isDetailView && !disableNavigation) {
       navigate(routes.point(point.id));
     }
   };
@@ -154,16 +158,18 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   </p>
 
                   {/* Position buttons */}
-                  <div
-                    className="mt-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <PositionButtons
-                      userPosition={userPosition}
-                      counts={counts}
-                      onPositionClick={handlePositionClick}
-                    />
-                  </div>
+                  {!hideActions && (
+                    <div
+                      className="mt-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PositionButtons
+                        userPosition={userPosition}
+                        counts={counts}
+                        onPositionClick={handlePositionClick}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -190,24 +196,26 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                 )}
 
                 {/* Action icons */}
-                <div className="flex items-center gap-1">
-                  <ShareButton
-                    type="point"
-                    id={point.id}
-                    description={point.text.slice(0, 100)}
-                  />
-                  {!isDetailView && (
-                    <MobileTooltip content="Open point">
-                      <button
-                        onClick={() => navigate(routes.point(point.id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                        aria-label="Open point"
-                      >
-                        <ExternalLink size={16} />
-                      </button>
-                    </MobileTooltip>
-                  )}
-                </div>
+                {!hideActions && (
+                  <div className="flex items-center gap-1">
+                    <ShareButton
+                      type="point"
+                      id={point.id}
+                      description={point.text.slice(0, 100)}
+                    />
+                    {!isDetailView && !disableNavigation && (
+                      <MobileTooltip content="Open point">
+                        <button
+                          onClick={() => navigate(routes.point(point.id))}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          aria-label="Open point"
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      </MobileTooltip>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -236,16 +244,18 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               </p>
 
               {/* Position buttons */}
-              <div
-                className="mt-3"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <PositionButtons
-                  userPosition={userPosition}
-                  counts={counts}
-                  onPositionClick={handlePositionClick}
-                />
-              </div>
+              {!hideActions && (
+                <div
+                  className="mt-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <PositionButtons
+                    userPosition={userPosition}
+                    counts={counts}
+                    onPositionClick={handlePositionClick}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -275,25 +285,27 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
           )}
 
           {/* Action icons */}
-          <div className="flex items-center gap-1">
-            <ShareButton
-              type="point"
-              id={point.id}
-              description={point.text.slice(0, 100)}
-            />
-            {/* External link - only in feed (redundant in detail view) */}
-            {!isDetailView && (
-              <MobileTooltip content="Open point">
-                <button
-                  onClick={() => navigate(routes.point(point.id))}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Open point"
-                >
-                  <ExternalLink size={16} />
-                </button>
-              </MobileTooltip>
-            )}
-          </div>
+          {!hideActions && (
+            <div className="flex items-center gap-1">
+              <ShareButton
+                type="point"
+                id={point.id}
+                description={point.text.slice(0, 100)}
+              />
+              {/* External link - only in feed (redundant in detail view) */}
+              {!isDetailView && !disableNavigation && (
+                <MobileTooltip content="Open point">
+                  <button
+                    onClick={() => navigate(routes.point(point.id))}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Open point"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                </MobileTooltip>
+              )}
+            </div>
+          )}
         </div>
       )}
 

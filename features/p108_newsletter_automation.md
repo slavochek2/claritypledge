@@ -150,6 +150,5 @@ Newsletter serves two purposes:
 
 ## Related
 
-- [roadmap.md](../docs/roadmap.md) — Phase 0.0 mentions newsletter
 - [p_coach_validation.md](p_coach_validation.md) — Newsletter invites from coach conversations
 - [lean-canvas.md](../docs/lean-canvas.md) — Newsletter as channel

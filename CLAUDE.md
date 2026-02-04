@@ -190,8 +190,7 @@ For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 - `definitions.md` — Product concepts (Stories, Points, Verification)
 - `lean-canvas.md` — Business model (Problem, Solution, Customers)
 - `hypotheses.md` — What we're testing
-- `roadmap.md` — Build sequence
-- `decisions.md` — Trade-offs (why X over Y)
+- `decisions.md` — Trade-offs, build sequence, why X over Y
 - `philosophy.md` — WHY this works (epistemology)
 - `theory-of-change.md` — HOW change spreads (cascade, √N)
 - `visions/*` — Historical explorations
@@ -239,7 +238,7 @@ Load these docs when working on specific areas:
 | Core concepts (Stories, Points, Calibration) | [definitions.md](docs/definitions.md) |
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
-| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
+| Build sequence, past decisions | [decisions.md](docs/decisions.md) |
 | Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
@@ -283,7 +282,7 @@ git branch -m p62-dashboard-w1  # Rename before first commit
 
 | Category | Docs |
 |----------|------|
-| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
+| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `lean-canvas.md` |
 | Technical (the "how") | `database.md`, `authentication.md`, `definitions.md`, etc. |
 | GTM & Sales | `features/p105_sales_playbook.md` (per-segment playbooks) |
 
