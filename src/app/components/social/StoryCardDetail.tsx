@@ -20,7 +20,6 @@ import {
   PositionButtons,
   PositionBadge,
   ShareButton,
-  VisibilityBadge,
   MobileTooltip,
   ThreadLineGroup,
   ThreadLineItem,
@@ -159,11 +158,8 @@ export function StoryCardDetail({
           }}
         >
           {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-            <span>
-              {author.role} · {formatTimeAgo(story.createdAt)}
-            </span>
-            <VisibilityBadge visibility={story.visibility} />
+          <p className="text-xs text-muted-foreground mb-2">
+            {author.role} · {formatTimeAgo(story.createdAt)}
           </p>
 
           {/* Story text */}
@@ -176,9 +172,10 @@ export function StoryCardDetail({
   }
 
   // Standard rendering (non-quote pattern)
+  // Note: removed overflow-hidden to prevent dropdown menus from being clipped
   const cardClassName = isDetailView
-    ? 'bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden'
-    : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
+    ? 'bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border'
+    : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
 
   return (
     <div
@@ -238,11 +235,8 @@ export function StoryCardDetail({
                   </MobileTooltip>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <span>
-                  {author.role} · {formatTimeAgo(story.createdAt)}
-                </span>
-                <VisibilityBadge visibility={story.visibility} />
+              <p className="text-xs text-muted-foreground">
+                {author.role} · {formatTimeAgo(story.createdAt)}
               </p>
             </div>
 
@@ -484,6 +478,7 @@ function QuotedPoint({
       )}
 
       {/* Quoted Point box */}
+      {/* Note: removed overflow-hidden to prevent dropdown chevrons from being clipped */}
       <button
         onClick={onClick}
         className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-accent hover:border-border transition-colors"
@@ -500,8 +495,8 @@ function QuotedPoint({
             {/* Point text */}
             <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
 
-            {/* Position buttons - compact */}
-            <div className="mt-2" onClick={e => e.stopPropagation()}>
+            {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
+            <div className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
               <PositionButtons
                 userPosition={userPosition}
                 counts={counts}

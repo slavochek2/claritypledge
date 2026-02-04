@@ -14,6 +14,52 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-04: Story versioning via versions table
+
+**Context:** Designing stories/points backend (P117). Verifications need to reference the specific content that was verified, not the current (potentially edited) content.
+
+**Decision:** Use a `story_versions` table with immutable snapshots. Verifications reference `version_id`. When story is created, version 1 is auto-created via trigger. When content changes, new version is created.
+
+**Alternatives rejected:**
+- Snapshot in verification table (`story_content_snapshot` column) — Duplicates content per verification. 50 verifications of same story version = 50 copies of content.
+- No versioning (always reference current) — Verifications become meaningless after edit. "They understood version A" but now story is version B.
+
+**Consequences:**
+- Enables "view what was verified" without content duplication
+- Clean normalized model: one row per version, verifications reference it
+- Supports future "edit history" UI naturally
+- Adds one table but removes data duplication
+
+**References:** [p117_stories_points_backend.md](../features/p117_stories_points_backend.md), [20260204_stories_points_calibration.sql](../supabase/migrations/20260204_stories_points_calibration.sql)
+
+---
+
+## 2026-02-04: Calibration averages computed on-read, not stored
+
+**Context:** P117 stories/points backend originally had `listener_calibration_avg` and `speaker_calibration_avg` columns on profiles, updated by triggers.
+
+**Decision:** Compute calibration averages on-read via `AVG()` query. Don't store them.
+
+```sql
+SELECT AVG(speaker_rating) as listener_avg
+FROM story_verifications
+WHERE listener_id = $user_id
+```
+
+**Alternatives rejected:**
+- Trigger-updated stored columns — Adds trigger complexity. Must handle edge cases (first verification, deletes, etc.). The COUNT(*) pattern was already a performance bug; averages would be worse.
+- Batch job recalculation — Infrastructure complexity for a query that runs in <100ms anyway.
+
+**Consequences:**
+- Profile calibration display queries on-demand (fast: <100ms even with 1000+ verifications)
+- No trigger maintenance for averages
+- If performance ever becomes an issue, can add cached columns later
+- Simpler migration (fewer columns, no AVG triggers)
+
+**References:** [p117_stories_points_backend.md](../features/p117_stories_points_backend.md)
+
+---
+
 ## 2026-02-02: Stories-first model with holistic verification, points deferred
 
 **Context:** Deep exploration of v9 "AI Stories" vision through Lean Startup Coach lens. The core question: what's the actual value proposition and what's the minimum needed to test it?

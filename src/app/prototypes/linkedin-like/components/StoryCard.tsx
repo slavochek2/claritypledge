@@ -5,7 +5,7 @@ import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
-import { PositionButtons, PositionBadge, ShareButton, UserCredibility, VisibilityBadge, ThreadLineGroup, ThreadLineItem, type SevenPointCounts } from './shared';
+import { PositionButtons, PositionBadge, ShareButton, UserCredibility, ThreadLineGroup, ThreadLineItem, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
@@ -93,9 +93,8 @@ export function StoryCard({
           onClick={handleCardClick}
         >
           {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-            <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-            <VisibilityBadge visibility={story.visibility} />
+          <p className="text-xs text-gray-500 mb-2">
+            {author.role} · {formatTimeAgo(story.createdAt)}
           </p>
 
           {/* Story text */}
@@ -150,9 +149,8 @@ export function StoryCard({
                   </button>
                   <UserCredibility userId={author.id} userName={author.name} />
                 </div>
-                <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
-                  <VisibilityBadge visibility={story.visibility} />
+                <p className="text-xs text-gray-500">
+                  {author.role} · {formatTimeAgo(story.createdAt)}
                 </p>
               </div>
 

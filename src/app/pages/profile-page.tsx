@@ -277,7 +277,7 @@ export function ProfilePage() {
         }}
       />
       <div className="min-h-screen bg-background py-8 px-4">
-        <div className="container mx-auto max-w-2xl">
+        <div className="container mx-auto max-w-lg">
           {/* Back button - goes to events for logged-in, home for logged-out */}
           <Link
             to={session ? "/events" : "/"}

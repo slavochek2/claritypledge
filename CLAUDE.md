@@ -265,6 +265,7 @@ Load these docs when working on specific areas:
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
 | Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 | Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
+| Creating feature specs (naming, frontmatter) | [feature-specs.md](docs/technical/feature-specs.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Browser automation (Chrome DevTools, screenshots) | [browser-tools.md](docs/technical/browser-tools.md) |

@@ -202,7 +202,7 @@ export function StoryDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-lg mx-auto px-4 py-8">
         {/* Skeleton for back button */}
         <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
         {/* Skeleton for story card */}
@@ -271,7 +271,7 @@ export function StoryDetailPage() {
       : 'Story not found';
 
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-lg mx-auto px-4 py-8">
         <button
           onClick={handleBack}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
@@ -296,7 +296,7 @@ export function StoryDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div className="max-w-lg mx-auto px-4 py-6">
       {/* Back button */}
       <button
         onClick={handleBack}
