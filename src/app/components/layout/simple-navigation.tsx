@@ -2,8 +2,10 @@
  * @file simple-navigation.tsx
  * @description KISS Navigation - Two states only
  *
- * 1. Verified user → Full menu (View My Profile, pledge items, Settings, Log Out)
- * 2. Everyone else → Public menu (Log In)
+ * 1. Verified user → Icon nav (Events, Create, Profile) + dropdown with public links + Settings, Log Out
+ * 2. Everyone else → Text nav links + dropdown with CTAs
+ *
+ * P115: Logged-in dropdown uses "sandwich" pattern - public links on top, separator, account actions below.
  */
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -12,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, VideoIcon, SparklesIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, SparklesIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { NAV_LINKS } from "./nav-links";
@@ -106,7 +108,7 @@ export function SimpleNavigation() {
                 </Link>
                 {/* Create (disabled) */}
                 <button
-                  onClick={() => toast("Coming soon", { description: "Create feature is not yet available" })}
+                  onClick={() => toast("Coming soon")}
                   className="flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md text-muted-foreground opacity-50 cursor-not-allowed"
                   aria-label="Create (coming soon)"
                 >
@@ -125,15 +127,14 @@ export function SimpleNavigation() {
                   <UserIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">My Profile</span>
                 </Link>
-                {/* Start Live CTA */}
+                {/* Start a Clarity Session CTA - P114: consistent text, no icon */}
                 <Link
                   to="/live"
                   title="Start a live clarity session"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
                   onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
                 >
-                  <VideoIcon className="w-4 h-4" />
-                  Start Live
+                  Start a Clarity Session
                 </Link>
               </>
             ) : (
@@ -163,12 +164,12 @@ export function SimpleNavigation() {
                 >
                   About
                 </Link>
-                {/* Start a Clarity Session CTA */}
+                {/* Start a Clarity Session CTA - P114: consistent text */}
                 {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
                 <Link
                   to="/live"
                   title="Start a live clarity session"
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
                   onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
                 >
                   Start a Clarity Session
@@ -251,12 +252,12 @@ export function SimpleNavigation() {
             className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
-              {/* Primary CTA */}
+              {/* Primary CTA - P114: consistent text */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
               <Link
                 to="/live"
                 title="Start a live clarity session"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
                 onClick={() => {
                   analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
                   closeMobileMenu();
@@ -267,8 +268,9 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Navigation Links - Co-create is in menu items, not here */}
-              {NAV_LINKS.filter(link => link.to !== '/co-create').map((link) => (
+              {/* Navigation Links - Only for logged-out users */}
+              {/* P115: Logged-in users get these links via NavigationMenuItems sandwich pattern */}
+              {!showUserMenu && NAV_LINKS.filter(link => link.to !== '/co-create').map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
@@ -279,7 +281,7 @@ export function SimpleNavigation() {
                 </Link>
               ))}
 
-              <div className="border-t border-border my-2"></div>
+              {!showUserMenu && <div className="border-t border-border my-2"></div>}
 
               {/* KISS: Two states only - using shared NavigationMenuItems */}
               <NavigationMenuItems

@@ -1,3 +1,8 @@
+---
+status: done
+sort_order: 1000002
+completed_at: '2026-02-04'
+---
 # P113: Prototype Promotion — UAT
 
 ## Scorecard

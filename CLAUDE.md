@@ -63,6 +63,18 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## Decisive Action — No False Choices
+
+> **Principle:** If analysis clearly points to one answer, take it. Only ask when there are genuine trade-offs or user preference matters.
+
+**Bad:** "Here are options 1, 2, 3. Which do you want?" (when one is obviously right)
+**Good:** "X is the right fix. Doing it."
+
+Asking unnecessary questions wastes time and shifts decision-making burden to the user. If you've done the analysis and know the answer, act on it.
+
+**When to ask:** Genuine ambiguity, user preference matters, or irreversible actions.
+**When to act:** The right path is clear from context, principles, or analysis.
+
 ## Skills — Local Only
 
 **All skills live in `.claude/commands/`** (no global `~/.claude/skills/`).
@@ -200,9 +212,25 @@ For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 
 ## Development Commands
 
+### Dev Server Ports
+
+Each worktree has a dedicated port to allow parallel development:
+
+| Location | Port |
+|----------|------|
+| Main repo | 5001 |
+| Worktree w1 | 5100 |
+| Worktree w2 | 5200 |
+| Worktree w3 | 5300 |
+| Worktree w4-w7 | 5400-5700 |
+
+**Port logic:** `5000 + (worktreeNum * 100)`. Configured in `vite.config.ts`.
+
+**For agents:** Never start dev servers on arbitrary ports. Use `npm run dev` which auto-detects the correct port based on the worktree.
+
 ```bash
 # Development
-npm run dev              # Start dev server (localhost:5001)
+npm run dev              # Start dev server (port auto-detected per worktree)
 npm run build            # Production build
 npm run preview          # Preview production build
 
@@ -650,13 +678,14 @@ Before creating a new function, hook, component, **skill, or agent**:
 
 > **Principle:** Every concept has one canonical home. Extend it, don't duplicate it.
 
-Duplication creates drift — two versions of the truth that eventually contradict each other. Before creating any new file, ask: "Does this concept already exist somewhere?"
+Duplication creates drift — two versions of the truth that eventually contradict each other. Before creating any new file OR adding content to an existing file, ask: "Is this the semantic home for this concept?"
 
 ### How to Apply
 
 1. **Search first** — grep for the concept in `.claude/commands/`, `docs/`, and `src/`
-2. **Extend, don't duplicate** — If similar exists, add to it rather than creating parallel
-3. **Link, don't copy** — Reference the source of truth; don't repeat content
+2. **Understand purpose** — Don't pattern-match on keywords. Ask "What is this file FOR?" before adding content.
+3. **Extend, don't duplicate** — If similar exists, add to it rather than creating parallel
+4. **Link, don't copy** — Reference the source of truth; don't repeat content
 
 ### When to Ask
 

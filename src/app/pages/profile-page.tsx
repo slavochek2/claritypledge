@@ -146,7 +146,7 @@ export function ProfilePage() {
 
   // P113: Handle disabled "Create" button click
   const handleCreateClick = () => {
-    toast("Coming soon", { description: "Create feature is not yet available" });
+    toast("Coming soon");
   };
 
   // Handle resend verification email
@@ -278,13 +278,13 @@ export function ProfilePage() {
       />
       <div className="min-h-screen bg-background py-8 px-4">
         <div className="container mx-auto max-w-2xl">
-          {/* P76: Back button - conditional based on auth state */}
+          {/* Back button - goes to events for logged-in, home for logged-out */}
           <Link
-            to={session ? "/home" : "/"}
+            to={session ? "/events" : "/"}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeftIcon className="w-4 h-4 mr-1" />
-            {session ? "Back to Dashboard" : "Back to Home"}
+            Back
           </Link>
 
           {/* P75: Compact Profile Card */}

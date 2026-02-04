@@ -6,7 +6,7 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation } from "react-router-dom";
-import { CalendarIcon, UserIcon, SparklesIcon, VideoIcon } from "lucide-react";
+import { CalendarIcon, UserIcon, SparklesIcon, MicIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 
@@ -30,23 +30,23 @@ export function BottomNav() {
   const navItems: NavItem[] = [
     {
       icon: CalendarIcon,
-      label: "Events",
+      label: "My Events",
       to: "/events",
     },
     {
       icon: UserIcon,
-      label: "Profile",
+      label: "My Profile",
       to: slug ? `/p/${slug}` : "/me",
     },
     {
       icon: SparklesIcon,
       label: "Create",
       disabled: true,
-      onClick: () => toast("Coming soon", { description: "Create feature is not yet available" }),
+      onClick: () => toast("Coming soon"),
     },
     {
-      icon: VideoIcon,
-      label: "Live",
+      icon: MicIcon,
+      label: "Start a Session",
       to: "/live",
     },
   ];
@@ -62,7 +62,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)]"
       aria-label="Mobile navigation"
     >
       <div className="flex items-center justify-around h-16">

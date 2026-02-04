@@ -1,13 +1,15 @@
 ---
 name: prep-spec
-description: Prepare a spec for implementation with 4-agent review. Each agent brings a different perspective.
+description: Prepare a spec for implementation with 3-agent review. Each agent brings a different perspective.
 when_to_use: before implementing any feature spec, when spec status is not "prepped"
-version: 3.0.0
+version: 4.0.0
 ---
 
 # Prep Spec
 
-Four-perspective spec review. Each agent thinks differently — no checklists, just perspectives.
+Three-perspective spec review for final polish. Each agent thinks differently — no checklists, just perspectives.
+
+> **Note:** Scope challenge is NOT part of prep-spec. Use `/lean` before writing the spec if you want to challenge scope.
 
 **Announce at start:** "I'm using the prep-spec skill to prepare this spec for implementation."
 
@@ -17,15 +19,15 @@ Four-perspective spec review. Each agent thinks differently — no checklists, j
 /prep-spec features/p104_feature.md
 ```
 
-## The Four Perspectives
+## The Three Perspectives
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│               Four Perspectives                     │
-├─────────────────┬─────────────────┬─────────────────┤
-│       UX        │    Architect    │   Lean Coach    │
-│   (the user)    │  (production)   │   (simplest?)   │
-├─────────────────┴─────────────────┴─────────────────┤
+│               Three Perspectives                    │
+├─────────────────────────┬───────────────────────────┤
+│           UX            │        Architect          │
+│       (the user)        │       (production)        │
+├─────────────────────────┴───────────────────────────┤
 │                    Alignment                        │
 │         (strategy + consistency check)              │
 └─────────────────────────────────────────────────────┘
@@ -35,7 +37,6 @@ Four-perspective spec review. Each agent thinks differently — no checklists, j
 |-------|--------------|-----------------|
 | **UX** | "How does this feel to use?" | User friction, edge cases, accessibility |
 | **Architect** | "Will we regret this in 6 months?" | Tech debt, failure modes, pattern violations |
-| **Lean Coach** | "Can we build less and still learn?" | Scope creep, business misalignment, wasted effort |
 | **Alignment** | "Does this fit our strategy?" | Terminology errors, philosophy conflicts, decision inconsistency |
 
 ---
@@ -45,7 +46,7 @@ Four-perspective spec review. Each agent thinks differently — no checklists, j
 ```
 1. READ SPEC → Understand what's proposed
        ↓
-2. RUN 4 AGENTS → Parallel review
+2. RUN 3 AGENTS → Parallel review
        ↓
 3. SYNTHESIZE → Combine insights
        ↓
@@ -64,7 +65,7 @@ Read the spec file. Skim reference docs if needed:
 
 ## Phase 2: Parallel Agent Review
 
-**All 4 agents run by default.** User can skip any.
+**All 3 agents run by default.** User can skip any.
 
 ```
 Spec: features/p104_feature.md
@@ -72,15 +73,13 @@ Spec: features/p104_feature.md
 ═══ PERSPECTIVES (all run by default) ═══
   [x] UX - user flows, edge cases
   [x] Architect - technical feasibility, patterns, execution
-  [x] Lean Coach - scope challenge, business alignment
   [x] Alignment - terminology, philosophy, strategy
 
-Running: 4 agents
+Running: 3 agents
 
 Options:
 1. Run all (recommended)
-2. Skip scope challenge (if confident)
-3. Quick review (UX + Architect only)
+2. Quick review (UX + Architect only)
 ```
 
 ### Agent Files
@@ -89,16 +88,14 @@ Options:
 |-------|------|-----------------------------|
 | UX | `agents/ux.md` | — |
 | Architect | `agents/architect.md` | sustainability, devils-advocate, execution-scout |
-| Lean Coach | `agents/lean-coach.md` | lean-startup-coach, business, alternatives |
 | Alignment | `agents/alignment.md` | hypotheses, decisions, definitions, philosophy, kdd-scout |
 
 ### Parallel Dispatch
 
 ```typescript
-// All 4 agents run simultaneously
+// All 3 agents run simultaneously
 Task("UX review", { prompt: uxPrompt + specContent })
 Task("Architect review", { prompt: architectPrompt + specContent })
-Task("Lean Coach", { prompt: leanCoachPrompt + specContent })
 Task("Alignment", { prompt: alignmentPrompt + specContent })
 ```
 
@@ -106,23 +103,23 @@ Task("Alignment", { prompt: alignmentPrompt + specContent })
 
 ## Phase 3: Synthesis
 
-With 4 agents, synthesis is straightforward:
+With 3 agents, synthesis is straightforward:
 
 ```markdown
 ## Prep-Spec Review Summary
 
-**Agents:** UX ✓, Architect ✓, Lean Coach ✓, Alignment ✓
+**Agents:** UX ✓, Architect ✓, Alignment ✓
 
 ### Blockers (must address)
 - [ ] [Architect] Missing error handling for offline case
 - [ ] [UX] No loading state defined
 
 ### Suggestions (consider)
-- [ ] [Lean Coach] Could validate with mock data first
 - [ ] [Alignment] Consider adding to hypotheses.md
+- [ ] [UX] Add empty state for new users
 
 ### Conflicts to Resolve
-- Architect wants abstraction, Lean Coach says YAGNI — discuss
+- {Any disagreements between agents}
 
 ### Execution Recommendation
 - Similar to: {features/done/pN if applicable}
@@ -146,7 +143,6 @@ prepped_date: 2026-01-27
 reviews:
   ux: passed
   architect: passed-with-notes
-  lean-coach: passed
   alignment: passed
 ---
 ```
@@ -162,16 +158,17 @@ reviews:
 
 User can always skip:
 - "quick review" → UX + Architect only
-- "skip scope challenge" → skip Lean Coach
 - "skip prep" → proceed without review
 
 Honor user's choice but note the spec remains unprepped.
+
+> **Want scope challenge?** Run `/lean` before writing the spec.
 
 ---
 
 ## Related Skills
 
-- `/lean` — Standalone scope challenge (runs Lean Coach methodology directly)
+- `/lean` — Scope challenge (run BEFORE writing the spec)
 - `/innovate` — Divergent thinking (explore 30 alternatives)
 - `/ux` — Standalone UX review
 - `/dev` — Execute implementation with TDD
@@ -183,10 +180,10 @@ Honor user's choice but note the spec remains unprepped.
 
 | Perspective | In prep-spec | Standalone |
 |-------------|--------------|------------|
-| Lean Coach | Part of 4-agent review | `/lean` |
-| UX | Part of 4-agent review | `/ux` |
+| UX | Part of 3-agent review | `/ux` |
 | Dev thinking | Via Architect agent | `/dev` |
+| Scope challenge | Not included | `/lean` |
 | Innovation | Not included (divergent) | `/innovate` |
 
-**Why Innovation is standalone only:**
-Innovation is divergent thinking (explore many possibilities). Prep-spec is convergent (is this spec ready?). Run `/innovate` before writing the spec if you want to explore alternatives.
+**Why Lean Coach and Innovation are standalone only:**
+Prep-spec is convergent thinking — "is this spec ready to implement?" Scope challenge (`/lean`) and innovation (`/innovate`) are divergent — run them before writing the spec, not after.

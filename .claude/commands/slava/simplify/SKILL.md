@@ -1,19 +1,20 @@
 ---
 name: simplify
-description: Cut through complexity — analyze situation, list options, recommend one.
-when_to_use: When you need a clear decision, not a comprehensive audit.
-version: 6.0.0
+description: Analyze each decision point — categorize, show options, recommend.
+when_to_use: When reviewing a spec/plan and need structured decision-by-decision analysis.
+version: 7.0.0
 ---
 
 # /slava:simplify
 
 > **Principle:** Good simplification removes what's unnecessary. Bad simplification cuts corners.
 
-## Key Question
+## What This Skill Does
 
-**"What should I do?"**
-
-Not "what are all the issues" — just "what's the simplest path forward?"
+Reads the document, identifies EACH important decision, and for each one:
+1. Categorizes it as **Keep** (no change needed) or **Fix** (needs change)
+2. For Fix items: lists options with tradeoffs
+3. Recommends one option with reasoning
 
 ## Usage
 
@@ -26,34 +27,64 @@ Not "what are all the issues" — just "what's the simplest path forward?"
 
 ## How to Think
 
-You're a trusted advisor giving a quick recommendation, not an auditor producing a report.
+**Extract decisions, not complaints.** Look for places where the spec makes a choice (explicit or implicit).
 
-**6-month test.** Will we thank ourselves for this decision in 6 months?
+**Be specific.** "The auth flow" is not a decision. "Using magic link vs password" is a decision.
+
+**6-month test.** Will we thank ourselves for this in 6 months?
 
 **Remove, don't cut.** Removing unnecessary complexity = good. Cutting necessary functionality = bad.
-
-**One recommendation.** The user can always ask for more detail.
 
 ---
 
 ## Output Format
 
-Keep it short. No tables unless absolutely necessary.
-
 ```markdown
-### Situation
-[1-2 sentences: what's the context, what's being decided]
+## Decisions Analysis
 
-### Options
-1. **Option A** — [one sentence tradeoff]
-2. **Option B** — [one sentence tradeoff]
-3. **Do nothing** — [one sentence tradeoff]
+### 1. [Decision Name]
+**Status:** Keep ✓
+**Why:** [One sentence — why this is already right]
 
-### Recommendation
-**Option N** because [one sentence reasoning].
+---
+
+### 2. [Decision Name]
+**Status:** Fix ✗
+
+**Options:**
+1. **[Option A]** — [tradeoff in one sentence]
+2. **[Option B]** — [tradeoff in one sentence]
+3. **Keep as-is** — [tradeoff in one sentence]
+
+**Recommendation:** Option N because [one sentence reasoning].
+
+---
+
+### 3. [Decision Name]
+**Status:** Keep ✓
+**Why:** [One sentence]
+
+---
+
+[Continue for each decision...]
+
+## Summary
+- **Keep:** N decisions (already good)
+- **Fix:** M decisions (need changes)
 ```
 
-That's it. If the user wants more detail, they'll ask.
+---
+
+## What Counts as a Decision
+
+Look for these patterns in specs/plans:
+- Technology choices (library, framework, service)
+- Scope choices (include/exclude features)
+- UX choices (flow, layout, interaction pattern)
+- Data model choices (what to store, how to structure)
+- Validation approaches (when to ship, what to test)
+
+**Skip:** Implementation details that don't affect outcomes.
 
 ---
 

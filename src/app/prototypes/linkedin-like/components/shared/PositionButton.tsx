@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Check, X, HelpCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -54,7 +54,15 @@ const POSITION_SHORT_LABELS: Record<PositionType, string> = {
 // Button group configuration
 interface ButtonGroupConfig {
   label: string;
-  shortLabel: string; // For compact/mobile display
+  /** Progressive labels for narrower screens */
+  labels: {
+    full: string;    // >= 400px
+    short: string;   // 360-399px
+    shorter: string; // 320-359px
+    tiny: string;    // < 320px
+  };
+  /** Icon component for this position group */
+  icon: typeof Check;
   defaultPosition: PositionType;
   positions: PositionType[];
   activeClass: string;
@@ -64,7 +72,8 @@ interface ButtonGroupConfig {
 const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
   disagree: {
     label: 'Disagree',
-    shortLabel: '',
+    labels: { full: 'Disagree', short: 'Dis...', shorter: 'Di', tiny: 'D' },
+    icon: X,
     defaultPosition: 'disagree', // -2
     positions: ['strongly_disagree', 'disagree', 'somewhat_disagree'],
     activeClass: 'bg-blue-600 text-white',
@@ -72,7 +81,8 @@ const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
   },
   unsure: {
     label: 'Unsure',
-    shortLabel: '',
+    labels: { full: 'Unsure', short: 'Uns...', shorter: 'Un', tiny: 'U' },
+    icon: HelpCircle,
     defaultPosition: 'unsure', // 0
     positions: ['unsure'],
     activeClass: 'bg-blue-600 text-white',
@@ -80,7 +90,8 @@ const BUTTON_GROUPS: Record<PositionButtonGroup, ButtonGroupConfig> = {
   },
   agree: {
     label: 'Agree',
-    shortLabel: '',
+    labels: { full: 'Agree', short: 'Agr...', shorter: 'Ag', tiny: 'A' },
+    icon: Check,
     defaultPosition: 'agree', // +2
     positions: ['strongly_agree', 'agree', 'somewhat_agree'], // Most intense at top
     activeClass: 'bg-blue-600 text-white',
@@ -103,16 +114,31 @@ function getGroupCount(counts: SevenPointCounts, group: PositionButtonGroup): nu
   }
 }
 
-// Get display label for button (shows SHORT label when selected)
-function getButtonLabel(group: PositionButtonGroup, userPosition: Position): string {
+// Progressive label type for responsive display
+interface ProgressiveLabels {
+  full: string;    // >= 400px
+  short: string;   // 360-399px
+  shorter: string; // 320-359px
+  tiny: string;    // < 320px
+}
+
+// Get display labels for button (progressive truncation for narrow screens)
+function getButtonLabel(group: PositionButtonGroup, userPosition: Position): ProgressiveLabels {
   const config = BUTTON_GROUPS[group];
 
-  // If user has a position in this group, show the short label
+  // If user has a position in this group, show the position-specific label for full,
+  // but use group abbreviations for narrow screens
   if (userPosition && getPositionGroup(userPosition) === group) {
-    return POSITION_SHORT_LABELS[userPosition];
+    const fullLabel = POSITION_SHORT_LABELS[userPosition];
+    return {
+      full: fullLabel,
+      short: config.labels.short,
+      shorter: config.labels.shorter,
+      tiny: config.labels.tiny,
+    };
   }
 
-  return config.label;
+  return config.labels;
 }
 
 interface PositionButtonGroupProps {
@@ -150,9 +176,16 @@ function getTooltipText(group: PositionButtonGroup, userPosition: Position): str
 /**
  * Shared button content with tooltip - extracted to reduce duplication.
  * Used by all segment variants (compact, simple, dropdown).
+ *
+ * Uses CSS to progressively truncate labels at multiple breakpoints:
+ * - >= 400px: Full label (Disagree, Unsure, Agree)
+ * - 360-399px: Short label (Dis..., Uns..., Agr...)
+ * - 320-359px: Shorter label (Di, Un, Ag)
+ * - < 320px: Icon only (✓, ✗, ?)
  */
 interface SegmentButtonContentProps {
-  buttonLabel: string;
+  buttonLabel: ProgressiveLabels;
+  icon: typeof Check;
   count: number;
   isActive: boolean;
   tooltipText: string;
@@ -161,6 +194,7 @@ interface SegmentButtonContentProps {
 
 function SegmentButtonContent({
   buttonLabel,
+  icon: Icon,
   count,
   isActive,
   tooltipText,
@@ -172,9 +206,18 @@ function SegmentButtonContent({
         <TooltipTrigger asChild>
           <button
             onClick={onClick}
-            className="flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-3 py-1.5 sm:py-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity whitespace-nowrap text-[11px] sm:text-xs"
+            className="flex items-center gap-0.5 sm:gap-1 px-1 min-[360px]:px-1.5 sm:px-3 py-1.5 sm:py-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity whitespace-nowrap text-[11px] sm:text-xs"
           >
-            <span>{buttonLabel}</span>
+            {/* Icon: shown at all sizes, but alone on ultra-narrow */}
+            <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+            {/* Progressive label display based on viewport width */}
+            {/* Full: >= 400px */}
+            <span className="hidden min-[400px]:inline">{buttonLabel.full}</span>
+            {/* Short: 360-399px */}
+            <span className="hidden min-[360px]:inline min-[400px]:hidden">{buttonLabel.short}</span>
+            {/* Shorter: 320-359px */}
+            <span className="hidden min-[320px]:inline min-[360px]:hidden">{buttonLabel.shorter}</span>
+            {/* Below 320px: icon only, no text label */}
             <span className={isActive ? 'opacity-90' : 'opacity-60'}>({count})</span>
           </button>
         </TooltipTrigger>
@@ -227,6 +270,7 @@ function PositionSegment({
       <div className={segmentClass} onClick={(e) => e.stopPropagation()}>
         <SegmentButtonContent
           buttonLabel={buttonLabel}
+          icon={config.icon}
           count={count}
           isActive={isActive}
           tooltipText={getTooltipText(group, userPosition)}
@@ -241,6 +285,7 @@ function PositionSegment({
     <div className={`${segmentClass} gap-0`} onClick={(e) => e.stopPropagation()}>
       <SegmentButtonContent
         buttonLabel={buttonLabel}
+        icon={config.icon}
         count={count}
         isActive={isActive}
         tooltipText={getTooltipText(group, userPosition)}
@@ -251,7 +296,7 @@ function PositionSegment({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="pl-0.5 sm:pl-1 pr-1 sm:pr-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity"
+            className="flex-shrink-0 pl-0.5 sm:pl-1 pr-1.5 sm:pr-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity"
             aria-label={`${group} options`}
             data-testid={`${group}-dropdown`}
           >

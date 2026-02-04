@@ -1,3 +1,8 @@
+---
+status: done
+sort_order: 1000004
+completed_at: '2026-02-04'
+---
 # P113 v2: Plug Prototype Components — UAT
 
 ## Scorecard

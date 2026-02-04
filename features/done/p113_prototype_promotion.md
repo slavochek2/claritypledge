@@ -1,3 +1,8 @@
+---
+status: done
+sort_order: 1000001
+completed_at: '2026-02-04'
+---
 # P113: Promote LinkedIn Prototype to Production
 
 ## Summary

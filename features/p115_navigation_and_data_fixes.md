@@ -1,5 +1,5 @@
 ---
-status: prepped
+status: done
 reviews:
   ux: passed
   architect: passed
@@ -56,12 +56,13 @@ The dropdown for logged-in users removed all public navigation links.
 │ Pledgers        │  ← Public navigation
 │ Manifesto       │     (site discovery)
 │ About           │
-│ Co-create       │
 ├─────────────────┤  ← Visual separator
 │ Settings        │  ← Account actions
 │ Log Out         │
 └─────────────────┘
 ```
+
+**Note:** Co-create removed from logged-in menu (accessible via My Events page).
 
 **Why:**
 - Users shouldn't lose access to public pages when logged in
@@ -127,11 +128,11 @@ The dropdown for logged-in users removed all public navigation links.
 
 ## Success Criteria
 
-- [ ] `/events/list` shows real events from database (or empty state)
-- [ ] Logged-in users can access Pledgers, Manifesto, About, Co-create from dropdown
-- [ ] Navigation is consistent across all pages
-- [ ] Visual separator clearly distinguishes site nav from account actions
-- [ ] Mobile menu has same structure as desktop dropdown
+- [x] `/events/list` shows real events from database (or empty state)
+- [x] Logged-in users can access Pledgers, Manifesto, About, Co-create from dropdown
+- [x] Navigation is consistent across all pages
+- [x] Visual separator clearly distinguishes site nav from account actions
+- [x] Mobile menu has same structure as desktop dropdown
 
 ## Test Plan
 

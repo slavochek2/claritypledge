@@ -177,11 +177,11 @@ describe('PledgerCard', () => {
     });
   });
 
-  describe('"Open pledge" link indicator', () => {
-    it('renders "Open pledge" text', () => {
+  describe('"Open Profile" link indicator', () => {
+    it('renders "Open Profile" text', () => {
       render(<PledgerCard {...mockPledger} />, { wrapper });
 
-      expect(screen.getByText('Open pledge')).toBeInTheDocument();
+      expect(screen.getByText('Open Profile')).toBeInTheDocument();
     });
   });
 

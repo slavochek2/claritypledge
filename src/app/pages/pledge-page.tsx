@@ -9,21 +9,22 @@
  * and have the option to "witness" the pledge themselves.
  */
 import { useEffect, useState, useRef } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
 import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { CheckCircleIcon } from "lucide-react";
+import { CheckCircleIcon, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
 
 export function PledgePage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const firstTime = searchParams.get("firstTime") === "true";
-  
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const { user: currentUser, session } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -180,7 +181,7 @@ export function PledgePage() {
   return (
     <>
       <SEO
-        title={`${profile.name}'s Clarity Pledge`}
+        title={profile.name}
         description={profile.reason || `${profile.name} has signed the Clarity Pledge, committing to clear, honest communication.`}
         url={`/p/${profile.slug}/pledge`}
         type="profile"
@@ -192,6 +193,14 @@ export function PledgePage() {
       />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto max-w-5xl py-12 px-4">
+          {/* P114: Back button to profile */}
+          <button
+            onClick={() => navigate(`/p/${profile.slug}`)}
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft size={16} className="mr-1" />
+            Back
+          </button>
           {profile && (
             <>
               <ProfileVisitorView

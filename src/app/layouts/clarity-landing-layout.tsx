@@ -39,7 +39,7 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
       {isLandingPage ? <ClarityFooter /> : <LegalFooter />}
       {/* P113: Mobile bottom nav for logged-in users */}
       <BottomNav />
-      <Toaster position="top-center" />
+      <Toaster />
     </div>
   );
 }
