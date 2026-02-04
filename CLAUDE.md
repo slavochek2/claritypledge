@@ -776,6 +776,28 @@ features/               # Feature planning docs
 └── research/           # Research results (permanent reference)
 ```
 
+### Feature Spec Lifecycle
+
+When completing a feature spec:
+
+1. **Update frontmatter** in the spec file:
+   ```yaml
+   ---
+   status: done
+   completed_at: '2026-02-04'  # Add completion date
+   # Keep existing fields (prepped_date, reviews, decisions, etc.)
+   ---
+   ```
+
+2. **Move to done/** folder:
+   ```bash
+   git mv features/p{N}_{name}.md features/done/
+   ```
+
+3. **Commit together** — frontmatter update and file move in same commit.
+
+**Status values:** `draft` → `prepped` → `in-progress` → `done` (or `archived` if deprioritized)
+
 ### Generated artifacts (OK to create)
 
 These are gitignored and expected:

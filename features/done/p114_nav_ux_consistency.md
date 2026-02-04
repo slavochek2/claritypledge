@@ -1,25 +1,22 @@
 ---
 status: done
-sort_order: 1000005
-completed_at: '2026-02-04'
----
-# P114: Navigation & UX Consistency Fixes
-
----
-status: implemented
-prepped_date: 2026-02-03
-implemented_date: 2026-02-04
+prepped_date: 2026-02-03T00:00:00.000Z
+implemented_date: 2026-02-04T00:00:00.000Z
 reviews:
   ux: passed
   architect: passed-with-notes
   lean_coach: passed
   alignment: passed
 decisions:
-  button_text: "Start Clarity Session"
+  button_text: Start Clarity Session
   button_icon: none (removed)
   back_fallback: /events
   logged_out_cta: goes to /live (existing redirect handles auth)
+sort_order: 1000000.5
+completed_at: '2026-02-04'
 ---
+
+# P114: Navigation & UX Consistency Fixes
 
 ## Background
 
