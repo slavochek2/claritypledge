@@ -18,10 +18,8 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
 
   const isLandingPage = location.pathname === "/";
   const isAlternativeLandingPage = location.pathname === "/alternative";
-  // Live meeting pages have their own header (LiveSessionBanner)
-  const isLiveMeetingPage = location.pathname === "/live" || location.pathname.startsWith("/live/");
   // Pages that have their own navigation (skip layout nav)
-  const hasOwnNavigation = isAlternativeLandingPage || isLiveMeetingPage;
+  const hasOwnNavigation = isAlternativeLandingPage;
   // Landing page needs nav but no top padding (hero goes to top)
   const needsTopPadding = !hasOwnNavigation && !isLandingPage;
   // P113: Add bottom padding for mobile when logged in (for bottom nav)

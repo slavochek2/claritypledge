@@ -10,7 +10,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
 // P50: ConsentNotice import removed - replaced with inline consent checkbox
 import {
   Dialog,
@@ -1711,8 +1710,7 @@ export function ClarityLivePage() {
   // Show partner left screen if partner departed
   if (sessionEnded || partnerLeft) {
     return (
-      <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="" isLiveMeeting={false} />
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
           <PartnerLeftScreen
             partnerName={departedPartnerName}
@@ -1727,8 +1725,7 @@ export function ClarityLivePage() {
   // Show loading while restoring session
   if (isRestoring) {
     return (
-      <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="" isLiveMeeting={false} />
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-pulse text-muted-foreground">Loading...</div>
         </div>
@@ -1744,8 +1741,7 @@ export function ClarityLivePage() {
       const canJoinViaLink = !validateName(name) && !validateEmail(email);
 
       return (
-        <div className="flex flex-col h-screen">
-          <LiveSessionBanner title="" isLiveMeeting={false} />
+        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
             <div className="text-center mb-8">
               {/* Prominent heading inside form area for context clarity */}
@@ -1889,8 +1885,7 @@ export function ClarityLivePage() {
     // (auth state updates -> isLoggedIn becomes true -> form would briefly show logged-in view)
     if (isAuthLoading || isLoading) {
       return (
-        <div className="flex flex-col h-screen">
-          <LiveSessionBanner title="" isLiveMeeting={false} />
+        <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
           <div className="flex-1 flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground">
               {isLoading ? 'Creating session...' : 'Loading...'}
@@ -1905,8 +1900,7 @@ export function ClarityLivePage() {
     const guestCanProceed = isLoggedIn || (!validateName(name) && !validateEmail(email) && consentChecked);
 
     return (
-      <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="" isLiveMeeting={false} />
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 container mx-auto px-4 max-w-md md:max-w-2xl flex flex-col justify-center">
           <div className="space-y-6">
             {/* Page title - always shows "Clarity Session" */}
@@ -2190,8 +2184,7 @@ export function ClarityLivePage() {
     const displayLink = shareLink.replace('https://', '').replace('http://', '');
 
     return (
-      <div className="flex flex-col h-screen">
-        <LiveSessionBanner title="" isLiveMeeting={false} />
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
           <div className="text-center space-y-6">
             <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
@@ -2244,7 +2237,7 @@ export function ClarityLivePage() {
               onClick={handleCancelWaiting}
               className="text-muted-foreground w-full"
             >
-              Back
+              Cancel
             </Button>
           </div>
         </div>
@@ -2264,7 +2257,7 @@ export function ClarityLivePage() {
   // LIVE/REVIEW VIEW
   if ((view === 'live') && session && partnerName) {
     return (
-      <div className="flex flex-col h-screen">
+      <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <LiveModeView
           liveState={liveState}
           currentUserName={name}
