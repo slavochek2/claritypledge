@@ -1,5 +1,5 @@
 // Status columns for Notion-style kanban
-export type Status = 'week' | 'today' | 'in-progress' | 'blocked' | 'done'
+export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done'
 
 // Feature type badge (first-class badge)
 export type FeatureType = 'bug' | 'task' | 'story'
@@ -28,4 +28,7 @@ export interface Feature {
   hypothesis?: string // e.g., "H-Biz", "H2"
   tags: string[]
   created?: string
+  // Added for P113: Backlog & Sorting improvements
+  completed_at?: string // ISO date (YYYY-MM-DD) when moved to done
+  sort_order?: number // For within-column ordering (fractional)
 }

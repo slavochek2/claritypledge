@@ -1,5 +1,5 @@
 ---
-status: today
+status: done
 priority: urgent-important
 tags:
   - tooling
@@ -10,6 +10,7 @@ reviews:
   architect: passed
   lean_coach: passed-stripped
   alignment: passed
+completed_at: '2026-02-04'
 ---
 
 # P112: Notion-Style Kanban Rebuild (Simplified)

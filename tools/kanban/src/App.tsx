@@ -1,28 +1,54 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { DndContext, DragEndEvent, pointerWithin } from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { Column } from './components/Column'
-import { Feature, ColumnId, Status } from './lib/types'
+import { Feature, Status } from './lib/types'
+
+// Column configuration with visibility and filter options
+interface ColumnConfig {
+  id: Status
+  title: string
+  color: string
+  defaultHidden?: boolean
+  filter?: 'today' | 'before-today'
+}
 
 // Notion-style status columns (left-to-right workflow)
-const COLUMNS: { id: ColumnId; title: string; color: string }[] = [
+// Order: Backlog -> Week -> Today -> Blocked -> In Progress -> Done
+const COLUMNS: ColumnConfig[] = [
+  { id: 'backlog', title: 'Backlog', color: '#6b7280', defaultHidden: true },
   { id: 'week', title: 'Week', color: '#3b82f6' },
-  { id: 'today', title: 'Today', color: '#f97316' },
-  { id: 'in-progress', title: 'In Progress', color: '#f59e0b' },
+  { id: 'today', title: 'Today', color: '#3b82f6' },
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
-  { id: 'done', title: 'Done', color: '#22c55e' },
+  { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
+  { id: 'done', title: 'Done', color: '#22c55e', filter: 'today' },
 ]
 
-// Valid column IDs for drop target validation
-const VALID_COLUMN_IDS = new Set(COLUMNS.map((c) => c.id))
+// Virtual column for "All Done" (older completions)
+const ALL_DONE_COLUMN: ColumnConfig = {
+  id: 'done',
+  title: 'All Done',
+  color: '#22c55e',
+  defaultHidden: true,
+  filter: 'before-today',
+}
 
-const HIDE_DONE_KEY = 'kanban-hide-done'
+// Valid column IDs for drop target validation
+const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done'])
+
+const SHOW_BACKLOG_KEY = 'kanban-show-backlog'
+const SHOW_ALL_DONE_KEY = 'kanban-show-all-done'
 
 export default function App() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [hideDone, setHideDone] = useState(() => {
-    const stored = localStorage.getItem(HIDE_DONE_KEY)
+  const [showBacklog, setShowBacklog] = useState(() => {
+    const stored = localStorage.getItem(SHOW_BACKLOG_KEY)
+    return stored === 'true'
+  })
+  const [showAllDone, setShowAllDone] = useState(() => {
+    const stored = localStorage.getItem(SHOW_ALL_DONE_KEY)
     return stored === 'true'
   })
 
@@ -44,10 +70,18 @@ export default function App() {
     fetchFeatures()
   }, [])
 
-  const toggleHideDone = () => {
-    setHideDone((prev) => {
+  const toggleShowBacklog = () => {
+    setShowBacklog((prev) => {
       const newValue = !prev
-      localStorage.setItem(HIDE_DONE_KEY, String(newValue))
+      localStorage.setItem(SHOW_BACKLOG_KEY, String(newValue))
+      return newValue
+    })
+  }
+
+  const toggleShowAllDone = () => {
+    setShowAllDone((prev) => {
+      const newValue = !prev
+      localStorage.setItem(SHOW_ALL_DONE_KEY, String(newValue))
       return newValue
     })
   }
@@ -57,53 +91,136 @@ export default function App() {
     if (!over) return
 
     const featureId = active.id as string
-    const targetId = over.id as string
+    const overId = over.id as string
 
-    // Validate drop target is a column, not another card
-    if (!VALID_COLUMN_IDS.has(targetId as ColumnId)) return
-
-    const targetColumn = targetId as ColumnId
-
-    // Find the feature
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
 
-    // Column ID is the new status (simple mapping)
-    const newStatus: Status = targetColumn
+    // Case 1: Dropped on a column (status change)
+    if (VALID_COLUMN_IDS.has(overId as Status)) {
+      const newStatus = overId as Status
+      if (feature.status === newStatus) return // Same column, no change
 
-    // Skip if status unchanged
-    if (feature.status === newStatus) return
+      // Optimistic update
+      setFeatures((prev) =>
+        prev.map((f) => (f.id === featureId ? { ...f, status: newStatus } : f))
+      )
+
+      // Update file
+      try {
+        const res = await fetch(`/api/features/${encodeURIComponent(featureId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        })
+        if (!res.ok) throw new Error('Failed to update')
+        await fetchFeatures()
+      } catch {
+        fetchFeatures()
+      }
+      return
+    }
+
+    // Case 2: Dropped on another card (within-column reorder)
+    const targetFeature = features.find((f) => f.id === overId)
+    if (!targetFeature) return
+
+    // Only allow reordering within same column
+    if (feature.status !== targetFeature.status) return
+
+    // Get features in this column sorted by sort_order
+    const columnFeatures = features
+      .filter((f) => f.status === feature.status)
+      .sort((a, b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity))
+
+    const oldIndex = columnFeatures.findIndex((f) => f.id === featureId)
+    const newIndex = columnFeatures.findIndex((f) => f.id === overId)
+
+    if (oldIndex === newIndex) return
+
+    // Calculate new sort_order using fractional ordering
+    const reorderedFeatures = arrayMove(columnFeatures, oldIndex, newIndex)
+    const newPosition = reorderedFeatures.findIndex((f) => f.id === featureId)
+
+    let newSortOrder: number
+    if (newPosition === 0) {
+      // First position: use half of the next item's order (or 1.0 if none)
+      const nextOrder = reorderedFeatures[1]?.sort_order ?? 2.0
+      newSortOrder = nextOrder / 2
+    } else if (newPosition === reorderedFeatures.length - 1) {
+      // Last position: use prev + 1
+      const prevOrder = reorderedFeatures[newPosition - 1]?.sort_order ?? 0
+      newSortOrder = prevOrder + 1
+    } else {
+      // Middle: average of neighbors
+      const prevOrder = reorderedFeatures[newPosition - 1]?.sort_order ?? 0
+      const nextOrder = reorderedFeatures[newPosition + 1]?.sort_order ?? prevOrder + 2
+      newSortOrder = (prevOrder + nextOrder) / 2
+    }
 
     // Optimistic update
     setFeatures((prev) =>
-      prev.map((f) => (f.id === featureId ? { ...f, status: newStatus } : f))
+      prev.map((f) => (f.id === featureId ? { ...f, sort_order: newSortOrder } : f))
     )
 
-    // Update file
+    // API call
     try {
       const res = await fetch(`/api/features/${encodeURIComponent(featureId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ sort_order: newSortOrder }),
       })
       if (!res.ok) throw new Error('Failed to update')
-      // Success - fetch fresh data to confirm
-      await fetchFeatures()
     } catch {
-      // Revert on error
-      fetchFeatures()
+      fetchFeatures() // Revert on error
     }
   }
 
-  const getColumnFeatures = (columnId: ColumnId): Feature[] => {
-    // Simple: status matches column ID
-    return features.filter((f) => f.status === columnId)
+  const getColumnFeatures = (column: ColumnConfig): Feature[] => {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0]
+
+    return features
+      .filter((f) => {
+        // Must match the column's status
+        if (f.status !== column.id) return false
+
+        // Apply filter for Done columns
+        if (column.filter === 'today') {
+          // Done column: only items completed TODAY
+          return f.completed_at === today
+        } else if (column.filter === 'before-today') {
+          // All Done column: items completed before today (or no completed_at = legacy)
+          return !f.completed_at || f.completed_at < today
+        }
+
+        return true
+      })
+      .sort((a, b) => {
+        // Sort by sort_order first, then by ID as tiebreaker
+        const orderA = a.sort_order ?? Infinity
+        const orderB = b.sort_order ?? Infinity
+        if (orderA !== orderB) return orderA - orderB
+        return a.id.localeCompare(b.id)
+      })
   }
 
-  // Filter visible columns based on hideDone toggle
-  const visibleColumns = hideDone
-    ? COLUMNS.filter((col) => col.id !== 'done')
-    : COLUMNS
+  // Build visible columns based on toggles
+  const visibleColumns = useMemo(() => {
+    let cols = [...COLUMNS]
+
+    // Filter out backlog if not shown
+    if (!showBacklog) {
+      cols = cols.filter((c) => c.id !== 'backlog')
+    }
+
+    // Add "All Done" column if toggled on
+    if (showAllDone) {
+      cols.push(ALL_DONE_COLUMN)
+    }
+
+    return cols
+  }, [showBacklog, showAllDone])
 
   if (loading) {
     // Skeleton loading state
@@ -128,7 +245,7 @@ export default function App() {
         >
           {visibleColumns.map((col) => (
             <div
-              key={col.id}
+              key={`${col.id}-${col.filter ?? 'default'}`}
               style={{
                 background: '#1a1a2e',
                 borderRadius: 8,
@@ -227,11 +344,28 @@ export default function App() {
           >
             <input
               type="checkbox"
-              checked={hideDone}
-              onChange={toggleHideDone}
+              checked={showBacklog}
+              onChange={toggleShowBacklog}
               style={{ cursor: 'pointer' }}
             />
-            <span style={{ fontSize: 14, opacity: 0.8 }}>Hide Done</span>
+            <span style={{ fontSize: 14, opacity: 0.8 }}>Backlog</span>
+          </label>
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={showAllDone}
+              onChange={toggleShowAllDone}
+              style={{ cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14, opacity: 0.8 }}>All Done</span>
           </label>
         </div>
       </div>
@@ -247,11 +381,11 @@ export default function App() {
         >
           {visibleColumns.map((col) => (
             <Column
-              key={col.id}
+              key={`${col.id}-${col.filter ?? 'default'}`}
               id={col.id}
               title={col.title}
               color={col.color}
-              features={getColumnFeatures(col.id)}
+              features={getColumnFeatures(col)}
             />
           ))}
         </div>

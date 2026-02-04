@@ -358,7 +358,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 │   ├── done/                 # Completed feature docs
 │   ├── archive/              # Archived/deprioritized features
 │   ├── drafts/               # Early-stage drafts and ideas
-│   ├── p{N}_uat.md           # UAT files for ralph-loop
+│   ├── uat/                  # UAT files for ralph-loop (uat/p{N}.md)
 │   └── *.md                  # Active features (p{N}_{name}.md)
 │
 ├── e2e/                      # Playwright E2E tests
@@ -390,7 +390,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ### Conventions
 
 - **docs/technical/** - How things work (for developers)
-- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `p{N}_uat.md`)
+- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `uat/p{N}.md`)
 - **src/app/** - All application code lives here
 - **src/app/content/** - All app content (articles, copy)
 
@@ -715,7 +715,7 @@ When documenting any concept (decisions, learnings, hypotheses):
 | Completed features | `features/done/` |
 | Archived features | `features/archive/` |
 | Research results | `features/research/` |
-| UAT files (ralph-loop) | `features/p{N}_uat.md` |
+| UAT files (ralph-loop) | `features/uat/p{N}.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
 | **Slava's custom skills** | `.claude/commands/slava/` |
@@ -746,12 +746,34 @@ bmad/
 
 features/               # Feature planning docs
 ├── p{N}_{name}.md      # Active specs (root = current work)
-├── p{N}_uat.md         # UAT files for ralph-loop
+├── uat/                # UAT files for ralph-loop
+│   └── p{N}.md         # e.g., uat/p112.md
 ├── done/               # Completed features
 ├── archive/            # Archived/deprioritized features
 ├── drafts/             # Early-stage drafts and ideas
 └── research/           # Research results (permanent reference)
 ```
+
+### Feature File Format
+
+All feature files (`features/p{N}_{name}.md`) **must have frontmatter**:
+
+```yaml
+---
+status: backlog | week | today | in-progress | blocked | done
+type: bug | task | story        # optional
+priority: p0 | p1 | p2 | p3     # optional, AI-managed
+tags: [tag1, tag2]              # optional
+---
+
+# P{N}: Feature Title
+
+...content...
+```
+
+**Required:** `status` — determines kanban column placement
+
+**Kanban workflow:** Backlog → Week → Today → In Progress → Done
 
 ### Generated artifacts (OK to create)
 

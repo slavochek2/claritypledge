@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: week
 priority: urgent-important
 hypothesis: H-Biz
 tags:

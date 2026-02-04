@@ -13,10 +13,10 @@ const TYPE_COLORS: Record<FeatureType, string> = {
 }
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  p0: '#f97316',
-  p1: '#f59e0b',
-  p2: '#3b82f6',
-  p3: '#3b82f6',
+  p0: '#ef4444',
+  p1: '#3b82f6',
+  p2: '#6b7280',
+  p3: '#6b7280',
 }
 
 // Max visible tags before showing "+N more"
@@ -87,7 +87,7 @@ export function Card({ feature }: CardProps) {
         {displayTitle}
       </div>
 
-      {/* First-class badges row: ID, Type, Priority, Blocked_by, Open button */}
+      {/* First-class badges row: Type, Priority, Blocked_by, Open button */}
       <div
         style={{
           display: 'flex',
@@ -97,20 +97,6 @@ export function Card({ feature }: CardProps) {
           marginBottom: 4,
         }}
       >
-        {/* ID badge - monospace, subtle background */}
-        <span
-          style={{
-            fontSize: 11,
-            fontFamily: 'monospace',
-            background: '#2a2a4a',
-            padding: '1px 5px',
-            borderRadius: 3,
-            color: 'rgba(255,255,255,0.6)',
-          }}
-        >
-          {feature.id}
-        </span>
-
         {/* Type badge */}
         {feature.type && (
           <span
@@ -209,12 +195,12 @@ export function Card({ feature }: CardProps) {
             </span>
           )}
 
-          {/* Milestone badge - green */}
+          {/* Milestone badge - gray */}
           {feature.milestone && (
             <span
               style={{
                 fontSize: 10,
-                background: '#22c55e',
+                background: '#6b7280',
                 color: '#fff',
                 padding: '1px 6px',
                 borderRadius: 4,
@@ -224,12 +210,12 @@ export function Card({ feature }: CardProps) {
             </span>
           )}
 
-          {/* Hypothesis badge - purple */}
+          {/* Hypothesis badge - gray */}
           {feature.hypothesis && (
             <span
               style={{
                 fontSize: 10,
-                background: '#8b5cf6',
+                background: '#6b7280',
                 color: '#fff',
                 padding: '1px 6px',
                 borderRadius: 4,

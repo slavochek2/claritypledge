@@ -1,10 +1,11 @@
 ---
-status: blocked
+status: backlog
 priority: important
 hypothesis: H-Biz
 tags:
   - marketing
   - automation
+sort_order: 2.5
 ---
 
 # P108: Newsletter Automation

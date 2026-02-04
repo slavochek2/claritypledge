@@ -15,7 +15,7 @@ app.use(express.json())
 const FEATURES_DIR = join(process.cwd(), '..', '..', 'features')
 
 // Valid values for enum fields
-const VALID_STATUS: Status[] = ['week', 'today', 'in-progress', 'blocked', 'done']
+const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done']
 const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story']
 const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
 const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
@@ -40,9 +40,9 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
     const filename = basename(filePath, extname(filePath))
     const title = titleMatch?.[1] || filename
 
-    // Determine status from frontmatter (default: 'week' for new items)
+    // Determine status from frontmatter (default: 'backlog' for new items without status)
     // Frontmatter is source of truth; ignore folder location
-    let status: Status = 'week'
+    let status: Status = 'backlog'
     if (data.status && VALID_STATUS.includes(data.status)) {
       status = data.status
     } else if (filePath.includes('/done/')) {
@@ -86,6 +86,8 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       hypothesis: data.hypothesis,
       tags: Array.isArray(data.tags) ? data.tags : [],
       created: data.created,
+      completed_at: data.completed_at,
+      sort_order: data.sort_order,
     }
   } catch {
     return null
@@ -103,8 +105,11 @@ async function getFeatures(): Promise<Feature[]> {
         const fullPath = join(dir, entry.name)
 
         if (entry.isDirectory()) {
-          // Skip drafts folder for now
-          if (entry.name !== 'drafts' && entry.name !== 'research') {
+          // Skip folders that shouldn't be scanned
+          const skipFolders = ['drafts', 'research']
+          // Also skip dated archive folders (e.g., "4_27_jan26")
+          const isDateArchive = /^\d+_\d+_\w+\d+$/.test(entry.name)
+          if (!skipFolders.includes(entry.name) && !isDateArchive) {
             await scanDir(fullPath)
           }
         } else if (entry.name.endsWith('.md') && entry.name.startsWith('p')) {
@@ -131,12 +136,12 @@ app.get('/api/features', async (_req, res) => {
   }
 })
 
-// PATCH /api/features/:id - update feature status
-// Note: Only status is user-editable via drag-drop. Other fields (priority, size, etc.) are AI-managed.
+// PATCH /api/features/:id - update feature status and/or sort_order
+// Note: status and sort_order are user-editable via drag-drop. Other fields (priority, size, etc.) are AI-managed.
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status } = req.body
+    const { status, sort_order } = req.body
 
     // Validate status
     if (status && !VALID_STATUS.includes(status)) {
@@ -155,8 +160,20 @@ app.patch('/api/features/:id', async (req, res) => {
     const content = await readFile(feature.path, 'utf-8')
     const { data, content: body } = matter(content)
 
-    // Update frontmatter (only status is editable via UI)
+    const oldStatus = data.status
+
+    // Update frontmatter
     if (status) data.status = status
+    if (sort_order !== undefined) data.sort_order = sort_order
+
+    // Handle completed_at based on status transition
+    if (status === 'done' && oldStatus !== 'done') {
+      // Moving TO done: set completed_at to today
+      data.completed_at = new Date().toISOString().split('T')[0] // YYYY-MM-DD
+    } else if (status && status !== 'done' && oldStatus === 'done') {
+      // Moving OUT of done: clear completed_at
+      delete data.completed_at
+    }
 
     // Write to file
     const newContent = matter.stringify(body, data)
@@ -166,7 +183,13 @@ app.patch('/api/features/:id', async (req, res) => {
     if (featuresCache) {
       const cachedFeature = featuresCache.find((f) => f.id === id)
       if (cachedFeature) {
-        cachedFeature.status = status
+        if (status) cachedFeature.status = status
+        if (sort_order !== undefined) cachedFeature.sort_order = sort_order
+        if (status === 'done' && oldStatus !== 'done') {
+          cachedFeature.completed_at = data.completed_at
+        } else if (status && status !== 'done' && oldStatus === 'done') {
+          cachedFeature.completed_at = undefined
+        }
       }
     }
 
@@ -179,7 +202,7 @@ app.patch('/api/features/:id', async (req, res) => {
         const cachedFeature = featuresCache.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath
       }
-    } else if (status !== 'done' && feature.path.includes('/done/')) {
+    } else if (status && status !== 'done' && feature.path.includes('/done/')) {
       const newPath = join(FEATURES_DIR, basename(feature.path))
       await rename(feature.path, newPath)
       // Update path in cache
