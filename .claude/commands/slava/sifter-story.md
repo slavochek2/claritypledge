@@ -42,7 +42,24 @@ Save to `content/sifter/sessions/{session-name}.md` (single file with sections).
 [Will be added by sifter-point]
 ```
 
-**On each iteration:** Append to Context section (iterations, feedback, learnings).
+**On EVERY user message:** Append to Context section immediately. Capture:
+- User's exact feedback (quote their words)
+- New vocabulary or terms they introduce
+- Corrections to your understanding ("No, I meant X not Y")
+- Preferences ("I like this phrasing better")
+- Clarifications that change meaning
+
+**Example Context updates:**
+```markdown
+### Iteration 2
+User feedback: "You're missing the part about them *thinking* they understood"
+Correction: Not just "misunderstanding" — the confidence is the problem
+New term: "false certainty"
+
+### Iteration 3
+User feedback: "closer, but the frustration is about doing this alone, not about them"
+Shift: From blaming listeners → loneliness of being the only one who checks
+```
 
 **On story approval:** Write final story to Story section.
 

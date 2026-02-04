@@ -68,6 +68,15 @@ A story is first-person, personal, experiential. It has an OWNER.
 
 ## What Makes a Good Point
 
+**A Point is a falsifiable explanation, not an observation.**
+
+| Observation (weak) | Explanation (strong) |
+|-------------------|---------------------|
+| "Most people don't listen well" | "When you paraphrase what you heard, you reveal gaps you didn't know you had — because translation forces implicit assumptions to become explicit" |
+| "Communication is hard" | "The speaker knows what they meant, so they can't detect when their words failed to transfer that meaning" |
+
+**The test:** Does it explain WHY something happens, or just describe WHAT happens?
+
 A point is third-person, impersonal. It has NO owner — anyone can evaluate it.
 
 ### Structural Gate (checked BEFORE scoring)
@@ -124,13 +133,17 @@ Does it assert something that could be otherwise — not a tautology?
 | 81-100 | Strongly counterfactual — bold, high information content |
 
 ### 3. Hard-to-Vary
-Is every component essential — can't change details without destroying explanation?
+Is every component essential AND does it explain a specific mechanism?
+
+Two tests:
+1. **Can't remove anything** — every word is load-bearing
+2. **Can't swap anything** — the mechanism is specific to this domain
 
 | Score | Description |
 |-------|-------------|
-| 0-20 | Highly variable — most terms could be swapped |
-| 41-60 | Moderate — some specificity, but key terms generic |
-| 81-100 | Very hard to vary — every word is load-bearing |
+| 0-20 | Highly variable — most terms could be swapped, or just observes without explaining |
+| 41-60 | Moderate — some specificity, but mechanism is generic (could apply to any domain) |
+| 81-100 | Very hard to vary — every word is load-bearing AND explains a specific mechanism |
 
 ### 4. Antifragile
 Does it get stronger when challenged?
