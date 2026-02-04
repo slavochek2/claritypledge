@@ -1,3 +1,6 @@
+---
+status: backlog
+---
 # P109: Remote Claude CLI Access
 
 ## Problem Statement

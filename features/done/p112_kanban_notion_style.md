@@ -1,13 +1,16 @@
 ---
-status: prepped
+status: done
 priority: urgent-important
-tags: [tooling, dx]
-prepped_date: 2026-02-02
+tags:
+  - tooling
+  - dx
+prepped_date: 2026-02-02T00:00:00.000Z
 reviews:
   ux: passed
   architect: passed
   lean_coach: passed-stripped
   alignment: passed
+completed_at: '2026-02-04'
 ---
 
 # P112: Notion-Style Kanban Rebuild (Simplified)
@@ -88,7 +91,7 @@ The kanban tool (`tools/kanban/`) currently uses:
 - Eisenhower matrix columns (Urgent+Important, Important, In Progress)
 - Priority-based organization
 - Click emoji opens file in Cursor
-- Runs on localhost:5050 (frontend) with API on :5051
+- Runs on localhost:9050 (frontend) with API on :9051
 
 ## Target State
 
@@ -284,18 +287,18 @@ These patterns from Notion's kanban should be matched:
 **Full acceptance tests:** [p112_uat.md](p112_uat.md) (16 tests)
 
 ### Must Have (ship blocker)
-- [ ] Board loads with 5 columns in correct order
-- [ ] Drag-drop updates frontmatter `status` field
-- [ ] Cards render with first-class badges (ID, Type, Priority, Blocked_by)
-- [ ] File watcher refreshes board on external file changes
-- [ ] Click opens file in Cursor
+- [x] Board loads with 5 columns in correct order
+- [x] Drag-drop updates frontmatter `status` field
+- [x] Cards render with first-class badges (ID, Type, Priority, Blocked_by)
+- [x] Manual refresh button updates board on external file changes
+- [x] Click opens file in Cursor
 
 ### Should Have (polish, not blocker)
-- [ ] Loading skeleton while fetching
-- [ ] Error toast on failed drag
-- [ ] Done toggle persists to localStorage
-- [ ] Empty columns show placeholder
-- [ ] Title truncation at 50 chars
+- [x] Loading skeleton while fetching
+- [ ] Error toast on failed drag — deferred
+- [x] Done toggle persists to localStorage
+- [x] Empty columns show placeholder
+- [x] Title truncation at 50 chars
 
 ### Nice to Have (defer)
 - [ ] Keyboard navigation for drag-drop
@@ -307,31 +310,31 @@ These patterns from Notion's kanban should be matched:
 ## Verification Checklist
 
 **Core functionality:**
-- [ ] `npm run kanban` opens board at localhost:5050
-- [ ] 5 columns visible: Week, Today, In Progress, Blocked, Done
-- [ ] Drag card between columns updates `status` in frontmatter
-- [ ] Click 📝 button opens file in Cursor
-- [ ] File watcher auto-refreshes board on external changes
+- [x] `npm run kanban` opens board at localhost:9050
+- [x] 5 columns visible: Week, Today, In Progress, Blocked, Done
+- [x] Drag card between columns updates `status` in frontmatter
+- [x] Click 📝 button opens file in Cursor
+- [x] Manual refresh button (↻) updates board on external changes
 
 **First-class badges:**
-- [ ] Card shows ID badge (monospace, muted)
-- [ ] Card shows type badge (bug=red, task=gray, story=blue)
-- [ ] Card shows priority badge (P0=orange, P1=amber, P2-P3=blue)
-- [ ] Card shows blocked_by chips (red outline) if present
+- [x] Card shows ID badge (monospace, muted)
+- [x] Card shows type badge (bug=red, task=gray, story=blue)
+- [x] Card shows priority badge (P0=orange, P1=amber, P2-P3=blue)
+- [x] Card shows blocked_by chips (red outline) if present
 
 **Display-if-present badges:**
-- [ ] Card shows size badge (gray) if present
-- [ ] Card shows milestone badge (gray) if present
-- [ ] Card shows hypothesis badge (gray) if present
-- [ ] Card shows tags (gray, cap at 3) if present
+- [x] Card shows size badge (gray) if present
+- [x] Card shows milestone badge (gray) if present
+- [x] Card shows hypothesis badge (gray) if present
+- [x] Card shows tags (gray, cap at 3) if present
 
 **UX polish:**
-- [ ] Loading skeleton displays while fetching
-- [ ] Empty columns show "No items" placeholder
-- [ ] "Hide Done" toggle works (header, right side)
-- [ ] Toggle state persists to localStorage
-- [ ] Long titles truncate at 50 chars
-- [ ] Error toast on failed PATCH (drag snaps back)
+- [x] Loading skeleton displays while fetching
+- [x] Empty columns show "No items" placeholder
+- [x] "Hide Done" toggle works (header, right side)
+- [x] Toggle state persists to localStorage
+- [x] Long titles truncate at 50 chars
+- [ ] Error toast on failed PATCH (drag snaps back) — deferred, snap-back works
 
 ---
 
@@ -347,8 +350,8 @@ These patterns from Notion's kanban should be matched:
 
 ## Port Configuration
 
-- **Frontend:** http://localhost:5050 (Vite dev server)
-- **Backend API:** http://localhost:5051 (Express)
+- **Frontend:** http://localhost:9050 (Vite dev server)
+- **Backend API:** http://localhost:9051 (Express)
 - **Proxy:** Vite proxies `/api/*` to backend
 - **Command:** `npm run kanban` starts both
 

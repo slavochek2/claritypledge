@@ -1,3 +1,6 @@
+---
+status: backlog
+---
 # P97: Integrate Prototype UI into Production
 
 **Status:** On Hold (deprioritized 2026-01-27 — see roadmap)

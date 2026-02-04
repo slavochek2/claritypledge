@@ -1,3 +1,6 @@
+---
+status: backlog
+---
 # P79: Consulting & Revenue Model
 
 ## Status: Planning

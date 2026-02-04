@@ -31,7 +31,7 @@ Generate a User Acceptance Test file from a feature specification.
 4. **Convert to Given/When/Then** — Transform each criterion into a structured test
 5. **Generate scorecard** — Create tracking table with checkboxes
 6. **Add ralph-loop instructions** — Include execution guidance
-7. **Output** — Save to `features/p{N}_uat.md` (where N is the feature number from spec filename)
+7. **Output** — Save to `features/uat/p{N}.md` (where N is the feature number from spec filename)
 
 ---
 
@@ -196,11 +196,11 @@ Output `<promise>{Feature ID} UAT COMPLETE</promise>` when done.
 Before saving, show the user:
 - Number of tests extracted: {N}
 - Categories: {list}
-- Output path: `features/p{N}_uat.md`
+- Output path: `features/uat/p{N}.md`
 
 Ask: "Does this look correct? Should I save the UAT file?"
 
-If approved, save to `features/p{N}_uat.md` (or custom path if `--output` specified).
+If approved, save to `features/uat/p{N}.md` (or custom path if `--output` specified).
 
 ---
 
@@ -208,7 +208,7 @@ If approved, save to `features/p{N}_uat.md` (or custom path if `--output` specif
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--output <path>` | `features/p{N}_uat.md` | Custom output path |
+| `--output <path>` | `features/uat/p{N}.md` | Custom output path |
 | `--format full` | `full` | Include Given/When/Then for each test |
 | `--format minimal` | - | Scorecard table only (no detailed tests) |
 

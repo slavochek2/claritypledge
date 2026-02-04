@@ -1,8 +1,10 @@
 ---
-status: in-progress
+status: week
 priority: urgent-important
 hypothesis: H-Biz
-tags: [validation, gtm]
+tags:
+  - validation
+  - gtm
 ---
 
 # P105: Sales Playbook

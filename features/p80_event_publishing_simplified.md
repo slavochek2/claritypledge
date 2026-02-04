@@ -1,3 +1,6 @@
+---
+status: backlog
+---
 # P80: Event Publishing Simplified
 
 ## Problem

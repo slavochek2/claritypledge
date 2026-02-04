@@ -1,3 +1,6 @@
+---
+status: blocked
+---
 # P98: Sifter (Revised Spec)
 
 **Status:** On Hold (deprioritized 2026-01-27 — see roadmap)
@@ -278,4 +281,4 @@ After this mockup is validated, future work includes:
 |------|--------|
 | 2026-01-27 | **Revised:** Added Points extraction phase, chat-based UI, usability principles, acceptance tests. Marked current gaps. |
 | 2026-01-26 | **Implemented:** Story phase only (Entry → Rating → Options → Done) |
-| 2026-01-26 | **Original spec:** Entry → Processing → Story Review → Done |
+| 2026-01-26 | **Original spec:** Entry → Processing → Story Review → Done 

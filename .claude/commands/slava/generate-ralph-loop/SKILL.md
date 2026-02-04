@@ -156,12 +156,12 @@ The input can be a **spec file** or **UAT file**. Detect by:
 
 ### Step 3: Find or Generate UAT
 
-If given a spec, look for UAT:
-- `{spec_basename}_uat.md`
-- `{spec_basename}_acceptance_tests.md`
+If given a spec, look for UAT (check in order):
+- `features/uat/p{N}.md` (e.g., `features/uat/p89.md` for `p89_swipeable_card_view.md`)
+- `{spec_basename}_acceptance_tests.md` (legacy fallback)
 
 If given a UAT, look for spec:
-- `{uat_basename}.md` (e.g., `p61.md` from `p61_uat.md`)
+- `features/p{N}_*.md` (e.g., `features/p61_*.md` from `features/uat/p61.md`)
 - `{uat_basename}_tech_spec.md`
 
 **If UAT doesn't exist:** Call `/generate-uat {spec_path}` to create it before generating the Ralph command. UAT gives Ralph concrete checkboxes to verify against.
@@ -276,12 +276,12 @@ That's it. No long setup instructions, no heredocs, no component lists.
 /dev features/p89_swipeable_card_view.md
 ```
 
-Auto-finds `features/p89_uat.md`, runs verification.
+Auto-finds `features/uat/p89.md`, runs verification.
 
 ## Option 2: Ralph (if expecting many iterations)
 
 ```bash
-ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Verify against features/p89_uat.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
+ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipeable_card_view.md. Verify against features/uat/p89.md. Before complete: run /bmad:bmm:workflows:code-review and /design-audit, fix all issues."
 ```
 
 **Stop:** `Ctrl+C` or `pkill -f ralph`
@@ -295,7 +295,7 @@ ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipea
 ```
 
 **Behavior:**
-1. No `features/p85_uat.md` found
+1. No `features/uat/p85.md` found
 2. Calls `/generate-uat features/p85_event_verification_flow.md` to create it
 3. Then outputs command with UAT reference
 
