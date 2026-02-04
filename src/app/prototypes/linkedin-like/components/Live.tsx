@@ -24,7 +24,7 @@ import { PrototypeLayout } from './PrototypeLayout';
 import { StoryCard } from './StoryCard';
 import { PointCard } from './PointCard';
 import { mockUsers, currentUser, getStories, getStoryById, getPointsForStory, getStoriesForPoint, getUserById, getPoints } from '../data/mock-data';
-import { PositionButtons, PositionBadge } from './shared';
+import { PositionBadge } from './shared';
 import type { PositionType } from '../../shared/types';
 import { QRCodeSVG } from 'qrcode.react';
 import { Toaster } from '@/components/ui/sonner';
@@ -98,17 +98,6 @@ const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6
 const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 space-y-8 max-w-lg mx-auto w-full";
 const SESSION_STORAGE_KEY = 'clarity:live:session';
 const PARTNER_SIMULATION_DELAY_MS = 1500;
-
-// Empty counts for position selection (when we don't need to show counts)
-const EMPTY_POSITION_COUNTS = {
-  strongly_agree: 0,
-  agree: 0,
-  somewhat_agree: 0,
-  unsure: 0,
-  somewhat_disagree: 0,
-  disagree: 0,
-  strongly_disagree: 0,
-};
 
 const RATING_OPTIONS = [
   { value: 0, label: '0' },
@@ -1255,24 +1244,25 @@ export function Live() {
             </>
           )}
 
-          {/* Partner received a Point request - show Point card with linked stories */}
+          {/* Partner received a Point request - show Point card with position buttons inside */}
           {partnerPhase === 'point-received' && incomingPoint && (
             <>
-              {/* Point card - like on profile but no actions, position buttons in drawer */}
+              {/* Point card with live session mode - position buttons inside, expandable stories */}
               <div className="flex-1 bg-gray-100 p-4 flex items-center justify-center overflow-auto">
                 <div className="w-full max-w-lg">
-                  <PointCard point={incomingPoint} hideActions disableNavigation />
+                  <PointCard
+                    point={incomingPoint}
+                    liveSessionMode
+                    disableNavigation
+                    selectedPosition={partnerPosition}
+                    onPositionSelect={(pos) => setPartnerPosition(pos)}
+                  />
                 </div>
               </div>
 
-              {/* Bottom drawer - position selection */}
+              {/* Bottom drawer - submit button only */}
               <div className="bg-white border-t rounded-t-2xl shadow-lg p-6 pb-8">
-                <div className="max-w-lg mx-auto space-y-4">
-                  <PositionButtons
-                    userPosition={partnerPosition}
-                    counts={EMPTY_POSITION_COUNTS}
-                    onPositionClick={(pos) => setPartnerPosition(pos)}
-                  />
+                <div className="max-w-lg mx-auto space-y-3">
                   <button
                     onClick={() => partnerPosition && handlePartnerPositionSubmit(partnerPosition)}
                     disabled={!partnerPosition}
@@ -1445,39 +1435,41 @@ export function Live() {
                 <>
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4">Points</p>
                   {filteredPoints.map(point => {
-                    const isSelected = cardState.activePoint?.id === point.id && cardState.phase === 'point-selected';
                     const myPosition = point.positions[currentUser.id]?.position || null;
-                    const partnerExistingPosition = point.positions[partner.id]?.position || null;
 
                     return (
-                      <div key={point.id} className={`bg-white rounded-lg border-l-4 border-l-amber-500 border shadow-sm overflow-hidden transition-all ${
-                        isSelected ? 'border-amber-300 ring-2 ring-amber-200' : 'border-gray-200'
-                      }`}>
-                        {/* Point content */}
-                        <div className="p-4">
-                          <div className="flex items-start gap-3">
-                            <Pin className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5 rotate-45" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-900">{point.text}</p>
-                              {partnerExistingPosition && (
-                                <p className="text-xs text-gray-500 mt-2">
-                                  {displayPartnerName}: {partnerExistingPosition}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                      <div key={point.id} className="space-y-3">
+                        {/* PointCard with live session mode - position buttons inside, expandable stories */}
+                        <PointCard
+                          point={point}
+                          profileOwnerId={currentUser.id}
+                          liveSessionMode
+                          disableNavigation
+                          selectedPosition={myPosition}
+                          onPositionSelect={(newPosition) => {
+                            // Track position change in card state
+                            setCardState(prev => ({
+                              ...prev,
+                              activePoint: point,
+                              myPosition: newPosition,
+                            }));
+                          }}
+                        />
 
-                        {/* CTA - user's position already known from their profile */}
-                        <div className="px-4 pb-4">
-                          <button
-                            type="button"
-                            onClick={() => handleAskPosition(point, myPosition)}
-                            className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
-                          >
-                            Does {displayPartnerName} agree with your point?
-                          </button>
-                        </div>
+                        {/* CTA button - outside the card */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Use current position from state if user changed it, else stored position
+                            const currentPosition = cardState.activePoint?.id === point.id
+                              ? cardState.myPosition
+                              : myPosition;
+                            handleAskPosition(point, currentPosition);
+                          }}
+                          className="w-full py-2.5 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+                        >
+                          Does {displayPartnerName} agree with your point?
+                        </button>
                       </div>
                     );
                   })}
