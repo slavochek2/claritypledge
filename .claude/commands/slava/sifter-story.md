@@ -4,6 +4,8 @@ Interactive skill to manually test the Sifter UX — **Story creation only**.
 
 For Point extraction, use `/slava:sifter-point` after completing the story.
 
+**Definitions:** See `sifter-definitions.md` for story vs point distinction.
+
 ## Input
 
 User provides a brain dump (messy thoughts, any length).
@@ -18,19 +20,33 @@ Use NVC framework to identify components in the brain dump:
 - **Need** — What underlying need is present?
 - **Request** — What does the person want?
 
-## Context Preservation (IMPORTANT)
+## Saving to Session File
 
-Save the **complete session transcript** for handoff to `/slava:sifter-point`:
-- Original brain dump (raw input)
-- All story iterations (each version presented)
-- All user feedback (ratings, what was missing, clarifications)
-- The evolution of understanding (how we got to the final story)
-- Final story with rating
+Save to `content/sifter/sessions/{session-name}.md` (single file with sections).
 
-This full context helps the point extraction skill understand:
-- What the user really cares about (revealed through iterations)
-- Nuances that didn't make it into the final story
-- The reasoning behind the story
+**Session name:** Use a slug from the main topic (e.g., `sender-receiver-gaps`).
+
+**On session start, create file with:**
+```markdown
+# Session: {session-name}
+
+## Context
+- Original brain dump: [paste]
+- Key concepts: [user's vocabulary]
+- NVC extraction: [background analysis]
+
+## Story
+[Will be added when approved]
+
+## Points
+[Will be added by sifter-point]
+```
+
+**On each iteration:** Append to Context section (iterations, feedback, learnings).
+
+**On story approval:** Write final story to Story section.
+
+This creates persistent context that `/slava:sifter-point` reads and updates.
 
 ## Output: A Real Story
 
@@ -90,8 +106,10 @@ When story reaches 10/10 (or user says "good enough"):
 [Final Story text]
 Rating: X/10
 
-Story complete. Run `/slava:sifter-point` to extract Points.
-(Full session context preserved for point extraction)
+---
+Session: `content/sifter/sessions/{session-name}.md`
+
+**Next step:** `/sifter-point {session-name}`
 ```
 
 ## Behavior Notes
@@ -102,3 +120,7 @@ Story complete. Run `/slava:sifter-point` to extract Points.
 - Options should be genuinely different interpretations, not minor wording changes
 - No swear words in output
 - **Preserve everything** — the full conversation is the context for points
+
+## Note on URLs
+
+Stories typically don't include URLs. URL shortening happens in the Points phase (`/slava:sifter-point`) when preparing Points for social media sharing.
