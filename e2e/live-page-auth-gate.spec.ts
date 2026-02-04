@@ -77,15 +77,15 @@ test.describe('P66: Live Page Auth Gate', () => {
 });
 
 test.describe('P66: Copy Updates', () => {
-  test('navigation shows "Start a Clarity Meeting" (not "Try")', async ({ page }) => {
+  test('navigation shows "Start a Clarity Session" (not "Try" or "Meeting")', async ({ page }) => {
     await page.goto('/');
 
-    // Check desktop navigation
-    const navButton = page.locator('nav').getByRole('link', { name: /start a clarity meeting/i });
+    // Check desktop navigation - P114: Updated to "Session" for consistency
+    const navButton = page.locator('nav').getByRole('link', { name: /start a clarity session/i });
     await expect(navButton).toBeVisible();
 
     // Ensure old text is NOT present
-    const oldText = page.locator('nav').getByRole('link', { name: /try a clarity meeting/i });
+    const oldText = page.locator('nav').getByRole('link', { name: /try a clarity/i });
     await expect(oldText).not.toBeVisible();
   });
 });

@@ -148,8 +148,8 @@ export function PointCardDetail({
   };
 
   const cardClassName = isDetailView
-    ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden'
-    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all';
+    ? 'bg-card rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-border overflow-hidden'
+    : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-border overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all';
 
   // Quote pattern: when on profile, show position label outside, Point in quoted box
   const showQuotePattern = profileOwner && profileOwnerPosition;
@@ -177,7 +177,7 @@ export function PointCardDetail({
           // Quote pattern: "{Name} {verb}:" outside, Point content in quoted box
           <>
             {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped */}
-            <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+            <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
               <GravatarAvatar
                 name={profileOwner.name}
                 size="sm"
@@ -189,7 +189,7 @@ export function PointCardDetail({
                 <MobileTooltip
                   content={`${profileOwner.name.split(' ')[0]} understood ${profileOwnerCredibility.ear} ${profileOwnerCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
                 >
-                  <span className="inline-flex items-center gap-0.5 text-gray-600">
+                  <span className="inline-flex items-center gap-0.5 text-muted-foreground">
                     <Ear size={14} />
                     {profileOwnerCredibility.ear}
                   </span>
@@ -199,7 +199,7 @@ export function PointCardDetail({
             </div>
 
             {/* Quoted Point box */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <div className="bg-muted border border-border rounded-lg p-3">
               {/* Two-column layout matching StoryCard structure */}
               <div className="flex items-start gap-3">
                 {/* Pin icon column - matches StoryCard avatar width */}
@@ -210,7 +210,7 @@ export function PointCardDetail({
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
-                  <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+                  <p className={`text-foreground ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
                     {point.text}
                   </p>
 
@@ -227,14 +227,14 @@ export function PointCardDetail({
 
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
-                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-[44px]"
+                className="flex items-center justify-between mt-3 pt-3 border-t border-border pl-[44px]"
                 onClick={e => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) */}
                 {!isDetailView && filteredStories.length > 0 ? (
                   <button
                     onClick={() => setStoriesExpanded(!storiesExpanded)}
-                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
                     aria-expanded={storiesExpanded}
                     aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
                   >
@@ -255,7 +255,7 @@ export function PointCardDetail({
                     <MobileTooltip content="Open point">
                       <button
                         onClick={() => navigate(pointRoute(point.id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
                         aria-label="Open point"
                       >
                         <ExternalLink size={16} />
@@ -286,7 +286,7 @@ export function PointCardDetail({
               </div>
 
               {/* Point text - same position as StoryCard text */}
-              <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+              <p className={`text-foreground ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
                 {point.text}
               </p>
 
@@ -313,7 +313,7 @@ export function PointCardDetail({
           {!isDetailView && profileOwner && filteredStories.length > 0 ? (
             <button
               onClick={() => setStoriesExpanded(!storiesExpanded)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
               aria-expanded={storiesExpanded}
               aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
             >
@@ -335,7 +335,7 @@ export function PointCardDetail({
               <MobileTooltip content="Open point">
                 <button
                   onClick={() => navigate(pointRoute(point.id))}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
                   aria-label="Open point"
                 >
                   <ExternalLink size={16} />
@@ -442,7 +442,7 @@ function QuotedStory({
           onClick(e as unknown as React.MouseEvent);
         }
       }}
-      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-accent hover:border-border transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
     >
       {/* Author info at top */}
       <div className="flex items-center gap-2 mb-1.5">
@@ -487,7 +487,7 @@ function QuotedStory({
                 onAuthorClick?.(e as unknown as React.MouseEvent);
               }
             }}
-            className="text-xs font-medium text-gray-700 hover:underline cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none focus-visible:rounded"
+            className="text-xs font-medium text-foreground hover:underline cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none focus-visible:rounded"
           >
             {author.name}
           </span>
@@ -497,7 +497,7 @@ function QuotedStory({
           <MobileTooltip
             content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
           >
-            <span className="inline-flex items-center gap-0.5 text-xs text-gray-600">
+            <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
               <Ear size={12} />
               {credibilityStats.ear}
             </span>

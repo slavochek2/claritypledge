@@ -43,7 +43,7 @@ export function StoryDetailPage() {
   useEffect(() => {
     async function loadData() {
       if (!id) {
-        setError('No story ID provided');
+        setError('not_found');
         setLoading(false);
         return;
       }
@@ -51,7 +51,7 @@ export function StoryDetailPage() {
       // Extract profile ID from story ID (pattern: st-{profileId}-{num})
       const profileId = extractProfileIdFromStoryId(id);
       if (!profileId) {
-        setError('Invalid story ID format');
+        setError('not_found');
         setLoading(false);
         return;
       }
@@ -60,7 +60,7 @@ export function StoryDetailPage() {
         // Load the profile
         const profileData = await getProfile(profileId);
         if (!profileData) {
-          setError('Profile not found');
+          setError('not_found');
           setLoading(false);
           return;
         }
@@ -74,7 +74,7 @@ export function StoryDetailPage() {
         // Find the story
         const foundStory = data.stories.find(s => s.id === id);
         if (!foundStory) {
-          setError('Story not found');
+          setError('not_found');
           setLoading(false);
           return;
         }
@@ -83,7 +83,7 @@ export function StoryDetailPage() {
         setLoading(false);
       } catch (err) {
         console.error('Error loading story:', err);
-        setError('Failed to load story');
+        setError('network_error');
         setLoading(false);
       }
     }
@@ -204,63 +204,92 @@ export function StoryDetailPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Skeleton for back button */}
-        <div className="h-4 bg-gray-200 rounded w-20 mb-6 animate-pulse" />
+        <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
         {/* Skeleton for story card */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse">
+        <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
           <div className="border-l-4 border-blue-200 p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full" />
+              <div className="w-10 h-10 bg-muted rounded-full" />
               <div className="flex-1">
-                <div className="h-4 bg-gray-200 rounded w-32 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-24" />
+                <div className="h-4 bg-muted rounded w-32 mb-2" />
+                <div className="h-3 bg-muted rounded w-24" />
               </div>
             </div>
             <div className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-full" />
-              <div className="h-4 bg-gray-200 rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-full" />
+              <div className="h-4 bg-muted rounded w-3/4" />
             </div>
           </div>
         </div>
         {/* Skeleton for linked points */}
         <div className="mt-4">
-          <div className="h-4 bg-gray-200 rounded w-32 mb-3 animate-pulse" />
+          <div className="h-4 bg-muted rounded w-32 mb-3 animate-pulse" />
           <div className="space-y-3">
-            <div className="h-24 bg-gray-200 rounded animate-pulse" />
-            <div className="h-24 bg-gray-200 rounded animate-pulse" />
+            <div className="h-24 bg-muted rounded animate-pulse" />
+            <div className="h-24 bg-muted rounded animate-pulse" />
           </div>
         </div>
         {/* Skeleton for Clarity Sessions */}
-        <div className="bg-white border border-gray-200 mx-2 mt-3 rounded-lg animate-pulse">
+        <div className="bg-card border border-border mx-2 mt-3 rounded-lg animate-pulse">
           <div className="px-4 py-3 border-b border-gray-100">
-            <div className="h-4 bg-gray-200 rounded w-32" />
+            <div className="h-4 bg-muted rounded w-32" />
           </div>
           <div className="p-4 space-y-2">
-            <div className="h-12 bg-gray-200 rounded" />
-            <div className="h-12 bg-gray-200 rounded" />
+            <div className="h-12 bg-muted rounded" />
+            <div className="h-12 bg-muted rounded" />
           </div>
         </div>
       </div>
     );
   }
 
+  // Helper to navigate back safely
+  const handleBack = () => {
+    // Check if we came from within the app (not a direct link)
+    const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
+    if (isInternalReferrer) {
+      navigate(-1);
+    } else {
+      navigate('/events');
+    }
+  };
+
+  // Helper to retry loading
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    // Trigger re-fetch by clearing state
+    setProfile(null);
+    setMockData(null);
+    setStory(null);
+  };
+
   if (error || !story || !mockData || !profile || !author) {
+    const isNetworkError = error === 'network_error';
+    const errorMessage = isNetworkError
+      ? 'Failed to load story. Please check your connection.'
+      : 'Story not found';
+
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <button
-          onClick={() => {
-            if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/events');
-            }
-          }}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+          onClick={handleBack}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+          aria-label="Go back to previous page"
         >
           <ArrowLeft size={16} />
           Back
         </button>
-        <div className="text-center py-12">
-          <p className="text-gray-500">{error || 'Story not found'}</p>
+        <div className="text-center py-12 space-y-4">
+          <p className="text-muted-foreground">{errorMessage}</p>
+          {isNetworkError && (
+            <button
+              onClick={handleRetry}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       </div>
     );
@@ -270,14 +299,9 @@ export function StoryDetailPage() {
     <div className="max-w-2xl mx-auto px-4 py-6">
       {/* Back button */}
       <button
-        onClick={() => {
-          if (window.history.length > 1) {
-            navigate(-1);
-          } else {
-            navigate('/events');
-          }
-        }}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+        onClick={handleBack}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+        aria-label="Go back to previous page"
       >
         <ArrowLeft size={16} />
         Back

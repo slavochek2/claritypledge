@@ -168,8 +168,13 @@ export function AuthCallbackPage() {
             console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
           }
 
-          // Store backup reference for potential recovery (used after upsert fails)
-          (window as Window & { __profileMigrationBackup?: typeof oldProfileBackup }).__profileMigrationBackup = oldProfileBackup;
+          // Store backup to sessionStorage (survives page reload, unlike window)
+          // This enables recovery if upsert fails or page reloads mid-migration
+          try {
+            sessionStorage.setItem('__profileMigrationBackup', JSON.stringify(oldProfileBackup));
+          } catch {
+            console.warn('⚠️ Could not store profile backup to sessionStorage');
+          }
 
           // Use data from old profile for the new one
           existingProfile = {
@@ -361,7 +366,16 @@ export function AuthCallbackPage() {
 
       if (upsertError) {
         // Attempt to recover migrated profile if we have a backup
-        const backup = (window as Window & { __profileMigrationBackup?: Record<string, unknown> }).__profileMigrationBackup;
+        let backup: Record<string, unknown> | null = null;
+        try {
+          const backupStr = sessionStorage.getItem('__profileMigrationBackup');
+          if (backupStr) {
+            backup = JSON.parse(backupStr);
+          }
+        } catch {
+          console.warn('⚠️ Could not read profile backup from sessionStorage');
+        }
+
         if (backup) {
           console.log('⚠️ Upsert failed after migration delete, attempting to restore old profile...');
           const { error: restoreError } = await supabase
@@ -376,8 +390,8 @@ export function AuthCallbackPage() {
           } else {
             console.log('✅ Old profile restored successfully');
           }
-          // Clean up backup reference
-          delete (window as Window & { __profileMigrationBackup?: Record<string, unknown> }).__profileMigrationBackup;
+          // Clean up backup
+          sessionStorage.removeItem('__profileMigrationBackup');
         }
 
         analytics.track('auth_callback_failed', { reason: 'profile_upsert_failed' });
@@ -392,8 +406,8 @@ export function AuthCallbackPage() {
         return;
       }
 
-      // Clean up backup reference on success
-      delete (window as Window & { __profileMigrationBackup?: Record<string, unknown> }).__profileMigrationBackup;
+      // Clean up backup on success
+      sessionStorage.removeItem('__profileMigrationBackup');
 
       // Identify user and track successful auth
       // P50: Include has_pledged and registration_source for user segmentation

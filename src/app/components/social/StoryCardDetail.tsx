@@ -122,9 +122,9 @@ export function StoryCardDetail({
   // Quote pattern rendering - when viewing Stories in a Point's position sections
   if (showQuotePattern) {
     return (
-      <div className="bg-white rounded-lg overflow-hidden">
+      <div className="bg-card rounded-lg overflow-hidden">
         {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-        <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+        <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
           <GravatarAvatar
             name={author.name}
             size="sm"
@@ -136,7 +136,7 @@ export function StoryCardDetail({
             <MobileTooltip
               content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
             >
-              <span className="inline-flex items-center gap-0.5 text-gray-600">
+              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
                 <Ear size={12} />
                 {authorCredibility.ear}
               </span>
@@ -149,7 +149,7 @@ export function StoryCardDetail({
         <div
           role="button"
           tabIndex={0}
-          className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="bg-muted border border-border rounded-lg p-3 cursor-pointer hover:bg-accent hover:border-border transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
           onClick={handleCardClick}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -159,7 +159,7 @@ export function StoryCardDetail({
           }}
         >
           {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
             <span>
               {author.role} · {formatTimeAgo(story.createdAt)}
             </span>
@@ -167,7 +167,7 @@ export function StoryCardDetail({
           </p>
 
           {/* Story text */}
-          <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+          <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
             {story.text}
           </p>
         </div>
@@ -177,8 +177,8 @@ export function StoryCardDetail({
 
   // Standard rendering (non-quote pattern)
   const cardClassName = isDetailView
-    ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden'
-    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
+    ? 'bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden'
+    : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
 
   return (
     <div
@@ -222,7 +222,7 @@ export function StoryCardDetail({
                     e.stopPropagation();
                     navigate(profileRoute(author.id));
                   }}
-                  className="font-semibold text-gray-900 hover:underline text-sm"
+                  className="font-semibold text-foreground hover:underline text-sm"
                 >
                   {author.name}
                 </button>
@@ -231,14 +231,14 @@ export function StoryCardDetail({
                   <MobileTooltip
                     content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
                   >
-                    <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
+                    <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
                       <Ear size={12} />
                       <span>{authorCredibility.ear}</span>
                     </span>
                   </MobileTooltip>
                 )}
               </div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <span>
                   {author.role} · {formatTimeAgo(story.createdAt)}
                 </span>
@@ -247,18 +247,18 @@ export function StoryCardDetail({
             </div>
 
             {/* Story text - indented under author */}
-            <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
+            <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
               {story.text}
             </p>
 
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
-              <div className="flex items-center gap-1 text-sm text-gray-600">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 {/* People who understood the story author */}
                 <MobileTooltip
                   content={`${author.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}
                 >
-                  <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
+                  <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-muted-foreground">
                     {story.verificationCount} understood
                   </span>
                 </MobileTooltip>
@@ -288,7 +288,7 @@ export function StoryCardDetail({
             {linkedPoints.length > 0 ? (
               <button
                 onClick={() => setPointsExpanded(!pointsExpanded)}
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
                 aria-expanded={pointsExpanded}
                 aria-label={`${pointsExpanded ? 'Collapse' : 'Expand'} linked points`}
               >
@@ -315,7 +315,7 @@ export function StoryCardDetail({
                 <MobileTooltip content="Open story">
                   <button
                     onClick={() => navigate(storyRoute(story.id))}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
                     aria-label="Open story"
                   >
                     <ExternalLink size={16} />
@@ -461,7 +461,7 @@ function QuotedPoint({
     <div className="w-full text-left">
       {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
       {authorPosition && (
-        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
+        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
           <GravatarAvatar
             name={authorName}
             size="sm"
@@ -473,7 +473,7 @@ function QuotedPoint({
             <MobileTooltip
               content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
             >
-              <span className="inline-flex items-center gap-0.5 text-gray-600">
+              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
                 <Ear size={14} />
                 {authorEarCount}
               </span>
@@ -486,7 +486,7 @@ function QuotedPoint({
       {/* Quoted Point box */}
       <button
         onClick={onClick}
-        className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-accent hover:border-border transition-colors"
       >
         {/* Two-column layout matching PointCard structure */}
         <div className="flex items-start gap-3">

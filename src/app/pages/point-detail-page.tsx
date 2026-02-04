@@ -74,7 +74,7 @@ export function PointDetailPage() {
   useEffect(() => {
     async function loadData() {
       if (!id) {
-        setError('No point ID provided');
+        setError('not_found');
         setLoading(false);
         return;
       }
@@ -114,7 +114,7 @@ export function PointDetailPage() {
         // Find the point
         const foundPoint = data.points.find(p => p.id === id);
         if (!foundPoint) {
-          setError('Point not found');
+          setError('not_found');
           setLoading(false);
           return;
         }
@@ -124,7 +124,7 @@ export function PointDetailPage() {
         setLoading(false);
       } catch (err) {
         console.error('Error loading point:', err);
-        setError('Failed to load point');
+        setError('network_error');
         setLoading(false);
       }
     }
@@ -224,6 +224,26 @@ export function PointDetailPage() {
     setUserPosition(userPosition === position ? null : position);
   };
 
+  // Helper to navigate back safely
+  const handleBack = () => {
+    // Check if we came from within the app (not a direct link)
+    const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
+    if (isInternalReferrer) {
+      navigate(-1);
+    } else {
+      navigate('/events');
+    }
+  };
+
+  // Helper to retry loading
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setProfile(null);
+    setMockData(null);
+    setPoint(null);
+  };
+
   // Routes for components
   const routes = useMemo(
     () => ({
@@ -238,31 +258,31 @@ export function PointDetailPage() {
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Skeleton for back button */}
-        <div className="h-4 bg-gray-200 rounded w-20 mb-6 animate-pulse" />
+        <div className="h-4 bg-muted rounded w-20 mb-6 animate-pulse" />
         {/* Skeleton for point card */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-4 animate-pulse">
-          <div className="border-l-4 border-gray-200 p-4">
+        <div className="bg-card border border-border rounded-lg overflow-hidden mb-4 animate-pulse">
+          <div className="border-l-4 border-border p-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full" />
+              <div className="w-10 h-10 bg-muted rounded-full" />
               <div className="flex-1">
-                <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
+                <div className="h-5 bg-muted rounded w-3/4 mb-3" />
                 <div className="flex gap-2">
-                  <div className="h-8 bg-gray-200 rounded w-20" />
-                  <div className="h-8 bg-gray-200 rounded w-20" />
-                  <div className="h-8 bg-gray-200 rounded w-20" />
+                  <div className="h-8 bg-muted rounded w-20" />
+                  <div className="h-8 bg-muted rounded w-20" />
+                  <div className="h-8 bg-muted rounded w-20" />
                 </div>
               </div>
             </div>
           </div>
         </div>
         {/* Skeleton for stories section */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse">
+        <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
           <div className="flex border-b border-gray-100">
             <div className="flex-1 h-12 bg-gray-100" />
           </div>
           <div className="p-4 space-y-3">
-            <div className="h-24 bg-gray-200 rounded" />
-            <div className="h-24 bg-gray-200 rounded" />
+            <div className="h-24 bg-muted rounded" />
+            <div className="h-24 bg-muted rounded" />
           </div>
         </div>
       </div>
@@ -270,23 +290,31 @@ export function PointDetailPage() {
   }
 
   if (error || !point || !mockData) {
+    const isNetworkError = error === 'network_error';
+    const errorMessage = isNetworkError
+      ? 'Failed to load point. Please check your connection.'
+      : 'Point not found';
+
     return (
       <div className="max-w-2xl mx-auto px-4 py-8">
         <button
-          onClick={() => {
-            if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/events');
-            }
-          }}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+          onClick={handleBack}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+          aria-label="Go back to previous page"
         >
           <ArrowLeft size={16} />
           Back
         </button>
-        <div className="text-center py-12">
-          <p className="text-gray-500">{error || 'Point not found'}</p>
+        <div className="text-center py-12 space-y-4">
+          <p className="text-muted-foreground">{errorMessage}</p>
+          {isNetworkError && (
+            <button
+              onClick={handleRetry}
+              className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium bg-blue-500 hover:bg-blue-600 text-white rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       </div>
     );
@@ -300,21 +328,16 @@ export function PointDetailPage() {
     <div className="max-w-2xl mx-auto px-4 py-6">
       {/* Back button */}
       <button
-        onClick={() => {
-          if (window.history.length > 1) {
-            navigate(-1);
-          } else {
-            navigate('/events');
-          }
-        }}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+        onClick={handleBack}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+        aria-label="Go back to previous page"
       >
         <ArrowLeft size={16} />
         Back
       </button>
 
       {/* Point card with full features */}
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">
+      <div className="bg-card border border-border rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">
         <div className="p-4">
           {/* Two-column layout */}
           <div className="flex gap-3">
@@ -326,24 +349,14 @@ export function PointDetailPage() {
             {/* Content column */}
             <div className="flex-1 min-w-0">
               {/* Point text */}
-              <p className="text-gray-900 font-medium text-lg mb-3">{point.text}</p>
+              <p className="text-foreground font-medium text-lg mb-3">{point.text}</p>
 
               {/* Position buttons (interactive) */}
-              <div className="mb-3">
-                <PositionButtons
-                  userPosition={userPosition}
-                  counts={buttonCounts}
-                  onPositionClick={handlePositionClick}
-                />
-              </div>
-
-              {/* Credibility context if viewing from a profile */}
-              {profile && point.positions[profile.id] && (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <span>{profile.name}'s position:</span>
-                  <PositionBadge position={point.positions[profile.id]?.position as PositionType} />
-                </div>
-              )}
+              <PositionButtons
+                userPosition={userPosition}
+                counts={buttonCounts}
+                onPositionClick={handlePositionClick}
+              />
             </div>
           </div>
         </div>
@@ -355,7 +368,7 @@ export function PointDetailPage() {
       </div>
 
       {/* Linked Stories section */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         {/* Filter tabs */}
         <FilterTabs
           activeFilter={positionFilter}
@@ -374,7 +387,7 @@ export function PointDetailPage() {
 
             if (holdersInGroup.length === 0) {
               return (
-                <p key={positionGroup} className="text-center text-gray-400 text-sm py-3">
+                <p key={positionGroup} className="text-center text-muted-foreground text-sm py-3">
                   (no positions yet)
                 </p>
               );
@@ -469,7 +482,7 @@ function PositionOnlyCard({
             }
           : undefined
       }
-      className={`group flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 ${onProfileClick ? 'cursor-pointer hover:bg-gray-100 hover:border-gray-300 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none' : ''} transition-colors`}
+      className={`group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border ${onProfileClick ? 'cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none' : ''} transition-colors`}
     >
       {/* Avatar */}
       <GravatarAvatar
@@ -483,13 +496,13 @@ function PositionOnlyCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           {/* Name */}
-          <span className="font-medium text-gray-900 text-sm truncate">{name}</span>
+          <span className="font-medium text-foreground text-sm truncate">{name}</span>
           {/* Credibility - ear count */}
           {credibility.ear > 0 && (
             <MobileTooltip
               content={`${name.split(' ')[0]} understood ${credibility.ear} ${credibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
             >
-              <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
+              <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
                 <Ear size={12} />
                 {credibility.ear}
               </span>
@@ -500,7 +513,7 @@ function PositionOnlyCard({
         </div>
         {/* Role metadata */}
         {(role || company) && (
-          <p className="text-xs text-gray-500 truncate">
+          <p className="text-xs text-muted-foreground truncate">
             {role}
             {company && ` at ${company}`}
           </p>
@@ -508,7 +521,7 @@ function PositionOnlyCard({
       </div>
 
       {/* No story indicator */}
-      <span className="text-xs text-gray-400 italic flex-shrink-0">No story yet</span>
+      <span className="text-xs text-muted-foreground italic flex-shrink-0">No story yet</span>
     </div>
   );
 }

@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/tooltip';
 
 // P115: Import interactive components from prototype
-import { InlineCalibration, type UserCalibration } from "@/app/components/profile/calibration-display";
+import { InlineCalibration } from "@/app/components/profile/calibration-display";
 import {
   MobileTooltip,
   ShareButton,
@@ -54,7 +54,6 @@ import {
   getPointPositionCounts,
   formatTimeAgo,
   type MockUser,
-  type ProfileMockData,
 } from "@/app/data/mock-profile-data";
 
 // Routes for detail pages (main app, not prototype)
@@ -168,6 +167,7 @@ export function ProfilePageV2() {
       setTimeout(() => setResendSuccess(false), 5000);
     } catch (error) {
       console.error('Failed to resend verification email:', error);
+      toast.error('Failed to send email. Please try again.');
     } finally {
       setIsResending(false);
     }

@@ -153,7 +153,7 @@ export function SimpleNavigation() {
                   Pledgers
                 </Link>
                 <Link
-                  to="/article"
+                  to="/manifesto"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Manifesto
