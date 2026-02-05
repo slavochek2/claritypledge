@@ -36,6 +36,40 @@ The Clarity Pledge uses Supabase (PostgreSQL) with Row Level Security (RLS). All
 | is_verified | boolean | Endorsement verified status |
 | created_at | timestamp | Endorsement timestamp |
 
+### Profile Extensions (P117)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| ears_count | integer | Successful listener verifications (≥8/10) |
+| verification_session_count | integer | Total verification sessions participated in |
+
+Both maintained by database triggers. Calibration averages computed on-read via `AVG()`.
+
+### clarity_sessions (Session Linking)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| creator_profile_id | uuid | FK to profiles (set when authenticated user creates) |
+| joiner_profile_id | uuid | FK to profiles (set when authenticated user joins) |
+
+### Stories, Points & Calibration Tables (P117)
+
+Seven tables added by P117. Full schema details in [architecture.md](architecture.md#stories-points-and-calibration-api).
+
+| Table | Purpose |
+|-------|---------|
+| `stories` | User-created content (title, content, understood_count) |
+| `story_versions` | Immutable snapshots, auto-created by trigger |
+| `points` | Statements users take positions on |
+| `story_points` | Many-to-many junction (stories ↔ points) |
+| `point_positions` | Current user positions (7-point Likert) |
+| `point_position_history` | Audit log of position changes (trigger) |
+| `story_verifications` | /live verification records (references version_id) |
+
+**Migration:** `supabase/migrations/20260204_stories_points_calibration.sql`
+
+**Services:** Interface-based pattern — see [architecture.md § Service Layer](architecture.md#service-layer-pattern).
+
 ---
 
 ## Row Level Security (RLS)
@@ -59,6 +93,10 @@ The Clarity Pledge uses Supabase (PostgreSQL) with Row Level Security (RLS). All
 | Delete | Authenticated | Delete own witness records |
 
 **Design Decision:** The witnesses insert policy intentionally allows ANY authenticated user to add witnesses to ANY profile. This enables users to endorse someone's pledge without requiring the endorsee to have an account. This is a feature, not a security gap.
+
+### P117 table policies
+
+See [architecture.md § RLS Policies](architecture.md#rls-policies) for the full matrix covering stories, points, positions, verifications, and related tables.
 
 ---
 
@@ -219,12 +257,11 @@ const witnesses = await getWitnesses(profile.id);
 
 ---
 
-## Schema File
+## Schema Files
 
-The canonical schema is at [supabase/schema.sql](../../supabase/schema.sql). This file contains:
-- Table definitions
-- RLS policies
-- Indexes
-- Any migrations applied
+| File | Purpose |
+|------|---------|
+| [supabase/schema.sql](../../supabase/schema.sql) | Base schema (profiles, witnesses) |
+| [supabase/migrations/20260204_stories_points_calibration.sql](../../supabase/migrations/20260204_stories_points_calibration.sql) | P117: Stories, Points, Calibration tables + triggers |
 
-When making schema changes, update this file and apply via Supabase dashboard or migrations.
+When making schema changes, create migration files and apply via Supabase dashboard or `supabase db push`.
