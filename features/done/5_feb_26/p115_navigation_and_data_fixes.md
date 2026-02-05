@@ -1,5 +1,6 @@
 ---
 status: done
+completed_at: '2026-02-05'
 reviews:
   ux: passed
   architect: passed
