@@ -299,23 +299,26 @@ Load these docs when working on specific areas:
 
 ## Worktree Branch Naming
 
-**Standard naming:** `w1`, `w2`, `w3`, `w4`, etc.
+**Worktree identity** comes from the directory name: `claritypledge-N` = wN. Don't ask — just map the number.
+
+**Branch names** always reflect the **feature**, not the worktree number. The branch is the only thing that tells you what work lives in a worktree.
 
 **Rules:**
-1. **When syncing to main:** If user asks to "bring worktree up to date" or "sync with main", automatically reset the branch name to generic (`w1`, `w2`, etc.) after merging
-2. **When starting feature work:** Before the first commit on a worktree, rename the branch to match the feature (e.g., `p62-dashboard-w1`)
-3. **Branch rename command:** `git branch -m <new-name>`
+1. **Branch = feature name:** e.g., `p117-stories-points-backend`, `p62-dashboard`
+2. **Keep branch name through syncs:** When merging main, don't rename the branch — the feature hasn't changed
+3. **Rename branch when switching features:** If a worktree moves to new work, rename the branch to the new feature
 
 **Example workflow:**
 ```bash
 # User: "bring w1 up to date with main"
+# (w1 = claritypledge-1, currently on branch p62-dashboard)
 cd ~/Documents/claritypledge-1
 git fetch origin main
 git merge origin/main
-git branch -m w1  # Reset to generic name
+# Branch stays p62-dashboard — feature hasn't changed
 
-# Later, starting feature p62:
-git branch -m p62-dashboard-w1  # Rename before first commit
+# Later, switching w1 to new feature p80:
+git branch -m p80-new-feature
 ```
 
 ## Knowledge-Driven Development
