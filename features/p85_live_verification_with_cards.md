@@ -1,6 +1,7 @@
 ---
 status: in-progress
-sort_order: 1000003
+type: story
+sort_order: 0.1171875
 hypothesis: H-Biz
 ---
 # P85: /live Verification with Cards

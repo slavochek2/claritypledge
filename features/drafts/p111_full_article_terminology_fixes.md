@@ -1,3 +1,7 @@
+---
+status: draft
+type: task
+---
 # P111: Full Article Terminology Fixes
 
 **Status:** Draft (not started)

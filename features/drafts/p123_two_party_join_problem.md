@@ -1,4 +1,8 @@
-# P106: Two-Party Join Problem
+---
+status: draft
+type: story
+---
+# P123: Two-Party Join Problem
 
 ## Problem Statement
 

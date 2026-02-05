@@ -1,5 +1,6 @@
 ---
 status: backlog
+type: task
 tags:
   - ghost
   - infrastructure

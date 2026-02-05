@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # P99: Story After Position Flow
 
 **Status:** Planning (design question)

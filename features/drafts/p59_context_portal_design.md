@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # V7: Context Portal Design — "Catch Up" for Events
 
 **Status:** Design draft

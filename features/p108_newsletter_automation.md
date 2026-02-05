@@ -1,5 +1,6 @@
 ---
 status: week
+type: story
 priority: important
 hypothesis: H-Biz
 tags:

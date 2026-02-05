@@ -169,7 +169,7 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
           if (!skipFolders.includes(entry.name) && !isDateArchive) {
             await scanDir(fullPath)
           }
-        } else if (entry.name.endsWith('.md') && entry.name.startsWith('p')) {
+        } else if (entry.name.endsWith('.md') && /\bp\d+/.test(entry.name)) {
           const feature = await parseFeatureFile(fullPath)
           if (feature) features.push(feature)
         }

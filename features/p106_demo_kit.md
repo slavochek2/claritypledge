@@ -1,10 +1,12 @@
 ---
 status: in-progress
+type: story
 priority: urgent-important
 hypothesis: H-Biz
 tags:
   - content
   - demo
+sort_order: 0.078125
 ---
 
 # P106: Demo Kit

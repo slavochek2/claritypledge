@@ -156,6 +156,27 @@ Pattern matching (`pkill -f`) can kill unintended processes like Docker Desktop.
 
 **Goal:** Small, atomic commits. Each commit = one logical change.
 
+## Task Tracking
+
+> **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
+
+**Agent behavior:**
+- When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?"
+- Never auto-create tasks. Always get user approval.
+- If user declines, don't ask again that session.
+- If the work looks like it delivers user value, reflect: "This could be a user story — As a [user], I want [goal], so that [benefit]. Want me to formulate it that way?"
+- When done, update task to `status: done` and fill Outcome section.
+
+**Type classification:**
+
+| Type | Frontmatter | When |
+|------|-------------|------|
+| `type: story` | User story | Delivers user value, has "As a..., I want..." format |
+| `type: task` | Task | Technical, operational, ad-hoc |
+| `type: bug` | Bug | Fix for broken behavior |
+
+**Number assignment:** Scan ALL `features/` subdirectories for highest `p{N}`. Next = highest + 1.
+
 ## Tool Preferences
 
 ### Browser Automation

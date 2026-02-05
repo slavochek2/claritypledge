@@ -1,3 +1,7 @@
+---
+status: draft
+type: task
+---
 # P110: Understanding Calibration Outcomes Research
 
 **Status:** Draft (ready for execution)

@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # P21: SEO & Discoverability
 
 ## Summary

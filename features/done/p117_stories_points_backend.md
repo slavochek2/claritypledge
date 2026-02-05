@@ -1,6 +1,8 @@
 ---
-status: prepped
+status: done
+type: story
 priority: high
+completed_at: '2026-02-05'
 prepped_date: '2026-02-04'
 reviews:
   ux: passed-with-notes
@@ -193,25 +195,25 @@ getVerificationHistory(userId: string): Promise<VerificationHistoryEntry[]>
 
 ### Phase 1: Schema & Types
 - [x] Create migration file
-- [ ] Apply migration to test database
-- [ ] Generate TypeScript types from schema
-- [ ] Update `src/app/types/index.ts`
+- [x] Apply migration to test database
+- [x] Generate TypeScript types from schema
+- [x] Update `src/app/types/index.ts`
 
 ### Phase 2: API & Services
-- [ ] Create `src/app/data/stories-service-real.ts`
-- [ ] Create `src/app/data/points-service-real.ts`
-- [ ] Add verification functions to `api.ts`
-- [ ] Add calibration query (AVG on-read)
-- [ ] Wire up session profile linking
-- [ ] Add feature flag or environment check
-- [ ] Update imports to use real services
+- [x] Create `src/app/data/stories-service-real.ts`
+- [x] Create `src/app/data/points-service-real.ts`
+- [x] Add verification functions to `api.ts`
+- [x] Add calibration query (AVG on-read)
+- [x] Wire up session profile linking (`creator_profile_id`/`joiner_profile_id` in createClaritySession/joinClaritySession)
+- [x] Add feature flag or environment check (`VITE_USE_REAL_API`)
+- [x] Update imports to use real services
 
 ### Phase 3: /Live Integration & Cleanup
-- [ ] Update /live to link sessions to profiles
-- [ ] Call `recordStoryVerification` when story discussed (pass version_id)
-- [ ] Update session end to display calibration
-- [ ] Update tests to use real services
-- [ ] Document API in technical docs
+- [x] Update /live to link sessions to profiles
+- [ ] Call `recordStoryVerification` when story discussed (pass version_id) — *deferred: requires story picker in /live (separate feature)*
+- [ ] Update session end to display calibration — *deferred: requires verification recording*
+- [x] Update tests to use real services
+- [x] Document API in technical docs
 
 ## Testing Strategy
 

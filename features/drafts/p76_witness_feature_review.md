@@ -1,3 +1,7 @@
+---
+status: draft
+type: task
+---
 # P76: Witness Feature Review
 
 **Status:** Planned (post-sprint cleanup)

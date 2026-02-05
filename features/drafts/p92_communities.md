@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # P92: Communities
 
 **Status:** Deferred (post-H2)

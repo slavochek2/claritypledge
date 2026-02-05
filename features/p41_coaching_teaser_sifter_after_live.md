@@ -1,6 +1,7 @@
 ---
 status: backlog
-sort_order: 0.3125
+type: story
+sort_order: 1000007
 hypothesis: H-Biz
 ---
 # P41: AI Coaching Teaser (Email + Page)
