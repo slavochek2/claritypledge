@@ -11,6 +11,8 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { Column } from './components/Column'
+import { Sidebar, PageId } from './components/Sidebar'
+import { FocusPage } from './components/FocusPage'
 import { Feature, FeatureType, Status } from './lib/types'
 
 export interface DropIndicator {
@@ -55,6 +57,7 @@ type ViewMode = 'active' | 'backlog' | 'all-done'
 const VIEW_MODE_KEY = 'kanban-view-mode'
 const TYPE_FILTER_KEY = 'kanban-type-filter'
 const WORKTREE_KEY = 'kanban-worktree'
+const PAGE_KEY = 'kanban-page'
 
 type TypeFilter = FeatureType | 'all'
 
@@ -93,6 +96,11 @@ export default function App() {
     const stored = localStorage.getItem(TYPE_FILTER_KEY)
     if (stored === 'bug' || stored === 'task' || stored === 'story') return stored
     return 'all'
+  })
+  const [currentPage, setCurrentPage] = useState<PageId>(() => {
+    const stored = localStorage.getItem(PAGE_KEY)
+    if (stored === 'focus') return 'focus'
+    return 'board'
   })
 
   // Build API URL with worktree param
@@ -159,6 +167,11 @@ export default function App() {
   const changeTypeFilter = (filter: TypeFilter) => {
     setTypeFilter(filter)
     localStorage.setItem(TYPE_FILTER_KEY, filter)
+  }
+
+  const changePage = (page: PageId) => {
+    setCurrentPage(page)
+    localStorage.setItem(PAGE_KEY, page)
   }
 
   const getEffectiveOrder = (item: Feature | undefined): number => {
@@ -393,9 +406,8 @@ export default function App() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+      {/* Title row */}
       <div style={{ padding: 'var(--spacing-12) var(--spacing-16) 0', flexShrink: 0 }}>
-        {/* Title row */}
         <div
           style={{
             display: 'flex',
@@ -440,86 +452,106 @@ export default function App() {
             </select>
           )}
         </div>
-
-        {/* View tabs row */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingBottom: 'var(--spacing-12)',
-            borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
-            <button style={viewTabStyle(viewMode === 'backlog')} onClick={() => changeViewMode('backlog')}>
-              Backlog
-            </button>
-            <button style={viewTabStyle(viewMode === 'active')} onClick={() => changeViewMode('active')}>
-              Main Board
-            </button>
-            <button style={viewTabStyle(viewMode === 'all-done')} onClick={() => changeViewMode('all-done')}>
-              Done
-            </button>
-          </div>
-
-          {/* Type filter chips */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
-            {TYPE_CHIPS.map((chip) => (
-              <button
-                key={chip.id}
-                onClick={() => changeTypeFilter(chip.id)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  padding: '2px 8px',
-                  fontSize: 'var(--font-size-12)',
-                  fontWeight: 'var(--font-weight-regular)',
-                  color: typeFilter === chip.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  background: typeFilter === chip.id ? chip.color : 'transparent',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  transition: 'all 0.1s',
-                }}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Board */}
-      <div style={{ padding: 'var(--spacing-12) var(--spacing-16)', overflowX: 'auto', flex: 1 }}>
-        <DndContext
-            sensors={sensors}
-            collisionDetection={pointerWithin}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-            onDragCancel={handleDragCancel}
-          >
-          <div
-            style={{
-              display: 'flex',
-              gap: 'var(--spacing-8)',
-              alignItems: 'flex-start',
-            }}
-          >
-            {visibleColumns.map((col) => (
-              <Column
-                key={`${col.id}-${col.filter ?? 'default'}`}
-                id={col.id}
-                title={col.title}
-                color={col.color}
-                features={getColumnFeatures(col)}
-                dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
-                isDragging={activeId !== null}
-              />
-            ))}
-          </div>
-        </DndContext>
+      {/* Sidebar + Content */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Sidebar currentPage={currentPage} onPageChange={changePage} />
+
+        {/* Content area */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {currentPage === 'board' && (
+            <>
+              {/* Board header */}
+              <div style={{ padding: '0 var(--spacing-16)', flexShrink: 0 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingBottom: 'var(--spacing-12)',
+                    borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+                    <button style={viewTabStyle(viewMode === 'backlog')} onClick={() => changeViewMode('backlog')}>
+                      Backlog
+                    </button>
+                    <button style={viewTabStyle(viewMode === 'active')} onClick={() => changeViewMode('active')}>
+                      Main Board
+                    </button>
+                    <button style={viewTabStyle(viewMode === 'all-done')} onClick={() => changeViewMode('all-done')}>
+                      Done
+                    </button>
+                  </div>
+
+                  {/* Type filter chips */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+                    {TYPE_CHIPS.map((chip) => (
+                      <button
+                        key={chip.id}
+                        onClick={() => changeTypeFilter(chip.id)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '2px 8px',
+                          fontSize: 'var(--font-size-12)',
+                          fontWeight: 'var(--font-weight-regular)',
+                          color: typeFilter === chip.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          background: typeFilter === chip.id ? chip.color : 'transparent',
+                          border: 'none',
+                          borderRadius: '3px',
+                          cursor: 'pointer',
+                          transition: 'all 0.1s',
+                        }}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Board */}
+              <div style={{ padding: 'var(--spacing-12) var(--spacing-16)', overflowX: 'auto', flex: 1 }}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={pointerWithin}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 'var(--spacing-8)',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    {visibleColumns.map((col) => (
+                      <Column
+                        key={`${col.id}-${col.filter ?? 'default'}`}
+                        id={col.id}
+                        title={col.title}
+                        color={col.color}
+                        features={getColumnFeatures(col)}
+                        dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
+                        isDragging={activeId !== null}
+                      />
+                    ))}
+                  </div>
+                </DndContext>
+              </div>
+            </>
+          )}
+
+          {currentPage === 'focus' && (
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              <FocusPage features={features} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -293,6 +293,7 @@ Load these docs when working on specific areas:
 | Analytics, Mixpanel, Sentry | [analytics.md](docs/technical/analytics.md) |
 | Git worktrees, parallel development | [worktree-setup.md](docs/technical/worktree-setup.md) |
 | Cloud agent, /c commands | [cloud-agent.md](docs/technical/cloud-agent.md) |
+| Ghost blog, newsletter, Mailgun | [ghost-blog.md](docs/technical/ghost-blog.md) |
 | Past decisions, why we chose X over Y | [decisions.md](docs/decisions.md) |
 | Epistemology (WHY this works) | [philosophy.md](docs/philosophy.md) |
 | Cascade, √N, network effects | [theory-of-change.md](docs/theory-of-change.md) |
