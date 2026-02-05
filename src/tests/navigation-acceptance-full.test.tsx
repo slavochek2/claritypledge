@@ -29,7 +29,7 @@ vi.mock('@/lib/mixpanel', () => ({
 }));
 
 import { SimpleNavigation } from '@/app/components/layout/simple-navigation';
-import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
+// LiveSessionBanner tests moved to dedicated file: live-session-banner.test.tsx
 
 // ============================================================================
 // Test Utilities
@@ -62,12 +62,6 @@ async function openDesktopMenu() {
 // Helper to open mobile menu
 async function openMobileMenu() {
   const menuButton = screen.getByRole('button', { name: /open menu/i });
-  await userEvent.click(menuButton);
-}
-
-// Helper to open LiveSessionBanner menu
-async function openLiveBannerMenu() {
-  const menuButton = screen.getByTestId('menu-trigger');
   await userEvent.click(menuButton);
 }
 
@@ -542,101 +536,7 @@ describe('KISS Navigation', () => {
     });
   });
 
-  describe('LiveSessionBanner', () => {
-    describe('Anonymous User', () => {
-      beforeEach(() => {
-        mockUseAuth.mockReturnValue({
-          session: null,
-          user: null,
-          isLoading: false,
-          sessionChecked: true,
-          signOut: vi.fn(),
-          refreshProfile: vi.fn(),
-        });
-      });
-
-      it('shows Log In', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('login-option')).toBeInTheDocument();
-      });
-
-      it('shows Sound toggle', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
-      });
-
-      it('shows Home link', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('home-link')).toBeInTheDocument();
-      });
-    });
-
-    describe('Verified User', () => {
-      beforeEach(() => {
-        mockUseAuth.mockReturnValue({
-          session: { user: { id: 'test-user-id' } },
-          user: createMockUser(),
-          isLoading: false,
-          sessionChecked: true,
-          signOut: vi.fn(),
-          refreshProfile: vi.fn(),
-        });
-      });
-
-      // P114: View My Profile removed from menu (now in icon nav on main navigation)
-      it('does NOT show View My Profile (simplified menu)', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
-      });
-
-      it('shows Settings', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('settings')).toBeInTheDocument();
-      });
-
-      it('shows Log Out', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('sign-out')).toBeInTheDocument();
-      });
-
-      it('does NOT show Log In', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.queryByTestId('login-option')).not.toBeInTheDocument();
-      });
-    });
-
-    describe('KISS: Unverified users see Log In', () => {
-      beforeEach(() => {
-        mockUseAuth.mockReturnValue({
-          session: { user: { id: 'unverified-user-id' } },
-          user: createMockUser({ isVerified: false, slug: null }),
-          isLoading: false,
-          sessionChecked: true,
-          signOut: vi.fn(),
-          refreshProfile: vi.fn(),
-        });
-      });
-
-      it('shows Log In (same as anonymous)', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('login-option')).toBeInTheDocument();
-      });
-
-      it('does NOT show View My Profile', async () => {
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
-      });
-    });
-  });
+  // LiveSessionBanner tests removed - covered by dedicated live-session-banner.test.tsx
 
   // ============================================================================
   // P67: Avatar Trigger - Avatar replaces hamburger for verified users
@@ -787,56 +687,7 @@ describe('KISS Navigation', () => {
       });
     });
 
-    describe('LiveSessionBanner - Avatar as menu trigger', () => {
-      it('shows avatar for verified user', () => {
-        mockUseAuth.mockReturnValue({
-          session: { user: { id: 'test-user-id' } },
-          user: createMockUser({ name: 'Test User', avatarColor: '#10b981' }),
-          isLoading: false,
-          sessionChecked: true,
-          signOut: vi.fn(),
-          refreshProfile: vi.fn(),
-        });
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-
-        // Should show avatar with initials
-        expect(screen.getByText('TU')).toBeInTheDocument();
-      });
-
-      it('shows hamburger for anonymous user', () => {
-        mockUseAuth.mockReturnValue({
-          session: null,
-          user: null,
-          isLoading: false,
-          sessionChecked: true,
-          signOut: vi.fn(),
-          refreshProfile: vi.fn(),
-        });
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-
-        // Should show hamburger
-        expect(screen.getByTestId('menu-trigger')).toBeInTheDocument();
-        // Should NOT have avatar
-        expect(screen.queryByText('TU')).not.toBeInTheDocument();
-      });
-
-      it('shows hamburger for unverified user (KISS)', () => {
-        mockUseAuth.mockReturnValue({
-          session: { user: { id: 'test-user-id' } },
-          user: createMockUser({ isVerified: false, name: 'Unverified User' }),
-          isLoading: false,
-          sessionChecked: true,
-          signOut: vi.fn(),
-          refreshProfile: vi.fn(),
-        });
-        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-
-        // Should show hamburger (unverified = treated as anonymous)
-        expect(screen.getByTestId('menu-trigger')).toBeInTheDocument();
-        // Should NOT have avatar initials
-        expect(screen.queryByText('UU')).not.toBeInTheDocument();
-      });
-    });
+    // LiveSessionBanner avatar trigger tests removed - covered by live-session-banner.test.tsx
 
     describe('Analytics - nav_menu_opened trigger tracking', () => {
       beforeEach(() => {
@@ -901,64 +752,7 @@ describe('KISS Navigation', () => {
         });
       });
 
-      describe('LiveSessionBanner analytics', () => {
-        it('tracks trigger=avatar when verified user opens menu', async () => {
-          mockUseAuth.mockReturnValue({
-            session: { user: { id: 'test-user-id' } },
-            user: createMockUser({ name: 'Test User' }),
-            isLoading: false,
-            sessionChecked: true,
-            signOut: vi.fn(),
-            refreshProfile: vi.fn(),
-          });
-          render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-
-          await openLiveBannerMenu();
-
-          expect(mockTrack).toHaveBeenCalledWith('nav_menu_opened', {
-            trigger: 'avatar',
-            device: 'desktop',
-          });
-        });
-
-        it('tracks trigger=hamburger when anonymous user opens menu', async () => {
-          mockUseAuth.mockReturnValue({
-            session: null,
-            user: null,
-            isLoading: false,
-            sessionChecked: true,
-            signOut: vi.fn(),
-            refreshProfile: vi.fn(),
-          });
-          render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-
-          await openLiveBannerMenu();
-
-          expect(mockTrack).toHaveBeenCalledWith('nav_menu_opened', {
-            trigger: 'hamburger',
-            device: 'desktop',
-          });
-        });
-
-        it('tracks trigger=hamburger for unverified user (KISS)', async () => {
-          mockUseAuth.mockReturnValue({
-            session: { user: { id: 'test-user-id' } },
-            user: createMockUser({ isVerified: false }),
-            isLoading: false,
-            sessionChecked: true,
-            signOut: vi.fn(),
-            refreshProfile: vi.fn(),
-          });
-          render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
-
-          await openLiveBannerMenu();
-
-          expect(mockTrack).toHaveBeenCalledWith('nav_menu_opened', {
-            trigger: 'hamburger',
-            device: 'desktop',
-          });
-        });
-      });
+      // LiveSessionBanner analytics tests removed - covered by live-session-banner.test.tsx
     });
   });
 

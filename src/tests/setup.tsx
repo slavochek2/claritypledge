@@ -45,3 +45,14 @@ window.scrollTo = vi.fn();
 
 // Mock HTMLElement.prototype.scrollTo for carousel tests
 HTMLElement.prototype.scrollTo = vi.fn();
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+  length: 0,
+  key: vi.fn(),
+};
+vi.stubGlobal('localStorage', localStorageMock);
