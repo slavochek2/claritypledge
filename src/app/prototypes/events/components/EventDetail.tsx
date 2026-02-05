@@ -84,7 +84,7 @@ export function EventDetail() {
   // Show toast if user just signed up and was redirected here to RSVP
   useEffect(() => {
     if (searchParams.get('action') === 'rsvp' && isLoggedIn) {
-      toast.success('Account created! Click RSVP to confirm your spot.');
+      toast.success('Account created! Click "I\'m going" to confirm your spot.');
       // Clear the action param from URL
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
@@ -135,7 +135,7 @@ export function EventDetail() {
       setIsRsvpd(true);
       navigate(`/events/${slug}/confirm`);
     } else {
-      toast.error('Could not complete RSVP. The event may be full or no longer available.');
+      toast.error('Couldn\'t sign you up. The event may be full or no longer available.');
     }
   };
 
@@ -383,8 +383,8 @@ export function EventDetail() {
                     <div className="flex items-center gap-3">
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
                       <div>
-                        <p className="font-semibold text-green-800">You're Registered!</p>
-                        <p className="text-sm text-green-700">We'll see you there</p>
+                        <p className="font-semibold text-green-800">You're going!</p>
+                        <p className="text-sm text-green-700">See you there</p>
                       </div>
                     </div>
                     <Button
@@ -395,7 +395,7 @@ export function EventDetail() {
                       className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
                     >
                       <X className="w-4 h-4 mr-1" />
-                      Cancel RSVP
+                      Can't make it
                     </Button>
                   </div>
                 ) : isLoggedIn ? (
@@ -406,11 +406,11 @@ export function EventDetail() {
                     disabled={isActionLoading}
                     data-testid="rsvp-button"
                   >
-                    {isActionLoading ? 'Registering...' : 'RSVP'}
+                    {isActionLoading ? 'Joining...' : 'I\'m going'}
                   </Button>
                 ) : (
                   <Button onClick={handleRsvp} className="w-full bg-blue-500 hover:bg-blue-600 text-white" size="lg" data-testid="rsvp-button">
-                    Create Account to RSVP
+                    Sign up to join
                   </Button>
                 )}
               </div>
@@ -475,10 +475,10 @@ export function EventDetail() {
       <ConfirmDialog
         open={showCancelRsvpDialog}
         onOpenChange={setShowCancelRsvpDialog}
-        title="Cancel your RSVP?"
-        description="You will be removed from the guest list. You can always RSVP again if spots are available."
-        confirmLabel="Cancel RSVP"
-        cancelLabel="Keep RSVP"
+        title="Can't make it?"
+        description="You'll be removed from the guest list. You can always join again if spots are available."
+        confirmLabel="I can't go"
+        cancelLabel="I'm still going"
         variant="destructive"
         onConfirm={confirmCancelRsvp}
         isLoading={isActionLoading}
