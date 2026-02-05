@@ -134,54 +134,63 @@ export const realCalibrationService: CalibrationService = {
       };
     }
 
-    // Compute calibration averages on-read
-    // Get all verifications where user was listener
-    const { data: listenerVerifications, error: listenerError } = await supabase
-      .from('story_verifications')
-      .select('speaker_rating, listener_rating')
-      .eq('listener_id', userId);
+    // Compute calibration averages on-read using SQL AVG() (per spec decision)
+    // Run both aggregate queries in parallel for efficiency
+    const [listenerResult, speakerResult] = await Promise.all([
+      supabase
+        .rpc('get_listener_calibration_avgs', { user_id_param: userId })
+        .single(),
+      supabase
+        .rpc('get_speaker_calibration_avgs', { user_id_param: userId })
+        .single(),
+    ]);
 
-    if (listenerError) {
-      log('ERROR: getCalibration listener verifications error:', listenerError);
-    }
-
-    // Get all verifications where user was speaker
-    const { data: speakerVerifications, error: speakerError } = await supabase
-      .from('story_verifications')
-      .select('speaker_rating, listener_rating')
-      .eq('speaker_id', userId);
-
-    if (speakerError) {
-      log('ERROR: getCalibration speaker verifications error:', speakerError);
-    }
-
-    // Compute averages
+    // Fallback: if RPC functions don't exist yet, compute from raw query
     let listenerCalibrationAvg: number | null = null;
     let listenerSelfRatingAvg: number | null = null;
     let calibrationGap: number | null = null;
-
-    if (listenerVerifications && listenerVerifications.length > 0) {
-      const speakerRatings = listenerVerifications.map((v) => v.speaker_rating);
-      const listenerSelfRatings = listenerVerifications.map((v) => v.listener_rating);
-
-      listenerCalibrationAvg =
-        speakerRatings.reduce((sum, r) => sum + r, 0) / speakerRatings.length;
-      listenerSelfRatingAvg =
-        listenerSelfRatings.reduce((sum, r) => sum + r, 0) / listenerSelfRatings.length;
-      calibrationGap = listenerSelfRatingAvg - listenerCalibrationAvg;
-    }
-
     let speakerCalibrationAvg: number | null = null;
     let speakerListenerSelfRatingAvg: number | null = null;
 
-    if (speakerVerifications && speakerVerifications.length > 0) {
-      const speakerGivenRatings = speakerVerifications.map((v) => v.speaker_rating);
-      const listenerSelfRatings = speakerVerifications.map((v) => v.listener_rating);
+    if (listenerResult.error) {
+      // RPC not available — fallback to aggregate query
+      log('RPC get_listener_calibration_avgs not available, using fallback query');
+      const { data: listenerAgg } = await supabase
+        .from('story_verifications')
+        .select('speaker_rating, listener_rating')
+        .eq('listener_id', userId);
 
-      speakerCalibrationAvg =
-        speakerGivenRatings.reduce((sum, r) => sum + r, 0) / speakerGivenRatings.length;
-      speakerListenerSelfRatingAvg =
-        listenerSelfRatings.reduce((sum, r) => sum + r, 0) / listenerSelfRatings.length;
+      if (listenerAgg && listenerAgg.length > 0) {
+        listenerCalibrationAvg =
+          listenerAgg.reduce((sum, v) => sum + v.speaker_rating, 0) / listenerAgg.length;
+        listenerSelfRatingAvg =
+          listenerAgg.reduce((sum, v) => sum + v.listener_rating, 0) / listenerAgg.length;
+        calibrationGap = listenerSelfRatingAvg - listenerCalibrationAvg;
+      }
+    } else if (listenerResult.data) {
+      listenerCalibrationAvg = listenerResult.data.avg_speaker_rating;
+      listenerSelfRatingAvg = listenerResult.data.avg_listener_rating;
+      if (listenerCalibrationAvg !== null && listenerSelfRatingAvg !== null) {
+        calibrationGap = listenerSelfRatingAvg - listenerCalibrationAvg;
+      }
+    }
+
+    if (speakerResult.error) {
+      log('RPC get_speaker_calibration_avgs not available, using fallback query');
+      const { data: speakerAgg } = await supabase
+        .from('story_verifications')
+        .select('speaker_rating, listener_rating')
+        .eq('speaker_id', userId);
+
+      if (speakerAgg && speakerAgg.length > 0) {
+        speakerCalibrationAvg =
+          speakerAgg.reduce((sum, v) => sum + v.speaker_rating, 0) / speakerAgg.length;
+        speakerListenerSelfRatingAvg =
+          speakerAgg.reduce((sum, v) => sum + v.listener_rating, 0) / speakerAgg.length;
+      }
+    } else if (speakerResult.data) {
+      speakerCalibrationAvg = speakerResult.data.avg_speaker_rating;
+      speakerListenerSelfRatingAvg = speakerResult.data.avg_listener_rating;
     }
 
     const calibration: CalibrationStats = {

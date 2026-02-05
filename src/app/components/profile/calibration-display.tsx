@@ -120,9 +120,11 @@ export function InlineCalibration({
 }: {
   calibration: UserCalibration;
 }) {
+  // gap = self - actual: negative = overconfident (left), positive = underconfident (right)
+  // Must match CalibrationBar formula: ((clamped + 3) / 6) * 100
   const gapToPosition = (g: number) => {
     const clamped = Math.max(-3, Math.min(3, g));
-    return ((3 - clamped) / 6) * 100;
+    return ((clamped + 3) / 6) * 100;
   };
 
   const listenerPos = gapToPosition(calibration.listener.avgGap);

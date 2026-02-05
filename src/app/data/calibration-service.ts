@@ -6,8 +6,9 @@
 import { mockCalibrationService } from './calibration-service-mock';
 import { realCalibrationService } from './calibration-service-real';
 
-// Feature flag controls which implementation is used
-const USE_REAL_API = import.meta.env.VITE_USE_REAL_CALIBRATION_API === 'true';
+// Single feature flag for all p117 services (stories, points, calibration)
+// Using separate flags risks mixed mock/real state causing join failures
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
 export const calibrationService = USE_REAL_API
   ? realCalibrationService

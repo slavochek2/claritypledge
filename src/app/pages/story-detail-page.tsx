@@ -7,7 +7,7 @@
  * We extract the profile ID and regenerate consistent mock data.
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { getProfile, type Profile } from '@/app/data/api';
@@ -39,6 +39,7 @@ export function StoryDetailPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [mockData, setMockData] = useState<ProfileMockData | null>(null);
   const [story, setStory] = useState<Story | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -89,7 +90,7 @@ export function StoryDetailPage() {
     }
 
     loadData();
-  }, [id]);
+  }, [id, retryKey]);
 
   // Convert profile to StoryAuthor format
   const author: StoryAuthor | null = useMemo(() => {
@@ -200,6 +201,26 @@ export function StoryDetailPage() {
     profile: (profileId: string) => `/p/${profile?.slug || profileId}`,
   }), [profile]);
 
+  // Helper to navigate back safely
+  const handleBack = useCallback(() => {
+    const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
+    if (isInternalReferrer) {
+      navigate(-1);
+    } else {
+      navigate('/events');
+    }
+  }, [navigate]);
+
+  // Helper to retry loading — increment retryKey to re-trigger useEffect
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    setProfile(null);
+    setMockData(null);
+    setStory(null);
+    setRetryKey(k => k + 1);
+  }, []);
+
   if (loading) {
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
@@ -242,27 +263,6 @@ export function StoryDetailPage() {
       </div>
     );
   }
-
-  // Helper to navigate back safely
-  const handleBack = () => {
-    // Check if we came from within the app (not a direct link)
-    const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
-    if (isInternalReferrer) {
-      navigate(-1);
-    } else {
-      navigate('/events');
-    }
-  };
-
-  // Helper to retry loading
-  const handleRetry = () => {
-    setError(null);
-    setLoading(true);
-    // Trigger re-fetch by clearing state
-    setProfile(null);
-    setMockData(null);
-    setStory(null);
-  };
 
   if (error || !story || !mockData || !profile || !author) {
     const isNetworkError = error === 'network_error';

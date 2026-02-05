@@ -116,7 +116,7 @@ CREATE INDEX idx_position_history_changed ON point_position_history(changed_at D
 CREATE TABLE story_verifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   story_id UUID NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-  version_id UUID NOT NULL REFERENCES story_versions(id),  -- which version was verified
+  version_id UUID NOT NULL REFERENCES story_versions(id) ON DELETE CASCADE,  -- which version was verified
   session_id UUID REFERENCES clarity_sessions(id),  -- link to /live session (optional for future non-live verifications)
   speaker_id UUID NOT NULL REFERENCES profiles(id),  -- person explaining (usually story author)
   listener_id UUID NOT NULL REFERENCES profiles(id), -- person demonstrating understanding
@@ -160,8 +160,12 @@ CREATE INDEX IF NOT EXISTS idx_sessions_joiner_profile ON clarity_sessions(joine
 -- ============================================================================
 
 -- Create initial version when story is created
+-- SECURITY DEFINER: trigger inserts into story_versions which has RLS but no INSERT policy
 CREATE OR REPLACE FUNCTION create_initial_story_version()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO story_versions (story_id, version_number, title, content)
   VALUES (NEW.id, 1, NEW.title, NEW.content);
@@ -174,8 +178,12 @@ AFTER INSERT ON stories
 FOR EACH ROW EXECUTE FUNCTION create_initial_story_version();
 
 -- Create new version when story content changes
+-- SECURITY DEFINER: trigger inserts into story_versions which has RLS but no INSERT policy
 CREATE OR REPLACE FUNCTION create_story_version_on_update()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   IF OLD.title IS DISTINCT FROM NEW.title OR OLD.content IS DISTINCT FROM NEW.content THEN
     NEW.current_version = OLD.current_version + 1;
@@ -191,8 +199,12 @@ BEFORE UPDATE ON stories
 FOR EACH ROW EXECUTE FUNCTION create_story_version_on_update();
 
 -- Log position changes to history
+-- SECURITY DEFINER: trigger inserts into point_position_history which has RLS but no INSERT policy
 CREATE OR REPLACE FUNCTION log_position_change()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
     INSERT INTO point_position_history (point_id, user_id, position, reasoning)
@@ -232,16 +244,31 @@ AFTER INSERT ON story_verifications
 FOR EACH ROW EXECUTE FUNCTION update_story_understood_count();
 
 -- Update profile.ears_count when verification added (listener achieved ≥8/10)
--- Uses incremental update for O(1) performance
+-- Only increments ears_count for distinct speaker-listener pairs (first successful verification)
 CREATE OR REPLACE FUNCTION update_profile_ears_count()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.accuracy_achieved THEN
-    UPDATE profiles
-    SET
-      ears_count = ears_count + 1,
-      verification_session_count = verification_session_count + 1
-    WHERE id = NEW.listener_id;
+    -- Only increment ears_count if this is the first successful verification
+    -- for this specific speaker-listener pair (distinct listeners)
+    IF NOT EXISTS (
+      SELECT 1 FROM story_verifications
+      WHERE speaker_id = NEW.speaker_id
+        AND listener_id = NEW.listener_id
+        AND accuracy_achieved = true
+        AND id != NEW.id
+    ) THEN
+      UPDATE profiles
+      SET
+        ears_count = ears_count + 1,
+        verification_session_count = verification_session_count + 1
+      WHERE id = NEW.listener_id;
+    ELSE
+      -- Already counted this listener, just increment session count
+      UPDATE profiles
+      SET verification_session_count = verification_session_count + 1
+      WHERE id = NEW.listener_id;
+    END IF;
   ELSE
     -- Still count the session even if accuracy not achieved
     UPDATE profiles
@@ -377,6 +404,36 @@ CREATE POLICY "Verifications are publicly readable"
 
 CREATE POLICY "Authenticated users can create verifications"
   ON story_verifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- ============================================================================
+-- RPC FUNCTIONS (Calibration AVG computed on-read per spec decision)
+-- ============================================================================
+
+-- Listener calibration: AVG of speaker ratings and listener self-ratings
+-- where the user was the listener
+CREATE OR REPLACE FUNCTION get_listener_calibration_avgs(user_id_param UUID)
+RETURNS TABLE(avg_speaker_rating NUMERIC, avg_listener_rating NUMERIC)
+LANGUAGE sql STABLE
+AS $$
+  SELECT
+    AVG(speaker_rating)::NUMERIC AS avg_speaker_rating,
+    AVG(listener_rating)::NUMERIC AS avg_listener_rating
+  FROM story_verifications
+  WHERE listener_id = user_id_param;
+$$;
+
+-- Speaker calibration: AVG of speaker ratings and listener self-ratings
+-- where the user was the speaker
+CREATE OR REPLACE FUNCTION get_speaker_calibration_avgs(user_id_param UUID)
+RETURNS TABLE(avg_speaker_rating NUMERIC, avg_listener_rating NUMERIC)
+LANGUAGE sql STABLE
+AS $$
+  SELECT
+    AVG(speaker_rating)::NUMERIC AS avg_speaker_rating,
+    AVG(listener_rating)::NUMERIC AS avg_listener_rating
+  FROM story_verifications
+  WHERE speaker_id = user_id_param;
+$$;
 
 -- ============================================================================
 -- REALTIME (Enable for live updates)

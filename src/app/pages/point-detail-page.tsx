@@ -7,7 +7,7 @@
  * the view, or show a generic view if no referrer.
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Pin, Ear } from 'lucide-react';
 import { getProfile, type Profile } from '@/app/data/api';
@@ -67,6 +67,7 @@ export function PointDetailPage() {
   const [point, setPoint] = useState<Point | null>(null);
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   // Get referrer profile ID from query params (e.g., /point/pt1?from=profile-uuid)
   const referrerProfileId = searchParams.get('from');
@@ -130,7 +131,7 @@ export function PointDetailPage() {
     }
 
     loadData();
-  }, [id, referrerProfileId]);
+  }, [id, referrerProfileId, retryKey]);
 
   // Get linked stories
   const linkedStories = useMemo(() => {
@@ -235,14 +236,15 @@ export function PointDetailPage() {
     }
   };
 
-  // Helper to retry loading
-  const handleRetry = () => {
+  // Helper to retry loading — increment retryKey to re-trigger useEffect
+  const handleRetry = useCallback(() => {
     setError(null);
     setLoading(true);
     setProfile(null);
     setMockData(null);
     setPoint(null);
-  };
+    setRetryKey(k => k + 1);
+  }, []);
 
   // Routes for components
   const routes = useMemo(

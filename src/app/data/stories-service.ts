@@ -6,8 +6,9 @@
 import { mockStoriesService } from './stories-service-mock';
 import { realStoriesService } from './stories-service-real';
 
-// Feature flag controls which implementation is used
-const USE_REAL_API = import.meta.env.VITE_USE_REAL_STORIES_API === 'true';
+// Single feature flag for all p117 services (stories, points, calibration)
+// Using separate flags risks mixed mock/real state causing join failures
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === 'true';
 
 export const storiesService = USE_REAL_API ? realStoriesService : mockStoriesService;
 

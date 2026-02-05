@@ -113,17 +113,24 @@ export const realStoriesService: StoriesService = {
   // ============================================================================
 
   async createStory(
-    authorId: string,
+    _authorId: string,
     title: string,
     content: string,
     tags: string[] = []
   ): Promise<Story | null> {
-    log(' createStory:', { authorId, title });
+    // Use authenticated user, not caller-supplied authorId (RLS requires auth.uid() match)
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      log('ERROR: createStory - not authenticated');
+      return null;
+    }
+
+    log(' createStory:', { authorId: user.id, title });
 
     const { data, error } = await supabase
       .from('stories')
       .insert({
-        author_id: authorId,
+        author_id: user.id,
         title,
         content,
         tags,
