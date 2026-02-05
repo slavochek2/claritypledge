@@ -2,18 +2,19 @@
  * Short link mappings for claritypledge.com/s/:code
  *
  * Add new links here. Codes should be short and memorable.
- * Target URLs can include hash fragments (e.g., /article#section-name)
+ * Target URLs can include hash fragments (e.g., /manifesto#section-name)
  */
 
 export const shortLinks: Record<string, string> = {
   // Three Asymmetries section (all point to same section - subsections are bold, not headings)
-  "3gaps": "/article#the-three-asymmetries-that-make-verification-hard",
-  "role": "/article#the-three-asymmetries-that-make-verification-hard",
-  "info": "/article#the-three-asymmetries-that-make-verification-hard",
-  "vuln": "/article#the-three-asymmetries-that-make-verification-hard",
+  "3gaps": "/manifesto#the-three-asymmetries-that-make-verification-hard",
+  "role": "/manifesto#the-three-asymmetries-that-make-verification-hard",
+  "info": "/manifesto#the-three-asymmetries-that-make-verification-hard",
+  "vuln": "/manifesto#the-three-asymmetries-that-make-verification-hard",
 
-  // Main article
-  "article": "/article",
+  // Manifesto
+  "article": "/manifesto",
+  "manifesto": "/manifesto",
 
   // Add more as needed...
 };

@@ -1,28 +1,38 @@
 {
   "redirects": [
     {
+      "source": "/article",
+      "destination": "/manifesto",
+      "permanent": true
+    },
+    {
       "source": "/s/3gaps",
-      "destination": "/article#the-three-asymmetries-that-make-verification-hard",
+      "destination": "/manifesto#the-three-asymmetries-that-make-verification-hard",
       "permanent": true
     },
     {
       "source": "/s/role",
-      "destination": "/article#the-three-asymmetries-that-make-verification-hard",
+      "destination": "/manifesto#the-three-asymmetries-that-make-verification-hard",
       "permanent": true
     },
     {
       "source": "/s/info",
-      "destination": "/article#the-three-asymmetries-that-make-verification-hard",
+      "destination": "/manifesto#the-three-asymmetries-that-make-verification-hard",
       "permanent": true
     },
     {
       "source": "/s/vuln",
-      "destination": "/article#the-three-asymmetries-that-make-verification-hard",
+      "destination": "/manifesto#the-three-asymmetries-that-make-verification-hard",
       "permanent": true
     },
     {
       "source": "/s/article",
-      "destination": "/article",
+      "destination": "/manifesto",
+      "permanent": true
+    },
+    {
+      "source": "/s/manifesto",
+      "destination": "/manifesto",
       "permanent": true
     },
     {

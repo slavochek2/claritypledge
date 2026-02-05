@@ -6,7 +6,7 @@
 
 ## Before We Meet
 
-1. **Read**: [The Manifesto](https://claritypledge.com/article) — long, so feel free to use the [raw text](https://raw.githubusercontent.com/slavochek2/claritypledge/main/src/app/content/full-article.md) with an AI
+1. **Read**: [The Manifesto](https://claritypledge.com/manifesto) — long, so feel free to use the [raw text](https://raw.githubusercontent.com/slavochek2/claritypledge/main/src/app/content/full-article.md) with an AI
 2. **Browse**: [claritypledge.com](https://claritypledge.com) — what's live now
 3. **Explore**: [Prototype](https://claritypledge.com/prototype/linkedin-like/profile) — where it's heading
 

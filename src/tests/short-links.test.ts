@@ -3,18 +3,21 @@ import { resolveShortLink, listShortLinks } from '@/app/data/short-links';
 
 describe('resolveShortLink', () => {
   it('resolves known codes', () => {
-    expect(resolveShortLink('article')).toBe('/article');
+    expect(resolveShortLink('article')).toBe('/manifesto');
+    expect(resolveShortLink('manifesto')).toBe('/manifesto');
     expect(resolveShortLink('3gaps')).toContain('#the-three-asymmetries');
   });
 
   it('is case-insensitive', () => {
-    expect(resolveShortLink('ARTICLE')).toBe('/article');
-    expect(resolveShortLink('Article')).toBe('/article');
+    expect(resolveShortLink('ARTICLE')).toBe('/manifesto');
+    expect(resolveShortLink('Article')).toBe('/manifesto');
+    expect(resolveShortLink('MANIFESTO')).toBe('/manifesto');
     expect(resolveShortLink('3GAPS')).toContain('#the-three-asymmetries');
   });
 
   it('handles trailing slashes', () => {
-    expect(resolveShortLink('article/')).toBe('/article');
+    expect(resolveShortLink('article/')).toBe('/manifesto');
+    expect(resolveShortLink('manifesto/')).toBe('/manifesto');
     expect(resolveShortLink('3gaps/')).toContain('#the-three-asymmetries');
   });
 

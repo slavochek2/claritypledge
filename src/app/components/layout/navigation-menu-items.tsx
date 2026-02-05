@@ -28,6 +28,9 @@ import {
   UserPlusIcon,
   LayoutDashboardIcon,
   UsersIcon,
+  AwardIcon,
+  ScrollTextIcon,
+  InfoIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -69,9 +72,25 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
+        {/* Public menu - Nav links + actions */}
         {showPublicCTAs && (
           <>
+            <Link
+              to="/pledgers"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <AwardIcon className="w-4 h-4 inline mr-2" />
+              Pledgers
+            </Link>
+            <Link
+              to="/manifesto"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <ScrollTextIcon className="w-4 h-4 inline mr-2" />
+              Manifesto
+            </Link>
             <Link
               to="/co-create"
               className={mobileLinkClass}
@@ -79,6 +98,14 @@ export function NavigationMenuItems({
             >
               <UsersIcon className="w-4 h-4 inline mr-2" />
               Co-create
+            </Link>
+            <Link
+              to="/about"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <InfoIcon className="w-4 h-4 inline mr-2" />
+              About
             </Link>
             <Link
               to="/sign-pledge"
@@ -113,6 +140,39 @@ export function NavigationMenuItems({
         {/* Verified user menu */}
         {showUserMenu && (
           <>
+            <Link
+              to="/pledgers"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <AwardIcon className="w-4 h-4 inline mr-2" />
+              Pledgers
+            </Link>
+            <Link
+              to="/manifesto"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <ScrollTextIcon className="w-4 h-4 inline mr-2" />
+              Manifesto
+            </Link>
+            <Link
+              to="/co-create"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <UsersIcon className="w-4 h-4 inline mr-2" />
+              Co-create
+            </Link>
+            <Link
+              to="/about"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <InfoIcon className="w-4 h-4 inline mr-2" />
+              About
+            </Link>
+
             {/* P62: Dashboard link */}
             <Link
               to="/home"
@@ -157,15 +217,6 @@ export function NavigationMenuItems({
             )}
 
             <Link
-              to="/co-create"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <UsersIcon className="w-4 h-4 inline mr-2" />
-              Co-create
-            </Link>
-
-            <Link
               to="/settings"
               className={mobileLinkClass}
               onClick={handleItemClick}
@@ -192,15 +243,34 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
+      {/* Public menu - Nav links + actions */}
       {showPublicCTAs && (
         <>
+          <DropdownMenuItem asChild>
+            <Link to="/pledgers" className="cursor-pointer">
+              <AwardIcon className="w-4 h-4 mr-2" />
+              Pledgers
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/manifesto" className="cursor-pointer">
+              <ScrollTextIcon className="w-4 h-4 mr-2" />
+              Manifesto
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/co-create" className="cursor-pointer">
               <UsersIcon className="w-4 h-4 mr-2" />
               Co-create
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/about" className="cursor-pointer">
+              <InfoIcon className="w-4 h-4 mr-2" />
+              About
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">
               <FileTextIcon className="w-4 h-4 mr-2" />
@@ -225,6 +295,31 @@ export function NavigationMenuItems({
       {/* Verified user menu */}
       {showUserMenu && (
         <>
+          <DropdownMenuItem asChild>
+            <Link to="/pledgers" className="cursor-pointer">
+              <AwardIcon className="w-4 h-4 mr-2" />
+              Pledgers
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/manifesto" className="cursor-pointer">
+              <ScrollTextIcon className="w-4 h-4 mr-2" />
+              Manifesto
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/co-create" className="cursor-pointer">
+              <UsersIcon className="w-4 h-4 mr-2" />
+              Co-create
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/about" className="cursor-pointer">
+              <InfoIcon className="w-4 h-4 mr-2" />
+              About
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {/* P62: Dashboard link */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'dashboard' : undefined}>
             <Link to="/home" className="cursor-pointer">
@@ -257,14 +352,6 @@ export function NavigationMenuItems({
               </Link>
             </DropdownMenuItem>
           )}
-
-          {/* Co-create */}
-          <DropdownMenuItem asChild>
-            <Link to="/co-create" className="cursor-pointer">
-              <UsersIcon className="w-4 h-4 mr-2" />
-              Co-create
-            </Link>
-          </DropdownMenuItem>
 
           {/* Settings */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>

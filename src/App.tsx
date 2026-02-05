@@ -269,13 +269,7 @@ export default function ClarityPledgeApp() {
 
         <Route
           path="/article"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <FullArticlePage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
+          element={<Navigate to="/manifesto" replace />}
         />
 
         <Route

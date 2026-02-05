@@ -108,7 +108,7 @@ Every post must include:
 > Kluger, A.N. et al. (2023). "Perceived Listening and Work Outcomes Meta-Analysis." *Journal of Business and Psychology.* N=400,000.
 
 **Internal links:** When a point connects to the full article or another post, link to it.
-> For a deeper exploration of the three asymmetries, read [The Clarity Tax](https://claritypledge.com/article).
+> For a deeper exploration of the three asymmetries, read [The Clarity Tax](https://claritypledge.com/manifesto).
 
 ## Examples
 

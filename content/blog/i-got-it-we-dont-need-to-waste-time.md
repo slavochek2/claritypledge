@@ -48,9 +48,9 @@ But here's the finding that should make you angry: **75% of all listening resear
 
 So why does this keep happening? Why do smart, capable people resist the simple act of playing back what they heard?
 
-Three structural reasons — what I call the [Three Asymmetries](https://claritypledge.com/article#the-three-asymmetries-that-make-verification-hard):
+Three structural reasons — what I call the [Three Asymmetries](https://claritypledge.com/manifesto#the-three-asymmetries-that-make-verification-hard):
 
-**1. Role Asymmetry.** In any conversation, someone needs to be the listener. Actually listening — not waiting to talk. But we naturally default to speaker mode. When both people are in speaker mode, nobody verifies anything. The conversation becomes [two parallel monologues](https://claritypledge.com/article#the-three-asymmetries-that-make-verification-hard). If neither person can reproduce what the other just said, no information crossed the gap.
+**1. Role Asymmetry.** In any conversation, someone needs to be the listener. Actually listening — not waiting to talk. But we naturally default to speaker mode. When both people are in speaker mode, nobody verifies anything. The conversation becomes [two parallel monologues](https://claritypledge.com/manifesto#the-three-asymmetries-that-make-verification-hard). If neither person can reproduce what the other just said, no information crossed the gap.
 
 **2. Information Asymmetry.** Only the speaker has access to their own intent. The listener has words plus their interpretation. That interpretation *feels* like understanding — but it's a guess. [Research from Harvard and UCLA](https://anderson-review.ucla.edu/the-listening-gap-speakers-assume-theyre-heard-the-spoken-to-often-feign-attentiveness) found that listeners' minds wander 24% of the time, and speakers can't detect it. The listener's "I understood" is not evidence of understanding. Only the speaker can verify.
 
@@ -70,7 +70,7 @@ That's what the next post is about.
 
 ---
 
-*This is the first in a sequence exploring the ideas behind [The Clarity Tax](https://claritypledge.com/article) — a manifesto about the hidden cost of unverified understanding. Next up: "Clean Your Room" — why the same words mean different things to different people, and what it costs.*
+*This is the first in a sequence exploring the ideas behind [The Clarity Tax](https://claritypledge.com/manifesto) — a manifesto about the hidden cost of unverified understanding. Next up: "Clean Your Room" — why the same words mean different things to different people, and what it costs.*
 
 ---
 
@@ -82,4 +82,4 @@ That's what the next post is about.
 
 - Collins, H.K., Minson, J.A., & Brooks, A.W. (2022). "[The Listening Gap.](https://anderson-review.ucla.edu/the-listening-gap-speakers-assume-theyre-heard-the-spoken-to-often-feign-attentiveness)" Harvard/UCLA. Listeners' minds wander 24% of the time; speakers cannot detect inattentive listening.
 
-- The Three Asymmetries are explored in depth in [The Clarity Tax](https://claritypledge.com/article), Section V.
+- The Three Asymmetries are explored in depth in [The Clarity Tax](https://claritypledge.com/manifesto), Section V.

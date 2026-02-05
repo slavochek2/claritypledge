@@ -122,7 +122,7 @@ I'm tired. Every real conversation requires me to first teach the meta-conversat
 | # | Topic | Text | Score | Agreement |
 |---|-------|------|-------|-----------|
 | 1 | Value of Model | "The sender-receiver model names three gaps: meant vs said, said vs heard, heard vs interpreted. You can't look for gaps you haven't named — that's why most people don't verify." | 76.8 | pending |
-| 2 | Role Asymmetry | "Role Asymmetry (sender-receiver model): A conversation becomes two parallel monologues the moment both parties enter speaker mode. The test: if neither person can reproduce what the other just said, no information crossed the gap. Turns aren't about politeness — they're about whether communication happened at all. (https://claritypledge.com/article#the-three-asymmetries-that-make-verification-hard)" | 81.0 | pending |
+| 2 | Role Asymmetry | "Role Asymmetry (sender-receiver model): A conversation becomes two parallel monologues the moment both parties enter speaker mode. The test: if neither person can reproduce what the other just said, no information crossed the gap. Turns aren't about politeness — they're about whether communication happened at all. (https://claritypledge.com/manifesto#the-three-asymmetries-that-make-verification-hard)" | 81.0 | pending |
 
 ### In Progress
 
