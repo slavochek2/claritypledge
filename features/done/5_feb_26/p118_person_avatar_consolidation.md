@@ -143,10 +143,10 @@ describe('PersonAvatar', () => {
 ### Visual Verification
 
 After implementation, verify these pages show badge consistently:
-- [ ] Event detail page (organizer avatar)
-- [ ] Event card (attendee stack)
-- [ ] Sign pledge page (signatory avatars)
-- [ ] Landing page social proof section
+- [x] Event detail page (organizer avatar)
+- [x] Event card (attendee stack)
+- [x] Sign pledge page (signatory avatars)
+- [x] Landing page social proof section
 
 ## Why This Approach
 
