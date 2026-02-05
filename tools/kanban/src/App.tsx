@@ -20,6 +20,11 @@ export interface DropIndicator {
   beforeId: string | null // Show indicator before this card (null = at end of column)
 }
 
+export interface FocusDropIndicator {
+  groupId: string
+  beforeId: string | null // Show indicator before this row (null = at end of group)
+}
+
 interface Worktree {
   path: string
   branch: string
@@ -58,6 +63,7 @@ const VIEW_MODE_KEY = 'kanban-view-mode'
 const TYPE_FILTER_KEY = 'kanban-type-filter'
 const WORKTREE_KEY = 'kanban-worktree'
 const PAGE_KEY = 'kanban-page'
+const SIDEBAR_COLLAPSED_KEY = 'kanban-sidebar-collapsed'
 
 type TypeFilter = FeatureType | 'all'
 
@@ -74,6 +80,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null)
+  const [focusDropIndicator, setFocusDropIndicator] = useState<FocusDropIndicator | null>(null)
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
   const [selectedWorktree, setSelectedWorktree] = useState<string | null>(() => {
     return localStorage.getItem(WORKTREE_KEY)
@@ -101,6 +108,9 @@ export default function App() {
     const stored = localStorage.getItem(PAGE_KEY)
     if (stored === 'focus') return 'focus'
     return 'board'
+  })
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
   })
 
   // Build API URL with worktree param
@@ -174,6 +184,14 @@ export default function App() {
     localStorage.setItem(PAGE_KEY, page)
   }
 
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next))
+      return next
+    })
+  }
+
   const getEffectiveOrder = (item: Feature | undefined): number => {
     if (!item) return 1000000
     return item.sort_order ?? 1000000
@@ -209,6 +227,23 @@ export default function App() {
 
     const overId = over.id as string
 
+    // Focus page: show drop indicator between rows
+    if (currentPage === 'focus') {
+      if (overId.startsWith('group:')) {
+        const groupId = overId.slice('group:'.length)
+        setFocusDropIndicator({ groupId, beforeId: null })
+      } else {
+        const overFeature = features.find((f) => f.id === overId)
+        if (overFeature) {
+          const groupId = overFeature.hypothesis || '__unlinked__'
+          setFocusDropIndicator({ groupId, beforeId: overId })
+        } else {
+          setFocusDropIndicator(null)
+        }
+      }
+      return
+    }
+
     // Dropping on a column directly (empty area)
     if (VALID_COLUMN_IDS.has(overId as Status)) {
       setDropIndicator({ columnId: overId as Status, beforeId: null })
@@ -227,6 +262,7 @@ export default function App() {
   const handleDragCancel = () => {
     setActiveId(null)
     setDropIndicator(null)
+    setFocusDropIndicator(null)
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -239,6 +275,83 @@ export default function App() {
     const overId = over.id as string
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
+
+    // Focus page: drag between hypothesis groups or reorder within group
+    if (currentPage === 'focus') {
+      setFocusDropIndicator(null)
+
+      let targetHypothesis: string | null = null
+      if (overId.startsWith('group:')) {
+        targetHypothesis = overId.slice('group:'.length)
+      } else {
+        const targetRow = features.find((f) => f.id === overId)
+        if (targetRow) {
+          targetHypothesis = targetRow.hypothesis || '__unlinked__'
+        }
+      }
+      if (!targetHypothesis) return
+      const currentHypothesis = feature.hypothesis || '__unlinked__'
+
+      // Cross-group: change hypothesis
+      if (targetHypothesis !== currentHypothesis) {
+        const newHypothesis = targetHypothesis === '__unlinked__' ? null : targetHypothesis
+
+        setFeatures((prev) =>
+          prev.map((f) => (f.id === featureId ? { ...f, hypothesis: newHypothesis ?? undefined } : f))
+        )
+
+        try {
+          const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hypothesis: newHypothesis }),
+          })
+          if (!res.ok) throw new Error('Failed to update')
+        } catch {
+          fetchFeatures()
+        }
+        return
+      }
+
+      // Same group: reorder within hypothesis
+      if (!overId.startsWith('group:')) {
+        const groupFeatures = features
+          .filter((f) => (f.hypothesis || '__unlinked__') === currentHypothesis)
+          .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+
+        const oldIndex = groupFeatures.findIndex((f) => f.id === featureId)
+        const newIndex = groupFeatures.findIndex((f) => f.id === overId)
+
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return
+
+        const reordered = arrayMove(groupFeatures, oldIndex, newIndex)
+        const newPosition = reordered.findIndex((f) => f.id === featureId)
+
+        let finalSortOrder: number
+        if (newPosition === 0) {
+          finalSortOrder = getEffectiveOrder(reordered[1]) / 2
+        } else if (newPosition === reordered.length - 1) {
+          finalSortOrder = getEffectiveOrder(reordered[newPosition - 1]) + 1
+        } else {
+          finalSortOrder =
+            (getEffectiveOrder(reordered[newPosition - 1]) + getEffectiveOrder(reordered[newPosition + 1])) / 2
+        }
+
+        setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, sort_order: finalSortOrder } : f)))
+
+        try {
+          const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sort_order: finalSortOrder }),
+          })
+          if (!res.ok) throw new Error('Failed to update')
+        } catch {
+          fetchFeatures()
+        }
+      }
+      return
+    }
 
     if (VALID_COLUMN_IDS.has(overId as Status)) {
       const newStatus = overId as Status
@@ -456,9 +569,17 @@ export default function App() {
 
       {/* Sidebar + Content */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar currentPage={currentPage} onPageChange={changePage} />
+        <Sidebar currentPage={currentPage} onPageChange={changePage} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
 
         {/* Content area */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {currentPage === 'board' && (
             <>
@@ -514,44 +635,36 @@ export default function App() {
 
               {/* Board */}
               <div style={{ padding: 'var(--spacing-12) var(--spacing-16)', overflowX: 'auto', flex: 1 }}>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={pointerWithin}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragEnd={handleDragEnd}
-                  onDragCancel={handleDragCancel}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 'var(--spacing-8)',
+                    alignItems: 'flex-start',
+                  }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 'var(--spacing-8)',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    {visibleColumns.map((col) => (
-                      <Column
-                        key={`${col.id}-${col.filter ?? 'default'}`}
-                        id={col.id}
-                        title={col.title}
-                        color={col.color}
-                        features={getColumnFeatures(col)}
-                        dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
-                        isDragging={activeId !== null}
-                      />
-                    ))}
-                  </div>
-                </DndContext>
+                  {visibleColumns.map((col) => (
+                    <Column
+                      key={`${col.id}-${col.filter ?? 'default'}`}
+                      id={col.id}
+                      title={col.title}
+                      color={col.color}
+                      features={getColumnFeatures(col)}
+                      dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
+                      isDragging={activeId !== null}
+                    />
+                  ))}
+                </div>
               </div>
             </>
           )}
 
           {currentPage === 'focus' && (
             <div style={{ overflow: 'auto', flex: 1 }}>
-              <FocusPage features={features} />
+              <FocusPage features={features} onFeatureUpdate={fetchFeatures} dropIndicator={focusDropIndicator} />
             </div>
           )}
         </div>
+        </DndContext>
       </div>
     </div>
   )

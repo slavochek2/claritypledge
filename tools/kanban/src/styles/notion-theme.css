@@ -81,8 +81,14 @@
 
   /* Sidebar */
   --sidebar-width: 200px;
+  --sidebar-collapsed-width: 44px;
   --bg-sidebar-item-hover: rgba(55, 53, 47, 0.08);
   --bg-sidebar-item-active: rgba(55, 53, 47, 0.08);
+
+  /* Focus table */
+  --bg-table-row-hover: rgba(55, 53, 47, 0.04);
+  --bg-group-header: rgba(55, 53, 47, 0.03);
+  --border-table: rgba(55, 53, 47, 0.09);
 
   /* Spacing - Notion's values */
   --spacing-2: 2px;
