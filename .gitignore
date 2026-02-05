@@ -63,3 +63,6 @@ ralph.yml
 # Gemini CLI files
 GEMINI.md
 global_GEMINI.md
+
+# Screenshots saved to project root (from browser automation)
+/*.png

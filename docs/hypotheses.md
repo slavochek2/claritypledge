@@ -311,6 +311,8 @@ You (as coach/trainer) → Run events (donation-based) → Participants get valu
 
 **Status:** **CURRENT FOCUS** — Run events, validate tool value, find path to subscription revenue.
 
+**Blog audience insight:** The build-in-public blog targets "calibrated listeners" -- people who already practice verification and are frustrated others don't. They need validation and vocabulary, not education. This is the founder's natural audience: practitioners who resonate with the mission. The blog builds reputation with this group; some will become event participants, early adopters, or amplifiers.
+
 **Full plan:** [p105_sales_playbook.md](../features/p105_sales_playbook.md)
 
 ---

@@ -14,6 +14,54 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## Content pipeline — blog audience, voice guide, manifesto sequence
+
+**Context:** Building out the build-in-public blog on Ghost. Needed to define who we're writing for, establish a consistent voice, and plan the first content sequence (chunking "The Clarity Tax" article into a subscriber drip).
+
+**Decisions:**
+
+**1. Blog audience = calibrated listeners (not general public, not coaches)**
+
+People who already practice verification and are frustrated that others don't. They need validation and vocabulary, not education. This is NOT content marketing for coaches -- it's reputation building with the founder's natural audience.
+
+**2. Build in public = freedom, not content marketing**
+
+No content calendar, no SEO optimization. Write about whatever's interesting. The business benefits indirectly through reputation ("he's smart, what's he building?"), not through content-to-conversion funnels.
+
+**3. Manifesto as email sequence (reader-first ordering)**
+
+Chunk "The Clarity Tax" into 8 blog posts. Sequenced reader-first: start with THEIR experience (6 posts about their frustration, cost, blindspot, proof), then founder story (#7), then full manifesto (#8). Earn the right to talk about yourself.
+
+**4. Content pipeline separation**
+
+Raw stories from `/interview` and `/sifter` go to `content/stories/`. Blog posts go to `content/blog/` with frontmatter lifecycle: `draft -> preparing -> review -> published`. No folder moves -- status field tracks lifecycle.
+
+**5. Citation standards**
+
+Every claim must have inline links + full academic citations at bottom. No unsourced "studies show." When referencing own product concepts, link to own articles/sections.
+
+**6. Voice guide extracted**
+
+`content/voice.md` captures the founder's writing voice from existing material: 5 traits (contrarian, precise, narrative-led, confrontational, generous), sentence patterns, vocabulary, intellectual heroes. Skills (`/prepare-blog`, `/interview`, `/ship-blog`) now read voice.md + strategy.md first.
+
+**Alternatives rejected:**
+- Content calendar with SEO focus -- kills the "write what's interesting" energy that makes build-in-public authentic
+- Coaches as blog audience -- too narrow, and content marketing for coaches doesn't match the founder's writing style
+- General public as audience -- too broad, voice would be diluted
+- Single manifesto publish -- too long, doesn't build anticipation or subscriber habit
+
+**Consequences:**
+- `content/voice.md` and `content/strategy.md` are new source-of-truth docs
+- `content/blog/` is a new directory with lifecycle tracking
+- `content/stories/` role clarified: raw material, not published content
+- Three skills updated: `/prepare-blog`, `/interview`, `/ship-blog`
+- One new skill created: `/interview` (journalist-style extraction)
+- CLAUDE.md file locations table updated
+
+**References:** [content/voice.md](../content/voice.md), [content/strategy.md](../content/strategy.md), [content/blog/](../content/blog/)
+
+---
+
 ## 2026-02-02: Stories-first model with holistic verification, points deferred
 
 **Context:** Deep exploration of v9 "AI Stories" vision through Lean Startup Coach lens. The core question: what's the actual value proposition and what's the minimum needed to test it?

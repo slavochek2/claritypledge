@@ -220,9 +220,10 @@ Track your accuracy over time:
 
 ## Channels
 
-- **Newsletter:** Weekly insights on calibration/communication → builds audience → warm leads for coach outreach → documents validation journey
-- **Protocol propagation:** Coaches teach explain-back to clients → clients practice with teams → teams spread protocol → some convert to paid measurement
-- **Coach network:** Coaches use tool with clients → clients bring to their teams → business conversions
+- **Build-in-public blog:** Write about whatever's interesting (calibration, epistemology, building, personal). Audience = "calibrated listeners" (practitioners frustrated others don't verify). Builds reputation ("he's smart, what's he building?"). Not content marketing -- indirect business benefit through trust and audience. Manifesto sequence (8 posts) is first subscriber drip. See [content/strategy.md](../content/strategy.md).
+- **Newsletter:** Subscriber drip (blog posts) + weekly insights → builds audience → warm leads → documents validation journey
+- **Protocol propagation:** Explain-back protocol spreads free through events → participants practice with teams → some convert to paid measurement
+- **Events (you as coach):** Run events, participants experience value → bring to teams → business conversions
 - **Content:** Articles on miscommunication cost / measurement gap → free tool signups → business conversions
 - **Organic/viral:** Free users share calibration scores → others try tool → spread
 

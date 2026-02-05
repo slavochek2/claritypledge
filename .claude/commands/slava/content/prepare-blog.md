@@ -2,6 +2,14 @@
 
 Shape rough ideas into a blog post ready for `/slava:ship-blog`.
 
+## Before Writing
+
+**Read these first:**
+- `content/voice.md` — how Slava sounds (do's, don'ts, vocabulary, citation standards)
+- `content/strategy.md` — what he writes about and why (build in public, audience, hidden current)
+
+Every post must follow voice.md. If it sounds like a marketing article, it's wrong. If it sounds like Slava talking to a smart friend, it's right.
+
 ## Usage
 
 ```
@@ -9,11 +17,20 @@ Shape rough ideas into a blog post ready for `/slava:ship-blog`.
 /slava:prepare-blog <brain dump>     # Start from rough ideas
 ```
 
+## Sources
+
+Check these for raw material:
+- `content/stories/` — raw personal stories from /story and /sifter
+- `content/sifter/sessions/` — sifter session extractions
+- `features/research/` — research results (P109, P110)
+- `src/app/content/full-article.md` — the manifesto (The Clarity Tax)
+- `docs/philosophy.md` — epistemological foundation
+
 ## Process
 
 ### Step 1: Extract the Core
 
-From the user's brain dump, identify:
+From the user's brain dump (or raw story), identify:
 
 1. **The insight** — What's the one thing the reader should walk away with?
 2. **The tension** — What problem or question creates the pull to keep reading?
@@ -29,7 +46,7 @@ Propose a simple structure (not a full draft yet):
 
 ```
 Title: [working title]
-Hook: [opening line that creates tension]
+Hook: [opening line — a specific moment, not a thesis]
 Sections:
   1. [section name] — [what it covers]
   2. [section name] — [what it covers]
@@ -41,7 +58,14 @@ Ask: "Does this flow make sense? Anything missing or in wrong order?"
 
 ### Step 3: Write Draft
 
-Write the full post following the voice guidelines below. Present it to the user.
+Write the full post following `content/voice.md`. Key requirements:
+
+- **Every claim needs a source** — inline links + full citations at bottom
+- **Link to own content** — the full article, other posts, specific sections
+- **Hidden current** — reader should feel a quiet pull toward trying explain-back (see voice.md)
+- **Written for calibrated listeners** — people who already practice verification and are frustrated others don't
+
+Present draft to the user.
 
 Ask: "How does this feel? Score 1-10. What's off?"
 
@@ -51,7 +75,15 @@ Ask: "How does this feel? Score 1-10. What's off?"
 
 ### Step 4: Hand Off
 
-When approved:
+When approved, save draft to `content/blog/{slug}.md` with frontmatter:
+
+```yaml
+---
+title: "Post Title"
+status: preparing
+sequence: manifesto-1    # optional, for series
+---
+```
 
 ```
 Draft ready. To publish:
@@ -60,58 +92,28 @@ Draft ready. To publish:
 This will send you a test email first, then publish after your confirmation.
 ```
 
-Save draft to `content/stories/{slug}.md` with frontmatter:
-
-```yaml
----
-title: "Post Title"
-status: draft
-for: blog
----
-```
-
-## Voice Guidelines
-
-Based on existing Clarity Pledge content:
-
-**Do:**
-- First person, conversational — like talking to a smart friend
-- Short paragraphs (1-3 sentences)
-- Build narrative tension: problem → insight → evidence → implication
-- Use section breaks (`---`) between major shifts
-- Bold key phrases for scanability
-- Include real data/numbers when available
-- Be direct — say the thing, don't hedge
-
-**Don't:**
-- Corporate speak, buzzwords, jargon
-- Long paragraphs or walls of text
-- Passive voice
-- Hedging ("I think maybe possibly...")
-- Emojis
-- Clickbait titles
-- Generic advice without specificity
-
-**Tone reference:** `content/stories/2026-01-28-the-measurement-gap.md`
-
 ## Post Types
 
-The user might want different kinds of posts:
+Infer from the brain dump. Don't ask which type.
 
 | Type | Structure | Length |
 |------|-----------|--------|
-| **Insight** | Problem → Realization → Evidence → Implication | 800-1500 words |
-| **Story** | Situation → Tension → Resolution → Lesson | 600-1200 words |
-| **Update** | What changed → Why it matters → What's next | 400-800 words |
+| **Reflection** | Brain dump on something I'm thinking about | 800-1500 words |
+| **Build log** | What I built, what I learned | 400-800 words |
+| **Experiment** | I tried X, here's what happened | 600-1200 words |
+| **Deep dive** | Research + my interpretation | 800-1500 words |
+| **Story** | Personal experience that taught me something | 600-1200 words |
 
-Don't ask which type — infer from the brain dump. If unclear, default to Insight.
+## Blog Post Lifecycle
 
-## Audience Context
-
-Primary readers: coaches, consultants, and people interested in communication and leadership. They're smart, skeptical, and busy. Respect their time.
-
-Secondary: founders, product thinkers, people building in public.
-
-## Handoff to publish-blog
-
-The output of this skill feeds into `/slava:ship-blog`. The draft lives in `content/stories/` and the publish skill handles Ghost API, test email, and delivery.
+```
+content/stories/     →  raw stories (/story, /sifter)
+                ↓
+/interview           →  extracts real experiences
+                ↓
+/prepare-blog        →  content/blog/ (status: draft → preparing)
+                ↓
+user reviews         →  (status: review)
+                ↓
+/ship-blog           →  publishes to Ghost (status: published)
+```

@@ -571,6 +571,7 @@ This repo is public. Before creating or updating files — especially in `conten
 **High-risk file types:**
 - `content/events/` — may contain local community details
 - `content/stories/` — personal narratives may reveal too much
+- `content/blog/` — blog posts may reference personal details before editing
 
 ### ESLint includes accessibility checks (jsx-a11y):
 
@@ -722,7 +723,10 @@ When documenting any concept (decisions, learnings, hypotheses):
 |------|----------|
 | Technical docs | `docs/technical/` |
 | Product learnings | `docs/learnings/` |
-| Founder stories / newsletter drafts | `content/stories/` |
+| Founder stories / raw interview material | `content/stories/` |
+| Blog posts (lifecycle-tracked) | `content/blog/` |
+| Founder voice guide | `content/voice.md` |
+| Content strategy | `content/strategy.md` |
 | Discussion group topics | `content/events/` |
 | Historical explorations | `docs/visions/` |
 | Feature planning (active) | `features/p{N}_{name}.md` |
@@ -743,8 +747,11 @@ When documenting any concept (decisions, learnings, hypotheses):
 
 ```
 content/
+├── blog/               # Blog posts with lifecycle frontmatter (draft → preparing → review → published)
 ├── events/             # Discussion group topics (reading + questions + discussion)
-└── stories/            # Founder stories, newsletter drafts
+├── stories/            # Raw founder stories, interview material (input to blog pipeline)
+├── voice.md            # Founder voice guide (traits, patterns, vocabulary)
+└── strategy.md         # Content strategy (philosophy, categories, audience)
 
 docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
@@ -777,7 +784,7 @@ All feature files (`features/p{N}_{name}.md`) **must have frontmatter**:
 ---
 status: backlog | week | today | in-progress | blocked | done
 type: bug | task | story        # optional
-priority: p0 | p1 | p2 | p3     # optional, AI-managed
+priority: p0 | p1 | p2 | p3     # strategic bucket — none = out of scope (see kanban.md)
 tags: [tag1, tag2]              # optional
 ---
 
