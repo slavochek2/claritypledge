@@ -23,6 +23,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Pivot options | `docs/lean-canvas.md` "Alternative Approaches" section |
 | Epistemology (WHY this works) | `docs/philosophy.md` |
 | Cascade, √N, network effects | `docs/theory-of-change.md` |
+| Service layer, component patterns | `docs/technical/architecture.md` |
 | Schema, RLS, data model | `docs/technical/database.md` |
 | Auth flows, session handling | `docs/technical/authentication.md` |
 | Test patterns, helpers | `docs/technical/e2e-testing.md` |

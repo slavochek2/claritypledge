@@ -14,6 +14,29 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-05: CLAUDE.md governance — universal only, patterns to architecture.md
+
+**Context:** During P118 review, discovered service layer pattern kept being rediscovered each session. Initial instinct was to add it to CLAUDE.md. Realized CLAUDE.md was growing without clear criteria for what belongs there.
+
+**Decision:**
+1. **CLAUDE.md = universal instructions only** (needed for ALL task types)
+2. **Technical patterns → `docs/technical/architecture.md`** (new doc)
+3. **Product decisions → `docs/decisions.md`** (already existed, no change)
+4. **Added "Where to Write" table to CLAUDE.md** for routing guidance
+5. **Created `/claude-md-check` skill** to validate proposed CLAUDE.md additions
+
+**Alternatives rejected:**
+- Add everything to CLAUDE.md — leads to bloat, not everything is universal
+- Use auto memory for patterns — too informal, not structured enough for technical patterns
+- Build skill without simpler solution first — overkill before testing basic guidelines
+
+**Consequences:**
+- CLAUDE.md stays focused, loads faster in context
+- Technical knowledge has a proper home (architecture.md)
+- `/claude-md-check` prevents drift
+
+---
+
 ## 2026-02-04: Story versioning via versions table
 
 **Context:** Designing stories/points backend (P117). Verifications need to reference the specific content that was verified, not the current (potentially edited) content.
