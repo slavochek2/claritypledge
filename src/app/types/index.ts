@@ -129,6 +129,8 @@ export interface ClaritySession {
   creatorName: string;
   creatorNote?: string;
   joinerName?: string;
+  creatorProfileId?: string | null;
+  joinerProfileId?: string | null;
   state: ClaritySessionState;
   demoStatus: DemoStatus;
   partnershipStatus: PartnershipStatus;
@@ -155,6 +157,8 @@ export interface DbClaritySession {
   creator_name: string;
   creator_note?: string;
   joiner_name?: string;
+  creator_profile_id?: string | null;
+  joiner_profile_id?: string | null;
   state: ClaritySessionState;
   demo_status: DemoStatus;
   partnership_status: PartnershipStatus;

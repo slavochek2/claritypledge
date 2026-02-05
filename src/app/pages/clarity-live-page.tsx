@@ -1239,7 +1239,7 @@ export function ClarityLivePage() {
 
       // Step 2: Mic granted - now safe to join the session
       console.log('[Join] Mic granted, joining session...');
-      const joinedSession = await joinClaritySession(code, joinName);
+      const joinedSession = await joinClaritySession(code, joinName, user?.id);
       if (!joinedSession) {
         setError('Session not found or already full');
         return;
@@ -1337,7 +1337,7 @@ export function ClarityLivePage() {
 
     try {
       const trimmedName = name.trim();
-      const newSession = await createClaritySession(trimmedName);
+      const newSession = await createClaritySession(trimmedName, user?.id);
 
       // P66: Record session consent for the authenticated user
       await recordSessionConsent(newSession.code, user.id);
@@ -1624,7 +1624,7 @@ export function ClarityLivePage() {
         pendingJoinRef.current = null;
         // Complete the join now that mic is granted
         // Since completeJoin checks mic first, and we just granted it, this will succeed
-        const joinedSession = await joinClaritySession(pendingJoin.code, pendingJoin.joinName);
+        const joinedSession = await joinClaritySession(pendingJoin.code, pendingJoin.joinName, user?.id);
         if (joinedSession) {
           // Reset refs and set session
           iAmLeavingRef.current = false;

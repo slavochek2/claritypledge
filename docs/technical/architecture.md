@@ -65,4 +65,72 @@ Two data layers exist in parallel:
 
 **Rule:** Use `PersonAvatar` for standalone person avatars. Use `PersonRow` for list items with additional metadata.
 
-**Reference:** [P118 spec](../../features/p118_person_avatar_consolidation.md) for consolidation rationale.
+**Reference:** [P118 spec](../../features/done/5_feb_26/p118_person_avatar_consolidation.md) for consolidation rationale.
+
+---
+
+## Stories, Points, and Calibration API
+
+Added in P117. Replaces mock data with real Supabase backend.
+
+### Services
+
+| Service | Feature Flag | Purpose |
+|---------|-------------|---------|
+| `stories-service` | `VITE_USE_REAL_STORIES_API` | User-created content with versioning |
+| `points-service` | `VITE_USE_REAL_POINTS_API` | Statements with 7-point Likert positions |
+| `calibration-service` | `VITE_USE_REAL_CALIBRATION_API` | Verification tracking and calibration stats |
+
+### Story Versioning
+
+Stories have immutable versions. When a story is created, version 1 is auto-created via trigger. Updates create new versions. Verifications reference specific `version_id`, enabling "view what was verified."
+
+```
+stories ─── story_versions (1:N, auto-created by trigger)
+                  │
+                  └── story_verifications (references version_id)
+```
+
+### Position Scale (7-point Likert)
+
+```
+strongly_disagree → disagree → somewhat_disagree → unsure → somewhat_agree → agree → strongly_agree
+```
+
+Positions are upserted on `(point_id, user_id)` unique constraint. Changes are logged to `point_position_history` via trigger.
+
+### Calibration Computation
+
+Calibration averages are computed **on-read** via SQL `AVG()`, not stored. Requires `REQUIRED_SESSIONS = 5` before returning calibration stats. Returns `status: 'insufficient' | 'sufficient'`.
+
+Stats include: `earsCount`, `listenerCalibrationAvg`, `listenerSelfRatingAvg`, `calibrationGap`, `speakerCalibrationAvg`.
+
+### Session Profile Linking
+
+`clarity_sessions` has `creator_profile_id` and `joiner_profile_id` FKs. Set when authenticated users create/join /live sessions. Enables linking verifications back to user profiles.
+
+### Database Triggers
+
+| Trigger | On | Effect |
+|---------|------|--------|
+| `trg_story_version_insert` | `stories` INSERT | Creates version 1 |
+| `trg_story_version_update` | `stories` UPDATE (title/content) | Creates new version |
+| `trg_position_history` | `point_positions` INSERT/UPDATE/DELETE | Logs to history table |
+| `trg_story_verification_count` | `story_verifications` INSERT | Updates `stories.understood_count` |
+| `trg_profile_ears_count` | `story_verifications` INSERT | Increments listener `ears_count` and both users' `verification_session_count` |
+
+### RLS Policies
+
+| Table | Read | Create | Update | Delete |
+|-------|------|--------|--------|--------|
+| `stories` | Public | Verified users | Author only | Author only |
+| `story_versions` | Public | System (trigger) | — | — |
+| `points` | Public | Verified users | — (immutable) | — |
+| `story_points` | Public | Story author | — | Story author |
+| `point_positions` | Public | Verified users (own) | Own only | Own only |
+| `point_position_history` | Public | System (trigger) | — | — |
+| `story_verifications` | Public | Authenticated | — | — |
+
+### Migration
+
+Schema: `supabase/migrations/20260204_stories_points_calibration.sql`
