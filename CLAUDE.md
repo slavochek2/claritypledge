@@ -210,6 +210,20 @@ For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 
 **Rule:** If explaining a concept, add to source doc and link. Never duplicate.
 
+### Where to Write New Knowledge
+
+When capturing new knowledge, put it in the right place:
+
+| Knowledge Type | Location |
+|----------------|----------|
+| Product decisions (why X over Y) | `decisions.md` |
+| Technical patterns (how something works) | `docs/technical/architecture.md` |
+| What we're testing + evidence | `hypotheses.md` |
+| Product concepts | `definitions.md` |
+| Domain-specific technical details | `docs/technical/{domain}.md` |
+
+**Before writing:** Search for existing content. Extend, don't duplicate.
+
 ## Development Commands
 
 ### Dev Server Ports
@@ -266,6 +280,7 @@ Load these docs when working on specific areas:
 | Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
 | Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
 | Creating feature specs (naming, frontmatter) | [feature-specs.md](docs/technical/feature-specs.md) |
+| Data layer, service patterns, components | [architecture.md](docs/technical/architecture.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Browser automation (Chrome DevTools, screenshots) | [browser-tools.md](docs/technical/browser-tools.md) |
@@ -419,12 +434,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Architecture
 
-For detailed architecture docs, see the [Deep Dive References](#deep-dive-references) section above.
+For detailed patterns, see [architecture.md](docs/technical/architecture.md).
 
-**Key patterns:**
-- **Auth:** Reader-Writer pattern separates `useAuth` (read-only) from `AuthCallbackPage` (writes). Import from `@/auth`.
-- **Data layer:** All Supabase calls go through `src/app/data/api.ts`. Fetch profiles and witnesses separately.
-- **Components:** UI primitives in `src/components/ui/` (shadcn/ui), feature components in `src/app/components/`.
+**Quick reference:**
+- **Auth:** Reader-Writer pattern — `useAuth` (read), `AuthCallbackPage` (write). Import from `@/auth`.
+- **Data layer:** Interface-based services (`*-service.ts`) for new features. Legacy `api.ts` for profiles.
+- **Components:** UI primitives in `src/components/ui/`, feature components in `src/app/components/`.
 
 ### Key Routes
 
