@@ -1,3 +1,7 @@
+---
+status: backlog
+sort_order: 0.3125
+---
 # P41: AI Coaching Teaser (Email + Page)
 
 **Status:** Ready for Implementation

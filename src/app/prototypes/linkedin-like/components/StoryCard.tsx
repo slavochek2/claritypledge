@@ -5,7 +5,7 @@ import { MobileTooltip } from './shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { routes } from '../config';
 import { getUserById, formatTimeAgo, getPointsForStory, getPointPositionCounts, currentUser, getUserCredibilityStats } from '../data/mock-data';
-import { PositionButtons, PositionBadge, ShareButton, UserCredibility, ThreadLineGroup, ThreadLineItem, type SevenPointCounts } from './shared';
+import { PositionButtons, PositionBadge, ShareButton, UserCredibility, VisibilityBadge, ThreadLineGroup, ThreadLineItem, type SevenPointCounts } from './shared';
 import type { Story, Point, PositionButtonGroup } from '../../shared/types';
 import type { PositionType } from '../../shared/types';
 import { getPositionGroup } from '../../shared/types';
@@ -27,6 +27,10 @@ interface StoryCardProps {
   showThreadLine?: boolean;
   /** Author's position on the Point (used for data context, display removed to reduce redundancy since position sections already group by stance) */
   authorPosition?: PositionType;
+  /** Hide action buttons (share, visibility) - useful in live session context */
+  hideActions?: boolean;
+  /** Disable click-to-navigate behavior */
+  disableNavigation?: boolean;
 }
 
 /**
@@ -46,6 +50,8 @@ export function StoryCard({
   onVerify,
   showThreadLine = true,
   authorPosition,
+  hideActions = false,
+  disableNavigation = false,
 }: StoryCardProps) {
   const navigate = useNavigate();
   const author = getUserById(story.authorId);
@@ -55,7 +61,7 @@ export function StoryCard({
   const isCurrentUserStory = story.authorId === currentUser.id;
 
   const handleCardClick = () => {
-    if (!isDetailView) {
+    if (!isDetailView && !disableNavigation) {
       navigate(routes.story(story.id));
     }
   };
@@ -93,8 +99,9 @@ export function StoryCard({
           onClick={handleCardClick}
         >
           {/* Role + date (name/avatar already shown outside) */}
-          <p className="text-xs text-gray-500 mb-2">
-            {author.role} · {formatTimeAgo(story.createdAt)}
+          <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+            <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+            {!hideActions && <VisibilityBadge visibility={story.visibility} />}
           </p>
 
           {/* Story text */}
@@ -149,8 +156,9 @@ export function StoryCard({
                   </button>
                   <UserCredibility userId={author.id} userName={author.name} />
                 </div>
-                <p className="text-xs text-gray-500">
-                  {author.role} · {formatTimeAgo(story.createdAt)}
+                <p className="text-xs text-gray-500 flex items-center gap-1">
+                  <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+                  {!hideActions && <VisibilityBadge visibility={story.visibility} />}
                 </p>
               </div>
 
@@ -212,26 +220,28 @@ export function StoryCard({
             )}
 
             {/* Action icons */}
-            <div className="flex items-center gap-1">
-              <ShareButton
-                type="story"
-                id={story.id}
-                title={`${author?.name}'s story`}
-                description={story.text.slice(0, 100)}
-              />
-              {/* External link - only in feed (redundant in detail view) */}
-              {!isDetailView && (
-                <MobileTooltip content="Open story">
-                  <button
-                    onClick={() => navigate(routes.story(story.id))}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label="Open story"
-                  >
-                    <ExternalLink size={16} />
-                  </button>
-                </MobileTooltip>
-              )}
-            </div>
+            {!hideActions && (
+              <div className="flex items-center gap-1">
+                <ShareButton
+                  type="story"
+                  id={story.id}
+                  title={`${author?.name}'s story`}
+                  description={story.text.slice(0, 100)}
+                />
+                {/* External link - only in feed (redundant in detail view) */}
+                {!isDetailView && !disableNavigation && (
+                  <MobileTooltip content="Open story">
+                    <button
+                      onClick={() => navigate(routes.story(story.id))}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="Open story"
+                    >
+                      <ExternalLink size={16} />
+                    </button>
+                  </MobileTooltip>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Linked points - expanded content */}

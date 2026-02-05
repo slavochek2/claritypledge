@@ -10,7 +10,7 @@
 set -e
 
 BASE_DIR="/Users/slavochek/Projects"
-PORTS="5050,5051"
+PORTS="9050,9051"
 LOG_FILE="/tmp/kanban.log"
 PID_FILE="/tmp/kanban.pid"
 
@@ -44,8 +44,8 @@ start_kanban() {
     echo $! > "$PID_FILE"
     sleep 2
 
-    if lsof -ti:5050 > /dev/null 2>&1; then
-        echo "✓ Kanban running at http://localhost:5050"
+    if lsof -ti:9050 > /dev/null 2>&1; then
+        echo "✓ Kanban running at http://localhost:9050"
         echo "  Logs: kanban logs"
         echo "  Stop: kanban stop"
     else

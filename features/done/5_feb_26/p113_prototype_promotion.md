@@ -42,8 +42,6 @@ These MUST keep working:
 - Auth system — `useAuth()`, sessions
 - Profile data — real profiles
 
-**If uncertain, ASK before proceeding.**
-
 ### P3: KISS Service Abstraction
 
 Mock files only. Skip interface/switcher pattern until backend exists.

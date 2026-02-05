@@ -1,8 +1,10 @@
 ---
-status: backlog
+status: in-progress
 priority: urgent-important
 hypothesis: H-Biz
-tags: [content, demo]
+tags:
+  - content
+  - demo
 ---
 
 # P106: Demo Kit

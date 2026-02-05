@@ -46,7 +46,13 @@ Reads the document, identifies EACH important decision, and for each one:
 **Status:** Keep ✓
 **Why:** [One sentence — why this is already right]
 
----
+### Decisions Needed
+| # | Question | Options | Recommendation |
+|---|----------|---------|----------------|
+| 1 | [Question] | A) ... B) ... C) ... | [Rec] |
+| 2 | [Question] | A) ... B) ... C) ... | [Rec] |
+
+Reply: "1a, 2b" etc.
 
 ### 2. [Decision Name]
 **Status:** Fix ✗

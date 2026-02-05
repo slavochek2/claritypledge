@@ -21,6 +21,16 @@ interface PointCardProps {
   isDetailView?: boolean;
   /** When viewing on someone's profile, show their linked Story */
   profileOwnerId?: string;
+  /** Hide position buttons and action icons */
+  hideActions?: boolean;
+  /** Disable click-to-navigate behavior */
+  disableNavigation?: boolean;
+  /** Live session mode: shows position buttons + expandable stories, hides share/open */
+  liveSessionMode?: boolean;
+  /** Callback when position is selected (live session mode) */
+  onPositionSelect?: (position: Position) => void;
+  /** Pre-selected position (live session mode) */
+  selectedPosition?: Position;
 }
 
 /**
@@ -28,14 +38,27 @@ interface PointCardProps {
  * Visual: Gray left border, Clarity logo avatar (platform-owned), position buttons
  * Pattern B: Shows linked Stories expandable section
  */
-export function PointCard({ point, compact = false, isDetailView = false, profileOwnerId }: PointCardProps) {
+export function PointCard({
+  point,
+  compact = false,
+  isDetailView = false,
+  profileOwnerId,
+  hideActions = false,
+  disableNavigation = false,
+  liveSessionMode = false,
+  onPositionSelect,
+  selectedPosition,
+}: PointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
-    point.positions['current']?.position || null
+    selectedPosition ?? point.positions['current']?.position ?? null
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
   const linkedStories = getStoriesForPoint(point.id);
   const baseCounts = getPointPositionCounts(point);
+
+  // In live session mode, show all linked stories (not filtered by owner)
+  const allLinkedStories = linkedStories;
 
   // Track initial position from mock data
   const initialPosition = point.positions['current']?.position || null;
@@ -90,14 +113,16 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
   const profileOwnerCredibility = profileOwnerId ? getUserCredibilityStats(profileOwnerId) : null;
 
   const handleCardClick = () => {
-    if (!isDetailView) {
+    if (!isDetailView && !disableNavigation) {
       navigate(routes.point(point.id));
     }
   };
 
   const handlePositionClick = (position: Position) => {
     // Toggle: clicking same position removes it
-    setUserPosition(userPosition === position ? null : position);
+    const newPosition = userPosition === position ? null : position;
+    setUserPosition(newPosition);
+    onPositionSelect?.(newPosition);
   };
 
   const cardClassName = isDetailView
@@ -154,16 +179,18 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   </p>
 
                   {/* Position buttons */}
-                  <div
-                    className="mt-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <PositionButtons
-                      userPosition={userPosition}
-                      counts={counts}
-                      onPositionClick={handlePositionClick}
-                    />
-                  </div>
+                  {!hideActions && (
+                    <div
+                      className="mt-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <PositionButtons
+                        userPosition={userPosition}
+                        counts={counts}
+                        onPositionClick={handlePositionClick}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -189,25 +216,27 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
                   <span />
                 )}
 
-                {/* Action icons */}
-                <div className="flex items-center gap-1">
-                  <ShareButton
-                    type="point"
-                    id={point.id}
-                    description={point.text.slice(0, 100)}
-                  />
-                  {!isDetailView && (
-                    <MobileTooltip content="Open point">
-                      <button
-                        onClick={() => navigate(routes.point(point.id))}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                        aria-label="Open point"
-                      >
-                        <ExternalLink size={16} />
-                      </button>
-                    </MobileTooltip>
-                  )}
-                </div>
+                {/* Action icons - hidden in live session mode */}
+                {!hideActions && !liveSessionMode && (
+                  <div className="flex items-center gap-1">
+                    <ShareButton
+                      type="point"
+                      id={point.id}
+                      description={point.text.slice(0, 100)}
+                    />
+                    {!isDetailView && !disableNavigation && (
+                      <MobileTooltip content="Open point">
+                        <button
+                          onClick={() => navigate(routes.point(point.id))}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          aria-label="Open point"
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      </MobileTooltip>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -236,29 +265,31 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
               </p>
 
               {/* Position buttons */}
-              <div
-                className="mt-3"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <PositionButtons
-                  userPosition={userPosition}
-                  counts={counts}
-                  onPositionClick={handlePositionClick}
-                />
-              </div>
+              {!hideActions && (
+                <div
+                  className="mt-3"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <PositionButtons
+                    userPosition={userPosition}
+                    counts={counts}
+                    onPositionClick={handlePositionClick}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer row - only for feed view (non-quote pattern) */}
-      {!showQuotePattern && (
+      {/* Footer row - only for feed view (non-quote pattern) or live session mode */}
+      {(!showQuotePattern || liveSessionMode) && (
         <div
           className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Collapsible trigger (if has linked stories on profile, only in feed view) */}
-          {!isDetailView && profileOwnerId && filteredStories.length > 0 ? (
+          {/* Collapsible trigger - show in live session mode with all stories, or on profile with filtered stories */}
+          {!isDetailView && (liveSessionMode ? allLinkedStories.length > 0 : profileOwnerId && filteredStories.length > 0) ? (
             <button
               onClick={() => setStoriesExpanded(!storiesExpanded)}
               className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
@@ -267,85 +298,99 @@ export function PointCard({ point, compact = false, isDetailView = false, profil
             >
               {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               <span>
-                {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'} by {profileOwner?.name}
+                {liveSessionMode
+                  ? `${allLinkedStories.length} LinkedIn ${allLinkedStories.length === 1 ? 'story' : 'stories'}`
+                  : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'} by ${profileOwner?.name}`
+                }
               </span>
             </button>
           ) : (
             <span /> /* Empty span for flexbox spacing */
           )}
 
-          {/* Action icons */}
-          <div className="flex items-center gap-1">
-            <ShareButton
-              type="point"
-              id={point.id}
-              description={point.text.slice(0, 100)}
-            />
-            {/* External link - only in feed (redundant in detail view) */}
-            {!isDetailView && (
-              <MobileTooltip content="Open point">
-                <button
-                  onClick={() => navigate(routes.point(point.id))}
-                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Open point"
-                >
-                  <ExternalLink size={16} />
-                </button>
-              </MobileTooltip>
-            )}
-          </div>
+          {/* Action icons - hidden in live session mode */}
+          {!hideActions && !liveSessionMode && (
+            <div className="flex items-center gap-1">
+              <ShareButton
+                type="point"
+                id={point.id}
+                description={point.text.slice(0, 100)}
+              />
+              {/* External link - only in feed (redundant in detail view) */}
+              {!isDetailView && !disableNavigation && (
+                <MobileTooltip content="Open point">
+                  <button
+                    onClick={() => navigate(routes.point(point.id))}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Open point"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                </MobileTooltip>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Expanded linked stories - only in feed view */}
-      {!isDetailView && storiesExpanded && profileOwnerId && storiesToShow.length > 0 && (
+      {/* Expanded linked stories - in feed view or live session mode */}
+      {!isDetailView && storiesExpanded && (liveSessionMode || profileOwnerId) && (liveSessionMode ? allLinkedStories : storiesToShow).length > 0 && (
         <div className={showQuotePattern ? "pl-4 sm:pl-[60px] pr-4 pb-4" : "pl-4 sm:pl-[68px] pr-4 pb-4"}>
-          {storiesToShow.length === 1 ? (
-            // Single story - no thread lines
-            <QuotedStory
-              story={storiesToShow[0]}
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(routes.story(storiesToShow[0].id));
-              }}
-              onAuthorClick={(e) => {
-                e.stopPropagation();
-                navigate(routes.profileById(storiesToShow[0].authorId));
-              }}
-            />
-          ) : (
+          {(() => {
+            const stories = liveSessionMode ? allLinkedStories.slice(0, 3) : storiesToShow;
+            const totalStories = liveSessionMode ? allLinkedStories.length : filteredStories.length;
+
+            if (stories.length === 1) {
+              // Single story - no thread lines
+              return (
+                <QuotedStory
+                  story={stories[0]}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!liveSessionMode) navigate(routes.story(stories[0].id));
+                  }}
+                  onAuthorClick={(e) => {
+                    e.stopPropagation();
+                    if (!liveSessionMode) navigate(routes.profileById(stories[0].authorId));
+                  }}
+                />
+              );
+            }
+
             // 2+ stories - show thread lines
-            <ThreadLineGroup>
-              {storiesToShow.map((story, index) => (
-                <ThreadLineItem key={story.id} isLast={index === storiesToShow.length - 1 && filteredStories.length <= 3}>
-                  <QuotedStory
-                    story={story}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.story(story.id));
-                    }}
-                    onAuthorClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.profileById(story.authorId));
-                    }}
-                  />
-                </ThreadLineItem>
-              ))}
-              {filteredStories.length > 3 && (
-                <ThreadLineItem isLast>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(routes.point(point.id));
-                    }}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    +{filteredStories.length - 3} more stories
-                  </button>
-                </ThreadLineItem>
-              )}
-            </ThreadLineGroup>
-          )}
+            return (
+              <ThreadLineGroup>
+                {stories.map((story, index) => (
+                  <ThreadLineItem key={story.id} isLast={index === stories.length - 1 && totalStories <= 3}>
+                    <QuotedStory
+                      story={story}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!liveSessionMode) navigate(routes.story(story.id));
+                      }}
+                      onAuthorClick={(e) => {
+                        e.stopPropagation();
+                        if (!liveSessionMode) navigate(routes.profileById(story.authorId));
+                      }}
+                    />
+                  </ThreadLineItem>
+                ))}
+                {totalStories > 3 && (
+                  <ThreadLineItem isLast>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!liveSessionMode) navigate(routes.point(point.id));
+                      }}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      +{totalStories - 3} more stories
+                    </button>
+                  </ThreadLineItem>
+                )}
+              </ThreadLineGroup>
+            );
+          })()}
         </div>
       )}
     </div>

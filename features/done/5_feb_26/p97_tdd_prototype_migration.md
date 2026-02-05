@@ -1,3 +1,8 @@
+---
+status: done
+sort_order: 1000003
+completed_at: '2026-02-04'
+---
 # P97: Integrate Prototype UI into Production
 
 **Status:** On Hold (deprioritized 2026-01-27 — see roadmap)

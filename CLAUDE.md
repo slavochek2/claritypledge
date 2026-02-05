@@ -134,6 +134,12 @@ This isn't criticism — it's a known pattern that delays validation. The fastes
 
 **Why:** Easy rollback. If experiment fails, the main worktree stays clean.
 
+## Process Management — Safe Port Cleanup
+
+> **Principle:** When killing processes, use `lsof -ti:PORT | xargs kill`, never `pkill -f "PORT"`.
+
+Pattern matching (`pkill -f`) can kill unintended processes like Docker Desktop. See [kanban.md](docs/technical/kanban.md#process-management) for details.
+
 ## Commit Discipline — Checkpoint Prompts
 
 > **Pattern to watch:** The founder tends to accumulate changes, then commit everything at once. This makes rollback hard and history unclear.
@@ -184,8 +190,6 @@ For full details: [browser-tools.md](docs/technical/browser-tools.md)
 
 **Current focus:** Validate coach hypothesis — will executive/leadership/communication coaches pay $50-100/month for a diagnostic tool that proves their clients' listening miscalibration?
 
-**Validation plan:** [p_coach_validation.md](features/p_coach_validation.md)
-
 For full concepts: [definitions.md](docs/definitions.md)
 For business model: [lean-canvas.md](docs/lean-canvas.md)
 For current hypotheses: [hypotheses.md](docs/hypotheses.md)
@@ -198,8 +202,7 @@ For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 - `definitions.md` — Product concepts (Stories, Points, Verification)
 - `lean-canvas.md` — Business model (Problem, Solution, Customers)
 - `hypotheses.md` — What we're testing
-- `roadmap.md` — Build sequence
-- `decisions.md` — Trade-offs (why X over Y)
+- `decisions.md` — Trade-offs, build sequence, why X over Y
 - `philosophy.md` — WHY this works (epistemology)
 - `theory-of-change.md` — HOW change spreads (cascade, √N)
 - `visions/*` — Historical explorations
@@ -265,7 +268,7 @@ npm run test:e2e:headed  # Run in headed browser
 ./scripts/pre-commit-checks.sh
 
 # Kanban (feature prioritization)
-npm run kanban           # Opens http://localhost:5050
+npm run kanban           # Opens http://localhost:9050
 ```
 
 ## Deep Dive References
@@ -277,7 +280,7 @@ Load these docs when working on specific areas:
 | Core concepts (Stories, Points, Calibration) | [definitions.md](docs/definitions.md) |
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
-| Build sequence, roadmap | [roadmap.md](docs/roadmap.md) |
+| Build sequence, past decisions | [decisions.md](docs/decisions.md) |
 | Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
 | Creating feature specs (naming, frontmatter) | [feature-specs.md](docs/technical/feature-specs.md) |
 | Data layer, service patterns, components | [architecture.md](docs/technical/architecture.md) |
@@ -323,7 +326,7 @@ git branch -m p62-dashboard-w1  # Rename before first commit
 
 | Category | Docs |
 |----------|------|
-| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `roadmap.md`, `lean-canvas.md` |
+| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `lean-canvas.md` |
 | Technical (the "how") | `database.md`, `authentication.md`, `definitions.md`, etc. |
 | GTM & Sales | `features/p105_sales_playbook.md` (per-segment playbooks) |
 
@@ -396,7 +399,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 │   ├── done/                 # Completed feature docs
 │   ├── archive/              # Archived/deprioritized features
 │   ├── drafts/               # Early-stage drafts and ideas
-│   ├── p{N}_uat.md           # UAT files for ralph-loop
+│   ├── uat/                  # UAT files for ralph-loop (uat/p{N}.md)
 │   └── *.md                  # Active features (p{N}_{name}.md)
 │
 ├── e2e/                      # Playwright E2E tests
@@ -428,7 +431,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 ### Conventions
 
 - **docs/technical/** - How things work (for developers)
-- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `p{N}_uat.md`)
+- **features/** - What we're building (planning docs: `p{N}_{name}.md`, UAT files: `uat/p{N}.md`)
 - **src/app/** - All application code lives here
 - **src/app/content/** - All app content (articles, copy)
 
@@ -452,6 +455,7 @@ For detailed patterns, see [architecture.md](docs/technical/architecture.md).
 | `/pledgers` | Directory of verified signatories |
 | `/about` | About page with contact form |
 | `/settings` | User settings (authenticated) |
+| `/s/:code` | Short link redirects (see `src/app/data/short-links.ts`) |
 
 ## Common Gotchas
 
@@ -754,7 +758,7 @@ When documenting any concept (decisions, learnings, hypotheses):
 | Completed features | `features/done/` |
 | Archived features | `features/archive/` |
 | Research results | `features/research/` |
-| UAT files (ralph-loop) | `features/p{N}_uat.md` |
+| UAT files (ralph-loop) | `features/uat/p{N}.md` |
 | BMAD workflow outputs | `docs/bmad/` |
 | BMAD sprint artifacts (tech-specs) | `bmad/artifacts/` |
 | **Slava's custom skills** | `.claude/commands/slava/` |
@@ -785,12 +789,34 @@ bmad/
 
 features/               # Feature planning docs
 ├── p{N}_{name}.md      # Active specs (root = current work)
-├── p{N}_uat.md         # UAT files for ralph-loop
+├── uat/                # UAT files for ralph-loop
+│   └── p{N}.md         # e.g., uat/p112.md
 ├── done/               # Completed features
 ├── archive/            # Archived/deprioritized features
 ├── drafts/             # Early-stage drafts and ideas
 └── research/           # Research results (permanent reference)
 ```
+
+### Feature File Format
+
+All feature files (`features/p{N}_{name}.md`) **must have frontmatter**:
+
+```yaml
+---
+status: backlog | week | today | in-progress | blocked | done
+type: bug | task | story        # optional
+priority: p0 | p1 | p2 | p3     # optional, AI-managed
+tags: [tag1, tag2]              # optional
+---
+
+# P{N}: Feature Title
+
+...content...
+```
+
+**Required:** `status` — determines kanban column placement
+
+**Kanban workflow:** Backlog → Week → Today → In Progress → Done
 
 ### Feature Spec Lifecycle
 

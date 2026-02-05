@@ -1,235 +1,162 @@
-# Sifter Point (Point Extraction + Evolution)
+# Sifter Point (Point Extraction)
 
-Interactive skill to extract and evolve falsifiable Points from a completed Story.
-
-Run this after `/slava:sifter-story` has produced a 10/10 story.
-
-## Execution Model
-
-**You (the main agent) are both orchestrator AND creative agent.**
-
-You spawn two critic subagents using the Task tool:
-- `sifter-point/popper-critic` — Karl Popper (spawn with Task tool)
-- `sifter-point/deutsch-critic` — David Deutsch (spawn with Task tool)
-
-You yourself generate variations based on their feedback (using `sifter-point/creative-agent` as your instructions).
-
-**The loop:**
-1. You have a draft Point
-2. You spawn Popper + Deutsch in parallel → they return scores + qualitative feedback
-3. You read their feedback, understand WHY the score is low
-4. You generate 30 variations targeting the weaknesses they identified
-5. You spawn Popper + Deutsch again to score all 30 variations
-6. You pick the best, check if ≥99
-7. If not ≥99, you use their new feedback to understand what's still wrong → loop
-
-**Why this works:** You see all the feedback, so you learn what makes a good Point. Each iteration, you get smarter about what Popper and Deutsch want.
-
-## References
-
-- `sifter-point/criteria` — Scoring criteria (read this to understand what critics look for)
-- `sifter-point/popper-critic` — Popper's persona and output format
-- `sifter-point/deutsch-critic` — Deutsch's persona and output format
-- `sifter-point/creative-agent` — Your instructions for generating variations
-
-## How to Spawn Critics
-
-Use the Task tool with `subagent_type: "general-purpose"`. Run Popper and Deutsch in parallel.
-
-**Example prompt for Popper:**
-```
-You are Karl Popper. Read the instructions in .claude/commands/slava/sifter-point/popper-critic.md and .claude/commands/slava/sifter-point/criteria.md.
-
-Critique this Point:
-"[THE POINT TEXT]"
-
-Story context:
-"[THE STORY]"
-
-Provide:
-1. Scores (0-100) for: Falsifiable, Counterfactual, Hard-to-Vary, Antifragile
-2. Qualitative feedback for each criterion
-3. 3 specific improvement directions
-
-Use the exact output format from popper-critic.md.
-```
-
-**Example prompt for Deutsch:**
-```
-You are David Deutsch. Read the instructions in .claude/commands/slava/sifter-point/deutsch-critic.md and .claude/commands/slava/sifter-point/criteria.md.
-
-Critique this Point:
-"[THE POINT TEXT]"
-
-Story context:
-"[THE STORY]"
-
-Provide:
-1. Scores (0-100) for: Falsifiable, Counterfactual, Hard-to-Vary, Antifragile
-2. Qualitative feedback for each criterion
-3. 3 specific improvement directions
-
-Use the exact output format from deutsch-critic.md.
-```
-
-**For scoring 30 variations:**
-```
-You are [Popper/Deutsch]. Score these 30 variations. For each, provide:
-- Combined score (average of 4 criteria)
-- One-sentence critique of the main weakness
-- Flag if score ≥99
-
-Variations:
-1. [variation 1]
-2. [variation 2]
-...
-```
+Extract falsifiable Points from a completed Story. Run after `/slava:sifter-story`.
 
 ## Input
 
-Uses the **full session context** from the preceding sifter-story session.
+Session name as argument (e.g., `/sifter-point sender-receiver-gaps`).
 
-## Phase 1: Initial Point Extraction
+If no argument: prompt "Which session?" and list `content/sifter/sessions/`.
 
-Extract 2-5 **draft Points** from the full session context (story + brain dump + iterations).
+Read: `content/sifter/sessions/{session-name}.md`
 
-Each draft Point enters the Evolution Loop.
+## Process (invisible to user)
 
-## Phase 2: Evolution Loop (Per Point)
+1. Read story + context (brain dump, NVC extraction, user vocabulary, previous feedback if any)
+2. **Generate the "other's perspective"** — How would someone who disagrees with this Story tell their side?
+3. Extract 3 points from **deliberately different angles** — spread across the tensions in the story
+4. Self-refine internally until satisfied
+5. Present 3 at once
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  DRAFT POINT                                                     │
-└──────────────────────────┬──────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  STEP 1: DUAL CRITIQUE (parallel)                                │
-│                                                                  │
-│  ┌─────────────────────┐    ┌─────────────────────┐             │
-│  │  POPPER CRITIC      │    │  DEUTSCH CRITIC     │             │
-│  │  - 4 scores (0-100) │    │  - 4 scores (0-100) │             │
-│  │  - Qualitative      │    │  - Qualitative      │             │
-│  │    feedback per     │    │    feedback per     │             │
-│  │    criterion        │    │    criterion        │             │
-│  │  - 3 improvement    │    │  - 3 improvement    │             │
-│  │    directions       │    │    directions       │             │
-│  └─────────────────────┘    └─────────────────────┘             │
-└──────────────────────────┬──────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  STEP 2: CREATIVE AGENT                                          │
-│                                                                  │
-│  Input: Original Point + Both Critiques + Story Context          │
-│  Output: 30 variations (10 precision, 10 mechanism,              │
-│          5 structure, 5 antifragility)                           │
-└──────────────────────────┬──────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  STEP 3: SCORE ALL 30 VARIATIONS (parallel)                      │
-│                                                                  │
-│  Both Popper and Deutsch score each variation:                   │
-│  - Falsifiable (0-100)                                           │
-│  - Counterfactual (0-100)                                        │
-│  - Hard-to-Vary (0-100)                                          │
-│  - Antifragile (0-100)                                           │
-│  - Combined = average of all 8 scores                            │
-│                                                                  │
-│  + Qualitative feedback on each variation                        │
-└──────────────────────────┬──────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  STEP 4: SELECTION                                               │
-│                                                                  │
-│  IF any variation scores ≥99:                                    │
-│     → Present to user for agreement rating                       │
-│                                                                  │
-│  ELSE:                                                           │
-│     → Take top 3 variations                                      │
-│     → Feed back into Step 1 with their critiques                 │
-│     → Loop continues                                             │
-│                                                                  │
-│  SAFETY: Max 5 iterations per Point                              │
-│  ESCAPE: User can accept <99 score if satisfied                  │
-└─────────────────────────────────────────────────────────────────┘
-```
+**No visible scoring, no variations shown, no critic dialogues.**
 
-## Scoring Criteria (from criteria.md)
+## What Makes a Good Point
 
-All four criteria scored 0-100:
+**A Point is a falsifiable claim about the world, not a personal feeling.**
 
-### Falsifiable
-Can it be proven wrong through observation or experiment?
-- Specific, testable prediction
-- Operationalized terms
-- No wiggle room
+| Story (first-person) | Other's view | Point (addresses both) |
+|---------------------|--------------|------------------------|
+| "I ask 'Did you understand?' They say yes. But when I ask them to explain back, it falls apart." | "I DID understand. You're just bad at explaining." | "The listener can't know what they missed — they only have access to what they received, not what was sent." |
+| "I felt surveilled" | "I was just checking in, not surveilling." | "The intent to monitor and the experience of being monitored are independent — good intentions don't prevent the feeling of surveillance." |
 
-### Counterfactual
-Does it say something that could be otherwise?
-- Not tautological
-- High information content
-- Bold, non-obvious
+**Good points are polarizing.** They divide the room — some nod, some bristle. The purpose: identify disagreements between people, potentially bridge them later.
 
-### Hard-to-Vary
-Is every word essential?
-- Can't swap components without breaking meaning
-- No generic/filler words
-- Load-bearing structure
+**Anti-patterns:**
+- "Communication is important" — everyone agrees, useless
+- "Listening matters" — truism, nothing to verify
+- Generic claims that could come from any Story
 
-### Antifragile
-Does it get stronger when challenged?
-- Handles obvious objections
-- Explains WHY not just WHAT
-- Has reach beyond immediate case
+**Disagreement filter (internal):** Before presenting, estimate for each point: "Out of 100 random people, how many would push back?"
+- <15 disagree → discard, too obvious (truism)
+- 15-40 → good polarizing range
+- >50 → reconsider framing (might be stated poorly or actually wrong)
 
-**Combined score = average of all 4 criteria from both critics (8 scores total)**
+**What to extract:**
+- Mechanisms ("X happens because Y")
+- Blindspots ("The speaker can't see Z")
+- Trade-offs ("You can't have A and B")
+- Structural explanations ("This happens not because of character, but because of position")
 
-## Phase 3: User Agreement
+**Use user's vocabulary.** Quote their words. No academic jargon.
 
-When a Point reaches ≥99 (or user accepts lower):
+## Connected to Story (internal requirement)
+
+**These are internal checks — the user doesn't see them.**
+
+Every Point must pass these tests during generation:
+
+1. **Traceable** — You can point to the specific claim/moment in the Story it generalizes
+2. **Same domain** — If Story is about listening, Point is about listening (not "communication in general")
+3. **Specificity test** — Does this mechanism explain what happened in THIS story specifically?
+
+**But the output text must be context-free.** Traceability is for you (to ensure relevance), not for the reader.
+
+## Universal Participation (required)
+
+**Anyone should be able to rate the point without having read the Story.**
+
+| Story-specific (wrong) | Universal (right) |
+|------------------------|-------------------|
+| "The numbered badge made me leave" | "Visible tracking changes behavior even when people would have done the 'right' thing anyway" |
+| "The café optimized for spending per head" | "When a business optimizes for a metric, it may undermine the thing that created the metric" |
+| "The organizer's blindspot" | "The person who profits from an arrangement often can't see what makes it intolerable to others" |
+
+**The specificity test is about mechanisms, not nouns:**
+- "Could this sentence only come from THIS story?" (leads to story details)
+- "Does this mechanism explain what happened in the story specifically?" (leads to universal insights)
+
+**When in doubt:** If the point requires context to parse, generalize the nouns but keep the structural claim.
+
+## Pre-Output Check (required)
+
+Before presenting, verify each point passes the **stranger test**:
+
+> "Could someone who hasn't read the Story understand and rate this point?"
+
+**If the point contains story-specific nouns** (café, badge, organizer, specific roles):
+1. Replace with generic equivalents (business → "organization", café owner → "rule-maker")
+2. Keep the structural claim intact
+
+| Contains story detail | Generalized |
+|-----------------------|-------------|
+| "The café owner experiences 'fair policy'" | "The rule-maker experiences 'fair policy'" |
+| "The numbered badge made tracking visible" | "Making tracking visible changes behavior" |
+| "The organizer profits from the arrangement" | "The person who benefits from an arrangement..." |
+
+**The goal:** Points should read like standalone insights, not excerpts from a story the reader hasn't seen.
+
+## Output Format
+
+Present 3 points from different angles:
 
 ```
-Point: "[evolved claim]"
-Evolution score: 99/100
+## 3 Points
 
-Popper: F:98 C:100 HtV:99 A:99
-Deutsch: F:99 C:99 HtV:100 A:98
+1. "[Point text]"
+2. "[Point text]"
+3. "[Point text]"
 
-How much do you agree?
--3 (Strongly disagree) · -2 · -1 · 0 (Unsure) · +1 · +2 · +3 (Strongly agree)
+---
+
+Rate each: **-3** (strongly disagree) to **+3** (strongly agree)
+Optional: say why
+
+Example:
+- 1: +3 — this is exactly it
+- 2: -1 — too abstract
+- 3: +2 — close but missing the permission angle
+
+Then: **"more"** or **"done"**
 ```
 
-User can:
-- Rate agreement (-3 to +3) → Point complete
-- Request manual refinement → iterate with user input
-- Reject Point entirely → skip to next Point
+## After Ratings
 
-## Output on Completion
+| User says | Action |
+|-----------|--------|
+| **"done"** | Save +2/+3 points to session file. End. |
+| **"more"** | Generate 3 new points informed by their feedback (especially the "why" comments). Repeat. |
 
-After all Points evolved and rated:
+**The "why" is the signal.** Use it to understand direction — what angle resonates, what's missing, what's off.
 
+## Iteration Loop
+
+Each round:
+1. Read previous feedback from session file
+2. Generate 3 new points that respond to the feedback
+3. Avoid repeating angles already rejected
+4. Go deeper on angles that scored +2/+3
+
+**Escape hatch:** After 3 rounds (9 points shown), offer: "We've covered a lot of ground. Save what we have, or keep going?"
+
+## Saving to Session
+
+Append approved points (+2/+3) to the Points section:
+
+```markdown
+## Points
+
+1. "[Point 1]" — You: +3, "this is exactly it"
+2. "[Point 2]" — You: +2
+...
 ```
-## Story
-[The story text]
 
-## Points (Evolved)
-1. "[Point 1]" — Score: 99/100 — You: +3 (Strongly agree)
-2. "[Point 2]" — Score: 97/100 — You: +2 (Agree)
-
-Session complete.
-```
-
-## Transparency
-
-Show the user the evolution happening:
-- Display critiques (summarized)
-- Show top variations being considered
-- Explain why score improved or didn't
-
-The user should see the thinking, not just the result.
+Append all feedback to Context section (for future iterations).
 
 ## Behavior Notes
 
-- Don't over-engineer simple claims — if a Point is already strong, one iteration may suffice
-- Let user skip evolution if satisfied with draft
-- Quality over speed — 99+ is the goal
-- Preserve speaker's original meaning through all variations
+- **3 at a time** — Digestible, different angles, fast feedback
+- **User voice** — Every point should sound like something they'd say
+- **Polarizing** — If everyone would agree, it's too safe
+- **Addresses opposition** — Points explain the gap, not dismiss the other side
+- **The "why" steers** — User explanations guide next iteration
+- **User controls pace** — "more" continues, "done" ends

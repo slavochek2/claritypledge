@@ -1,66 +1,117 @@
 import { useDroppable } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Card } from './Card'
 import { Feature, ColumnId } from '../lib/types'
+import type { DropIndicator } from '../App'
 
 interface ColumnProps {
   id: ColumnId
   title: string
   color: string
   features: Feature[]
+  dropIndicator: DropIndicator | null
+  isDragging: boolean
 }
 
-export function Column({ id, title, color, features }: ColumnProps) {
+// Drop indicator line component - Notion style
+function DropLine() {
+  return (
+    <div
+      style={{
+        height: 2,
+        background: 'rgba(35, 131, 226, 0.57)',
+        borderRadius: 1,
+        margin: '3px 0',
+      }}
+    />
+  )
+}
+
+// Map to Notion's exact status colors
+const getStatusStyle = (color: string) => {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    '#6b7280': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
+    '#3b82f6': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
+    '#ef4444': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
+    '#22c55e': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  }
+  return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
+}
+
+export function Column({ id, title, color, features, dropIndicator, isDragging: _isDragging }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
+  const featureIds = features.map((f) => f.id)
+  const statusStyle = getStatusStyle(color)
+
+  // Should show indicator at the end of the column (when dropping on empty area or at bottom)
+  const showIndicatorAtEnd = dropIndicator && dropIndicator.beforeId === null
 
   return (
     <div
       ref={setNodeRef}
       style={{
-        background: isOver ? '#2a2a4a' : '#16213e',
-        borderRadius: 8,
-        padding: 12,
-        minHeight: 400,
-        transition: 'background 0.2s',
+        background: isOver ? 'var(--bg-column-hover)' : 'var(--bg-column)',
+        borderRadius: '3px',
+        padding: '0 var(--spacing-6)',
+        minHeight: 100,
+        width: 260,
+        flexShrink: 0,
+        transition: 'background 0.1s ease',
       }}
     >
+      {/* Column Header - Notion style */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          marginBottom: 12,
-          paddingBottom: 8,
-          borderBottom: `2px solid ${color}`,
+          gap: 'var(--spacing-6)',
+          height: 32,
+          marginBottom: 'var(--spacing-4)',
         }}
       >
-        <div
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            background: color,
-          }}
-        />
-        <h2 style={{ fontSize: 14, fontWeight: 600 }}>{title}</h2>
+        {/* Status pill */}
         <span
           style={{
-            marginLeft: 'auto',
-            fontSize: 12,
-            opacity: 0.6,
-            background: '#0f0f23',
-            padding: '2px 8px',
-            borderRadius: 10,
+            display: 'inline-flex',
+            alignItems: 'center',
+            fontSize: 'var(--font-size-14)',
+            fontWeight: 'var(--font-weight-regular)',
+            color: statusStyle.text,
+            background: statusStyle.bg,
+            padding: '0 var(--spacing-6)',
+            height: 20,
+            borderRadius: '3px',
+            lineHeight: 1,
+          }}
+        >
+          {title}
+        </span>
+
+        {/* Count - plain text */}
+        <span
+          style={{
+            fontSize: 'var(--font-size-14)',
+            color: 'var(--text-tertiary)',
           }}
         >
           {features.length}
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {features.map((feature) => (
-          <Card key={feature.id} feature={feature} />
-        ))}
-      </div>
+      {/* Cards */}
+      <SortableContext items={featureIds} strategy={verticalListSortingStrategy}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-6)' }}>
+          {features.map((feature) => (
+            <div key={feature.id}>
+              {/* Show drop indicator before this card */}
+              {dropIndicator?.beforeId === feature.id && <DropLine />}
+              <Card feature={feature} />
+            </div>
+          ))}
+          {/* Show drop indicator at end of column */}
+          {showIndicatorAtEnd && <DropLine />}
+        </div>
+      </SortableContext>
     </div>
   )
 }

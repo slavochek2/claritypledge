@@ -1,23 +1,112 @@
-import { useEffect, useState } from 'react'
-import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  pointerWithin,
+  useSensor,
+  useSensors,
+  PointerSensor,
+} from '@dnd-kit/core'
+import { arrayMove } from '@dnd-kit/sortable'
 import { Column } from './components/Column'
-import { Feature, ColumnId } from './lib/types'
+import { Feature, FeatureType, Status } from './lib/types'
 
-// Only show actionable columns - done items disappear from view
-const COLUMNS: { id: ColumnId; title: string; color: string }[] = [
-  { id: 'urgent-important', title: 'Urgent + Important', color: '#ef4444' },
-  { id: 'important', title: 'Important', color: '#3b82f6' },
-  { id: 'in-progress', title: 'In Progress', color: '#f59e0b' },
+export interface DropIndicator {
+  columnId: Status
+  beforeId: string | null // Show indicator before this card (null = at end of column)
+}
+
+interface Worktree {
+  path: string
+  branch: string
+  isCurrent: boolean
+}
+
+interface ColumnConfig {
+  id: Status
+  title: string
+  color: string
+  defaultHidden?: boolean
+  filter?: 'today' | 'before-today'
+}
+
+const COLUMNS: ColumnConfig[] = [
+  { id: 'backlog', title: 'Backlog', color: '#6b7280', defaultHidden: true },
+  { id: 'week', title: 'Week', color: '#6b7280' },
+  { id: 'today', title: 'Today', color: '#22c55e' },
+  { id: 'blocked', title: 'Blocked', color: '#ef4444' },
+  { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
+  { id: 'done', title: 'Done', color: '#22c55e', filter: 'today' },
+]
+
+const ALL_DONE_COLUMN: ColumnConfig = {
+  id: 'done',
+  title: 'All Done',
+  color: '#22c55e',
+  defaultHidden: true,
+  filter: 'before-today',
+}
+
+const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done'])
+
+type ViewMode = 'active' | 'backlog' | 'all-done'
+const VIEW_MODE_KEY = 'kanban-view-mode'
+const TYPE_FILTER_KEY = 'kanban-type-filter'
+const WORKTREE_KEY = 'kanban-worktree'
+
+type TypeFilter = FeatureType | 'all'
+
+const TYPE_CHIPS: { id: TypeFilter; label: string; color: string }[] = [
+  { id: 'all', label: 'All', color: 'var(--tag-gray-bg)' },
+  { id: 'bug', label: 'Bug', color: 'var(--tag-red-bg)' },
+  { id: 'task', label: 'Task', color: 'var(--tag-blue-bg)' },
+  { id: 'story', label: 'Story', color: 'var(--tag-green-bg)' },
 ]
 
 export default function App() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null)
+  const [worktrees, setWorktrees] = useState<Worktree[]>([])
+  const [selectedWorktree, setSelectedWorktree] = useState<string | null>(() => {
+    return localStorage.getItem(WORKTREE_KEY)
+  })
 
-  const fetchFeatures = async () => {
+  // Require 5px movement before drag starts - allows clicks to work
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  )
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const stored = localStorage.getItem(VIEW_MODE_KEY)
+    if (stored === 'backlog' || stored === 'all-done') return stored
+    return 'active'
+  })
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
+    const stored = localStorage.getItem(TYPE_FILTER_KEY)
+    if (stored === 'bug' || stored === 'task' || stored === 'story') return stored
+    return 'all'
+  })
+
+  // Build API URL with worktree param
+  const buildUrl = useCallback((path: string) => {
+    if (selectedWorktree) {
+      const separator = path.includes('?') ? '&' : '?'
+      return `${path}${separator}worktree=${encodeURIComponent(selectedWorktree)}`
+    }
+    return path
+  }, [selectedWorktree])
+
+  const fetchFeatures = useCallback(async () => {
     try {
-      const res = await fetch('/api/features')
+      const res = await fetch(buildUrl('/api/features'))
       if (!res.ok) throw new Error('Failed to fetch features')
       const data = await res.json()
       setFeatures(data)
@@ -27,87 +116,275 @@ export default function App() {
     } finally {
       setLoading(false)
     }
+  }, [buildUrl])
+
+  const fetchWorktrees = async () => {
+    try {
+      const res = await fetch('/api/worktrees')
+      if (!res.ok) throw new Error('Failed to fetch worktrees')
+      const data: Worktree[] = await res.json()
+      setWorktrees(data)
+      // If no worktree selected yet, select the current one
+      if (!selectedWorktree) {
+        const current = data.find((wt) => wt.isCurrent)
+        if (current) {
+          setSelectedWorktree(current.path)
+          localStorage.setItem(WORKTREE_KEY, current.path)
+        }
+      }
+    } catch {
+      // Ignore - worktree selection will just be disabled
+    }
   }
 
   useEffect(() => {
-    fetchFeatures()
-
-    // Set up SSE for file changes
-    const eventSource = new EventSource('/api/events')
-    eventSource.onmessage = () => {
-      fetchFeatures()
-    }
-    return () => eventSource.close()
+    fetchWorktrees()
   }, [])
 
+  useEffect(() => {
+    fetchFeatures()
+  }, [fetchFeatures])
+
+  const changeWorktree = (path: string) => {
+    setSelectedWorktree(path)
+    localStorage.setItem(WORKTREE_KEY, path)
+    setLoading(true)
+  }
+
+  const changeViewMode = (mode: ViewMode) => {
+    setViewMode(mode)
+    localStorage.setItem(VIEW_MODE_KEY, mode)
+  }
+
+  const changeTypeFilter = (filter: TypeFilter) => {
+    setTypeFilter(filter)
+    localStorage.setItem(TYPE_FILTER_KEY, filter)
+  }
+
+  const getEffectiveOrder = (item: Feature | undefined): number => {
+    if (!item) return 1000000
+    return item.sort_order ?? 1000000
+  }
+
+  const calculateSortOrder = (columnFeatures: Feature[], newIndex: number): number => {
+    if (columnFeatures.length === 0) return 1.0
+    if (newIndex === 0) {
+      return getEffectiveOrder(columnFeatures[0]) / 2
+    } else if (newIndex >= columnFeatures.length) {
+      return getEffectiveOrder(columnFeatures[columnFeatures.length - 1]) + 1
+    } else {
+      return (getEffectiveOrder(columnFeatures[newIndex - 1]) + getEffectiveOrder(columnFeatures[newIndex])) / 2
+    }
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over) {
+      setDropIndicator(null)
+      return
+    }
+
+    const activeFeature = features.find((f) => f.id === active.id)
+    if (!activeFeature) {
+      setDropIndicator(null)
+      return
+    }
+
+    const overId = over.id as string
+
+    // Dropping on a column directly (empty area)
+    if (VALID_COLUMN_IDS.has(overId as Status)) {
+      setDropIndicator({ columnId: overId as Status, beforeId: null })
+      return
+    }
+
+    // Dropping on a card
+    const overFeature = features.find((f) => f.id === overId)
+    if (overFeature) {
+      setDropIndicator({ columnId: overFeature.status, beforeId: overId })
+    } else {
+      setDropIndicator(null)
+    }
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    setDropIndicator(null)
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null)
+    setDropIndicator(null)
     const { active, over } = event
     if (!over) return
 
     const featureId = active.id as string
-    const targetColumn = over.id as ColumnId
-
-    // Find the feature
+    const overId = over.id as string
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
 
-    // Determine new status and priority based on column
-    let newStatus = feature.status
-    let newPriority = feature.priority
+    if (VALID_COLUMN_IDS.has(overId as Status)) {
+      const newStatus = overId as Status
+      if (feature.status === newStatus) return
 
-    if (targetColumn === 'done') {
-      newStatus = 'done'
-    } else if (targetColumn === 'in-progress') {
-      newStatus = 'in-progress'
-    } else {
-      newStatus = 'backlog'
-      newPriority = targetColumn as 'urgent-important' | 'important'
+      const targetColumnFeatures = features
+        .filter((f) => f.status === newStatus)
+        .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+      const newSortOrder = calculateSortOrder(targetColumnFeatures, targetColumnFeatures.length)
+
+      setFeatures((prev) =>
+        prev.map((f) => (f.id === featureId ? { ...f, status: newStatus, sort_order: newSortOrder } : f))
+      )
+
+      try {
+        const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, sort_order: newSortOrder }),
+        })
+        if (!res.ok) throw new Error('Failed to update')
+      } catch {
+        fetchFeatures()
+      }
+      return
     }
 
-    // Optimistic update
-    setFeatures((prev) =>
-      prev.map((f) =>
-        f.id === featureId ? { ...f, status: newStatus, priority: newPriority } : f
-      )
-    )
+    const targetFeature = features.find((f) => f.id === overId)
+    if (!targetFeature) return
 
-    // Update file
+    const targetStatus = targetFeature.status
+    const columnFeatures = features
+      .filter((f) => f.status === targetStatus && f.id !== featureId)
+      .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+
+    const targetIndex = columnFeatures.findIndex((f) => f.id === overId)
+    const newSortOrder = calculateSortOrder(columnFeatures, targetIndex)
+
+    if (feature.status !== targetStatus) {
+      setFeatures((prev) =>
+        prev.map((f) => (f.id === featureId ? { ...f, status: targetStatus, sort_order: newSortOrder } : f))
+      )
+
+      try {
+        const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: targetStatus, sort_order: newSortOrder }),
+        })
+        if (!res.ok) throw new Error('Failed to update')
+      } catch {
+        fetchFeatures()
+      }
+      return
+    }
+
+    const currentColumnFeatures = features
+      .filter((f) => f.status === feature.status)
+      .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+
+    const oldIndex = currentColumnFeatures.findIndex((f) => f.id === featureId)
+    const newIndex = currentColumnFeatures.findIndex((f) => f.id === overId)
+
+    if (oldIndex === newIndex) return
+
+    const reorderedFeatures = arrayMove(currentColumnFeatures, oldIndex, newIndex)
+    const newPosition = reorderedFeatures.findIndex((f) => f.id === featureId)
+
+    let finalSortOrder: number
+    if (newPosition === 0) {
+      finalSortOrder = getEffectiveOrder(reorderedFeatures[1]) / 2
+    } else if (newPosition === reorderedFeatures.length - 1) {
+      finalSortOrder = getEffectiveOrder(reorderedFeatures[newPosition - 1]) + 1
+    } else {
+      finalSortOrder =
+        (getEffectiveOrder(reorderedFeatures[newPosition - 1]) + getEffectiveOrder(reorderedFeatures[newPosition + 1])) /
+        2
+    }
+
+    setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, sort_order: finalSortOrder } : f)))
+
     try {
-      const res = await fetch(`/api/features/${encodeURIComponent(featureId)}`, {
+      const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, priority: newPriority }),
+        body: JSON.stringify({ sort_order: finalSortOrder }),
       })
       if (!res.ok) throw new Error('Failed to update')
     } catch {
-      // Revert on error
       fetchFeatures()
     }
   }
 
-  const getColumnFeatures = (columnId: ColumnId): Feature[] => {
-    return features.filter((f) => {
-      if (columnId === 'done') return f.status === 'done'
-      if (columnId === 'in-progress') return f.status === 'in-progress'
-      // Backlog columns: filter by priority
-      return f.status === 'backlog' && f.priority === columnId
-    })
+  const getColumnFeatures = (column: ColumnConfig): Feature[] => {
+    const today = new Date().toISOString().split('T')[0]
+    return features
+      .filter((f) => {
+        if (f.status !== column.id) return false
+        if (column.filter === 'today') return f.completed_at === today
+        if (column.filter === 'before-today') return !f.completed_at || f.completed_at < today
+        // Type filter
+        if (typeFilter !== 'all' && f.type !== typeFilter) return false
+        return true
+      })
+      .sort((a, b) => {
+        const orderA = a.sort_order ?? 1000000
+        const orderB = b.sort_order ?? 1000000
+        if (orderA !== orderB) return orderA - orderB
+        return a.id.localeCompare(b.id)
+      })
   }
+
+  const visibleColumns = useMemo(() => {
+    let cols = [...COLUMNS]
+    if (viewMode !== 'backlog') cols = cols.filter((c) => c.id !== 'backlog')
+    if (viewMode === 'all-done') cols.push(ALL_DONE_COLUMN)
+    return cols
+  }, [viewMode])
+
+  // Notion-style view tab
+  const viewTabStyle = (isActive: boolean): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    fontSize: 'var(--font-size-14)',
+    fontWeight: 'var(--font-weight-regular)',
+    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+    background: isActive ? 'var(--bg-hover)' : 'transparent',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    transition: 'background 0.1s',
+  })
 
   if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        Loading features...
+      <div style={{ padding: 'var(--spacing-16)', color: 'var(--text-tertiary)' }}>
+        Loading...
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#ef4444' }}>
+      <div style={{ padding: 40, textAlign: 'center', color: 'var(--tag-red-text)' }}>
         Error: {error}
         <br />
-        <button onClick={fetchFeatures} style={{ marginTop: 16 }}>
+        <button
+          onClick={fetchFeatures}
+          style={{
+            marginTop: 16,
+            padding: '6px 12px',
+            background: 'var(--bg-hover)',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: 'pointer',
+            color: 'var(--text-primary)',
+          }}
+        >
           Retry
         </button>
       </div>
@@ -115,34 +392,135 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1 style={{ marginBottom: 20, fontSize: 24 }}>
-        Clarity Kanban
-        <span style={{ fontSize: 14, marginLeft: 12, opacity: 0.6 }}>
-          {features.length} features
-        </span>
-      </h1>
-
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ padding: 'var(--spacing-12) var(--spacing-16) 0', flexShrink: 0 }}>
+        {/* Title row */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 16,
-            alignItems: 'start',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--spacing-8)',
+            marginBottom: 'var(--spacing-8)',
           }}
         >
-          {COLUMNS.map((col) => (
-            <Column
-              key={col.id}
-              id={col.id}
-              title={col.title}
-              color={col.color}
-              features={getColumnFeatures(col.id)}
-            />
-          ))}
+          <span style={{ fontSize: 24 }}>🛹</span>
+          <h1
+            style={{
+              fontSize: 'var(--font-size-16)',
+              fontWeight: 'var(--font-weight-semibold)',
+              color: 'var(--text-primary)',
+              margin: 0,
+            }}
+          >
+            Clarity Kanban
+          </h1>
+
+          {/* Worktree selector */}
+          {worktrees.length > 1 && (
+            <select
+              value={selectedWorktree || ''}
+              onChange={(e) => changeWorktree(e.target.value)}
+              style={{
+                marginLeft: 'auto',
+                padding: '4px 8px',
+                fontSize: 'var(--font-size-14)',
+                color: 'var(--text-primary)',
+                background: 'var(--bg-hover)',
+                border: '1px solid rgba(55, 53, 47, 0.16)',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              {worktrees.map((wt) => (
+                <option key={wt.path} value={wt.path}>
+                  {wt.branch}{wt.isCurrent ? ' (current)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
-      </DndContext>
+
+        {/* View tabs row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingBottom: 'var(--spacing-12)',
+            borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+            <button style={viewTabStyle(viewMode === 'backlog')} onClick={() => changeViewMode('backlog')}>
+              Backlog
+            </button>
+            <button style={viewTabStyle(viewMode === 'active')} onClick={() => changeViewMode('active')}>
+              Main Board
+            </button>
+            <button style={viewTabStyle(viewMode === 'all-done')} onClick={() => changeViewMode('all-done')}>
+              Done
+            </button>
+          </div>
+
+          {/* Type filter chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)' }}>
+            {TYPE_CHIPS.map((chip) => (
+              <button
+                key={chip.id}
+                onClick={() => changeTypeFilter(chip.id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px 8px',
+                  fontSize: 'var(--font-size-12)',
+                  fontWeight: 'var(--font-weight-regular)',
+                  color: typeFilter === chip.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: typeFilter === chip.id ? chip.color : 'transparent',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  transition: 'all 0.1s',
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Board */}
+      <div style={{ padding: 'var(--spacing-12) var(--spacing-16)', overflowX: 'auto', flex: 1 }}>
+        <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--spacing-8)',
+              alignItems: 'flex-start',
+            }}
+          >
+            {visibleColumns.map((col) => (
+              <Column
+                key={`${col.id}-${col.filter ?? 'default'}`}
+                id={col.id}
+                title={col.title}
+                color={col.color}
+                features={getColumnFeatures(col)}
+                dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
+                isDragging={activeId !== null}
+              />
+            ))}
+          </div>
+        </DndContext>
+      </div>
     </div>
   )
 }

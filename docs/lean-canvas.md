@@ -162,7 +162,7 @@ Story evolves through corrections
 3. Human verification (holistic first, points later if needed)
 4. AI verification (scale without author present)
 
-See [roadmap.md](roadmap.md) for full sequence.
+See [decisions.md](decisions.md) "2026-02-02" entry for full sequence.
 
 ### 4. Calibration Profile
 Track your accuracy over time:
