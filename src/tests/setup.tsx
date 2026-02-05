@@ -45,3 +45,17 @@ window.scrollTo = vi.fn();
 
 // Mock HTMLElement.prototype.scrollTo for carousel tests
 HTMLElement.prototype.scrollTo = vi.fn();
+
+// Mock localStorage (jsdom's implementation can be incomplete)
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => { store[key] = value; },
+    removeItem: (key: string) => { delete store[key]; },
+    clear: () => { store = {}; },
+    get length() { return Object.keys(store).length; },
+    key: (index: number) => Object.keys(store)[index] || null,
+  };
+})();
+Object.defineProperty(window, 'localStorage', { value: localStorageMock });
