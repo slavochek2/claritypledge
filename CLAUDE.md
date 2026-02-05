@@ -71,7 +71,11 @@ Benefits: One folder to navigate, visible in IDE, version controlled with projec
 
 | Folder | Purpose |
 |--------|---------|
-| `slava/` | Slava's custom skills (check first) |
+| `slava/build/` | Development skills (dev, ux, design-audit, prep-spec, simplify) |
+| `slava/content/` | Writing & publishing (blog, sifter, story) |
+| `slava/think/` | Strategy & ideation (lean, innovate, route) |
+| `slava/maintain/` | Hygiene & knowledge (cleanup, weekly, kdd) |
+| `slava/util/` | Utilities (c, find-skill, shorten-url) |
 | `awesome/` | Community skills |
 | `bmad/` | BMAD framework |
 | Others | Domain-specific (deep-research, scientific, etc.) |
@@ -145,6 +149,18 @@ Pattern matching (`pkill -f`) can kill unintended processes like Docker Desktop.
 **Goal:** Small, atomic commits. Each commit = one logical change.
 
 ## Tool Preferences
+
+### Library Documentation (Context7)
+
+**Before web-searching for library/framework docs, use Context7 first.**
+
+Context7 MCP (`mcp__plugin_context7_context7__*`) provides up-to-date documentation and code examples for thousands of libraries — React, Supabase, Playwright, Tailwind, Ghost, Vite, Radix, and more.
+
+**Workflow:**
+1. `resolve-library-id` — find the library ID (e.g., "react", "ghost", "supabase")
+2. `query-docs` — ask a specific question (e.g., "how to use useOptimistic in React 19")
+
+**When to use:** Any time you need API docs, code examples, or correct usage patterns for a library. Context7 is faster and more accurate than web search for library documentation.
 
 ### Browser Automation
 
@@ -639,7 +655,7 @@ Before creating a new function, hook, component, **skill, or agent**:
 1. Search the codebase for similar functionality using grep/glob
 2. Check if an existing file can be extended rather than duplicated
 3. If similar concept exists, add to the source of truth (don't create parallel definitions)
-4. **For agent personas**: check if `/prep-spec/agents/` or `/bmad/**/agents/` already has it
+4. **For agent personas**: check if `/build/prep-spec/agents/` or `/bmad/**/agents/` already has it
 
 ### KISS (Keep It Simple)
 - Prefer straightforward solutions over clever ones

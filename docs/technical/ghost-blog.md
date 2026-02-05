@@ -46,6 +46,31 @@ Ghost uses two separate email channels:
 | Bulk newsletters | Mailgun API | Sending newsletters to subscribers |
 
 **Mailgun domain:** `mg.claritypledge.com` (EU region)
+**Mailgun API base:** `https://api.eu.mailgun.net/v3`
+**Newsletter name:** "Clarity Pledge" (slug: `default-newsletter`)
+**From address:** `"Clarity Pledge" <slava@claritypledge.com>`
+
+### Ghost Admin Settings (configured)
+
+| Setting | Value |
+|---------|-------|
+| Mailgun domain | `mg.claritypledge.com` |
+| Mailgun API key | Configured in Ghost Admin → Settings → Email newsletter |
+| Mailgun base URL | `https://api.eu.mailgun.net/v3` |
+| Accent color | `#3b82f6` (blue-500) |
+| Icon & logo | Clarity "C" mark (blue rounded rect) |
+| Navigation | Blog (/), Clarity Pledge (claritypledge.com) |
+
+### Publishing a Newsletter
+
+To send a newsletter via Ghost Admin API (used by automation):
+
+```
+PUT /ghost/api/admin/posts/{id}/?newsletter=default-newsletter&email_segment=all
+Body: { "posts": [{ "status": "published", "updated_at": "..." }] }
+```
+
+Key: the `newsletter` query param must be the **slug** (not ID). Without it, the post publishes but no email is sent.
 
 ### DNS Records (at all-inkl KAS)
 
