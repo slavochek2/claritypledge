@@ -163,7 +163,7 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
 
         if (entry.isDirectory()) {
           // Skip folders that shouldn't be scanned
-          const skipFolders = ['drafts', 'research']
+          const skipFolders = ['research']
           // Also skip dated archive folders (e.g., "4_27_jan26")
           const isDateArchive = /^\d+_\d+_\w+\d+$/.test(entry.name)
           if (!skipFolders.includes(entry.name) && !isDateArchive) {

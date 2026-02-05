@@ -1,6 +1,7 @@
 ---
 status: week
 sort_order: 500000
+hypothesis: H-GTM
 ---
 # P80: Event Publishing Simplified
 

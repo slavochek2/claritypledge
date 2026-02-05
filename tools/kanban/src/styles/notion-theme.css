@@ -79,6 +79,11 @@
   --bg-hover: rgba(55, 53, 47, 0.08);
   --bg-active: rgba(55, 53, 47, 0.16);
 
+  /* Sidebar */
+  --sidebar-width: 200px;
+  --bg-sidebar-item-hover: rgba(55, 53, 47, 0.08);
+  --bg-sidebar-item-active: rgba(55, 53, 47, 0.08);
+
   /* Spacing - Notion's values */
   --spacing-2: 2px;
   --spacing-4: 4px;
