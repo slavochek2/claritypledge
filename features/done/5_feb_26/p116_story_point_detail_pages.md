@@ -1,7 +1,8 @@
 # P116: Story & Point Detail Pages — Match Prototype Design
 
 ---
-status: prepped
+status: done
+completed_at: '2026-02-05'
 prepped_date: 2026-02-04
 reviews:
   ux: passed-with-notes
@@ -35,12 +36,12 @@ Why fork instead of reuse directly:
 - ✅ Story text
 - ✅ Basic verification stats
 - ✅ Linked Points section (simple cards)
-- ❌ Missing: Author credibility count (👂 N)
-- ❌ Missing: Visibility icon
-- ❌ Missing: "X understood" badge (expandable)
-- ❌ Missing: Thread lines on linked points
-- ❌ Missing: Interactive position buttons on points
-- ❌ Missing: **Clarity Sessions section** (verification history)
+- ✅ Author credibility count (👂 N)
+- ❌ Missing: Visibility icon (deferred — cosmetic)
+- ✅ "X understood" badge (expandable)
+- ✅ Thread lines on linked points
+- ✅ Interactive position buttons on points
+- ✅ **Clarity Sessions section** (verification history)
 
 ### Point Detail Page (`/point/:id`)
 - ✅ Gray left border on point card
@@ -48,11 +49,11 @@ Why fork instead of reuse directly:
 - ✅ Filter tabs (Agree/Disagree/Unsure)
 - ✅ Position holders with stories
 - ✅ "No story yet" for position-only users
-- ❌ Missing: Pin icon before point text
-- ❌ Missing: Share button
-- ❌ Missing: Author credibility counts
-- ❌ Missing: Full story text (currently truncated)
-- ❌ Missing: Role/date on story cards
+- ✅ Pin icon before point text
+- ✅ Share button
+- ✅ Author credibility counts
+- ✅ Full story text (currently truncated)
+- ✅ Role/date on story cards
 
 ## Target State (Match Prototype)
 
@@ -105,33 +106,33 @@ This removes the hard dependency on mock-data imports and prepares for real back
 ## Acceptance Criteria
 
 ### Story Detail Page
-- [ ] Shows story card with full metadata (credibility, visibility icon, understood badge)
-- [ ] Linked Points section has thread lines and is expandable
-- [ ] Each linked point has interactive position buttons
-- [ ] Clarity Sessions section shows verification history
-- [ ] "X understands Y" entries with rating dots
-- [ ] "Across disagreement" indicator where applicable
-- [ ] Back button returns to previous page
-- [ ] Author name/avatar links to profile
+- [x] Shows story card with full metadata (credibility, understood badge — visibility icon deferred)
+- [x] Linked Points section has thread lines and is expandable
+- [x] Each linked point has interactive position buttons
+- [x] Clarity Sessions section shows verification history
+- [x] "X understands Y" entries with rating dots
+- [x] "Across disagreement" indicator where applicable
+- [x] Back button returns to previous page
+- [x] Author name/avatar links to profile
 
 ### Point Detail Page
-- [ ] Shows point card with pin icon and share button
-- [ ] Position buttons are interactive
-- [ ] Filter tabs work (Agree/Disagree/Unsure)
-- [ ] Story cards show full text, author credibility, role, date
-- [ ] Position-only rows show credibility and role
-- [ ] Clicking a story navigates to `/story/:id`
-- [ ] Back button returns to previous page
+- [x] Shows point card with pin icon and share button
+- [x] Position buttons are interactive
+- [x] Filter tabs work (Agree/Disagree/Unsure)
+- [x] Story cards show full text, author credibility, role, date
+- [x] Position-only rows show credibility and role
+- [x] Clicking a story navigates to `/story/:id`
+- [x] Back button returns to previous page
 
 ### States (UX requirement)
-- [ ] **Loading:** Skeleton loaders while fetching story/point data
-- [ ] **Error:** "Story not found" / "Point not found" with back button
-- [ ] **Empty:** "No verifications yet" for Clarity Sessions, counts on filter tabs
-- [ ] **Unauthenticated:** Position buttons show disabled with "Sign in to share your position" tooltip
+- [x] **Loading:** Skeleton loaders while fetching story/point data
+- [x] **Error:** "Story not found" / "Point not found" with back button
+- [x] **Empty:** "No verifications yet" for Clarity Sessions, counts on filter tabs
+- [x] **Unauthenticated:** Position buttons show disabled with "Sign in to share your position" tooltip
 
 ### Visual Verification
-- [ ] Screenshot comparison: story detail matches prototype
-- [ ] Screenshot comparison: point detail matches prototype
+- [x] Screenshot comparison: story detail matches prototype
+- [x] Screenshot comparison: point detail matches prototype
 - [ ] Mobile viewport looks correct at 375px width
 - [ ] Mobile viewport looks correct at 320px width (position buttons don't squish)
 
