@@ -148,7 +148,7 @@ Add after "Commit Discipline" section. Content: naming convention, number assign
 
 - Done/archive files (140+ historical files stay as-is)
 - Kanban columns, drag-drop, sorting
-- `/cleanup` logic (git mv handles any filename)
+- `/done` logic (git mv handles any filename)
 - `/weekly` (already does retrospectives)
 
 ## Verification
@@ -157,5 +157,5 @@ Add after "Commit Discipline" section. Content: naming convention, number assign
 2. Start new conversation → agent prompts to create task
 3. Accept → `[T] p{N} {name}.md` created, visible on kanban
 4. Complete work → status updated to done
-5. Run `/cleanup` → done files move to dated folder
+5. Run `/done` → done files move to dated folder
 6. Old `p{N}` format files in done/archive still work
