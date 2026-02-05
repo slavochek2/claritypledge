@@ -2,6 +2,27 @@
  * Core TypeScript interfaces for the Clarity Pledge application
  */
 
+// ============================================================================
+// PERSON REFERENCE TYPE (P118 - Avatar Consolidation)
+// ============================================================================
+
+/**
+ * Canonical type for rendering a person's avatar.
+ * Use with PersonAvatar component to ensure consistent badge display.
+ * hasPledged is ALWAYS present - TypeScript enforces completeness.
+ */
+export interface PersonRef {
+  name: string;
+  slug?: string;
+  avatarColor?: string; // Optional — PersonAvatar defaults to #3B82F6
+  avatarUrl?: string | null;
+  hasPledged: boolean; // ALWAYS present
+}
+
+// ============================================================================
+// WITNESS AND PROFILE TYPES
+// ============================================================================
+
 export interface Witness {
   id: string;
   name: string;
@@ -685,6 +706,8 @@ export interface EventWithHost extends Event {
   hostRole?: string;
   hostAvatarColor?: string;
   hostAvatarUrl?: string;
+  /** P118: Whether the host has signed the pledge (for badge display) */
+  hostHasPledged?: boolean;
   // Optional display fields - mock service populates these inline for convenience.
   // Real service fetches attendees separately via getEventAttendees().
   // Components should handle these being undefined when using real API.

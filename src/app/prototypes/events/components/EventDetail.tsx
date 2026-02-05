@@ -17,9 +17,10 @@ import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
-import type { EventWithHost } from '@/app/types';
+import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
+import { PersonAvatar } from '@/components/ui/person-avatar';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -427,12 +428,17 @@ export function EventDetail() {
                 to={`/p/${event.hostSlug}`}
                 className="flex flex-col items-center text-center w-full p-3 -m-3 rounded-lg hover:bg-muted/50 transition-colors"
               >
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-white font-semibold text-xl mb-2"
-                  style={{ backgroundColor: event.hostAvatarColor }}
-                >
-                  {event.hostName.charAt(0)}
-                </div>
+                <PersonAvatar
+                  person={{
+                    name: event.hostName,
+                    slug: event.hostSlug,
+                    avatarColor: event.hostAvatarColor,
+                    avatarUrl: event.hostAvatarUrl,
+                    hasPledged: event.hostHasPledged ?? false,
+                  } satisfies PersonRef}
+                  size="lg"
+                  className="mb-2"
+                />
                 <p className="font-semibold">{event.hostName}</p>
                 <p className="text-sm text-muted-foreground">{event.hostRole}</p>
               </Link>

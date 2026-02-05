@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, AVATAR_ROW_LIMIT_DESKTOP } from "@/app/data/api";
-import type { ProfileSummary } from "@/app/types";
-import { getInitials } from "@/lib/utils";
+import type { ProfileSummary, PersonRef } from "@/app/types";
 import { DualCTA } from "./dual-cta";
 import { CheckCircle } from "lucide-react";
+import { PersonAvatar } from "@/components/ui/person-avatar";
 
 export function ClarityTaxSection() {
   const [showLine2, setShowLine2] = useState(false);
@@ -80,12 +80,18 @@ export function ClarityTaxSection() {
               {/* Mobile: Show limited avatars */}
               <div className="flex items-center -space-x-2 sm:hidden">
                 {profiles.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((profile) => (
-                  <div
+                  <PersonAvatar
                     key={profile.id}
-                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium transition-transform group-hover:scale-105"
-                  >
-                    {getInitials(profile.name)}
-                  </div>
+                    person={{
+                      name: profile.name,
+                      slug: profile.slug,
+                      avatarColor: profile.avatarColor,
+                      avatarUrl: profile.avatarUrl,
+                      hasPledged: true, // Featured profiles are verified pledgers
+                    } satisfies PersonRef}
+                    size="sm"
+                    className="w-8 h-8 border-2 border-white/80 transition-transform group-hover:scale-105"
+                  />
                 ))}
                 {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
                   <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">
@@ -96,12 +102,18 @@ export function ClarityTaxSection() {
               {/* Desktop: Show more avatars */}
               <div className="hidden sm:flex items-center -space-x-2">
                 {profiles.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((profile) => (
-                  <div
+                  <PersonAvatar
                     key={profile.id}
-                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium transition-transform group-hover:scale-105"
-                  >
-                    {getInitials(profile.name)}
-                  </div>
+                    person={{
+                      name: profile.name,
+                      slug: profile.slug,
+                      avatarColor: profile.avatarColor,
+                      avatarUrl: profile.avatarUrl,
+                      hasPledged: true, // Featured profiles are verified pledgers
+                    } satisfies PersonRef}
+                    size="sm"
+                    className="w-8 h-8 border-2 border-white/80 transition-transform group-hover:scale-105"
+                  />
                 ))}
                 {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (
                   <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-300 flex items-center justify-center text-xs font-medium text-slate-600">

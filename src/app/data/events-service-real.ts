@@ -27,6 +27,7 @@ interface DbEventWithHost {
     headline: string | null;
     avatar_color: string | null;
     avatar_url: string | null;
+    has_pledged: boolean | null; // P118: Host pledge status
   } | null;
 }
 
@@ -66,6 +67,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     hostRole: row.host?.headline ?? undefined,
     hostAvatarColor: row.host?.avatar_color ?? '#3B82F6',
     hostAvatarUrl: row.host?.avatar_url ?? undefined,
+    hostHasPledged: row.host?.has_pledged ?? false, // P118: Host pledge status
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,
@@ -100,7 +102,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .gte('datetime', now)
@@ -154,7 +157,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${now})`)
@@ -181,7 +185,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .eq('slug', slug)
@@ -296,7 +301,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .single();
@@ -492,7 +498,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .gte('datetime', now)
@@ -618,7 +625,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .in('id', eventIds)
@@ -648,7 +656,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .eq('host_id', profileId)
@@ -686,7 +695,8 @@ export const realEventsService: EventsService = {
           slug,
           headline:role,
           avatar_color,
-          avatar_url
+          avatar_url,
+          has_pledged
         )
       `)
       .gte('datetime', now)
