@@ -44,11 +44,7 @@ export function CreateStoryPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<{ content?: string }>({});
   const hasTrackedPageView = useRef(false);
-  const [isSaved, setIsSaved] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Derived dirty state
-  const isDirty = content.trim().length > 0;
 
   // Track page view
   useEffect(() => {
@@ -57,18 +53,6 @@ export function CreateStoryPage() {
       analytics.track('story_creation_started');
     }
   }, [authLoading, session, user]);
-
-  // Abandonment tracking via beforeunload (for tab close / external nav)
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty && !isSaved) {
-        analytics.track('story_creation_abandoned');
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty, isSaved]);
 
   // Auth redirect
   useEffect(() => {
@@ -130,9 +114,6 @@ export function CreateStoryPage() {
         return;
       }
 
-      // Mark as saved so beforeunload doesn't fire
-      setIsSaved(true);
-
       analytics.track('story_saved', {
         story_id: story.id,
         char_count: content.trim().length,
@@ -140,7 +121,7 @@ export function CreateStoryPage() {
       });
 
       toast.success('Story saved!');
-      navigate(`/story/${story.id}`);
+      navigate(`/story/${story.id}`, { state: { justCreated: true } });
     } catch (err) {
       console.error('Error creating story:', err);
       toast.error('Save failed. Please check your connection and try again.');
