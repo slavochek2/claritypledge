@@ -267,6 +267,37 @@ Room features require authentication. You can't "tap a person" without a profile
 
 ---
 
+## Implementation Tasks
+
+### Layer 1: Database
+- [x] Create `event_sub_rooms` migration (table + RLS + indexes + partial unique index)
+- [x] Add TypeScript types for EventSubRoom (types/index.ts)
+
+### Layer 2: Service
+- [x] Add sub-room methods to events-service.interface.ts
+- [x] Implement sub-room CRUD in events-service-real.ts
+- [x] Implement sub-room mock in events-service-mock.ts
+- [x] Add expiry logic (3-minute timeout for pending sub-rooms)
+
+### Layer 3: UI — Event Page Sessions Section
+- [x] Create EventSessions component (sessions list below participants)
+- [x] Add tap-to-select behavior on participant list (when event is live)
+- [x] Create session confirmation dialog (bottom sheet on mobile)
+- [x] Show session states (waiting, active, completed) with real-time updates
+- [x] Gray out participants who are in active sessions
+- [x] Wire up Supabase Postgres Changes for real-time sub-room state
+
+### Layer 4: /live Integration
+- [x] Create sub-room → create clarity_session → navigate to /live with code (returnTo pending P128)
+- [ ] Handle "Back to event" navigation via returnTo param (depends on P128)
+
+### Layer 5: Polish
+- [x] Accessibility: aria-live for session changes, button labels
+- [ ] Mobile touch targets (44x44px) — needs design review
+- [x] Edge cases: tap yourself (disabled), all in session message, empty event
+
+---
+
 ## Prep Notes
 
 ### From UX review

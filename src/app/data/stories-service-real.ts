@@ -22,7 +22,7 @@ const log = (...args: unknown[]) => DEBUG && console.log('[stories-service-real]
 interface DbStoryWithAuthor {
   id: string;
   author_id: string;
-  title: string;
+  title?: string;
   content: string;
   visibility: StoryVisibility;
   current_version: number;
@@ -67,7 +67,6 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
   return {
     id: row.id,
     authorId: row.author_id,
-    title: row.title,
     content: row.content,
     visibility: row.visibility ?? 'public',
     currentVersion: row.current_version,
@@ -148,7 +147,6 @@ export const realStoriesService: StoriesService = {
     return {
       id: data.id,
       authorId: data.author_id,
-      title: data.title,
       content: data.content,
       visibility: data.visibility ?? 'public',
       currentVersion: data.current_version,
@@ -340,7 +338,6 @@ export const realStoriesService: StoriesService = {
     return {
       id: data.id,
       authorId: data.author_id,
-      title: data.title,
       content: data.content,
       visibility: data.visibility ?? 'public',
       currentVersion: data.current_version,

@@ -66,7 +66,7 @@ function RecordingIndicator() {
 /** Standard content container layout - centered, max-width, top-aligned */
 const CONTENT_LAYOUT = "flex-1 flex flex-col items-center justify-start pt-8 p-6 space-y-6 max-w-lg mx-auto w-full";
 /** Content layout variant - vertically centered (for idle state without history) */
-const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 space-y-8 max-w-lg mx-auto w-full";
+const CONTENT_LAYOUT_CENTERED = "flex-1 flex flex-col items-center justify-center px-6 pb-6 pt-16 space-y-8 max-w-lg mx-auto w-full";
 
 // ============================================================================
 // PARTNER LEFT SCREEN
@@ -189,6 +189,13 @@ export function LiveModeView({
   onSelectStory,
   onSelectPoint,
 }: LiveModeViewProps) {
+
+  // Hide site-wide SimpleNavigation when live session is active (LiveSessionBanner replaces it)
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>('[data-nav="main"]');
+    if (nav) nav.style.display = 'none';
+    return () => { if (nav) nav.style.display = ''; };
+  }, []);
 
   // P128: Fetch selected content for display during verification
   const [selectedStory, setSelectedStory] = useState<StoryWithAuthor | null>(null);
@@ -714,12 +721,6 @@ function IdleScreen({
           )}
         </ActionArea>
 
-        {/* P128: Loading indicator for content fetch */}
-        {userId && !contentLoaded && (
-          <p className="text-xs text-muted-foreground text-center mt-2 animate-pulse">
-            Loading your stories and points…
-          </p>
-        )}
 
         {/* P128: Content picker (only for authenticated users with content) */}
         {userId && contentLoaded && hasContent && onSelectStory && onSelectPoint && (
@@ -739,12 +740,6 @@ function IdleScreen({
           </>
         )}
 
-        {/* P128: Hint for authenticated users with no content */}
-        {userId && contentLoaded && !hasContent && (
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Create stories to verify specific topics next time.
-          </p>
-        )}
 
         {/* P128: Session history */}
         {sessionHistory.length > 0 && (

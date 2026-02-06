@@ -20,8 +20,6 @@ import {
   Share2,
   Ear,
   Sparkles,
-  ChevronDown,
-  ChevronRight,
   ExternalLink,
   Pin,
 } from "lucide-react";
@@ -42,21 +40,34 @@ import {
   ShareDialog,
   PositionButtons,
   PositionBadge,
-  ThreadLineGroup,
-  ThreadLineItem,
   type SevenPointCounts,
 } from "@/app/prototypes/linkedin-like/components/shared";
-import type { PositionType, Position, Story as ProtoStory, Point } from "@/app/prototypes/shared/types";
+import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
-// P116: Import shared mock data utilities (DRY - don't duplicate)
-import {
-  getMockDataForProfile,
-  getPointPositionCounts,
-  formatTimeAgo,
-  type MockUser,
-} from "@/app/data/mock-profile-data";
+// Profile owner context for card components
+interface ProfileOwner {
+  id: string;
+  name: string;
+  role?: string | null;
+  hasPledged: boolean;
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return `${Math.floor(diffDays / 30)}mo ago`;
+}
 import { storiesService } from "@/app/data/stories-service";
-import type { StoryWithAuthor } from "@/app/types";
+import { pointsService } from "@/app/data/points-service";
+import { calibrationService } from "@/app/data/calibration-service";
+import type { StoryWithAuthor, PointWithUserPosition, CalibrationResult } from "@/app/types";
+import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
 // Routes for detail pages (main app, not prototype)
 // Points include a 'from' param to provide profile context
@@ -67,6 +78,29 @@ const detailRoutes = {
 
 // Tab types
 type ContentTab = 'stories' | 'points';
+
+/** Map real CalibrationResult → UserCalibration for display component.
+ *  Sign convention: real service uses self-actual (positive=overconfident),
+ *  display uses actual-self (negative=overconfident). Negate the gap. */
+function toUserCalibration(result: CalibrationResult): UserCalibration | null {
+  if (result.status === 'insufficient' || !result.calibration) return null;
+  const { calibrationGap, sessionCount, speakerCalibrationAvg, speakerListenerSelfRatingAvg } = result.calibration;
+
+  const listenerGap = calibrationGap != null ? -calibrationGap : 0;
+  const speakerGap = (speakerCalibrationAvg != null && speakerListenerSelfRatingAvg != null)
+    ? -(speakerListenerSelfRatingAvg - speakerCalibrationAvg)
+    : 0;
+
+  const getState = (gap: number): 'calibrated' | 'overconfident' | 'underconfident' => {
+    if (Math.abs(gap) <= 0.5) return 'calibrated';
+    return gap < 0 ? 'overconfident' : 'underconfident';
+  };
+
+  return {
+    listener: { avgGap: listenerGap, state: getState(listenerGap), sessionCount },
+    speaker: { avgGap: speakerGap, state: getState(speakerGap), sessionCount },
+  };
+}
 
 export function ProfilePageV2() {
   const { id } = useParams<{ id: string }>();
@@ -80,10 +114,12 @@ export function ProfilePageV2() {
   const [error, setError] = useState<string | null>(null);
   const [showShareDialog, setShowShareDialog] = useState(false);
 
-  // P115: Stories/Points/Calibration state
+  // P115: Stories/Points/Calibration state — all from real services
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
-  const [mockData, setMockData] = useState<ReturnType<typeof getMockDataForProfile> | null>(null);
   const [realStories, setRealStories] = useState<StoryWithAuthor[]>([]);
+  const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
+  const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
+  const [realEarsCount, setRealEarsCount] = useState<number>(0);
 
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
@@ -139,17 +175,32 @@ export function ProfilePageV2() {
     loadProfile();
   }, [id, currentUserId, currentUserSlug, profile]);
 
-  // Load mock data (for points/calibration) and real stories when profile is available
+  // Load all profile data from real services
   useEffect(() => {
     if (!profile) return;
-    const data = getMockDataForProfile(profile);
-    setMockData(data);
 
-    // Load real stories from storiesService
     storiesService.getStoriesByAuthor(profile.id).then(stories => {
       setRealStories(stories);
     }).catch(err => {
       console.error('Failed to load stories:', err);
+    });
+
+    pointsService.getPointsWithUserPositions(profile.id).then(points => {
+      setRealPoints(points);
+    }).catch(err => {
+      console.error('Failed to load points:', err);
+    });
+
+    calibrationService.getCalibration(profile.id).then(result => {
+      setRealCalibration(toUserCalibration(result));
+    }).catch(err => {
+      console.error('Failed to load calibration:', err);
+    });
+
+    calibrationService.getEarsCount(profile.id).then(count => {
+      setRealEarsCount(count);
+    }).catch(err => {
+      console.error('Failed to load ears count:', err);
     });
   }, [profile]);
 
@@ -313,12 +364,11 @@ export function ProfilePageV2() {
     );
   }
 
-  // Stories come from real service; points/calibration still from mock
+  // All data from real services
   const userStories = realStories;
-  const userPoints = mockData?.points || [];
-  const mockStories = mockData?.stories || []; // Used by points tab for linked stories
-  const calibration = mockData?.calibration || null;
-  const credibilityStats = mockData?.credibilityStats || { ear: 0, mic: 0 };
+  const userPoints = realPoints;
+  const calibration = realCalibration;
+  const credibilityStats = { ear: realEarsCount, mic: 0 };
 
   // Main profile view (matches prototype Profile.tsx UI with full interactivity)
   return (
@@ -535,7 +585,6 @@ export function ProfilePageV2() {
                       hasPledged: profile.hasPledged,
                     }}
                     credibilityStats={credibilityStats}
-                    linkedStories={mockStories.filter(s => point.linkedStoryIds.includes(s.id))}
                   />
                 ))
               )
@@ -563,7 +612,7 @@ export function ProfilePageV2() {
 
 interface StoryCardFullProps {
   story: StoryWithAuthor;
-  author: MockUser;
+  author: ProfileOwner;
   credibilityStats: { ear: number; mic: number };
 }
 
@@ -681,64 +730,57 @@ function StoryCardFull({
 }
 
 // =============================================================================
-// PointCardFull - Full interactive PointCard matching prototype
+// PointCardFull - Full interactive PointCard using real data
 // =============================================================================
 
+/** Normalize real positionCounts to SevenPointCounts (ensure all keys present) */
+function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
+  return {
+    strongly_agree: counts.strongly_agree ?? 0,
+    agree: counts.agree ?? 0,
+    somewhat_agree: counts.somewhat_agree ?? 0,
+    unsure: counts.unsure ?? 0,
+    somewhat_disagree: counts.somewhat_disagree ?? 0,
+    disagree: counts.disagree ?? 0,
+    strongly_disagree: counts.strongly_disagree ?? 0,
+  };
+}
+
 interface PointCardFullProps {
-  point: Point;
-  profileOwner: MockUser;
+  point: PointWithUserPosition;
+  profileOwner: ProfileOwner;
   credibilityStats: { ear: number; mic: number };
-  linkedStories: ProtoStory[];
 }
 
 function PointCardFull({
   point,
   profileOwner,
   credibilityStats,
-  linkedStories,
 }: PointCardFullProps) {
   const navigate = useNavigate();
-  const [userPosition, setUserPosition] = useState<Position>(
-    point.positions['current']?.position || null
-  );
-  const [storiesExpanded, setStoriesExpanded] = useState(false);
-  const baseCounts = getPointPositionCounts(point);
+  // Profile owner's position (loaded with their userId)
+  const profileOwnerPosition = point.userPosition?.position ?? null;
+  const [userPosition, setUserPosition] = useState<Position>(null);
+  const baseCounts = useMemo(() => toSevenPointCounts(point.positionCounts), [point.positionCounts]);
 
-  // Track initial position from mock data
-  const initialPosition = point.positions['current']?.position || null;
-
-  // Compute adjusted counts based on user's current position vs initial
+  // Compute adjusted counts when user clicks position buttons (local only)
   const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = {
-      strongly_agree: 0,
-      agree: baseCounts.agree,
-      somewhat_agree: 0,
-      unsure: baseCounts.unsure,
-      somewhat_disagree: 0,
-      disagree: baseCounts.disagree,
-      strongly_disagree: 0,
-    };
+    const adjusted = { ...baseCounts };
 
     const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
       if (!pos) return null;
       return getPositionGroup(pos);
     };
 
-    const initialGroup = getGroup(initialPosition as PositionType | null);
     const currentGroup = getGroup(userPosition as PositionType | null);
 
-    if (initialGroup !== currentGroup) {
-      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-
-      if (currentGroup === 'agree') adjusted.agree++;
-      else if (currentGroup === 'disagree') adjusted.disagree++;
-      else if (currentGroup === 'unsure') adjusted.unsure++;
-    }
+    // If user selected a position, increment that group
+    if (currentGroup === 'agree') adjusted.agree++;
+    else if (currentGroup === 'disagree') adjusted.disagree++;
+    else if (currentGroup === 'unsure') adjusted.unsure++;
 
     return adjusted;
-  }, [baseCounts, initialPosition, userPosition]);
+  }, [baseCounts, userPosition]);
 
   const handleCardClick = () => {
     navigate(detailRoutes.point(point.id, profileOwner.id));
@@ -747,9 +789,6 @@ function PointCardFull({
   const handlePositionClick = (position: Position) => {
     setUserPosition(userPosition === position ? null : position);
   };
-
-  // Get profile owner's position on this point
-  const profileOwnerPosition = point.positions[profileOwner.id]?.position;
 
   return (
     <div
@@ -799,7 +838,7 @@ function PointCardFull({
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
-              <p className="text-foreground text-base">{point.text}</p>
+              <p className="text-foreground text-base">{point.statement}</p>
 
               {/* Position buttons */}
               <div className="mt-3" onClick={(e) => e.stopPropagation()}>
@@ -814,31 +853,15 @@ function PointCardFull({
 
           {/* Footer - inside quoted box */}
           <div
-            className="flex items-center justify-between mt-3 pt-3 border-t border-border pl-[44px]"
+            className="flex items-center justify-end mt-3 pt-3 border-t border-border pl-[44px]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Collapsible trigger (if has linked stories) */}
-            {linkedStories.length > 0 ? (
-              <button
-                onClick={() => setStoriesExpanded(!storiesExpanded)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-                aria-expanded={storiesExpanded}
-              >
-                {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span>
-                  {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'} by {profileOwner.name}
-                </span>
-              </button>
-            ) : (
-              <span />
-            )}
-
             {/* Action icons */}
             <div className="flex items-center gap-1">
               <ShareButton
                 type="point"
                 id={point.id}
-                description={point.text.slice(0, 100)}
+                description={point.statement.slice(0, 100)}
               />
               <MobileTooltip content="Open point">
                 <button
@@ -853,117 +876,7 @@ function PointCardFull({
           </div>
         </div>
       </div>
-
-      {/* Expanded linked stories */}
-      {storiesExpanded && linkedStories.length > 0 && (
-        <div className="pl-4 sm:pl-[60px] pr-4 pb-4" onClick={(e) => e.stopPropagation()}>
-          {linkedStories.length === 1 ? (
-            <QuotedStoryCard
-              story={linkedStories[0]}
-              author={profileOwner}
-              credibilityStats={credibilityStats}
-            />
-          ) : (
-            <ThreadLineGroup>
-              {linkedStories.slice(0, 3).map((story, index) => (
-                <ThreadLineItem key={story.id} isLast={index === linkedStories.length - 1}>
-                  <QuotedStoryCard
-                    story={story}
-                    author={profileOwner}
-                    credibilityStats={credibilityStats}
-                  />
-                </ThreadLineItem>
-              ))}
-              {linkedStories.length > 3 && (
-                <ThreadLineItem isLast>
-                  <button
-                    onClick={() => navigate(detailRoutes.point(point.id, profileOwner.id))}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    +{linkedStories.length - 3} more stories
-                  </button>
-                </ThreadLineItem>
-              )}
-            </ThreadLineGroup>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-// =============================================================================
-// QuotedStoryCard - Story shown inside a Point card
-// =============================================================================
-
-interface QuotedStoryCardProps {
-  story: ProtoStory;
-  author: MockUser;
-  credibilityStats: { ear: number; mic: number };
-}
-
-function QuotedStoryCard({ story, author, credibilityStats }: QuotedStoryCardProps) {
-  const navigate = useNavigate();
-
-  return (
-    <div
-      onClick={() => navigate(detailRoutes.story(story.id))}
-      className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors cursor-pointer"
-    >
-      {/* Author info at top */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/p/${author.id}`);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              navigate(`/p/${author.id}`);
-            }
-          }}
-          className="hover:opacity-80 transition-opacity cursor-pointer"
-        >
-          <GravatarAvatar
-            name={author.name}
-            size="sm"
-            isPledger={author.hasPledged}
-            className="!w-6 !h-6 !text-[11px]"
-          />
-        </span>
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/p/${author.id}`);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              navigate(`/p/${author.id}`);
-            }
-          }}
-          className="text-xs font-medium text-foreground hover:underline cursor-pointer"
-        >
-          {author.name}
-        </span>
-        {credibilityStats.ear > 0 && (
-          <MobileTooltip content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-            <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-              <Ear size={12} />
-              {credibilityStats.ear}
-            </span>
-          </MobileTooltip>
-        )}
-      </div>
-      {/* Story text */}
-      <p className="text-sm text-foreground line-clamp-2">{story.text}</p>
-    </div>
-  );
-}

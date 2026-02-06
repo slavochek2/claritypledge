@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -15,12 +15,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
-import type { EventWithHost, PersonRef } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventSubRoomWithProfiles, PersonRef } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
+import { EventSessions, getOccupiedProfileIds } from './EventSessions';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -67,6 +69,16 @@ export function EventDetail() {
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
   const [showCancelEventDialog, setShowCancelEventDialog] = useState(false);
 
+  // P124: Event sub-rooms state
+  const [subRooms, setSubRooms] = useState<EventSubRoomWithProfiles[]>([]);
+  const [subRoomsLoading, setSubRoomsLoading] = useState(true);
+  const [showStartSessionDialog, setShowStartSessionDialog] = useState(false);
+  const [selectedTarget, setSelectedTarget] = useState<EventAttendee | null>(null);
+  const [isCreatingSubRoom, setIsCreatingSubRoom] = useState(false);
+
+  // Timer state for isLive auto-refresh (re-evaluates every 30s)
+  const [now, setNow] = useState(() => new Date());
+
   // Check if current user is the host
   const isHost = isLoggedIn && user && event?.hostId === user.id;
 
@@ -90,6 +102,62 @@ export function EventDetail() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams, isLoggedIn]);
+
+  // P124: Timer for isLive auto-refresh (re-evaluates every 30s)
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // P124: Fetch sub-rooms when event loads
+  const eventId = event?.id;
+  const fetchSubRooms = useCallback(async () => {
+    if (!eventId) return;
+    const rooms = await eventsService.getEventSubRooms(eventId);
+    setSubRooms(rooms);
+    setSubRoomsLoading(false);
+  }, [eventId]);
+
+  useEffect(() => {
+    fetchSubRooms();
+  }, [fetchSubRooms]);
+
+  // P124: Subscribe to real-time sub-room changes
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase
+      .channel(`event_sub_rooms:${eventId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_sub_rooms',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => { fetchSubRooms(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [eventId, fetchSubRooms]);
+
+  // P124: Auto-navigate initiator to /live when sub-room becomes active
+  const isFirstSubRoomLoadRef = useRef(true);
+  useEffect(() => {
+    if (!user?.id) return;
+    // Skip the initial fetch — only react to real-time updates
+    if (isFirstSubRoomLoadRef.current) {
+      isFirstSubRoomLoadRef.current = false;
+      return;
+    }
+    for (const room of subRooms) {
+      if (room.status === 'active' && room.initiatorId === user.id && room.sessionCode) {
+        navigate(`/live?code=${room.sessionCode}&returnTo=/events/${slug}`);
+        break;
+      }
+    }
+  }, [subRooms, user?.id, navigate, slug]);
 
   // Loading state
   if (loading) {
@@ -119,6 +187,49 @@ export function EventDetail() {
   const isPast = event.status === 'completed';
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
+
+  // P124: Event is "live" when current time is between start and end
+  // `now` is state-based, refreshed every 30s so isLive auto-updates
+  const isLive = !isCancelled && now >= eventDate && now <= endDate;
+  // Also show sessions after event ends (read-only completed sessions)
+  const showSessions = isLive || isPast || now > endDate;
+
+  // P124: Handlers for sub-room creation
+  const currentUserId = user?.id;
+
+  // P124: Compute occupied profiles (in pending/active sub-rooms)
+  const occupiedIds = getOccupiedProfileIds(subRooms);
+  // Current user is in a sub-room if they're in the occupied set
+  const currentUserInSubRoom = currentUserId ? occupiedIds.has(currentUserId) : false;
+
+  const handleTapParticipant = (attendee: EventAttendee) => {
+    if (!isLive || !isLoggedIn || !currentUserId) return;
+    if (attendee.profileId === currentUserId) return; // Can't tap yourself
+    if (occupiedIds.has(attendee.profileId)) {
+      toast.error(`${attendee.name} is already in a session.`);
+      return;
+    }
+    if (currentUserInSubRoom) {
+      toast.error("You're already in a session.");
+      return;
+    }
+    setSelectedTarget(attendee);
+    setShowStartSessionDialog(true);
+  };
+
+  const confirmStartSession = async () => {
+    if (!event || !selectedTarget) return;
+    setIsCreatingSubRoom(true);
+    const subRoom = await eventsService.createSubRoom(event.id, selectedTarget.profileId);
+    setIsCreatingSubRoom(false);
+    setShowStartSessionDialog(false);
+    setSelectedTarget(null);
+    if (subRoom) {
+      toast.success(`Session created! Tell ${selectedTarget.name} to check the event page.`);
+    } else {
+      toast.error(`Couldn't create session. ${selectedTarget.name} may already be in one.`);
+    }
+  };
 
   const handleRsvp = async () => {
     if (!isLoggedIn || !user) {
@@ -449,21 +560,80 @@ export function EventDetail() {
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
+              {isLive && isLoggedIn && (
+                <p className="text-sm text-blue-600 mb-3">
+                  Tap someone to start a verification session
+                </p>
+              )}
               <div className="space-y-2">
-                {(event.attendees ?? []).map(attendee => (
-                  <PersonRow
-                    key={attendee.profileId}
-                    profileId={attendee.profileId}
-                    slug={attendee.slug}
-                    name={attendee.name}
-                    avatarColor={attendee.avatarColor}
-                    avatarUrl={attendee.avatarUrl}
-                    isPledger={attendee.hasPledged}
-                    action={isPast ? "attended" : "going"}
-                  />
-                ))}
+                {(event.attendees ?? []).map(attendee => {
+                  const isSelf = attendee.profileId === currentUserId;
+                  const isOccupied = occupiedIds.has(attendee.profileId);
+                  const canTap = isLive && isLoggedIn && !isSelf && !isOccupied && !currentUserInSubRoom;
+
+                  if (canTap) {
+                    return (
+                      <button
+                        key={attendee.profileId}
+                        onClick={() => handleTapParticipant(attendee)}
+                        className="w-full text-left"
+                        aria-label={`Start session with ${attendee.name}`}
+                      >
+                        <PersonRow
+                          profileId={attendee.profileId}
+                          slug={attendee.slug}
+                          name={attendee.name}
+                          avatarColor={attendee.avatarColor}
+                          avatarUrl={attendee.avatarUrl}
+                          isPledger={attendee.hasPledged}
+                          action="going"
+                        />
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={attendee.profileId}
+                      className={isOccupied && isLive ? 'opacity-50' : ''}
+                    >
+                      <PersonRow
+                        profileId={attendee.profileId}
+                        slug={attendee.slug}
+                        name={attendee.name}
+                        avatarColor={attendee.avatarColor}
+                        avatarUrl={attendee.avatarUrl}
+                        isPledger={attendee.hasPledged}
+                        action={isPast ? "attended" : "going"}
+                      />
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* P124: Edge case — all participants occupied */}
+              {isLive && isLoggedIn && (event.attendees ?? []).length > 0 &&
+                (event.attendees ?? []).every(a => a.profileId === currentUserId || occupiedIds.has(a.profileId)) && (
+                <p className="text-sm text-muted-foreground mt-3 text-center">
+                  Everyone is in a session. Wait for one to finish.
+                </p>
+              )}
             </div>
+
+            {/* P124: Sessions Section — visible when event is live or after */}
+            {showSessions && (
+              <div className="bg-card rounded-xl border border-border shadow-sm p-6">
+                <h2 className="font-semibold text-sm text-muted-foreground mb-4">
+                  Sessions
+                </h2>
+                <EventSessions
+                  subRooms={subRooms}
+                  loading={subRoomsLoading}
+                  currentUserId={currentUserId}
+                  eventSlug={event.slug}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -495,6 +665,22 @@ export function EventDetail() {
         variant="destructive"
         onConfirm={confirmCancelEvent}
         isLoading={isActionLoading}
+      />
+
+      {/* P124: Start Session Confirmation Dialog */}
+      <ConfirmDialog
+        open={showStartSessionDialog}
+        onOpenChange={(open) => {
+          setShowStartSessionDialog(open);
+          if (!open) setSelectedTarget(null);
+        }}
+        title={`Start a session with ${selectedTarget?.name ?? ''}?`}
+        description="You'll pick a story to verify, or speak freely. They'll see the invitation and can join."
+        confirmLabel="Start session"
+        cancelLabel="Cancel"
+        variant="default"
+        onConfirm={confirmStartSession}
+        isLoading={isCreatingSubRoom}
       />
     </div>
   );

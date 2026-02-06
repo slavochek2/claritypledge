@@ -1,6 +1,6 @@
 /**
  * @file point-detail-page.tsx
- * @description Point detail page - shows a point with positions and linked stories.
+ * @description Point detail page - shows a point with positions.
  * Route: /point/:id
  *
  * Points are shared across profiles. We use a referrer query param to contextualize
@@ -8,16 +8,10 @@
  */
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Pin, Ear } from 'lucide-react';
-import { getProfile, type Profile } from '@/app/data/api';
-import {
-  getMockDataForProfile,
-  getStoriesForPoint,
-  getPointPositionCounts,
-  type ProfileMockData,
-} from '@/app/data/mock-profile-data';
-import type { Story, Point, PositionType } from '@/app/prototypes/shared/types';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Pin } from 'lucide-react';
+import { pointsService } from '@/app/data/points-service';
+import type { PointWithCounts, PointPositionWithUser, PositionType } from '@/app/types';
 import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
@@ -25,52 +19,33 @@ import {
   PositionButtons,
   FilterTabs,
   ShareButton,
-  MobileTooltip,
   type PositionFilter,
+  type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
-import {
-  StoryCardDetail,
-  type StoryAuthor,
-  type CredibilityStats,
-} from '@/app/components/social/StoryCardDetail';
 
-// Mock user data for demo
-interface MockUser {
-  id: string;
-  name: string;
-  role?: string;
-  company?: string;
-  hasPledged: boolean;
+/** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
+function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
+  return {
+    strongly_agree: counts.strongly_agree ?? 0,
+    agree: counts.agree ?? 0,
+    somewhat_agree: counts.somewhat_agree ?? 0,
+    unsure: counts.unsure ?? 0,
+    somewhat_disagree: counts.somewhat_disagree ?? 0,
+    disagree: counts.disagree ?? 0,
+    strongly_disagree: counts.strongly_disagree ?? 0,
+  };
 }
-
-// Mock users for position holders who don't have a profile
-const mockUsers: Record<string, MockUser> = {
-  user1: { id: 'user1', name: 'Alice Thompson', role: 'Product Manager', company: 'TechCorp', hasPledged: true },
-  user2: { id: 'user2', name: 'Bob Chen', role: 'Engineer', company: 'StartupXYZ', hasPledged: false },
-  user3: { id: 'user3', name: 'Carol Williams', role: 'Designer', hasPledged: true },
-};
-
-const mockUserCredibility: Record<string, CredibilityStats> = {
-  user1: { ear: 5, mic: 3 },
-  user2: { ear: 2, mic: 1 },
-  user3: { ear: 8, mic: 6 },
-};
 
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [mockData, setMockData] = useState<ProfileMockData | null>(null);
-  const [point, setPoint] = useState<Point | null>(null);
+  const [point, setPoint] = useState<PointWithCounts | null>(null);
+  const [positions, setPositions] = useState<PointPositionWithUser[]>([]);
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-
-  // Get referrer profile ID from query params (e.g., /point/pt1?from=profile-uuid)
-  const referrerProfileId = searchParams.get('from');
 
   useEffect(() => {
     async function loadData() {
@@ -81,47 +56,19 @@ export function PointDetailPage() {
       }
 
       try {
-        // If we have a referrer profile, use that to generate mock data
-        let profileData: Profile | null = null;
+        const [pointData, positionData] = await Promise.all([
+          pointsService.getPointWithCounts(id),
+          pointsService.getPositionsForPoint(id),
+        ]);
 
-        if (referrerProfileId) {
-          profileData = await getProfile(referrerProfileId);
-        }
-
-        // If no referrer or referrer not found, use a generic mock profile
-        // This allows direct links to work without a profile context
-        if (!profileData) {
-          // Create a minimal mock profile for generic point viewing
-          profileData = {
-            id: 'generic-user',
-            name: 'Anonymous',
-            email: '',
-            slug: 'anonymous',
-            hasPledged: false,
-            isVerified: true,
-            role: null,
-            linkedinUrl: null,
-            reason: null,
-            signedAt: null,
-          };
-        }
-
-        setProfile(profileData);
-
-        // Generate mock data for this profile
-        const data = getMockDataForProfile(profileData);
-        setMockData(data);
-
-        // Find the point
-        const foundPoint = data.points.find(p => p.id === id);
-        if (!foundPoint) {
+        if (!pointData) {
           setError('not_found');
           setLoading(false);
           return;
         }
 
-        setPoint(foundPoint);
-        setUserPosition((foundPoint.positions['current']?.position as PositionType) || null);
+        setPoint(pointData);
+        setPositions(positionData);
         setLoading(false);
       } catch (err) {
         console.error('Error loading point:', err);
@@ -131,94 +78,41 @@ export function PointDetailPage() {
     }
 
     loadData();
-  }, [id, referrerProfileId, retryKey]);
-
-  // Get linked stories
-  const linkedStories = useMemo(() => {
-    if (!point || !mockData) return [];
-    return getStoriesForPoint(point, mockData);
-  }, [point, mockData]);
+  }, [id, retryKey]);
 
   // Group positions by stance
-  type PositionHolder = {
-    userId: string;
-    position: PositionType;
-    user: MockUser | null;
-    credibility: CredibilityStats;
-    story?: Story;
-  };
-
   const positionGroups = useMemo(() => {
-    if (!point || !mockData) return { agree: [], disagree: [], unsure: [] };
-
-    const groups: Record<PositionButtonGroup, PositionHolder[]> = {
+    const groups: Record<PositionButtonGroup, PointPositionWithUser[]> = {
       agree: [],
       disagree: [],
       unsure: [],
     };
 
-    for (const [userId, entry] of Object.entries(point.positions)) {
-      if (userId === 'current' || !entry?.position) continue;
-
-      const group = getPositionGroup(entry.position as PositionType);
-
-      // Get user info
-      let user: MockUser | null = null;
-      let credibility: CredibilityStats = { ear: 0, mic: 0 };
-
-      if (userId === profile?.id) {
-        user = {
-          id: profile.id,
-          name: profile.name,
-          role: profile.role || undefined,
-          hasPledged: profile.hasPledged,
-        };
-        credibility = mockData.credibilityStats;
-      } else if (mockUsers[userId]) {
-        user = mockUsers[userId];
-        credibility = mockUserCredibility[userId] || { ear: 0, mic: 0 };
-      }
-
-      // Find linked story for this user
-      const story = linkedStories.find(s => s.authorId === userId);
-
-      groups[group].push({
-        userId,
-        position: entry.position as PositionType,
-        user,
-        credibility,
-        story,
-      });
+    for (const pos of positions) {
+      const group = getPositionGroup(pos.position as PositionType);
+      groups[group].push(pos);
     }
 
     return groups;
-  }, [point, mockData, profile, linkedStories]);
+  }, [positions]);
 
   // Position counts for filter tabs
   const positionCounts = useMemo(() => {
     if (!point) return { all: 0, agree: 0, disagree: 0, unsure: 0 };
-    const counts = getPointPositionCounts(point);
+    const counts = toSevenPointCounts(point.positionCounts);
     return {
-      all: Object.keys(point.positions).filter(id => id !== 'current').length,
+      all: point.totalPositions,
       agree: counts.agree + counts.strongly_agree + counts.somewhat_agree,
       disagree: counts.disagree + counts.strongly_disagree + counts.somewhat_disagree,
       unsure: counts.unsure,
     };
   }, [point]);
 
-  // Counts for position buttons (adjusted based on user's position)
+  // Counts for position buttons
   const buttonCounts = useMemo(() => {
-    const base = {
-      strongly_agree: 0,
-      agree: positionCounts.agree,
-      somewhat_agree: 0,
-      unsure: positionCounts.unsure,
-      somewhat_disagree: 0,
-      disagree: positionCounts.disagree,
-      strongly_disagree: 0,
-    };
-    return base;
-  }, [positionCounts]);
+    if (!point) return toSevenPointCounts({});
+    return toSevenPointCounts(point.positionCounts);
+  }, [point]);
 
   const handlePositionClick = (position: PositionType) => {
     // Toggle: clicking same position removes it
@@ -227,7 +121,6 @@ export function PointDetailPage() {
 
   // Helper to navigate back safely
   const handleBack = () => {
-    // Check if we came from within the app (not a direct link)
     const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
     if (isInternalReferrer) {
       navigate(-1);
@@ -236,25 +129,14 @@ export function PointDetailPage() {
     }
   };
 
-  // Helper to retry loading — increment retryKey to re-trigger useEffect
+  // Helper to retry loading
   const handleRetry = useCallback(() => {
     setError(null);
     setLoading(true);
-    setProfile(null);
-    setMockData(null);
     setPoint(null);
+    setPositions([]);
     setRetryKey(k => k + 1);
   }, []);
-
-  // Routes for components
-  const routes = useMemo(
-    () => ({
-      story: (storyId: string) => `/story/${storyId}`,
-      point: (pointId: string) => `/point/${pointId}?from=${profile?.id}`,
-      profile: (profileId: string) => `/p/${profile?.slug || profileId}`,
-    }),
-    [profile]
-  );
 
   if (loading) {
     return (
@@ -277,21 +159,21 @@ export function PointDetailPage() {
             </div>
           </div>
         </div>
-        {/* Skeleton for stories section */}
+        {/* Skeleton for positions section */}
         <div className="bg-card border border-border rounded-lg overflow-hidden animate-pulse">
           <div className="flex border-b border-gray-100">
             <div className="flex-1 h-12 bg-gray-100" />
           </div>
           <div className="p-4 space-y-3">
-            <div className="h-24 bg-muted rounded" />
-            <div className="h-24 bg-muted rounded" />
+            <div className="h-16 bg-muted rounded" />
+            <div className="h-16 bg-muted rounded" />
           </div>
         </div>
       </div>
     );
   }
 
-  if (error || !point || !mockData) {
+  if (error || !point) {
     const isNetworkError = error === 'network_error';
     const errorMessage = isNetworkError
       ? 'Failed to load point. Please check your connection.'
@@ -343,15 +225,20 @@ export function PointDetailPage() {
         <div className="p-4">
           {/* Two-column layout */}
           <div className="flex gap-3">
-            {/* Pin icon - blue to distinguish from Stories */}
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
+            {/* Pin icon */}
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-blue-600 dark:text-blue-400">
               <Pin size={20} />
             </div>
 
             {/* Content column */}
             <div className="flex-1 min-w-0">
               {/* Point text */}
-              <p className="text-foreground font-medium text-lg mb-3">{point.text}</p>
+              <p className="text-foreground font-medium text-lg mb-3">{point.statement}</p>
+
+              {/* Context (if present) */}
+              {point.context && (
+                <p className="text-sm text-muted-foreground mb-3 italic">{point.context}</p>
+              )}
 
               {/* Position buttons (interactive) */}
               <PositionButtons
@@ -364,12 +251,12 @@ export function PointDetailPage() {
         </div>
 
         {/* Footer with share button */}
-        <div className="flex items-center justify-end px-4 py-3 border-t border-gray-100">
-          <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} />
+        <div className="flex items-center justify-end px-4 py-3 border-t border-border">
+          <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
         </div>
       </div>
 
-      {/* Linked Stories section */}
+      {/* Positions section */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {/* Filter tabs */}
         <FilterTabs
@@ -378,7 +265,7 @@ export function PointDetailPage() {
           counts={positionCounts}
         />
 
-        {/* Stories by position */}
+        {/* Position holders by stance */}
         <div className="p-4 space-y-4">
           {positionsToShow.map(positionGroup => {
             const holdersInGroup = positionGroups[positionGroup];
@@ -397,50 +284,22 @@ export function PointDetailPage() {
 
             return (
               <div key={positionGroup} className="space-y-3">
-                {holdersInGroup.map(holder => {
-                  if (holder.story && holder.user) {
-                    // Show StoryCardDetail for users with stories
-                    const author: StoryAuthor = {
-                      id: holder.user.id,
-                      name: holder.user.name,
-                      role: holder.user.role,
-                      hasPledged: holder.user.hasPledged,
-                    };
-
-                    return (
-                      <StoryCardDetail
-                        key={holder.userId}
-                        story={holder.story}
-                        author={author}
-                        authorCredibility={holder.credibility}
-                        linkedPoints={[]} // Don't show linked points in this context
-                        getPointPositionCounts={getPointPositionCounts}
-                        context="point-detail"
-                        authorPosition={holder.position}
-                        routes={routes}
-                      />
-                    );
-                  }
-
-                  // Position holder without a story
-                  return (
-                    <PositionOnlyCard
-                      key={holder.userId}
-                      user={holder.user}
-                      userId={holder.userId}
-                      position={holder.position}
-                      credibility={holder.credibility}
-                      onProfileClick={() => {
-                        if (holder.userId === profile?.id) {
-                          navigate(routes.profile(profile.id));
-                        }
-                      }}
-                    />
-                  );
-                })}
+                {holdersInGroup.map(holder => (
+                  <PositionHolderCard
+                    key={holder.id}
+                    holder={holder}
+                    onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
+                  />
+                ))}
               </div>
             );
           })}
+
+          {positions.length === 0 && (
+            <p className="text-center text-muted-foreground text-sm py-6">
+              No one has taken a position yet
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -448,82 +307,45 @@ export function PointDetailPage() {
 }
 
 /**
- * Compact card for position holders without a story
- * Styled consistently with StoryCardDetail patterns
+ * Card showing a position holder with their stance
  */
-function PositionOnlyCard({
-  user,
-  userId,
-  position,
-  credibility,
+function PositionHolderCard({
+  holder,
   onProfileClick,
 }: {
-  user: MockUser | null;
-  userId: string;
-  position: PositionType;
-  credibility: CredibilityStats;
-  onProfileClick?: () => void;
+  holder: PointPositionWithUser;
+  onProfileClick: () => void;
 }) {
-  const name = user?.name || `User ${userId.slice(0, 6)}`;
-  const hasPledged = user?.hasPledged || false;
-  const role = user?.role;
-  const company = user?.company;
-
   return (
     <div
-      role={onProfileClick ? 'button' : undefined}
-      tabIndex={onProfileClick ? 0 : undefined}
+      role="button"
+      tabIndex={0}
       onClick={onProfileClick}
-      onKeyDown={
-        onProfileClick
-          ? e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onProfileClick();
-              }
-            }
-          : undefined
-      }
-      className={`group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border ${onProfileClick ? 'cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none' : ''} transition-colors`}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onProfileClick();
+        }
+      }}
+      className="group flex items-center gap-3 p-3 bg-muted rounded-lg border border-border cursor-pointer hover:bg-accent hover:border-border focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none transition-colors"
     >
       {/* Avatar */}
       <GravatarAvatar
-        name={name}
+        name={holder.userName}
         size="sm"
-        isPledger={hasPledged}
         className="!w-5 !h-5 !text-[10px]"
       />
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          {/* Name */}
-          <span className="font-medium text-foreground text-sm truncate">{name}</span>
-          {/* Credibility - ear count */}
-          {credibility.ear > 0 && (
-            <MobileTooltip
-              content={`${name.split(' ')[0]} understood ${credibility.ear} ${credibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-            >
-              <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-                <Ear size={12} />
-                {credibility.ear}
-              </span>
-            </MobileTooltip>
-          )}
-          {/* Position badge */}
-          <PositionBadge position={position} />
+          <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
+          <PositionBadge position={holder.position} />
         </div>
-        {/* Role metadata */}
-        {(role || company) && (
-          <p className="text-xs text-muted-foreground truncate">
-            {role}
-            {company && ` at ${company}`}
-          </p>
+        {holder.reasoning && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{holder.reasoning}</p>
         )}
       </div>
-
-      {/* No story indicator */}
-      <span className="text-xs text-muted-foreground italic flex-shrink-0">No story yet</span>
     </div>
   );
 }

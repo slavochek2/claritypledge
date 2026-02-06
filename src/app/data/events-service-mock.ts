@@ -1,5 +1,5 @@
 import type { EventsService, CreateEventInput } from './events-service.interface';
-import type { EventWithHost, EventAttendee } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventSubRoomWithProfiles } from '@/app/types';
 // Mock data archived after P61.1 production backend implementation
 import {
   getUpcomingEvents as mockGetUpcoming,
@@ -263,5 +263,27 @@ export const mockEventsService: EventsService = {
       .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
       .slice(0, limit)
       .map(toEventWithHost);
+  },
+
+  // P124: Event Sub-Rooms (mock stubs — return empty/no-op for mock mode)
+
+  async getEventSubRooms(_eventId: string): Promise<EventSubRoomWithProfiles[]> {
+    return [];
+  },
+
+  async createSubRoom(_eventId: string, _targetId: string): Promise<EventSubRoomWithProfiles | null> {
+    return null;
+  },
+
+  async joinSubRoom(_subRoomId: string): Promise<{ sessionCode: string } | null> {
+    return null;
+  },
+
+  async cancelSubRoom(_subRoomId: string): Promise<boolean> {
+    return true;
+  },
+
+  async completeSubRoom(_subRoomId: string): Promise<boolean> {
+    return true;
   },
 };

@@ -193,11 +193,9 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
 
         {/* Spec readiness */}
         {feature.prepped && (
-          <div>
-            <span style={{ ...tagStyle, background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }}>
-              prepped
-            </span>
-          </div>
+          <span style={{ ...tagStyle, background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }}>
+            prepped
+          </span>
         )}
 
         {/* Tags */}
@@ -221,20 +219,16 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
 
         {/* Milestone */}
         {feature.milestone && (
-          <div>
-            <span style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}>
-              {feature.milestone}
-            </span>
-          </div>
+          <span style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}>
+            {feature.milestone}
+          </span>
         )}
 
         {/* Hypothesis */}
         {feature.hypothesis && (
-          <div>
-            <span style={{ ...tagStyle, background: 'var(--tag-yellow-bg)', color: 'var(--tag-yellow-text)' }}>
-              {feature.hypothesis}
-            </span>
-          </div>
+          <span style={{ ...tagStyle, background: 'var(--tag-yellow-bg)', color: 'var(--tag-yellow-text)' }}>
+            {feature.hypothesis}
+          </span>
         )}
       </div>
 

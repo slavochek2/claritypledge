@@ -15,7 +15,7 @@ import type { StoryWithAuthor, PointWithCreator } from '@/app/types';
 
 interface LiveStoryCardProps {
   story: StoryWithAuthor;
-  onSelect: (storyId: string, title: string) => void;
+  onSelect: (storyId: string, label: string) => void;
   disabled?: boolean;
 }
 
@@ -28,13 +28,12 @@ export function LiveStoryCard({ story, onSelect, disabled }: LiveStoryCardProps)
   return (
     <button
       type="button"
-      onClick={() => onSelect(story.id, story.title)}
+      onClick={() => onSelect(story.id, preview)}
       disabled={disabled}
       className="w-full text-left bg-card rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       data-testid={`live-story-card-${story.id}`}
     >
-      <p className="text-sm font-medium text-foreground line-clamp-2">{story.title}</p>
-      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{preview}</p>
+      <p className="text-sm font-medium text-foreground line-clamp-2">{preview}</p>
       <p className="text-xs text-muted-foreground mt-2">
         {story.understoodCount} understood
       </p>
@@ -96,7 +95,7 @@ export function ContentPicker({
     if (!searchQuery.trim()) return stories;
     const q = searchQuery.toLowerCase();
     return stories.filter(s =>
-      s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q)
+      s.content.toLowerCase().includes(q)
     );
   }, [stories, searchQuery]);
 
@@ -234,8 +233,7 @@ export function SelectedContentDisplay({ story, point }: SelectedContentDisplayP
     <div className="w-full max-w-sm" data-testid="selected-content-display">
       {story && (
         <div className="bg-muted border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground">{story.title}</p>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-3">{story.content}</p>
+          <p className="text-sm font-semibold text-foreground line-clamp-2">{story.content}</p>
         </div>
       )}
       {point && (

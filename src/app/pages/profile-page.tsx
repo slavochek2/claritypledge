@@ -451,8 +451,7 @@ export function ProfilePage() {
                   <div className="space-y-4">
                     {stories.map((story) => (
                       <div key={story.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                        <h3 className="font-medium text-foreground">{story.title}</h3>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-3">{story.content}</p>
+                        <p className="font-medium text-foreground line-clamp-3">{story.content}</p>
                         <div className="flex flex-wrap gap-1 mt-2">
                           {story.tags.map((tag) => (
                             <span
