@@ -501,16 +501,7 @@ export function ProfilePageV2() {
             {contentTab === 'stories' ? (
               userStories.length === 0 ? (
                 <div className="bg-card rounded-lg p-8 text-center">
-                  <p className="text-muted-foreground mb-4">No stories shared yet</p>
-                  {isOwner && (
-                    <button
-                      onClick={handleCreateClick}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      <Sparkles size={16} />
-                      Share your first story
-                    </button>
-                  )}
+                  <p className="text-muted-foreground">No stories shared yet</p>
                 </div>
               ) : (
                 userStories.map((story) => (
