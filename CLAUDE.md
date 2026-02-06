@@ -112,6 +112,30 @@ When estimating task duration, account for AI capabilities. Don't give estimates
 
 This isn't criticism — it's a known pattern that delays validation. The fastest path to certainty is testing, not thinking.
 
+## Plan Mode — No Writing, Just Planning
+
+> **Rule:** In plan mode, do NOT write spec content into the plan file. Plan mode is for exploration and decision-making only.
+
+**What plan mode is for:**
+- Exploring the codebase (Read, Grep, Glob)
+- Asking clarifying questions (AskUserQuestion)
+- Making architectural decisions with the user
+- Outlining an approach (brief bullet points in the plan file are OK)
+
+**What plan mode is NOT for:**
+- Writing full specs, feature files, or documentation
+- Creating code or detailed implementation plans
+- Working around the "can't create files" restriction by stuffing content into the plan file
+
+**If the user asks you to write a spec or create a file while in plan mode:**
+1. Tell them: "I'm in plan mode — I can't create files. Say 'approve' on the ExitPlanMode prompt so I can write the spec as a proper feature file."
+2. Call `ExitPlanMode` immediately
+3. Do NOT write the spec into the plan file as a workaround
+
+**If you're stuck in plan mode:** Keep calling `ExitPlanMode`. Explain to the user: "I need to exit plan mode to create files. Please approve the exit."
+
+**The user exits plan mode by:** Approving the `ExitPlanMode` tool call. There is no separate user command.
+
 ## Risky Operations — Worktree Protection
 
 > **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
@@ -796,6 +820,13 @@ tags: [tag1, tag2]              # optional
 **Required:** `status` — determines kanban column placement
 
 **Kanban workflow:** Backlog → Week → Today → In Progress → Done
+
+**Feature number conflicts across worktrees:**
+
+When multiple worktrees create features simultaneously, `p{N}` numbers can collide. Handle at merge (KISS):
+- If merging a branch that has a `p{N}` conflicting with main, rename the incoming feature file and update all references
+- Don't try to prevent conflicts at creation time — the added complexity isn't worth it for a rare edge case
+- The person merging resolves it in 30 seconds
 
 ### Generated artifacts (OK to create)
 

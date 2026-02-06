@@ -6,7 +6,14 @@ Shape rough ideas into a blog post ready for `/slava:ship-blog`.
 
 **Read these first:**
 - `content/voice.md` — how Slava sounds (do's, don'ts, vocabulary, citation standards)
-- `content/strategy.md` — what he writes about and why (build in public, audience, hidden current)
+- `content/strategy.md` — what they write about and why (build in public, audience, hidden current)
+
+**If the post belongs to a series** (check frontmatter for `series:` field):
+- Read the series epic at `content/blog/_series-{name}.md`
+- Follow the "Keep" and "Trim" specs for that specific post
+- Read any completed earlier posts in the series (for continuity, no repetition)
+- Include the CTA and hand-off defined in the epic
+- Ensure the post builds on what came before and sets up what comes after
 
 Every post must follow voice.md. If it sounds like a marketing article, it's wrong. If it sounds like Slava talking to a smart friend, it's right.
 
@@ -81,7 +88,9 @@ When approved, save draft to `content/blog/{slug}.md` with frontmatter:
 ---
 title: "Post Title"
 status: preparing
-sequence: manifesto-1    # optional, for series
+series: manifesto         # optional — links to epic at _series-{name}.md
+series_order: 1           # position in series (if applicable)
+series_total: 7           # total posts in series (if applicable)
 ---
 ```
 

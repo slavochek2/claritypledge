@@ -59,7 +59,8 @@ Ghost uses two separate email channels:
 | Mailgun base URL | `https://api.eu.mailgun.net/v3` |
 | Accent color | `#3b82f6` (blue-500) |
 | Icon & logo | Clarity "C" mark (blue rounded rect) |
-| Navigation | Blog (/), Clarity Pledge (claritypledge.com) |
+| Primary nav | (empty — Ghost's default header is hidden; custom nav injected via Code Injection) |
+| Secondary nav (footer) | Home (claritypledge.com), Privacy Policy (/privacy-policy), Terms of Service (/terms-of-service) |
 
 ### Publishing a Newsletter
 
@@ -148,6 +149,56 @@ gcloud compute ssh ghost-prod --zone=us-central1-a --command=\
   'https://api.eu.mailgun.net/v3/mg.claritypledge.com/events?limit=5' \
   | python3 -m json.tool"
 ```
+
+## Code Injection (Site Header)
+
+Custom CSS/JS injected via Ghost Admin → Settings → Advanced → Code Injection → Site Header.
+
+**What it does:**
+1. **Custom navigation** — Replaces Ghost's default header with a nav bar matching claritypledge.com (non-logged-in view)
+   - Desktop: C logo + "Clarity Pledge" wordmark, nav links (Events, Pledgers, Manifesto, About), "Start a Clarity Session" CTA, hamburger dropdown (Co-create, Take the Pledge, Log In, Create Account)
+   - Mobile: Logo + wordmark, hamburger → full-width panel with CTA, nav links, and menu items
+   - All links point to `claritypledge.com/*` (blog is a satellite site)
+   - Scroll effect: transparent → frosted glass with border on scroll
+2. **Layout** — Hero section fills full viewport height (`min-height: calc(100vh - nav)`) with centered content, pushing footer below the fold
+3. **Custom footer** — Replaces Ghost's default footer with a design matching claritypledge.com exactly:
+   - 3-column grid: Explore (Home, Blog, Pledgers, About) | Legal (Privacy Policy, Terms of Service) | empty
+   - Bottom section: centered divider, GitHub "Open Source (AGPL-3.0)" link, "© 2026 The Clarity Pledge"
+   - Mobile: single-column stacked layout
+4. **Conditional** — `body.no-posts` class hides empty feed (only when no posts exist)
+
+**Technical approach:**
+- Ghost's default `header.gh-navigation` is hidden via CSS (`display: none`)
+- Custom nav is built via JS `document.createElement` and prepended to `body`
+- `.gh-viewport` gets `padding-top` to account for the fixed nav (64px mobile, 80px desktop)
+- Ghost's default footer elements (`.gh-footer-menu`, `.gh-footer-copyright`, `.gh-footer-logo`) are hidden
+- Custom footer structure (`cp-footer-columns`, `cp-footer-col`, `cp-footer-bottom`) is built via JS and injected into `.gh-footer-bar`
+- All CSS classes use `.cp-` prefix to avoid Ghost conflicts
+- Link colors use `!important` to override Ghost theme defaults
+- Desktop dropdown and mobile panel are toggled via vanilla JS
+
+**Code is ~300 lines (CSS + JS).** Too large to embed here — edit via Ghost Admin → Code Injection.
+
+**Key CSS classes:**
+| Class | Purpose |
+|-------|---------|
+| `.cp-nav` | Fixed nav container |
+| `.cp-nav-logo` | Logo + wordmark link |
+| `.cp-nav-right` | Desktop right section (hidden on mobile) |
+| `.cp-cta` | Blue CTA button |
+| `.cp-btn` / `.cp-drop` | Desktop hamburger + dropdown |
+| `.cp-mob-btn` / `.cp-mob` | Mobile hamburger + panel |
+| `.cp-footer-columns` | Footer 3-column grid |
+| `.cp-footer-col` | Footer column (Explore / Legal) |
+| `.cp-footer-bottom` | Footer bottom section (centered, with divider) |
+
+**Notes:**
+- `body.no-posts` rules are conditional — only apply when no posts exist. When posts are added, the JS won't add the class and normal theme styling applies.
+- `.gh-footer-signup` and `.gh-footer-logo` are always hidden (unconditional) — the hero subscribe form is sufficient.
+- CSS `:empty` does NOT work on Ghost templates (whitespace text nodes in `.gh-feed`). Use JS `children.length === 0` instead.
+- Footer links use `rgb(113, 113, 122)` — same zinc-500 palette as the main site's `text-muted-foreground`.
+- Ghost's default "Powered by Ghost" is hidden — replaced by our custom footer bottom section.
+- Ghost's built-in search is no longer accessible (hidden with the default header). Can be re-added later if needed.
 
 ## Decisions
 

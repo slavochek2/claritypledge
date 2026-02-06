@@ -58,14 +58,14 @@ lsof -ti:9050,9051 | xargs kill
 ---
 status: backlog | week | today | in-progress | blocked | done  # REQUIRED
 type: bug | task | story
-priority: p0 | p1 | p2 | p3
+priority: p0 | p1 | p2 | p3   # strategic bucket (see Priority Model below)
 size: xs | s | m | l | xl
 milestone: first-revenue
 blocked_by: [p105, p106]
 hypothesis: H-Biz
 tags: [validation, dx]
 completed_at: '2026-02-04'  # Set automatically when moving to done
-sort_order: 1.5            # For within-column ordering
+sort_order: 1.5            # For within-bucket ordering (see Priority Model below)
 ---
 
 # P123: Feature Title
@@ -74,6 +74,26 @@ sort_order: 1.5            # For within-column ordering
 ```
 
 **Required:** `status` field determines kanban column placement
+
+## Priority Model
+
+Priority has two layers:
+
+**Strategic bucket (`priority`)** — Which tier of importance:
+
+| Bucket | Meaning | Example |
+|--------|---------|---------|
+| `p0` | Critical — active GTM, core product | Demo kit, sifter prototype |
+| `p1` | High — important, supports current focus | Newsletter automation, live verification |
+| `p2` | Medium — valuable but not urgent | Sales playbook, event publishing |
+| `p3` | Low — nice to have, do when time allows | Polish, minor improvements |
+| *(none)* | **Out of scope** — not prioritized for near future | Future epics, pivots not pursuing, internal tooling |
+
+**Tactical ordering (`sort_order`)** — Position within a column/group. Set by drag-and-drop. Fractional (e.g., inserting between 2.0 and 3.0 gets 2.5).
+
+**Rule:** If a feature is `in-progress`, `today`, or `week`, it should have a priority. No-priority means "not considering right now." If you're actively working on it, give it a bucket.
+
+**Mapping from other frameworks:** Any prioritization framework (Eisenhower urgent/important, MoSCoW, RICE, etc.) maps into these buckets. The bucket is the output, not the framework.
 
 ## Card Badges
 
@@ -90,8 +110,6 @@ sort_order: 1.5            # For within-column ordering
 
 - **Between columns:** Changes status (moves card to new column)
 - **Within column:** Reorders cards (updates `sort_order` in frontmatter)
-
-Fractional ordering is used for within-column reorder (e.g., inserting between 2.0 and 3.0 gets 2.5).
 
 ## Opening Files
 

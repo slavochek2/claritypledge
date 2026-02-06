@@ -1,7 +1,9 @@
 ---
 title: "I Got It. We Don't Need to Waste Time on This."
 status: preparing
-sequence: manifesto-1
+series: manifesto
+series_order: 1
+series_total: 7
 ---
 
 # "I Got It. We Don't Need to Waste Time on This."

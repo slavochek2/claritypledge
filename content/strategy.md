@@ -99,11 +99,26 @@ user reviews         →  (status: review)
 ---
 title: "Post Title"
 status: draft | preparing | review | published
-sequence: manifesto-1    # optional, for series
+series: manifesto         # optional — links to epic at _series-{name}.md
+series_order: 1           # position in series
+series_total: 7           # total posts in series
 ---
 ```
 
+**Series epics** live at `content/blog/_series-{name}.md` (underscore prefix = meta-doc, not a post). They define the full series: strategy, per-post specs, agent instructions. All content agents read the epic before working on any post in the series.
+
 **Raw stories stay in `content/stories/`.** They're source material, not blog posts. Blog posts live in `content/blog/`.
+
+## Newsletter Structure
+
+Two Ghost newsletters, separate streams:
+
+| Newsletter | Content | Cadence |
+|-----------|---------|---------|
+| **Manifesto Series** | The 7-post manifesto sequence | Drip for new subscribers (automated later; manual at first) |
+| **Clarity Notes** | Build-in-public, AI coding, events, reflections | Whenever Slava writes |
+
+New subscribers get both by default. Ghost tags (`manifesto-series`) keep them visually distinct on the blog. A "Start Here" page links the manifesto posts in order for archive readers.
 
 ## How Skills Use This
 
