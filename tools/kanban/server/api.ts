@@ -1,6 +1,6 @@
 import express from 'express'
 import cors from 'cors'
-import { readdir, readFile, rename } from 'fs/promises'
+import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
@@ -64,8 +64,8 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
 }
 
 // Valid values for enum fields
-const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done']
-const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story']
+const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'rejected']
+const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story', 'comment']
 const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
 const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
 
@@ -105,7 +105,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       // Backward compat: files in done/ folder without status frontmatter
       status = 'done'
     } else if (filePath.includes('/archive/')) {
-      status = 'done'
+      status = 'rejected'
     }
 
     // Parse optional type (first-class badge)
@@ -326,20 +326,31 @@ app.patch('/api/features/:id', async (req, res) => {
       }
     }
 
-    // Move to/from done folder based on status
+    // Move files to correct folder based on status
     const featuresDir = getFeaturesDir(worktreePath)
-    if (status === 'done' && !feature.path.includes('/done/')) {
+    const isInDone = feature.path.includes('/done/')
+    const isInArchive = feature.path.includes('/archive/')
+    const isInSubfolder = isInDone || isInArchive
+
+    if (status === 'done' && !isInDone) {
       const newPath = join(featuresDir, 'done', basename(feature.path))
       await rename(feature.path, newPath)
-      // Update path in cache
       if (cachedFeatures) {
         const cachedFeature = cachedFeatures.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath
       }
-    } else if (status && status !== 'done' && feature.path.includes('/done/')) {
+    } else if (status === 'rejected' && !isInArchive) {
+      await mkdir(join(featuresDir, 'archive'), { recursive: true })
+      const newPath = join(featuresDir, 'archive', basename(feature.path))
+      await rename(feature.path, newPath)
+      if (cachedFeatures) {
+        const cachedFeature = cachedFeatures.find((f) => f.id === id)
+        if (cachedFeature) cachedFeature.path = newPath
+      }
+    } else if (status && status !== 'done' && status !== 'rejected' && isInSubfolder) {
+      // Moving out of done/ or archive/ back to active
       const newPath = join(featuresDir, basename(feature.path))
       await rename(feature.path, newPath)
-      // Update path in cache
       if (cachedFeatures) {
         const cachedFeature = cachedFeatures.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath

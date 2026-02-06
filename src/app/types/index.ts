@@ -612,6 +612,22 @@ export interface LiveSessionState {
     // Current negotiation state
     state: 'pending' | 'speaker-asked-to-explain' | 'listener-insists';
   };
+
+  // ============================================================================
+  // P128: Content selection for /live beginning screen
+  // ============================================================================
+
+  // Selected story for content-attached verification
+  selectedStoryId?: string;
+
+  // Selected point for content-attached verification
+  selectedPointId?: string;
+
+  // Title of selected content (for session history display)
+  selectedContentTitle?: string;
+
+  // Session history: completed verifications in this session (checkmarks only, no scores)
+  sessionHistory?: Array<{ title: string; type: 'story' | 'point' | 'free' }>;
 }
 
 /** Default initial state for new live sessions */
@@ -794,11 +810,14 @@ export const POSITION_LABELS: Record<PositionType, string> = {
 // Stories
 // ----------------------------------------------------------------------------
 
+export type StoryVisibility = 'public' | 'shared' | 'private';
+
 export interface Story {
   id: string;
   authorId: string;
   title: string;
   content: string;
+  visibility: StoryVisibility;
   currentVersion: number;
   understoodCount: number; // distinct listeners with ≥8/10 accuracy
   createdAt: string;
@@ -822,8 +841,9 @@ export interface StoryWithPoints extends StoryWithAuthor {
 export interface DbStory {
   id: string;
   author_id: string;
-  title: string;
+  title?: string;
   content: string;
+  visibility: StoryVisibility;
   current_version: number;
   understood_count: number;
   created_at: string;
@@ -839,7 +859,7 @@ export interface StoryVersion {
   id: string;
   storyId: string;
   versionNumber: number;
-  title: string;
+  title?: string;
   content: string;
   createdAt: string;
 }
@@ -848,7 +868,7 @@ export interface DbStoryVersion {
   id: string;
   story_id: string;
   version_number: number;
-  title: string;
+  title?: string;
   content: string;
   created_at: string;
 }

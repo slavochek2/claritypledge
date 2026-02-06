@@ -10,6 +10,7 @@ const TYPE_PREFIX: Record<FeatureType, string> = {
   story: '[US]',
   task: '[T]',
   bug: '[B]',
+  comment: '[C]',
 }
 
 interface FocusPageProps {
@@ -26,6 +27,7 @@ const STATUS_ORDER: Record<Status, number> = {
   'week': 3,
   'backlog': 4,
   'done': 5,
+  'rejected': 6,
 }
 
 const PRIORITY_ORDER: Record<string, number> = {
@@ -73,6 +75,7 @@ const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  'rejected': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
 }
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -343,7 +346,7 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator }: FocusPag
     const unlinked: Feature[] = []
 
     for (const feature of features) {
-      if (feature.status === 'done') continue
+      if (feature.status === 'done' || feature.status === 'rejected') continue
       if (feature.hypothesis) {
         const existing = hypothesisMap.get(feature.hypothesis)
         if (existing) {

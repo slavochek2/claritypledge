@@ -34,9 +34,11 @@ interface LiveSessionBannerProps {
   title?: string;
   /** Whether this is a live session (shows Leave Session option) */
   isLiveMeeting?: boolean;
+  /** P128: returnTo URL — changes "Leave Session" to "Back to event" and navigates to URL */
+  returnTo?: string | null;
 }
 
-export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = true }: LiveSessionBannerProps) {
+export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = true, returnTo }: LiveSessionBannerProps) {
   const navigate = useNavigate();
   const displayPartnerName = partnerName ? getFirstName(partnerName) : '';
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
@@ -110,12 +112,18 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={onExit}
+                onClick={() => {
+                  if (returnTo) {
+                    navigate(returnTo);
+                  } else {
+                    onExit();
+                  }
+                }}
                 className="text-destructive focus:text-destructive"
                 data-testid="leave-meeting"
               >
                 <LogOut className="h-4 w-4 mr-2" />
-                Leave Session
+                {returnTo ? 'Back to event' : 'Leave Session'}
               </DropdownMenuItem>
             </>
           )}

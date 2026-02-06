@@ -1,8 +1,8 @@
 // Status columns for Notion-style kanban
-export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done'
+export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done' | 'rejected'
 
 // Feature type badge (first-class badge)
-export type FeatureType = 'bug' | 'task' | 'story'
+export type FeatureType = 'bug' | 'task' | 'story' | 'comment'
 
 // Priority badge (first-class badge, AI-managed)
 export type Priority = 'p0' | 'p1' | 'p2' | 'p3'

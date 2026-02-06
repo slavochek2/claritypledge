@@ -9,6 +9,7 @@ import type {
   StoryWithAuthor,
   StoryWithPoints,
   StoryVersion,
+  StoryVisibility,
   PointSummary,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +24,7 @@ interface DbStoryWithAuthor {
   author_id: string;
   title: string;
   content: string;
+  visibility: StoryVisibility;
   current_version: number;
   understood_count: number;
   created_at: string;
@@ -67,6 +69,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     authorId: row.author_id,
     title: row.title,
     content: row.content,
+    visibility: row.visibility ?? 'public',
     currentVersion: row.current_version,
     understoodCount: row.understood_count,
     createdAt: row.created_at,
@@ -88,7 +91,6 @@ function mapVersionFromDb(row: DbStoryVersionRow): StoryVersion {
     id: row.id,
     storyId: row.story_id,
     versionNumber: row.version_number,
-    title: row.title,
     content: row.content,
     createdAt: row.created_at,
   };
@@ -114,9 +116,9 @@ export const realStoriesService: StoriesService = {
 
   async createStory(
     _authorId: string,
-    title: string,
     content: string,
-    tags: string[] = []
+    tags: string[] = [],
+    visibility: StoryVisibility = 'public'
   ): Promise<Story | null> {
     // Use authenticated user, not caller-supplied authorId (RLS requires auth.uid() match)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -125,15 +127,15 @@ export const realStoriesService: StoriesService = {
       return null;
     }
 
-    log(' createStory:', { authorId: user.id, title });
+    log(' createStory:', { authorId: user.id, visibility });
 
     const { data, error } = await supabase
       .from('stories')
       .insert({
         author_id: user.id,
-        title,
         content,
         tags,
+        visibility,
       })
       .select('*')
       .single();
@@ -148,6 +150,7 @@ export const realStoriesService: StoriesService = {
       authorId: data.author_id,
       title: data.title,
       content: data.content,
+      visibility: data.visibility ?? 'public',
       currentVersion: data.current_version,
       understoodCount: data.understood_count,
       createdAt: data.created_at,
@@ -313,14 +316,14 @@ export const realStoriesService: StoriesService = {
 
   async updateStory(
     storyId: string,
-    updates: { title?: string; content?: string; tags?: string[] }
+    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility }
   ): Promise<Story | null> {
     log(' updateStory:', { storyId, updates });
 
     const updateData: Record<string, unknown> = {};
-    if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.content !== undefined) updateData.content = updates.content;
     if (updates.tags !== undefined) updateData.tags = updates.tags;
+    if (updates.visibility !== undefined) updateData.visibility = updates.visibility;
 
     const { data, error } = await supabase
       .from('stories')
@@ -339,6 +342,7 @@ export const realStoriesService: StoriesService = {
       authorId: data.author_id,
       title: data.title,
       content: data.content,
+      visibility: data.visibility ?? 'public',
       currentVersion: data.current_version,
       understoodCount: data.understood_count,
       createdAt: data.created_at,

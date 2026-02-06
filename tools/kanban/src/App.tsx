@@ -46,6 +46,7 @@ const COLUMNS: ColumnConfig[] = [
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
   { id: 'done', title: 'Done Today', color: '#22c55e', filter: 'today' },
+  { id: 'rejected', title: 'Rejected', color: '#6b7280', defaultHidden: true },
 ]
 
 const ALL_DONE_COLUMN: ColumnConfig = {
@@ -56,7 +57,7 @@ const ALL_DONE_COLUMN: ColumnConfig = {
   filter: 'before-today',
 }
 
-const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done'])
+const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'rejected'])
 
 type ViewMode = 'active' | 'backlog' | 'all-done'
 const VIEW_MODE_KEY = 'kanban-view-mode'
@@ -363,15 +364,22 @@ export default function App() {
         .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
       const newSortOrder = calculateSortOrder(targetColumnFeatures, targetColumnFeatures.length)
 
+      const today = new Date().toISOString().split('T')[0]
+      const completed_at = newStatus === 'done' ? today : undefined
+
       setFeatures((prev) =>
-        prev.map((f) => (f.id === featureId ? { ...f, status: newStatus, sort_order: newSortOrder } : f))
+        prev.map((f) =>
+          f.id === featureId
+            ? { ...f, status: newStatus, sort_order: newSortOrder, ...(newStatus === 'done' ? { completed_at: today } : { completed_at: undefined }) }
+            : f
+        )
       )
 
       try {
         const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus, sort_order: newSortOrder }),
+          body: JSON.stringify({ status: newStatus, sort_order: newSortOrder, completed_at }),
         })
         if (!res.ok) throw new Error('Failed to update')
       } catch {
@@ -392,15 +400,22 @@ export default function App() {
     const newSortOrder = calculateSortOrder(columnFeatures, targetIndex)
 
     if (feature.status !== targetStatus) {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const cardCompleted = targetStatus === 'done' ? todayStr : undefined
+
       setFeatures((prev) =>
-        prev.map((f) => (f.id === featureId ? { ...f, status: targetStatus, sort_order: newSortOrder } : f))
+        prev.map((f) =>
+          f.id === featureId
+            ? { ...f, status: targetStatus, sort_order: newSortOrder, ...(targetStatus === 'done' ? { completed_at: todayStr } : { completed_at: undefined }) }
+            : f
+        )
       )
 
       try {
         const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: targetStatus, sort_order: newSortOrder }),
+          body: JSON.stringify({ status: targetStatus, sort_order: newSortOrder, completed_at: cardCompleted }),
         })
         if (!res.ok) throw new Error('Failed to update')
       } catch {
@@ -470,6 +485,7 @@ export default function App() {
   const visibleColumns = useMemo(() => {
     let cols = [...COLUMNS]
     if (viewMode !== 'backlog') cols = cols.filter((c) => c.id !== 'backlog')
+    if (viewMode !== 'all-done') cols = cols.filter((c) => c.id !== 'rejected')
     if (viewMode === 'all-done') cols.push(ALL_DONE_COLUMN)
     return cols
   }, [viewMode])

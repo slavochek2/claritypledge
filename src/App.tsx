@@ -30,6 +30,7 @@ const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => (
 const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
 const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m => ({ default: m.CollaboratePage })));
+const CreateStoryPage = lazy(() => import("@/app/pages/create-story-page").then(m => ({ default: m.CreateStoryPage })));
 const StoryDetailPage = lazy(() => import("@/app/pages/story-detail-page").then(m => ({ default: m.StoryDetailPage })));
 const PointDetailPage = lazy(() => import("@/app/pages/point-detail-page").then(m => ({ default: m.PointDetailPage })));
 
@@ -211,6 +212,17 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <PledgePage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/create"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <CreateStoryPage />
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />

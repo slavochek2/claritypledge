@@ -59,11 +59,10 @@ describe('realStoriesService', () => {
         }),
       });
 
-      const result = await realStoriesService.createStory('user-1', 'My Story', 'Story content', ['test']);
+      const result = await realStoriesService.createStory('user-1', 'Story content', ['test']);
 
       expect(result).not.toBeNull();
       expect(result?.id).toBe('story-1');
-      expect(result?.title).toBe('My Story');
       expect(result?.authorId).toBe('user-1');
       expect(result?.currentVersion).toBe(1);
       expect(result?.tags).toEqual(['test']);
@@ -72,7 +71,7 @@ describe('realStoriesService', () => {
     it('returns null when not authenticated', async () => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
 
-      const result = await realStoriesService.createStory('user-1', 'My Story', 'Content');
+      const result = await realStoriesService.createStory('user-1', 'Content');
 
       expect(result).toBeNull();
     });
@@ -86,7 +85,7 @@ describe('realStoriesService', () => {
         }),
       });
 
-      const result = await realStoriesService.createStory('user-1', 'My Story', 'Content');
+      const result = await realStoriesService.createStory('user-1', 'Content');
 
       expect(result).toBeNull();
     });
@@ -314,10 +313,10 @@ describe('realStoriesService', () => {
         }),
       });
 
-      const result = await realStoriesService.updateStory('story-1', { title: 'Updated Title' });
+      const result = await realStoriesService.updateStory('story-1', { content: 'Updated Content' });
 
       expect(result).not.toBeNull();
-      expect(result?.title).toBe('Updated Title');
+      expect(result?.content).toBe('Updated Content');
       expect(result?.currentVersion).toBe(2);
     });
 
@@ -330,7 +329,7 @@ describe('realStoriesService', () => {
         }),
       });
 
-      const result = await realStoriesService.updateStory('story-1', { title: 'New' });
+      const result = await realStoriesService.updateStory('story-1', { content: 'New' });
 
       expect(result).toBeNull();
     });

@@ -7,7 +7,7 @@
  * Route: /p/:id
  * Access: Public (all users with confirmed emails)
  */
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { getProfile, getProfileBySlug, createProfile, type Profile } from "@/app/data/api";
 import { SEO } from "@/app/components/seo";
@@ -46,7 +46,7 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from "@/app/prototypes/linkedin-like/components/shared";
-import type { PositionType, Position, Story, Point } from "@/app/prototypes/shared/types";
+import type { PositionType, Position, Story as ProtoStory, Point } from "@/app/prototypes/shared/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
 // P116: Import shared mock data utilities (DRY - don't duplicate)
 import {
@@ -55,6 +55,8 @@ import {
   formatTimeAgo,
   type MockUser,
 } from "@/app/data/mock-profile-data";
+import { storiesService } from "@/app/data/stories-service";
+import type { StoryWithAuthor } from "@/app/types";
 
 // Routes for detail pages (main app, not prototype)
 // Points include a 'from' param to provide profile context
@@ -81,6 +83,7 @@ export function ProfilePageV2() {
   // P115: Stories/Points/Calibration state
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
   const [mockData, setMockData] = useState<ReturnType<typeof getMockDataForProfile> | null>(null);
+  const [realStories, setRealStories] = useState<StoryWithAuthor[]>([]);
 
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
@@ -136,17 +139,23 @@ export function ProfilePageV2() {
     loadProfile();
   }, [id, currentUserId, currentUserSlug, profile]);
 
-  // Load mock data when profile is available
+  // Load mock data (for points/calibration) and real stories when profile is available
   useEffect(() => {
     if (!profile) return;
     const data = getMockDataForProfile(profile);
     setMockData(data);
+
+    // Load real stories from storiesService
+    storiesService.getStoriesByAuthor(profile.id).then(stories => {
+      setRealStories(stories);
+    }).catch(err => {
+      console.error('Failed to load stories:', err);
+    });
   }, [profile]);
 
-  // Handle disabled "Create" button click
-  const handleCreateClick = () => {
-    toast("Coming soon");
-  };
+  const handleCreateClick = useCallback(() => {
+    navigate('/create');
+  }, [navigate]);
 
   // Handle resend verification email
   const handleResendEmail = async () => {
@@ -304,9 +313,10 @@ export function ProfilePageV2() {
     );
   }
 
-  // Get mock data
-  const userStories = mockData?.stories || [];
+  // Stories come from real service; points/calibration still from mock
+  const userStories = realStories;
   const userPoints = mockData?.points || [];
+  const mockStories = mockData?.stories || []; // Used by points tab for linked stories
   const calibration = mockData?.calibration || null;
   const credibilityStats = mockData?.credibilityStats || { ear: 0, mic: 0 };
 
@@ -432,11 +442,10 @@ export function ProfilePageV2() {
             <div className="pt-3">
               <button
                 onClick={handleCreateClick}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors opacity-50 cursor-not-allowed focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                aria-disabled="true"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <Sparkles size={18} />
-                <span className="text-sm font-medium">Create Stories & Points</span>
+                <span className="text-sm font-medium">Create Story</span>
               </button>
             </div>
           )}
@@ -496,8 +505,7 @@ export function ProfilePageV2() {
                   {isOwner && (
                     <button
                       onClick={handleCreateClick}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors opacity-50 cursor-not-allowed"
-                      aria-disabled="true"
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                     >
                       <Sparkles size={16} />
                       Share your first story
@@ -516,8 +524,6 @@ export function ProfilePageV2() {
                       hasPledged: profile.hasPledged,
                     }}
                     credibilityStats={credibilityStats}
-                    linkedPoints={userPoints.filter(p => story.linkedPointIds.includes(p.id))}
-                    profileOwnerId={profile.id}
                   />
                 ))
               )
@@ -538,7 +544,7 @@ export function ProfilePageV2() {
                       hasPledged: profile.hasPledged,
                     }}
                     credibilityStats={credibilityStats}
-                    linkedStories={userStories.filter(s => point.linkedStoryIds.includes(s.id))}
+                    linkedStories={mockStories.filter(s => point.linkedStoryIds.includes(s.id))}
                   />
                 ))
               )
@@ -565,22 +571,17 @@ export function ProfilePageV2() {
 // =============================================================================
 
 interface StoryCardFullProps {
-  story: Story;
+  story: StoryWithAuthor;
   author: MockUser;
   credibilityStats: { ear: number; mic: number };
-  linkedPoints: Point[];
-  profileOwnerId: string;
 }
 
 function StoryCardFull({
   story,
   author,
   credibilityStats,
-  linkedPoints,
-  profileOwnerId,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
-  const [pointsExpanded, setPointsExpanded] = useState(false);
 
   const handleCardClick = () => {
     navigate(detailRoutes.story(story.id));
@@ -607,7 +608,7 @@ function StoryCardFull({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/p/${author.id}`);
+              navigate(`/p/${story.authorSlug || author.id}`);
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
           >
@@ -626,7 +627,7 @@ function StoryCardFull({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/p/${author.id}`);
+                    navigate(`/p/${story.authorSlug || author.id}`);
                   }}
                   className="font-semibold text-foreground hover:underline text-sm"
                 >
@@ -647,48 +648,31 @@ function StoryCardFull({
             </div>
 
             {/* Story text */}
-            <p className="text-foreground text-base">{story.text}</p>
+            <p className="text-foreground text-base">{story.content}</p>
 
             {/* Stats row */}
-            <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground">
-              <MobileTooltip content={`${author.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}>
+            {story.understoodCount > 0 && (
+              <div className="flex items-center gap-1 mt-3 text-sm text-muted-foreground">
                 <span className="px-2.5 py-1 bg-muted rounded-full text-sm">
-                  {story.verificationCount} understood
+                  {story.understoodCount} understood
                 </span>
-              </MobileTooltip>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Footer row with linked points and action icons */}
+      {/* Footer row with action icons */}
       <div
-        className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-border"
+        className="flex items-center justify-end pl-[52px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Collapsible trigger (if has linked points) */}
-        {linkedPoints.length > 0 ? (
-          <button
-            onClick={() => setPointsExpanded(!pointsExpanded)}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
-            aria-expanded={pointsExpanded}
-          >
-            {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <span>
-              {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'} by {author.name}
-            </span>
-          </button>
-        ) : (
-          <span />
-        )}
-
-        {/* Action icons */}
         <div className="flex items-center gap-1">
           <ShareButton
             type="story"
             id={story.id}
             title={`${author.name}'s story`}
-            description={story.text.slice(0, 100)}
+            description={story.content.slice(0, 100)}
           />
           <MobileTooltip content="Open story">
             <button
@@ -701,167 +685,6 @@ function StoryCardFull({
           </MobileTooltip>
         </div>
       </div>
-
-      {/* Linked points - expanded content */}
-      {pointsExpanded && linkedPoints.length > 0 && (
-        <div className="pl-4 sm:pl-[68px] pr-4 pb-4" onClick={(e) => e.stopPropagation()}>
-          {linkedPoints.length === 1 ? (
-            <QuotedPointCard
-              point={linkedPoints[0]}
-              authorId={profileOwnerId}
-              authorName={author.name}
-              authorEarCount={credibilityStats.ear}
-              authorHasPledged={author.hasPledged}
-            />
-          ) : (
-            <ThreadLineGroup>
-              {linkedPoints.slice(0, 3).map((point, index) => (
-                <ThreadLineItem key={point.id} isLast={index === linkedPoints.length - 1}>
-                  <QuotedPointCard
-                    point={point}
-                    authorId={profileOwnerId}
-                    authorName={author.name}
-                    authorEarCount={credibilityStats.ear}
-                    authorHasPledged={author.hasPledged}
-                  />
-                </ThreadLineItem>
-              ))}
-              {linkedPoints.length > 3 && (
-                <ThreadLineItem isLast>
-                  <button
-                    onClick={() => navigate(detailRoutes.story(story.id))}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    +{linkedPoints.length - 3} more points
-                  </button>
-                </ThreadLineItem>
-              )}
-            </ThreadLineGroup>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =============================================================================
-// QuotedPointCard - Point shown inside a Story card
-// =============================================================================
-
-interface QuotedPointCardProps {
-  point: Point;
-  authorId: string;
-  authorName: string;
-  authorEarCount?: number;
-  authorHasPledged: boolean;
-}
-
-function QuotedPointCard({
-  point,
-  authorId,
-  authorName,
-  authorEarCount,
-  authorHasPledged,
-}: QuotedPointCardProps) {
-  const navigate = useNavigate();
-  const [userPosition, setUserPosition] = useState<Position>(
-    point.positions['current']?.position || null
-  );
-  const baseCounts = getPointPositionCounts(point);
-  const authorPosition = point.positions[authorId]?.position;
-
-  // Track initial position from mock data
-  const initialPosition = point.positions['current']?.position || null;
-
-  // Compute adjusted counts based on user's current position vs initial
-  const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = {
-      strongly_agree: 0,
-      agree: baseCounts.agree,
-      somewhat_agree: 0,
-      unsure: baseCounts.unsure,
-      somewhat_disagree: 0,
-      disagree: baseCounts.disagree,
-      strongly_disagree: 0,
-    };
-
-    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
-      if (!pos) return null;
-      return getPositionGroup(pos);
-    };
-
-    const initialGroup = getGroup(initialPosition as PositionType | null);
-    const currentGroup = getGroup(userPosition as PositionType | null);
-
-    if (initialGroup !== currentGroup) {
-      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
-
-      if (currentGroup === 'agree') adjusted.agree++;
-      else if (currentGroup === 'disagree') adjusted.disagree++;
-      else if (currentGroup === 'unsure') adjusted.unsure++;
-    }
-
-    return adjusted;
-  }, [baseCounts, initialPosition, userPosition]);
-
-  const handlePositionClick = (position: PositionType) => {
-    setUserPosition(userPosition === position ? null : position);
-  };
-
-  return (
-    <div className="w-full text-left">
-      {/* Position label OUTSIDE the quoted box */}
-      {authorPosition && (
-        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
-          <GravatarAvatar
-            name={authorName}
-            size="sm"
-            isPledger={authorHasPledged}
-            className="!w-5 !h-5 !text-[10px]"
-          />
-          <span className="font-medium">{authorName}</span>
-          {authorEarCount && authorEarCount > 0 && (
-            <MobileTooltip content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-                <Ear size={14} />
-                {authorEarCount}
-              </span>
-            </MobileTooltip>
-          )}
-          <PositionBadge position={authorPosition as PositionType} />
-        </div>
-      )}
-
-      {/* Quoted Point box */}
-      <button
-        onClick={() => navigate(detailRoutes.point(point.id, authorId))}
-        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors"
-      >
-        {/* Two-column layout */}
-        <div className="flex items-start gap-3">
-          {/* Pin icon column */}
-          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-blue-600 dark:text-blue-400">
-            <Pin size={16} className="rotate-45" />
-          </div>
-
-          {/* Content column */}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground line-clamp-2">{point.text}</p>
-
-            {/* Position buttons - compact */}
-            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-              <PositionButtons
-                userPosition={userPosition}
-                counts={counts}
-                onPositionClick={handlePositionClick}
-                compact
-              />
-            </div>
-          </div>
-        </div>
-      </button>
     </div>
   );
 }
@@ -874,7 +697,7 @@ interface PointCardFullProps {
   point: Point;
   profileOwner: MockUser;
   credibilityStats: { ear: number; mic: number };
-  linkedStories: Story[];
+  linkedStories: ProtoStory[];
 }
 
 function PointCardFull({
@@ -1083,7 +906,7 @@ function PointCardFull({
 // =============================================================================
 
 interface QuotedStoryCardProps {
-  story: Story;
+  story: ProtoStory;
   author: MockUser;
   credibilityStats: { ear: number; mic: number };
 }

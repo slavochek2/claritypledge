@@ -9,10 +9,11 @@ import type {
   StoryWithAuthor,
   StoryWithPoints,
   StoryVersion,
+  StoryVisibility,
   PointSummary,
 } from '@/app/types';
 
-// Mock stories data
+// Mock stories data — mutable so createStory can add to it
 const mockStories: StoryWithAuthor[] = [
   {
     id: 'story-1',
@@ -23,6 +24,7 @@ const mockStories: StoryWithAuthor[] = [
     title: "When I finally admitted I didn't understand",
     content:
       'In a board meeting last week, I realized I had been nodding along without truly grasping the financial projections. For the first time, I said "I need you to walk me through this again." The room went quiet, then the CFO said "Thank you for asking - I think others had the same question."',
+    visibility: 'public',
     currentVersion: 1,
     understoodCount: 3,
     createdAt: '2024-01-15T10:30:00Z',
@@ -38,6 +40,7 @@ const mockStories: StoryWithAuthor[] = [
     title: 'The cost of pretending to listen',
     content:
       'I used to think multitasking during calls was efficient. Then I missed a critical deadline because I "heard" the date but never actually processed it. That mistake cost us a client. Now I close my laptop during calls - every time.',
+    visibility: 'public',
     currentVersion: 1,
     understoodCount: 5,
     createdAt: '2024-01-10T14:00:00Z',
@@ -84,23 +87,28 @@ const mockStoryPoints: Record<string, PointSummary[]> = {
 export const mockStoriesService: StoriesService = {
   async createStory(
     authorId: string,
-    title: string,
     content: string,
-    tags: string[] = []
+    tags: string[] = [],
+    visibility: StoryVisibility = 'public'
   ): Promise<Story | null> {
     const now = new Date().toISOString();
-    const newStory: Story = {
+    const newStory: StoryWithAuthor = {
       id: `story-${Date.now()}`,
       authorId,
-      title,
       content,
+      visibility,
       currentVersion: 1,
       understoodCount: 0,
       createdAt: now,
       updatedAt: now,
       tags,
+      // Mock author info for getStory lookups
+      authorName: 'You',
+      authorSlug: 'me',
+      authorAvatarColor: '#3B82F6',
     };
-    // In real implementation, this would insert to DB
+    // Add to mock store so getStory can find it after redirect
+    mockStories.unshift(newStory);
     return newStory;
   },
 
@@ -135,13 +143,14 @@ export const mockStoriesService: StoriesService = {
 
   async getStoriesFeed(limit: number, offset: number): Promise<StoryWithAuthor[]> {
     return [...mockStories]
+      .filter((s) => s.visibility === 'public')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(offset, offset + limit);
   },
 
   async updateStory(
     storyId: string,
-    updates: { title?: string; content?: string; tags?: string[] }
+    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility }
   ): Promise<Story | null> {
     const story = mockStories.find((s) => s.id === storyId);
     if (!story) return null;

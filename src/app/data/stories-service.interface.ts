@@ -8,6 +8,7 @@ import type {
   StoryWithAuthor,
   StoryWithPoints,
   StoryVersion,
+  StoryVisibility,
 } from '@/app/types';
 
 export interface StoriesService {
@@ -16,14 +17,14 @@ export interface StoriesService {
   // ============================================================================
 
   /**
-   * Create a new story
+   * Create a new story (no title — stories are just text).
    * Requires verified user. Version 1 is created automatically via trigger.
    */
   createStory(
     authorId: string,
-    title: string,
     content: string,
-    tags?: string[]
+    tags?: string[],
+    visibility?: StoryVisibility
   ): Promise<Story | null>;
 
   // ============================================================================
@@ -65,12 +66,12 @@ export interface StoriesService {
   // ============================================================================
 
   /**
-   * Update a story (creates new version if title/content changed)
+   * Update a story (creates new version if content changed)
    * Only author can update.
    */
   updateStory(
     storyId: string,
-    updates: { title?: string; content?: string; tags?: string[] }
+    updates: { content?: string; tags?: string[]; visibility?: StoryVisibility }
   ): Promise<Story | null>;
 
   /**
@@ -97,9 +98,9 @@ export interface StoriesService {
 }
 
 export interface CreateStoryInput {
-  title: string;
   content: string;
   tags?: string[];
+  visibility?: StoryVisibility;
 }
 
 export type UpdateStoryInput = Partial<CreateStoryInput>;

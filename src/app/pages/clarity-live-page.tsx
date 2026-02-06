@@ -745,6 +745,60 @@ export function ClarityLivePage() {
     setIsLocallyRating(true);
   }, [name, partnerName, session?.code]);
 
+  // P128: Handle story selection from content picker
+  const handleSelectStory = useCallback((storyId: string, title: string) => {
+    if (!name || !partnerName) return;
+
+    // Guard: if a check is already in progress, don't start
+    const currentState = confirmedLiveStateRef.current;
+    if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
+      return;
+    }
+
+    analytics.track('live_story_selected', {
+      session_code: session?.code,
+      story_id: storyId,
+    });
+
+    // Set selected content in shared state (partner will see it)
+    updateLiveState({
+      selectedStoryId: storyId,
+      selectedPointId: undefined,
+      selectedContentTitle: title,
+    });
+
+    // Picking a story = "does partner understand YOUR story" (check flow)
+    setLocalFlowType('check');
+    setIsLocallyRating(true);
+  }, [name, partnerName, session?.code, updateLiveState]);
+
+  // P128: Handle point selection from content picker
+  const handleSelectPoint = useCallback((pointId: string, title: string) => {
+    if (!name || !partnerName) return;
+
+    // Guard: if a check is already in progress, don't start
+    const currentState = confirmedLiveStateRef.current;
+    if (currentState.checkerName || currentState.ratingPhase !== 'idle') {
+      return;
+    }
+
+    analytics.track('live_point_selected', {
+      session_code: session?.code,
+      point_id: pointId,
+    });
+
+    // Set selected content in shared state (partner will see it)
+    updateLiveState({
+      selectedPointId: pointId,
+      selectedStoryId: undefined,
+      selectedContentTitle: title,
+    });
+
+    // Picking a point = "does partner understand YOUR point" (check flow)
+    setLocalFlowType('check');
+    setIsLocallyRating(true);
+  }, [name, partnerName, session?.code, updateLiveState]);
+
   // V7: Handle rating submission
   // "Did you get it?" flow: First person to submit becomes the checker
   // "Did I get it?" flow: First person to submit becomes the responder (prover)
@@ -863,6 +917,17 @@ export function ClarityLivePage() {
       round: currentState.explainBackRatings.length,
     });
 
+    // P128: Append to session history before clearing content
+    const prevHistory = currentState.sessionHistory ?? [];
+    const contentTitle = currentState.selectedContentTitle;
+    const historyEntry = currentState.selectedStoryId
+      ? { title: contentTitle || 'Story verification', type: 'story' as const }
+      : currentState.selectedPointId
+        ? { title: contentTitle || 'Point verification', type: 'point' as const }
+        : currentState.checkerName
+          ? { title: 'Free conversation', type: 'free' as const }
+          : null;
+
     // Reset to idle state for a fresh start
     // Set skippedBy so partner sees toast notification
     updateLiveState({
@@ -885,6 +950,11 @@ export function ClarityLivePage() {
       roleSwitchNegotiation: undefined,
       // Clear speaker clarification state
       clarificationPhase: undefined,
+      // P128: Clear content selection and update history
+      selectedStoryId: undefined,
+      selectedPointId: undefined,
+      selectedContentTitle: undefined,
+      sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
     });
   }, [name, updateLiveState, session?.code, trackLiveEvent]);
 
@@ -905,6 +975,15 @@ export function ClarityLivePage() {
     const bothAcknowledged = partnerName && newAcknowledged.includes(partnerName);
 
     if (bothAcknowledged) {
+      // P128: Append to session history before clearing content
+      const prevHistory = currentState.sessionHistory ?? [];
+      const contentTitle = currentState.selectedContentTitle;
+      const historyEntry = currentState.selectedStoryId
+        ? { title: contentTitle || 'Story verification', type: 'story' as const }
+        : currentState.selectedPointId
+          ? { title: contentTitle || 'Point verification', type: 'point' as const }
+          : { title: 'Free conversation', type: 'free' as const };
+
       // Both done - reset to idle state for a fresh start
       updateLiveState({
         ratingPhase: 'idle',
@@ -928,6 +1007,11 @@ export function ClarityLivePage() {
         roleSwitchNegotiation: undefined,
         // Clear speaker clarification state
         clarificationPhase: undefined,
+        // P128: Clear content selection and update history
+        selectedStoryId: undefined,
+        selectedPointId: undefined,
+        selectedContentTitle: undefined,
+        sessionHistory: [...prevHistory, historyEntry],
       });
     } else {
       // Just add this user to acknowledged list - waiting for partner
@@ -2293,6 +2377,10 @@ export function ClarityLivePage() {
           onLetThemSpeak={handleLetThemSpeak}
           onClarifyStart={handleClarifyStart}
           onClarifyDone={handleClarifyDone}
+          // P128: Content selection and navigation
+          userId={user?.id}
+          onSelectStory={handleSelectStory}
+          onSelectPoint={handleSelectPoint}
         />
 
         {/* Exit confirmation dialog */}

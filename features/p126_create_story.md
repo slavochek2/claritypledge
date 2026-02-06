@@ -123,21 +123,21 @@ CREATE POLICY "Stories readable by visibility"
 
 ## Acceptance Criteria
 
-- [ ] `/create` accessible to logged-in users only
-- [ ] Unauthenticated → redirect to `/login`
-- [ ] Form validates: title required, story content required
-- [ ] Visibility selector with 3 options (public/shared/private), default public
-- [ ] Visibility tooltip works on hover (desktop) and tap (mobile)
-- [ ] Character counter shows at 280 soft marker
-- [ ] Save button shows loading spinner, disabled during save
-- [ ] Save creates story with correct visibility in DB
-- [ ] Success → redirect to `/story/:id`
-- [ ] Error → toast with retry
-- [ ] `/story/:id` displays story, author, visibility badge, date
-- [ ] Private stories only visible to author
+- [x] `/create` accessible to logged-in users only
+- [x] Unauthenticated → redirect to `/login`
+- [x] Form validates: title required, story content required
+- [x] Visibility selector with 3 options (public/shared/private), default public
+- [x] Visibility tooltip works on hover (desktop) and tap (mobile)
+- [x] Character counter shows at 280 soft marker
+- [x] Save button shows loading spinner, disabled during save
+- [x] Save creates story with correct visibility in DB
+- [x] Success → redirect to `/story/:id`
+- [x] Error → toast with retry
+- [x] `/story/:id` displays story, author, visibility badge, date
+- [x] Private stories only visible to author
 - [ ] Story version trigger auto-creates v1 (no manual version creation needed)
-- [ ] Mixpanel events fire
-- [ ] `./scripts/pre-commit-checks.sh` passes
+- [x] Mixpanel events fire
+- [x] `./scripts/pre-commit-checks.sh` passes
 
 ## Key Decisions
 

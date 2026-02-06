@@ -13,6 +13,7 @@ const TYPE_PREFIX: Record<FeatureType, string> = {
   story: '[US]',
   task: '[T]',
   bug: '[B]',
+  comment: '[C]',
 }
 
 const PRIORITY_STYLES: Record<Priority, { bg: string; text: string }> = {
@@ -161,127 +162,69 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
         </button>
       )}
 
-      {/* Tags row - Notion style: 6px gap */}
-      {(feature.priority || feature.type || feature.size || feature.tags.length > 0 || feature.blocked_by?.length || feature.prepped) && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            flexWrap: 'wrap',
-          }}
-        >
-          {/* Priority */}
-          {feature.priority && (
-            <span
-              style={{
-                ...tagStyle,
-                background: PRIORITY_STYLES[feature.priority].bg,
-                color: PRIORITY_STYLES[feature.priority].text,
-              }}
-            >
-              {feature.priority}
-            </span>
-          )}
-
-          {/* Size */}
-          {feature.size && (
-            <span
-              style={{
-                ...tagStyle,
-                background: 'var(--tag-pink-bg)',
-                color: 'var(--tag-pink-text)',
-              }}
-            >
-              {feature.size}
-            </span>
-          )}
-
-          {/* Blocked_by */}
-          {feature.blocked_by?.map((blockerId) => (
-            <span
-              key={blockerId}
-              style={{
-                ...tagStyle,
-                background: 'var(--tag-red-bg)',
-                color: 'var(--tag-red-text)',
-              }}
-            >
-              ⛔ {blockerId}
-            </span>
-          ))}
-
-          {/* Spec readiness — only show "prepped" badge (absence = draft) */}
-          {feature.prepped && (
-            <span
-              style={{
-                ...tagStyle,
-                background: 'var(--tag-green-bg)',
-                color: 'var(--tag-green-text)',
-              }}
-            >
-              prepped
-            </span>
-          )}
-
-          {/* Tags */}
-          {visibleTags.map((tag) => {
-            const colors = getTagColor(tag)
-            return (
-              <span
-                key={tag}
-                style={{
-                  ...tagStyle,
-                  background: colors.bg,
-                  color: colors.text,
-                }}
-              >
-                {tag}
+      {/* Properties — each group on its own row like Notion */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Row: Priority + Size + Blocked + Prepped */}
+        {(feature.priority || feature.size || feature.blocked_by?.length || feature.prepped) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {feature.priority && (
+              <span style={{ ...tagStyle, background: PRIORITY_STYLES[feature.priority].bg, color: PRIORITY_STYLES[feature.priority].text }}>
+                {feature.priority}
               </span>
-            )
-          })}
+            )}
+            {feature.size && (
+              <span style={{ ...tagStyle, background: 'var(--tag-pink-bg)', color: 'var(--tag-pink-text)' }}>
+                {feature.size}
+              </span>
+            )}
+            {feature.blocked_by?.map((blockerId) => (
+              <span key={blockerId} style={{ ...tagStyle, background: 'var(--tag-red-bg)', color: 'var(--tag-red-text)' }}>
+                ⛔ {blockerId}
+              </span>
+            ))}
+            {feature.prepped && (
+              <span style={{ ...tagStyle, background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }}>
+                prepped
+              </span>
+            )}
+          </div>
+        )}
 
-          {/* +N more */}
-          {hiddenTagCount > 0 && (
-            <span
-              style={{
-                ...tagStyle,
-                background: 'var(--tag-default-bg)',
-                color: 'var(--text-secondary)',
-              }}
-              title={feature.tags.slice(MAX_VISIBLE_TAGS).join(', ')}
-            >
-              +{hiddenTagCount}
-            </span>
-          )}
+        {/* Row: Tags */}
+        {(visibleTags.length > 0 || hiddenTagCount > 0) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {visibleTags.map((tag) => {
+              const colors = getTagColor(tag)
+              return (
+                <span key={tag} style={{ ...tagStyle, background: colors.bg, color: colors.text }}>
+                  {tag}
+                </span>
+              )
+            })}
+            {hiddenTagCount > 0 && (
+              <span style={{ ...tagStyle, background: 'var(--tag-default-bg)', color: 'var(--text-secondary)' }} title={feature.tags.slice(MAX_VISIBLE_TAGS).join(', ')}>
+                +{hiddenTagCount}
+              </span>
+            )}
+          </div>
+        )}
 
-          {/* Milestone */}
-          {feature.milestone && (
-            <span
-              style={{
-                ...tagStyle,
-                background: 'var(--tag-purple-bg)',
-                color: 'var(--tag-purple-text)',
-              }}
-            >
-              {feature.milestone}
-            </span>
-          )}
-
-          {/* Hypothesis */}
-          {feature.hypothesis && (
-            <span
-              style={{
-                ...tagStyle,
-                background: 'var(--tag-yellow-bg)',
-                color: 'var(--tag-yellow-text)',
-              }}
-            >
-              {feature.hypothesis}
-            </span>
-          )}
-        </div>
-      )}
+        {/* Row: Milestone + Hypothesis */}
+        {(feature.milestone || feature.hypothesis) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {feature.milestone && (
+              <span style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}>
+                {feature.milestone}
+              </span>
+            )}
+            {feature.hypothesis && (
+              <span style={{ ...tagStyle, background: 'var(--tag-yellow-bg)', color: 'var(--tag-yellow-text)' }}>
+                {feature.hypothesis}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Card detail dialog */}
       {dialogOpen && <CardDialog feature={feature} onClose={() => setDialogOpen(false)} onUpdate={onFeatureUpdate ? () => onFeatureUpdate() : undefined} />}

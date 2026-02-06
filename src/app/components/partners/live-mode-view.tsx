@@ -15,6 +15,7 @@
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DoorOpen, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,10 +33,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { type LiveSessionState, type GapType, type FlowType } from '@/app/types';
+import { type LiveSessionState, type GapType, type FlowType, type StoryWithAuthor, type PointWithCreator } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
+import { ContentPicker, SessionHistoryList, SelectedContentDisplay } from './live-content-cards';
+import { storiesService } from '@/app/data/stories-service';
+import { pointsService } from '@/app/data/points-service';
 
 // ============================================================================
 // P28.1: RECORDING INDICATOR (KISS: always show when session is live)
@@ -148,6 +152,12 @@ interface LiveModeViewProps {
   onClarifyStart: () => void;
   /** Speaker finished clarifying */
   onClarifyDone: () => void;
+  /** P128: Authenticated user ID for fetching stories/points */
+  userId?: string;
+  /** P128: Select a story for content-attached verification */
+  onSelectStory?: (storyId: string, title: string) => void;
+  /** P128: Select a point for content-attached verification */
+  onSelectPoint?: (pointId: string, title: string) => void;
 }
 
 export function LiveModeView({
@@ -175,7 +185,36 @@ export function LiveModeView({
   onLetThemSpeak,
   onClarifyStart,
   onClarifyDone,
+  userId,
+  onSelectStory,
+  onSelectPoint,
 }: LiveModeViewProps) {
+
+  // P128: Fetch selected content for display during verification
+  const [selectedStory, setSelectedStory] = useState<StoryWithAuthor | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<PointWithCreator | null>(null);
+
+  useEffect(() => {
+    const storyId = liveState.selectedStoryId;
+    const pointId = liveState.selectedPointId;
+
+    // Clear if no selection
+    if (!storyId && !pointId) {
+      setSelectedStory(null);
+      setSelectedPoint(null);
+      return;
+    }
+
+    let cancelled = false;
+    if (storyId) {
+      storiesService.getStory(storyId).then(s => { if (!cancelled) setSelectedStory(s); });
+      setSelectedPoint(null);
+    } else if (pointId) {
+      pointsService.getPoint(pointId).then(p => { if (!cancelled) setSelectedPoint(p); });
+      setSelectedStory(null);
+    }
+    return () => { cancelled = true; };
+  }, [liveState.selectedStoryId, liveState.selectedPointId]);
 
   // Track previous skip state to detect new skips
   const prevSkippedByRef = useRef<string | undefined>(undefined);
@@ -363,6 +402,8 @@ export function LiveModeView({
           onRatingSubmit={onRatingSubmit}
           onBack={onCancelLocalRating}
           showDrawer={partnerAlreadySubmitted}
+          selectedStory={selectedStory}
+          selectedPoint={selectedPoint}
           onSkip={() => handleRequestSkip('decline')}
           onExit={onExitMeeting}
           localFlowType={localFlowType}
@@ -385,6 +426,9 @@ export function LiveModeView({
           onStartProve={onStartProve}
           onSkip={() => handleRequestSkip('good-enough')}
           onExit={onExitMeeting}
+          userId={userId}
+          onSelectStory={onSelectStory}
+          onSelectPoint={onSelectPoint}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -403,6 +447,8 @@ export function LiveModeView({
           onRatingSubmit={onRatingSubmit}
           onBack={onBackToIdle}
           onExit={onExitMeeting}
+          selectedStory={selectedStory}
+          selectedPoint={selectedPoint}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -506,6 +552,9 @@ export function LiveModeView({
         onStartProve={onStartProve}
         onSkip={() => handleRequestSkip('good-enough')}
         onExit={onExitMeeting}
+        userId={userId}
+        onSelectStory={onSelectStory}
+        onSelectPoint={onSelectPoint}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -533,6 +582,12 @@ interface IdleScreenProps {
   hideHistory?: boolean;
   /** Show waiting state - user clicked Continue but partner hasn't yet */
   waitingForPartnerToContinue?: boolean;
+  /** P128: Authenticated user ID for fetching stories/points (undefined = guest) */
+  userId?: string;
+  /** P128: Select a story card */
+  onSelectStory?: (storyId: string, title: string) => void;
+  /** P128: Select a point card */
+  onSelectPoint?: (pointId: string, title: string) => void;
 }
 
 function IdleScreen({
@@ -546,6 +601,9 @@ function IdleScreen({
   onRatingSubmit,
   hideHistory = false,
   waitingForPartnerToContinue = false,
+  userId,
+  onSelectStory,
+  onSelectPoint,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -553,6 +611,40 @@ function IdleScreen({
 
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
+
+  // P128: Fetch user's stories and points (only if authenticated)
+  const [stories, setStories] = useState<StoryWithAuthor[]>([]);
+  const [points, setPoints] = useState<PointWithCreator[]>([]);
+  const [contentLoaded, setContentLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+    const fetchContent = async () => {
+      try {
+        const [fetchedStories, fetchedPoints] = await Promise.all([
+          storiesService.getStoriesByAuthor(userId),
+          pointsService.getPointsByValidator(userId),
+        ]);
+        if (!cancelled) {
+          setStories(fetchedStories);
+          setPoints(fetchedPoints);
+        }
+      } catch (err) {
+        console.error('[live-mode-view] Failed to fetch content:', err);
+        // Non-blocking: content picker is optional, session still works
+      } finally {
+        if (!cancelled) setContentLoaded(true);
+      }
+    };
+
+    fetchContent();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const hasContent = stories.length > 0 || points.length > 0;
+  const sessionHistory = liveState.sessionHistory ?? [];
 
   // Check if we have any rating data to show (from a previous round)
   // But hide it if explicitly requested (e.g., returning from celebration)
@@ -562,9 +654,9 @@ function IdleScreen({
     liveState.explainBackRatings.length > 0
   );
 
-  // Use top-aligned layout when drawer is open (to match post-rating screens)
-  // Use centered layout when no drawer (idle state with no prior data)
-  const layoutClass = showRatingDrawer || hasRatingData
+  // Use top-aligned layout when there's content to scroll, drawer is open, or prior data
+  const hasScrollableContent = hasContent || sessionHistory.length > 0;
+  const layoutClass = showRatingDrawer || hasRatingData || hasScrollableContent
     ? CONTENT_LAYOUT
     : CONTENT_LAYOUT_CENTERED;
 
@@ -572,7 +664,7 @@ function IdleScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} />
 
-      <div className={layoutClass}>
+      <div className={`${layoutClass} overflow-y-auto`}>
         {/* Show journey card if there's rating history or drawer is open */}
         {(hasRatingData || showRatingDrawer) && (
           <JourneyToUnderstanding
@@ -588,8 +680,11 @@ function IdleScreen({
           />
         )}
 
+        {/* P128: Title changes from "Verify cognitive understanding" to partner greeting when content shown */}
         <ActionArea
-          title="Verify cognitive understanding"
+          title={hasScrollableContent
+            ? `You're live with ${displayPartnerName}`
+            : 'Verify cognitive understanding'}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
           <Button
@@ -618,6 +713,43 @@ function IdleScreen({
             <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
           )}
         </ActionArea>
+
+        {/* P128: Loading indicator for content fetch */}
+        {userId && !contentLoaded && (
+          <p className="text-xs text-muted-foreground text-center mt-2 animate-pulse">
+            Loading your stories and points…
+          </p>
+        )}
+
+        {/* P128: Content picker (only for authenticated users with content) */}
+        {userId && contentLoaded && hasContent && onSelectStory && onSelectPoint && (
+          <>
+            <div className="flex items-center gap-3 w-full max-w-sm my-2">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">or pick something specific</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+            <ContentPicker
+              stories={stories}
+              points={points}
+              onSelectStory={onSelectStory}
+              onSelectPoint={onSelectPoint}
+              disabled={showRatingDrawer || waitingForPartnerToContinue}
+            />
+          </>
+        )}
+
+        {/* P128: Hint for authenticated users with no content */}
+        {userId && contentLoaded && !hasContent && (
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Create stories to verify specific topics next time.
+          </p>
+        )}
+
+        {/* P128: Session history */}
+        {sessionHistory.length > 0 && (
+          <SessionHistoryList history={sessionHistory} className="mt-4" />
+        )}
       </div>
 
       {/* Responder notification drawer - slides up from bottom */}
@@ -702,6 +834,10 @@ interface RatingScreenProps {
   onRatingSubmit: (rating: number) => void;
   onBack: () => void;
   onExit: () => void;
+  /** P128: Selected story for content-attached verification */
+  selectedStory?: StoryWithAuthor | null;
+  /** P128: Selected point for content-attached verification */
+  selectedPoint?: PointWithCreator | null;
 }
 
 function RatingScreen({
@@ -711,6 +847,8 @@ function RatingScreen({
   onRatingSubmit,
   onBack,
   onExit,
+  selectedStory,
+  selectedPoint,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -759,6 +897,9 @@ function RatingScreen({
             hideUntilBothSubmitted={true}
           />
         )}
+
+        {/* P128: Show selected content during verification */}
+        <SelectedContentDisplay story={selectedStory} point={selectedPoint} />
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
@@ -798,6 +939,10 @@ interface RatingScreenWithOptionalDrawerProps {
   onExit: () => void;
   /** Local flow type - needed to detect "Did I get you?" before shared state is updated */
   localFlowType?: FlowType;
+  /** P128: Selected story for content-attached verification */
+  selectedStory?: StoryWithAuthor | null;
+  /** P128: Selected point for content-attached verification */
+  selectedPoint?: PointWithCreator | null;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -809,6 +954,8 @@ function RatingScreenWithOptionalDrawer({
   onSkip,
   onExit,
   localFlowType,
+  selectedStory,
+  selectedPoint,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -867,6 +1014,9 @@ function RatingScreenWithOptionalDrawer({
             hideUntilBothSubmitted={true}
           />
         )}
+
+        {/* P128: Show selected content during verification */}
+        <SelectedContentDisplay story={selectedStory} point={selectedPoint} />
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
@@ -2453,11 +2603,16 @@ interface LiveHeaderProps {
   onExit: () => void;
 }
 
-/** Header with banner + recording indicator. KISS: indicator always shows. */
+/** Header with banner + recording indicator. Reads returnTo from URL directly. */
 function LiveHeader({ partnerName, onExit }: LiveHeaderProps) {
+  const [searchParams] = useSearchParams();
+  const rawReturnTo = searchParams.get('returnTo');
+  const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
+    ? rawReturnTo : null;
+
   return (
     <>
-      <LiveSessionBanner partnerName={partnerName} onExit={onExit} />
+      <LiveSessionBanner partnerName={partnerName} onExit={onExit} returnTo={returnTo} />
       <RecordingIndicator />
     </>
   );

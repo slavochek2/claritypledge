@@ -202,6 +202,7 @@ Pattern matching (`pkill -f`) can kill unintended processes like Docker Desktop.
 | `type: story` | User story | Delivers user value, has "As a..., I want..." format |
 | `type: task` | Task | Technical, operational, ad-hoc |
 | `type: bug` | Bug | Fix for broken behavior |
+| `type: comment` | Comment | Strategic reasoning, decisions, roadmap changes |
 
 **Number assignment:** Scan ALL `features/` subdirectories for highest `p{N}`. Next = highest + 1.
 

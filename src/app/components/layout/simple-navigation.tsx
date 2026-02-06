@@ -20,7 +20,6 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
-import { toast } from "sonner";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -105,15 +104,18 @@ export function SimpleNavigation() {
                   <CalendarIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">My Events</span>
                 </Link>
-                {/* Create (disabled) */}
-                <button
-                  onClick={() => toast("Coming soon")}
-                  className="flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md text-muted-foreground opacity-50 cursor-not-allowed"
-                  aria-label="Create (coming soon)"
+                {/* Create */}
+                <Link
+                  to="/create"
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname === "/create"
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
                 >
                   <SparklesIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">Create</span>
-                </button>
+                </Link>
                 {/* My Profile */}
                 <Link
                   to={slug ? `/p/${slug}` : "/me"}
@@ -255,7 +257,7 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Visible nav links — only Events + Blog; rest in NavigationMenuItems */}
+              {/* Visible nav links */}
               <Link
                 to="/events"
                 className="text-left text-base font-medium hover:text-primary transition-colors py-2"
@@ -263,6 +265,15 @@ export function SimpleNavigation() {
               >
                 Events
               </Link>
+              {showUserMenu && (
+                <Link
+                  to="/create"
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  Create Story
+                </Link>
+              )}
               <a
                 href="https://blog.claritypledge.com"
                 className="text-left text-base font-medium hover:text-primary transition-colors py-2"

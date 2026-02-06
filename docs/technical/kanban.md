@@ -57,7 +57,7 @@ lsof -ti:9050,9051 | xargs kill
 ```yaml
 ---
 status: backlog | week | today | in-progress | blocked | done  # REQUIRED
-type: bug | task | story
+type: bug | task | story | comment
 priority: p0 | p1 | p2 | p3   # strategic bucket (see Priority Model below)
 size: xs | s | m | l | xl
 milestone: first-revenue
@@ -99,7 +99,7 @@ Priority has two layers:
 
 **First-class** (always shown):
 - ID badge (monospace, short form: `p108`)
-- Type badge (bug=red, task=gray, story=blue)
+- Type badge (bug=red, task=gray, story=blue, comment=purple)
 - Priority badge (P0=red, P1=blue, P2-P3=gray)
 - Spec readiness badge: "prepped" (green) or "draft" (gray) — derived from `prepped_date`
 - Blocked_by chips (red outline)
@@ -133,7 +133,7 @@ Click 📝 on any card to open in Cursor. Press `⌘⇧V` for markdown preview.
 
 **Excluded from kanban:** `features/uat/`, `features/research/`, dated archive folders
 
-**Included (with badges):** `features/drafts/` — draft files appear on the board with a "draft" readiness badge
+**Note:** `features/drafts/` is scanned (not excluded) — draft files appear on the board with a "draft" readiness badge
 
 ## Location
 
