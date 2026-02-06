@@ -1,7 +1,7 @@
 ---
 status: in-progress
 type: story
-priority: p0
+priority: urgent-important
 hypothesis: H-Biz
 tags:
   - content

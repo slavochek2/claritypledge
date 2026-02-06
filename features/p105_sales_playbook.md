@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-priority: p2
+priority: urgent-important
 hypothesis: H-Biz
 tags:
   - validation
