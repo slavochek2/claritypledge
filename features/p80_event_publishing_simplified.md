@@ -1,8 +1,9 @@
 ---
 status: week
 type: story
+priority: p2
 sort_order: 500000
-hypothesis: H-GTM
+hypothesis: H-Biz
 ---
 # P80: Event Publishing Simplified
 

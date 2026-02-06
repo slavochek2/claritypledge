@@ -3,7 +3,6 @@ status: done
 type: story
 priority: p2
 tags: [kanban, ux, planning]
-hypothesis:
 ---
 
 # P112: Kanban Sidebar + Hypothesis Focus View
@@ -204,11 +203,11 @@ typeFilter: TypeFilter
 | What | Why |
 |------|-----|
 | Lean Canvas view | Different problem (presentation, not planning). Separate spec. |
-| ~~Collapsible sidebar~~ | ~~Only 2 items. Add when there are 3+.~~ Built — simple toggle, worth having. |
+| Collapsible sidebar | Only 2 items. Add when there are 3+. |
 | Mobile responsive | Internal desktop tool. |
 | Milestone timeline view | After Focus view proves useful. |
 | Editing hypothesis data from UI | Edit frontmatter in files for now. |
-| ~~Drag & drop in Focus view~~ | ~~Read-only grouping.~~ Built — drag to reassign hypothesis between groups. |
+| Drag & drop in Focus view | Read-only grouping. Use Board for status changes. |
 | Hypothesis progress bars | Nice-to-have for later iteration. |
 
 ---

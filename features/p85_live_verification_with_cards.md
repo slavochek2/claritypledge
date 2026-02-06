@@ -1,6 +1,7 @@
 ---
 status: in-progress
 type: story
+priority: p1
 sort_order: 0.1171875
 hypothesis: H-Biz
 ---
