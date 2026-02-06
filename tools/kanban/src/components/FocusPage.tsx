@@ -338,6 +338,7 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator }: FocusPag
     const unlinked: Feature[] = []
 
     for (const feature of features) {
+      if (feature.status === 'done') continue
       if (feature.hypothesis) {
         const existing = hypothesisMap.get(feature.hypothesis)
         if (existing) {
