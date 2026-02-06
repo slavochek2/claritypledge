@@ -1,9 +1,8 @@
-# B52: Cloud Agent & Telegram Bot Simplification
-
-**Status:** Planning
-**Priority:** Medium (tech debt)
-**Created:** 2026-01-09
-**Trigger:** P50 Track B cloud agent failure
+---
+status: backlog
+type: task
+---
+# P52: Cloud Agent & Telegram Bot Simplification
 
 ---
 

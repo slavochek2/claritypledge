@@ -134,12 +134,28 @@ export function AuthCallbackPage() {
             // Continue anyway but log for debugging
           }
 
+          // Save old profile data for recovery if upsert fails
+          const oldProfileBackup = {
+            id: profileByEmail.id,
+            email: profileByEmail.email,
+            name: profileByEmail.name,
+            slug: profileByEmail.slug,
+            role: profileByEmail.role,
+            linkedin_url: profileByEmail.linkedin_url,
+            reason: profileByEmail.reason,
+            avatar_color: profileByEmail.avatar_color,
+            avatar_url: profileByEmail.avatar_url,
+            avatar_provider: profileByEmail.avatar_provider,
+            is_verified: profileByEmail.is_verified,
+            has_pledged: profileByEmail.has_pledged,
+            pledge_version: profileByEmail.pledge_version,
+            accepted_terms_version: profileByEmail.accepted_terms_version,
+            created_at: profileByEmail.created_at,
+          };
+
           // Delete old profile - it was created with anonymous auth ID
           // The new upsert will create fresh profile with correct auth ID
-          // CAUTION: If upsert fails after this, user data is lost. However:
-          // - /live users typically have no witnesses (we just checked)
-          // - Profile data is copied to local var before delete
-          // - Magic link can be resent if something goes wrong
+          // If upsert fails, we'll attempt to restore from oldProfileBackup
           const { error: deleteError } = await supabase
             .from('profiles')
             .delete()
@@ -150,6 +166,14 @@ export function AuthCallbackPage() {
             // Continue anyway - the upsert might still work or give clearer error
           } else {
             console.log('✅ Old anonymous profile deleted, proceeding with new profile creation');
+          }
+
+          // Store backup to sessionStorage (survives page reload, unlike window)
+          // This enables recovery if upsert fails or page reloads mid-migration
+          try {
+            sessionStorage.setItem('__profileMigrationBackup', JSON.stringify(oldProfileBackup));
+          } catch {
+            console.warn('⚠️ Could not store profile backup to sessionStorage');
           }
 
           // Use data from old profile for the new one
@@ -341,6 +365,35 @@ export function AuthCallbackPage() {
       }
 
       if (upsertError) {
+        // Attempt to recover migrated profile if we have a backup
+        let backup: Record<string, unknown> | null = null;
+        try {
+          const backupStr = sessionStorage.getItem('__profileMigrationBackup');
+          if (backupStr) {
+            backup = JSON.parse(backupStr);
+          }
+        } catch {
+          console.warn('⚠️ Could not read profile backup from sessionStorage');
+        }
+
+        if (backup) {
+          console.log('⚠️ Upsert failed after migration delete, attempting to restore old profile...');
+          const { error: restoreError } = await supabase
+            .from('profiles')
+            .insert(backup);
+
+          if (restoreError) {
+            console.error('❌ CRITICAL: Failed to restore profile backup:', restoreError);
+            Sentry.captureException(new Error('Profile migration recovery failed'), {
+              extra: { backup, upsertError, restoreError },
+            });
+          } else {
+            console.log('✅ Old profile restored successfully');
+          }
+          // Clean up backup
+          sessionStorage.removeItem('__profileMigrationBackup');
+        }
+
         analytics.track('auth_callback_failed', { reason: 'profile_upsert_failed' });
         setStatus("Error creating profile. Please contact support.");
         console.error("❌ Error upserting profile:", upsertError);
@@ -352,6 +405,9 @@ export function AuthCallbackPage() {
         });
         return;
       }
+
+      // Clean up backup on success
+      sessionStorage.removeItem('__profileMigrationBackup');
 
       // Identify user and track successful auth
       // P50: Include has_pledged and registration_source for user segmentation
@@ -426,10 +482,10 @@ export function AuthCallbackPage() {
         }
       }
 
-      // P62: Redirect to dashboard after auth
-      // Dashboard is the central hub for logged-in users
+      // Redirect after auth: use redirect param if present, otherwise go to events
       setStatus("Redirecting...");
-      navigate('/home', { replace: true });
+      const finalRedirect = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/events';
+      navigate(finalRedirect, { replace: true });
     };
 
     processAuth();

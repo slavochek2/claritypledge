@@ -1,4 +1,8 @@
-# P52: Network-Aware Matching
+---
+status: draft
+type: story
+---
+# P125: Network-Aware Matching
 
 **Status:** Vision (Phase 2/3)
 **Priority:** Deferred — requires H2 validation + topology data

@@ -759,6 +759,8 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     creatorName: dbSession.creator_name,
     creatorNote: dbSession.creator_note,
     joinerName: dbSession.joiner_name,
+    creatorProfileId: dbSession.creator_profile_id,
+    joinerProfileId: dbSession.joiner_profile_id,
     state: dbSession.state,
     demoStatus: dbSession.demo_status,
     partnershipStatus: dbSession.partnership_status,
@@ -774,11 +776,13 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
 /**
  * Creates a new Clarity Partners session.
  * @param creatorName - Name of the session creator
+ * @param creatorProfileId - Optional profile ID of the authenticated creator
  * @param creatorNote - Optional note explaining why the partner is being invited
  * @returns The created session
  */
 export async function createClaritySession(
   creatorName: string,
+  creatorProfileId?: string,
   creatorNote?: string
 ): Promise<ClaritySession> {
   // Generate unique room code (retry if collision)
@@ -793,6 +797,7 @@ export async function createClaritySession(
         code,
         creator_name: creatorName,
         creator_note: creatorNote,
+        creator_profile_id: creatorProfileId ?? null,
         state: {},
         demo_status: 'waiting',
         partnership_status: 'pending',
@@ -824,11 +829,13 @@ export async function createClaritySession(
  * Joins an existing Clarity Partners session by room code.
  * @param code - The 6-character room code
  * @param joinerName - Name of the person joining
+ * @param joinerProfileId - Optional profile ID of the authenticated joiner
  * @returns The updated session or null if not found
  */
 export async function joinClaritySession(
   code: string,
-  joinerName: string
+  joinerName: string,
+  joinerProfileId?: string
 ): Promise<ClaritySession | null> {
   const normalizedCode = code.toUpperCase().trim();
 
@@ -857,7 +864,7 @@ export async function joinClaritySession(
   // Update with joiner name
   const { data, error } = await supabase
     .from('clarity_sessions')
-    .update({ joiner_name: joinerName })
+    .update({ joiner_name: joinerName, joiner_profile_id: joinerProfileId ?? null })
     .eq('code', normalizedCode)
     .select()
     .single();

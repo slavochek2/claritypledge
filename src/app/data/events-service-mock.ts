@@ -31,6 +31,7 @@ function toEventWithHost(mock: MockEvent): EventWithHost {
     hostSlug: mock.hostSlug,
     hostRole: mock.hostRole,
     hostAvatarColor: mock.hostAvatarColor,
+    hostHasPledged: true, // P118: Mock assumes hosts have pledged
     maxAttendees: mock.maxAttendees,
     createdAt: mock.createdAt,
     status: mock.status,

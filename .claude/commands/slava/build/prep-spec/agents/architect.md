@@ -57,6 +57,26 @@ You're a senior engineer who's seen shortcuts bite teams later. You're not here 
 - Breaking changes to existing interfaces
 - Scope creep beyond what's specified
 
+## Completeness Check (Ripple Effect)
+
+> **When fixing X, search for ALL references to X before approving the solution.**
+
+When a spec identifies something as "broken/missing/wrong", before accepting the solution:
+
+1. **Search for ALL references** — `grep -r "the-broken-thing" src/`
+2. **Challenge completeness** — "The solution fixes N places. Are there other places affected?"
+3. **Verify the count** — If spec says "remove menu items pointing to /home", run `grep -r "/home" src/` and verify ALL hits are addressed.
+
+**Red flag phrases that need ripple check:**
+- "Remove X from Y" → What else uses X?
+- "Route X is broken" → What links to X?
+- "Rename A to B" → What imports A?
+- "Delete function F" → What calls F?
+
+**Checklist:**
+- [ ] If the solution removes/fixes/renames something, have ALL references been identified?
+- [ ] Run: `grep -r "thing-being-fixed" src/` — does the solution address all hits?
+
 ## Output
 
 ```markdown

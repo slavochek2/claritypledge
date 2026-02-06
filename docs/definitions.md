@@ -38,6 +38,18 @@ Author creates story once → Story verifies many listeners → Author only revi
 
 **Key insight (2026-02-02):** The value isn't the story itself — it's knowing WHO understood it, HOW WELL, and WHERE they diverged. The story is infrastructure for scaled verification.
 
+### Story Versions
+
+Stories have **immutable versions**. When a story is created, version 1 is auto-created via database trigger. When content changes, a new version is created. Verifications reference the specific `version_id` that was verified.
+
+**Why this matters:** Authors can edit stories after verification. Verifiers and authors can always "view what was verified" — the exact content at the time of verification, not the current draft.
+
+```
+stories ─── story_versions (1:N, auto-created by trigger)
+                  │
+                  └── story_verifications (references version_id)
+```
+
 ### Story Modes
 
 Users interact with Stories in two modes:
@@ -183,6 +195,20 @@ Listening (behavior) → Understanding (outcome) → Confidence (metacognition) 
 
 **Teach-back = Explain-back:**
 The mechanism we use (listener plays back understanding, speaker verifies) is called "teach-back" in healthcare literature. We call it "explain-back." Same mechanism, proven effective (60% reduction in hospital readmissions).
+
+---
+
+## Ears Count
+
+> **One-liner:** How many people you've successfully understood — your listener track record.
+
+**Ears count** increments when a listener achieves ≥8/10 in a verification session. It represents successful understanding attempts, not total sessions.
+
+- Maintained by database trigger (incremental, O(1))
+- Displayed on user profiles as a reputation signal
+- Distinct from `verification_session_count` (total sessions, regardless of outcome)
+
+**Related:** Calibration averages (`listener_calibration_avg`, `speaker_calibration_avg`) are computed on-read, not stored. See [architecture.md](technical/architecture.md#calibration-computation).
 
 ---
 

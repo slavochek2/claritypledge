@@ -1,13 +1,19 @@
 /**
  * @file navigation-menu-items.tsx
- * @description KISS Navigation Menu Items
+ * @description Navigation Menu Items with Sandwich Pattern (P115)
  *
- * TWO STATES ONLY:
- * 1. Verified user → View My Profile, pledge items, Settings, Log Out
- * 2. Everyone else → Log In
+ * TWO STATES:
+ * 1. Verified user → Public links (Pledgers, Manifesto, About) + separator + Settings, Log Out
+ * 2. Everyone else → Co-create, Take the Pledge, Log In, Create Account
+ *
+ * P115 "Sandwich" pattern for logged-in users:
+ * - Top section: Public navigation (site discovery)
+ * - Separator
+ * - Bottom section: Account actions (Settings, Log Out)
+ *
+ * Note: Co-create removed from logged-in menu (accessible via My Events page)
  *
  * Unverified /live users see the same menu as anonymous users.
- * They can verify via /me page, email after meeting, or taking the pledge.
  *
  * Supports two variants:
  * - 'dropdown' (default): For desktop dropdown menus (uses DropdownMenuItem)
@@ -21,15 +27,11 @@ import {
 import {
   LogOutIcon,
   LogIn,
-  EyeIcon,
   SettingsIcon,
-  UserIcon,
   FileTextIcon,
   UserPlusIcon,
-  LayoutDashboardIcon,
   UsersIcon,
-  AwardIcon,
-  ScrollTextIcon,
+  BookOpenIcon,
   InfoIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
@@ -44,10 +46,10 @@ interface NavigationMenuItemsProps {
 }
 
 /**
- * KISS Navigation Menu Items
+ * Navigation Menu Items - P115 Sandwich Pattern
  *
- * - Verified user: View My Profile, View My Pledge OR Take the Pledge, Settings, Log Out
- * - Everyone else: Log In
+ * - Verified user: Public links (Pledgers, Manifesto, About) + Settings, Log Out
+ * - Everyone else: Co-create, Take the Pledge, Log In, Create Account
  */
 export function NavigationMenuItems({
   onSignOut,
@@ -55,7 +57,7 @@ export function NavigationMenuItems({
   variant = 'dropdown',
   onItemClick,
 }: NavigationMenuItemsProps) {
-  const { showUserMenu, showPublicCTAs, hasPledged, slug } = useNavAuthState();
+  const { showUserMenu, showPublicCTAs } = useNavAuthState();
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -72,25 +74,9 @@ export function NavigationMenuItems({
 
     return (
       <>
-        {/* Public menu - Nav links + actions */}
+        {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
         {showPublicCTAs && (
           <>
-            <Link
-              to="/pledgers"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <AwardIcon className="w-4 h-4 inline mr-2" />
-              Pledgers
-            </Link>
-            <Link
-              to="/manifesto"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <ScrollTextIcon className="w-4 h-4 inline mr-2" />
-              Manifesto
-            </Link>
             <Link
               to="/co-create"
               className={mobileLinkClass}
@@ -98,14 +84,6 @@ export function NavigationMenuItems({
             >
               <UsersIcon className="w-4 h-4 inline mr-2" />
               Co-create
-            </Link>
-            <Link
-              to="/about"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <InfoIcon className="w-4 h-4 inline mr-2" />
-              About
             </Link>
             <Link
               to="/sign-pledge"
@@ -137,15 +115,16 @@ export function NavigationMenuItems({
           </>
         )}
 
-        {/* Verified user menu */}
+        {/* Verified user menu - P115: sandwich pattern with public links + account actions */}
         {showUserMenu && (
           <>
+            {/* Public navigation (site discovery) */}
             <Link
               to="/pledgers"
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
-              <AwardIcon className="w-4 h-4 inline mr-2" />
+              <UsersIcon className="w-4 h-4 inline mr-2" />
               Pledgers
             </Link>
             <Link
@@ -153,16 +132,8 @@ export function NavigationMenuItems({
               className={mobileLinkClass}
               onClick={handleItemClick}
             >
-              <ScrollTextIcon className="w-4 h-4 inline mr-2" />
+              <BookOpenIcon className="w-4 h-4 inline mr-2" />
               Manifesto
-            </Link>
-            <Link
-              to="/co-create"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <UsersIcon className="w-4 h-4 inline mr-2" />
-              Co-create
             </Link>
             <Link
               to="/about"
@@ -173,49 +144,10 @@ export function NavigationMenuItems({
               About
             </Link>
 
-            {/* P62: Dashboard link */}
-            <Link
-              to="/home"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              data-testid={includeTestIds ? 'dashboard' : undefined}
-            >
-              <LayoutDashboardIcon className="w-4 h-4 inline mr-2" />
-              Dashboard
-            </Link>
+            {/* Separator */}
+            <hr className="border-t border-border my-2" />
 
-            <Link
-              to="/me"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              data-testid={includeTestIds ? 'view-profile' : undefined}
-            >
-              <UserIcon className="w-4 h-4 inline mr-2" />
-              View My Profile
-            </Link>
-
-            {hasPledged && slug ? (
-              <Link
-                to={`/p/${slug}/pledge`}
-                className={mobileLinkClass}
-                onClick={handleItemClick}
-                data-testid={includeTestIds ? 'view-pledge' : undefined}
-              >
-                <EyeIcon className="w-4 h-4 inline mr-2" />
-                View My Pledge
-              </Link>
-            ) : (
-              <Link
-                to="/sign-pledge?prefill=true"
-                className={mobileLinkClass}
-                onClick={handleItemClick}
-                data-testid={includeTestIds ? 'take-pledge' : undefined}
-              >
-                <FileTextIcon className="w-4 h-4 inline mr-2" />
-                Take the Pledge
-              </Link>
-            )}
-
+            {/* Account actions */}
             <Link
               to="/settings"
               className={mobileLinkClass}
@@ -243,34 +175,15 @@ export function NavigationMenuItems({
   // Dropdown variant (default) - for desktop dropdown menus
   return (
     <>
-      {/* Public menu - Nav links + actions */}
+      {/* Public menu - Co-create, Take the Pledge, Log In, Create Account */}
       {showPublicCTAs && (
         <>
-          <DropdownMenuItem asChild>
-            <Link to="/pledgers" className="cursor-pointer">
-              <AwardIcon className="w-4 h-4 mr-2" />
-              Pledgers
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/manifesto" className="cursor-pointer">
-              <ScrollTextIcon className="w-4 h-4 mr-2" />
-              Manifesto
-            </Link>
-          </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/co-create" className="cursor-pointer">
               <UsersIcon className="w-4 h-4 mr-2" />
               Co-create
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/about" className="cursor-pointer">
-              <InfoIcon className="w-4 h-4 mr-2" />
-              About
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
             <Link to="/sign-pledge" className="cursor-pointer">
               <FileTextIcon className="w-4 h-4 mr-2" />
@@ -292,25 +205,20 @@ export function NavigationMenuItems({
         </>
       )}
 
-      {/* Verified user menu */}
+      {/* Verified user menu - P115: sandwich pattern with public links + account actions */}
       {showUserMenu && (
         <>
+          {/* Public navigation (site discovery) */}
           <DropdownMenuItem asChild>
             <Link to="/pledgers" className="cursor-pointer">
-              <AwardIcon className="w-4 h-4 mr-2" />
+              <UsersIcon className="w-4 h-4 mr-2" />
               Pledgers
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/manifesto" className="cursor-pointer">
-              <ScrollTextIcon className="w-4 h-4 mr-2" />
+              <BookOpenIcon className="w-4 h-4 mr-2" />
               Manifesto
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/co-create" className="cursor-pointer">
-              <UsersIcon className="w-4 h-4 mr-2" />
-              Co-create
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -319,41 +227,11 @@ export function NavigationMenuItems({
               About
             </Link>
           </DropdownMenuItem>
+
+          {/* Separator between site nav and account actions */}
           <DropdownMenuSeparator />
-          {/* P62: Dashboard link */}
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'dashboard' : undefined}>
-            <Link to="/home" className="cursor-pointer">
-              <LayoutDashboardIcon className="w-4 h-4 mr-2" />
-              Dashboard
-            </Link>
-          </DropdownMenuItem>
 
-          {/* View My Profile */}
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'view-profile' : undefined}>
-            <Link to="/me" className="cursor-pointer">
-              <UserIcon className="w-4 h-4 mr-2" />
-              View My Profile
-            </Link>
-          </DropdownMenuItem>
-
-          {/* Pledge: View My Pledge (pledgers) OR Take the Pledge (non-pledgers) */}
-          {hasPledged && slug ? (
-            <DropdownMenuItem asChild data-testid={includeTestIds ? 'view-pledge' : undefined}>
-              <Link to={`/p/${slug}/pledge`} className="cursor-pointer">
-                <EyeIcon className="w-4 h-4 mr-2" />
-                View My Pledge
-              </Link>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
-              <Link to="/sign-pledge?prefill=true" className="cursor-pointer">
-                <FileTextIcon className="w-4 h-4 mr-2" />
-                Take the Pledge
-              </Link>
-            </DropdownMenuItem>
-          )}
-
-          {/* Settings */}
+          {/* Account actions */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>
             <Link to="/settings" className="cursor-pointer">
               <SettingsIcon className="w-4 h-4 mr-2" />
@@ -361,10 +239,8 @@ export function NavigationMenuItems({
             </Link>
           </DropdownMenuItem>
 
-          {/* Log Out */}
-          <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={onSignOut}
+            onClick={() => { onSignOut(); }}
             className="cursor-pointer"
             data-testid={includeTestIds ? 'sign-out' : undefined}
           >

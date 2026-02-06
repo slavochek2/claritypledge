@@ -1,7 +1,7 @@
 ---
 status: in-progress
-priority: p0
-sort_order: 1000002
+type: story
+sort_order: 0.13671875
 hypothesis: H-Biz
 ---
 # P98: Sifter (Revised Spec)

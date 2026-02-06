@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # UX Spec: Consolidate Share Actions (Option A)
 
 **Priority:** P6

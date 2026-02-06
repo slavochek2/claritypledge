@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "./scripts/run-once.sh",
     "dev:client": "vite",
     "dev:server": "tsx server/api.ts",
     "build": "vite build"

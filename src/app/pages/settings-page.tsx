@@ -10,6 +10,7 @@ import { updateProfile } from "@/app/data/api";
 import { toast } from "sonner";
 import { ArrowLeftIcon, Loader2Icon, CheckIcon } from "lucide-react";
 import { analytics } from "@/lib/mixpanel";
+import { Button } from "@/components/ui/button";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -167,11 +168,11 @@ export function SettingsPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          to="/home"
+          to="/events"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeftIcon className="w-4 h-4 mr-1" />
-          Back to Dashboard
+          Back
         </Link>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-2">
@@ -279,10 +280,9 @@ export function SettingsPage() {
 
         {/* Submit Button */}
         <div className="pt-4">
-          <button
+          <Button
             type="submit"
             disabled={!hasChanges || isSaving}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? (
               <>
@@ -295,7 +295,7 @@ export function SettingsPage() {
                 Save Changes
               </>
             )}
-          </button>
+          </Button>
           {!hasChanges && !isSaving && (
             <span className="ml-4 text-sm text-muted-foreground">
               No changes to save

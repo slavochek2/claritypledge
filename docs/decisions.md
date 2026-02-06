@@ -62,6 +62,75 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 
 ---
 
+## 2026-02-05: CLAUDE.md governance — universal only, patterns to architecture.md
+
+**Context:** During P118 review, discovered service layer pattern kept being rediscovered each session. Initial instinct was to add it to CLAUDE.md. Realized CLAUDE.md was growing without clear criteria for what belongs there.
+
+**Decision:**
+1. **CLAUDE.md = universal instructions only** (needed for ALL task types)
+2. **Technical patterns → `docs/technical/architecture.md`** (new doc)
+3. **Product decisions → `docs/decisions.md`** (already existed, no change)
+4. **Added "Where to Write" table to CLAUDE.md** for routing guidance
+5. **Created `/claude-md-check` skill** to validate proposed CLAUDE.md additions
+
+**Alternatives rejected:**
+- Add everything to CLAUDE.md — leads to bloat, not everything is universal
+- Use auto memory for patterns — too informal, not structured enough for technical patterns
+- Build skill without simpler solution first — overkill before testing basic guidelines
+
+**Consequences:**
+- CLAUDE.md stays focused, loads faster in context
+- Technical knowledge has a proper home (architecture.md)
+- `/claude-md-check` prevents drift
+
+---
+
+## 2026-02-04: Story versioning via versions table
+
+**Context:** Designing stories/points backend (P117). Verifications need to reference the specific content that was verified, not the current (potentially edited) content.
+
+**Decision:** Use a `story_versions` table with immutable snapshots. Verifications reference `version_id`. When story is created, version 1 is auto-created via trigger. When content changes, new version is created.
+
+**Alternatives rejected:**
+- Snapshot in verification table (`story_content_snapshot` column) — Duplicates content per verification. 50 verifications of same story version = 50 copies of content.
+- No versioning (always reference current) — Verifications become meaningless after edit. "They understood version A" but now story is version B.
+
+**Consequences:**
+- Enables "view what was verified" without content duplication
+- Clean normalized model: one row per version, verifications reference it
+- Supports future "edit history" UI naturally
+- Adds one table but removes data duplication
+
+**References:** [p117_stories_points_backend.md](../features/p117_stories_points_backend.md), [20260204_stories_points_calibration.sql](../supabase/migrations/20260204_stories_points_calibration.sql)
+
+---
+
+## 2026-02-04: Calibration averages computed on-read, not stored
+
+**Context:** P117 stories/points backend originally had `listener_calibration_avg` and `speaker_calibration_avg` columns on profiles, updated by triggers.
+
+**Decision:** Compute calibration averages on-read via `AVG()` query. Don't store them.
+
+```sql
+SELECT AVG(speaker_rating) as listener_avg
+FROM story_verifications
+WHERE listener_id = $user_id
+```
+
+**Alternatives rejected:**
+- Trigger-updated stored columns — Adds trigger complexity. Must handle edge cases (first verification, deletes, etc.). The COUNT(*) pattern was already a performance bug; averages would be worse.
+- Batch job recalculation — Infrastructure complexity for a query that runs in <100ms anyway.
+
+**Consequences:**
+- Profile calibration display queries on-demand (fast: <100ms even with 1000+ verifications)
+- No trigger maintenance for averages
+- If performance ever becomes an issue, can add cached columns later
+- Simpler migration (fewer columns, no AVG triggers)
+
+**References:** [p117_stories_points_backend.md](../features/p117_stories_points_backend.md)
+
+---
+
 ## 2026-02-02: Stories-first model with holistic verification, points deferred
 
 **Context:** Deep exploration of v9 "AI Stories" vision through Lean Startup Coach lens. The core question: what's the actual value proposition and what's the minimum needed to test it?

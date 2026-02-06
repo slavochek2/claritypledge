@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # Feature: Extended Certificate Export Formats
 
 **Date:** 2025-12-03

@@ -63,6 +63,18 @@ Examples:
 
 The goal: surface improvements proactively with ready-to-apply solutions. The user decides what ships.
 
+## Decisive Action — No False Choices
+
+> **Principle:** If analysis clearly points to one answer, take it. Only ask when there are genuine trade-offs or user preference matters.
+
+**Bad:** "Here are options 1, 2, 3. Which do you want?" (when one is obviously right)
+**Good:** "X is the right fix. Doing it."
+
+Asking unnecessary questions wastes time and shifts decision-making burden to the user. If you've done the analysis and know the answer, act on it.
+
+**When to ask:** Genuine ambiguity, user preference matters, or irreversible actions.
+**When to act:** The right path is clear from context, principles, or analysis.
+
 ## Skills — Local Only
 
 **All skills live in `.claude/commands/`** (no global `~/.claude/skills/`).
@@ -172,6 +184,27 @@ Pattern matching (`pkill -f`) can kill unintended processes like Docker Desktop.
 
 **Goal:** Small, atomic commits. Each commit = one logical change.
 
+## Task Tracking
+
+> **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
+
+**Agent behavior:**
+- When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?"
+- Never auto-create tasks. Always get user approval.
+- If user declines, don't ask again that session.
+- If the work looks like it delivers user value, reflect: "This could be a user story — As a [user], I want [goal], so that [benefit]. Want me to formulate it that way?"
+- When done, update task to `status: done` and fill Outcome section.
+
+**Type classification:**
+
+| Type | Frontmatter | When |
+|------|-------------|------|
+| `type: story` | User story | Delivers user value, has "As a..., I want..." format |
+| `type: task` | Task | Technical, operational, ad-hoc |
+| `type: bug` | Bug | Fix for broken behavior |
+
+**Number assignment:** Scan ALL `features/` subdirectories for highest `p{N}`. Next = highest + 1.
+
 ## Tool Preferences
 
 ### Library Documentation (Context7)
@@ -241,11 +274,41 @@ For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 
 **Rule:** If explaining a concept, add to source doc and link. Never duplicate.
 
+### Where to Write New Knowledge
+
+When capturing new knowledge, put it in the right place:
+
+| Knowledge Type | Location |
+|----------------|----------|
+| Product decisions (why X over Y) | `decisions.md` |
+| Technical patterns (how something works) | `docs/technical/architecture.md` |
+| What we're testing + evidence | `hypotheses.md` |
+| Product concepts | `definitions.md` |
+| Domain-specific technical details | `docs/technical/{domain}.md` |
+
+**Before writing:** Search for existing content. Extend, don't duplicate.
+
 ## Development Commands
+
+### Dev Server Ports
+
+Each worktree has a dedicated port to allow parallel development:
+
+| Location | Port |
+|----------|------|
+| Main repo | 5001 |
+| Worktree w1 | 5100 |
+| Worktree w2 | 5200 |
+| Worktree w3 | 5300 |
+| Worktree w4-w7 | 5400-5700 |
+
+**Port logic:** `5000 + (worktreeNum * 100)`. Configured in `vite.config.ts`.
+
+**For agents:** Never start dev servers on arbitrary ports. Use `npm run dev` which auto-detects the correct port based on the worktree.
 
 ```bash
 # Development
-npm run dev              # Start dev server (localhost:5001)
+npm run dev              # Start dev server (port auto-detected per worktree)
 npm run build            # Production build
 npm run preview          # Preview production build
 
@@ -280,6 +343,8 @@ Load these docs when working on specific areas:
 | What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
 | Build sequence, past decisions | [decisions.md](docs/decisions.md) |
 | Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
+| Creating feature specs (naming, frontmatter) | [feature-specs.md](docs/technical/feature-specs.md) |
+| Data layer, service patterns, components | [architecture.md](docs/technical/architecture.md) |
 | Auth, login, magic link, sessions | [authentication.md](docs/technical/authentication.md) |
 | Database, RLS, profiles, witnesses, types | [database.md](docs/technical/database.md) |
 | Browser automation (Chrome DevTools, screenshots) | [browser-tools.md](docs/technical/browser-tools.md) |
@@ -296,23 +361,26 @@ Load these docs when working on specific areas:
 
 ## Worktree Branch Naming
 
-**Standard naming:** `w1`, `w2`, `w3`, `w4`, etc.
+**Worktree identity** comes from the directory name: `claritypledge-N` = wN. Don't ask — just map the number.
+
+**Branch names** always reflect the **feature**, not the worktree number. The branch is the only thing that tells you what work lives in a worktree.
 
 **Rules:**
-1. **When syncing to main:** If user asks to "bring worktree up to date" or "sync with main", automatically reset the branch name to generic (`w1`, `w2`, etc.) after merging
-2. **When starting feature work:** Before the first commit on a worktree, rename the branch to match the feature (e.g., `p62-dashboard-w1`)
-3. **Branch rename command:** `git branch -m <new-name>`
+1. **Branch = feature name:** e.g., `p117-stories-points-backend`, `p62-dashboard`
+2. **Keep branch name through syncs:** When merging main, don't rename the branch — the feature hasn't changed
+3. **Rename branch when switching features:** If a worktree moves to new work, rename the branch to the new feature
 
 **Example workflow:**
 ```bash
 # User: "bring w1 up to date with main"
+# (w1 = claritypledge-1, currently on branch p62-dashboard)
 cd ~/Documents/claritypledge-1
 git fetch origin main
 git merge origin/main
-git branch -m w1  # Reset to generic name
+# Branch stays p62-dashboard — feature hasn't changed
 
-# Later, starting feature p62:
-git branch -m p62-dashboard-w1  # Rename before first commit
+# Later, switching w1 to new feature p80:
+git branch -m p80-new-feature
 ```
 
 ## Knowledge-Driven Development
@@ -434,12 +502,12 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Architecture
 
-For detailed architecture docs, see the [Deep Dive References](#deep-dive-references) section above.
+For detailed patterns, see [architecture.md](docs/technical/architecture.md).
 
-**Key patterns:**
-- **Auth:** Reader-Writer pattern separates `useAuth` (read-only) from `AuthCallbackPage` (writes). Import from `@/auth`.
-- **Data layer:** All Supabase calls go through `src/app/data/api.ts`. Fetch profiles and witnesses separately.
-- **Components:** UI primitives in `src/components/ui/` (shadcn/ui), feature components in `src/app/components/`.
+**Quick reference:**
+- **Auth:** Reader-Writer pattern — `useAuth` (read), `AuthCallbackPage` (write). Import from `@/auth`.
+- **Data layer:** Interface-based services (`*-service.ts`) for new features. Legacy `api.ts` for profiles.
+- **Components:** UI primitives in `src/components/ui/`, feature components in `src/app/components/`.
 
 ### Key Routes
 
@@ -696,13 +764,14 @@ Before creating a new function, hook, component, **skill, or agent**:
 
 > **Principle:** Every concept has one canonical home. Extend it, don't duplicate it.
 
-Duplication creates drift — two versions of the truth that eventually contradict each other. Before creating any new file, ask: "Does this concept already exist somewhere?"
+Duplication creates drift — two versions of the truth that eventually contradict each other. Before creating any new file OR adding content to an existing file, ask: "Is this the semantic home for this concept?"
 
 ### How to Apply
 
 1. **Search first** — grep for the concept in `.claude/commands/`, `docs/`, and `src/`
-2. **Extend, don't duplicate** — If similar exists, add to it rather than creating parallel
-3. **Link, don't copy** — Reference the source of truth; don't repeat content
+2. **Understand purpose** — Don't pattern-match on keywords. Ask "What is this file FOR?" before adding content.
+3. **Extend, don't duplicate** — If similar exists, add to it rather than creating parallel
+4. **Link, don't copy** — Reference the source of truth; don't repeat content
 
 ### When to Ask
 
@@ -827,6 +896,28 @@ When multiple worktrees create features simultaneously, `p{N}` numbers can colli
 - If merging a branch that has a `p{N}` conflicting with main, rename the incoming feature file and update all references
 - Don't try to prevent conflicts at creation time — the added complexity isn't worth it for a rare edge case
 - The person merging resolves it in 30 seconds
+
+### Feature Spec Lifecycle
+
+When completing a feature spec:
+
+1. **Update frontmatter** in the spec file:
+   ```yaml
+   ---
+   status: done
+   completed_at: '2026-02-04'  # Add completion date
+   # Keep existing fields (prepped_date, reviews, decisions, etc.)
+   ---
+   ```
+
+2. **Move to done/** folder:
+   ```bash
+   git mv features/p{N}_{name}.md features/done/
+   ```
+
+3. **Commit together** — frontmatter update and file move in same commit.
+
+**Status values:** `draft` → `prepped` → `in-progress` → `done` (or `archived` if deprioritized)
 
 ### Generated artifacts (OK to create)
 

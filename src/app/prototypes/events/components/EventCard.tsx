@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Calendar, CheckCircle2, Crown, Ban } from 'lucide-react';
-import type { EventWithHost } from '@/app/types';
+import type { EventWithHost, PersonRef } from '@/app/types';
 import { formatDateShort, formatTime } from '../utils';
+import { PersonAvatar } from '@/components/ui/person-avatar';
 
 interface EventCardProps {
   event: EventWithHost;
@@ -91,12 +92,18 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
             {event.attendees && event.attendees.length > 0 && (
               <div className="flex -space-x-2">
                 {event.attendees.slice(0, 4).map((attendee, i) => (
-                  <div
-                    key={attendee.profileId}
-                    className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-xs font-medium text-white"
-                    style={{ backgroundColor: attendee.avatarColor, zIndex: 4 - i }}
-                  >
-                    {attendee.name.charAt(0)}
+                  <div key={attendee.profileId} style={{ zIndex: 4 - i }} className="relative">
+                    <PersonAvatar
+                      person={{
+                        name: attendee.name,
+                        slug: attendee.slug,
+                        avatarColor: attendee.avatarColor,
+                        avatarUrl: attendee.avatarUrl,
+                        hasPledged: attendee.hasPledged,
+                      } satisfies PersonRef}
+                      size="sm"
+                      className="w-7 h-7 border-2 border-white"
+                    />
                   </div>
                 ))}
                 {event.attendees.length > 4 && (

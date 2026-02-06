@@ -154,7 +154,7 @@ The input can be a **spec file** or **UAT file**. Detect by:
 3. **Current score** — Count ✅ vs total tests
 4. **Categories** — List of category headings
 
-### Step 3: Find or Generate UAT
+### Step 3: Find or Suggest UAT
 
 If given a spec, look for UAT (check in order):
 - `features/uat/p{N}.md` (e.g., `features/uat/p89.md` for `p89_swipeable_card_view.md`)
@@ -164,7 +164,13 @@ If given a UAT, look for spec:
 - `features/p{N}_*.md` (e.g., `features/p61_*.md` from `features/uat/p61.md`)
 - `{uat_basename}_tech_spec.md`
 
-**If UAT doesn't exist:** Call `/generate-uat {spec_path}` to create it before generating the Ralph command. UAT gives Ralph concrete checkboxes to verify against.
+**If UAT doesn't exist:** Suggest generating it, but don't auto-generate. Let user decide based on complexity.
+
+| Complexity | UAT Recommendation |
+|------------|-------------------|
+| Simple (<8 req) | "UAT optional — spec has clear success criteria" |
+| Medium (8-15 req) | "Consider: `/generate-uat {spec_path}` for structured tracking" |
+| Complex (15+ req) | "Recommended: `/generate-uat {spec_path}` before starting" |
 
 ### Step 4: Generate Ralph Orchestrator Command
 
@@ -250,7 +256,7 @@ That's it. No long setup instructions, no heredocs, no component lists.
 | Very simple spec (<8 req) | Recommend `/dev` (auto-finds UAT, interactive) |
 | Medium spec (8-15 req) | Recommend `/dev` or Ralph (both work well) |
 | Very complex spec (20+ req) | Recommend Ralph + chunking: "Consider breaking into smaller features." |
-| Ralph not installed | Include installation instructions: `npm install -g @anthropic-ai/ralph-cli` |
+| Ralph not installed | Include installation instructions: `npm install -g @ralph-orchestrator/ralph-cli` |
 | `--internal` flag | Output internal /ralph-loop command (with deprecation warning) |
 | `--prompt-file` flag | Generate PROMPT.md file in project root instead of inline command |
 | UAT file provided | Use UAT for structured tracking (update scorecard during iteration) |
@@ -287,7 +293,7 @@ ralph run --no-tui -p "Implement P89 Swipeable Card View per features/p89_swipea
 **Stop:** `Ctrl+C` or `pkill -f ralph`
 ```
 
-## Example 2: Spec without UAT
+## Example 2: Spec without UAT (medium complexity)
 
 **Input:**
 ```

@@ -1,7 +1,8 @@
 ---
 status: backlog
+type: story
 sort_order: 0.078125
-hypothesis: H-Biz
+hypothesis: H-Revenue
 ---
 # P79: Consulting & Revenue Model
 

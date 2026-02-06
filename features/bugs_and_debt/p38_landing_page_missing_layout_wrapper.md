@@ -1,8 +1,8 @@
-# B38: Landing Page Missing Layout Wrapper
-
-**Status:** Ready to Fix
-**Priority:** 🔴 High (Architectural inconsistency + missing features)
-**Created:** 2026-01-06
+---
+status: backlog
+type: bug
+---
+# P38: Landing Page Missing Layout Wrapper
 
 ---
 

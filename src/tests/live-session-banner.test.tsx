@@ -191,24 +191,20 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
     });
 
-    // P52: New menu items - View My Profile
-    it('shows View My Profile with correct link', async () => {
+    // P114: View My Profile removed from menu (now in icon nav on main navigation)
+    it('does NOT show View My Profile (simplified menu)', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      const profileLink = screen.getByTestId('view-profile');
-      expect(profileLink).toBeInTheDocument();
-      expect(profileLink).toHaveAttribute('href', '/me');
+      expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
     });
 
-    it('shows View My Pledge with correct link', async () => {
+    // P114: View My Pledge removed from menu (accessible from profile page)
+    it('does NOT show View My Pledge (simplified menu)', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      const pledgeLink = screen.getByTestId('view-pledge');
-      expect(pledgeLink).toBeInTheDocument();
-      // P52: Link now goes to /p/slug/pledge to match SimpleNavigation
-      expect(pledgeLink).toHaveAttribute('href', '/p/test-user/pledge');
+      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
 
     // P52: New menu items - Settings
@@ -512,13 +508,13 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
 
-    it('shows Take the Pledge instead', async () => {
+    // P114: Take the Pledge removed from verified user menu (simplified to Settings + Log Out)
+    it('does NOT show Take the Pledge (simplified menu)', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      // P52: Non-pledgers see "Take the Pledge" link instead
-      expect(screen.getByTestId('take-pledge')).toBeInTheDocument();
-      expect(screen.getByTestId('take-pledge')).toHaveAttribute('href', '/sign-pledge?prefill=true');
+      // P114: Verified user menu only has Settings + Log Out
+      expect(screen.queryByTestId('take-pledge')).not.toBeInTheDocument();
     });
 
     it('still shows Log Out for live-only users', async () => {

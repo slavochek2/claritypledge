@@ -11,10 +11,10 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { getFeaturedProfiles, getVerifiedProfileCount, AVATAR_ROW_LIMIT_MOBILE, AVATAR_ROW_LIMIT_DESKTOP } from "@/app/data/api";
-import { getInitials } from "@/lib/utils";
-import type { ProfileSummary } from "@/app/types";
+import type { ProfileSummary, PersonRef } from "@/app/types";
 import { analytics } from "@/lib/mixpanel";
 import { SEO } from "@/app/components/seo";
+import { PersonAvatar } from "@/components/ui/person-avatar";
 
 export function SignPledgePage() {
   const navigate = useNavigate();
@@ -115,14 +115,18 @@ export function SignPledgePage() {
               {champions.slice(0, AVATAR_ROW_LIMIT_MOBILE).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
-                  <div
+                  <PersonAvatar
                     key={champion.id}
-                    role="img"
-                    aria-label={champion.name}
-                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium"
-                  >
-                    {getInitials(champion.name)}
-                  </div>
+                    person={{
+                      name: champion.name,
+                      slug: champion.slug,
+                      avatarColor: champion.avatarColor,
+                      avatarUrl: champion.avatarUrl,
+                      hasPledged: true, // Featured profiles are verified pledgers
+                    } satisfies PersonRef}
+                    size="sm"
+                    className="w-8 h-8 border-2 border-white/80"
+                  />
                 );
               })}
               {totalCount > AVATAR_ROW_LIMIT_MOBILE && (
@@ -139,14 +143,18 @@ export function SignPledgePage() {
               {champions.slice(0, AVATAR_ROW_LIMIT_DESKTOP).map((champion) => {
                 if (!champion?.id || !champion?.name) return null;
                 return (
-                  <div
+                  <PersonAvatar
                     key={champion.id}
-                    role="img"
-                    aria-label={champion.name}
-                    className="w-8 h-8 rounded-full border-2 border-white/80 bg-slate-400 flex items-center justify-center text-white text-xs font-medium"
-                  >
-                    {getInitials(champion.name)}
-                  </div>
+                    person={{
+                      name: champion.name,
+                      slug: champion.slug,
+                      avatarColor: champion.avatarColor,
+                      avatarUrl: champion.avatarUrl,
+                      hasPledged: true, // Featured profiles are verified pledgers
+                    } satisfies PersonRef}
+                    size="sm"
+                    className="w-8 h-8 border-2 border-white/80"
+                  />
                 );
               })}
               {totalCount > AVATAR_ROW_LIMIT_DESKTOP && (

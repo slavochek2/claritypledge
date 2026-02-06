@@ -27,7 +27,6 @@ import { mockUsers, currentUser, getStories, getStoryById, getPointsForStory, ge
 import { PositionBadge } from './shared';
 import type { PositionType } from '../../shared/types';
 import { QRCodeSVG } from 'qrcode.react';
-import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import type { Story, Point } from '../../shared/types';
@@ -1281,7 +1280,6 @@ export function Live() {
             </>
           )}
         </div>
-        <Toaster position="top-center" />
       </div>
     );
   }
@@ -1478,7 +1476,6 @@ export function Live() {
             </div>
           </div>
         </div>
-        <Toaster position="top-center" />
       </div>
     );
   }
@@ -1506,7 +1503,6 @@ export function Live() {
             />
           </ActionArea>
         </div>
-        <Toaster position="top-center" />
       </div>
     );
   }
@@ -1531,7 +1527,6 @@ export function Live() {
               />
             </ActionArea>
           </div>
-          <Toaster position="top-center" />
         </div>
       );
     }
@@ -1606,7 +1601,6 @@ export function Live() {
             )}
           </ActionArea>
         </div>
-        <Toaster position="top-center" />
       </div>
     );
   }

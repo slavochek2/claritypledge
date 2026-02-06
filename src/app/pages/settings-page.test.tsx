@@ -524,8 +524,8 @@ describe("SettingsPage", () => {
       renderSettingsPage();
 
       await waitFor(() => {
-        const backLink = screen.getByRole("link", { name: /back to dashboard/i });
-        expect(backLink).toHaveAttribute("href", "/home");
+        const backLink = screen.getByRole("link", { name: /back/i });
+        expect(backLink).toHaveAttribute("href", "/events");
       });
     });
   });

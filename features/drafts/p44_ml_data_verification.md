@@ -1,3 +1,7 @@
+---
+status: draft
+type: task
+---
 # P33: ML Data Verification Plan
 
 ## Goal

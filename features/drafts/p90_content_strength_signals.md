@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # P90: Content Strength Signals (Impact Score)
 
 ## Status: Planning

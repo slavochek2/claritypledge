@@ -1,3 +1,7 @@
+---
+status: draft
+type: story
+---
 # P16: User Journey Map & Open Questions
 
 ## Purpose

@@ -1,5 +1,6 @@
 ---
 status: backlog
+type: task
 tags:
   - ghost
   - infrastructure
@@ -20,7 +21,7 @@ gcloud compute ssh ghost-prod --zone=us-central1-a --command="cd ~/ghost && sudo
 **Test:** Send test email via Mailgun API to slava@claritypledge.com first. If it arrives, run the commands above.
 
 ```bash
-gcloud compute ssh ghost-prod --zone=us-central1-a --command="curl -s --user 'api:6f9a1bb501e29d2429b6ff7cfa02727e-f39109fe-791231b6' https://api.eu.mailgun.net/v3/mg.claritypledge.com/messages -F from='Test <test@mg.claritypledge.com>' -F to=slava@claritypledge.com -F subject='DNS test' -F text='Cache cleared'"
+gcloud compute ssh ghost-prod --zone=us-central1-a --command="curl -s --user 'api:REDACTED' https://api.eu.mailgun.net/v3/mg.claritypledge.com/messages -F from='Test <test@mg.claritypledge.com>' -F to=slava@claritypledge.com -F subject='DNS test' -F text='Cache cleared'"
 ```
 
 ## Ghost Admin Reference

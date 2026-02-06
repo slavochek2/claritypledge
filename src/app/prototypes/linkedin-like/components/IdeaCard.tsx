@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Share2, Check, Copy, Zap, Users, ExternalLink } from 'lucide-react';
 import { Idea, Position, getPositionCounts, getUserById, getAllVerificationSessionsForIdea, formatTimeAgo } from '../data/mock-data';
-import { PositionButtons, VisibilityBadge, UserCredibility, type SevenPointCounts } from './shared';
+import { PositionButtons, UserCredibility, type SevenPointCounts } from './shared';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { getPositionGroup } from '../../shared/types';
 import type { PositionType, PositionButtonGroup } from '../../shared/types';
@@ -235,8 +235,6 @@ export function IdeaCard({ idea, compact = false, profileUserId, isDetailView = 
                 <span className="text-gray-500">
                   {idea.createdAt ? formatTimeAgo(idea.createdAt) : ''}
                 </span>
-                {/* Visibility badge */}
-                <VisibilityBadge visibility={idea.visibility} size={14} />
                 {/* Show profile user's position inline when on their profile */}
                 {isOtherUserProfile && profileUser && profileUserPosition && (
                   <>

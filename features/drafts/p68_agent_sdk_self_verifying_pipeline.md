@@ -1,3 +1,7 @@
+---
+status: draft
+type: task
+---
 # P68: Agent SDK Self-Verifying Pipeline Experiment
 
 **Status:** Planning

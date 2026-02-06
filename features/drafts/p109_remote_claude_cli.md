@@ -1,5 +1,6 @@
 ---
 status: backlog
+type: story
 ---
 # P109: Remote Claude CLI Access
 

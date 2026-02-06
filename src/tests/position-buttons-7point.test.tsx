@@ -287,7 +287,10 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
       expect(screen.queryByTestId('disagree-dropdown')).toBeInTheDocument();
     });
 
-    it('compact mode shows aggregated counts in brackets', () => {
+    it('compact mode hides counts to make room for dropdown chevrons', () => {
+      // In compact mode (nested/quoted views), counts are hidden to save space
+      // for the dropdown chevrons which provide essential intensity selection.
+      // This is an intentional trade-off: counts are nice-to-have, dropdowns are essential.
       render(
         <PositionButtons
           userPosition={null}
@@ -297,9 +300,14 @@ describe('PositionButtons - 7-Point Scale with 3-Button Dropdown UI', () => {
         />
       );
 
-      expect(screen.getByText('(14)')).toBeInTheDocument();
-      expect(screen.getByText('(2)')).toBeInTheDocument();
-      expect(screen.getByText('(18)')).toBeInTheDocument();
+      // Counts should NOT be visible in compact mode
+      expect(screen.queryByText('(14)')).not.toBeInTheDocument();
+      expect(screen.queryByText('(2)')).not.toBeInTheDocument();
+      expect(screen.queryByText('(18)')).not.toBeInTheDocument();
+
+      // But dropdown triggers should still be present
+      expect(screen.getByTestId('agree-dropdown')).toBeInTheDocument();
+      expect(screen.getByTestId('disagree-dropdown')).toBeInTheDocument();
     });
 
     it('compact mode still calls onPositionClick with default values', async () => {

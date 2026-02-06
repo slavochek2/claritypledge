@@ -1,3 +1,7 @@
+---
+status: draft
+type: task
+---
 # P24: Next.js Migration - PAUSED
 
 **Status:** PAUSED - 3-4 attempts failed, needs different approach

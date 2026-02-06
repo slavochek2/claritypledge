@@ -2,8 +2,10 @@
  * @file simple-navigation.tsx
  * @description KISS Navigation - Two states only
  *
- * 1. Verified user → Full menu (View My Profile, pledge items, Settings, Log Out)
- * 2. Everyone else → Public menu (Log In)
+ * 1. Verified user → Icon nav (Events, Create, Profile) + dropdown with public links + Settings, Log Out
+ * 2. Everyone else → Text nav links + dropdown with CTAs
+ *
+ * P115: Logged-in dropdown uses "sandwich" pattern - public links on top, separator, account actions below.
  */
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
@@ -12,12 +14,14 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon, SparklesIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
+import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
+import { toast } from "sonner";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -31,10 +35,12 @@ export function SimpleNavigation() {
   // Note: showPublicCTAs, slug, hasPledged handled by NavigationMenuItems (shared component)
   // P67: user is needed for avatar display
   // P76: hasPledged is needed for pledger distinction on avatars
+  // P113: slug is needed for icon nav profile link
   const {
     showUserMenu,
     user,
     hasPledged,
+    slug,
     signOut,
   } = useNavAuthState();
 
@@ -84,29 +90,92 @@ export function SimpleNavigation() {
 
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Visible nav links — only Events + Blog; rest moved to hamburger dropdown */}
-            <Link
-              to="/events"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Events
-            </Link>
-            <a
-              href="https://blog.claritypledge.com"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Blog
-            </a>
-            {/* Start a Clarity Session CTA */}
-            {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
-            <Link
-              to="/live"
-              title="Start a live clarity session"
-              className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
-              onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
-            >
-              Start a Clarity Session
-            </Link>
+            {/* P113: Show icon nav for logged-in users, text links for logged-out */}
+            {showUserMenu ? (
+              /* Logged-in: Icon nav with labels (LinkedIn-style) */
+              <>
+                {/* My Events */}
+                <Link
+                  to="/events"
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname === "/events" || location.pathname.startsWith("/events/")
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <CalendarIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">My Events</span>
+                </Link>
+                {/* Create (disabled) */}
+                <button
+                  onClick={() => toast("Coming soon")}
+                  className="flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md text-muted-foreground opacity-50 cursor-not-allowed"
+                  aria-label="Create (coming soon)"
+                >
+                  <SparklesIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">Create</span>
+                </button>
+                {/* My Profile */}
+                <Link
+                  to={slug ? `/p/${slug}` : "/me"}
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname.startsWith("/p/") || location.pathname === "/me"
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <UserIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">My Profile</span>
+                </Link>
+                {/* Start a Clarity Session CTA - P114: consistent text, no icon */}
+                <Link
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                >
+                  Start a Clarity Session
+                </Link>
+              </>
+            ) : (
+              /* Logged-out: Text links - order: Events, Pledgers, Manifesto, About */
+              <>
+                <Link
+                  to="/events"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Events
+                </Link>
+                <Link
+                  to="/pledgers"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Pledgers
+                </Link>
+                <Link
+                  to="/manifesto"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Manifesto
+                </Link>
+                <Link
+                  to="/about"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  About
+                </Link>
+                {/* Start a Clarity Session CTA - P114: consistent text */}
+                {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
+                <Link
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                >
+                  Start a Clarity Session
+                </Link>
+              </>
+            )}
             {/* Menu Trigger - P67: Avatar for verified users, hamburger for everyone else */}
             <DropdownMenu modal={false} onOpenChange={(open) => {
               if (open) {
@@ -183,12 +252,12 @@ export function SimpleNavigation() {
             className="lg:hidden py-4 pb-6 border-t border-border bg-background shadow-lg"
           >
             <div className="flex flex-col gap-3">
-              {/* Primary CTA */}
+              {/* Primary CTA - P114: consistent text */}
               {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
               <Link
                 to="/live"
                 title="Start a live clarity session"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
+                className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-11 rounded-md px-8 bg-blue-500 hover:bg-blue-600 text-white font-semibold w-full"
                 onClick={() => {
                   analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'mobile' });
                   closeMobileMenu();
@@ -199,23 +268,20 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Visible nav links — only Events + Blog; rest in NavigationMenuItems */}
-              <Link
-                to="/events"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={closeMobileMenu}
-              >
-                Events
-              </Link>
-              <a
-                href="https://blog.claritypledge.com"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={closeMobileMenu}
-              >
-                Blog
-              </a>
+              {/* Navigation Links - Only for logged-out users */}
+              {/* P115: Logged-in users get these links via NavigationMenuItems sandwich pattern */}
+              {!showUserMenu && NAV_LINKS.filter(link => link.to !== '/co-create').map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                  onClick={closeMobileMenu}
+                >
+                  {link.label}
+                </Link>
+              ))}
 
-              <div className="border-t border-border my-2"></div>
+              {!showUserMenu && <div className="border-t border-border my-2"></div>}
 
               {/* KISS: Two states only - using shared NavigationMenuItems */}
               <NavigationMenuItems

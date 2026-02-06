@@ -17,9 +17,10 @@ import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
-import type { EventWithHost } from '@/app/types';
+import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
+import { PersonAvatar } from '@/components/ui/person-avatar';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -83,7 +84,7 @@ export function EventDetail() {
   // Show toast if user just signed up and was redirected here to RSVP
   useEffect(() => {
     if (searchParams.get('action') === 'rsvp' && isLoggedIn) {
-      toast.success('Account created! Click RSVP to confirm your spot.');
+      toast.success('Account created! Click "I\'m going" to confirm your spot.');
       // Clear the action param from URL
       searchParams.delete('action');
       setSearchParams(searchParams, { replace: true });
@@ -134,7 +135,7 @@ export function EventDetail() {
       setIsRsvpd(true);
       navigate(`/events/${slug}/confirm`);
     } else {
-      toast.error('Could not complete RSVP. The event may be full or no longer available.');
+      toast.error('Couldn\'t sign you up. The event may be full or no longer available.');
     }
   };
 
@@ -198,7 +199,7 @@ export function EventDetail() {
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* P76: Back link - conditional based on auth state */}
         <Link
-          to={isLoggedIn ? "/home" : "/events"}
+          to="/events"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -382,8 +383,8 @@ export function EventDetail() {
                     <div className="flex items-center gap-3">
                       <CheckCircle2 className="w-6 h-6 text-green-600" />
                       <div>
-                        <p className="font-semibold text-green-800">You're Registered!</p>
-                        <p className="text-sm text-green-700">We'll see you there</p>
+                        <p className="font-semibold text-green-800">You're going!</p>
+                        <p className="text-sm text-green-700">See you there</p>
                       </div>
                     </div>
                     <Button
@@ -394,7 +395,7 @@ export function EventDetail() {
                       className="text-muted-foreground hover:text-red-600 hover:bg-white/50"
                     >
                       <X className="w-4 h-4 mr-1" />
-                      Cancel RSVP
+                      Can't make it
                     </Button>
                   </div>
                 ) : isLoggedIn ? (
@@ -405,11 +406,11 @@ export function EventDetail() {
                     disabled={isActionLoading}
                     data-testid="rsvp-button"
                   >
-                    {isActionLoading ? 'Registering...' : 'RSVP'}
+                    {isActionLoading ? 'Joining...' : 'I\'m going'}
                   </Button>
                 ) : (
                   <Button onClick={handleRsvp} className="w-full bg-blue-500 hover:bg-blue-600 text-white" size="lg" data-testid="rsvp-button">
-                    Create Account to RSVP
+                    Sign up to join
                   </Button>
                 )}
               </div>
@@ -427,12 +428,17 @@ export function EventDetail() {
                 to={`/p/${event.hostSlug}`}
                 className="flex flex-col items-center text-center w-full p-3 -m-3 rounded-lg hover:bg-muted/50 transition-colors"
               >
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-white font-semibold text-xl mb-2"
-                  style={{ backgroundColor: event.hostAvatarColor }}
-                >
-                  {event.hostName.charAt(0)}
-                </div>
+                <PersonAvatar
+                  person={{
+                    name: event.hostName,
+                    slug: event.hostSlug,
+                    avatarColor: event.hostAvatarColor,
+                    avatarUrl: event.hostAvatarUrl,
+                    hasPledged: event.hostHasPledged ?? false,
+                  } satisfies PersonRef}
+                  size="lg"
+                  className="mb-2"
+                />
                 <p className="font-semibold">{event.hostName}</p>
                 <p className="text-sm text-muted-foreground">{event.hostRole}</p>
               </Link>
@@ -469,10 +475,10 @@ export function EventDetail() {
       <ConfirmDialog
         open={showCancelRsvpDialog}
         onOpenChange={setShowCancelRsvpDialog}
-        title="Cancel your RSVP?"
-        description="You will be removed from the guest list. You can always RSVP again if spots are available."
-        confirmLabel="Cancel RSVP"
-        cancelLabel="Keep RSVP"
+        title="Can't make it?"
+        description="You'll be removed from the guest list. You can always join again if spots are available."
+        confirmLabel="I can't go"
+        cancelLabel="I'm still going"
         variant="destructive"
         onConfirm={confirmCancelRsvp}
         isLoading={isActionLoading}

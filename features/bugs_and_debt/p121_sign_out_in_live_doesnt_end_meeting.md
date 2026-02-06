@@ -1,9 +1,8 @@
-# Bug: Sign Out in Live Doesn't End Meeting
-
-**Status:** Open
-**Severity:** High
-**Reported:** 2025-01-15
-**Area:** `/live` meeting flow, authentication
+---
+status: backlog
+type: bug
+---
+# P121: Sign Out in Live Doesn't End Meeting
 
 ## Description
 

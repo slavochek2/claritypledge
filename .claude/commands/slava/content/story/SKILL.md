@@ -28,6 +28,20 @@ Every good founder story follows this arc:
 
 ## Process
 
+### Step 0: Clarify Content Type
+
+Before writing, ask the user what format they need:
+
+| Type | Length | Use Case |
+|------|--------|----------|
+| **Quick thought** | 2-4 sentences | Tweet, LinkedIn snippet, internal note |
+| **Short post** | 200-300 words | LinkedIn post, quick newsletter item |
+| **Medium article** | 500-800 words | Newsletter feature, event discussion material |
+| **Long post** | 1000-2000 words | Blog/SEO, deep dive |
+
+If user provided arguments specifying format, use that. Otherwise ask:
+> "What format do you need? Quick thought (few sentences), short post (LinkedIn-length), medium article (newsletter), or long post (blog)?"
+
 ### Step 1: Identify the Arc
 
 From the conversation, extract:
@@ -59,7 +73,7 @@ Good hooks:
 **Status:** Draft
 ```
 
-**Length:** 500-1000 words (3-5 minute read)
+**Length:** Based on content type from Step 0 (default to medium if unspecified)
 
 **Voice:** First person, honest, vulnerable but not self-pitying
 
@@ -96,11 +110,11 @@ If research or data was involved, include:
 
 ## Output Location
 
-Save to: `docs/stories/YYYY-MM-DD-{slug}.md`
+Save to: `content/stories/YYYY-MM-DD-{slug}.md`
 
 ## Example
 
-See: `docs/stories/2026-01-28-the-measurement-gap.md`
+See: `content/stories/` for existing stories
 
 This story captures a session where:
 - **Block:** Couldn't figure out how to make money

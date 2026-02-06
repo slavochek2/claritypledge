@@ -1,6 +1,8 @@
-# D1: Bundle Size Optimization
-
-## Status: Backlog
+---
+status: backlog
+type: task
+---
+# P119: Bundle Size Optimization
 
 ## Problem
 

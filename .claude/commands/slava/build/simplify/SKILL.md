@@ -1,17 +1,20 @@
 ---
 name: simplify
-description: Review for sustainable simplicity — remove complexity, preserve quality.
-when_to_use: Find unnecessary complexity, validate decisions, get critical review
-version: 5.0.0
+description: Analyze each decision point — categorize, show options, recommend.
+when_to_use: When reviewing a spec/plan and need structured decision-by-decision analysis.
+version: 7.0.0
 ---
 
 # /slava:simplify
 
 > **Principle:** Good simplification removes what's unnecessary. Bad simplification cuts corners.
 
-## Key Question
+## What This Skill Does
 
-**"Will this still be the right decision in 6 months?"**
+Reads the document, identifies EACH important decision, and for each one:
+1. Categorizes it as **Keep** (no change needed) or **Fix** (needs change)
+2. For Fix items: lists options with tradeoffs
+3. Recommends one option with reasoning
 
 ## Usage
 
@@ -24,43 +27,24 @@ version: 5.0.0
 
 ## How to Think
 
-You're reviewing for sustainable simplicity. Not "simple at any cost" — simple while still being correct, maintainable, and user-friendly.
+**Extract decisions, not complaints.** Look for places where the spec makes a choice (explicit or implicit).
 
-**Remove, don't cut.** Removing unnecessary complexity is good. Cutting necessary functionality is bad.
+**Be specific.** "The auth flow" is not a decision. "Using magic link vs password" is a decision.
 
-**6-month test.** Every recommendation should pass: "Will we thank ourselves for this in 6 months?"
+**6-month test.** Will we thank ourselves for this in 6 months?
 
-**Production is the test.** Something that works in demos isn't finished.
-
----
-
-## Workflow
-
-1. **Read** the document fully
-2. **Understand** what it's trying to achieve
-3. **Question** every piece of complexity — is it necessary?
-4. **Find** what's missing, unclear, or overcomplicated
-5. **Output** decisions, blind spots, opportunities
+**Remove, don't cut.** Removing unnecessary complexity = good. Cutting necessary functionality = bad.
 
 ---
 
-## Never Recommend
-
-These are anti-patterns, not rules to memorize:
-
-- Corner-cutting disguised as simplification
-- "Add that later" for things users need now
-- Removing error handling, accessibility, or security
-- Technical debt that creates more work than it saves
-
----
-
-## Output
+## Output Format
 
 ```markdown
-### Simplify Review
+## Decisions Analysis
 
-**Key insight:** [Most important finding — 1 sentence]
+### 1. [Decision Name]
+**Status:** Keep ✓
+**Why:** [One sentence — why this is already right]
 
 ### Decisions Needed
 | # | Question | Options | Recommendation |
@@ -70,29 +54,58 @@ These are anti-patterns, not rules to memorize:
 
 Reply: "1a, 2b" etc.
 
-### Blind Spots
-| Finding | Severity |
-|---------|----------|
+### 2. [Decision Name]
+**Status:** Fix ✗
 
-### Opportunities
-| Change | Benefit | Risk if skipped |
-|--------|---------|-----------------|
+**Options:**
+1. **[Option A]** — [tradeoff in one sentence]
+2. **[Option B]** — [tradeoff in one sentence]
+3. **Keep as-is** — [tradeoff in one sentence]
+
+**Recommendation:** Option N because [one sentence reasoning].
+
+---
+
+### 3. [Decision Name]
+**Status:** Keep ✓
+**Why:** [One sentence]
+
+---
+
+[Continue for each decision...]
+
+## Summary
+- **Keep:** N decisions (already good)
+- **Fix:** M decisions (need changes)
 ```
 
 ---
 
-## Other Perspectives
+## What Counts as a Decision
 
-Run these separately if you want additional lenses:
+Look for these patterns in specs/plans:
+- Technology choices (library, framework, service)
+- Scope choices (include/exclude features)
+- UX choices (flow, layout, interaction pattern)
+- Data model choices (what to store, how to structure)
+- Validation approaches (when to ship, what to test)
 
-- `/slava:ux` — User experience
-- `/slava:lean` — Challenge scope, find the MVP
-- `/slava:innovate` — Explore alternative approaches
+**Skip:** Implementation details that don't affect outcomes.
 
 ---
 
-## Related
+## Anti-Patterns
 
-- [PRINCIPLES.md](../PRINCIPLES.md) — Agent philosophy
-- `/slava:dev` — To implement approved changes
-- `/slava:kdd` — To record decisions
+Never recommend:
+- Corner-cutting disguised as simplification
+- Skipping error handling, accessibility, or security
+- "Add that later" for things users need now
+
+---
+
+## When to Use Other Skills
+
+- `/slava:lean` — Challenge scope, find the MVP
+- `/slava:ux` — Deep dive on user experience
+- `/slava:innovate` — Explore alternative approaches
+- `/slava:prep-spec` — Full spec review before implementation
