@@ -4,7 +4,7 @@
  * Route: /create
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useBlocker } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { toast } from 'sonner';
@@ -12,13 +12,6 @@ import { Loader2Icon, GlobeIcon, LockIcon, UsersIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import type { StoryVisibility } from '@/app/types';
 
@@ -56,9 +49,6 @@ export function CreateStoryPage() {
 
   // Derived dirty state
   const isDirty = content.trim().length > 0;
-
-  // Block in-app navigation when form has unsaved changes
-  const blocker = useBlocker(isDirty && !isSaved);
 
   // Track page view
   useEffect(() => {
@@ -267,33 +257,6 @@ export function CreateStoryPage() {
         </div>
       </form>
 
-      {/* Unsaved changes confirmation dialog */}
-      {blocker.state === 'blocked' && (
-        <Dialog open onOpenChange={() => blocker.reset()}>
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Discard unsaved changes?</DialogTitle>
-              <DialogDescription>
-                Your story hasn't been saved yet. Are you sure you want to leave?
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex gap-3 justify-end pt-2">
-              <Button variant="outline" onClick={() => blocker.reset()}>
-                Keep editing
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  analytics.track('story_creation_abandoned');
-                  blocker.proceed();
-                }}
-              >
-                Discard
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }
