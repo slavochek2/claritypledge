@@ -162,11 +162,11 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
         </button>
       )}
 
-      {/* Properties — each group on its own row like Notion */}
+      {/* Properties — each property type on its own row like Notion */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {/* Row: Priority + Size + Blocked + Prepped */}
-        {(feature.priority || feature.size || feature.blocked_by?.length || feature.prepped) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {/* Priority + Size */}
+        {(feature.priority || feature.size) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {feature.priority && (
               <span style={{ ...tagStyle, background: PRIORITY_STYLES[feature.priority].bg, color: PRIORITY_STYLES[feature.priority].text }}>
                 {feature.priority}
@@ -177,20 +177,30 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
                 {feature.size}
               </span>
             )}
-            {feature.blocked_by?.map((blockerId) => (
+          </div>
+        )}
+
+        {/* Blocked_by */}
+        {feature.blocked_by?.length ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {feature.blocked_by.map((blockerId) => (
               <span key={blockerId} style={{ ...tagStyle, background: 'var(--tag-red-bg)', color: 'var(--tag-red-text)' }}>
                 ⛔ {blockerId}
               </span>
             ))}
-            {feature.prepped && (
-              <span style={{ ...tagStyle, background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }}>
-                prepped
-              </span>
-            )}
+          </div>
+        ) : null}
+
+        {/* Spec readiness */}
+        {feature.prepped && (
+          <div>
+            <span style={{ ...tagStyle, background: 'var(--tag-green-bg)', color: 'var(--tag-green-text)' }}>
+              prepped
+            </span>
           </div>
         )}
 
-        {/* Row: Tags */}
+        {/* Tags */}
         {(visibleTags.length > 0 || hiddenTagCount > 0) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {visibleTags.map((tag) => {
@@ -209,19 +219,21 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           </div>
         )}
 
-        {/* Row: Milestone + Hypothesis */}
-        {(feature.milestone || feature.hypothesis) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            {feature.milestone && (
-              <span style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}>
-                {feature.milestone}
-              </span>
-            )}
-            {feature.hypothesis && (
-              <span style={{ ...tagStyle, background: 'var(--tag-yellow-bg)', color: 'var(--tag-yellow-text)' }}>
-                {feature.hypothesis}
-              </span>
-            )}
+        {/* Milestone */}
+        {feature.milestone && (
+          <div>
+            <span style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}>
+              {feature.milestone}
+            </span>
+          </div>
+        )}
+
+        {/* Hypothesis */}
+        {feature.hypothesis && (
+          <div>
+            <span style={{ ...tagStyle, background: 'var(--tag-yellow-bg)', color: 'var(--tag-yellow-text)' }}>
+              {feature.hypothesis}
+            </span>
           </div>
         )}
       </div>
