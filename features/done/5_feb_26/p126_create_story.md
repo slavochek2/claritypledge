@@ -1,8 +1,10 @@
 ---
-status: today
+status: done
+completed_at: '2026-02-06'
 type: story
 priority: p1
-tags: [stories, p117, h-stories]
+tags: [stories]
+hypothesis: h-stories
 blockedBy: [p117]
 prepped_date: '2026-02-06'
 reviews:
@@ -135,7 +137,7 @@ CREATE POLICY "Stories readable by visibility"
 - [x] Error → toast with retry
 - [x] `/story/:id` displays story, author, visibility badge, date
 - [x] Private stories only visible to author
-- [ ] Story version trigger auto-creates v1 (no manual version creation needed)
+- [x] Story version trigger auto-creates v1 (no manual version creation needed)
 - [x] Mixpanel events fire
 - [x] `./scripts/pre-commit-checks.sh` passes
 
