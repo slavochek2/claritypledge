@@ -31,4 +31,4 @@ file-utils,File Utilities,"CSV/XLSX/PDF/ZIP validation","files,playwright-utils"
 burn-in,Burn-in Runner,"Smart test selection, git diff","ci,playwright-utils",knowledge/burn-in.md
 network-error-monitor,Network Error Monitor,"HTTP 4xx/5xx detection","monitoring,playwright-utils",knowledge/network-error-monitor.md
 fixtures-composition,Fixtures Composition,"mergeTests composition patterns","fixtures,playwright-utils",knowledge/fixtures-composition.md
-browser-mcp-tools,Browser MCP Tools,"Chrome DevTools MCP and Playwright MCP for interactive testing","browser,mcp,devtools,playwright,debugging",knowledge/browser-mcp-tools.md
+browser-tools,Browser Tools Guide,"Playwright, Chrome DevTools MCP, Claude in Chrome — tool selection guide","browser,mcp,devtools,playwright,chrome,debugging",docs/technical/browser-tools.md

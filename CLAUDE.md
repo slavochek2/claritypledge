@@ -221,25 +221,15 @@ Context7 MCP (`mcp__plugin_context7_context7__*`) provides up-to-date documentat
 
 ### Browser Automation
 
-**Priority order:**
-1. **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) — Primary, always try first
-2. **Docker MCP Playwright** (`mcp__MCP_DOCKER__browser_eval`) — Backup only
+Three tools, different lanes — pick based on the task:
 
-**Why Chrome DevTools first:**
-- Connects to real browser (more reliable rendering)
-- Better for visual verification
-- Maintains session state
+| Need | Tool | Why |
+|------|------|-----|
+| Automated test suite, CI, `/live` two-party | **Playwright** (`npm run test:e2e`) | Repeatable, headless, parallel |
+| Debugging, perf profiling, network inspection | **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Headless, no user browser needed |
+| Visual QA, authenticated pages, ad-hoc checks | **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Real browser, cookies, vision |
 
-**When to use Docker MCP Playwright:**
-- Chrome DevTools unavailable or disabled
-- Need isolated/parallel-safe testing
-- Chrome DevTools session has unrecoverable errors
-
-**If Chrome DevTools shows "browser already running" error:**
-- Try `list_pages` to reconnect to existing session
-- Don't immediately fall back to Docker MCP
-
-For full details: [browser-tools.md](docs/technical/browser-tools.md)
+No priority order. Each has a unique strength. For full details: [browser-tools.md](docs/technical/browser-tools.md)
 
 ## Product Overview
 

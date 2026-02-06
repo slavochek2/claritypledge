@@ -1,141 +1,187 @@
 # Browser Tools Guide
 
-This guide covers browser automation tools available to Claude agents.
+Three browser automation tools, each with a distinct purpose. No hierarchy — pick based on the task.
 
 ---
 
-## Default Behavior: Headless + Isolated
+## Tool Overview
 
-> **Principle:** Browser automation should always run **headless** and **isolated** by default.
-
-| Mode | Why Default |
-|------|-------------|
-| **Headless** | Faster, no visual distraction, works in CI, doesn't steal focus |
-| **Isolated** | No session conflicts between agents, clean state, auto-cleanup |
-
-**Exception:** If an agent needs visual debugging (to see what's happening), they must explicitly request headed mode and explain why.
-
-**Configuration:**
-- Chrome DevTools MCP: `--headless --isolated` flags in `~/.claude/settings.json`
-- Playwright: Defaults to headless; use `--headed` flag only when debugging
+| Tool | What It Is | Headless? | Needs User Browser? | CI? |
+|------|-----------|-----------|---------------------|-----|
+| **Playwright** (`npm run test:e2e`) | Automated test framework | Yes | No | Yes |
+| **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Headless debugging & profiling | Yes | No | No |
+| **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Visual QA in real browser | No | Yes (`claude --chrome`) | No |
 
 ---
 
-## Chrome DevTools MCP (Default)
+## When to Use Each
+
+### Playwright Tests
+
+**Lane:** Repeatable automated testing.
+
+- E2E test suites (`e2e/*.spec.ts`)
+- Regression testing in CI
+- Two-party `/live` session simulation (multiple browser contexts)
+- Assertions with `expect()`, auto-retry, test reports
+- Parallel workers, sharding
+
+```bash
+npm run test:e2e         # Headless
+npm run test:e2e:headed  # Visual debugging
+npm run test:e2e:ui      # Playwright UI
+```
+
+**Use when:** You need tests that run the same way every time, without a human present.
+
+### Chrome DevTools MCP
+
+**Lane:** Headless debugging, performance profiling, network inspection.
 
 Tools: `mcp__chrome-devtools__*`
 
-**Primary tool for browser automation.** Connects to a real Chrome browser.
-
-- Navigate to pages, take screenshots, interact with elements
-- Network inspection (headers, timing, failures)
-- Performance traces and profiling
-- Console messages with full context
-- More reliable for visual testing (real browser rendering)
+**Unique strengths:**
+- **Performance profiling** — `performance_start_trace`, `stop_trace`, `analyze_insight`
+- **Network inspection** — request/response headers, timing, failures
+- **Console capture** — errors, warnings with full context
+- **Headless + isolated** — runs without the user's Chrome, each session gets a clean profile
+- **Works in any Claude session** — no `--chrome` flag needed
 
 **Common tools:**
-- `list_pages` - See open tabs
-- `navigate_page` - Go to URL
-- `take_screenshot` - Visual capture
-- `get_console_logs` - Check for errors
+- `navigate_page` — go to URL
+- `take_snapshot` — accessibility tree (low context cost, ~100-500 tokens)
+- `take_screenshot` — visual capture (higher cost, ~1,500-4,000 tokens)
+- `evaluate_script` — run JS in page context
+- `list_network_requests` / `get_network_request` — network debugging
+- `list_console_messages` — error checking
+- `performance_start_trace` — profiling
 
-**Troubleshooting:** With `--isolated` mode, each session gets a fresh profile. If you still get "browser already running" errors, kill stale processes: `pkill -f "chrome-devtools-mcp"`
+**Configuration:** `~/.claude/settings.json` — runs with `--headless --isolated` flags.
+
+**Use when:** Debugging issues, profiling performance, inspecting network calls. Agent can use this independently without the user's browser.
+
+### Claude in Chrome
+
+**Lane:** Visual QA, authenticated sessions, ad-hoc interactive testing.
+
+Tools: `mcp__claude-in-chrome__*`
+
+Requires: `claude --chrome` + Chrome with Claude extension installed.
+
+**Unique strengths:**
+- **Authenticated state** — sees your cookies, logins, extensions (OAuth flows, admin panels)
+- **Vision-based interaction** — `computer` tool with coordinate-based clicks, screenshots
+- **Rich page reading** — `read_page` accessibility tree, `find` for element search
+- **GIF recording** — `gif_creator` for documenting interactions
+- **Form filling** — `form_input` with element refs from `read_page`
+- **JavaScript execution** — `javascript_tool` for arbitrary JS in page context
+
+**Common tools:**
+- `tabs_context_mcp` — always call first to see available tabs
+- `tabs_create_mcp` — open new tab (don't reuse tabs from other sessions)
+- `navigate` — go to URL
+- `read_page` — accessibility tree with interactive element refs
+- `computer` — screenshot, click, type, scroll, zoom
+- `javascript_tool` — run JS in page context
+- `find` — search for elements on page
+- `gif_creator` — record interactions as GIF
+
+**Use when:** You need to see the real page as a user sees it, test authenticated flows, or do ad-hoc visual checks during a conversation.
+
+> **Note:** Docker MCP Playwright (`mcp__MCP_DOCKER__browser_eval`) is also available as a fallback if Chrome DevTools MCP is unavailable, but the three tools above cover all common use cases.
 
 ---
 
-## Docker MCP Playwright (Backup)
+## Decision Guide
 
-Tools: `mcp__MCP_DOCKER__browser_eval`
-
-**Backup option** when Chrome DevTools unavailable or for parallel-safe isolated testing.
-
-- Runs **headless** in container
-- **Inherently isolated** (each container is fresh)
-- Parallel-safe for multiple agents
-- May have environment setup issues
-
-**Usage:** Single tool with `action` parameter:
-- `action: "start"` - Start browser
-- `action: "navigate"` - Go to URL
-- `action: "screenshot"` - Visual capture
-- `action: "console_messages"` - Check for errors
-
-### Chrome Integration (`claude --chrome`)
-
-For authenticated sessions:
-- Uses your actual logged-in browser (Gmail, OAuth flows)
-- Requires: Chrome + Claude extension + `claude --chrome`
-- **Only way to test OAuth flows or access authenticated state**
+| Task | Tool | Why |
+|------|------|-----|
+| "Run the E2E test suite" | Playwright | Automated, repeatable |
+| "Test the `/live` session flow" | Playwright | Needs two browser contexts |
+| "Is there a console error on this page?" | Chrome DevTools MCP | Headless, quick |
+| "Why is this page slow?" | Chrome DevTools MCP | Performance profiling |
+| "What API calls does this page make?" | Chrome DevTools MCP | Network inspection |
+| "Does the landing page look right?" | Claude in Chrome | Visual verification |
+| "Test the login flow with my account" | Claude in Chrome | Needs authenticated state |
+| "Fill out the pledge form and check it works" | Claude in Chrome | Interactive, visual |
+| "Check the Ghost admin panel" | Claude in Chrome | Needs authentication |
+| "Debug a layout overflow" | Claude in Chrome | Visual bug |
 
 ---
 
-## Snapshot vs Screenshot: Context Cost Guide
+## Snapshot vs Screenshot: Context Cost
 
 **Default to snapshot.** Screenshots consume 10-20x more context tokens.
 
 | Tool | Context Cost | Use When |
-|------|--------------|----------|
-| `take_snapshot` | ~100-500 tokens | Structure, elements, text, form state |
-| `take_screenshot` | ~1,500-4,000 tokens | Visual bugs, styling, layout, showing user |
+|------|-------------|----------|
+| `take_snapshot` / `read_page` | ~100-500 tokens | Structure, elements, text, form state |
+| `take_screenshot` / `computer(screenshot)` | ~1,500-4,000 tokens | Visual bugs, styling, layout |
 
-### Decision Rule
-
-> **Checking content/structure?** → Snapshot
-> **Checking appearance?** → Screenshot
-
-| Task | Tool | Why |
-|------|------|-----|
-| "Is the button on the page?" | Snapshot | Structure check |
-| "Does the button look right?" | Screenshot | Visual check |
-| "Find the login form UID" | Snapshot | Element discovery |
-| "Check the color of the header" | Screenshot | Styling check |
-| "Verify form has 3 fields" | Snapshot | Structure check |
-| "Debug layout overflow" | Screenshot | Visual bug |
+**Rule of thumb:**
+- Checking content/structure → Snapshot
+- Checking appearance → Screenshot
 
 **Math:** 10 snapshots ≈ 2-5K tokens. 10 screenshots ≈ 20-40K tokens.
 
 ---
 
-## Tool Selection Guide
+## Common Patterns
 
-| Need | Tool | Notes |
-|------|------|-------|
-| Check page structure/elements | Chrome DevTools / Playwright | Use `take_snapshot` |
-| Visual verification | Chrome DevTools / Playwright | Use `take_screenshot` |
-| Interact with page elements | Chrome DevTools / Playwright | Use snapshot first to get UIDs |
-| Run E2E test suite | `npm run test:e2e` | Playwright tests with assertions |
-| Debug network/perf issues | Chrome DevTools MCP | Network inspector, perf traces |
-| OAuth / logged-in sessions | Chrome Integration | Requires `claude --chrome` |
+### Check page health (headless)
+```
+1. Chrome DevTools: navigate_page → URL
+2. take_snapshot → verify elements present
+3. list_console_messages → check for errors
+4. list_network_requests → check for failures
+```
+
+### Visual QA (interactive)
+```
+1. Claude in Chrome: tabs_context_mcp → get context
+2. navigate → URL
+3. computer(screenshot) → see the page
+4. read_page(interactive) → check interactive elements
+```
+
+### Debug performance
+```
+1. Chrome DevTools: navigate_page → URL
+2. performance_start_trace(reload=true)
+3. performance_stop_trace
+4. performance_analyze_insight → specific metrics
+```
+
+### Test OAuth / authenticated flow
+```
+Requires: claude --chrome (user must be logged in)
+1. Claude in Chrome: tabs_context_mcp
+2. navigate → authenticated page
+3. read_page → verify logged-in state
+4. Interact with authenticated features
+```
 
 ---
 
-## Common Scenarios
+## Troubleshooting
 
-### "Take a screenshot of the landing page"
-```
-1. browser_navigate to http://localhost:5001
-2. browser_take_screenshot
-```
+**Chrome DevTools "browser already running":**
+- Try `list_pages` to reconnect to existing session
+- Kill stale processes: `pkill -f "chrome-devtools-mcp"` (not `pkill -f "chrome"` — that kills Chrome itself)
 
-### "Check for console errors"
-```
-1. browser_navigate to the page
-2. browser_console_messages with onlyErrors: true
-```
+**Claude in Chrome not responding:**
+- Check Chrome has the Claude extension installed and enabled
+- Verify `claude --chrome` was used to start the session
+- Call `tabs_context_mcp` to refresh tab state
 
-### "Fill out a form"
-```
-1. browser_navigate to the page
-2. browser_snapshot to get element refs
-3. browser_fill_form with field refs and values
-```
-
-### "Test OAuth login flow"
-Ask user to restart with `claude --chrome` - Docker MCP can't access authenticated sessions.
+**Playwright tests failing locally but passing in CI (or vice versa):**
+- Check port — dev server must be running on the correct worktree port
+- See [e2e-testing.md](e2e-testing.md) for full setup
 
 ---
 
 ## Related Docs
 
-- [mcp-servers.md](mcp-servers.md) - All available MCP servers (not just browser)
-- [e2e-testing.md](e2e-testing.md) - Playwright test suite
+- [e2e-testing.md](e2e-testing.md) — Playwright test suite details
+- [live-session-testing.md](live-session-testing.md) — `/live` two-party test simulation
+- [mcp-servers.md](mcp-servers.md) — All available MCP servers

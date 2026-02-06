@@ -37,7 +37,7 @@ prompts:
     content: |
       # Browser Testing Session
 
-      You have access to two MCP browser tools. Load knowledge fragment `browser-mcp-tools` for full documentation.
+      You have access to browser automation tools. See `docs/technical/browser-tools.md` for full documentation.
 
       ## Ask user for preferences:
 

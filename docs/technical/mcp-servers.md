@@ -9,7 +9,8 @@ All MCP servers are provided via **Docker MCP Toolkit**. Agents automatically ha
 | Server | Tools Prefix | Purpose |
 |--------|--------------|---------|
 | **Playwright** | `mcp__playwright__browser_*` | Browser automation, screenshots, UI testing |
-| **Chrome DevTools** | `mcp__chrome-devtools__*` | Chrome DevTools Protocol, performance tracing |
+| **Chrome DevTools** | `mcp__chrome-devtools__*` | Headless debugging, performance profiling, network inspection |
+| **Claude in Chrome** | `mcp__claude-in-chrome__*` | Visual QA, authenticated sessions (`claude --chrome`) |
 
 ### Data & Productivity
 
