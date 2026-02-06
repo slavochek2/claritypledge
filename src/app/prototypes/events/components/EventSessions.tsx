@@ -17,7 +17,8 @@ interface EventSessionsProps {
 }
 
 export function EventSessions({ subRooms, loading, currentUserId, eventSlug }: EventSessionsProps) {
-  // Filter out expired pending sub-rooms on the client side
+  // Client-side re-filter: the service filters at fetch time, but between fetches
+  // a pending sub-room can expire by wall-clock time. This catches the delta on re-render.
   const visibleRooms = subRooms.filter(room => {
     if (room.status === 'expired' || room.status === 'cancelled') return false;
     if (room.status === 'pending' && new Date(room.expiresAt) < new Date()) return false;

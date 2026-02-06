@@ -840,6 +840,9 @@ export const realEventsService: EventsService = {
       })
       .select(`
         *,
+        session:clarity_sessions!event_sub_rooms_session_id_fkey (
+          code
+        ),
         initiator:profiles!event_sub_rooms_initiator_id_fkey (
           id,
           full_name:name,
@@ -927,10 +930,17 @@ export const realEventsService: EventsService = {
     const session = await createClaritySession(initiatorName, subRoom.initiator_id);
 
     // STEP 3: Link the session to the sub-room.
-    await supabase
+    const { error: linkError } = await supabase
       .from('event_sub_rooms')
       .update({ session_id: session.id })
       .eq('id', subRoomId);
+
+    if (linkError) {
+      log('ERROR: joinSubRoom: Failed to link session to sub-room:', linkError);
+      // Session was created but link failed. Continue so the joiner can still navigate.
+      // Initiator won't auto-navigate (no sessionCode in real-time update) but will see
+      // the sub-room go active. Acceptable degradation vs. leaving both users stuck.
+    }
 
     // STEP 4: Join the clarity session as the target.
     await joinClaritySession(session.code, userName, user.id);

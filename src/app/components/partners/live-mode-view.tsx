@@ -721,7 +721,6 @@ function IdleScreen({
           )}
         </ActionArea>
 
-
         {/* P128: Content picker (only for authenticated users with content) */}
         {userId && contentLoaded && hasContent && onSelectStory && onSelectPoint && (
           <>
@@ -739,7 +738,6 @@ function IdleScreen({
             />
           </>
         )}
-
 
         {/* P128: Session history */}
         {sessionHistory.length > 0 && (
