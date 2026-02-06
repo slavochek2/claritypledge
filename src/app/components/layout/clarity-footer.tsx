@@ -7,7 +7,7 @@ export function ClarityFooter() {
     <footer className="border-t border-border bg-muted/30 py-12 px-4">
       <div className="container mx-auto max-w-6xl">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          {/* Navigation - synced with header */}
+          {/* Navigation */}
           <div>
             <h3 className="text-lg font-bold mb-3">Explore</h3>
             <div className="space-y-2">
@@ -20,6 +20,12 @@ export function ClarityFooter() {
                   {link.label}
                 </Link>
               ))}
+              <a
+                href="https://blog.claritypledge.com"
+                className="block text-base text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Blog
+              </a>
             </div>
           </div>
 

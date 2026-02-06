@@ -15,7 +15,6 @@ import {
 import { MenuIcon, XIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
-import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
@@ -85,31 +84,19 @@ export function SimpleNavigation() {
 
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
-            {/* Visible nav links - order: Events, Pledgers, Manifesto, About, Collaborate (non-logged-in) */}
+            {/* Visible nav links — only Events + Blog; rest moved to hamburger dropdown */}
             <Link
               to="/events"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Events
             </Link>
-            <Link
-              to="/pledgers"
+            <a
+              href="https://blog.claritypledge.com"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Pledgers
-            </Link>
-            <Link
-              to="/article"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Manifesto
-            </Link>
-            <Link
-              to="/about"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              About
-            </Link>
+              Blog
+            </a>
             {/* Start a Clarity Session CTA */}
             {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
             <Link
@@ -212,17 +199,21 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Navigation Links - Co-create is in menu items, not here */}
-              {NAV_LINKS.filter(link => link.to !== '/co-create').map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {/* Visible nav links — only Events + Blog; rest in NavigationMenuItems */}
+              <Link
+                to="/events"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={closeMobileMenu}
+              >
+                Events
+              </Link>
+              <a
+                href="https://blog.claritypledge.com"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={closeMobileMenu}
+              >
+                Blog
+              </a>
 
               <div className="border-t border-border my-2"></div>
 

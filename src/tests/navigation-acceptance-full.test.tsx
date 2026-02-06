@@ -116,13 +116,20 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      it('shows visible nav links: Events, Pledgers, Manifesto, About', () => {
+      it('shows visible nav links: Events, Blog', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        // These should be visible text links, not hidden in menu
+        // Only Events + Blog are visible in nav bar; rest moved to dropdown menu
         expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Pledgers' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Manifesto' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'About' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
+      });
+
+      it('shows Pledgers, Manifesto, Co-create, About in dropdown menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+        expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /co-create/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
       });
 
       it('shows Start a Clarity Session CTA', () => {
