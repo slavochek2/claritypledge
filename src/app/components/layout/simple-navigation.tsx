@@ -17,7 +17,6 @@ import {
 import { MenuIcon, XIcon, CalendarIcon, UserIcon, SparklesIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
-import { NAV_LINKS } from "./nav-links";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
@@ -138,7 +137,7 @@ export function SimpleNavigation() {
                 </Link>
               </>
             ) : (
-              /* Logged-out: Text links - order: Events, Pledgers, Manifesto, About */
+              /* Logged-out: Only Events + Blog visible; rest in hamburger dropdown */
               <>
                 <Link
                   to="/events"
@@ -146,25 +145,13 @@ export function SimpleNavigation() {
                 >
                   Events
                 </Link>
-                <Link
-                  to="/pledgers"
+                <a
+                  href="https://blog.claritypledge.com"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Pledgers
-                </Link>
-                <Link
-                  to="/manifesto"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Manifesto
-                </Link>
-                <Link
-                  to="/about"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  About
-                </Link>
-                {/* Start a Clarity Session CTA - P114: consistent text */}
+                  Blog
+                </a>
+                {/* Start a Clarity Session CTA */}
                 {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
                 <Link
                   to="/live"
@@ -268,18 +255,21 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Navigation Links - Only for logged-out users */}
-              {/* P115: Logged-in users get these links via NavigationMenuItems sandwich pattern */}
-              {!showUserMenu && NAV_LINKS.filter(link => link.to !== '/co-create').map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {/* Visible nav links — only Events + Blog; rest in NavigationMenuItems */}
+              <Link
+                to="/events"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={closeMobileMenu}
+              >
+                Events
+              </Link>
+              <a
+                href="https://blog.claritypledge.com"
+                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
+                onClick={closeMobileMenu}
+              >
+                Blog
+              </a>
 
               {!showUserMenu && <div className="border-t border-border my-2"></div>}
 

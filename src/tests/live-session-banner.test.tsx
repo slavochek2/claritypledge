@@ -191,20 +191,24 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
     });
 
-    // P114: View My Profile removed from menu (now in icon nav on main navigation)
-    it('does NOT show View My Profile (simplified menu)', async () => {
+    // P52: New menu items - View My Profile
+    it('shows View My Profile with correct link', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
+      const profileLink = screen.getByTestId('view-profile');
+      expect(profileLink).toBeInTheDocument();
+      expect(profileLink).toHaveAttribute('href', '/me');
     });
 
-    // P114: View My Pledge removed from menu (accessible from profile page)
-    it('does NOT show View My Pledge (simplified menu)', async () => {
+    it('shows View My Pledge with correct link', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
+      const pledgeLink = screen.getByTestId('view-pledge');
+      expect(pledgeLink).toBeInTheDocument();
+      // P52: Link now goes to /p/slug/pledge to match SimpleNavigation
+      expect(pledgeLink).toHaveAttribute('href', '/p/test-user/pledge');
     });
 
     // P52: New menu items - Settings
@@ -508,13 +512,13 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
 
-    // P114: Take the Pledge removed from verified user menu (simplified to Settings + Log Out)
-    it('does NOT show Take the Pledge (simplified menu)', async () => {
+    it('shows Take the Pledge instead', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
 
-      // P114: Verified user menu only has Settings + Log Out
-      expect(screen.queryByTestId('take-pledge')).not.toBeInTheDocument();
+      // P52: Non-pledgers see "Take the Pledge" link instead
+      expect(screen.getByTestId('take-pledge')).toBeInTheDocument();
+      expect(screen.getByTestId('take-pledge')).toHaveAttribute('href', '/sign-pledge?prefill=true');
     });
 
     it('still shows Log Out for live-only users', async () => {

@@ -3,9 +3,8 @@
  * @description KISS Navigation Tests
  *
  * TWO STATES ONLY:
- * 1. Verified user → P115 "Sandwich" menu: Public links (Pledgers, Manifesto, About)
- *                    + separator + Account actions (Settings, Log Out)
- * 2. Everyone else → Public menu (Co-create, Take the Pledge, Log In, Create Account)
+ * 1. Verified user → Full menu (View My Profile, pledge items, Settings, Log Out)
+ * 2. Everyone else → Public menu (Log In)
  *
  * "Everyone else" includes: anonymous, unverified /live users, loading states
  */
@@ -29,7 +28,7 @@ vi.mock('@/lib/mixpanel', () => ({
 }));
 
 import { SimpleNavigation } from '@/app/components/layout/simple-navigation';
-// LiveSessionBanner tests moved to dedicated file: live-session-banner.test.tsx
+import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';
 
 // ============================================================================
 // Test Utilities
@@ -62,6 +61,12 @@ async function openDesktopMenu() {
 // Helper to open mobile menu
 async function openMobileMenu() {
   const menuButton = screen.getByRole('button', { name: /open menu/i });
+  await userEvent.click(menuButton);
+}
+
+// Helper to open LiveSessionBanner menu
+async function openLiveBannerMenu() {
+  const menuButton = screen.getByTestId('menu-trigger');
   await userEvent.click(menuButton);
 }
 
@@ -111,13 +116,20 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      it('shows visible nav links: Events, Pledgers, Manifesto, About', () => {
+      it('shows visible nav links: Events, Blog', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        // These should be visible text links, not hidden in menu
+        // Only Events + Blog are visible in nav bar; rest moved to dropdown menu
         expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Pledgers' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Manifesto' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'About' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
+      });
+
+      it('shows Pledgers, Manifesto, Co-create, About in dropdown menu', async () => {
+        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
+        await openDesktopMenu();
+        expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /co-create/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
       });
 
       it('shows Start a Clarity Session CTA', () => {
@@ -150,43 +162,16 @@ describe('KISS Navigation', () => {
         });
       });
 
-      // P115: Sandwich pattern - Public links in dropdown
-      it('shows Pledgers in dropdown (P115 sandwich)', async () => {
+      it('shows View My Profile', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /pledgers/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /view my profile/i })).toBeInTheDocument();
       });
 
-      it('shows Manifesto in dropdown (P115 sandwich)', async () => {
+      it('shows Take the Pledge in menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /manifesto/i })).toBeInTheDocument();
-      });
-
-      it('shows About in dropdown (P115 sandwich)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /about/i })).toBeInTheDocument();
-      });
-
-      it('does NOT show Co-create (accessible via My Events page)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openDesktopMenu();
-        expect(screen.queryByRole('menuitem', { name: /co-create/i })).not.toBeInTheDocument();
-      });
-
-      // P114: Menu simplified - View My Profile removed (now in icon nav)
-      it('does NOT show View My Profile (now in icon nav)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openDesktopMenu();
-        expect(screen.queryByRole('menuitem', { name: /view my profile/i })).not.toBeInTheDocument();
-      });
-
-      // P114: Menu simplified - Take the Pledge removed from menu
-      it('does NOT show Take the Pledge in menu (simplified)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openDesktopMenu();
-        expect(screen.queryByRole('menuitem', { name: /take the pledge/i })).not.toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /take the pledge/i })).toBeInTheDocument();
       });
 
       it('shows Settings', async () => {
@@ -220,18 +205,16 @@ describe('KISS Navigation', () => {
         });
       });
 
-      // P114: Menu simplified - View My Profile removed (now in icon nav)
-      it('does NOT show View My Profile (now in icon nav)', async () => {
+      it('shows View My Profile', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.queryByRole('menuitem', { name: /view my profile/i })).not.toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /view my profile/i })).toBeInTheDocument();
       });
 
-      // P114: Menu simplified - View My Pledge removed (accessible from profile page)
-      it('does NOT show View My Pledge (accessible from profile page)', async () => {
+      it('shows View My Pledge instead of Take the Pledge', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.queryByRole('menuitem', { name: /view my pledge/i })).not.toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /view my pledge/i })).toBeInTheDocument();
       });
 
       it('shows Settings', async () => {
@@ -331,42 +314,10 @@ describe('KISS Navigation', () => {
         });
       });
 
-      // P115: Sandwich pattern - Public links in mobile menu
-      it('shows Pledgers in mobile menu (P115 sandwich)', async () => {
+      it('shows View My Profile in mobile menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openMobileMenu();
-        expect(screen.getByRole('link', { name: /pledgers/i })).toBeInTheDocument();
-      });
-
-      it('shows Manifesto in mobile menu (P115 sandwich)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openMobileMenu();
-        expect(screen.getByRole('link', { name: /manifesto/i })).toBeInTheDocument();
-      });
-
-      it('shows About in mobile menu (P115 sandwich)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openMobileMenu();
-        expect(screen.getByRole('link', { name: /about/i })).toBeInTheDocument();
-      });
-
-      it('does NOT show Co-create in mobile menu (accessible via My Events)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openMobileMenu();
-        expect(screen.queryByRole('link', { name: /co-create/i })).not.toBeInTheDocument();
-      });
-
-      // P114: Menu simplified - View My Profile removed (now in icon nav)
-      it('does NOT show View My Profile in mobile menu (now in icon nav)', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openMobileMenu();
-        expect(screen.queryByRole('link', { name: /view my profile/i })).not.toBeInTheDocument();
-      });
-
-      it('shows Settings in mobile menu', async () => {
-        render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openMobileMenu();
-        expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /view my profile/i })).toBeInTheDocument();
       });
 
       it('shows Log Out in mobile menu', async () => {
@@ -406,7 +357,6 @@ describe('KISS Navigation', () => {
       });
     });
 
-    // P114: Verified users have simplified menu (Settings + Log Out only)
     describe('Verified Non-Pledger - menus should be consistent', () => {
       beforeEach(() => {
         mockUseAuth.mockReturnValue({
@@ -419,16 +369,16 @@ describe('KISS Navigation', () => {
         });
       });
 
-      it('shows Settings in desktop menu', async () => {
+      it('shows Take the Pledge in desktop menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /take the pledge/i })).toBeInTheDocument();
       });
 
-      it('shows Settings in mobile menu', async () => {
+      it('shows Take the Pledge in mobile menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openMobileMenu();
-        expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /take the pledge/i })).toBeInTheDocument();
       });
     });
 
@@ -444,21 +394,20 @@ describe('KISS Navigation', () => {
         });
       });
 
-      it('shows Settings in desktop menu', async () => {
+      it('shows View My Pledge in desktop menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', { name: /view my pledge/i })).toBeInTheDocument();
       });
 
-      it('shows Settings in mobile menu', async () => {
+      it('shows View My Pledge in mobile menu', async () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openMobileMenu();
-        expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /view my pledge/i })).toBeInTheDocument();
       });
     });
 
     // Guard against duplicate menu items
-    // P115: Verified user menu has sandwich pattern (public links + separator + account actions)
     describe('No duplicate menu items', () => {
       it('verified user desktop menu has no duplicate items', async () => {
         mockUseAuth.mockReturnValue({
@@ -472,10 +421,9 @@ describe('KISS Navigation', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openDesktopMenu();
 
-        // P115: Sandwich pattern - public links + account actions (no Co-create)
-        expect(screen.getAllByRole('menuitem', { name: /pledgers/i })).toHaveLength(1);
-        expect(screen.getAllByRole('menuitem', { name: /manifesto/i })).toHaveLength(1);
-        expect(screen.getAllByRole('menuitem', { name: /about/i })).toHaveLength(1);
+        // Each of these should appear exactly once
+        expect(screen.getAllByRole('menuitem', { name: /view my profile/i })).toHaveLength(1);
+        expect(screen.getAllByRole('menuitem', { name: /take the pledge/i })).toHaveLength(1);
         expect(screen.getAllByRole('menuitem', { name: /settings/i })).toHaveLength(1);
         expect(screen.getAllByRole('menuitem', { name: /log out/i })).toHaveLength(1);
       });
@@ -492,10 +440,9 @@ describe('KISS Navigation', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
         await openMobileMenu();
 
-        // P115: Sandwich pattern - public links + account actions (no Co-create)
-        expect(screen.getAllByRole('link', { name: /pledgers/i })).toHaveLength(1);
-        expect(screen.getAllByRole('link', { name: /manifesto/i })).toHaveLength(1);
-        expect(screen.getAllByRole('link', { name: /about/i })).toHaveLength(1);
+        // Each of these should appear exactly once
+        expect(screen.getAllByRole('link', { name: /view my profile/i })).toHaveLength(1);
+        expect(screen.getAllByRole('link', { name: /take the pledge/i })).toHaveLength(1);
         expect(screen.getAllByRole('link', { name: /settings/i })).toHaveLength(1);
         expect(screen.getAllByRole('button', { name: /log out/i })).toHaveLength(1);
       });
@@ -536,7 +483,100 @@ describe('KISS Navigation', () => {
     });
   });
 
-  // LiveSessionBanner tests removed - covered by dedicated live-session-banner.test.tsx
+  describe('LiveSessionBanner', () => {
+    describe('Anonymous User', () => {
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({
+          session: null,
+          user: null,
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+      });
+
+      it('shows Log In', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('login-option')).toBeInTheDocument();
+      });
+
+      it('shows Sound toggle', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
+      });
+
+      it('shows Home link', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('home-link')).toBeInTheDocument();
+      });
+    });
+
+    describe('Verified User', () => {
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser(),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+      });
+
+      it('shows View My Profile', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('view-profile')).toBeInTheDocument();
+      });
+
+      it('shows Settings', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('settings')).toBeInTheDocument();
+      });
+
+      it('shows Log Out', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('sign-out')).toBeInTheDocument();
+      });
+
+      it('does NOT show Log In', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.queryByTestId('login-option')).not.toBeInTheDocument();
+      });
+    });
+
+    describe('KISS: Unverified users see Log In', () => {
+      beforeEach(() => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'unverified-user-id' } },
+          user: createMockUser({ isVerified: false, slug: null }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+      });
+
+      it('shows Log In (same as anonymous)', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.getByTestId('login-option')).toBeInTheDocument();
+      });
+
+      it('does NOT show View My Profile', async () => {
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+        await openLiveBannerMenu();
+        expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
+      });
+    });
+  });
 
   // ============================================================================
   // P67: Avatar Trigger - Avatar replaces hamburger for verified users
@@ -629,8 +669,8 @@ describe('KISS Navigation', () => {
         const avatars = screen.getAllByText('SK');
         await userEvent.click(avatars[0]);
 
-        // P114: Menu should open with Settings + Log Out only
-        expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
+        // Menu should open with expected items
+        expect(screen.getByRole('menuitem', { name: /view my profile/i })).toBeInTheDocument();
       });
 
       it('shows "?" for user with empty name (edge case)', () => {
@@ -687,7 +727,56 @@ describe('KISS Navigation', () => {
       });
     });
 
-    // LiveSessionBanner avatar trigger tests removed - covered by live-session-banner.test.tsx
+    describe('LiveSessionBanner - Avatar as menu trigger', () => {
+      it('shows avatar for verified user', () => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ name: 'Test User', avatarColor: '#10b981' }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+
+        // Should show avatar with initials
+        expect(screen.getByText('TU')).toBeInTheDocument();
+      });
+
+      it('shows hamburger for anonymous user', () => {
+        mockUseAuth.mockReturnValue({
+          session: null,
+          user: null,
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+
+        // Should show hamburger
+        expect(screen.getByTestId('menu-trigger')).toBeInTheDocument();
+        // Should NOT have avatar
+        expect(screen.queryByText('TU')).not.toBeInTheDocument();
+      });
+
+      it('shows hamburger for unverified user (KISS)', () => {
+        mockUseAuth.mockReturnValue({
+          session: { user: { id: 'test-user-id' } },
+          user: createMockUser({ isVerified: false, name: 'Unverified User' }),
+          isLoading: false,
+          sessionChecked: true,
+          signOut: vi.fn(),
+          refreshProfile: vi.fn(),
+        });
+        render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+
+        // Should show hamburger (unverified = treated as anonymous)
+        expect(screen.getByTestId('menu-trigger')).toBeInTheDocument();
+        // Should NOT have avatar initials
+        expect(screen.queryByText('UU')).not.toBeInTheDocument();
+      });
+    });
 
     describe('Analytics - nav_menu_opened trigger tracking', () => {
       beforeEach(() => {
@@ -752,7 +841,64 @@ describe('KISS Navigation', () => {
         });
       });
 
-      // LiveSessionBanner analytics tests removed - covered by live-session-banner.test.tsx
+      describe('LiveSessionBanner analytics', () => {
+        it('tracks trigger=avatar when verified user opens menu', async () => {
+          mockUseAuth.mockReturnValue({
+            session: { user: { id: 'test-user-id' } },
+            user: createMockUser({ name: 'Test User' }),
+            isLoading: false,
+            sessionChecked: true,
+            signOut: vi.fn(),
+            refreshProfile: vi.fn(),
+          });
+          render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+
+          await openLiveBannerMenu();
+
+          expect(mockTrack).toHaveBeenCalledWith('nav_menu_opened', {
+            trigger: 'avatar',
+            device: 'desktop',
+          });
+        });
+
+        it('tracks trigger=hamburger when anonymous user opens menu', async () => {
+          mockUseAuth.mockReturnValue({
+            session: null,
+            user: null,
+            isLoading: false,
+            sessionChecked: true,
+            signOut: vi.fn(),
+            refreshProfile: vi.fn(),
+          });
+          render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+
+          await openLiveBannerMenu();
+
+          expect(mockTrack).toHaveBeenCalledWith('nav_menu_opened', {
+            trigger: 'hamburger',
+            device: 'desktop',
+          });
+        });
+
+        it('tracks trigger=hamburger for unverified user (KISS)', async () => {
+          mockUseAuth.mockReturnValue({
+            session: { user: { id: 'test-user-id' } },
+            user: createMockUser({ isVerified: false }),
+            isLoading: false,
+            sessionChecked: true,
+            signOut: vi.fn(),
+            refreshProfile: vi.fn(),
+          });
+          render(<BrowserRouter><LiveSessionBanner /></BrowserRouter>);
+
+          await openLiveBannerMenu();
+
+          expect(mockTrack).toHaveBeenCalledWith('nav_menu_opened', {
+            trigger: 'hamburger',
+            device: 'desktop',
+          });
+        });
+      });
     });
   });
 
