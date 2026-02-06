@@ -482,9 +482,14 @@ export function AuthCallbackPage() {
         }
       }
 
-      // Redirect after auth: use redirect param if present, otherwise go to events
+      // Redirect after auth: validate redirect against allowed prefixes
       setStatus("Redirecting...");
-      const finalRedirect = redirectPath && redirectPath.startsWith('/') ? redirectPath : '/events';
+      const ALLOWED_REDIRECT_PREFIXES = ['/events', '/settings', '/me', '/p/', '/about', '/pledgers', '/manifesto', '/live'];
+      const isValidRedirect = redirectPath
+        && redirectPath.startsWith('/')
+        && !redirectPath.startsWith('//')
+        && ALLOWED_REDIRECT_PREFIXES.some(prefix => redirectPath === prefix || redirectPath.startsWith(prefix + '/') || redirectPath.startsWith(prefix + '?'));
+      const finalRedirect = isValidRedirect ? redirectPath : '/events';
       navigate(finalRedirect, { replace: true });
     };
 
