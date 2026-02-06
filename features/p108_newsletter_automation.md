@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-priority: important
+priority: p1
 hypothesis: H-Biz
 tags:
   - marketing

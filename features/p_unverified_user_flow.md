@@ -1,6 +1,6 @@
 ---
 status: draft
-priority: medium
+priority: p2
 depends_on: [stories_points_backend]
 ---
 

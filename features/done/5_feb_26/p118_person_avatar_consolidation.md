@@ -1,6 +1,6 @@
 ---
 status: done
-priority: medium
+priority: p2
 prepped_date: '2026-02-05'
 completed_at: '2026-02-05'
 reviews:

@@ -1,6 +1,6 @@
 ---
 status: done
-priority: urgent-important
+priority: p0
 tags:
   - tooling
   - dx
