@@ -3,8 +3,14 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CardDialog } from './CardDialog'
-import { Feature, Status } from '../lib/types'
+import { Feature, FeatureType, Status } from '../lib/types'
 import type { FocusDropIndicator } from '../App'
+
+const TYPE_PREFIX: Record<FeatureType, string> = {
+  story: '[US]',
+  task: '[T]',
+  bug: '[B]',
+}
 
 interface FocusPageProps {
   features: Feature[]
@@ -67,12 +73,6 @@ const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
-}
-
-const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
-  task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  story: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
 }
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -150,7 +150,6 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
   }
 
   const statusColors = STATUS_COLORS[feature.status]
-  const typeColors = feature.type ? TYPE_COLORS[feature.type] : null
   const priorityColors = feature.priority ? PRIORITY_COLORS[feature.priority] : null
 
   return (
@@ -168,16 +167,7 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
       >
         {/* Name */}
         <div style={{ ...cellStyle, flex: 1, minWidth: 0, fontWeight: 'var(--font-weight-regular)' as never }}>
-          {feature.title}
-        </div>
-
-        {/* Type */}
-        <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>
-          {typeColors && (
-            <span style={{ ...pillStyle, background: typeColors.bg, color: typeColors.text }}>
-              {feature.type}
-            </span>
-          )}
+          {feature.type ? `${TYPE_PREFIX[feature.type]} ` : ''}{feature.title}
         </div>
 
         {/* Priority */}
@@ -313,7 +303,6 @@ function HypothesisGroup({ groupId, name, icon, features, onFeatureUpdate, dropI
         }}
       >
         <div style={{ ...cellStyle, flex: 1 }}>Name</div>
-        <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>Type</div>
         <div style={{ ...cellStyle, width: 50, flexShrink: 0, textAlign: 'center' }}>Prio</div>
         <div style={{ ...cellStyle, width: 100, flexShrink: 0, textAlign: 'center' }}>Status</div>
         <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>Spec</div>

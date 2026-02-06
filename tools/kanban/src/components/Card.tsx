@@ -9,11 +9,10 @@ interface CardProps {
   onFeatureUpdate?: () => void
 }
 
-// Notion's exact tag colors
-const TYPE_STYLES: Record<FeatureType, { bg: string; text: string }> = {
-  bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
-  task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  story: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
+const TYPE_PREFIX: Record<FeatureType, string> = {
+  story: '[US]',
+  task: '[T]',
+  bug: '[B]',
 }
 
 const PRIORITY_STYLES: Record<Priority, { bg: string; text: string }> = {
@@ -122,7 +121,7 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           marginBottom: 6,
         }}
       >
-        {feature.title}
+        {feature.type ? `${TYPE_PREFIX[feature.type]} ` : ''}{feature.title}
       </div>
 
       {/* Open button - only visible on hover, solid bg to cover text */}
@@ -182,19 +181,6 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
               }}
             >
               {feature.priority}
-            </span>
-          )}
-
-          {/* Type */}
-          {feature.type && (
-            <span
-              style={{
-                ...tagStyle,
-                background: TYPE_STYLES[feature.type].bg,
-                color: TYPE_STYLES[feature.type].text,
-              }}
-            >
-              {feature.type}
             </span>
           )}
 
