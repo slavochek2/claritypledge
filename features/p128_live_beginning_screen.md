@@ -2,18 +2,23 @@
 status: backlog
 type: story
 priority: p1
-prepped_date: '2026-02-05'
+prepped_date: '2026-02-06'
 reviews:
-  ux: inherited-from-prototype
-  architect: passed
+  ux: passed-with-notes
+  architect: passed-with-notes
   alignment: passed
 prototype: /prototype/linkedin-like/live
+tests: H-Stories (Stories solve the cold start problem). Also informs OQ-6 (internal trigger).
 decisions:
   - Content picker after partner joins, not before
   - Direction-first design: two free-speaking buttons (you speak / partner speaks) + story/point cards below
-  - Picking a card is a shortcut for "does partner understand you?" + specific topic
+  - Picking a card is a shortcut for "does partner understand you?" + specific topic (teller-only — verifier picks content in future)
   - returnTo query param for back navigation (used by P124)
-  - No ClarityLivePage refactoring — add beginning screen as new view state
+  - Enhance idle RatingPhase in LiveModeView — NOT a new ViewState in ClarityLivePage
+  - Creator-only picks content (guests have no stories; no race condition to solve)
+  - Progressive search: show all items by default, add search bar at 5+ items
+  - Session history: checkmarks only, no scores (scores are private calibration data)
+  - Build new lightweight LiveStoryCard/LivePointCard using production types (prototype is design reference only)
 ---
 # P128: /live Beginning Screen — Pick Story, Point, or Free Live
 
@@ -43,7 +48,7 @@ WITH P128:     Join → Pick content → Verify → Rate → Gap
 The beginning screen offers three paths:
 1. **Pick a story** → Verify understanding of that specific story
 2. **Pick a point** → Take positions and verify understanding of reasoning
-3. **Free live** → Speak freely (current behavior, default)
+3. **Cardless mode** → Speak freely (current behavior, default)
 
 ---
 
@@ -51,9 +56,33 @@ The beginning screen offers three paths:
 
 ### After partner joins (new beginning screen)
 
-Both users see the beginning screen. Either person can select content or a direction.
+**Design principle:** Direction-first. The user's mental state is "who's talking?" — not "what content?" The two cardless mode buttons answer that question directly. Story/point cards below are a shortcut for "does partner understand you?" + a specific topic.
 
-**Design principle:** Direction-first. The user's mental state is "who's talking?" — not "what content?" The two free-speaking buttons answer that question directly. Story/point cards below are a shortcut for "does partner understand you?" + a specific topic.
+**Content selection:** Creator-only. Only the authenticated host sees story/point cards. Guest joiners (no account) see direction buttons only.
+
+### Guest view (most common — the joiner)
+
+```
+┌─────────────────────────────────────────┐
+│ ← End session               🔴 Live    │
+├─────────────────────────────────────────┤
+│                                         │
+│  You're live with Jordan                │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │  Does Jordan understand you?    │    │
+│  │  You speak, Jordan verifies     │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │  Do you understand Jordan?      │    │
+│  │  Jordan speaks, you verify      │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### Host view (authenticated user with stories)
 
 ```
 ┌─────────────────────────────────────────┐
@@ -63,12 +92,12 @@ Both users see the beginning screen. Either person can select content or a direc
 │  You're live with Alice                 │
 │                                         │
 │  ┌─────────────────────────────────┐    │
-│  │  🗣️  Does Alice understand you? │    │
+│  │  Does Alice understand you?     │    │
 │  │  You speak, Alice verifies      │    │
 │  └─────────────────────────────────┘    │
 │                                         │
 │  ┌─────────────────────────────────┐    │
-│  │  👂 Do you understand Alice?    │    │
+│  │  Do you understand Alice?       │    │
 │  │  Alice speaks, you verify       │    │
 │  └─────────────────────────────────┘    │
 │                                         │
@@ -87,13 +116,21 @@ Both users see the beginning screen. Either person can select content or a direc
 │  │  point · 1 position taken       │    │
 │  └─────────────────────────────────┘    │
 │                                         │
+│  ── this session ────────────────────   │
+│  ✓  "The hiring process story"          │
+│  ✓  "Async > sync communication"        │
+│                                         │
 └─────────────────────────────────────────┘
 ```
 
+Search bar appears above story/point cards when 5+ items exist. Below 5, all items shown directly.
+
+Session history (bottom): checkmarks only, no scores. Scores are private calibration data shown only during the verification moment.
+
 **Three paths:**
-1. **"Does Alice understand you?"** → free speaking, you're the teller, Alice verifies (freeform)
-2. **"Do you understand Alice?"** → free speaking, Alice is the teller, you verify (freeform)
-3. **Pick a story/point card** → structured verification (direction implied: does partner understand YOUR content)
+1. **"Does Alice understand you?"** → cardless mode, you're the teller, Alice verifies
+2. **"Do you understand Alice?"** → cardless mode, Alice is the teller, you verify
+3. **Pick a story/point card** → content-attached verification (direction implied: does partner understand YOUR content; teller-only for MVP)
 
 ### Selecting a story
 
@@ -119,12 +156,12 @@ Tap "Does Alice agree?" → partner sees point card with position buttons.
 
 Both take positions → positions revealed → if disagreement, offer "Explore linked stories."
 
-### Free live (either direction)
+### Cardless mode (either direction)
 
-Tap "Does Alice understand you?" → freeform verification where you speak and Alice rates understanding.
-Tap "Do you understand Alice?" → freeform verification where Alice speaks and you rate understanding.
+Tap "Does Alice understand you?" → cardless verification where you speak and Alice rates understanding.
+Tap "Do you understand Alice?" → cardless verification where Alice speaks and you rate understanding.
 
-Both go to current production flow (freeform verification, no content attached) — the only difference is which prompt each person sees first.
+Both go to current production flow (cardless, no content attached) — the only difference is which prompt each person sees first.
 
 ### returnTo param
 
@@ -142,13 +179,13 @@ If `/live?code=XYZ&returnTo=/events/clarity-hike`, the back button shows "← Ba
 - Departure detection, polling fallback
 
 ### Add
-- Beginning screen view state (after partner joins, before first verification)
-- Story list from current user's stories (Supabase query)
+- Enhanced idle screen in LiveModeView (replaces current IdleScreen, NOT a new ViewState)
+- Story list from current user's stories (creator-only; guests see direction buttons only)
 - Point list from current user's points (Supabase query)
-- Search/filter for stories and points
-- Two directional free-speaking buttons ("Does Alice understand you?" / "Do you understand Alice?")
+- Progressive search (appears at 5+ items; below 5, show all directly)
+- Two directional cardless mode buttons ("Does Alice understand you?" / "Do you understand Alice?")
 - Story/point context visible during verification (partner sees the card)
-- Session history panel (verified cards with checkmark, inline on beginning screen)
+- Session history panel (checkmarks only, no scores — scores are private calibration data)
 - `returnTo` query param support for back navigation
 
 ### Do NOT build (yet)
@@ -161,20 +198,23 @@ If `/live?code=XYZ&returnTo=/events/clarity-hike`, the back button shows "← Ba
 
 ## Technical Approach
 
-### New view state in ClarityLivePage
+### Enhanced idle screen in LiveModeView (NOT a new ViewState)
 
-Add a `beginning` phase to the existing meeting flow:
+The beginning screen replaces the current `IdleScreen` component inside `LiveModeView` when `ratingPhase` is `idle`. No changes to ClarityLivePage's ViewState machine (`start → waiting → live`). This avoids touching mic gating, session restoration, and polling transition code.
 
+The prototype's `CardPhase` state machine (inside `Live.tsx`) is the reference pattern:
 ```
-meetingPhase: 'start' → 'waiting' → 'beginning' → 'live'
-                                      ↑ NEW
+CardPhase: idle → story-selected → story-speaker-rating → point-selected → in-legacy-flow
 ```
 
-When both users are connected and `beginning` phase is active:
+When `ratingPhase` is `idle` and user is authenticated:
 - Fetch current user's stories and points via existing services
-- Display content picker
-- On selection: transition to `live` phase with selected content
-- On "speak freely": transition to `live` phase without content (current behavior)
+- Display content picker (direction buttons + story/point cards)
+- On card selection: set content in LiveSessionState, transition to rating
+- On cardless mode button: transition to existing cardless flow
+
+When user is guest (no auth):
+- Show direction buttons only (no content section)
 
 ### LiveSessionState extensions
 
@@ -190,18 +230,18 @@ These get synced to the `clarity_sessions` row in Supabase so the partner can se
 ### Data queries
 
 - Stories: `getStoriesByAuthor(userId)` — already exists from P117
-- Points: `getPointsByUser(userId)` — needs service method (or reuse existing)
-- Search: client-side filter on loaded stories/points (small dataset per user)
+- Points: `getPointsByValidator(userId)` — already exists, returns points the user created
+- Search: client-side filter on loaded stories/points. Progressive: search bar appears at 5+ items.
 
-### Prototype components to promote
+### New production components (prototype as design reference)
 
-The prototype has production-quality components in `src/app/prototypes/linkedin-like/components/`:
-- `StoryCard.tsx` — story display with linked points
-- `PointCard.tsx` — point display with position buttons
-- `RatingDots.tsx` — 1-10 rating visualization
-- `PositionButton.tsx` — agree/unsure/disagree with intensity dropdown
+Build new lightweight components using production types (`StoryWithAuthor`, `PointWithCreator`):
+- `LiveStoryCard` — story display for content picker (simplified from prototype's `StoryCard.tsx`)
+- `LivePointCard` — point display for content picker (simplified from prototype's `PointCard.tsx`)
 
-These can be promoted from prototype to production components, or production equivalents can reference the prototype as design spec.
+The prototype components in `src/app/prototypes/linkedin-like/components/` use mock data and a separate type system (`story.text` vs production `story.content`). Use them as visual/UX reference only, not as code to promote.
+
+Existing `FlowType = 'check' | 'prove'` maps to the direction buttons: `check` = "Does Alice understand you?", `prove` = "Do you understand Alice?"
 
 ---
 
@@ -209,10 +249,10 @@ These can be promoted from prototype to production components, or production equ
 
 | Case | Handling |
 |------|----------|
-| User has no stories or points | Show "Speak freely" as primary. Hint: "Create stories to verify next time." |
+| Guest joiner (no account) | Sees direction buttons only, no content section. This is the primary/default case. |
+| Authenticated user with no stories | Sees direction buttons + hint: "Create stories to verify next time." |
 | Partner disconnects during beginning screen | Same as current: departure detection, "Partner left" message |
-| Both users select content simultaneously | First selection wins (DB timestamp). Second user sees "Partner selected a story" and switches to responder view. |
-| returnTo URL is invalid/external | Ignore returnTo, fall back to default end-session behavior. Only allow same-origin returnTo URLs. |
+| returnTo URL is invalid/external | Ignore returnTo, fall back to default end-session behavior. Only allow same-origin URLs (starts with `/`, no `//` or protocol schemes). |
 
 ---
 
@@ -220,9 +260,9 @@ These can be promoted from prototype to production components, or production equ
 
 | Metric | Target | What it tests |
 |--------|--------|---------------|
-| Content selection rate | >60% pick a story/point (vs free live) | Is the picker useful? |
+| Content selection rate | >60% pick a story/point (vs cardless) | Is the picker useful? Tests H-Stories. |
 | Session completion with content | >70% complete verification | Does content improve completion? |
-| Explain-back quality with content | Higher ratings than freeform | Does a topic help? |
+| Explain-back quality with content | Higher ratings than cardless | Does a topic help? Informs OQ-6 (internal trigger). |
 
 ---
 
