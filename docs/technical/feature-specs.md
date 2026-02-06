@@ -22,8 +22,8 @@ Then increment by 1.
 
 ```yaml
 ---
-status: draft          # draft → prepped → in-progress → done
-prepped_date: null     # Set when status becomes 'prepped'
+status: backlog        # Kanban column: backlog | week | today | in-progress | blocked | done
+prepped_date: null     # Set by /prep-spec when reviews pass (null = draft)
 reviews:               # Set during /prep-spec
   ux: null
   architect: null
@@ -31,15 +31,29 @@ reviews:               # Set during /prep-spec
 ---
 ```
 
-## Status Values
+## Status Values (Kanban Columns)
 
 | Status | Meaning |
 |--------|---------|
-| `draft` | Early idea, not ready for implementation |
-| `prepped` | Passed /prep-spec reviews, ready for implementation |
+| `backlog` | Not scheduled yet |
+| `week` | Planned for this week |
+| `today` | Working on today |
 | `in-progress` | Currently being built |
+| `blocked` | Waiting on something |
 | `done` | Complete, move to `features/done/` |
-| `archived` | Deprioritized, move to `features/archive/` |
+
+**Note:** `archived` features go to `features/archive/`.
+
+## Spec Readiness (separate from kanban status)
+
+Spec readiness is tracked via `prepped_date`, not `status`:
+
+| `prepped_date` | Meaning | Kanban badge |
+|----------------|---------|--------------|
+| `null` | Spec is a draft, not reviewed | "draft" (gray) |
+| Set (e.g. `'2026-02-05'`) | Passed /prep-spec reviews | "prepped" (green) |
+
+Agents (like /prep-spec) set `prepped_date` without changing `status`. Only humans move cards between kanban columns.
 
 ## Folder Structure
 
@@ -53,7 +67,7 @@ reviews:               # Set during /prep-spec
 
 ## Lifecycle
 
-1. **Create:** `features/p{N}_{name}.md` with `status: draft`
+1. **Create:** `features/p{N}_{name}.md` with `status: backlog`
 2. **Prep:** Run `/prep-spec`, update frontmatter with review results
 3. **Build:** Change status to `in-progress`
 4. **Complete:** Change status to `done`, add `completed_at`, move to `features/done/`

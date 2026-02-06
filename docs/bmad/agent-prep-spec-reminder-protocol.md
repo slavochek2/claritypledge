@@ -10,8 +10,8 @@
 
 When an agent is about to review or implement a spec, it should:
 
-1. **Check spec frontmatter** for `status` field
-2. **If `status` != `prepped`** → show reminder
+1. **Check spec frontmatter** for `prepped_date` field
+2. **If `prepped_date` is null or missing** → show reminder
 3. **Let user decide** → proceed with single review OR run /prep-spec
 
 ---
@@ -20,22 +20,18 @@ When an agent is about to review or implement a spec, it should:
 
 ```yaml
 ---
-status: prepped          # ← Check this field
-prepped_date: 2026-01-19
+status: today              # Kanban column (don't use for readiness)
+prepped_date: '2026-01-19' # ← Check this field (null = not prepped)
 reviews:
   ux: passed
   architect: passed
-  tea: skipped
-execution: ralph-loop
+  alignment: skipped
 ---
 ```
 
-**Valid `status` values:**
-- `idea` → Not ready for review
-- `drafted` → Ready for review, NOT prepped
-- `prepped` → Already reviewed by /prep-spec ✅
-- `in-progress` → Implementation started
-- `done` → Complete
+**Readiness signal:**
+- `prepped_date` is set → Already reviewed by /prep-spec
+- `prepped_date` is null/missing → Not prepped, show reminder
 
 ---
 
@@ -53,12 +49,12 @@ execution: ralph-loop
 
 ## Reminder Template
 
-When `status` != `prepped`:
+When `prepped_date` is null or missing:
 
 ```
 📋 **Spec Status Check**
 
-This spec hasn't been prepped yet (`status: {current_status}`).
+This spec hasn't been prepped yet (`prepped_date` is not set).
 
 `/prep-spec` does:
 - UX Designer review (flows, edge cases, accessibility)
@@ -78,7 +74,7 @@ Which would you like?
 
 ## When NOT to Remind
 
-- `status: prepped` → Already done, proceed
+- `prepped_date` is set → Already done, proceed
 - `status: in-progress` → Implementation started, too late for prep
 - `status: done` → Complete, no action needed
 - User explicitly says "skip prep" or "just review" → Honor the request
@@ -93,11 +89,11 @@ Add this check to the agent's activation or menu handler:
 ```xml
 <pre-action-check trigger="review|implement|validate">
   1. Read spec file at {spec_path}
-  2. Parse frontmatter for 'status' field
-  3. If status NOT IN ['prepped', 'in-progress', 'done']:
+  2. Parse frontmatter for 'prepped_date' field
+  3. If prepped_date is null/missing AND status NOT IN ['in-progress', 'done']:
      - Show reminder template
      - Wait for user choice
-  4. If status = 'prepped' OR user says "proceed":
+  4. If prepped_date is set OR user says "proceed":
      - Continue with agent action
 </pre-action-check>
 ```

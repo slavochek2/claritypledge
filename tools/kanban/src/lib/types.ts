@@ -31,4 +31,6 @@ export interface Feature {
   // Added for P113: Backlog & Sorting improvements
   completed_at?: string // ISO date (YYYY-MM-DD) when moved to done
   sort_order?: number // For within-column ordering (fractional)
+  // Spec readiness (derived from prepped_date)
+  prepped?: boolean // true if prepped_date is set
 }

@@ -101,6 +101,7 @@ Priority has two layers:
 - ID badge (monospace, short form: `p108`)
 - Type badge (bug=red, task=gray, story=blue)
 - Priority badge (P0=red, P1=blue, P2-P3=gray)
+- Spec readiness badge: "prepped" (green) or "draft" (gray) — derived from `prepped_date`
 - Blocked_by chips (red outline)
 
 **Display-if-present** (gray):
@@ -121,7 +122,8 @@ Click 📝 on any card to open in Cursor. Press `⌘⇧V` for markdown preview.
 ~/Projects/claritypledge/
 ├── features/              # kanban reads/writes frontmatter
 │   ├── p{N}_{name}.md     # Active feature specs
-│   ├── uat/               # UAT files (excluded from kanban)
+│   ├── drafts/            # Early-stage drafts (shown in kanban with "draft" badge)
+│   ├── uat/               # UAT test checklists (excluded from kanban)
 │   │   └── p{N}.md
 │   ├── done/              # Completed features
 │   └── archive/           # Archived/deprioritized
@@ -129,7 +131,9 @@ Click 📝 on any card to open in Cursor. Press `⌘⇧V` for markdown preview.
 └── scripts/kanban.sh      # start/stop script
 ```
 
-**Excluded from kanban:** `features/uat/`, `features/drafts/`, `features/research/`, dated archive folders
+**Excluded from kanban:** `features/uat/`, `features/research/`, dated archive folders
+
+**Included (with badges):** `features/drafts/` — draft files appear on the board with a "draft" readiness badge
 
 ## Location
 

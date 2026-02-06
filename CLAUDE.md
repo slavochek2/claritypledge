@@ -907,7 +907,9 @@ When completing a feature spec:
 
 3. **Commit together** — frontmatter update and file move in same commit.
 
-**Status values:** `draft` → `prepped` → `in-progress` → `done` (or `archived` if deprioritized)
+**Kanban status values:** `backlog` → `week` → `today` → `in-progress` → `blocked` → `done` (or move to `archive/` if deprioritized)
+
+**Spec readiness:** Tracked separately via `prepped_date` (null = draft, set = prepped). Agents set `prepped_date`, not `status`.
 
 ### Generated artifacts (OK to create)
 

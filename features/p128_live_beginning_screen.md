@@ -1,5 +1,5 @@
 ---
-status: prepped
+status: backlog
 type: story
 priority: p1
 prepped_date: '2026-02-05'
@@ -10,7 +10,8 @@ reviews:
 prototype: /prototype/linkedin-like/live
 decisions:
   - Content picker after partner joins, not before
-  - Three options: pick story, pick point, or free live
+  - Direction-first design: two free-speaking buttons (you speak / partner speaks) + story/point cards below
+  - Picking a card is a shortcut for "does partner understand you?" + specific topic
   - returnTo query param for back navigation (used by P124)
   - No ClarityLivePage refactoring — add beginning screen as new view state
 ---
@@ -50,39 +51,49 @@ The beginning screen offers three paths:
 
 ### After partner joins (new beginning screen)
 
-Both users see the beginning screen. Either person can select content.
+Both users see the beginning screen. Either person can select content or a direction.
+
+**Design principle:** Direction-first. The user's mental state is "who's talking?" — not "what content?" The two free-speaking buttons answer that question directly. Story/point cards below are a shortcut for "does partner understand you?" + a specific topic.
 
 ```
 ┌─────────────────────────────────────────┐
 │ ← End session               🔴 Live    │
 ├─────────────────────────────────────────┤
 │                                         │
-│  🔍 Search stories or points...         │
+│  You're live with Alice                 │
 │                                         │
-│  ── YOUR STORIES ───────────────────    │
+│  ┌─────────────────────────────────┐    │
+│  │  🗣️  Does Alice understand you? │    │
+│  │  You speak, Alice verifies      │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │  👂 Do you understand Alice?    │    │
+│  │  Alice speaks, you verify       │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ── or pick something specific ──────   │
+│                                         │
 │  ┌─────────────────────────────────┐    │
 │  │ "I started working remotely..." │    │
 │  │  2 points · 3 understood        │    │
-│  │  [Does Alice understand?]       │    │
 │  └─────────────────────────────────┘    │
 │  ┌─────────────────────────────────┐    │
 │  │ "Our team tried no-meetings..." │    │
 │  │  0 points · 0 understood        │    │
-│  │  [Does Alice understand?]       │    │
 │  └─────────────────────────────────┘    │
-│                                         │
-│  ── YOUR POINTS ────────────────────    │
 │  ┌─────────────────────────────────┐    │
-│  │ "Remote work is more productive" │   │
-│  │  [Disagree] [Unsure] [Agree]     │   │
-│  │  [Does Alice agree?]             │   │
+│  │ "Remote work is more productive"│    │
+│  │  point · 1 position taken       │    │
 │  └─────────────────────────────────┘    │
-│                                         │
-│  ─────────────────────────────────────  │
-│  [Speak freely — no topic selected]     │
 │                                         │
 └─────────────────────────────────────────┘
 ```
+
+**Three paths:**
+1. **"Does Alice understand you?"** → free speaking, you're the teller, Alice verifies (freeform)
+2. **"Do you understand Alice?"** → free speaking, Alice is the teller, you verify (freeform)
+3. **Pick a story/point card** → structured verification (direction implied: does partner understand YOUR content)
 
 ### Selecting a story
 
@@ -108,9 +119,12 @@ Tap "Does Alice agree?" → partner sees point card with position buttons.
 
 Both take positions → positions revealed → if disagreement, offer "Explore linked stories."
 
-### Free live
+### Free live (either direction)
 
-Tap "Speak freely" → goes to current production flow (freeform verification, no content attached).
+Tap "Does Alice understand you?" → freeform verification where you speak and Alice rates understanding.
+Tap "Do you understand Alice?" → freeform verification where Alice speaks and you rate understanding.
+
+Both go to current production flow (freeform verification, no content attached) — the only difference is which prompt each person sees first.
 
 ### returnTo param
 
@@ -132,7 +146,7 @@ If `/live?code=XYZ&returnTo=/events/clarity-hike`, the back button shows "← Ba
 - Story list from current user's stories (Supabase query)
 - Point list from current user's points (Supabase query)
 - Search/filter for stories and points
-- "Speak freely" explicit option
+- Two directional free-speaking buttons ("Does Alice understand you?" / "Do you understand Alice?")
 - Story/point context visible during verification (partner sees the card)
 - Session history panel (verified cards with checkmark, inline on beginning screen)
 - `returnTo` query param support for back navigation

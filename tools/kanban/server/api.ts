@@ -144,6 +144,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       created: data.created,
       completed_at: data.completed_at,
       sort_order: data.sort_order,
+      prepped: !!data.prepped_date,
     }
   } catch {
     return null
@@ -163,7 +164,7 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
 
         if (entry.isDirectory()) {
           // Skip folders that shouldn't be scanned
-          const skipFolders = ['research']
+          const skipFolders = ['research', 'uat']
           // Also skip dated archive folders (e.g., "4_27_jan26")
           const isDateArchive = /^\d+_\d+_\w+\d+$/.test(entry.name)
           if (!skipFolders.includes(entry.name) && !isDateArchive) {
@@ -320,6 +321,8 @@ app.patch('/api/features/:id', async (req, res) => {
         } else if (status && status !== 'done' && oldStatus === 'done') {
           cachedFeature.completed_at = undefined
         }
+        // Keep prepped in sync with frontmatter
+        cachedFeature.prepped = !!data.prepped_date
       }
     }
 

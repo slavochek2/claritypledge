@@ -11,6 +11,7 @@ interface ColumnProps {
   features: Feature[]
   dropIndicator: DropIndicator | null
   isDragging: boolean
+  onFeatureUpdate?: () => void
 }
 
 // Drop indicator line component - Notion style
@@ -38,7 +39,7 @@ const getStatusStyle = (color: string) => {
   return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
 }
 
-export function Column({ id, title, color, features, dropIndicator, isDragging: _isDragging }: ColumnProps) {
+export function Column({ id, title, color, features, dropIndicator, isDragging: _isDragging, onFeatureUpdate }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id })
   const featureIds = features.map((f) => f.id)
   const statusStyle = getStatusStyle(color)
@@ -105,7 +106,7 @@ export function Column({ id, title, color, features, dropIndicator, isDragging: 
             <div key={feature.id}>
               {/* Show drop indicator before this card */}
               {dropIndicator?.beforeId === feature.id && <DropLine />}
-              <Card feature={feature} />
+              <Card feature={feature} onFeatureUpdate={onFeatureUpdate} />
             </div>
           ))}
           {/* Show drop indicator at end of column */}

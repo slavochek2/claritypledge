@@ -45,7 +45,7 @@ const COLUMNS: ColumnConfig[] = [
   { id: 'today', title: 'Today', color: '#22c55e' },
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
-  { id: 'done', title: 'Done', color: '#22c55e', filter: 'today' },
+  { id: 'done', title: 'Done Today', color: '#22c55e', filter: 'today' },
 ]
 
 const ALL_DONE_COLUMN: ColumnConfig = {
@@ -112,6 +112,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
   })
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Build API URL with worktree param
   const buildUrl = useCallback((path: string) => {
@@ -450,10 +451,12 @@ export default function App() {
     return features
       .filter((f) => {
         if (f.status !== column.id) return false
+        // Search filter
+        if (searchQuery && !f.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
+        // Type filter applies to all columns including Done
+        if (typeFilter !== 'all' && f.type !== typeFilter) return false
         if (column.filter === 'today') return f.completed_at === today
         if (column.filter === 'before-today') return !f.completed_at || f.completed_at < today
-        // Type filter
-        if (typeFilter !== 'all' && f.type !== typeFilter) return false
         return true
       })
       .sort((a, b) => {
@@ -470,6 +473,15 @@ export default function App() {
     if (viewMode === 'all-done') cols.push(ALL_DONE_COLUMN)
     return cols
   }, [viewMode])
+
+  // Filtered features for Focus page (search + type filter)
+  const filteredFeatures = useMemo(() => {
+    return features.filter((f) => {
+      if (searchQuery && !f.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
+      if (typeFilter !== 'all' && f.type !== typeFilter) return false
+      return true
+    })
+  }, [features, searchQuery, typeFilter])
 
   // Notion-style view tab
   const viewTabStyle = (isActive: boolean): React.CSSProperties => ({
@@ -541,13 +553,57 @@ export default function App() {
             Clarity Kanban
           </h1>
 
+          {/* Search */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-6)' }}>
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: 180,
+                padding: '4px 8px',
+                fontSize: 'var(--font-size-14)',
+                color: 'var(--text-primary)',
+                background: 'var(--bg-hover)',
+                border: '1px solid rgba(55, 53, 47, 0.16)',
+                borderRadius: '4px',
+                outline: 'none',
+                fontFamily: 'var(--font-family)',
+              }}
+            />
+
+            {/* Refresh button */}
+            <button
+              onClick={() => { setLoading(true); fetchFeatures() }}
+              title="Refresh"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                background: 'none',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: 16,
+                color: 'var(--text-secondary)',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            >
+              ↻
+            </button>
+          </div>
+
           {/* Worktree selector */}
           {worktrees.length > 1 && (
             <select
               value={selectedWorktree || ''}
               onChange={(e) => changeWorktree(e.target.value)}
               style={{
-                marginLeft: 'auto',
                 padding: '4px 8px',
                 fontSize: 'var(--font-size-14)',
                 color: 'var(--text-primary)',
@@ -651,6 +707,7 @@ export default function App() {
                       features={getColumnFeatures(col)}
                       dropIndicator={dropIndicator?.columnId === col.id ? dropIndicator : null}
                       isDragging={activeId !== null}
+                      onFeatureUpdate={fetchFeatures}
                     />
                   ))}
                 </div>
@@ -660,7 +717,7 @@ export default function App() {
 
           {currentPage === 'focus' && (
             <div style={{ overflow: 'auto', flex: 1 }}>
-              <FocusPage features={features} onFeatureUpdate={fetchFeatures} dropIndicator={focusDropIndicator} />
+              <FocusPage features={filteredFeatures} onFeatureUpdate={fetchFeatures} dropIndicator={focusDropIndicator} />
             </div>
           )}
         </div>

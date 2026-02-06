@@ -196,6 +196,21 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
           </span>
         </div>
 
+        {/* Spec readiness — own column, only for planning statuses */}
+        <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>
+          {['backlog', 'week', 'today'].includes(feature.status) && (
+            <span
+              style={{
+                ...pillStyle,
+                background: feature.prepped ? 'var(--tag-green-bg)' : 'var(--tag-gray-bg)',
+                color: feature.prepped ? 'var(--tag-green-text)' : 'var(--text-secondary)',
+              }}
+            >
+              {feature.prepped ? 'prepped' : 'draft'}
+            </span>
+          )}
+        </div>
+
         {/* Tags */}
         <div style={{ ...cellStyle, width: 150, flexShrink: 0, display: 'flex', gap: 4, alignItems: 'center' }}>
           {feature.tags.slice(0, 2).map((tag) => (
@@ -301,6 +316,7 @@ function HypothesisGroup({ groupId, name, icon, features, onFeatureUpdate, dropI
         <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>Type</div>
         <div style={{ ...cellStyle, width: 50, flexShrink: 0, textAlign: 'center' }}>Prio</div>
         <div style={{ ...cellStyle, width: 100, flexShrink: 0, textAlign: 'center' }}>Status</div>
+        <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>Spec</div>
         <div style={{ ...cellStyle, width: 150, flexShrink: 0 }}>Tags</div>
       </div>
 

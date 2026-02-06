@@ -6,6 +6,7 @@ import { CardDialog } from './CardDialog'
 
 interface CardProps {
   feature: Feature
+  onFeatureUpdate?: () => void
 }
 
 // Notion's exact tag colors
@@ -38,7 +39,7 @@ const getTagColor = (tag: string) => {
 
 const MAX_VISIBLE_TAGS = 3
 
-export function Card({ feature }: CardProps) {
+export function Card({ feature, onFeatureUpdate }: CardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -162,7 +163,7 @@ export function Card({ feature }: CardProps) {
       )}
 
       {/* Tags row - Notion style: 6px gap */}
-      {(feature.priority || feature.type || feature.size || feature.tags.length > 0 || feature.blocked_by?.length) && (
+      {(feature.priority || feature.type || feature.size || feature.tags.length > 0 || feature.blocked_by?.length || feature.prepped) && (
         <div
           style={{
             display: 'flex',
@@ -224,6 +225,19 @@ export function Card({ feature }: CardProps) {
             </span>
           ))}
 
+          {/* Spec readiness — only show "prepped" badge (absence = draft) */}
+          {feature.prepped && (
+            <span
+              style={{
+                ...tagStyle,
+                background: 'var(--tag-green-bg)',
+                color: 'var(--tag-green-text)',
+              }}
+            >
+              prepped
+            </span>
+          )}
+
           {/* Tags */}
           {visibleTags.map((tag) => {
             const colors = getTagColor(tag)
@@ -284,7 +298,7 @@ export function Card({ feature }: CardProps) {
       )}
 
       {/* Card detail dialog */}
-      {dialogOpen && <CardDialog feature={feature} onClose={() => setDialogOpen(false)} />}
+      {dialogOpen && <CardDialog feature={feature} onClose={() => setDialogOpen(false)} onUpdate={onFeatureUpdate ? () => onFeatureUpdate() : undefined} />}
     </div>
   )
 }

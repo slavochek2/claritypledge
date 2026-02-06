@@ -1,7 +1,7 @@
 ---
 name: prep-spec
 description: Prepare a spec for implementation with 3-agent review. Each agent brings a different perspective.
-when_to_use: before implementing any feature spec, when spec status is not "prepped"
+when_to_use: before implementing any feature spec, when prepped_date is not set
 version: 4.0.0
 ---
 
@@ -135,17 +135,17 @@ With 3 agents, synthesis is straightforward:
 
 After user reviews synthesis:
 
-1. **Update spec frontmatter:**
+1. **Update spec frontmatter** (set `prepped_date`, do NOT change `status`):
 ```yaml
 ---
-status: prepped
-prepped_date: 2026-01-27
+prepped_date: '2026-01-27'
 reviews:
   ux: passed
   architect: passed-with-notes
   alignment: passed
 ---
 ```
+> **Important:** Leave `status` unchanged. It controls kanban column placement (managed by the user). Only set `prepped_date` and `reviews`.
 
 2. **Add "Prep Notes" section** to spec if blockers/suggestions exist
 
