@@ -1,6 +1,6 @@
 ---
 status: in-progress
-priority: urgent-important
+priority: p0
 hypothesis: H-Biz
 tags:
   - content

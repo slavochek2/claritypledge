@@ -1,6 +1,6 @@
 ---
 status: week
-priority: important
+priority: p1
 hypothesis: H-Biz
 tags:
   - marketing
