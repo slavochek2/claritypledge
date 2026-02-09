@@ -14,6 +14,113 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-09: Navigation simplification for /live sessions (P116, P128)
+
+**Context:** During P116 (story/point detail pages) and P128 (/live beginning screen), the navigation menu was streamlined to support focused /live sessions. Users in active sessions should see minimal UI to avoid distraction.
+
+**Decision:** Removed user-specific navigation links from the menu:
+- **Removed:** "View My Profile" (`/me`) — users access their profile via Settings or direct URL
+- **Removed:** "Dashboard" (`/home`) — merged into Events page functionality
+- **Removed:** "Co-create" from logged-in menu — accessible via "My Events" page
+
+**Rationale:**
+- **Minimize distractions during /live:** Active sessions need focused UI, not full navigation
+- **Stories/Points are the new profile:** With P117 backend shipped, profiles now center on stories/points, making separate "My Profile" link redundant
+- **Events supersede Dashboard:** The Events page provides the same functionality as the old dashboard
+
+**Migration path for users:**
+- Profile access: Settings → profile link, or bookmark `/me` directly
+- Event creation: Navigate to Events page
+- Co-create functionality: Integrated into Events workflow
+
+**Consequences:**
+- Cleaner navigation during /live sessions (P128 `inActiveSession` flag hides nav items)
+- Reduced menu clutter for authenticated users
+- "Sandwich pattern" (P115): Public links (Pledgers, Manifesto, About) + separator + Account actions (Settings, Log Out)
+- Existing `/me`, `/home`, `/co-create` routes still work (not deleted, just removed from nav)
+
+**References:** [P116](../features/done/p116_story_point_detail_pages.md) | [P128](../features/p128_live_beginning_screen.md) | commit 951bb7b
+
+---
+
+## 2026-02-07: Milestones replace hypotheses (P130)
+
+**Context:** Hypotheses and kanban lived in separate worlds. Features had statuses and priorities but no "why." Hypotheses had validation logic but no "what to build." The roadmap existed only in conversation.
+
+**Audit findings:**
+- Focus page groups by `hypothesis:` field, but 3 key features (p124, p126, p128) used wrong fields (`tags:`, `tests:`) — invisible in grouping
+- p80 referenced non-existent `H-GTM`
+- Hypothesis labels were cryptic — no descriptions, no hover context
+- `milestone:` field existed in kanban spec but was unused
+
+**Decision:** Milestones replace hypotheses as the organizational unit. `hypotheses.md` deleted entirely — every piece has a better home.
+
+**What changed:**
+
+| Content | Old Location | New Location |
+|---------|--------------|--------------|
+| Active hypotheses (H-Stories, H-Biz) | hypotheses.md | Milestone files M1-M2 |
+| Blocked hypotheses (H2-H7, H-Safety, H-AI) | hypotheses.md | Future milestone files M7-M12 (status: future) |
+| North Star (H-Core) | hypotheses.md | M6 milestone file (status: future) |
+| Evidence Base (research stats) | hypotheses.md | theory-of-change.md Evidence Base section |
+| Validated (H1, H-Foundation) | hypotheses.md | theory-of-change.md Evidence Base section |
+| Open Questions | hypotheses.md | Dissolved into milestone files |
+
+**Milestone structure:**
+```yaml
+---
+status: active | next | future
+priority: p0 | p1 | p2 | p3
+summary: "One line — shown on kanban hover and Focus page headers"
+tests: [H-Stories]
+answers: [OQ-6, OQ-7]
+---
+
+# M1: Title
+
+**Build:** P126 → P128 → P124
+**Done when:** [concrete exit criteria]
+**Kill signal:** [when to abandon]
+```
+
+**Alternatives rejected:**
+- Keep hypotheses.md, add milestones alongside: Two systems duplicating same info
+- Rename hypotheses to milestones: Content needed restructuring, not just renaming
+- Track milestones in kanban only: Need prose context, not just frontmatter
+
+**Consequences:**
+- Features link to milestones via `milestone: M{N}` frontmatter (replaces `hypothesis:`)
+- Kanban Focus page will group by milestone (shows summary, done/kill signals)
+- Milestone files = hypothesis + build plan + done signal + kill signal
+- theory-of-change.md Evidence Base expanded with full research tables
+- All doc references updated: CLAUDE.md, lean-canvas.md, decisions.md, definitions.md, README.md
+
+**Files created:**
+- `docs/milestones/m1-stories-live-events.md` (status: active)
+- `docs/milestones/m2-first-workshops.md` (status: next)
+- `docs/milestones/m3-points-ai-stories.md` (status: future)
+- `docs/milestones/m4-paid-workshops.md` (status: future)
+- `docs/milestones/m5-scale-partners-async.md` (status: future)
+- `docs/milestones/m6-asymmetric-conversion.md` (status: future)
+- `docs/milestones/m7-social-fomo.md` (status: future)
+- `docs/milestones/m8-visibility-behavior.md` (status: future)
+- `docs/milestones/m9-status-flip.md` (status: future)
+- `docs/milestones/m10-certifications.md` (status: future)
+- `docs/milestones/m11-cascade.md` (status: future)
+- `docs/milestones/m12-safety-history.md` (status: future)
+
+**Files deleted:**
+- `docs/hypotheses.md`
+
+**Feature frontmatter updated:**
+- p128, p124 → `milestone: M1`
+- p105 → `milestone: M2`, `priority: p2` (was p0), `status: backlog` (was week)
+- p129, p80, p108 drafts → `milestone: M2`
+
+**References:** [P130 spec](../features/p130_merge_hypotheses_into_milestones.md) | [milestones/](milestones/)
+
+---
+
 ## Content pipeline — blog audience, voice guide, manifesto sequence
 
 **Context:** Building out the build-in-public blog on Ghost. Needed to define who we're writing for, establish a consistent voice, and plan the first content sequence (chunking "The Clarity Tax" article into a subscriber drip).
@@ -199,12 +306,12 @@ You (as coach/trainer) → Run events (donation-based) → Participants get valu
 - Added Open Questions section to hypotheses.md
 - Revenue model: donation-based events now, subscription later (if tool value proven)
 
-**Open questions this creates:** (See hypotheses.md "Open Questions" section)
+**Open questions this creates:** (See milestone files for open questions)
 - What exactly do people pay for?
 - What proves TOOL adds value vs YOU?
 - Retention mechanism?
 
-**References:** [hypotheses.md](hypotheses.md), [lean-canvas.md](lean-canvas.md), [roadmap.md](roadmap.md)
+**References:** [milestones/m2-first-workshops.md](milestones/m2-first-workshops.md), [lean-canvas.md](lean-canvas.md), [roadmap.md](roadmap.md)
 
 ---
 
@@ -244,7 +351,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 **Decision:**
 - GTM/sales playbooks → feature docs (`features/p{N}_sales_playbook.md`)
 - Pivot options → lean-canvas "Alternative Approaches" section
-- Evidence base → hypotheses.md
+- Evidence base → theory-of-change.md Evidence Base section
 
 **Alternatives rejected:**
 - Separate docs for GTM, pivots, evidence: Too many docs to maintain
@@ -253,7 +360,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 **Consequences:**
 - CLAUDE.md updated with doc organization
 - lean-canvas gets "Alternative Approaches" section
-- hypotheses.md gets "Evidence Base" section (added)
+- theory-of-change.md gets "Evidence Base" section (expanded in P130)
 
 **References:** [CLAUDE.md](../CLAUDE.md), updated documentation sections
 
@@ -281,7 +388,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 **Consequences:**
 - Updated lean-canvas.md job-to-be-done
-- Updated hypotheses.md H-Biz-3
+- Updated M2 milestone (H-Biz hypothesis)
 - Updated p105_sales_playbook.md validation questions
 - This is category creation, not competition with training companies
 
@@ -473,7 +580,7 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 
 **References:**
 - [p105_sales_playbook.md](../features/p105_sales_playbook.md) — full validation plan
-- [hypotheses.md](hypotheses.md) — H-Biz hypothesis
+- [milestones/m2-first-workshops.md](milestones/m2-first-workshops.md) — H-Biz hypothesis
 
 ---
 
@@ -856,7 +963,7 @@ User journey: **Clarify → Share → Verify**
 - Event outcomes section drives H4 (visibility, was H2) and H3 (FOMO, was H0b)
 - No presence system needed — link/QR sufficient for /live pairing
 
-**References:** [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) | [hypotheses.md](hypotheses.md#h2-visibility-changes-group-behavior-)
+**References:** [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) | [milestones/m8-visibility-behavior.md](milestones/m8-visibility-behavior.md)
 
 ---
 
@@ -875,7 +982,7 @@ User journey: **Clarify → Share → Verify**
 - Event outcomes section explicitly shows leaderboard to trigger FOMO
 - Success criteria: Users mention wanting calibration after seeing others' scores
 
-**References:** [hypotheses.md](hypotheses.md#h0b-social-fomo-drives-adoption-)
+**References:** [milestones/m7-social-fomo.md](milestones/m7-social-fomo.md)
 
 ---
 

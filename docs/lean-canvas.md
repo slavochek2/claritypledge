@@ -294,7 +294,9 @@ You (as coach/trainer) → Events (donation-based) → Participants get value �
 
 ## Validation Status
 
-**See [hypotheses.md](hypotheses.md)** — single source of truth for what we're testing and validation status.
+**See [milestones/](milestones/)** — what we're building, testing, and when we stop.
+
+**See [theory-of-change.md](theory-of-change.md) Evidence Base** — validated learnings and research evidence.
 
 ---
 
@@ -348,7 +350,7 @@ If current approach doesn't validate, these are pivot options to consider:
 
 ## Related Documents
 
-- [hypotheses.md](hypotheses.md) — What we're testing + evidence base
+- [milestones/](milestones/) — What we're building, testing, kill signals
+- [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N) + Evidence Base
 - [p105_sales_playbook.md](../features/p105_sales_playbook.md) — GTM tactics and pitches
-- [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N)
 - [philosophy.md](philosophy.md) — WHY this works (epistemology)

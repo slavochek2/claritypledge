@@ -1,7 +1,9 @@
 ---
 status: backlog
 priority: p2
-depends_on: [stories_points_backend]
+milestone: M2
+depends_on:
+  - stories_points_backend
 ---
 
 # P129: Unverified User Flow

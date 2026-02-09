@@ -60,9 +60,8 @@ status: backlog | week | today | in-progress | blocked | done  # REQUIRED
 type: bug | task | story | comment
 priority: p0 | p1 | p2 | p3   # strategic bucket (see Priority Model below)
 size: xs | s | m | l | xl
-milestone: first-revenue
+milestone: M1                  # Links to docs/milestones/m1-*.md (groups on Focus page)
 blocked_by: [p105, p106]
-hypothesis: H-Biz
 tags: [validation, dx]
 completed_at: '2026-02-04'  # Set automatically when moving to done
 sort_order: 1.5            # For within-bucket ordering (see Priority Model below)
@@ -105,7 +104,7 @@ Priority has two layers:
 - Blocked_by chips (red outline)
 
 **Display-if-present** (gray):
-- Size, Milestone, Hypothesis, Tags
+- Size, Milestone (M1, M2, etc. — hover shows "Milestone: M1"), Tags
 
 ## Drag & Drop
 
@@ -115,6 +114,41 @@ Priority has two layers:
 ## Opening Files
 
 Click 📝 on any card to open in Cursor. Press `⌘⇧V` for markdown preview.
+
+## Focus Page — Milestone Grouping
+
+The Focus page groups active features by milestone, showing all non-done work organized by validation phase.
+
+**How it works:**
+- Features are grouped by their `milestone:` field (e.g., M1, M2, M3)
+- Each group shows:
+  - Milestone title (from `docs/milestones/m{N}-{name}.md`)
+  - Milestone summary (one-line description)
+  - Feature count and status breakdown
+- Groups are sorted by:
+  1. Milestone status (active → next → future)
+  2. Priority (p0 → p1 → p2 → p3)
+  3. Milestone ID (M1 → M2 → M3)
+- Features without milestones appear in "Unlinked" group at the bottom
+
+**Milestone files** (`docs/milestones/`):
+```yaml
+---
+status: active | next | future
+priority: p0 | p1 | p2 | p3
+summary: "One line — shown on Focus page"
+tests: [H-Stories]
+answers: [OQ-6, OQ-7]
+---
+
+# M1: Stories + Live + Events
+
+**Build:** P126 → P128 → P124
+**Done when:** [exit criteria]
+**Kill signal:** [when to abandon]
+```
+
+**Why milestones?** They replace hypotheses (P130) as the organizational unit. A milestone = hypothesis + build plan + done signal + kill signal. They answer: what are we building, why, and when do we stop?
 
 ## Architecture
 

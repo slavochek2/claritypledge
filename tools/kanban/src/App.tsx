@@ -733,7 +733,12 @@ export default function App() {
 
           {currentPage === 'focus' && (
             <div style={{ overflow: 'auto', flex: 1 }}>
-              <FocusPage features={filteredFeatures} onFeatureUpdate={fetchFeatures} dropIndicator={focusDropIndicator} />
+              <FocusPage
+                features={filteredFeatures}
+                onFeatureUpdate={fetchFeatures}
+                dropIndicator={focusDropIndicator}
+                currentWorktree={selectedWorktree || undefined}
+              />
             </div>
           )}
         </div>

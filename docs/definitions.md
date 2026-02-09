@@ -293,5 +293,5 @@ The real value is in detecting **false states**:
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
-- [hypotheses.md](hypotheses.md) — What we're testing (H1-H7, H-Core)
+- [milestones/](milestones/) — What we're building, testing, kill signals
 - [philosophy.md](philosophy.md) — Epistemological foundations

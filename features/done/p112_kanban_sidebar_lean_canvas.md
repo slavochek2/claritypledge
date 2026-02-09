@@ -2,6 +2,7 @@
 status: done
 type: story
 priority: p2
+milestone: M2
 tags: [kanban, ux, planning]
 ---
 

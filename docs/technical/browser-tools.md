@@ -1,16 +1,17 @@
 # Browser Tools Guide
 
-Three browser automation tools, each with a distinct purpose. No hierarchy — pick based on the task.
+Four browser automation tools, each with a distinct purpose. No hierarchy — pick based on the task.
 
 ---
 
 ## Tool Overview
 
-| Tool | What It Is | Headless? | Needs User Browser? | CI? |
-|------|-----------|-----------|---------------------|-----|
-| **Playwright** (`npm run test:e2e`) | Automated test framework | Yes | No | Yes |
-| **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Headless debugging & profiling | Yes | No | No |
-| **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Visual QA in real browser | No | Yes (`claude --chrome`) | No |
+| Tool | What It Is | Headless? | Needs User Browser? | CI? | Token Cost |
+|------|-----------|-----------|---------------------|-----|-----------|
+| **Playwright Tests** (`npm run test:e2e`) | Automated test framework | Yes | No | Yes | N/A (not agent-driven) |
+| **Playwright CLI** (`playwright-cli` via Bash) | Token-efficient CLI for agent automation | Yes (default) | No | No | Low (~10-50 tokens/cmd) |
+| **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Headless debugging & profiling | Yes | No | No | Medium (~100-500 tokens) |
+| **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Visual QA in real browser | No | Yes (`claude --chrome`) | No | High (~1,500-4,000 tokens) |
 
 ---
 
@@ -33,6 +34,65 @@ npm run test:e2e:ui      # Playwright UI
 ```
 
 **Use when:** You need tests that run the same way every time, without a human present.
+
+### Playwright CLI
+
+**Lane:** Token-efficient agent-driven browser automation.
+
+Command: `playwright-cli` (via Bash tool)
+
+**Unique strengths:**
+- **Token-efficient** — minimal output (~10-50 tokens per command vs. 100-500 for MCP)
+- **Direct CLI access** — transparent, see exactly what commands run
+- **Element references** — `snapshot` returns refs like `e15`, `e21` for clicking/filling
+- **Session persistence** — cookies/storage persist between commands (use `--session` flag)
+- **Headless by default** — pass `--headed` to see browser
+- **State management** — save/load auth state, manage cookies/localStorage/sessionStorage
+
+**Common commands:**
+```bash
+# Navigation & setup
+playwright-cli open https://example.com
+playwright-cli goto /login
+playwright-cli resize 1920 1080
+
+# Inspection (low token cost)
+playwright-cli snapshot              # Get element refs (e15, e21, etc.)
+playwright-cli console               # Check console errors
+playwright-cli network               # List network requests
+
+# Interaction
+playwright-cli click e15             # Click element ref from snapshot
+playwright-cli fill e21 "test@example.com"
+playwright-cli type "password123"
+playwright-cli press Enter
+
+# Validation
+playwright-cli eval "document.title" # Run JS, get result
+playwright-cli screenshot            # Visual verification
+
+# State management
+playwright-cli state-save auth.json  # Save login state
+playwright-cli state-load auth.json  # Restore login state
+playwright-cli cookie-list           # List cookies
+
+# Cleanup
+playwright-cli close                 # Close browser
+playwright-cli close-all             # Close all sessions
+```
+
+**Installation:** `npm install -g @playwright/cli` (already installed globally)
+
+**Use when:**
+- Long agent-driven automation sessions (token efficiency matters)
+- Ad-hoc page checks without writing test files
+- Need to preserve authentication state across commands
+- Want transparent CLI usage instead of MCP abstractions
+
+**Avoid when:**
+- Writing repeatable test suites (use Playwright Tests instead)
+- Need visual debugging (use Claude in Chrome instead)
+- Need performance profiling (use Chrome DevTools MCP instead)
 
 ### Chrome DevTools MCP
 
@@ -88,7 +148,7 @@ Requires: `claude --chrome` + Chrome with Claude extension installed.
 
 **Use when:** You need to see the real page as a user sees it, test authenticated flows, or do ad-hoc visual checks during a conversation.
 
-> **Note:** Docker MCP Playwright (`mcp__MCP_DOCKER__browser_eval`) is also available as a fallback if Chrome DevTools MCP is unavailable, but the three tools above cover all common use cases.
+> **Note:** Playwright MCP (`mcp__playwright__*`) and Docker MCP Playwright (`mcp__MCP_DOCKER__browser_eval`) are also available. However, both are **token-heavy** (send full page snapshots/accessibility trees). Use **Playwright CLI** instead for token-efficient agent automation. MCP tools are only needed for specialized agentic loops requiring persistent state and rich introspection.
 
 ---
 
@@ -96,16 +156,24 @@ Requires: `claude --chrome` + Chrome with Claude extension installed.
 
 | Task | Tool | Why |
 |------|------|-----|
-| "Run the E2E test suite" | Playwright | Automated, repeatable |
-| "Test the `/live` session flow" | Playwright | Needs two browser contexts |
-| "Is there a console error on this page?" | Chrome DevTools MCP | Headless, quick |
-| "Why is this page slow?" | Chrome DevTools MCP | Performance profiling |
-| "What API calls does this page make?" | Chrome DevTools MCP | Network inspection |
-| "Does the landing page look right?" | Claude in Chrome | Visual verification |
+| **Automated Testing** |
+| "Run the E2E test suite" | Playwright Tests | Automated, repeatable, CI-ready |
+| "Test the `/live` session flow" | Playwright Tests | Needs two browser contexts |
+| **Ad-Hoc Agent Automation** |
+| "Check if login form works" | Playwright CLI | Token-efficient, quick validation |
+| "Navigate through checkout flow and verify" | Playwright CLI | Multi-step, preserves state |
+| "Is the signup button clickable?" | Playwright CLI | Fast element check via snapshot |
+| "Fill form and submit, check result" | Playwright CLI | Low token cost for automation |
+| **Debugging & Performance** |
+| "Is there a console error on this page?" | Playwright CLI or Chrome DevTools MCP | Both work; CLI is lower token cost |
+| "Why is this page slow?" | Chrome DevTools MCP | Performance profiling unique to DevTools |
+| "What API calls does this page make?" | Chrome DevTools MCP | Network inspection with full headers |
+| **Visual QA & Authenticated Flows** |
+| "Does the landing page look right?" | Claude in Chrome | Visual verification, real rendering |
 | "Test the login flow with my account" | Claude in Chrome | Needs authenticated state |
-| "Fill out the pledge form and check it works" | Claude in Chrome | Interactive, visual |
+| "Fill out the pledge form and check it works" | Claude in Chrome | Interactive, visual feedback |
 | "Check the Ghost admin panel" | Claude in Chrome | Needs authentication |
-| "Debug a layout overflow" | Claude in Chrome | Visual bug |
+| "Debug a layout overflow" | Claude in Chrome | Visual bug needs screenshots |
 
 ---
 
@@ -128,12 +196,36 @@ Requires: `claude --chrome` + Chrome with Claude extension installed.
 
 ## Common Patterns
 
-### Check page health (headless)
+### Quick page health check (token-efficient)
+```bash
+# Playwright CLI approach (lowest token cost)
+playwright-cli open https://example.com
+playwright-cli snapshot              # Verify elements present (refs: e15, e21, etc.)
+playwright-cli console               # Check for errors
+playwright-cli network               # Check for failed requests
+playwright-cli close
 ```
+
+### Check page health (headless, more detailed)
+```
+# Chrome DevTools MCP approach (higher token cost, more detail)
 1. Chrome DevTools: navigate_page → URL
 2. take_snapshot → verify elements present
 3. list_console_messages → check for errors
 4. list_network_requests → check for failures
+```
+
+### Multi-step automation (token-efficient)
+```bash
+# Playwright CLI preserves state between commands
+playwright-cli open https://example.com/login
+playwright-cli snapshot              # Get element refs
+playwright-cli fill e10 "user@example.com"  # Fill email field
+playwright-cli fill e12 "password123"       # Fill password field
+playwright-cli click e15                    # Click login button
+playwright-cli eval "document.title"        # Verify redirected to dashboard
+playwright-cli state-save auth.json         # Save auth state for reuse
+playwright-cli close
 ```
 
 ### Visual QA (interactive)

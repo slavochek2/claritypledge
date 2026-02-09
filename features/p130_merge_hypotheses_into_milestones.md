@@ -1,10 +1,11 @@
 ---
-status: today
+status: in-progress
 type: comment
 priority: p1
 tags:
   - strategy
   - roadmap
+sort_order: 0.5
 ---
 
 # P130: Milestones Replace Hypotheses
@@ -22,16 +23,20 @@ Hypotheses and kanban live in separate worlds. Features have statuses and priori
 
 ## Decision
 
-**Milestones replace active hypotheses as the organizational unit.**
+**Milestones replace hypotheses as the organizational unit. `hypotheses.md` is deleted entirely — every piece has a better home.**
 
 A milestone = hypothesis + build plan + done signal + kill signal. It answers: what are we building, why, and when do we stop?
 
-| Becomes | What |
-|---------|------|
-| Milestone files | Active/future hypotheses + their build plans |
-| `docs/evidence-base.md` | Research facts (from hypotheses.md top) |
-| Slim `docs/hypotheses.md` | Validated (H1, H-Foundation) + Blocked (H2-H7, H-Safety, H-AI) + North Star (H-Core) |
-| Dissolved | Open Questions → into milestones. Assumption Hierarchy → into milestones. Naming History → dropped (git has it). |
+| Content | Destination | Why |
+|---------|------------|-----|
+| Active hypotheses (H-Stories, H-Biz) | Milestone files (`docs/milestones/m1-m5.md`) | Milestones ARE hypotheses with build plans |
+| Blocked hypotheses (H2-H7, H-Safety, H-AI) | Future milestone files (`status: future`) | They become milestones when their time comes |
+| North Star (H-Core) | Milestone file (`m6-asymmetric-conversion.md`, `status: future`) | Testable hypothesis — stays visible on kanban |
+| Evidence Base (research stats) | `theory-of-change.md` evidence section | Already has one (line 324) — expand, don't duplicate |
+| Validated (H1, H-Foundation) | `theory-of-change.md` evidence section | "We proved X" = evidence |
+| Open Questions | Dissolve into milestones that answer them | Each OQ maps to a specific milestone |
+| Assumption Hierarchy | Dissolve into milestones | Each milestone says which assumptions it validates |
+| Naming History | Drop | Git history covers this |
 
 ## File Structure
 
@@ -39,19 +44,32 @@ A milestone = hypothesis + build plan + done signal + kill signal. It answers: w
 
 ```
 docs/milestones/
-├── m1-stories-live-events.md
-├── m2-first-workshops.md
-├── m3-points-ai-stories.md
-├── m4-paid-workshops.md
-└── m5-scale-partners-async.md
+├── m1-stories-live-events.md       # status: active
+├── m2-first-workshops.md           # status: next
+├── m3-points-ai-stories.md         # status: future
+├── m4-paid-workshops.md            # status: future
+├── m5-scale-partners-async.md      # status: future
+├── m6-asymmetric-conversion.md     # status: future (H-Core north star)
+├── m7-social-fomo.md               # status: future (H3)
+├── m8-visibility-behavior.md       # status: future (H4)
+├── m9-status-flip.md               # status: future (H5)
+├── m10-certifications.md           # status: future (H6)
+├── m11-cascade.md                  # status: future (H7)
+└── m12-safety-history.md           # status: future (H-Safety)
+```
 
-docs/evidence-base.md
+Note: Blocked hypotheses that M5 unblocks (H2, H3, H4) become milestones after M5. The numbering M7+ is tentative — reorder when they become active.
+
+### Deleted files
+
+```
+docs/hypotheses.md                  # Everything distributed to better homes
 ```
 
 ### Changed files
 
 ```
-docs/hypotheses.md                  # Slim: Validated + Blocked + North Star (reference only)
+docs/theory-of-change.md            # Expanded evidence section (validated hypotheses + full research)
 features/p124_event_rooms.md        # milestone: M1
 features/p126_create_story.md       # milestone: M1
 features/p128_live_beginning.md     # milestone: M1
@@ -78,7 +96,7 @@ answers: [OQ-6, OQ-7]
 **Done when:** [concrete exit criteria]
 **Kill signal:** [when to abandon]
 
-[Full description, hypothesis detail, open questions absorbed here]
+[Full hypothesis detail, open questions absorbed here]
 ```
 
 ### Features link to milestones
@@ -88,7 +106,7 @@ answers: [OQ-6, OQ-7]
 milestone: M1
 ```
 
-Focus page groups features by milestone. Milestone file provides summary, status, done/kill signals.
+Focus page groups features by milestone. Milestone file provides summary, status, done/kill signals. Sorted by priority top-to-bottom = the roadmap narrative.
 
 ## Milestones
 
@@ -129,7 +147,15 @@ Focus page groups features by milestone. Milestone file provides summary, status
 **Tests:** Can others run this? Does async enable retention?
 **Done when:** 1 partner runs a workshop; async users return weekly
 **Kill signal:** Quality drops without you; async has no retention
-**Unblocks:** H2, H3, H4 (require scale to test)
+**Unblocks:** M7 (social FOMO), M8 (visibility), M9 (status flip)
+
+### M6: Asymmetric Conversion (North Star)
+
+**Tests:** H-Core — does the Point closest to truth exhibit asymmetric conversion?
+**Build:** Position tracking, conversion analytics, large-scale verification data
+**Done when:** Statistically significant asymmetry in conversion rates between Points
+**Kill signal:** Symmetric conversion everywhere (positions = values, not facts)
+**Requires:** All prior milestones validated + enough data for statistical power
 
 ## Feature Priority Changes
 
@@ -143,29 +169,27 @@ Focus page groups features by milestone. Milestone file provides summary, status
 
 ## Kanban Changes
 
-1. **Focus page reads `docs/milestones/`** — groups features by milestone, shows summary + status + done signal in group headers
+1. **Focus page reads `docs/milestones/`** — groups features by milestone, shows summary + status + done/kill signals in group headers
 2. **Milestone hover on cards** — badge shows milestone summary on hover
 3. **Drop `hypothesis:` grouping** — replaced by `milestone:` grouping
-4. **`type: comment`** — badge: `[C]`, color: purple (already in spec)
+4. **Sort by priority** — top-to-bottom = roadmap narrative (active → next → future)
+5. **`type: comment`** — badge: `[C]`, color: purple (already in spec)
 
 ## Migration Steps
 
-1. Create `docs/milestones/` — write M1-M5 files with full content from hypotheses.md
-2. Create `docs/evidence-base.md` — extract from hypotheses.md Evidence Base section
-3. Slim `docs/hypotheses.md` — keep Validated + Blocked + North Star as reference
+### Phase 1: Content migration (no code changes)
+
+1. Create `docs/milestones/` — write M1-M6 files with full content from hypotheses.md
+2. Create future milestone stubs (M7-M12) for blocked hypotheses
+3. Expand `theory-of-change.md` evidence section — add Evidence Base + Validated hypotheses from hypotheses.md
 4. Update feature frontmatter — add `milestone: M{N}`, remove `hypothesis:`
-5. Update kanban backend — scan `docs/milestones/`, expose via API
-6. Update kanban Focus page — group by milestone, show descriptions
-7. Update `CLAUDE.md` — Deep Dive table, doc architecture, frontmatter spec
-8. Update `docs/technical/kanban.md` — document milestone field
-9. Log decision in `docs/decisions.md`
+5. Delete `docs/hypotheses.md`
+6. Update all docs that link to hypotheses.md (CLAUDE.md, lean-canvas, decisions, theory-of-change, feature files)
+7. Log decision in `docs/decisions.md`
 
-## What stays in slim hypotheses.md
+### Phase 2: Kanban code changes
 
-Reference material only — not actionable, not on kanban:
-
-- **Validated:** H1 (/live works), H-Foundation (calibration drives outcomes)
-- **Blocked (future milestones):** H2, H3, H4, H5, H6, H7, H-Safety, H-AI
-- **North Star:** H-Core (asymmetric conversion)
-
-These become milestones when the sequence reaches them. Until then, they're the "what's next after M5" backlog.
+8. Update kanban backend — scan `docs/milestones/`, expose milestone metadata via API
+9. Update kanban Focus page — group by milestone, show descriptions, sort by priority
+10. Add milestone hover tooltip on board view cards
+11. Update `docs/technical/kanban.md` — document milestone field, Focus page changes

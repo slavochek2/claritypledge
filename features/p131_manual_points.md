@@ -1,16 +1,19 @@
 ---
-status: done
-completed_at: '2026-02-07'
+status: in-progress
 type: story
-priority: p1
-tags: [stories, points]
-hypothesis: h-stories
-blockedBy: [p126]
+priority: p0
+milestone: M3
+tags:
+  - stories
+  - points
+blockedBy:
+  - p126
 prepped_date: '2026-02-06'
 reviews:
   ux: passed
   architect: passed-with-notes
   alignment: passed-with-notes
+sort_order: 0.75
 ---
 
 # P131: Manual Points Creation + Story Linking

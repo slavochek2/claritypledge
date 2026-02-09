@@ -58,8 +58,8 @@ test.describe('New Meeting After Session Ends', () => {
       // Both should be in live meeting
       await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 10000 });
       await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
-      await expect(creatorPage.getByText('Did Bob understand you?')).toBeVisible();
-      await expect(joinerPage.getByText('Did Alice understand you?')).toBeVisible();
+      await expect(creatorPage.getByText('Does Bob understand you?')).toBeVisible();
+      await expect(joinerPage.getByText('Does Alice understand you?')).toBeVisible();
 
       // ========================================
       // END MEETING 1: Joiner leaves
@@ -114,8 +114,8 @@ test.describe('New Meeting After Session Ends', () => {
       await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
 
       // Both should see live meeting buttons
-      await expect(creatorPage.getByText('Did Bob understand you?')).toBeVisible();
-      await expect(joinerPage.getByText('Did Alice understand you?')).toBeVisible();
+      await expect(creatorPage.getByText('Does Bob understand you?')).toBeVisible();
+      await expect(joinerPage.getByText('Does Alice understand you?')).toBeVisible();
 
     } finally {
       await creatorContext.close();
@@ -220,8 +220,8 @@ test.describe('New Meeting After Session Ends', () => {
       await joinerPage.getByRole('button', { name: 'Join' }).click();
 
       // Both connected
-      await expect(creatorPage.getByText('Did Guest understand you?')).toBeVisible({ timeout: 10000 });
-      await expect(joinerPage.getByText('Did Host understand you?')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Does Guest understand you?')).toBeVisible({ timeout: 10000 });
+      await expect(joinerPage.getByText('Does Host understand you?')).toBeVisible({ timeout: 10000 });
 
       // End meeting - joiner leaves
       await joinerPage.getByRole('button', { name: 'Menu' }).click();
@@ -251,8 +251,8 @@ test.describe('New Meeting After Session Ends', () => {
       await joinerPage.getByRole('button', { name: 'Join' }).click();
 
       // CRITICAL: Both should connect
-      await expect(creatorPage.getByText('Did Guest understand you?')).toBeVisible({ timeout: 15000 });
-      await expect(joinerPage.getByText('Did Host understand you?')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Does Guest understand you?')).toBeVisible({ timeout: 15000 });
+      await expect(joinerPage.getByText('Does Host understand you?')).toBeVisible({ timeout: 10000 });
 
     } finally {
       await creatorContext.close();
@@ -299,8 +299,8 @@ test.describe('New Meeting After Session Ends', () => {
 
         // Should connect - look for the live meeting view with partner's name in banner
         // Use exact match to avoid matching "Waiting for Partner" banner
-        await expect(creatorPage.getByText('Did Partner understand you?')).toBeVisible({ timeout: 15000 });
-        await expect(joinerPage.getByText('Did Repeated understand you?')).toBeVisible({ timeout: 10000 });
+        await expect(creatorPage.getByText('Does Partner understand you?')).toBeVisible({ timeout: 15000 });
+        await expect(joinerPage.getByText('Does Repeated understand you?')).toBeVisible({ timeout: 10000 });
 
         // End meeting (joiner leaves)
         await joinerPage.getByRole('button', { name: 'Menu' }).click();

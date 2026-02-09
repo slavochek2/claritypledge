@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { CardDialog } from './CardDialog'
-import { Feature, FeatureType, Status } from '../lib/types'
+import { Feature, FeatureType, Status, Milestone } from '../lib/types'
 import type { FocusDropIndicator } from '../App'
 
 const TYPE_PREFIX: Record<FeatureType, string> = {
@@ -17,6 +17,7 @@ interface FocusPageProps {
   features: Feature[]
   onFeatureUpdate?: () => void
   dropIndicator?: FocusDropIndicator | null
+  currentWorktree?: string
 }
 
 // Status priority for sorting within groups
@@ -130,7 +131,7 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: feature.id,
-    data: { hypothesis: feature.hypothesis || '__unlinked__' },
+    data: { milestone: feature.milestone || '__unlinked__' },
   })
 
   const style: React.CSSProperties = {
@@ -240,17 +241,18 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
   )
 }
 
-// --- HypothesisGroup: droppable group with header + rows ---
-interface HypothesisGroupProps {
+// --- MilestoneGroup: droppable group with header + rows ---
+interface MilestoneGroupProps {
   groupId: string
   name: string
   icon: string
   features: Feature[]
+  milestone?: Milestone
   onFeatureUpdate?: () => void
   dropIndicator?: FocusDropIndicator | null
 }
 
-function HypothesisGroup({ groupId, name, icon, features, onFeatureUpdate, dropIndicator }: HypothesisGroupProps) {
+function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpdate, dropIndicator }: MilestoneGroupProps) {
   const sorted = useMemo(() => sortFeatures(features), [features])
   const summary = useMemo(() => getStatusSummary(features), [features])
   const { setNodeRef, isOver } = useDroppable({ id: `group:${groupId}` })
@@ -287,6 +289,11 @@ function HypothesisGroup({ groupId, name, icon, features, onFeatureUpdate, dropI
         >
           {name}
         </span>
+        {milestone?.summary && (
+          <span style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+            {milestone.summary}
+          </span>
+        )}
         <span style={{ fontSize: 'var(--font-size-12)', color: 'var(--text-tertiary)' }}>
           {features.length} feature{features.length !== 1 ? 's' : ''}
           {summary && ` (${summary})`}
@@ -340,47 +347,86 @@ function HypothesisGroup({ groupId, name, icon, features, onFeatureUpdate, dropI
 }
 
 // --- FocusPage ---
-export function FocusPage({ features, onFeatureUpdate, dropIndicator }: FocusPageProps) {
+export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWorktree }: FocusPageProps) {
+  const [milestones, setMilestones] = useState<Milestone[]>([])
+
+  useEffect(() => {
+    const fetchMilestones = async () => {
+      try {
+        const url = currentWorktree
+          ? `http://localhost:9051/api/milestones?worktree=${encodeURIComponent(currentWorktree)}`
+          : 'http://localhost:9051/api/milestones'
+        const response = await fetch(url)
+        const data = await response.json()
+        setMilestones(data)
+      } catch (error) {
+        console.error('Failed to fetch milestones:', error)
+      }
+    }
+    fetchMilestones()
+  }, [currentWorktree])
+
   const groups = useMemo(() => {
-    const hypothesisMap = new Map<string, Feature[]>()
+    const milestoneMap = new Map<string, Feature[]>()
     const unlinked: Feature[] = []
 
     for (const feature of features) {
       if (feature.status === 'done' || feature.status === 'rejected') continue
-      if (feature.hypothesis) {
-        const existing = hypothesisMap.get(feature.hypothesis)
+      if (feature.milestone) {
+        const existing = milestoneMap.get(feature.milestone)
         if (existing) {
           existing.push(feature)
         } else {
-          hypothesisMap.set(feature.hypothesis, [feature])
+          milestoneMap.set(feature.milestone, [feature])
         }
       } else {
         unlinked.push(feature)
       }
     }
 
-    const sortedGroups = Array.from(hypothesisMap.entries()).sort(([a], [b]) =>
-      a.localeCompare(b)
-    )
+    // Sort groups by milestone priority (active → next → future, then by priority, then by ID)
+    const milestoneStatusOrder = { active: 0, next: 1, future: 2 }
+    const sortedGroups = Array.from(milestoneMap.entries()).sort(([aId], [bId]) => {
+      const aMilestone = milestones.find(m => m.id === aId)
+      const bMilestone = milestones.find(m => m.id === bId)
+
+      // Sort by status first
+      if (aMilestone && bMilestone) {
+        const statusDiff = milestoneStatusOrder[aMilestone.status] - milestoneStatusOrder[bMilestone.status]
+        if (statusDiff !== 0) return statusDiff
+
+        // Then by priority
+        const aPri = aMilestone.priority ? PRIORITY_ORDER[aMilestone.priority] : 99
+        const bPri = bMilestone.priority ? PRIORITY_ORDER[bMilestone.priority] : 99
+        if (aPri !== bPri) return aPri - bPri
+      }
+
+      // Fallback to ID
+      return aId.localeCompare(bId)
+    })
 
     return { sortedGroups, unlinked }
-  }, [features])
+  }, [features, milestones])
 
   return (
     <div style={{ padding: 'var(--spacing-12) var(--spacing-16)' }}>
-      {groups.sortedGroups.map(([hypothesis, feats]) => (
-        <HypothesisGroup
-          key={hypothesis}
-          groupId={hypothesis}
-          name={hypothesis}
-          icon={'\u{1F3AF}'}
-          features={feats}
-          onFeatureUpdate={onFeatureUpdate}
-          dropIndicator={dropIndicator}
-        />
-      ))}
+      {groups.sortedGroups.map(([milestoneId, feats]) => {
+        const milestone = milestones.find(m => m.id === milestoneId)
+        return (
+          <MilestoneGroup
+            key={milestoneId}
+            groupId={milestoneId}
+            name={milestone?.title || milestoneId}
+            icon={'\u{1F3AF}'}
+            features={feats}
+            milestone={milestone}
+            onFeatureUpdate={onFeatureUpdate}
+            dropIndicator={dropIndicator}
+          />
+        )
+      })}
 
-      <HypothesisGroup
+      <MilestoneGroup
         groupId="__unlinked__"
         name="Unlinked"
         icon={'\u{1F4E6}'}

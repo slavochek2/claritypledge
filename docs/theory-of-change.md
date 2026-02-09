@@ -10,7 +10,7 @@
 > By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality — not by forcing agreement, but by making disagreement informed.
 
 **For problem/solution context:** See [lean-canvas.md](lean-canvas.md)
-**For what we're testing:** See [hypotheses.md](hypotheses.md)
+**For what we're testing:** See [milestones/](milestones/) (hypotheses merged into milestones in P130)
 **For epistemological foundation:** See [philosophy.md](philosophy.md)
 
 ---
@@ -323,28 +323,90 @@ LAYER 4: TOPOLOGY MAP
 
 ## Evidence Base
 
-The theory of change is supported by research:
+The theory of change is built on research-backed facts and validated assumptions.
+
+### The Problem (Pain)
 
 | Claim | Evidence | Source |
 |-------|----------|--------|
-| Listening → outcomes | r=.39 meta-analytic correlation (N=400K) | Kluger et al. 2023 |
-| Verification loops work | 60% fewer hospital readmissions with teach-back | Heart failure meta-analysis |
-| Training alone fails | Only 12% apply skills learned in training | ATD research |
-| Measurement gap exists | 75% of listening research relies on self-reports | Kluger et al. 2023 |
+| Miscommunication costs money | $1.2 trillion/year US; $12,506/employee/year (~21% of salary) | Grammarly & Harris Poll 2024 |
+| People are poorly calibrated | Baseline accuracy r=.178-.24 (predictions barely match reality) | Yang et al. 2023 meta-analysis (N=15,889) |
+| Speakers can't detect the gap | Listeners' minds wander 24% of time; speakers think they're heard when they're not | Collins et al. 2022 (Harvard/UCLA) |
+| Current tools don't measure understanding | Gong: talk ratios. 360: 1 checkbox of 30. All: no speaker verification | P110 competitive analysis |
 
-**Implication:** The theory depends on:
-1. Listening actually mattering (✅ validated)
-2. Verification working better than assumption (✅ validated in healthcare)
-3. Measurement providing value beyond just practice (testing via H-Biz)
+### The Mechanism (Solution Works)
 
-Full research: [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md)
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| Calibration is trainable | Interventions show g=0.46-0.72 effect sizes | Meta-analyses (Yang et al., situation-model studies) |
+| Teach-back/explain-back works | 45-60% fewer hospital readmissions | Healthcare RCTs (systematic review) |
+| Feedback loops improve accuracy | Accurate calibration → strategic correction → better learning | Thiede et al. 2003; AI calibration RCT 2025 |
+
+### The Outcomes (Why It Matters)
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| Listening → work outcomes | r=.39 overall (medium-strong effect) | Kluger et al. 2023 meta-analysis (N=400K) |
+| Listening → sales | r=.47 (strong effect) | Kluger et al. 2023 |
+| Listening → reduced burnout | r=.28 | Kluger et al. 2023 |
+| Psychological safety → performance | 43% of team performance variance; +17% vs -19% on targets | Google Project Aristotle |
+| Feeling heard → engagement | 40% engagement increase | Gallup 2024 |
+
+### What We Uniquely Do
+
+| Claim | Evidence | Source |
+|-------|----------|--------|
+| No commercial tool measures conversational understanding calibration | All tools measure speaker behavior or self-report; none verify listener understanding via speaker | P110 research |
+| Explain-back is core active listening technique | Teach-back = explain-back; proven mechanism in healthcare and education | Literature review |
+| We measure + create feedback loop | Listener confidence vs speaker verification = calibration gap revealed | Our product |
+
+### ROI Framework
+
+```
+Cost of miscommunication:     $12,506/employee/year
+10-person team:               $125,060/year
+Even 10% improvement:         $12,506 saved
+Tool cost:                    $6,000/year ($500/month)
+Minimum ROI:                  2x
+```
+
+**Caveat:** $12,506 figure is survey-based (Grammarly), not measured. Directionally correct, precision uncertain.
+
+### Evidence Gaps (What We Can't Claim Yet)
+
+| Claim We'd Like to Make | Why We Can't Yet |
+|-------------------------|------------------|
+| Our tool improves business outcomes | Healthcare proves mechanism; workplace outcomes need our own data |
+| Conversational calibration → general metacognition | Transfer not tested |
+| Specific ROI from our tool | Need case studies |
+
+### Validated Learnings
+
+**H1: /live reduces Understanding Gap** ✅
+
+When two people use the explain-back protocol, the gap between "how well I think I communicated" and "how well I actually communicated" decreases. Users report feeling more understood after /live than before.
+
+**Critical learning (2026-01-27):** H1 validated means the tool WORKS in-session. But "works" ≠ "sticky." Users praise /live, report liking it, but don't return. They ask "on what? when?" The tool lacks a trigger. This led to the Stories hypothesis (M1).
+
+**H-Foundation: Calibration Drives Outcomes** ✅
+
+Meta-analysis findings (2026-01-28):
+- r=.39 for perceived listening → work outcomes (N=400K observations)
+- Strongest links: sales (r=.38-.50), wellbeing (r=.28 burnout reduction)
+- Weakest link: innovation (speculative)
+- Healthcare teach-back: 60% readmission reduction (experimental)
+- Caveat: 75% of research is self-report; correlational not causal
+
+**Implication:** Proceed with confidence. Don't oversell causal claims. Measurement itself is our moat — no one else measures actual understanding.
+
+**Full research:** [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md) | [p110_results.md](../features/research/p110_results.md)
 
 ---
 
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
-- [hypotheses.md](hypotheses.md) — What we're testing and validation status
+- [milestones/](milestones/) — What we're building, testing, and when we stop
 - [philosophy.md](philosophy.md) — Epistemological foundation (Asymmetric Conversion)
 - [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article with tactical frameworks (Three Asymmetries, Implementation Levels, Celebration Engine)
 - [Tournament Theory](visions/v2_tournament_theory.md) — Scaling protocol, √N mathematics

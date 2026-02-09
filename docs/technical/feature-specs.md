@@ -22,7 +22,7 @@ Then increment by 1.
 
 ```yaml
 ---
-status: backlog        # Kanban column: backlog | week | today | in-progress | blocked | done
+status: week           # Kanban column: backlog | week | today | in-progress | blocked | done
 prepped_date: null     # Set by /prep-spec when reviews pass (null = draft)
 reviews:               # Set during /prep-spec
   ux: null
@@ -67,7 +67,7 @@ Agents (like /prep-spec) set `prepped_date` without changing `status`. Only huma
 
 ## Lifecycle
 
-1. **Create:** `features/p{N}_{name}.md` with `status: backlog`
+1. **Create:** `features/p{N}_{name}.md` with `status: week`
 2. **Prep:** Run `/prep-spec`, update frontmatter with review results
 3. **Build:** Change status to `in-progress`
 4. **Complete:** Change status to `done`, add `completed_at`, move to `features/done/`

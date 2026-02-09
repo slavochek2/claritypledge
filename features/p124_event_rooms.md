@@ -1,7 +1,8 @@
 ---
-status: today
+status: in-progress
 type: story
 priority: p1
+milestone: M1
 blocked_by:
   - p128
 prepped_date: '2026-02-05'
@@ -21,6 +22,7 @@ decisions:
   - >-
     Reverses 2026-01-23 "QR/link sufficient" decision based on P123 data (0%
     join rate)
+sort_order: 1
 ---
 # P124: Event Rooms — Tap to Step Aside
 

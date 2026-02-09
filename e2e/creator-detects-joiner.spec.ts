@@ -109,7 +109,7 @@ test.describe('Creator Detects Joiner', () => {
 
       // Step 3: Joiner should see the live view (this works per the bug report)
       await expect(joinerPage.getByText('Creator')).toBeVisible({ timeout: 10000 });
-      await expect(joinerPage.getByText('Did Creator understand you?')).toBeVisible({ timeout: 5000 });
+      await expect(joinerPage.getByText('Does Creator understand you?')).toBeVisible({ timeout: 5000 });
 
       console.log('[Test] Joiner is in live view');
 
@@ -120,7 +120,7 @@ test.describe('Creator Detects Joiner', () => {
       await expect(creatorPage.getByText('Joiner')).toBeVisible({ timeout: 15000 });
 
       // Second check: Creator should see the live meeting buttons
-      await expect(creatorPage.getByText('Did Joiner understand you?')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByText('Does Joiner understand you?')).toBeVisible({ timeout: 5000 });
 
       // If we get here, the bug is fixed!
       console.log('[Test] Creator successfully detected joiner');
@@ -223,7 +223,7 @@ test.describe('Creator Detects Joiner', () => {
       // Wait for polling to kick in (poll interval is 1000ms, give it 5 cycles)
       // Creator should detect joiner within 5 seconds via polling even if realtime fails
       await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
-      await expect(creatorPage.getByText('Did Bob understand you?')).toBeVisible({ timeout: 2000 });
+      await expect(creatorPage.getByText('Does Bob understand you?')).toBeVisible({ timeout: 2000 });
 
     } finally {
       await creatorContext.close();

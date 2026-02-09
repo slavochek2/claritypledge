@@ -1,7 +1,7 @@
 ---
 status: done
 priority: p1
-hypothesis: H-Biz
+milestone: M2
 tags:
   - testing
   - demo

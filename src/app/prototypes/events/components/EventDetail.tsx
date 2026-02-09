@@ -191,8 +191,8 @@ export function EventDetail() {
   // P124: Event is "live" when current time is between start and end
   // `now` is state-based, refreshed every 30s so isLive auto-updates
   const isLive = !isCancelled && now >= eventDate && now <= endDate;
-  // Also show sessions after event ends (read-only completed sessions)
-  const showSessions = isLive || isPast || now > endDate;
+  // Always show sessions for non-cancelled events (MVP simplification)
+  const showSessions = !isCancelled;
 
   // P124: Handlers for sub-room creation
   const currentUserId = user?.id;
@@ -576,6 +576,12 @@ export function EventDetail() {
                       <button
                         key={attendee.profileId}
                         onClick={() => handleTapParticipant(attendee)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleTapParticipant(attendee);
+                          }
+                        }}
                         className="w-full text-left"
                         aria-label={`Start session with ${attendee.name}`}
                       >
@@ -587,6 +593,7 @@ export function EventDetail() {
                           avatarUrl={attendee.avatarUrl}
                           isPledger={attendee.hasPledged}
                           action="going"
+                          disableLinks={true}
                         />
                       </button>
                     );

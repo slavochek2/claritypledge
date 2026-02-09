@@ -219,7 +219,10 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
 
         {/* Milestone */}
         {feature.milestone && (
-          <span style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}>
+          <span
+            style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}
+            title={`Milestone: ${feature.milestone}`}
+          >
             {feature.milestone}
           </span>
         )}

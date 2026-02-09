@@ -50,6 +50,7 @@ import { pointsService } from '@/app/data/points-service';
  * KISS: Always renders when session is live - no props needed.
  * The banner's purpose is transparency for users, not a technical indicator.
  */
+
 function RecordingIndicator() {
   return (
     <div className="flex items-center justify-center gap-2 py-1.5 bg-blue-50 border-b border-blue-200">
@@ -190,11 +191,16 @@ export function LiveModeView({
   onSelectPoint,
 }: LiveModeViewProps) {
 
-  // Hide site-wide SimpleNavigation when live session is active (LiveSessionBanner replaces it)
+  // Hide site-wide SimpleNavigation and remove its top padding when live session is active
   useEffect(() => {
     const nav = document.querySelector<HTMLElement>('[data-nav="main"]');
+    const main = nav?.closest('.min-h-screen')?.querySelector('main');
     if (nav) nav.style.display = 'none';
-    return () => { if (nav) nav.style.display = ''; };
+    if (main) main.style.paddingTop = '0';
+    return () => {
+      if (nav) nav.style.display = '';
+      if (main) main.style.paddingTop = '';
+    };
   }, []);
 
   // P128: Fetch selected content for display during verification
@@ -687,11 +693,10 @@ function IdleScreen({
           />
         )}
 
-        {/* P128: Title changes from "Verify cognitive understanding" to partner greeting when content shown */}
         <ActionArea
           title={hasScrollableContent
             ? `You're live with ${displayPartnerName}`
-            : 'Verify cognitive understanding'}
+            : undefined}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
           <Button
@@ -701,7 +706,7 @@ function IdleScreen({
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-check"
           >
-            Did <span className="font-bold">{displayPartnerName}</span> understand you?
+            Does <span className="font-bold">{displayPartnerName}</span> understand you?
           </Button>
 
           <Button
@@ -712,7 +717,7 @@ function IdleScreen({
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-prove"
           >
-            Did you understand <span className="font-bold">{displayPartnerName}</span>?
+            Do you understand <span className="font-bold">{displayPartnerName}</span>?
           </Button>
 
           {/* Waiting for partner to continue indicator */}

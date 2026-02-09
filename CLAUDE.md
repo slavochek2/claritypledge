@@ -244,7 +244,7 @@ No priority order. Each has a unique strength. For full details: [browser-tools.
 
 For full concepts: [definitions.md](docs/definitions.md)
 For business model: [lean-canvas.md](docs/lean-canvas.md)
-For current hypotheses: [hypotheses.md](docs/hypotheses.md)
+For milestones: [milestones/](docs/milestones/)
 
 **Domain:** `claritypledge.com` | **Tech Stack:** React 19 + TypeScript + Vite + Supabase + Tailwind CSS + Radix UI
 
@@ -253,10 +253,10 @@ For current hypotheses: [hypotheses.md](docs/hypotheses.md)
 **Source of truth docs** (concepts live here, one place only):
 - `definitions.md` — Product concepts (Stories, Points, Verification)
 - `lean-canvas.md` — Business model (Problem, Solution, Customers)
-- `hypotheses.md` — What we're testing
+- `milestones/` — What we're building, testing, and when we stop
 - `decisions.md` — Trade-offs, build sequence, why X over Y
 - `philosophy.md` — WHY this works (epistemology)
-- `theory-of-change.md` — HOW change spreads (cascade, √N)
+- `theory-of-change.md` — HOW change spreads (cascade, √N) + Evidence Base
 - `visions/*` — Historical explorations
 
 **Consumer docs** (link only, never duplicate):
@@ -273,7 +273,8 @@ When capturing new knowledge, put it in the right place:
 |----------------|----------|
 | Product decisions (why X over Y) | `decisions.md` |
 | Technical patterns (how something works) | `docs/technical/architecture.md` |
-| What we're testing + evidence | `hypotheses.md` |
+| What we're building + validation plan | `milestones/m{N}-{name}.md` |
+| Research evidence + validated learnings | `theory-of-change.md` Evidence Base section |
 | Product concepts | `definitions.md` |
 | Domain-specific technical details | `docs/technical/{domain}.md` |
 
@@ -331,7 +332,7 @@ Load these docs when working on specific areas:
 |---------------|------|
 | Core concepts (Stories, Points, Calibration) | [definitions.md](docs/definitions.md) |
 | Product overview, business model | [lean-canvas.md](docs/lean-canvas.md) |
-| What we're testing, validation strategy | [hypotheses.md](docs/hypotheses.md) |
+| What we're building, testing, kill signals | [milestones/](docs/milestones/) |
 | Build sequence, past decisions | [decisions.md](docs/decisions.md) |
 | Feature prioritization, kanban workflow | [kanban.md](docs/technical/kanban.md) |
 | Creating feature specs (naming, frontmatter) | [feature-specs.md](docs/technical/feature-specs.md) |
@@ -382,7 +383,7 @@ git branch -m p80-new-feature
 
 | Category | Docs |
 |----------|------|
-| Strategic (the "why") | `decisions.md`, `hypotheses.md`, `lean-canvas.md` |
+| Strategic (the "why") | `decisions.md`, `milestones/`, `lean-canvas.md` |
 | Technical (the "how") | `database.md`, `authentication.md`, `definitions.md`, etc. |
 | GTM & Sales | `features/p105_sales_playbook.md` (per-segment playbooks) |
 
@@ -391,8 +392,9 @@ git branch -m p80-new-feature
 | Knowledge type | Location |
 |----------------|----------|
 | Business model, value prop | `lean-canvas.md` |
-| What we're testing + evidence | `hypotheses.md` |
-| Open questions (unresolved) | `hypotheses.md` "Open Questions" section |
+| What we're building + testing | `milestones/m{N}-{name}.md` |
+| Evidence + validated learnings | `theory-of-change.md` Evidence Base section |
+| Open questions | Milestone files ("Hypothesis" sections) |
 | Trade-offs, "why X over Y" | `decisions.md` |
 | GTM, sales tactics, pitches | `features/p{N}_sales_playbook.md` |
 | Pivot options | `lean-canvas.md` "Alternative Approaches" section |
@@ -841,9 +843,9 @@ docs/
 ├── technical/          # How things work (auth, db, testing, e2e)
 ├── learnings/          # Project learnings and retrospectives
 ├── visions/            # Historical explorations and proposals
+├── milestones/         # What we're building, testing, kill signals
 ├── bmad/               # BMAD workflow status files
 ├── archive/            # Archived docs (superseded)
-├── hypotheses.md       # What we're testing
 ├── plan.md             # Product planning
 └── learnings.md        # Project learnings (legacy, use learnings/ for new)
 

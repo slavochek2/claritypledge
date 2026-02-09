@@ -101,7 +101,9 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  if (returnTo) {
+                  // Validate returnTo to prevent open redirect attacks
+                  const isValidReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//');
+                  if (isValidReturnTo) {
                     navigate(returnTo);
                   } else {
                     onExit();

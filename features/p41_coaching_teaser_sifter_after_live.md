@@ -1,8 +1,8 @@
 ---
-status: backlog
+status: week
 type: story
+milestone: M2
 sort_order: 1000007
-hypothesis: H-Biz
 ---
 # P41: AI Coaching Teaser (Email + Page)
 

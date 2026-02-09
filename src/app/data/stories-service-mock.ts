@@ -137,6 +137,14 @@ export const mockStoriesService: StoriesService = {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
+  async getStoriesByAuthorWithPoints(authorId: string): Promise<StoryWithPoints[]> {
+    const stories = await this.getStoriesByAuthor(authorId);
+    return stories.map(story => ({
+      ...story,
+      points: mockStoryPoints[story.id] || [],
+    }));
+  },
+
   async getStoriesFeed(limit: number, offset: number): Promise<StoryWithAuthor[]> {
     return [...mockStories]
       .filter((s) => s.visibility === 'public')

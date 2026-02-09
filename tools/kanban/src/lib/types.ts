@@ -24,7 +24,11 @@ export interface Feature {
   blocked_by?: string[] // AI-managed, display only
   // Display-if-present badges
   size?: Size // AI-managed
-  milestone?: string // AI-managed
+  milestone?: string // AI-managed (e.g., "M1", "M2")
+  /**
+   * @deprecated Use milestone field instead. Hypotheses were merged into milestones (P130).
+   * See docs/decisions.md "2026-02-07: Milestones replace hypotheses"
+   */
   hypothesis?: string // e.g., "H-Biz", "H2"
   tags: string[]
   created?: string
@@ -33,4 +37,20 @@ export interface Feature {
   sort_order?: number // For within-column ordering (fractional)
   // Spec readiness (derived from prepped_date)
   prepped?: boolean // true if prepped_date is set
+}
+
+// Milestone status
+export type MilestoneStatus = 'active' | 'next' | 'future'
+
+// Milestone metadata from docs/milestones/
+export interface Milestone {
+  id: string // e.g., "M1", "M2"
+  title: string // from first # heading
+  filename: string // e.g., "m1-stories-live-events.md"
+  path: string // full path to file
+  status: MilestoneStatus
+  priority?: Priority
+  summary?: string // One-line description for hover
+  tests?: string[] // e.g., ["H-Stories"]
+  answers?: string[] // e.g., ["OQ-6", "OQ-7"]
 }

@@ -13,7 +13,7 @@ A sensemaking platform that reveals calibration gaps in understanding and motiva
 ## Go Deeper
 
 - [Lean Canvas](docs/lean-canvas.md) — Business model and value proposition
-- [Hypotheses](docs/hypotheses.md) — What we're testing and validation status
+- [Milestones](docs/milestones/) — What we're building, testing, and when we stop
 - [Decisions](docs/decisions.md) — Build sequence, trade-offs, why X over Y
 - [Philosophy](docs/philosophy.md) — Epistemological foundations (optional deep-dive)
 - [Theory of Change](docs/theory-of-change.md) — How change spreads (cascade, √N)

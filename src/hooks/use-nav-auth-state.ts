@@ -3,7 +3,7 @@
  * @description KISS Navigation Auth State
  *
  * SIMPLIFIED LOGIC:
- * - Verified user (profile exists + isVerified) → Full menu (View My Profile, Settings, Log Out)
+ * - Verified user (profile exists + isVerified) → Full menu (Settings, Log Out)
  * - Everyone else (anonymous OR unverified) → Public menu (Home, Log In)
  *
  * Why KISS: Unverified users seeing "Verify Email" in menu caused race conditions

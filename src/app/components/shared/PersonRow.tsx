@@ -17,6 +17,8 @@ export interface PersonRowProps {
   isPledger?: boolean;
   /** Show status label or nothing */
   action?: "going" | "attended" | "none";
+  /** If true, don't render as links (used when PersonRow is wrapped in button for P124) */
+  disableLinks?: boolean;
 }
 
 export function PersonRow({
@@ -27,10 +29,14 @@ export function PersonRow({
   avatarUrl,
   isPledger,
   action = "none",
+  disableLinks = false,
 }: PersonRowProps) {
+  const AvatarWrapper = disableLinks ? 'div' : Link;
+  const NameWrapper = disableLinks ? 'div' : Link;
+
   return (
-    <div className="flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors">
-      <Link to={`/p/${slug}`}>
+    <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors">
+      <AvatarWrapper {...(!disableLinks && { to: `/p/${slug}` })}>
         <GravatarAvatar
           name={name}
           avatarColor={avatarColor}
@@ -38,13 +44,18 @@ export function PersonRow({
           size="sm"
           isPledger={isPledger}
         />
-      </Link>
-      <Link
-        to={`/p/${slug}`}
-        className="flex-1 min-w-0 font-medium truncate hover:text-blue-500 transition-colors"
+      </AvatarWrapper>
+      <NameWrapper
+        {...(!disableLinks && {
+          to: `/p/${slug}`,
+          className: "flex-1 min-w-0 font-medium truncate hover:text-blue-500 transition-colors"
+        })}
+        {...(disableLinks && {
+          className: "flex-1 min-w-0 font-medium truncate"
+        })}
       >
         {name}
-      </Link>
+      </NameWrapper>
       {action === "going" && (
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">
           <CheckCircle2 className="w-3 h-3" />

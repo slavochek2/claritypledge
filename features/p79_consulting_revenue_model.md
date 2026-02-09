@@ -1,8 +1,8 @@
 ---
-status: backlog
+status: week
 type: story
+milestone: M2
 sort_order: 0.078125
-hypothesis: H-Biz
 ---
 # P79: Consulting & Revenue Model
 
@@ -195,7 +195,7 @@ No new features required in the platform.
 
 ## Related
 
-- [hypotheses.md](../docs/hypotheses.md) — H2 validation requires events
+- [theory-of-change.md](../docs/theory-of-change.md) — H2 validation requires events
 - P78 (User Personas) — Event Organizer persona = Slava first
 - [lean-canvas.md](../docs/lean-canvas.md) — Revenue streams section
 

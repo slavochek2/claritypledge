@@ -10,7 +10,7 @@
  *
  * Flow tested:
  * 1. Creator (Alice) starts meeting, Joiner (Bob) joins
- * 2. Alice clicks "Did you understand me?" → both rate
+ * 2. Alice clicks "Do you understand me?" → both rate
  * 3. Bob (listener) explains back → clicks "Done Explaining"
  * 4. Bob sees "Speak Freely" button (not "Skip")
  * 5. Bob clicks "Speak Freely" → button changes to "Skip without waiting"
@@ -59,12 +59,12 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
 
       // Both should see the idle state
-      await expect(speakerPage.getByText('Did Bob understand you?')).toBeVisible();
-      await expect(listenerPage.getByText('Did Alice understand you?')).toBeVisible();
+      await expect(speakerPage.getByText('Does Bob understand you?')).toBeVisible();
+      await expect(listenerPage.getByText('Does Alice understand you?')).toBeVisible();
 
-      // Step 3: Speaker (Alice) starts a "Did Bob understand you?" check
+      // Step 3: Speaker (Alice) starts a "Does Bob understand you?" check
       // This opens the rating card locally for the speaker only
-      await speakerPage.getByRole('button', { name: 'Did Bob understand you?' }).click();
+      await speakerPage.getByRole('button', { name: 'Does Bob understand you?' }).click();
 
       // Speaker should see their rating card
       await expect(speakerPage.getByText(/How well do you feel/i)).toBeVisible({ timeout: 5000 });
@@ -160,7 +160,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText('Charlie')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check - opens rating locally
-      await speakerPage.getByRole('button', { name: 'Did Diana understand you?' }).click();
+      await speakerPage.getByRole('button', { name: 'Does Diana understand you?' }).click();
       await expect(speakerPage.getByText(/How well do you feel/i)).toBeVisible({ timeout: 5000 });
 
       // Speaker selects rating (6) and clicks Submit
@@ -240,7 +240,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check
-      await speakerPage.getByRole('button', { name: 'Did Frank understand you?' }).click();
+      await speakerPage.getByRole('button', { name: 'Does Frank understand you?' }).click();
       await speakerPage.getByRole('button', { name: '6' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
@@ -317,7 +317,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText('Grace')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check
-      await speakerPage.getByRole('button', { name: 'Did Henry understand you?' }).click();
+      await speakerPage.getByRole('button', { name: 'Does Henry understand you?' }).click();
       await speakerPage.getByRole('button', { name: '5' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
@@ -390,7 +390,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check - use ratings that create a clear gap
-      await speakerPage.getByRole('button', { name: `Did ${listenerName} understand you?` }).click();
+      await speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` }).click();
       await speakerPage.getByRole('button', { name: '5' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
@@ -471,7 +471,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText('Kate')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check
-      await speakerPage.getByRole('button', { name: 'Did Leo understand you?' }).click();
+      await speakerPage.getByRole('button', { name: 'Does Leo understand you?' }).click();
       await speakerPage.getByRole('button', { name: '5' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
@@ -538,7 +538,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
-      await speakerPage.getByRole('button', { name: `Did ${listenerName} understand you?` }).click();
+      await speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` }).click();
       await speakerPage.getByRole('button', { name: '5' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
@@ -626,7 +626,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check - opens rating locally
-      await speakerPage.getByRole('button', { name: 'Did Frank understand you?' }).click();
+      await speakerPage.getByRole('button', { name: 'Does Frank understand you?' }).click();
       await expect(speakerPage.getByText(/How well do you feel/i)).toBeVisible({ timeout: 5000 });
 
       // Speaker selects rating (5) and clicks Submit
@@ -709,7 +709,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
-      await speakerPage.getByRole('button', { name: `Did ${listenerName} understand you?` }).click();
+      await speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` }).click();
       await speakerPage.getByRole('button', { name: '5' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 

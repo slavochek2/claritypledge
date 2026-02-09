@@ -282,6 +282,58 @@ export const realStoriesService: StoriesService = {
     return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
   },
 
+  async getStoriesByAuthorWithPoints(authorId: string): Promise<StoryWithPoints[]> {
+    log(' getStoriesByAuthorWithPoints:', authorId);
+
+    // Get all stories by author first
+    const stories = await this.getStoriesByAuthor(authorId);
+    if (stories.length === 0) return [];
+
+    // Get all points for these stories in one query
+    const storyIds = stories.map(s => s.id);
+    const { data: storyPoints, error: pointsError } = await supabase
+      .from('story_points')
+      .select(`
+        story_id,
+        point_id,
+        point:points!story_points_point_id_fkey (
+          id,
+          statement,
+          context,
+          tags
+        )
+      `)
+      .in('story_id', storyIds);
+
+    if (pointsError) {
+      log('ERROR: getStoriesByAuthorWithPoints points error:', pointsError);
+    }
+
+    // Group points by story ID
+    const pointsByStory = new Map<string, PointSummary[]>();
+    (storyPoints || []).forEach(sp => {
+      // Check if point exists before attempting to map (guards against orphaned story_points)
+      if (!sp.point) {
+        log('WARN: getStoriesByAuthorWithPoints found orphaned story_point (missing point):', sp);
+        return;
+      }
+      const mapped = mapPointSummaryFromDb(sp as DbStoryPointWithPoint);
+      if (mapped) {
+        const storyId = (sp as { story_id: string }).story_id;
+        if (!pointsByStory.has(storyId)) {
+          pointsByStory.set(storyId, []);
+        }
+        pointsByStory.get(storyId)!.push(mapped);
+      }
+    });
+
+    // Combine stories with their points
+    return stories.map(story => ({
+      ...story,
+      points: pointsByStory.get(story.id) || [],
+    }));
+  },
+
   async getStoriesFeed(limit: number, offset: number): Promise<StoryWithAuthor[]> {
     log(' getStoriesFeed:', { limit, offset });
 

@@ -1,14 +1,14 @@
 ---
-status: backlog
+status: week
 type: story
 priority: p1
+milestone: M1
 prepped_date: '2026-02-06'
 reviews:
   ux: passed-with-notes
   architect: passed-with-notes
   alignment: passed
 prototype: /prototype/linkedin-like/live
-tests: H-Stories (Stories solve the cold start problem). Also informs OQ-6 (internal trigger).
 decisions:
   - Content picker after partner joins, not before
   - Direction-first design: two free-speaking buttons (you speak / partner speaks) + story/point cards below

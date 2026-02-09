@@ -4,7 +4,7 @@ completed_at: '2026-02-06'
 type: story
 priority: p1
 tags: [stories]
-hypothesis: h-stories
+milestone: M1
 blockedBy: [p117]
 prepped_date: '2026-02-06'
 reviews:

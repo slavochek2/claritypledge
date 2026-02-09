@@ -1,8 +1,8 @@
 ---
 status: backlog
 type: story
-priority: p0
-hypothesis: H-Biz
+priority: p2
+milestone: M2
 tags:
   - validation
   - gtm
@@ -203,14 +203,14 @@ Minimum ROI:                  2x
 | Listening → sales | r=.47 | Kluger et al. 2023 |
 | Psych safety → performance | 43% variance | Google Project Aristotle |
 
-**Full evidence:** [hypotheses.md](../docs/hypotheses.md) Evidence Base section
+**Full evidence:** [theory-of-change.md](../docs/theory-of-change.md) Evidence Base section
 
 ---
 
 ## Research Findings
 
 ### Evidence Base
-See [hypotheses.md](../docs/hypotheses.md) for full research summary with sources.
+See [theory-of-change.md](../docs/theory-of-change.md) for full research summary with sources.
 
 **Key stats for conversations:**
 - $12,506/employee/year lost to miscommunication
@@ -555,7 +555,7 @@ Ideas discussed but parked for later (all Phase 2+):
 
 ## Related Documents
 
-- [hypotheses.md](../docs/hypotheses.md) — Evidence base + H-Biz hypothesis
+- [theory-of-change.md](../docs/theory-of-change.md) — Evidence base + H-Biz hypothesis
 - [lean-canvas.md](../docs/lean-canvas.md) — Business model + alternative approaches
 - [decisions.md](../docs/decisions.md) — Strategic decisions
 - [definitions.md](../docs/definitions.md) — Understanding calibration definition

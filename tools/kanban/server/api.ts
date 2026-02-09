@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync } from 'child_process'
-import type { Feature, Status, FeatureType, Priority, Size } from '../src/lib/types'
+import type { Feature, Status, FeatureType, Priority, Size, Milestone, MilestoneStatus } from '../src/lib/types'
 
 const app = express()
 app.use(cors())
@@ -14,6 +14,7 @@ app.use(express.json())
 // Default features directory (relative to project root)
 const DEFAULT_PROJECT_ROOT = join(process.cwd(), '..', '..')
 const DEFAULT_FEATURES_DIR = join(DEFAULT_PROJECT_ROOT, 'features')
+const DEFAULT_MILESTONES_DIR = join(DEFAULT_PROJECT_ROOT, 'docs', 'milestones')
 
 // Get features directory for a given worktree path
 function getFeaturesDir(worktreePath?: string): string {
@@ -68,9 +69,13 @@ const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'bloc
 const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story', 'comment']
 const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
 const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
+const VALID_MILESTONE_STATUS: MilestoneStatus[] = ['active', 'next', 'future']
 
 // In-memory cache per worktree - invalidated on PATCH
 const featuresCacheByWorktree: Map<string, Feature[]> = new Map()
+
+// Milestone cache per worktree
+const milestonesCacheByWorktree: Map<string, Milestone[]> = new Map()
 
 // Content cache - keyed by file path, invalidated on PATCH
 const contentCache: Map<string, { frontmatter: unknown; content: string }> = new Map()
@@ -184,6 +189,99 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
   return features.sort((a, b) => a.id.localeCompare(b.id))
 }
 
+// Get milestones directory for a given worktree path
+function getMilestonesDir(worktreePath?: string): string {
+  if (worktreePath) {
+    return join(worktreePath, 'docs', 'milestones')
+  }
+  return DEFAULT_MILESTONES_DIR
+}
+
+// Parse milestone file
+async function parseMilestoneFile(filePath: string): Promise<Milestone | null> {
+  try {
+    const content = readFileSync(filePath, 'utf-8')
+    const { data, content: body } = matter(content)
+
+    // Extract title from first heading
+    const titleMatch = body.match(/^#\s+(.+)$/m)
+    const filename = basename(filePath)
+    const title = titleMatch?.[1] || filename
+
+    // Extract milestone ID from title (e.g., "M1: Title" -> "M1")
+    const milestoneIdMatch = title.match(/^(M\d+)/)
+    const id = milestoneIdMatch?.[1] || filename.replace('.md', '').toUpperCase()
+
+    // Parse status
+    let status: MilestoneStatus = 'future'
+    if (data.status && VALID_MILESTONE_STATUS.includes(data.status)) {
+      status = data.status
+    }
+
+    // Parse optional priority
+    const priority: Priority | undefined =
+      data.priority && VALID_PRIORITY.includes(data.priority) ? data.priority : undefined
+
+    // Parse optional fields
+    const summary = typeof data.summary === 'string' ? data.summary : undefined
+    const tests = Array.isArray(data.tests) ? data.tests : undefined
+    const answers = Array.isArray(data.answers) ? data.answers : undefined
+
+    return {
+      id,
+      title,
+      filename,
+      path: filePath,
+      status,
+      priority,
+      summary,
+      tests,
+      answers,
+    }
+  } catch {
+    return null
+  }
+}
+
+// Get all milestones
+async function getMilestones(worktreePath?: string): Promise<Milestone[]> {
+  const milestonesDir = getMilestonesDir(worktreePath)
+  const milestones: Milestone[] = []
+
+  try {
+    const entries = await readdir(milestonesDir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith('.md') && entry.name.startsWith('m')) {
+        const fullPath = join(milestonesDir, entry.name)
+        const milestone = await parseMilestoneFile(fullPath)
+        if (milestone) milestones.push(milestone)
+      }
+    }
+  } catch {
+    // Directory doesn't exist, return empty
+  }
+
+  // Sort by milestone ID (M1, M2, ...)
+  return milestones.sort((a, b) => {
+    const aNum = parseInt(a.id.replace('M', ''))
+    const bNum = parseInt(b.id.replace('M', ''))
+    return aNum - bNum
+  })
+}
+
+// Get cached milestones
+async function getCachedMilestones(worktreePath?: string): Promise<Milestone[]> {
+  const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
+  const cached = milestonesCacheByWorktree.get(cacheKey)
+  if (cached) {
+    return cached
+  }
+  const milestones = await getMilestones(worktreePath)
+  milestonesCacheByWorktree.set(cacheKey, milestones)
+  return milestones
+}
+
 // GET /api/worktrees - list all git worktrees
 app.get('/api/worktrees', (_req, res) => {
   try {
@@ -203,6 +301,18 @@ app.get('/api/features', async (req, res) => {
     res.json(features)
   } catch {
     res.status(500).json({ error: 'Failed to read features' })
+  }
+})
+
+// GET /api/milestones - list all milestones
+// Query param: ?worktree=/path/to/worktree
+app.get('/api/milestones', async (req, res) => {
+  try {
+    const worktreePath = req.query.worktree as string | undefined
+    const milestones = await getCachedMilestones(worktreePath)
+    res.json(milestones)
+  } catch {
+    res.status(500).json({ error: 'Failed to read milestones' })
   }
 })
 
