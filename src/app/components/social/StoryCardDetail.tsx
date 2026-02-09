@@ -25,33 +25,22 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
-import type { Story, Point, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
+import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
+import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { getPositionGroup } from '@/app/prototypes/shared/types';
-
-/** User info for display */
-export interface StoryAuthor {
-  id: string;
-  name: string;
-  role?: string;
-  hasPledged: boolean;
-}
-
-/** Credibility stats for display */
-export interface CredibilityStats {
-  ear: number;
-  mic: number;
-}
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
 
 interface StoryCardDetailProps {
-  story: Story;
-  author: StoryAuthor;
-  authorCredibility: CredibilityStats;
-  linkedPoints: Point[];
-  /** Position counts for each linked point */
-  getPointPositionCounts: (point: Point) => SevenPointCounts;
+  story: StoryWithAuthor;
+  linkedPoints: PointSummary[];
+  /** Position counts for each linked point - Map<pointId, Record<PositionType, number>> */
+  positionCounts: Map<string, Record<PositionType, number>>;
+  /** Current user positions - Map<pointId, PointPosition> */
+  userPositions: Map<string, PointPosition>;
+  /** Callback when user clicks a position button */
+  onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   compact?: boolean;
   isDetailView?: boolean;
   /** Display context - 'profile' hides QuotedPoints, 'point-detail' hides QuotedPoints */
@@ -76,10 +65,10 @@ interface StoryCardDetailProps {
  */
 export function StoryCardDetail({
   story,
-  author,
-  authorCredibility,
   linkedPoints,
-  getPointPositionCounts,
+  positionCounts,
+  userPositions,
+  onPositionClick,
   compact = false,
   isDetailView = false,
   context,
@@ -93,7 +82,7 @@ export function StoryCardDetail({
 
   // Default routes
   const storyRoute = routes.story || ((id: string) => `/story/${id}`);
-  const pointRoute = routes.point || ((id: string) => `/point/${id}?from=${author.id}`);
+  const pointRoute = routes.point || ((id: string) => `/point/${id}?from=${story.authorId}`);
   const profileRoute = routes.profile || ((id: string) => `/p/${id}`);
 
   const handleCardClick = () => {
@@ -116,7 +105,7 @@ export function StoryCardDetail({
   };
 
   // Quote pattern: show position label outside when in point-detail context with authorPosition
-  const showQuotePattern = context === 'point-detail' && authorPosition && author;
+  const showQuotePattern = context === 'point-detail' && authorPosition;
 
   // Quote pattern rendering - when viewing Stories in a Point's position sections
   if (showQuotePattern) {
@@ -125,19 +114,19 @@ export function StoryCardDetail({
         {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
         <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
           <GravatarAvatar
-            name={author.name}
+            name={story.authorName}
             size="sm"
-            isPledger={author.hasPledged}
+            isPledger={false}
             className="!w-5 !h-5 !text-[10px]"
           />
-          <span className="font-medium">{author.name}</span>
-          {authorCredibility.ear > 0 && (
+          <span className="font-medium">{story.authorName}</span>
+          {story.authorEarsCount && story.authorEarsCount > 0 && (
             <MobileTooltip
-              content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
+              content={`${story.authorName.split(' ')[0]} understood ${story.authorEarsCount} ${story.authorEarsCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
             >
               <span className="inline-flex items-center gap-0.5 text-muted-foreground">
                 <Ear size={12} />
-                {authorCredibility.ear}
+                {story.authorEarsCount}
               </span>
             </MobileTooltip>
           )}
@@ -159,12 +148,12 @@ export function StoryCardDetail({
         >
           {/* Role + date (name/avatar already shown outside) */}
           <p className="text-xs text-muted-foreground mb-2">
-            {author.role} · {formatTimeAgo(story.createdAt)}
+            {formatTimeAgo(story.createdAt)}
           </p>
 
           {/* Story text */}
           <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-            {story.text}
+            {story.content}
           </p>
         </div>
       </div>
@@ -202,11 +191,11 @@ export function StoryCardDetail({
           <button
             onClick={e => {
               e.stopPropagation();
-              navigate(profileRoute(author.id));
+              navigate(profileRoute(story.authorSlug));
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
           >
-            <GravatarAvatar name={author.name} size="sm" isPledger={author.hasPledged} />
+            <GravatarAvatar name={story.authorName} size="sm" isPledger={false} />
           </button>
 
           {/* Content column - aligned under avatar */}
@@ -217,32 +206,32 @@ export function StoryCardDetail({
                 <button
                   onClick={e => {
                     e.stopPropagation();
-                    navigate(profileRoute(author.id));
+                    navigate(profileRoute(story.authorSlug));
                   }}
                   className="font-semibold text-foreground hover:underline text-sm"
                 >
-                  {author.name}
+                  {story.authorName}
                 </button>
                 {/* Credibility stats */}
-                {authorCredibility.ear > 0 && (
+                {story.authorEarsCount && story.authorEarsCount > 0 && (
                   <MobileTooltip
-                    content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
+                    content={`${story.authorName.split(' ')[0]} understood ${story.authorEarsCount} ${story.authorEarsCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
                   >
                     <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
                       <Ear size={12} />
-                      <span>{authorCredibility.ear}</span>
+                      <span>{story.authorEarsCount}</span>
                     </span>
                   </MobileTooltip>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {author.role} · {formatTimeAgo(story.createdAt)}
+                {formatTimeAgo(story.createdAt)}
               </p>
             </div>
 
             {/* Story text - indented under author */}
             <p className={`text-foreground ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-              {story.text}
+              {story.content}
             </p>
 
             {/* Stats row - icon-only style */}
@@ -250,10 +239,10 @@ export function StoryCardDetail({
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 {/* People who understood the story author */}
                 <MobileTooltip
-                  content={`${author.name.split(' ')[0]} confirmed ${story.verificationCount} ${story.verificationCount === 1 ? 'person' : 'people'} understood this story`}
+                  content={`${story.authorName.split(' ')[0]} confirmed ${story.understoodCount} ${story.understoodCount === 1 ? 'person' : 'people'} understood this story`}
                 >
                   <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-muted-foreground">
-                    {story.verificationCount} understood
+                    {story.understoodCount} understood
                   </span>
                 </MobileTooltip>
               </div>
@@ -289,7 +278,7 @@ export function StoryCardDetail({
                 {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 <span>
                   {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'} by{' '}
-                  {author.name}
+                  {story.authorName}
                 </span>
               </button>
             ) : (
@@ -301,8 +290,8 @@ export function StoryCardDetail({
               <ShareButton
                 type="story"
                 id={story.id}
-                title={`${author.name}'s story`}
-                description={story.text.slice(0, 100)}
+                title={`${story.authorName}'s story`}
+                description={story.content.slice(0, 100)}
               />
               {/* External link - only in feed (redundant in detail view) */}
               {!isDetailView && (
@@ -332,10 +321,11 @@ export function StoryCardDetail({
                     // Single point - no thread lines
                     <QuotedPoint
                       point={pointsToShow[0]}
-                      authorName={author.name}
-                      authorId={author.id}
-                      authorEarCount={authorCredibility.ear}
-                      getPointPositionCounts={getPointPositionCounts}
+                      authorName={story.authorName}
+                      authorEarCount={story.authorEarsCount}
+                      positionCounts={positionCounts}
+                      userPositions={userPositions}
+                      onPositionClick={onPositionClick}
                       onClick={e => {
                         e.stopPropagation();
                         navigate(pointRoute(pointsToShow[0].id));
@@ -351,10 +341,11 @@ export function StoryCardDetail({
                         >
                           <QuotedPoint
                             point={point}
-                            authorName={author.name}
-                            authorId={author.id}
-                            authorEarCount={authorCredibility.ear}
-                            getPointPositionCounts={getPointPositionCounts}
+                            authorName={story.authorName}
+                            authorEarCount={story.authorEarsCount}
+                            positionCounts={positionCounts}
+                            userPositions={userPositions}
+                            onPositionClick={onPositionClick}
                             onClick={e => {
                               e.stopPropagation();
                               navigate(pointRoute(point.id));
@@ -393,26 +384,38 @@ export function StoryCardDetail({
 function QuotedPoint({
   point,
   authorName,
-  authorId,
   authorEarCount,
-  getPointPositionCounts,
+  positionCounts,
+  userPositions,
+  onPositionClick,
   onClick,
 }: {
-  point: Point;
+  point: PointSummary;
   authorName: string;
-  authorId: string;
   authorEarCount?: number;
-  getPointPositionCounts: (point: Point) => SevenPointCounts;
+  positionCounts: Map<string, Record<PositionType, number>>;
+  userPositions: Map<string, PointPosition>;
+  onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   onClick: (e: React.MouseEvent) => void;
 }) {
-  const [userPosition, setUserPosition] = useState<PositionType | null>(
-    (point.positions['current']?.position as PositionType) || null
-  );
-  const authorPosition = point.positions[authorId]?.position;
-  const baseCounts = getPointPositionCounts(point);
+  const userPosition = userPositions.get(point.id);
+  const baseCounts = positionCounts.get(point.id) || {
+    strongly_agree: 0,
+    agree: 0,
+    somewhat_agree: 0,
+    unsure: 0,
+    somewhat_disagree: 0,
+    disagree: 0,
+    strongly_disagree: 0,
+  };
 
-  // Track initial position from mock data
-  const initialPosition = (point.positions['current']?.position as PositionType) || null;
+  // Track initial position from server
+  const [initialPosition] = useState<PositionType | null>(
+    userPosition?.position || null
+  );
+  const [currentPosition, setCurrentPosition] = useState<PositionType | null>(
+    userPosition?.position || null
+  );
 
   // Compute adjusted counts based on user's current position vs initial
   const counts = useMemo((): SevenPointCounts => {
@@ -432,7 +435,7 @@ function QuotedPoint({
     };
 
     const initialGroup = getGroup(initialPosition);
-    const currentGroup = getGroup(userPosition);
+    const currentGroup = getGroup(currentPosition);
 
     if (initialGroup !== currentGroup) {
       if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
@@ -445,16 +448,20 @@ function QuotedPoint({
     }
 
     return adjusted;
-  }, [baseCounts, initialPosition, userPosition]);
+  }, [baseCounts, initialPosition, currentPosition]);
 
-  const handlePositionClick = (position: PositionType) => {
-    setUserPosition(userPosition === position ? null : position);
+  const handlePositionClick = async (position: PositionType) => {
+    const newPosition = currentPosition === position ? null : position;
+    setCurrentPosition(newPosition);
+    if (onPositionClick) {
+      await onPositionClick(point.id, position);
+    }
   };
 
   return (
     <div className="w-full text-left">
       {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-      {authorPosition && (
+      {userPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
           <GravatarAvatar
             name={authorName}
@@ -473,7 +480,7 @@ function QuotedPoint({
               </span>
             </MobileTooltip>
           )}
-          <PositionBadge position={authorPosition as PositionType} />
+          <PositionBadge position={userPosition.position} />
         </div>
       )}
 
@@ -493,12 +500,12 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 line-clamp-2">{point.text}</p>
+            <p className="text-sm text-gray-800 line-clamp-2">{point.statement}</p>
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
               <PositionButtons
-                userPosition={userPosition}
+                userPosition={currentPosition}
                 counts={counts}
                 onPositionClick={handlePositionClick}
                 compact

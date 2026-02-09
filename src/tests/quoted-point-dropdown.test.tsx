@@ -9,51 +9,54 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { StoryCardDetail, type StoryAuthor, type CredibilityStats } from '@/app/components/social/StoryCardDetail';
-import type { Story, Point } from '@/app/prototypes/shared/types';
+import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
+import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 
-// Mock data for testing
-const mockAuthor: StoryAuthor = {
-  id: 'author-1',
-  name: 'Test Author',
-  role: 'Developer',
-  hasPledged: true,
-};
-
-const mockCredibility: CredibilityStats = {
-  ear: 5,
-  mic: 3,
-};
-
-const mockStory: Story = {
+// Mock data for testing - using backend types
+const mockStory: StoryWithAuthor = {
   id: 'story-1',
   authorId: 'author-1',
-  text: 'Test story content about remote work.',
+  authorName: 'Test Author',
+  authorSlug: 'test-author',
+  authorAvatarColor: '#3B82F6',
+  authorEarsCount: 5,
+  content: 'Test story content about remote work.',
   createdAt: '2026-01-01T00:00:00Z',
-  verificationCount: 3,
+  updatedAt: '2026-01-01T00:00:00Z',
+  understoodCount: 3,
   visibility: 'public',
-  linkedPointIds: ['point-1'],
+  currentVersion: 1,
+  tags: [],
 };
 
-const mockPoint: Point = {
+const mockPoint: PointSummary = {
   id: 'point-1',
-  text: 'Remote work is more productive than office work',
-  positions: {
-    'author-1': { position: 'agree' },
-  },
-  linkedStoryIds: ['story-1'],
-  createdAt: '2026-01-01T00:00:00Z',
+  statement: 'Remote work is more productive than office work',
+  tags: [],
 };
 
-const mockGetPointPositionCounts = () => ({
-  strongly_agree: 2,
-  agree: 5,
-  somewhat_agree: 1,
-  unsure: 2,
-  somewhat_disagree: 0,
-  disagree: 3,
-  strongly_disagree: 1,
-});
+const mockPositionCounts = new Map<string, Record<PositionType, number>>([
+  ['point-1', {
+    strongly_agree: 2,
+    agree: 5,
+    somewhat_agree: 1,
+    unsure: 2,
+    somewhat_disagree: 0,
+    disagree: 3,
+    strongly_disagree: 1,
+  }],
+]);
+
+const mockUserPositions = new Map<string, PointPosition>([
+  ['point-1', {
+    id: 'pos-1',
+    pointId: 'point-1',
+    userId: 'author-1',
+    position: 'agree',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  }],
+]);
 
 describe('QuotedPoint dropdown visibility', () => {
   it('should render dropdown buttons for Agree and Disagree groups', () => {
@@ -61,10 +64,9 @@ describe('QuotedPoint dropdown visibility', () => {
       <BrowserRouter>
         <StoryCardDetail
           story={mockStory}
-          author={mockAuthor}
-          authorCredibility={mockCredibility}
           linkedPoints={[mockPoint]}
-          getPointPositionCounts={mockGetPointPositionCounts}
+          positionCounts={mockPositionCounts}
+          userPositions={mockUserPositions}
           isDetailView
         />
       </BrowserRouter>
@@ -83,10 +85,9 @@ describe('QuotedPoint dropdown visibility', () => {
       <BrowserRouter>
         <StoryCardDetail
           story={mockStory}
-          author={mockAuthor}
-          authorCredibility={mockCredibility}
           linkedPoints={[mockPoint]}
-          getPointPositionCounts={mockGetPointPositionCounts}
+          positionCounts={mockPositionCounts}
+          userPositions={mockUserPositions}
           isDetailView
         />
       </BrowserRouter>
@@ -107,10 +108,9 @@ describe('QuotedPoint dropdown visibility', () => {
       <BrowserRouter>
         <StoryCardDetail
           story={mockStory}
-          author={mockAuthor}
-          authorCredibility={mockCredibility}
           linkedPoints={[mockPoint]}
-          getPointPositionCounts={mockGetPointPositionCounts}
+          positionCounts={mockPositionCounts}
+          userPositions={mockUserPositions}
           isDetailView
         />
       </BrowserRouter>

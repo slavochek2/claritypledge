@@ -1,30 +1,30 @@
 /**
  * @file story-detail-page.tsx
- * @description P126+P131: Story detail page with linked points management.
+ * @description P132: Story detail page with rich view and position recording.
  * Route: /story/:id
  *
- * Visibility enforcement:
- * - public: visible to everyone
- * - shared/private: visible to author only (shared /live enforcement deferred)
+ * Features:
+ * - Rich story view using StoryCardDetail component
+ * - Position recording on linked points
+ * - Batch fetching for position data
+ * - Visibility enforcement (public visible to all, shared/private to author only)
  *
- * Points (P131):
+ * P131 points management (author only):
  * - Author can add points (inline form) and unlink points (with undo toast)
- * - Non-author sees points read-only (hidden if 0 points)
  * - justCreated flow shows educational empty state with expanded form
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, LockIcon, Pin, X, Loader2, Plus } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
-import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
-import { PersonAvatar } from '@/components/ui/person-avatar';
+import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
-import type { StoryWithPoints, PointSummary, PersonRef } from '@/app/types';
+import type { StoryWithPoints, PointSummary, PointPosition, PositionType } from '@/app/types';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -451,6 +451,10 @@ export function StoryDetailPage() {
   const [retryKey, setRetryKey] = useState(0);
   const hasTrackedView = useRef(false);
 
+  // P132: Position data state
+  const [positionCounts, setPositionCounts] = useState<Map<string, Record<PositionType, number>>>(new Map());
+  const [userPositions, setUserPositions] = useState<Map<string, PointPosition>>(new Map());
+
   useEffect(() => {
     async function loadStory() {
       if (!id) {
@@ -494,6 +498,28 @@ export function StoryDetailPage() {
             is_own_story: data.authorId === user?.id,
           });
         }
+
+        // P132: Fetch position data for linked points
+        if (data.points.length > 0) {
+          setPositionLoading(true);
+          try {
+            const pointIds = data.points.map(p => p.id);
+
+            // Batch fetch position data
+            const [counts, positions] = await Promise.all([
+              pointsService.getPositionCountsForPoints(pointIds),
+              user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map()),
+            ]);
+
+            setPositionCounts(counts);
+            setUserPositions(positions);
+          } catch (err) {
+            console.error('Error loading position data:', err);
+            // Non-fatal - show story without position data
+          } finally {
+            setPositionLoading(false);
+          }
+        }
       } catch (err) {
         console.error('Error loading story:', err);
         setError('network_error');
@@ -532,6 +558,66 @@ export function StoryDetailPage() {
       return { ...prev, points: prev.points.filter(p => p.id !== pointId) };
     });
   }, []);
+
+  // P132: Position recording handler
+  const handlePositionClick = useCallback(async (pointId: string, position: PositionType) => {
+    if (!user?.id) {
+      // Redirect to login with return path
+      navigate('/login?redirect=' + encodeURIComponent(location.pathname));
+      return;
+    }
+
+    // Optimistic update
+    setUserPositions(prev => {
+      const updated = new Map(prev);
+      const current = updated.get(pointId);
+
+      // Toggle: if same position, remove it; otherwise set new position
+      if (current?.position === position) {
+        updated.delete(pointId);
+      } else {
+        updated.set(pointId, {
+          id: current?.id || '',
+          pointId,
+          userId: user.id,
+          position,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      return updated;
+    });
+
+    try {
+      await pointsService.setPosition(pointId, user.id, position);
+
+      // Refresh position counts
+      const counts = await pointsService.getPositionCountsForPoints([pointId]);
+      setPositionCounts(prev => new Map([...prev, ...counts]));
+
+      analytics.track('position_recorded', {
+        story_id: story?.id,
+        point_id: pointId,
+        position,
+      });
+    } catch (error) {
+      console.error('Failed to save position:', error);
+
+      // Revert optimistic update
+      setUserPositions(prev => {
+        const updated = new Map(prev);
+        // Re-fetch to get correct state
+        if (user?.id) {
+          pointsService.getMyPositionsForPoints([pointId], user.id).then(positions => {
+            setUserPositions(prevPos => new Map([...prevPos, ...positions]));
+          });
+        }
+        return updated;
+      });
+
+      toast.error('Failed to save position. Please try again.');
+    }
+  }, [user?.id, story?.id, navigate, location.pathname]);
 
   // Loading skeleton
   if (loading) {
@@ -599,73 +685,34 @@ export function StoryDetailPage() {
 
   const isAuthor = story.authorId === user?.id;
 
-  const authorPerson: PersonRef = {
-    name: story.authorName,
-    slug: story.authorSlug,
-    avatarColor: story.authorAvatarColor,
-    avatarUrl: story.authorAvatarUrl,
-    hasPledged: false, // We don't have pledge status from stories join — false is safe (no badge)
-  };
-
-  const formattedDate = new Date(story.createdAt).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
       {/* Back button */}
       <BackButton onClick={handleBack} />
 
-      {/* Story card */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <div className="p-6">
-          {/* Author row */}
-          <div className="flex items-center gap-3 mb-4">
-            <Link to={`/p/${story.authorSlug}`}>
-              <PersonAvatar person={authorPerson} size="md" />
-            </Link>
-            <div className="flex-1 min-w-0">
-              <Link
-                to={`/p/${story.authorSlug}`}
-                className="font-medium text-sm hover:underline truncate block"
-              >
-                {story.authorName}
-              </Link>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{formattedDate}</span>
-                <VisibilityBadge visibility={story.visibility} />
-              </div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <p className="text-foreground whitespace-pre-wrap leading-relaxed">
-            {story.content}
-          </p>
-
-          {/* Footer stats */}
-          {story.understoodCount > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <span className="text-sm text-muted-foreground">
-                {story.understoodCount} understood
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Key Points section */}
-      <KeyPointsSection
-        storyId={story.id}
-        points={story.points}
-        isAuthor={isAuthor}
-        justCreated={justCreated}
-        isAuthenticated={!!user}
-        onPointAdded={handlePointAdded}
-        onPointUnlinked={handlePointUnlinked}
+      {/* P132: Rich story view with position recording */}
+      <StoryCardDetail
+        story={story}
+        linkedPoints={story.points}
+        positionCounts={positionCounts}
+        userPositions={userPositions}
+        onPositionClick={handlePositionClick}
+        isDetailView={true}
+        context="story-detail"
       />
+
+      {/* P131: Author-only points management section (below rich view) */}
+      {isAuthor && (
+        <KeyPointsSection
+          storyId={story.id}
+          points={story.points}
+          isAuthor={isAuthor}
+          justCreated={justCreated}
+          isAuthenticated={!!user}
+          onPointAdded={handlePointAdded}
+          onPointUnlinked={handlePointUnlinked}
+        />
+      )}
     </div>
   );
 }
