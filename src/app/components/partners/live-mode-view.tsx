@@ -33,11 +33,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { type LiveSessionState, type GapType, type FlowType, type StoryWithAuthor, type PointWithCreator } from '@/app/types';
+import { type LiveSessionState, type GapType, type FlowType, type StoryWithAuthor, type StoryWithPoints, type PointWithCreator } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
-import { ContentPicker, SessionHistoryList, SelectedContentDisplay } from './live-content-cards';
+import { ContentPicker, SessionHistoryList, StoryCardPreview, PointCardPreview } from './live-content-cards';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
@@ -205,7 +205,7 @@ export function LiveModeView({
   }, []);
 
   // P128: Fetch selected content for display during verification
-  const [selectedStory, setSelectedStory] = useState<StoryWithAuthor | null>(null);
+  const [selectedStory, setSelectedStory] = useState<StoryWithPoints | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<PointWithCreator | null>(null);
 
   useEffect(() => {
@@ -627,7 +627,7 @@ function IdleScreen({
   const isProverInitiated = liveState.proverName !== undefined;
 
   // P128: Fetch user's stories and points (only if authenticated)
-  const [stories, setStories] = useState<StoryWithAuthor[]>([]);
+  const [stories, setStories] = useState<StoryWithPoints[]>([]);
   const [points, setPoints] = useState<PointWithCreator[]>([]);
   const [contentLoaded, setContentLoaded] = useState(false);
   const [contentInteracted, setContentInteracted] = useState(false);
@@ -642,7 +642,7 @@ function IdleScreen({
     const fetchContent = async () => {
       try {
         const [fetchedStories, fetchedPoints] = await Promise.all([
-          storiesService.getStoriesByAuthor(userId),
+          storiesService.getStoriesByAuthorWithPoints(userId),
           pointsService.getPointsByValidator(userId),
         ]);
         if (!cancelled) {
@@ -806,6 +806,7 @@ function IdleScreen({
             <ContentPicker
               stories={stories}
               points={points}
+              partnerName={partnerName}
               onSelectStory={handleSelectStoryWithTracking}
               onSelectPoint={handleSelectPointWithTracking}
               disabled={showRatingDrawer || waitingForPartnerToContinue}
@@ -966,7 +967,8 @@ function RatingScreen({
         )}
 
         {/* P128: Show selected content during verification */}
-        <SelectedContentDisplay story={selectedStory} point={selectedPoint} />
+        {selectedStory && <StoryCardPreview story={selectedStory} showLinkedPoints />}
+        {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
@@ -1083,7 +1085,8 @@ function RatingScreenWithOptionalDrawer({
         )}
 
         {/* P128: Show selected content during verification */}
-        <SelectedContentDisplay story={selectedStory} point={selectedPoint} />
+        {selectedStory && <StoryCardPreview story={selectedStory} showLinkedPoints />}
+        {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.

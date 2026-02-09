@@ -12,6 +12,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { getProfile, getProfileBySlug, createProfile, type Profile } from "@/app/data/api";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
+import { PointCardWithLinks } from "@/app/components/social/point-card-with-links";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
 import {
@@ -181,15 +183,17 @@ export function ProfilePageV2() {
   useEffect(() => {
     if (!profile) return;
 
-    storiesService.getStoriesByAuthorWithPoints(profile.id).then(stories => {
+    // Load stories, points, and calibration in parallel
+    Promise.all([
+      storiesService.getStoriesByAuthorWithPoints(profile.id),
+      pointsService.getPointsByValidator(profile.id),
+      calibrationService.getCalibration(profile.id),
+    ]).then(async ([stories, createdPoints, calibration]) => {
+      // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
-    }).catch(err => {
-      console.error('Failed to load stories:', err);
-    });
+      setRealCalibration(toUserCalibration(calibration));
 
-    // Get points created by this user (as first validator)
-    pointsService.getPointsByValidator(profile.id).then(async (createdPoints) => {
-      // Transform to PointWithUserPosition by adding counts and user position
+      // Transform points to PointWithUserPosition
       const pointsWithData = await Promise.all(
         createdPoints.map(async (point) => {
           const pointWithCounts = await pointsService.getPointWithUserPosition(point.id, profile.id);
@@ -197,16 +201,76 @@ export function ProfilePageV2() {
         })
       );
       const validPoints = pointsWithData.filter((p): p is PointWithUserPosition => p !== null);
-      setRealPoints(validPoints);
-    }).catch(err => {
-      console.error('Failed to load points:', err);
-    });
 
-    calibrationService.getCalibration(profile.id).then(result => {
-      setRealCalibration(toUserCalibration(result));
+      // P134: Batch query for linked stories (point → stories)
+      if (validPoints.length > 0) {
+        const pointIds = validPoints.map(p => p.id);
+        const { data: pointLinks } = await supabase
+          .from('story_points')
+          .select('point_id, story_id')
+          .in('point_id', pointIds);
+
+        // Build map: point_id → story_ids[]
+        const linksByPoint = new Map<string, string[]>();
+        (pointLinks || []).forEach(link => {
+          const storyIds = linksByPoint.get(link.point_id) || [];
+          storyIds.push(link.story_id);
+          linksByPoint.set(link.point_id, storyIds);
+        });
+
+        // P134: Adapt points to prototype format with linked stories
+        const adaptedPoints = validPoints.map(point => {
+          const linkedStoryIds = linksByPoint.get(point.id) || [];
+          const positions: Record<string, any> = {};
+
+          // Add profile owner's position if it exists
+          if (point.userPosition) {
+            positions[profile.id] = {
+              position: point.userPosition.position,
+              timestamp: point.userPosition.createdAt,
+            };
+          }
+
+          // Find stories from our loaded stories and adapt them to prototype format
+          const linkedStories = linkedStoryIds
+            .map(storyId => {
+              const story = stories.find(s => s.id === storyId);
+              if (!story) return null;
+              return {
+                id: story.id,
+                text: story.content,
+                authorId: story.authorId,
+                createdAt: story.createdAt,
+                visibility: 'public' as const,
+                verificationCount: 0,
+                tags: story.tags || [],
+                linkedPointIds: story.points?.map(p => p.id) || [],
+              };
+            })
+            .filter((s): s is any => s !== null);
+
+          return {
+            id: point.id,
+            text: point.statement,
+            createdAt: point.createdAt || new Date().toISOString(),
+            positions,
+            linkedStoryIds,
+            linkedStories,
+          };
+        });
+
+        setRealPoints(adaptedPoints as any);
+      } else {
+        setRealPoints(validPoints);
+      }
     }).catch(err => {
-      console.error('Failed to load calibration:', err);
+      console.error('Failed to load profile data:', err);
     });
+  }, [profile]);
+
+  // Load ears count separately
+  useEffect(() => {
+    if (!profile) return;
 
     calibrationService.getEarsCount(profile.id).then(count => {
       setRealEarsCount(count);
@@ -586,16 +650,48 @@ export function ProfilePageV2() {
                 </div>
               ) : (
                 userPoints.map((point) => (
-                  <PointCardFull
+                  <PointCardWithLinks
                     key={point.id}
-                    point={point}
+                    point={point as any}
+                    linkedStories={(point as any).linkedStories || []}
                     profileOwner={{
                       id: profile.id,
                       name: profile.name,
-                      role: profile.role,
                       hasPledged: profile.hasPledged,
+                      ear: credibilityStats.ear,
+                      position: (point as any).positions?.[profile.id]?.position || null,
                     }}
-                    credibilityStats={credibilityStats}
+                    getPointPositionCounts={(p: any) => {
+                      // Count positions from the positions Record
+                      const counts = {
+                        strongly_agree: 0,
+                        agree: 0,
+                        somewhat_agree: 0,
+                        unsure: 0,
+                        somewhat_disagree: 0,
+                        disagree: 0,
+                        strongly_disagree: 0,
+                      };
+                      Object.values(p.positions || {}).forEach((entry: any) => {
+                        if (entry?.position) {
+                          counts[entry.position as keyof typeof counts] = (counts[entry.position as keyof typeof counts] || 0) + 1;
+                        }
+                      });
+                      return counts;
+                    }}
+                    getStoryAuthor={(authorId) => {
+                      // Return author info for stories
+                      if (authorId === profile.id) {
+                        return {
+                          id: profile.id,
+                          name: profile.name,
+                          role: profile.role,
+                          hasPledged: profile.hasPledged,
+                          ear: credibilityStats.ear,
+                        };
+                      }
+                      return undefined;
+                    }}
                   />
                 ))
               )
