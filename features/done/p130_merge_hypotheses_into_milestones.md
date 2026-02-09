@@ -1,11 +1,13 @@
 ---
-status: in-progress
+status: done
 type: comment
 priority: p1
+milestone: M1
 tags:
   - strategy
   - roadmap
 sort_order: 0.5
+completed_at: '2026-02-09'
 ---
 
 # P130: Milestones Replace Hypotheses
