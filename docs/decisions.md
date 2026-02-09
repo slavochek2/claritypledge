@@ -14,6 +14,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## Technical Debt / Intentional Decisions
+
+- **Web3Forms API key in source**: The contact form on `/about` uses Web3Forms with a hardcoded access key. This is intentional - Web3Forms access keys are designed to be public (like Stripe publishable keys). Moving to env var is nice-to-have.
+- **Mixpanel token in index.html**: Similarly, Mixpanel tokens are client-side by design. Environment variable would be cleaner but not a security issue.
+- **"Clarity" naming in code**: Component names use "Clarity" prefix (e.g., `ClarityPledgeApp`, `ClarityChampionsPage`) which matches the brand name "Clarity Pledge".
+- **Pledge Version 1 shows "Clarity Pledge"**: In `pledge-text.tsx`, version 1 of the pledge intentionally keeps the original "Clarity Pledge" title for historical accuracy. Users who signed v1 see their original pledge text.
+
+---
+
 ## 2026-02-09: Tested and rejected Playwright CLI for browser automation
 
 **Context:** Investigated adding Microsoft's `@playwright/cli` as a fourth browser automation tool. Research suggested it would be more token-efficient (~10-50 tokens/cmd) than Chrome DevTools MCP (~100-500 tokens/cmd) for agent-driven automation.

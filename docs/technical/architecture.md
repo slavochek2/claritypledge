@@ -134,3 +134,40 @@ Stats include: `earsCount`, `listenerCalibrationAvg`, `listenerSelfRatingAvg`, `
 ### Migration
 
 Schema: `supabase/migrations/20260204_stories_points_calibration.sql`
+
+---
+
+## Key Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page |
+| `/sign-pledge` | Pledge signup form |
+| `/auth/callback` | **Critical auth handler** - do not modify without reading [authentication.md](authentication.md) |
+| `/p/:id` | Public profile (`:id` is slug, not UUID) |
+| `/pledgers` | Directory of verified signatories |
+| `/about` | About page with contact form |
+| `/settings` | User settings (authenticated) |
+| `/s/:code` | Short link redirects (see `src/app/data/short-links.ts`) |
+
+---
+
+## Common Gotchas
+
+1. **Profile lookup**: Routes use `slug` (e.g., `/p/john-doe`), not UUID. Use `getProfileBySlug()` for routes, `getProfile(id)` when you have UUID.
+
+2. **Auth race conditions**: The app previously had issues with "Profile Not Found" errors during auth. This was fixed by isolating profile creation in `AuthCallbackPage.tsx` (in `src/auth/`). Don't create profiles elsewhere.
+
+3. **Witness fetching**: Always fetch witnesses separately from profiles. Nested `select()` queries don't work reliably with Supabase.
+
+4. **Email verification**: Users aren't "verified" until they click the magic link. Profile creation happens on callback, not during signup.
+
+5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check `src/app/components/layout/simple-navigation.tsx` for current implementation.
+
+---
+
+## Known Issues
+
+- Magic link auth requires correct redirect URLs in Supabase dashboard
+- Profile creation must only happen in auth callback (not hooks)
+- E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing.md](e2e-testing.md))
