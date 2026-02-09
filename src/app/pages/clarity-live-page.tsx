@@ -4,7 +4,7 @@
  * the app acts as a quiet referee enforcing the understanding protocol.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Share2, Check, Keyboard, Mic } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
@@ -102,7 +102,13 @@ export function ClarityLivePage() {
   // Get room code from URL if present (for direct join via shared link)
   const { code: urlCode } = useParams<{ code?: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
+
+  // P124: Get event context from URL params
+  const returnTo = searchParams.get('returnTo');
+  const partnerNameFromUrl = searchParams.get('partner');
+  const isFromEvent = returnTo?.startsWith('/events/');
 
   // Get logged-in user's name (if authenticated)
   // P50: Add refreshProfile to update AuthContext after guest profile creation
@@ -2266,15 +2272,29 @@ export function ClarityLivePage() {
   if (view === 'waiting' && session) {
     // Display-friendly link (without https://)
     const displayLink = shareLink.replace('https://', '').replace('http://', '');
+    const waitingMessage = partnerNameFromUrl
+      ? `Waiting for ${partnerNameFromUrl} to join...`
+      : 'Waiting for partner to join...';
 
     return (
       <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
         <div className="flex-1 container mx-auto px-4 max-w-md flex flex-col justify-center">
           <div className="text-center space-y-6">
-            <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
-            <p className="text-muted-foreground">
-              Share this link to start your clarity session:
-            </p>
+            {isFromEvent && partnerNameFromUrl ? (
+              <>
+                <h2 className="text-2xl font-semibold">{waitingMessage}</h2>
+                <p className="text-muted-foreground">
+                  They can join by:
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold">Invite Your Partner</h2>
+                <p className="text-muted-foreground">
+                  Share this link to start your clarity session:
+                </p>
+              </>
+            )}
 
             {/* Link row with copy/share */}
             <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
@@ -2302,6 +2322,18 @@ export function ClarityLivePage() {
               Or show them this QR code:
             </p>
 
+            {isFromEvent ? (
+              <p className="text-xs text-muted-foreground">
+                • Tapping "Join" on the event page<br />
+                • Scanning this QR code<br />
+                • Using this link
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Or show them this QR code:
+              </p>
+            )}
+
             {/* QR Code */}
             <div className="p-4 bg-white rounded-lg border inline-block">
               <QRCodeSVG
@@ -2311,9 +2343,16 @@ export function ClarityLivePage() {
               />
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              Waiting for partner to join...
-            </p>
+            {returnTo && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(returnTo)}
+                className="w-full"
+              >
+                ← Back to event
+              </Button>
+            )}
 
             <Button
               variant="ghost"

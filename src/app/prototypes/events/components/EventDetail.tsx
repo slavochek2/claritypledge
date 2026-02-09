@@ -73,8 +73,6 @@ export function EventDetail() {
   const [subRooms, setSubRooms] = useState<EventSubRoomWithProfiles[]>([]);
   const [subRoomsLoading, setSubRoomsLoading] = useState(true);
   const [subRoomsError, setSubRoomsError] = useState<string | null>(null);
-  const [showStartSessionDialog, setShowStartSessionDialog] = useState(false);
-  const [selectedTarget, setSelectedTarget] = useState<EventAttendee | null>(null);
   const [isCreatingSubRoom, setIsCreatingSubRoom] = useState(false);
 
   // Check if current user is the host
@@ -143,16 +141,20 @@ export function EventDetail() {
   }, [eventId, fetchSubRooms]);
 
   // P124: Auto-navigate initiator to /live when sub-room becomes active
-  const isFirstSubRoomLoadRef = useRef(true);
+  // Track which sub-rooms we've already navigated for to prevent duplicate navigation
+  const navigatedSubRoomsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!user?.id) return;
-    // Skip the initial fetch — only react to real-time updates
-    if (isFirstSubRoomLoadRef.current) {
-      isFirstSubRoomLoadRef.current = false;
-      return;
-    }
+
     for (const room of subRooms) {
-      if (room.status === 'active' && room.initiatorId === user.id && room.sessionCode) {
+      // Only navigate if: room is active, user is initiator, has session code, and we haven't navigated for this room yet
+      if (
+        room.status === 'active' &&
+        room.initiatorId === user.id &&
+        room.sessionCode &&
+        !navigatedSubRoomsRef.current.has(room.id)
+      ) {
+        navigatedSubRoomsRef.current.add(room.id);
         navigate(`/live?code=${room.sessionCode}&returnTo=/events/${slug}`);
         break;
       }
@@ -199,7 +201,8 @@ export function EventDetail() {
   // Current user is in a sub-room if they're in the occupied set
   const currentUserInSubRoom = currentUserId ? occupiedIds.has(currentUserId) : false;
 
-  const handleTapParticipant = (attendee: EventAttendee) => {
+  const handleVerifyTogether = async (attendee: EventAttendee) => {
+    if (!event || !slug) return;
     if (!isLoggedIn || !currentUserId) return;
     if (attendee.profileId === currentUserId) return; // Can't tap yourself
     if (occupiedIds.has(attendee.profileId)) {
@@ -210,21 +213,17 @@ export function EventDetail() {
       toast.error("You're already in a session.");
       return;
     }
-    setSelectedTarget(attendee);
-    setShowStartSessionDialog(true);
-  };
 
-  const confirmStartSession = async () => {
-    if (!event || !selectedTarget) return;
+    // Create sub-room and navigate immediately
     setIsCreatingSubRoom(true);
-    const subRoom = await eventsService.createSubRoom(event.id, selectedTarget.profileId);
+    const subRoom = await eventsService.createSubRoom(event.id, attendee.profileId);
     setIsCreatingSubRoom(false);
-    setShowStartSessionDialog(false);
-    setSelectedTarget(null);
-    if (subRoom) {
-      toast.success(`Session created! Tell ${selectedTarget.name} to check the event page.`);
+
+    if (subRoom && subRoom.sessionCode) {
+      // Navigate to /live immediately
+      navigate(`/live?code=${subRoom.sessionCode}&returnTo=/events/${slug}&partner=${encodeURIComponent(attendee.name)}`);
     } else {
-      toast.error(`Couldn't create session. ${selectedTarget.name} may already be in one.`);
+      toast.error(`Couldn't create session. ${attendee.name} may already be in one.`);
     }
   };
 
@@ -584,12 +583,19 @@ export function EventDetail() {
                       {/* Session action button */}
                       {canStartSession && (
                         <Button
-                          onClick={() => handleTapParticipant(attendee)}
+                          onClick={() => handleVerifyTogether(attendee)}
                           size="sm"
                           className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                          disabled={isCreatingSubRoom}
                         >
-                          <span className="hidden sm:inline">Start Session</span>
-                          <span className="sm:hidden">Start</span>
+                          {isCreatingSubRoom ? (
+                            'Starting...'
+                          ) : (
+                            <>
+                              <span className="hidden sm:inline">Verify Together →</span>
+                              <span className="sm:hidden">Verify →</span>
+                            </>
+                          )}
                         </Button>
                       )}
                       {isOccupied && (
@@ -652,21 +658,6 @@ export function EventDetail() {
         isLoading={isActionLoading}
       />
 
-      {/* P124: Start Session Confirmation Dialog */}
-      <ConfirmDialog
-        open={showStartSessionDialog}
-        onOpenChange={(open) => {
-          setShowStartSessionDialog(open);
-          if (!open) setSelectedTarget(null);
-        }}
-        title={`Start a session with ${selectedTarget?.name ?? ''}?`}
-        description="You'll pick a story to verify, or speak freely. They'll see the invitation and can join."
-        confirmLabel="Start session"
-        cancelLabel="Cancel"
-        variant="default"
-        onConfirm={confirmStartSession}
-        isLoading={isCreatingSubRoom}
-      />
     </div>
   );
 }
