@@ -1,41 +1,14 @@
 /**
  * @file shared.tsx
- * @description Shared components and utilities for Clarity Partners feature.
+ * @description Shared components for Clarity Partners feature.
+ * Note: Constants and utilities moved to separate files for Fast Refresh compatibility.
  */
 
-// Rating button configuration - 0 to 10 scale
-export const RATING_OPTIONS = [
-  { value: 0, label: '0' },
-  { value: 1, label: '1' },
-  { value: 2, label: '2' },
-  { value: 3, label: '3' },
-  { value: 4, label: '4' },
-  { value: 5, label: '5' },
-  { value: 6, label: '6' },
-  { value: 7, label: '7' },
-  { value: 8, label: '8' },
-  { value: 9, label: '9' },
-  { value: 10, label: '10' },
-] as const;
+import { RATING_OPTIONS } from './constants';
 
-/**
- * Capitalizes the first letter of each word in a name.
- */
-export function capitalizeName(name: string): string {
-  return name
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-/**
- * Extracts the first name from a full name and capitalizes it.
- * Used in live meetings for more compact display.
- */
-export function getFirstName(name: string): string {
-  const firstName = name.trim().split(' ')[0] || name;
-  return firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
-}
+// Re-export for backward compatibility
+export { RATING_OPTIONS } from './constants';
+export { capitalizeName, getFirstName } from './utils';
 
 /**
  * Rating buttons component - shared between rating-card and live-mode-view.

@@ -25,9 +25,124 @@ import { analytics } from "@/lib/mixpanel";
 import { MailIcon, ArrowLeftIcon, BookOpenIcon, TargetIcon, PlusIcon } from "lucide-react";
 import { CompactProfileCard } from "@/app/components/profile/compact-profile-card";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+// Import prototype components
+import { StoryCard as PrototypeStoryCard } from "@/app/prototypes/linkedin-like/components/StoryCard";
+import { PointCard as PrototypePointCard } from "@/app/prototypes/linkedin-like/components/PointCard";
+import type { Story, Point, PositionEntry } from "@/app/prototypes/shared/types";
+import { useNavigate } from "react-router-dom";
 
 // P113: Tab types for Stories/Points
 type ProfileTab = 'stories' | 'points';
+
+/**
+ * Wrappers for prototype components that fix navigation to production routes
+ */
+
+/** Wrapper for StoryCard that handles navigation to production routes */
+function StoryCard({ story, context }: { story: Story; context?: string }) {
+  const navigate = useNavigate();
+
+  // Intercept navigation by wrapping the story with click handler
+  const handleClick = (e: React.MouseEvent) => {
+    // If clicking on the card itself (not a button), navigate to story detail
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    navigate(`/story/${story.id}`);
+  };
+
+  return (
+    <div onClick={handleClick}>
+      <PrototypeStoryCard story={story} context={context} disableNavigation={true} />
+    </div>
+  );
+}
+
+/** Wrapper for PointCard that handles navigation to production routes */
+function PointCard({ point, profileOwnerId }: { point: Point; profileOwnerId?: string }) {
+  const navigate = useNavigate();
+
+  const handleClick = (e: React.MouseEvent) => {
+    // If clicking on the card itself (not a button), navigate to point detail
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    navigate(`/point/${point.id}`);
+  };
+
+  return (
+    <div onClick={handleClick}>
+      <PrototypePointCard point={point} profileOwnerId={profileOwnerId} disableNavigation={true} />
+    </div>
+  );
+}
+
+/**
+ * Adapters to convert production data to prototype format
+ */
+
+/** Fetch linked story IDs for a point from story_points table */
+async function getLinkedStoryIdsForPoint(pointId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('story_points')
+    .select('story_id')
+    .eq('point_id', pointId);
+
+  if (error || !data) return [];
+  return data.map(row => row.story_id);
+}
+
+/** Fetch linked point IDs for a story from story_points table */
+async function getLinkedPointIdsForStory(storyId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('story_points')
+    .select('point_id')
+    .eq('story_id', storyId);
+
+  if (error || !data) return [];
+  return data.map(row => row.point_id);
+}
+
+/** Convert production StoryWithAuthor to prototype Story format */
+async function adaptStory(story: StoryWithAuthor, _profileId: string): Promise<Story> {
+  const linkedPointIds = await getLinkedPointIdsForStory(story.id);
+
+  return {
+    id: story.id,
+    text: story.content,
+    authorId: story.authorId,
+    createdAt: story.createdAt,
+    visibility: 'public', // Production doesn't have visibility yet
+    verificationCount: 0, // TODO: add when verification is implemented
+    tags: story.tags || [],
+    linkedPointIds,
+  };
+}
+
+/** Convert production PointWithUserPosition to prototype Point format */
+async function adaptPoint(
+  point: PointWithUserPosition,
+  _profileId: string,
+  _isOwner: boolean
+): Promise<Point> {
+  const linkedStoryIds = await getLinkedStoryIdsForPoint(point.id);
+
+  // Build positions map - for profile view, we only show the profile owner's position
+  const positions: Record<string, PositionEntry | null> = {};
+  if (point.userPosition) {
+    positions[profileId] = {
+      position: point.userPosition.position,
+      timestamp: point.userPosition.createdAt,
+    };
+  }
+
+  return {
+    id: point.id,
+    text: point.statement,
+    createdAt: point.createdAt || new Date().toISOString(),
+    positions,
+    linkedStoryIds,
+  };
+}
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -38,10 +153,10 @@ export function ProfilePage() {
   const [isResending, setIsResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
 
-  // P113: Stories/Points state
+  // P113: Stories/Points state (adapted to prototype format)
   const [activeTab, setActiveTab] = useState<ProfileTab>('stories');
-  const [stories, setStories] = useState<StoryWithAuthor[]>([]);
-  const [points, setPoints] = useState<PointWithUserPosition[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
   const [calibration, setCalibration] = useState<CalibrationResult | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
@@ -118,8 +233,16 @@ export function ProfilePage() {
           calibrationService.getCalibration(profile.id),
         ]);
 
-        setStories(userStories);
-        setPoints(userPoints);
+        // Adapt to prototype format (includes fetching linked stories/points)
+        const adaptedStories = await Promise.all(
+          userStories.map(story => adaptStory(story, profile.id))
+        );
+        const adaptedPoints = await Promise.all(
+          userPoints.map(point => adaptPoint(point, profile.id, isOwner))
+        );
+
+        setStories(adaptedStories);
+        setPoints(adaptedPoints);
         setCalibration(userCalibration);
       } catch (error) {
         console.error('Failed to load profile content:', error);
@@ -448,21 +571,13 @@ export function ProfilePage() {
                 </div>
               ) : activeTab === 'stories' ? (
                 stories.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {stories.map((story) => (
-                      <div key={story.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                        <p className="font-medium text-foreground line-clamp-3">{story.content}</p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {story.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                      <StoryCard
+                        key={story.id}
+                        story={story}
+                        context="profile"
+                      />
                     ))}
                   </div>
                 ) : (
@@ -483,27 +598,13 @@ export function ProfilePage() {
                 )
               ) : (
                 points.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {points.map((point) => (
-                      <div key={point.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
-                        <p className="font-medium text-foreground">{point.statement}</p>
-                        {point.context && (
-                          <p className="text-sm text-muted-foreground mt-1">{point.context}</p>
-                        )}
-                        {point.userPosition && (
-                          <div className="flex items-center gap-2 mt-2">
-                            {/* Design system: all position badges use uniform blue regardless of position type */}
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                              {point.userPosition.position.includes('agree') ? 'Agreed' : point.userPosition.position.includes('disagree') ? 'Disagreed' : 'Unsure'}
-                            </span>
-                          </div>
-                        )}
-                        {point.userPosition?.reasoning && (
-                          <p className="text-sm text-muted-foreground mt-2 italic">
-                            "{point.userPosition.reasoning}"
-                          </p>
-                        )}
-                      </div>
+                      <PointCard
+                        key={point.id}
+                        point={point}
+                        profileOwnerId={profile.id}
+                      />
                     ))}
                   </div>
                 ) : (

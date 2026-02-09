@@ -155,6 +155,7 @@ export function PointCardDetail({
   const showQuotePattern = profileOwner && profileOwnerPosition;
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Has role, tabIndex, and keyboard support
     <div
       role={isDetailView ? undefined : 'button'}
       tabIndex={isDetailView ? undefined : 0}
@@ -215,7 +216,11 @@ export function PointCardDetail({
                   </p>
 
                   {/* Position buttons */}
-                  <div className="mt-3" onClick={e => e.stopPropagation()}>
+                  <div
+                    className="mt-3"
+                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => e.stopPropagation()}
+                  >
                     <PositionButtons
                       userPosition={userPosition}
                       counts={counts}
@@ -229,6 +234,7 @@ export function PointCardDetail({
               <div
                 className="flex items-center justify-between mt-3 pt-3 border-t border-border pl-[44px]"
                 onClick={e => e.stopPropagation()}
+                onKeyDown={e => e.stopPropagation()}
               >
                 {/* Collapsible trigger (if has linked stories) */}
                 {!isDetailView && filteredStories.length > 0 ? (
@@ -291,7 +297,11 @@ export function PointCardDetail({
               </p>
 
               {/* Position buttons */}
-              <div className="mt-3" onClick={e => e.stopPropagation()}>
+              <div
+                className="mt-3"
+                onClick={e => e.stopPropagation()}
+                onKeyDown={e => e.stopPropagation()}
+              >
                 <PositionButtons
                   userPosition={userPosition}
                   counts={counts}
@@ -308,6 +318,7 @@ export function PointCardDetail({
         <div
           className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
           onClick={e => e.stopPropagation()}
+          onKeyDown={e => e.stopPropagation()}
         >
           {/* Collapsible trigger (if has linked stories on profile, only in feed view) */}
           {!isDetailView && profileOwner && filteredStories.length > 0 ? (

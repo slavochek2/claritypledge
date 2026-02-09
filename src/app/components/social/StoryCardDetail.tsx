@@ -167,6 +167,7 @@ export function StoryCardDetail({
     : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Has role, tabIndex, and keyboard support
     <div
       role={isDetailView ? undefined : 'button'}
       tabIndex={isDetailView ? undefined : 0}
@@ -266,6 +267,7 @@ export function StoryCardDetail({
           <div
             className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
           >
             {/* Collapsible trigger (if has linked points) */}
             {linkedPoints.length > 0 ? (
@@ -486,9 +488,18 @@ function QuotedPoint({
 
       {/* Quoted Point box */}
       {/* Note: removed overflow-hidden to prevent dropdown chevrons from being clipped */}
-      <button
+      {/* Changed from button to div to avoid nested button HTML violation (position buttons inside) */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onClick}
-        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-accent hover:border-border transition-colors"
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick(e as React.MouseEvent<HTMLDivElement>);
+          }
+        }}
+        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-accent hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {/* Two-column layout matching PointCard structure */}
         <div className="flex items-start gap-3">
@@ -513,7 +524,7 @@ function QuotedPoint({
             </div>
           </div>
         </div>
-      </button>
+      </div>
     </div>
   );
 }

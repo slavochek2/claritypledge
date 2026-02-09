@@ -1495,7 +1495,7 @@ interface ActionAreaProps {
  */
 function ActionArea({ icon, title, subtitle, children, className = '' }: ActionAreaProps) {
   return (
-    <section className={`flex flex-col items-center gap-4 w-full max-w-sm pt-8 ${className}`} role="region" data-testid="action-area">
+    <section className={`flex flex-col items-center gap-4 w-full max-w-sm pt-8 ${className}`} data-testid="action-area">
       {/* Icon + Title block */}
       {(icon || title) && (
         <div className="flex flex-col items-center gap-3">
