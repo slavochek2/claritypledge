@@ -40,7 +40,7 @@ export function BottomNav() {
     },
     {
       icon: SparklesIcon,
-      label: "Create",
+      label: "Create Story",
       disabled: true,
       onClick: () => toast("Coming soon"),
     },

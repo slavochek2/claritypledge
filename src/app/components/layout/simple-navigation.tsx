@@ -258,30 +258,8 @@ export function SimpleNavigation() {
 
               <div className="border-t border-border my-2"></div>
 
-              {/* Visible nav links */}
-              <Link
-                to="/events"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={closeMobileMenu}
-              >
-                Events
-              </Link>
-              {showUserMenu && (
-                <Link
-                  to="/create"
-                  className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                  onClick={closeMobileMenu}
-                >
-                  Create Story
-                </Link>
-              )}
-              <a
-                href="https://blog.claritypledge.com"
-                className="text-left text-base font-medium hover:text-primary transition-colors py-2"
-                onClick={closeMobileMenu}
-              >
-                Blog
-              </a>
+              {/* Mobile menu - Events and Create Story removed (available in bottom nav) */}
+              {/* All content navigation (Pledgers, Manifesto, Blog, About) now in NavigationMenuItems */}
 
               {!showUserMenu && <div className="border-t border-border my-2"></div>}
 

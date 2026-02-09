@@ -2,9 +2,10 @@
  * @file navigation-menu-items.tsx
  * @description KISS Navigation Menu Items
  *
- * TWO STATES ONLY:
- * 1. Verified user → View My Profile, pledge items, Settings, Log Out
- * 2. Everyone else → Log In
+ * THREE STATES:
+ * 1. Verified user (normal) → Pledgers, Manifesto, Blog, About, Settings, Log Out
+ * 2. Active /live session → Settings, Log Out ONLY (focused mode)
+ * 3. Everyone else → Pledgers, Manifesto, Blog, About, Log In, Create Account
  *
  * Unverified /live users see the same menu as anonymous users.
  * They can verify via /me page, email after meeting, or taking the pledge.
@@ -21,16 +22,13 @@ import {
 import {
   LogOutIcon,
   LogIn,
-  EyeIcon,
   SettingsIcon,
-  UserIcon,
   FileTextIcon,
   UserPlusIcon,
-  LayoutDashboardIcon,
-  UsersIcon,
   AwardIcon,
   ScrollTextIcon,
   InfoIcon,
+  BookOpenIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -41,21 +39,25 @@ interface NavigationMenuItemsProps {
   variant?: 'dropdown' | 'mobile';
   /** Called when a menu item is clicked (useful for closing mobile menu) */
   onItemClick?: () => void;
+  /** Hide navigation items during active /live session (only show Settings, Log Out) */
+  inActiveSession?: boolean;
 }
 
 /**
  * KISS Navigation Menu Items
  *
- * - Verified user: View My Profile, View My Pledge OR Take the Pledge, Settings, Log Out
- * - Everyone else: Log In
+ * - Verified user (normal): Pledgers, Manifesto, Blog, About, Settings, Log Out
+ * - Active /live session: Settings, Log Out only (focused mode)
+ * - Everyone else: Pledgers, Manifesto, Blog, About, Log In, Create Account
  */
 export function NavigationMenuItems({
   onSignOut,
   includeTestIds = false,
   variant = 'dropdown',
   onItemClick,
+  inActiveSession = false,
 }: NavigationMenuItemsProps) {
-  const { showUserMenu, showPublicCTAs, hasPledged, slug } = useNavAuthState();
+  const { showUserMenu, showPublicCTAs } = useNavAuthState();
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -91,14 +93,16 @@ export function NavigationMenuItems({
               <ScrollTextIcon className="w-4 h-4 inline mr-2" />
               Manifesto
             </Link>
-            <Link
-              to="/co-create"
+            <a
+              href="https://blog.claritypledge.com"
               className={mobileLinkClass}
               onClick={handleItemClick}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <UsersIcon className="w-4 h-4 inline mr-2" />
-              Co-create
-            </Link>
+              <BookOpenIcon className="w-4 h-4 inline mr-2" />
+              Blog
+            </a>
             <Link
               to="/about"
               className={mobileLinkClass}
@@ -140,80 +144,44 @@ export function NavigationMenuItems({
         {/* Verified user menu */}
         {showUserMenu && (
           <>
-            <Link
-              to="/pledgers"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <AwardIcon className="w-4 h-4 inline mr-2" />
-              Pledgers
-            </Link>
-            <Link
-              to="/manifesto"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <ScrollTextIcon className="w-4 h-4 inline mr-2" />
-              Manifesto
-            </Link>
-            <Link
-              to="/co-create"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <UsersIcon className="w-4 h-4 inline mr-2" />
-              Co-create
-            </Link>
-            <Link
-              to="/about"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-            >
-              <InfoIcon className="w-4 h-4 inline mr-2" />
-              About
-            </Link>
-
-            {/* P62: Dashboard link */}
-            <Link
-              to="/home"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              data-testid={includeTestIds ? 'dashboard' : undefined}
-            >
-              <LayoutDashboardIcon className="w-4 h-4 inline mr-2" />
-              Dashboard
-            </Link>
-
-            <Link
-              to="/me"
-              className={mobileLinkClass}
-              onClick={handleItemClick}
-              data-testid={includeTestIds ? 'view-profile' : undefined}
-            >
-              <UserIcon className="w-4 h-4 inline mr-2" />
-              View My Profile
-            </Link>
-
-            {hasPledged && slug ? (
-              <Link
-                to={`/p/${slug}/pledge`}
-                className={mobileLinkClass}
-                onClick={handleItemClick}
-                data-testid={includeTestIds ? 'view-pledge' : undefined}
-              >
-                <EyeIcon className="w-4 h-4 inline mr-2" />
-                View My Pledge
-              </Link>
-            ) : (
-              <Link
-                to="/sign-pledge?prefill=true"
-                className={mobileLinkClass}
-                onClick={handleItemClick}
-                data-testid={includeTestIds ? 'take-pledge' : undefined}
-              >
-                <FileTextIcon className="w-4 h-4 inline mr-2" />
-                Take the Pledge
-              </Link>
+            {/* Hide navigation items during active session */}
+            {!inActiveSession && (
+              <>
+                <Link
+                  to="/pledgers"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                >
+                  <AwardIcon className="w-4 h-4 inline mr-2" />
+                  Pledgers
+                </Link>
+                <Link
+                  to="/manifesto"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                >
+                  <ScrollTextIcon className="w-4 h-4 inline mr-2" />
+                  Manifesto
+                </Link>
+                <a
+                  href="https://blog.claritypledge.com"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <BookOpenIcon className="w-4 h-4 inline mr-2" />
+                  Blog
+                </a>
+                <Link
+                  to="/about"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                >
+                  <InfoIcon className="w-4 h-4 inline mr-2" />
+                  About
+                </Link>
+              </>
             )}
 
             <Link
@@ -259,10 +227,15 @@ export function NavigationMenuItems({
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/co-create" className="cursor-pointer">
-              <UsersIcon className="w-4 h-4 mr-2" />
-              Co-create
-            </Link>
+            <a
+              href="https://blog.claritypledge.com"
+              className="cursor-pointer flex items-center"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <BookOpenIcon className="w-4 h-4 mr-2" />
+              Blog
+            </a>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/about" className="cursor-pointer">
@@ -295,62 +268,40 @@ export function NavigationMenuItems({
       {/* Verified user menu */}
       {showUserMenu && (
         <>
-          <DropdownMenuItem asChild>
-            <Link to="/pledgers" className="cursor-pointer">
-              <AwardIcon className="w-4 h-4 mr-2" />
-              Pledgers
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/manifesto" className="cursor-pointer">
-              <ScrollTextIcon className="w-4 h-4 mr-2" />
-              Manifesto
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/co-create" className="cursor-pointer">
-              <UsersIcon className="w-4 h-4 mr-2" />
-              Co-create
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/about" className="cursor-pointer">
-              <InfoIcon className="w-4 h-4 mr-2" />
-              About
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {/* P62: Dashboard link */}
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'dashboard' : undefined}>
-            <Link to="/home" className="cursor-pointer">
-              <LayoutDashboardIcon className="w-4 h-4 mr-2" />
-              Dashboard
-            </Link>
-          </DropdownMenuItem>
-
-          {/* View My Profile */}
-          <DropdownMenuItem asChild data-testid={includeTestIds ? 'view-profile' : undefined}>
-            <Link to="/me" className="cursor-pointer">
-              <UserIcon className="w-4 h-4 mr-2" />
-              View My Profile
-            </Link>
-          </DropdownMenuItem>
-
-          {/* Pledge: View My Pledge (pledgers) OR Take the Pledge (non-pledgers) */}
-          {hasPledged && slug ? (
-            <DropdownMenuItem asChild data-testid={includeTestIds ? 'view-pledge' : undefined}>
-              <Link to={`/p/${slug}/pledge`} className="cursor-pointer">
-                <EyeIcon className="w-4 h-4 mr-2" />
-                View My Pledge
-              </Link>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem asChild data-testid={includeTestIds ? 'take-pledge' : undefined}>
-              <Link to="/sign-pledge?prefill=true" className="cursor-pointer">
-                <FileTextIcon className="w-4 h-4 mr-2" />
-                Take the Pledge
-              </Link>
-            </DropdownMenuItem>
+          {/* Hide navigation items during active session */}
+          {!inActiveSession && (
+            <>
+              <DropdownMenuItem asChild>
+                <Link to="/pledgers" className="cursor-pointer">
+                  <AwardIcon className="w-4 h-4 mr-2" />
+                  Pledgers
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/manifesto" className="cursor-pointer">
+                  <ScrollTextIcon className="w-4 h-4 mr-2" />
+                  Manifesto
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a
+                  href="https://blog.claritypledge.com"
+                  className="cursor-pointer flex items-center"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <BookOpenIcon className="w-4 h-4 mr-2" />
+                  Blog
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/about" className="cursor-pointer">
+                  <InfoIcon className="w-4 h-4 mr-2" />
+                  About
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
           )}
 
           {/* Settings */}

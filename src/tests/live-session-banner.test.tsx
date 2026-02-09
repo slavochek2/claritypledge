@@ -149,8 +149,8 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByText('Log In')).toBeInTheDocument();
     });
 
-    it('shows Home link', async () => {
-      renderWithRouter(<LiveSessionBanner />);
+    it('shows Home link when not in active session', async () => {
+      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('home-link')).toBeInTheDocument();
@@ -193,8 +193,8 @@ describe('LiveSessionBanner', () => {
       expect(settingsLink).toHaveAttribute('href', '/settings');
     });
 
-    it('shows Home link', async () => {
-      renderWithRouter(<LiveSessionBanner />);
+    it('shows Home link when not in active session', async () => {
+      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('home-link')).toBeInTheDocument();
@@ -255,8 +255,8 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
-    it('still shows Sound toggle and Home', async () => {
-      renderWithRouter(<LiveSessionBanner />);
+    it('still shows Sound toggle and Home when not in active session', async () => {
+      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
@@ -290,8 +290,8 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
-    it('still shows Sound toggle and Home (always available)', async () => {
-      renderWithRouter(<LiveSessionBanner />);
+    it('still shows Sound toggle and Home when not in active session', async () => {
+      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
@@ -395,8 +395,8 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByTestId('sign-out')).toBeInTheDocument();
     });
 
-    it('still shows Home link for live-only users', async () => {
-      renderWithRouter(<LiveSessionBanner />);
+    it('still shows Home link for live-only users when not in active session', async () => {
+      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('home-link')).toBeInTheDocument();
