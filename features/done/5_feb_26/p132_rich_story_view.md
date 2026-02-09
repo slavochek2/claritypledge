@@ -1,9 +1,14 @@
 ---
-status: backlog
+status: done
+completed_at: '2026-02-09'
 type: task
 priority: p1
 milestone: M1
-tags: [stories, points, position-recording, ui]
+tags:
+  - stories
+  - points
+  - position-recording
+  - ui
 prepped_date: '2026-02-09'
 reviews:
   ux: passed-with-notes
