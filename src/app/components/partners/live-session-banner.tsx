@@ -12,7 +12,6 @@
  */
 import { Link, useNavigate } from 'react-router-dom';
 import { MenuIcon, Volume2, VolumeX, LogOut, Home } from 'lucide-react';
-import { getFirstName } from './shared';
 import { useSoundEnabled } from '@/hooks/use-sound';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { analytics } from '@/lib/mixpanel';
@@ -30,25 +29,19 @@ import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-ite
 interface LiveSessionBannerProps {
   partnerName?: string;
   onExit?: () => void;
-  /** Title to show in center - defaults to "Clarity Session with [Partner]" */
-  title?: string;
   /** Whether this is a live session (shows Leave Session option) */
   isLiveMeeting?: boolean;
   /** P128: returnTo URL — changes "Leave Session" to "Back to event" and navigates to URL */
   returnTo?: string | null;
 }
 
-export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = true, returnTo }: LiveSessionBannerProps) {
+export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMeeting = true, returnTo }: LiveSessionBannerProps) {
   const navigate = useNavigate();
-  const displayPartnerName = partnerName ? getFirstName(partnerName) : '';
   const [soundEnabled, setSoundEnabled] = useSoundEnabled();
 
   // P52: Use shared navigation auth state hook for consistency with SimpleNavigation
   // P67: user and showUserMenu needed for avatar display
   const { signOut, user, showUserMenu, hasPledged } = useNavAuthState();
-
-  // Determine display title
-  const displayTitle = title ?? (partnerName ? `Clarity Session with ${displayPartnerName}` : 'Live Clarity Session');
 
   return (
     <div className="h-16 lg:h-20 bg-background">
@@ -58,11 +51,6 @@ export function LiveSessionBanner({ partnerName, onExit, title, isLiveMeeting = 
           <Link to="/" className="hover:opacity-80 transition-opacity">
             <ClarityLogo size="sm" />
           </Link>
-
-          {/* Center: Meeting title - absolutely positioned for true centering */}
-          <span className="absolute left-1/2 -translate-x-1/2 text-sm text-muted-foreground">
-            {displayTitle}
-          </span>
 
           {/* Right: Menu dropdown - P67: Avatar for verified users, hamburger for everyone else */}
           {/* P52: Aligned styling with SimpleNavigation for consistent positioning */}

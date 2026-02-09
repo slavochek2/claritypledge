@@ -22,6 +22,8 @@ import {
   Sparkles,
   ExternalLink,
   Pin,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { toast } from "sonner";
@@ -66,7 +68,7 @@ function formatTimeAgo(dateStr: string): string {
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
 import { calibrationService } from "@/app/data/calibration-service";
-import type { StoryWithAuthor, PointWithUserPosition, CalibrationResult } from "@/app/types";
+import type { StoryWithPoints, PointWithUserPosition, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
 // Routes for detail pages (main app, not prototype)
@@ -116,7 +118,7 @@ export function ProfilePageV2() {
 
   // P115: Stories/Points/Calibration state — all from real services
   const [contentTab, setContentTab] = useState<ContentTab>('stories');
-  const [realStories, setRealStories] = useState<StoryWithAuthor[]>([]);
+  const [realStories, setRealStories] = useState<StoryWithPoints[]>([]);
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
@@ -179,14 +181,23 @@ export function ProfilePageV2() {
   useEffect(() => {
     if (!profile) return;
 
-    storiesService.getStoriesByAuthor(profile.id).then(stories => {
+    storiesService.getStoriesByAuthorWithPoints(profile.id).then(stories => {
       setRealStories(stories);
     }).catch(err => {
       console.error('Failed to load stories:', err);
     });
 
-    pointsService.getPointsWithUserPositions(profile.id).then(points => {
-      setRealPoints(points);
+    // Get points created by this user (as first validator)
+    pointsService.getPointsByValidator(profile.id).then(async (createdPoints) => {
+      // Transform to PointWithUserPosition by adding counts and user position
+      const pointsWithData = await Promise.all(
+        createdPoints.map(async (point) => {
+          const pointWithCounts = await pointsService.getPointWithUserPosition(point.id, profile.id);
+          return pointWithCounts;
+        })
+      );
+      const validPoints = pointsWithData.filter((p): p is PointWithUserPosition => p !== null);
+      setRealPoints(validPoints);
     }).catch(err => {
       console.error('Failed to load points:', err);
     });
@@ -611,7 +622,7 @@ export function ProfilePageV2() {
 // =============================================================================
 
 interface StoryCardFullProps {
-  story: StoryWithAuthor;
+  story: StoryWithPoints;
   author: ProfileOwner;
   credibilityStats: { ear: number; mic: number };
 }
@@ -622,10 +633,13 @@ function StoryCardFull({
   credibilityStats,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
+  const [pointsExpanded, setPointsExpanded] = useState(false);
 
   const handleCardClick = () => {
     navigate(detailRoutes.story(story.id));
   };
+
+  const linkedPoints = story.points || [];
 
   return (
     <div
@@ -702,11 +716,28 @@ function StoryCardFull({
         </div>
       </div>
 
-      {/* Footer row with action icons */}
+      {/* Footer row with linked points and action icons */}
       <div
-        className="flex items-center justify-end pl-[52px] pr-4 py-3 border-t border-border"
+        className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Collapsible trigger (if has linked points) */}
+        {linkedPoints.length > 0 ? (
+          <button
+            onClick={() => setPointsExpanded(!pointsExpanded)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+            aria-expanded={pointsExpanded}
+          >
+            {pointsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>
+              {linkedPoints.length} {linkedPoints.length === 1 ? 'point' : 'points'} by {author.name}
+            </span>
+          </button>
+        ) : (
+          <span />
+        )}
+
+        {/* Action icons */}
         <div className="flex items-center gap-1">
           <ShareButton
             type="story"
@@ -725,6 +756,114 @@ function StoryCardFull({
           </MobileTooltip>
         </div>
       </div>
+
+      {/* Linked points - expanded content */}
+      {pointsExpanded && linkedPoints.length > 0 && (
+        <div className="pl-4 sm:pl-[68px] pr-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+          {linkedPoints.slice(0, 3).map((point) => (
+            <QuotedPointCard
+              key={point.id}
+              point={point}
+              authorId={author.id}
+              authorName={author.name}
+              authorEarCount={credibilityStats.ear}
+              authorHasPledged={author.hasPledged}
+            />
+          ))}
+          {linkedPoints.length > 3 && (
+            <button
+              onClick={() => navigate(detailRoutes.story(story.id))}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              +{linkedPoints.length - 3} more points
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// QuotedPointCard - Point shown inside a Story card
+// =============================================================================
+
+interface QuotedPointCardProps {
+  point: PointSummary;
+  authorId: string;
+  authorName: string;
+  authorEarCount?: number;
+  authorHasPledged: boolean;
+}
+
+function QuotedPointCard({
+  point,
+  authorId,
+  authorName: _authorName,
+  authorEarCount: _authorEarCount,
+  authorHasPledged: _authorHasPledged,
+}: QuotedPointCardProps) {
+  const navigate = useNavigate();
+  const [userPosition, setUserPosition] = useState<Position>(null);
+
+  // For now, we don't have position data in PointSummary, so we'll use simple counts
+  const baseCounts: SevenPointCounts = {
+    strongly_agree: 0,
+    agree: 0,
+    somewhat_agree: 0,
+    unsure: 0,
+    somewhat_disagree: 0,
+    disagree: 0,
+    strongly_disagree: 0,
+  };
+
+  const counts = useMemo((): SevenPointCounts => {
+    const adjusted = { ...baseCounts };
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+    const currentGroup = getGroup(userPosition as PositionType | null);
+    if (currentGroup === 'agree') adjusted.agree++;
+    else if (currentGroup === 'disagree') adjusted.disagree++;
+    else if (currentGroup === 'unsure') adjusted.unsure++;
+    return adjusted;
+  }, [baseCounts, userPosition]);
+
+  const handlePositionClick = (position: Position) => {
+    setUserPosition(userPosition === position ? null : position);
+  };
+
+  return (
+    <div className="w-full text-left">
+      {/* Quoted Point box - entire box is clickable */}
+      <button
+        onClick={() => navigate(detailRoutes.point(point.id, authorId))}
+        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors"
+      >
+        {/* Two-column layout */}
+        <div className="flex items-start gap-3">
+          {/* Pin icon column */}
+          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-blue-600 dark:text-blue-400">
+            <Pin size={16} className="rotate-45" />
+          </div>
+
+          {/* Content column */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-foreground line-clamp-2">{point.statement}</p>
+
+            {/* Position buttons - compact */}
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <PositionButtons
+                userPosition={userPosition}
+                counts={counts}
+                onPositionClick={handlePositionClick}
+                compact
+              />
+            </div>
+          </div>
+        </div>
+      </button>
     </div>
   );
 }

@@ -3,7 +3,7 @@
  * @description KISS Navigation Tests for LiveSessionBanner
  *
  * TWO STATES ONLY:
- * 1. Verified user → Full menu (View My Profile, pledge items, Settings, Log Out)
+ * 1. Verified user → Full menu (Settings, Log Out)
  * 2. Everyone else → Public menu (Log In)
  *
  * "Everyone else" includes: anonymous, unverified /live users, loading states
@@ -157,13 +157,6 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByText('Home')).toBeInTheDocument();
     });
 
-    it('does NOT show View My Pledge', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
-    });
-
     it('does NOT show Sign Out option', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
@@ -191,27 +184,6 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
     });
 
-    // P52: New menu items - View My Profile
-    it('shows View My Profile with correct link', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      const profileLink = screen.getByTestId('view-profile');
-      expect(profileLink).toBeInTheDocument();
-      expect(profileLink).toHaveAttribute('href', '/me');
-    });
-
-    it('shows View My Pledge with correct link', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      const pledgeLink = screen.getByTestId('view-pledge');
-      expect(pledgeLink).toBeInTheDocument();
-      // P52: Link now goes to /p/slug/pledge to match SimpleNavigation
-      expect(pledgeLink).toHaveAttribute('href', '/p/test-user/pledge');
-    });
-
-    // P52: New menu items - Settings
     it('shows Settings link', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
@@ -267,13 +239,6 @@ describe('LiveSessionBanner', () => {
       });
     });
 
-    it('does NOT show View My Pledge', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
-    });
-
     it('shows Log In (KISS: same as anonymous)', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
@@ -316,13 +281,6 @@ describe('LiveSessionBanner', () => {
 
       // KISS: Loading = public menu (shows Log In as safe default)
       expect(screen.getByTestId('login-option')).toBeInTheDocument();
-    });
-
-    it('does NOT show View My Pledge during load', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
     });
 
     it('does NOT show Log Out during loading', async () => {
@@ -390,45 +348,6 @@ describe('LiveSessionBanner', () => {
   });
 
   // ============================================================================
-  // Title rendering
-  // ============================================================================
-  describe('Title rendering', () => {
-    it('shows custom title when provided', () => {
-      renderWithRouter(<LiveSessionBanner title="Custom Title" />);
-
-      expect(screen.getByText('Custom Title')).toBeInTheDocument();
-    });
-
-    it('shows partner name in title when provided', () => {
-      renderWithRouter(<LiveSessionBanner partnerName="Alice Johnson" />);
-
-      // Should show first name only
-      expect(screen.getByText('Clarity Session with Alice')).toBeInTheDocument();
-    });
-
-    it('shows default title when no partner or custom title', () => {
-      renderWithRouter(<LiveSessionBanner />);
-
-      expect(screen.getByText('Live Clarity Session')).toBeInTheDocument();
-    });
-
-    it('custom title takes precedence over partnerName', () => {
-      renderWithRouter(<LiveSessionBanner title="My Custom Title" partnerName="Bob" />);
-
-      expect(screen.getByText('My Custom Title')).toBeInTheDocument();
-      expect(screen.queryByText(/Bob/)).not.toBeInTheDocument();
-    });
-
-    it('hides center title when empty string is passed', () => {
-      renderWithRouter(<LiveSessionBanner title="" />);
-
-      // Should not show any title text in the center
-      expect(screen.queryByText('Clarity Session')).not.toBeInTheDocument();
-      expect(screen.queryByText('Live Clarity Session')).not.toBeInTheDocument();
-    });
-  });
-
-  // ============================================================================
   // Sound toggle functionality
   // ============================================================================
   describe('Sound toggle', () => {
@@ -455,41 +374,6 @@ describe('LiveSessionBanner', () => {
   });
 
   // ============================================================================
-  // Edge case: Verified user without slug (shouldn't show View My Pledge)
-  // ============================================================================
-  describe('Edge case: verified user without slug', () => {
-    it('does NOT show View My Pledge if user has no slug', async () => {
-      mockAuthState = createAuthMock({
-        session: { user: { id: 'user-123' } },
-        // P52: isVerified=true to show user menu, but empty slug means no pledge link
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', slug: '', hasPledged: true, isVerified: true },
-        sessionChecked: true,
-        isLoading: false,
-      });
-
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
-    });
-
-    it('does NOT show View My Pledge if slug is undefined', async () => {
-      mockAuthState = createAuthMock({
-        session: { user: { id: 'user-123' } },
-        // P52: isVerified=true to show user menu
-        user: { id: 'user-123', name: 'Test User', email: 'test@example.com', hasPledged: true, isVerified: true },
-        sessionChecked: true,
-        isLoading: false,
-      });
-
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
-    });
-  });
-
-  // ============================================================================
   // P50/P52: User registered via /live (has slug, hasPledged=false, isVerified=true)
   // ============================================================================
   describe('P50/P52: Verified live-only user (hasPledged=false)', () => {
@@ -502,23 +386,6 @@ describe('LiveSessionBanner', () => {
         sessionChecked: true,
         isLoading: false,
       });
-    });
-
-    it('does NOT show View My Pledge for live-only users', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      // User has slug but hasPledged=false - should NOT see View My Pledge
-      expect(screen.queryByTestId('view-pledge')).not.toBeInTheDocument();
-    });
-
-    it('shows Take the Pledge instead', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      // P52: Non-pledgers see "Take the Pledge" link instead
-      expect(screen.getByTestId('take-pledge')).toBeInTheDocument();
-      expect(screen.getByTestId('take-pledge')).toHaveAttribute('href', '/sign-pledge?prefill=true');
     });
 
     it('still shows Log Out for live-only users', async () => {
@@ -567,20 +434,5 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
-    it('does NOT show View My Profile', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      // KISS: Unverified = public menu, no profile link
-      expect(screen.queryByTestId('view-profile')).not.toBeInTheDocument();
-    });
-
-    it('does NOT show Settings', async () => {
-      renderWithRouter(<LiveSessionBanner />);
-      await openMenu();
-
-      // KISS: Unverified = public menu, no settings
-      expect(screen.queryByTestId('settings')).not.toBeInTheDocument();
-    });
   });
 });

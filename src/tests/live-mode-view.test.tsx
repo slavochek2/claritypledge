@@ -101,17 +101,6 @@ describe('LiveModeView', () => {
       expect(mockHandlers.onStartProve).toHaveBeenCalledTimes(1);
     });
 
-    it('displays partner name in header', () => {
-      renderWithRouter(
-        <LiveModeView
-          {...defaultProps}
-          liveState={DEFAULT_LIVE_STATE}
-        />
-      );
-
-      // Partner name "bob" should be capitalized to "Bob" and appear in the header
-      expect(screen.getByText(/Clarity Session with/)).toBeInTheDocument();
-    });
   });
 
   describe('P23.3: "Did I get it?" flow - proverName handling', () => {

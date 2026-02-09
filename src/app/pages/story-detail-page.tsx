@@ -291,7 +291,7 @@ function KeyPointsSection({
   onPointUnlinked: (pointId: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [unlinkingPointId, setUnlinkingPointId] = useState<string | null>(null);
+  const [_unlinkingPointId, setUnlinkingPointId] = useState<string | null>(null);
 
   // Auto-expand form on justCreated with 0 points (only if authenticated)
   const autoExpand = justCreated && isAuthor && isAuthenticated && points.length === 0;
