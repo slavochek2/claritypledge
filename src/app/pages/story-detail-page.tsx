@@ -567,6 +567,12 @@ export function StoryDetailPage() {
       return;
     }
 
+    // P132: Check if user is verified (RLS requires is_verified = true for INSERT on point_positions)
+    if (!user.isVerified) {
+      toast.error('Please verify your email to record positions');
+      return;
+    }
+
     // Optimistic update
     setUserPositions(prev => {
       const updated = new Map(prev);
@@ -603,21 +609,26 @@ export function StoryDetailPage() {
     } catch (error) {
       console.error('Failed to save position:', error);
 
-      // Revert optimistic update
-      setUserPositions(prev => {
-        const updated = new Map(prev);
-        // Re-fetch to get correct state
-        if (user?.id) {
-          pointsService.getMyPositionsForPoints([pointId], user.id).then(positions => {
-            setUserPositions(prevPos => new Map([...prevPos, ...positions]));
+      // Revert optimistic update by re-fetching the correct state
+      // (moved outside state setter to avoid race condition)
+      if (user?.id) {
+        try {
+          const positions = await pointsService.getMyPositionsForPoints([pointId], user.id);
+          setUserPositions(prev => new Map([...prev, ...positions]));
+        } catch (fetchError) {
+          console.error('Failed to revert position:', fetchError);
+          // If re-fetch also fails, just clear this point's position
+          setUserPositions(prev => {
+            const updated = new Map(prev);
+            updated.delete(pointId);
+            return updated;
           });
         }
-        return updated;
-      });
+      }
 
       toast.error('Failed to save position. Please try again.');
     }
-  }, [user?.id, story?.id, navigate, location.pathname]);
+  }, [user?.id, user?.isVerified, story?.id, navigate, location.pathname]);
 
   // Loading skeleton
   if (loading) {
