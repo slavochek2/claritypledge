@@ -36,6 +36,7 @@ interface DbStoryWithAuthor {
     slug: string | null;
     avatar_color: string | null;
     avatar_url: string | null;
+    ears_count: number | null;
   } | null;
 }
 
@@ -79,6 +80,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     authorSlug: row.author?.slug ?? '',
     authorAvatarColor: row.author?.avatar_color ?? '#3B82F6',
     authorAvatarUrl: row.author?.avatar_url ?? undefined,
+    authorEarsCount: row.author?.ears_count ?? 0,
   };
 }
 
@@ -173,7 +175,8 @@ export const realStoriesService: StoriesService = {
           name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          ears_count
         )
       `)
       .eq('id', storyId)

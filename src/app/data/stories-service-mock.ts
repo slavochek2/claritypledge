@@ -21,6 +21,7 @@ const mockStories: StoryWithAuthor[] = [
     authorName: 'Sarah Chen',
     authorSlug: 'sarah-chen',
     authorAvatarColor: '#3B82F6',
+    authorEarsCount: 3,
     content:
       'In a board meeting last week, I realized I had been nodding along without truly grasping the financial projections. For the first time, I said "I need you to walk me through this again." The room went quiet, then the CFO said "Thank you for asking - I think others had the same question."',
     visibility: 'public',
@@ -36,6 +37,7 @@ const mockStories: StoryWithAuthor[] = [
     authorName: 'Sarah Chen',
     authorSlug: 'sarah-chen',
     authorAvatarColor: '#3B82F6',
+    authorEarsCount: 3,
     content:
       'I used to think multitasking during calls was efficient. Then I missed a critical deadline because I "heard" the date but never actually processed it. That mistake cost us a client. Now I close my laptop during calls - every time.',
     visibility: 'public',
@@ -102,6 +104,7 @@ export const mockStoriesService: StoriesService = {
       authorName: 'You',
       authorSlug: 'me',
       authorAvatarColor: '#3B82F6',
+      authorEarsCount: 0,
     };
     // Add to mock store so getStory can find it after redirect
     mockStories.unshift(newStory);
