@@ -186,6 +186,13 @@ export function ProfilePageV2() {
     // Load stories, points, and calibration in parallel
     Promise.all([
       storiesService.getStoriesByAuthorWithPoints(profile.id),
+      // CRITICAL: Use getPointsByValidator (not getPointsWithUserPositions)
+      // - getPointsByValidator: Returns points CREATED/VALIDATED by this user
+      // - getPointsWithUserPositions: Returns points where user TOOK A POSITION
+      // Profile page should show points the user created, regardless of whether
+      // they've taken positions on them. Using getPointsWithUserPositions would
+      // show 0 points if the user hasn't positioned on their own points.
+      // See: src/tests/profile-page-v2-points-regression.test.tsx
       pointsService.getPointsByValidator(profile.id),
       calibrationService.getCalibration(profile.id),
     ]).then(async ([stories, createdPoints, calibration]) => {
