@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -349,22 +349,30 @@ function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpd
 // --- FocusPage ---
 export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWorktree }: FocusPageProps) {
   const [milestones, setMilestones] = useState<Milestone[]>([])
+  const [milestoneError, setMilestoneError] = useState<string | null>(null)
+
+  const fetchMilestones = useCallback(async () => {
+    setMilestoneError(null)
+    try {
+      const url = currentWorktree
+        ? `http://localhost:9051/api/milestones?worktree=${encodeURIComponent(currentWorktree)}`
+        : 'http://localhost:9051/api/milestones'
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      const data = await response.json()
+      setMilestones(data)
+    } catch (error) {
+      console.error('Failed to fetch milestones:', error)
+      const message = error instanceof Error ? error.message : 'Failed to load milestones'
+      setMilestoneError(message)
+    }
+  }, [currentWorktree])
 
   useEffect(() => {
-    const fetchMilestones = async () => {
-      try {
-        const url = currentWorktree
-          ? `http://localhost:9051/api/milestones?worktree=${encodeURIComponent(currentWorktree)}`
-          : 'http://localhost:9051/api/milestones'
-        const response = await fetch(url)
-        const data = await response.json()
-        setMilestones(data)
-      } catch (error) {
-        console.error('Failed to fetch milestones:', error)
-      }
-    }
     fetchMilestones()
-  }, [currentWorktree])
+  }, [fetchMilestones])
 
   const groups = useMemo(() => {
     const milestoneMap = new Map<string, Feature[]>()
@@ -410,6 +418,39 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWor
 
   return (
     <div style={{ padding: 'var(--spacing-12) var(--spacing-16)' }}>
+      {milestoneError && (
+        <div
+          style={{
+            padding: 'var(--spacing-12)',
+            marginBottom: 'var(--spacing-16)',
+            background: 'var(--status-red-bg)',
+            border: '1px solid var(--status-red-text)',
+            borderRadius: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span style={{ color: 'var(--status-red-text)', fontSize: 'var(--font-size-14)' }}>
+            {milestoneError}
+          </span>
+          <button
+            onClick={fetchMilestones}
+            style={{
+              padding: '6px 12px',
+              background: 'var(--status-red-text)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              fontSize: 'var(--font-size-12)',
+              fontWeight: 'var(--font-weight-medium)',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {groups.sortedGroups.map(([milestoneId, feats]) => {
         const milestone = milestones.find(m => m.id === milestoneId)
         return (

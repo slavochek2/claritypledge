@@ -94,27 +94,46 @@ export async function createTestUser(options: {
 
   console.log(`[TEST HELPER] Auth user created: ${authData.user.id}`);
 
-  // Create profile in database (simulating what AuthCallbackPage does)
-  const { error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .upsert({
-      id: authData.user.id,
-      email,
-      name,
-      slug,
-      role: options.role || 'Test Engineer',
-      linkedin_url: options.linkedinUrl || '',
-      reason: options.reason || 'Testing the Clarity Pledge',
-      avatar_color: '#4A90E2',
-      is_verified: true,
-    }, { onConflict: 'id' });
+  // Wait a moment for auth user to be fully committed
+  await new Promise(resolve => setTimeout(resolve, 500));
 
-  if (profileError) {
-    console.error('[TEST HELPER] Failed to create profile:', profileError);
-    throw profileError;
+  // Create profile in database (simulating what AuthCallbackPage does)
+  // Retry up to 3 times with backoff to handle race conditions
+  let profileError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: authData.user.id,
+        email,
+        name,
+        slug,
+        role: options.role || 'Test Engineer',
+        linkedin_url: options.linkedinUrl || '',
+        reason: options.reason || 'Testing the Clarity Pledge',
+        avatar_color: '#4A90E2',
+        is_verified: true,
+      }, { onConflict: 'id' });
+
+    if (!error) {
+      console.log(`[TEST HELPER] Profile created for slug: ${slug} (attempt ${attempt})`);
+      profileError = null;
+      break;
+    }
+
+    profileError = error;
+    console.warn(`[TEST HELPER] Profile creation attempt ${attempt} failed:`, error);
+
+    // Wait before retry (exponential backoff)
+    if (attempt < 3) {
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
   }
 
-  console.log(`[TEST HELPER] Profile created for slug: ${slug}`);
+  if (profileError) {
+    console.error('[TEST HELPER] Failed to create profile after 3 attempts:', profileError);
+    throw profileError;
+  }
 
   return {
     user: authData.user,
@@ -185,6 +204,32 @@ export async function setTestSession(page: Page, email: string) {
   }
 
   const { access_token, refresh_token } = data.session;
+  const userId = data.user.id;
+
+  // Verify profile exists before proceeding (retry up to 5 times)
+  let profileExists = false;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (profile && !profileError) {
+      profileExists = true;
+      console.log(`[TEST HELPER] Profile verified for user: ${userId} (attempt ${attempt})`);
+      break;
+    }
+
+    if (attempt < 5) {
+      console.warn(`[TEST HELPER] Profile not found yet, retrying... (attempt ${attempt})`);
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+  }
+
+  if (!profileExists) {
+    throw new Error(`[TEST HELPER] Profile not found after 5 attempts for user: ${userId}`);
+  }
 
   // Navigate to a page first so localStorage is available
   await page.goto('/');

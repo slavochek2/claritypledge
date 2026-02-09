@@ -40,6 +40,7 @@ import { playCelebrationSound } from '@/hooks/use-sound';
 import { ContentPicker, SessionHistoryList, SelectedContentDisplay } from './live-content-cards';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
+import { analytics } from '@/lib/mixpanel';
 
 // ============================================================================
 // P28.1: RECORDING INDICATOR (KISS: always show when session is live)
@@ -629,6 +630,10 @@ function IdleScreen({
   const [stories, setStories] = useState<StoryWithAuthor[]>([]);
   const [points, setPoints] = useState<PointWithCreator[]>([]);
   const [contentLoaded, setContentLoaded] = useState(false);
+  const [contentInteracted, setContentInteracted] = useState(false);
+
+  // Derive hasContent from state (needed for effects below)
+  const hasContent = stories.length > 0 || points.length > 0;
 
   useEffect(() => {
     if (!userId) return;
@@ -643,6 +648,17 @@ function IdleScreen({
         if (!cancelled) {
           setStories(fetchedStories);
           setPoints(fetchedPoints);
+
+          // P128: Track content picker shown (if there's content)
+          const hasAnyContent = fetchedStories.length > 0 || fetchedPoints.length > 0;
+          if (hasAnyContent) {
+            analytics.track('content_picker_shown', {
+              userId,
+              contentAvailable: true,
+              storiesCount: fetchedStories.length,
+              pointsCount: fetchedPoints.length,
+            });
+          }
         }
       } catch (err) {
         console.error('[live-mode-view] Failed to fetch content:', err);
@@ -656,7 +672,20 @@ function IdleScreen({
     return () => { cancelled = true; };
   }, [userId]);
 
-  const hasContent = stories.length > 0 || points.length > 0;
+  // P128: Track content picker dismissal on unmount (if content shown but not interacted)
+  useEffect(() => {
+    return () => {
+      if (hasContent && !contentInteracted) {
+        analytics.track('content_picker_dismissed', {
+          userId,
+          contentAvailable: true,
+          storiesCount: stories.length,
+          pointsCount: points.length,
+        });
+      }
+    };
+  }, [hasContent, contentInteracted, userId, stories.length, points.length]);
+
   const sessionHistory = liveState.sessionHistory ?? [];
 
   // Check if we have any rating data to show (from a previous round)
@@ -672,6 +701,46 @@ function IdleScreen({
   const layoutClass = showRatingDrawer || hasRatingData || hasScrollableContent
     ? CONTENT_LAYOUT
     : CONTENT_LAYOUT_CENTERED;
+
+  // P128: Track cardless mode selection when user has content but chooses free-form
+  const handleStartCheckWithTracking = () => {
+    if (hasContent) {
+      analytics.track('cardless_mode_selected', {
+        userId,
+        contentAvailable: true,
+        storiesCount: stories.length,
+        pointsCount: points.length,
+        flowType: 'check',
+      });
+      setContentInteracted(true);
+    }
+    onStartCheck();
+  };
+
+  const handleStartProveWithTracking = () => {
+    if (hasContent) {
+      analytics.track('cardless_mode_selected', {
+        userId,
+        contentAvailable: true,
+        storiesCount: stories.length,
+        pointsCount: points.length,
+        flowType: 'prove',
+      });
+      setContentInteracted(true);
+    }
+    onStartProve();
+  };
+
+  // P128: Wrap story/point selection to mark interaction
+  const handleSelectStoryWithTracking = (storyId: string, title: string) => {
+    setContentInteracted(true);
+    onSelectStory?.(storyId, title);
+  };
+
+  const handleSelectPointWithTracking = (pointId: string, title: string) => {
+    setContentInteracted(true);
+    onSelectPoint?.(pointId, title);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -702,7 +771,7 @@ function IdleScreen({
           <Button
             size="lg"
             className="bg-blue-500 hover:bg-blue-600 w-full"
-            onClick={onStartCheck}
+            onClick={handleStartCheckWithTracking}
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-check"
           >
@@ -713,7 +782,7 @@ function IdleScreen({
             variant="outline"
             size="lg"
             className="w-full"
-            onClick={onStartProve}
+            onClick={handleStartProveWithTracking}
             disabled={showRatingDrawer || waitingForPartnerToContinue}
             data-testid="start-prove"
           >
@@ -737,8 +806,8 @@ function IdleScreen({
             <ContentPicker
               stories={stories}
               points={points}
-              onSelectStory={onSelectStory}
-              onSelectPoint={onSelectPoint}
+              onSelectStory={handleSelectStoryWithTracking}
+              onSelectPoint={handleSelectPointWithTracking}
               disabled={showRatingDrawer || waitingForPartnerToContinue}
             />
           </>

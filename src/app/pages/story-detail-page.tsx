@@ -232,6 +232,11 @@ function AddPointForm({
           }
         }}
       />
+      {orphanPoint && (
+        <p className="text-sm text-amber-600">
+          Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button

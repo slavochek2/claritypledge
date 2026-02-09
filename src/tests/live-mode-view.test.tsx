@@ -540,4 +540,51 @@ describe('LiveModeView', () => {
       expect(mockHandlers.onSharePerspective).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('P128: Session History', () => {
+    it('renders session history with completed verifications', () => {
+      const stateWithHistory: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [
+          { title: 'The importance of feedback', type: 'story' },
+          { title: 'Clear communication matters', type: 'point' },
+          { title: 'Free conversation', type: 'free' },
+        ],
+      };
+
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          liveState={stateWithHistory}
+        />
+      );
+
+      // Verify all history items are rendered
+      expect(screen.getByText('The importance of feedback')).toBeInTheDocument();
+      expect(screen.getByText('Clear communication matters')).toBeInTheDocument();
+      expect(screen.getByText('Free conversation')).toBeInTheDocument();
+    });
+
+    it('does not render session history when empty', () => {
+      const stateWithEmptyHistory: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [],
+      };
+
+      renderWithRouter(
+        <LiveModeView
+          {...defaultProps}
+          liveState={stateWithEmptyHistory}
+        />
+      );
+
+      // SessionHistoryList should not be rendered when history is empty
+      expect(screen.queryByText('Session History')).not.toBeInTheDocument();
+    });
+
+    it('initializes sessionHistory as empty array in DEFAULT_LIVE_STATE', () => {
+      // Verify that DEFAULT_LIVE_STATE has sessionHistory initialized
+      expect(DEFAULT_LIVE_STATE.sessionHistory).toEqual([]);
+    });
+  });
 });

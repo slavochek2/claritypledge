@@ -14,6 +14,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-09: Tested and rejected Playwright CLI for browser automation
+
+**Context:** Investigated adding Microsoft's `@playwright/cli` as a fourth browser automation tool. Research suggested it would be more token-efficient (~10-50 tokens/cmd) than Chrome DevTools MCP (~100-500 tokens/cmd) for agent-driven automation.
+
+**Decision:** Do NOT add Playwright CLI. Keep existing three tools (Playwright Tests, Chrome DevTools MCP, Claude in Chrome).
+
+**Testing results:**
+- Installed `@playwright/cli` v0.1.0 globally
+- Ran comparative tests: `open`, `snapshot`, `click`, `eval` commands
+- **Token efficiency claim disproven:** Chrome DevTools MCP actually used FEWER tokens for simple operations (navigate: ~20 tokens vs CLI's ~56 tokens)
+- CLI creates `.playwright-cli/` directory with files (undocumented, needs .gitignore)
+- No clear advantage over existing tools
+
+**Alternatives rejected:**
+- **Add Playwright CLI anyway** — would increase complexity (3→4 tools) without proven benefit
+- **Document CLI for niche use cases** — YAGNI; no demonstrated need
+
+**Consequences:**
+- KISS principle applied: tested, measured, rejected
+- Stick with 3 browser tools; decision matrix remains simple
+- Lesson: verify efficiency claims with actual testing before adding tools
+
+**References:** Code review findings documented this testing session
+
+---
+
 ## 2026-02-09: Navigation simplification for /live sessions (P116, P128)
 
 **Context:** During P116 (story/point detail pages) and P128 (/live beginning screen), the navigation menu was streamlined to support focused /live sessions. Users in active sessions should see minimal UI to avoid distraction.

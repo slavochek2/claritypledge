@@ -166,13 +166,41 @@ export const mockStoriesService: StoriesService = {
     };
   },
 
-  async linkPointToStory(_storyId: string, _pointId: string): Promise<boolean> {
-    // Mock always succeeds
+  async linkPointToStory(storyId: string, pointId: string): Promise<boolean> {
+    // Check if already linked (prevent duplicates)
+    const existing = mockStoryPoints[storyId]?.find(p => p.id === pointId);
+    if (existing) {
+      console.warn('Point already linked to story');
+      return false;
+    }
+
+    // Create mock point (in real app, would fetch from points table)
+    const newPoint: PointSummary = {
+      id: pointId,
+      statement: `Mock point ${pointId}`,
+      context: 'Mock context for testing',
+      tags: ['mock'],
+    };
+
+    // Add to story's points
+    if (!mockStoryPoints[storyId]) {
+      mockStoryPoints[storyId] = [];
+    }
+    mockStoryPoints[storyId].push(newPoint);
     return true;
   },
 
-  async unlinkPointFromStory(_storyId: string, _pointId: string): Promise<boolean> {
-    // Mock always succeeds
+  async unlinkPointFromStory(storyId: string, pointId: string): Promise<boolean> {
+    if (!mockStoryPoints[storyId]) {
+      return false;
+    }
+
+    const index = mockStoryPoints[storyId].findIndex(p => p.id === pointId);
+    if (index === -1) {
+      return false;
+    }
+
+    mockStoryPoints[storyId].splice(index, 1);
     return true;
   },
 

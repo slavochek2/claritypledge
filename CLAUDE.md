@@ -6,6 +6,58 @@ This file provides guidance for AI agents working with code in this repository.
 
 **For agent philosophy:** See [.claude/commands/slava/PRINCIPLES.md](.claude/commands/slava/PRINCIPLES.md) — principles scale, rules don't.
 
+## Project Overview
+
+**Clarity Pledge** is a TypeScript-based web app for calibrated communication practice.
+
+**Tech stack:**
+- **Frontend:** React 19 + Vite + Tailwind CSS + Radix UI
+- **Backend:** Supabase (PostgreSQL + Auth + RLS)
+- **Testing:** Vitest (unit) + Playwright (E2E)
+- **Feature workflow:** Spec-driven (numbered features in `features/p*.md`)
+
+**Development pattern:** Read spec → implement → test → review → commit → close with `/done`
+
+Always read the full spec file (`features/p{N}_*.md`) before implementing a feature.
+
+## Before Starting Work
+
+> **Principle:** Check what already exists before building new.
+
+Before implementing ANY feature or UI component:
+
+1. **Check git history** for prior implementations:
+   ```bash
+   git log --oneline --all -- <relevant-path>
+   git log --all --grep="keyword"
+   ```
+
+2. **Search codebase** for existing components:
+   ```bash
+   grep -r "ComponentName" src/
+   ```
+
+3. **Read the feature spec completely** if working from a P-number
+
+**Why:** Multiple sessions were wasted rebuilding features that existed in git history or assuming components didn't exist when they were already built. 5 minutes checking history saves hours of redundant work.
+
+## Architecture & Implementation Style
+
+> **Principle:** Prefer simple, direct solutions over complex patterns.
+
+When presenting implementation options, lead with the simplest production-ready approach. Avoid:
+- Adapter patterns when direct migration works
+- Context-aware conditional logic when a simple check suffices
+- State-dependent architectures when straightforward state works
+- Over-abstraction for one-time operations
+
+**Good:** "Direct migration to new types is cleanest. Doing it."
+**Bad:** "We could use an adapter pattern to maintain backward compatibility..."
+
+If the user pushes back on complexity, they're right — simplify.
+
+For architecture patterns, see [docs/technical/architecture.md](docs/technical/architecture.md).
+
 ## Agent Behavior — Transparency Principle
 
 > **Principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
@@ -147,6 +199,76 @@ This isn't criticism — it's a known pattern that delays validation. The fastes
 **If you're stuck in plan mode:** Keep calling `ExitPlanMode`. Explain to the user: "I need to exit plan mode to create files. Please approve the exit."
 
 **The user exits plan mode by:** Approving the `ExitPlanMode` tool call. There is no separate user command.
+
+## Debugging
+
+### Screenshot-Driven Debugging Protocol
+
+> **Principle:** Always verify current codebase state before acting on screenshots.
+
+When the user shares a screenshot for UI debugging:
+
+1. **BEFORE making any changes:**
+   - Check current codebase state with grep/read to verify what code is actually rendering
+   - Screenshots may be stale or show code that no longer exists
+
+2. **Confirm understanding:**
+   - Describe what you think the bug is
+   - List which files you'd change
+   - Wait for confirmation
+
+3. **Make minimal changes:**
+   - Fix ONE root cause at a time
+   - Don't "fix multiple things while I'm here" — that makes rollback hard
+
+**Anti-pattern (avoid this):**
+- Analyzing screenshot content that doesn't exist in current code
+- Making too many changes at once
+- Rebuilding components from scratch instead of checking git history for working versions
+
+### Database & Supabase Debugging
+
+When diagnosing save failures or database issues, check in this order:
+
+1. **RLS policies first** — Most common cause of silent failures
+   ```sql
+   -- Check if policy exists for the operation
+   SELECT * FROM pg_policies WHERE tablename = 'your_table';
+   ```
+
+2. **Migration status** — Is the schema actually applied?
+   ```bash
+   # Check if migration exists but wasn't applied
+   ls supabase/migrations/
+   ```
+
+3. **Column existence** — Only check this after RLS + migrations ruled out
+
+**Why:** Two sessions spent significant time on wrong hypotheses (missing columns, imports) before discovering RLS policies or unapplied migrations were the actual root cause.
+
+## Git & Commits
+
+### Pre-Commit Hook Handling
+
+> **Principle:** If unrelated in-progress work causes pre-commit hooks to fail, isolate with stash.
+
+**The problem:** Pre-commit hooks run tests on the ENTIRE codebase, not just staged files. If you have unrelated in-progress work that breaks tests, your clean commit will fail.
+
+**The solution:**
+
+```bash
+# Stash unrelated changes before committing
+git stash push -m "temp: unrelated work" -- path/to/unrelated/file
+
+# Now commit your actual work
+git add path/to/actual/changes
+git commit -m "feat: your changes"
+
+# Restore unrelated work
+git stash pop
+```
+
+**When to use:** Pre-commit hooks fail due to test failures in files you didn't touch.
 
 ## Risky Operations — Worktree Protection
 

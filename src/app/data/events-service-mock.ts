@@ -15,6 +15,9 @@ import {
   type MockEvent,
 } from '@/app/prototypes/events/_archive/mock-data';
 
+// P124: Mock sub-rooms data (mutable for testing)
+const mockSubRooms: EventSubRoomWithProfiles[] = [];
+
 // Transform MockEvent to EventWithHost (same shape, just type alignment)
 function toEventWithHost(mock: MockEvent): EventWithHost {
   return {
@@ -265,25 +268,77 @@ export const mockEventsService: EventsService = {
       .map(toEventWithHost);
   },
 
-  // P124: Event Sub-Rooms (mock stubs — return empty/no-op for mock mode)
+  // P124: Event Sub-Rooms
 
-  async getEventSubRooms(_eventId: string): Promise<EventSubRoomWithProfiles[]> {
-    return [];
+  async getEventSubRooms(eventId: string): Promise<EventSubRoomWithProfiles[]> {
+    return mockSubRooms.filter(room => room.eventId === eventId);
   },
 
-  async createSubRoom(_eventId: string, _targetId: string): Promise<EventSubRoomWithProfiles | null> {
-    return null;
+  async createSubRoom(eventId: string, targetId: string): Promise<EventSubRoomWithProfiles | null> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event) return null;
+
+    // Find target attendee
+    const target = event.attendees.find(a => a.id === targetId);
+    if (!target) return null;
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 30 * 60 * 1000); // 30 min expiry
+
+    const newRoom: EventSubRoomWithProfiles = {
+      id: `subroom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      eventId,
+      sessionId: null,
+      sessionCode: null,
+      initiatorId: mockCurrentUser.id,
+      targetId,
+      status: 'pending',
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      initiatorName: mockCurrentUser.name,
+      initiatorSlug: mockCurrentUser.slug,
+      initiatorAvatarColor: mockCurrentUser.avatarColor,
+      initiatorAvatarUrl: undefined,
+      targetName: target.name,
+      targetSlug: target.slug,
+      targetAvatarColor: target.avatarColor,
+      targetAvatarUrl: undefined,
+    };
+
+    mockSubRooms.push(newRoom);
+    return newRoom;
   },
 
-  async joinSubRoom(_subRoomId: string): Promise<{ sessionCode: string } | null> {
-    return null;
+  async joinSubRoom(subRoomId: string): Promise<{ sessionCode: string } | null> {
+    const room = mockSubRooms.find(r => r.id === subRoomId);
+    if (!room) return null;
+    if (room.status !== 'pending') return null;
+
+    // Generate mock session code
+    const sessionCode = `mock-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `session-${Date.now()}`;
+
+    // Update room
+    room.status = 'active';
+    room.sessionCode = sessionCode;
+    room.sessionId = sessionId;
+
+    return { sessionCode };
   },
 
-  async cancelSubRoom(_subRoomId: string): Promise<boolean> {
+  async cancelSubRoom(subRoomId: string): Promise<boolean> {
+    const room = mockSubRooms.find(r => r.id === subRoomId);
+    if (!room) return false;
+
+    room.status = 'cancelled';
     return true;
   },
 
-  async completeSubRoom(_subRoomId: string): Promise<boolean> {
+  async completeSubRoom(subRoomId: string): Promise<boolean> {
+    const room = mockSubRooms.find(r => r.id === subRoomId);
+    if (!room) return false;
+
+    room.status = 'completed';
     return true;
   },
 };

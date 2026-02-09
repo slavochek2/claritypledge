@@ -8,6 +8,7 @@ import { useState, useMemo } from 'react';
 import { Search, CheckCircle2, BookOpen, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { StoryWithAuthor, PointWithCreator } from '@/app/types';
+import { analytics } from '@/lib/mixpanel';
 
 // ============================================================================
 // LIVE STORY CARD
@@ -91,6 +92,21 @@ export function ContentPicker({
   const totalItems = stories.length + points.length;
   const showSearch = totalItems >= 5;
 
+  // P128: Track when user starts using search
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+
+    // Track first keystroke in search (when going from empty to non-empty)
+    if (!searchQuery && newValue) {
+      analytics.track('content_search_used', {
+        storiesCount: stories.length,
+        pointsCount: points.length,
+      });
+    }
+
+    setSearchQuery(newValue);
+  };
+
   const filteredStories = useMemo(() => {
     if (!searchQuery.trim()) return stories;
     const q = searchQuery.toLowerCase();
@@ -119,7 +135,7 @@ export function ContentPicker({
             type="text"
             placeholder="Search stories and points..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             className="pl-9 text-sm"
             data-testid="content-search"
           />

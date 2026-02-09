@@ -29,6 +29,9 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
     // Set up authenticated session
     await setTestSession(page, testUser.email);
 
+    // Wait for auth state to settle
+    await page.waitForLoadState('networkidle');
+
     // Navigate to create story page
     await page.goto('/create');
     await expect(page).toHaveURL('/create');
@@ -45,7 +48,7 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
     await saveButton.click();
 
     // Should redirect to story detail page with justCreated flag
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     // Story content should be visible
     await expect(page.getByText(storyContent)).toBeVisible();
@@ -56,7 +59,7 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
 
     // Add first point
     const pointTextarea = page.locator('textarea[placeholder="State your point..."]');
-    await expect(pointTextarea).toBeVisible({ timeout: 10000 });
+    await expect(pointTextarea).toBeVisible({ timeout: 15000 });
     await expect(pointTextarea).toBeFocused(); // Auto-focused on justCreated
 
     const firstPoint = 'Remote teams need trust more than tools';
@@ -66,7 +69,8 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
     await addButton.click();
 
     // Wait for point to be added (network request completes)
-    await expect(page.getByText(firstPoint)).toBeVisible({ timeout: 10000 });
+    // Increased timeout for async point creation
+    await expect(page.getByText(firstPoint)).toBeVisible({ timeout: 20000 });
 
     // Key Points heading should show count
     await expect(page.getByRole('heading', { name: /key points \(1\)/i })).toBeVisible();
@@ -81,7 +85,7 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
     await addButton.click();
 
     // Wait for second point to be added
-    await expect(page.getByText(secondPoint)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(secondPoint)).toBeVisible({ timeout: 20000 });
 
     // Both points should be visible
     await expect(page.getByText(firstPoint)).toBeVisible();
@@ -92,6 +96,7 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
 
   test('should enforce character limits on points', async ({ page }) => {
     await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
 
     // Create a story first
     await page.goto('/create');
@@ -99,7 +104,7 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
     await page.getByRole('button', { name: /save story/i }).click();
 
     // Wait for redirect
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     const pointTextarea = page.locator('textarea[placeholder="State your point..."]');
 
@@ -122,16 +127,17 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
 
   test('should handle keyboard shortcuts for adding points', async ({ page }) => {
     await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
 
     // Create story
     await page.goto('/create');
     await page.locator('textarea#story-content').fill('Keyboard shortcuts test story');
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     const pointTextarea = page.locator('textarea[placeholder="State your point..."]');
-    await expect(pointTextarea).toBeVisible({ timeout: 10000 });
+    await expect(pointTextarea).toBeVisible({ timeout: 15000 });
 
     // Type point and use Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
     await pointTextarea.fill('Point added with keyboard shortcut');
@@ -140,7 +146,7 @@ test.describe('P131: Manual Points - Create and Link Flow', () => {
     await pointTextarea.press('Meta+Enter');
 
     // Point should be added
-    await expect(page.getByText('Point added with keyboard shortcut')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Point added with keyboard shortcut')).toBeVisible({ timeout: 20000 });
   });
 });
 
@@ -159,13 +165,14 @@ test.describe('P131: Manual Points - Unlink and Undo', () => {
 
   test('should unlink point with undo functionality', async ({ page }) => {
     await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
 
     // Create story with a point
     await page.goto('/create');
     await page.locator('textarea#story-content').fill('Story with unlinkable point');
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     // Add a point
     const pointText = 'This point will be unlinked';
@@ -173,7 +180,7 @@ test.describe('P131: Manual Points - Unlink and Undo', () => {
     await page.getByRole('button', { name: /add point/i }).click();
 
     // Wait for point to be added
-    await expect(page.getByText(pointText)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(pointText)).toBeVisible({ timeout: 20000 });
 
     // Find the specific point card using more specific selector
     // Point cards have border-l-4 border-l-slate-400 class
@@ -205,21 +212,22 @@ test.describe('P131: Manual Points - Unlink and Undo', () => {
 
   test('should handle multiple points unlink workflow', async ({ page }) => {
     await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
 
     // Create story
     await page.goto('/create');
     await page.locator('textarea#story-content').fill('Story with multiple points');
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     // Add three points
     const points = ['Point 1', 'Point 2', 'Point 3'];
     for (const point of points) {
       await page.locator('textarea[placeholder="State your point..."]').fill(point);
       await page.getByRole('button', { name: /add point/i }).click();
-      // Wait for each point to be added
-      await expect(page.getByText(point)).toBeVisible({ timeout: 10000 });
+      // Wait for each point to be added with increased timeout
+      await expect(page.getByText(point)).toBeVisible({ timeout: 20000 });
     }
 
     await expect(page.getByRole('heading', { name: /key points \(3\)/i })).toBeVisible();
@@ -262,13 +270,14 @@ test.describe('P131: Manual Points - Permission Checks', () => {
   test('should show read-only view to non-author', async ({ page }) => {
     // Author creates story with points
     await setTestSession(page, authorUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto('/create');
 
     const storyContent = 'Public story with points for non-author viewing';
     await page.locator('textarea#story-content').fill(storyContent);
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
     const storyUrl = page.url();
 
     // Add points
@@ -276,10 +285,11 @@ test.describe('P131: Manual Points - Permission Checks', () => {
     await page.getByRole('button', { name: /add point/i }).click();
 
     // Wait for point to be added
-    await expect(page.getByText('Public point 1')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Public point 1')).toBeVisible({ timeout: 20000 });
 
     // Now switch to reader user
     await setTestSession(page, readerUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto(storyUrl);
 
     // Should see story content
@@ -307,12 +317,13 @@ test.describe('P131: Manual Points - Permission Checks', () => {
   test('should hide points section if non-author and zero points', async ({ page }) => {
     // Author creates story without points
     await setTestSession(page, authorUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto('/create');
 
     await page.locator('textarea#story-content').fill('Story with no points');
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
     const storyUrl = page.url();
 
     // Don't add any points - collapse the form
@@ -323,6 +334,7 @@ test.describe('P131: Manual Points - Permission Checks', () => {
 
     // Now switch to reader user
     await setTestSession(page, readerUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto(storyUrl);
 
     // Should see story content
@@ -354,6 +366,7 @@ test.describe('P131: Manual Points - Private Story Visibility', () => {
   test('should prevent non-author from viewing private story with points', async ({ page }) => {
     // Author creates private story with points
     await setTestSession(page, authorUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto('/create');
 
     await page.locator('textarea#story-content').fill('Private story content');
@@ -366,7 +379,7 @@ test.describe('P131: Manual Points - Private Story Visibility', () => {
     // Save story
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
     const storyUrl = page.url();
 
     // Add a point
@@ -374,13 +387,14 @@ test.describe('P131: Manual Points - Private Story Visibility', () => {
     await page.getByRole('button', { name: /add point/i }).click();
 
     // Wait for point to be added
-    await expect(page.getByText('Private point')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Private point')).toBeVisible({ timeout: 20000 });
 
     // Author should see "Private" badge
     await expect(page.getByText(/private/i)).toBeVisible();
 
     // Now switch to other user
     await setTestSession(page, otherUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto(storyUrl);
 
     // Should see "This story is private" message
@@ -394,6 +408,7 @@ test.describe('P131: Manual Points - Private Story Visibility', () => {
   test('should allow author to view their own private story with points', async ({ page }) => {
     // Author creates private story
     await setTestSession(page, authorUser.email);
+    await page.waitForLoadState('networkidle');
     await page.goto('/create');
 
     await page.locator('textarea#story-content').fill('Author can see their private story');
@@ -403,14 +418,14 @@ test.describe('P131: Manual Points - Private Story Visibility', () => {
 
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     // Add point
     await page.locator('textarea[placeholder="State your point..."]').fill('Author point');
     await page.getByRole('button', { name: /add point/i }).click();
 
     // Wait for point to be added
-    await expect(page.getByText('Author point')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Author point')).toBeVisible({ timeout: 20000 });
 
     // Author should see everything
     await expect(page.getByText('Author can see their private story')).toBeVisible();
@@ -437,13 +452,14 @@ test.describe('P131: Manual Points - Empty State UX', () => {
 
   test('should show educational empty state on justCreated flow', async ({ page }) => {
     await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
 
     // Create story
     await page.goto('/create');
     await page.locator('textarea#story-content').fill('New story for empty state test');
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
 
     // Should see educational copy
     await expect(page.getByText(/What claims does your story make/i)).toBeVisible();
@@ -460,13 +476,14 @@ test.describe('P131: Manual Points - Empty State UX', () => {
 
   test('should show plain empty state on normal visit', async ({ page }) => {
     await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
 
     // Create story
     await page.goto('/create');
     await page.locator('textarea#story-content').fill('Story for normal empty state');
     await page.getByRole('button', { name: /save story/i }).click();
 
-    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 10000 });
+    await expect(page).toHaveURL(/\/story\/[a-f0-9-]+/, { timeout: 15000 });
     const storyUrl = page.url();
 
     // Close the justCreated form

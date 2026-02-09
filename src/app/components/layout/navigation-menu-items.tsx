@@ -3,9 +3,9 @@
  * @description KISS Navigation Menu Items
  *
  * THREE STATES:
- * 1. Verified user (normal) → Pledgers, Manifesto, Blog, About, Settings, Log Out
+ * 1. Verified user (normal) → Events, Pledgers, Manifesto, Blog, About, Settings, Log Out
  * 2. Active /live session → Settings, Log Out ONLY (focused mode)
- * 3. Everyone else → Pledgers, Manifesto, Blog, About, Log In, Create Account
+ * 3. Everyone else → Events, Pledgers, Manifesto, Blog, About, Log In, Create Account
  *
  * Unverified /live users see the same menu as anonymous users.
  * They can verify via /me page, email after meeting, or taking the pledge.
@@ -29,6 +29,7 @@ import {
   ScrollTextIcon,
   InfoIcon,
   BookOpenIcon,
+  CalendarIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 
@@ -46,9 +47,9 @@ interface NavigationMenuItemsProps {
 /**
  * KISS Navigation Menu Items
  *
- * - Verified user (normal): Pledgers, Manifesto, Blog, About, Settings, Log Out
+ * - Verified user (normal): Events, Pledgers, Manifesto, Blog, About, Settings, Log Out
  * - Active /live session: Settings, Log Out only (focused mode)
- * - Everyone else: Pledgers, Manifesto, Blog, About, Log In, Create Account
+ * - Everyone else: Events, Pledgers, Manifesto, Blog, About, Log In, Create Account
  */
 export function NavigationMenuItems({
   onSignOut,
@@ -77,6 +78,14 @@ export function NavigationMenuItems({
         {/* Public menu - Nav links + actions */}
         {showPublicCTAs && (
           <>
+            <Link
+              to="/events"
+              className={mobileLinkClass}
+              onClick={handleItemClick}
+            >
+              <CalendarIcon className="w-4 h-4 inline mr-2" />
+              Events
+            </Link>
             <Link
               to="/pledgers"
               className={mobileLinkClass}
@@ -147,6 +156,14 @@ export function NavigationMenuItems({
             {/* Hide navigation items during active session */}
             {!inActiveSession && (
               <>
+                <Link
+                  to="/events"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                >
+                  <CalendarIcon className="w-4 h-4 inline mr-2" />
+                  Events
+                </Link>
                 <Link
                   to="/pledgers"
                   className={mobileLinkClass}

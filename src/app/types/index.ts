@@ -648,6 +648,8 @@ export const DEFAULT_LIVE_STATE: LiveSessionState = {
   explainBackRound: 0,
   explainBackRatings: [],
   explainBackDone: false,
+  // P128: Session history (completed verifications)
+  sessionHistory: [],
 };
 
 /** Live turn record (saved to clarity_live_turns table) */

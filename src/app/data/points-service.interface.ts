@@ -66,6 +66,15 @@ export interface PointsService {
    */
   getPositionCounts(pointId: string): Promise<Record<PositionType, number>>;
 
+  /**
+   * P132: Batch fetch position counts for multiple points
+   * Returns map of pointId -> position counts
+   * More efficient than calling getPositionCounts for each point (avoids N+1)
+   */
+  getPositionCountsForPoints(
+    pointIds: string[]
+  ): Promise<Map<string, Record<PositionType, number>>>;
+
   // ============================================================================
   // READ - Positions
   // ============================================================================
@@ -92,6 +101,16 @@ export interface PointsService {
    * Get all points a user has taken positions on
    */
   getPointsWithUserPositions(userId: string): Promise<PointWithUserPosition[]>;
+
+  /**
+   * P132: Batch fetch user positions for multiple points
+   * Returns map of pointId -> position
+   * More efficient than calling getMyPosition for each point (avoids N+1)
+   */
+  getMyPositionsForPoints(
+    pointIds: string[],
+    userId: string
+  ): Promise<Map<string, PointPosition>>;
 
   // ============================================================================
   // MUTATIONS - Positions

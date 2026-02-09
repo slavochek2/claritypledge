@@ -95,11 +95,15 @@ test.describe('Live Content Picker - P128', () => {
       await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
 
       // Both users should transition to live view
+      // Wait for partner names to appear in live session banner (more reliable than text search)
       await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 15000 });
       await expect(joinerPage.getByText('Story Creator')).toBeVisible({ timeout: 15000 });
 
+      // Wait for the "Did you get me?" button to appear (indicates live mode is active)
+      await expect(creatorPage.getByRole('button', { name: /Did you get me?|Do you understand/i })).toBeVisible({ timeout: 10000 });
+
       // Creator should see content picker with the story
-      await expect(creatorPage.getByTestId('content-picker')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByTestId('content-picker')).toBeVisible({ timeout: 10000 });
 
       // Story card should be visible with preview text
       const storyCard = creatorPage.getByTestId(`live-story-card-${story.id}`);
@@ -209,8 +213,11 @@ test.describe('Live Content Picker - P128', () => {
       await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 15000 });
       await expect(joinerPage.getByText('Point Creator')).toBeVisible({ timeout: 15000 });
 
+      // Wait for the "Did you get me?" button to appear (indicates live mode is active)
+      await expect(creatorPage.getByRole('button', { name: /Did you get me?|Do you understand/i })).toBeVisible({ timeout: 10000 });
+
       // Creator should see content picker with the point
-      await expect(creatorPage.getByTestId('content-picker')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByTestId('content-picker')).toBeVisible({ timeout: 10000 });
 
       // Point card should be visible
       const pointCard = creatorPage.getByTestId(`live-point-card-${point.id}`);

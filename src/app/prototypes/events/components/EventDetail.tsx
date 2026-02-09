@@ -72,12 +72,10 @@ export function EventDetail() {
   // P124: Event sub-rooms state
   const [subRooms, setSubRooms] = useState<EventSubRoomWithProfiles[]>([]);
   const [subRoomsLoading, setSubRoomsLoading] = useState(true);
+  const [subRoomsError, setSubRoomsError] = useState<string | null>(null);
   const [showStartSessionDialog, setShowStartSessionDialog] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<EventAttendee | null>(null);
   const [isCreatingSubRoom, setIsCreatingSubRoom] = useState(false);
-
-  // Timer state for isLive auto-refresh (re-evaluates every 30s)
-  const [now, setNow] = useState(() => new Date());
 
   // Check if current user is the host
   const isHost = isLoggedIn && user && event?.hostId === user.id;
@@ -103,19 +101,21 @@ export function EventDetail() {
     }
   }, [searchParams, setSearchParams, isLoggedIn]);
 
-  // P124: Timer for isLive auto-refresh (re-evaluates every 30s)
-  useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   // P124: Fetch sub-rooms when event loads
   const eventId = event?.id;
   const fetchSubRooms = useCallback(async () => {
     if (!eventId) return;
-    const rooms = await eventsService.getEventSubRooms(eventId);
-    setSubRooms(rooms);
-    setSubRoomsLoading(false);
+    setSubRoomsLoading(true);
+    setSubRoomsError(null);
+    try {
+      const rooms = await eventsService.getEventSubRooms(eventId);
+      setSubRooms(rooms);
+    } catch (error) {
+      console.error('[EventDetail] Failed to fetch sub-rooms:', error);
+      setSubRoomsError('Failed to load sessions. Please try again.');
+    } finally {
+      setSubRoomsLoading(false);
+    }
   }, [eventId]);
 
   useEffect(() => {
@@ -188,10 +188,7 @@ export function EventDetail() {
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
 
-  // P124: Event is "live" when current time is between start and end
-  // `now` is state-based, refreshed every 30s so isLive auto-updates
-  const isLive = !isCancelled && now >= eventDate && now <= endDate;
-  // Always show sessions for non-cancelled events (MVP simplification)
+  // P124: Always show sessions for non-cancelled events (MVP simplification)
   const showSessions = !isCancelled;
 
   // P124: Handlers for sub-room creation
@@ -203,7 +200,7 @@ export function EventDetail() {
   const currentUserInSubRoom = currentUserId ? occupiedIds.has(currentUserId) : false;
 
   const handleTapParticipant = (attendee: EventAttendee) => {
-    if (!isLive || !isLoggedIn || !currentUserId) return;
+    if (!isLoggedIn || !currentUserId) return;
     if (attendee.profileId === currentUserId) return; // Can't tap yourself
     if (occupiedIds.has(attendee.profileId)) {
       toast.error(`${attendee.name} is already in a session.`);
@@ -560,31 +557,19 @@ export function EventDetail() {
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
-              {isLive && isLoggedIn && (
-                <p className="text-sm text-blue-600 mb-3">
-                  Tap someone to start a verification session
-                </p>
-              )}
               <div className="space-y-2">
                 {(event.attendees ?? []).map(attendee => {
                   const isSelf = attendee.profileId === currentUserId;
                   const isOccupied = occupiedIds.has(attendee.profileId);
-                  const canTap = isLive && isLoggedIn && !isSelf && !isOccupied && !currentUserInSubRoom;
+                  const canStartSession = isLoggedIn && !isSelf && !isOccupied && !currentUserInSubRoom;
 
-                  if (canTap) {
-                    return (
-                      <button
-                        key={attendee.profileId}
-                        onClick={() => handleTapParticipant(attendee)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleTapParticipant(attendee);
-                          }
-                        }}
-                        className="w-full text-left"
-                        aria-label={`Start session with ${attendee.name}`}
-                      >
+                  return (
+                    <div
+                      key={attendee.profileId}
+                      className="flex items-center gap-3"
+                    >
+                      {/* Profile link (always works) */}
+                      <div className="flex-1 min-w-0">
                         <PersonRow
                           profileId={attendee.profileId}
                           slug={attendee.slug}
@@ -592,39 +577,30 @@ export function EventDetail() {
                           avatarColor={attendee.avatarColor}
                           avatarUrl={attendee.avatarUrl}
                           isPledger={attendee.hasPledged}
-                          action="going"
-                          disableLinks={true}
+                          action={isPast ? "attended" : "going"}
                         />
-                      </button>
-                    );
-                  }
+                      </div>
 
-                  return (
-                    <div
-                      key={attendee.profileId}
-                      className={isOccupied && isLive ? 'opacity-50' : ''}
-                    >
-                      <PersonRow
-                        profileId={attendee.profileId}
-                        slug={attendee.slug}
-                        name={attendee.name}
-                        avatarColor={attendee.avatarColor}
-                        avatarUrl={attendee.avatarUrl}
-                        isPledger={attendee.hasPledged}
-                        action={isPast ? "attended" : "going"}
-                      />
+                      {/* Session action button */}
+                      {canStartSession && (
+                        <Button
+                          onClick={() => handleTapParticipant(attendee)}
+                          size="sm"
+                          className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                        >
+                          <span className="hidden sm:inline">Start Session</span>
+                          <span className="sm:hidden">Start</span>
+                        </Button>
+                      )}
+                      {isOccupied && (
+                        <span className="shrink-0 text-xs text-muted-foreground px-3 py-1.5">
+                          In session
+                        </span>
+                      )}
                     </div>
                   );
                 })}
               </div>
-
-              {/* P124: Edge case — all participants occupied */}
-              {isLive && isLoggedIn && (event.attendees ?? []).length > 0 &&
-                (event.attendees ?? []).every(a => a.profileId === currentUserId || occupiedIds.has(a.profileId)) && (
-                <p className="text-sm text-muted-foreground mt-3 text-center">
-                  Everyone is in a session. Wait for one to finish.
-                </p>
-              )}
             </div>
 
             {/* P124: Sessions Section — visible when event is live or after */}
@@ -636,6 +612,8 @@ export function EventDetail() {
                 <EventSessions
                   subRooms={subRooms}
                   loading={subRoomsLoading}
+                  error={subRoomsError}
+                  onRetry={fetchSubRooms}
                   currentUserId={currentUserId}
                   eventSlug={event.slug}
                 />

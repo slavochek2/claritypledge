@@ -12,11 +12,13 @@ import type { EventSubRoomWithProfiles } from '@/app/types';
 interface EventSessionsProps {
   subRooms: EventSubRoomWithProfiles[];
   loading: boolean;
+  error: string | null;
+  onRetry: () => void;
   currentUserId: string | undefined;
   eventSlug: string;
 }
 
-export function EventSessions({ subRooms, loading, currentUserId, eventSlug }: EventSessionsProps) {
+export function EventSessions({ subRooms, loading, error, onRetry, currentUserId, eventSlug }: EventSessionsProps) {
   // Client-side re-filter: the service filters at fetch time, but between fetches
   // a pending sub-room can expire by wall-clock time. This catches the delta on re-render.
   const visibleRooms = subRooms.filter(room => {
@@ -24,6 +26,21 @@ export function EventSessions({ subRooms, loading, currentUserId, eventSlug }: E
     if (room.status === 'pending' && new Date(room.expiresAt) < new Date()) return false;
     return true;
   });
+
+  // Check error first - it takes priority over loading
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+        <p className="text-sm text-red-600">{error}</p>
+        <button
+          onClick={onRetry}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -140,17 +157,40 @@ function SessionRow({
 function JoinButton({ subRoomId, eventSlug }: { subRoomId: string; eventSlug: string }) {
   const navigate = useNavigate();
   const [joining, setJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleJoin = async () => {
     setJoining(true);
-    const result = await eventsService.joinSubRoom(subRoomId);
-    if (result) {
-      navigate(`/live?code=${result.sessionCode}&returnTo=/events/${eventSlug}`);
-    } else {
-      toast.error('Could not join session. It may have expired or been cancelled.');
+    setError(null);
+    try {
+      const result = await eventsService.joinSubRoom(subRoomId);
+      if (result) {
+        navigate(`/live?code=${result.sessionCode}&returnTo=/events/${eventSlug}`);
+      } else {
+        setError('Session expired or cancelled');
+        setJoining(false);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Network error. Please try again.';
+      setError(message);
       setJoining(false);
     }
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-red-600">{error}</span>
+        <button
+          onClick={handleJoin}
+          className="px-3 py-1 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors"
+          aria-label="Retry joining session"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <button
@@ -180,12 +220,36 @@ function RejoinButton({ sessionCode, eventSlug }: { sessionCode: string; eventSl
 
 function CancelButton({ subRoomId }: { subRoomId: string }) {
   const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleCancel = async () => {
     setCancelling(true);
-    await eventsService.cancelSubRoom(subRoomId);
-    setCancelling(false);
+    setError(null);
+    try {
+      await eventsService.cancelSubRoom(subRoomId);
+      setCancelling(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to cancel';
+      setError(message);
+      toast.error(message);
+      setCancelling(false);
+    }
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-red-600">{error}</span>
+        <button
+          onClick={handleCancel}
+          className="px-3 py-1 text-sm text-muted-foreground hover:text-red-600 transition-colors"
+          aria-label="Retry cancel"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <button

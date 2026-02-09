@@ -243,6 +243,35 @@ export const mockPointsService: PointsService = {
     return points.filter((p): p is PointWithUserPosition => p !== null);
   },
 
+  async getPositionCountsForPoints(
+    pointIds: string[]
+  ): Promise<Map<string, Record<PositionType, number>>> {
+    const countsMap = new Map<string, Record<PositionType, number>>();
+
+    for (const pointId of pointIds) {
+      const counts = await this.getPositionCounts(pointId);
+      countsMap.set(pointId, counts);
+    }
+
+    return countsMap;
+  },
+
+  async getMyPositionsForPoints(
+    pointIds: string[],
+    userId: string
+  ): Promise<Map<string, PointPosition>> {
+    const positionsMap = new Map<string, PointPosition>();
+
+    for (const pointId of pointIds) {
+      const position = await this.getMyPosition(pointId, userId);
+      if (position) {
+        positionsMap.set(pointId, position);
+      }
+    }
+
+    return positionsMap;
+  },
+
   async setPosition(
     _pointId: string,
     _userId: string,

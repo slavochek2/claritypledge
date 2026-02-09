@@ -426,3 +426,4 @@ Remaining issues (not fixed):
 - `/slava:ux` — UX review perspective (standalone)
 - `/bmad:bmm:workflows:code-review` — Adversarial code review (standalone)
 - `/finishing-a-development-branch` — VCS workflow (merge/PR)
+- `/slava:ship` — Full pipeline (review → fix → commit → close) if you want to ship after reviewing

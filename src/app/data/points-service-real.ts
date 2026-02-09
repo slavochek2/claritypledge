@@ -493,6 +493,96 @@ export const realPointsService: PointsService = {
     return points.filter((p): p is PointWithUserPosition => p !== null);
   },
 
+  /**
+   * P132: Batch fetch position counts for multiple points
+   * More efficient than N individual queries
+   */
+  async getPositionCountsForPoints(
+    pointIds: string[]
+  ): Promise<Map<string, Record<PositionType, number>>> {
+    log('⚡ getPositionCountsForPoints:', { pointIds });
+
+    if (pointIds.length === 0) {
+      return new Map();
+    }
+
+    // Single query to get all positions for these points
+    const { data: positions, error } = await supabase
+      .from('point_positions')
+      .select('point_id, position')
+      .in('point_id', pointIds);
+
+    if (error) {
+      log('ERROR: getPositionCountsForPoints error:', error);
+      return new Map();
+    }
+
+    // Group and count positions by point
+    const countsMap = new Map<string, Record<PositionType, number>>();
+
+    // Initialize all points with zero counts
+    pointIds.forEach((pointId) => {
+      const zeroCounts = Object.fromEntries(
+        ALL_POSITIONS.map((pos) => [pos, 0])
+      ) as Record<PositionType, number>;
+      countsMap.set(pointId, zeroCounts);
+    });
+
+    // Aggregate counts
+    positions?.forEach((row) => {
+      const pointCounts = countsMap.get(row.point_id);
+      if (pointCounts && row.position) {
+        pointCounts[row.position]++;
+      }
+    });
+
+    return countsMap;
+  },
+
+  /**
+   * P132: Batch fetch user positions for multiple points
+   * More efficient than N individual queries
+   */
+  async getMyPositionsForPoints(
+    pointIds: string[],
+    userId: string
+  ): Promise<Map<string, PointPosition>> {
+    log('⚡ getMyPositionsForPoints:', { pointIds, userId });
+
+    if (pointIds.length === 0) {
+      return new Map();
+    }
+
+    // Single query to get user's positions on these points
+    const { data: positions, error } = await supabase
+      .from('point_positions')
+      .select('*')
+      .in('point_id', pointIds)
+      .eq('user_id', userId);
+
+    if (error) {
+      log('ERROR: getMyPositionsForPoints error:', error);
+      return new Map();
+    }
+
+    // Map positions by point_id
+    const positionsMap = new Map<string, PointPosition>();
+
+    positions?.forEach((row) => {
+      positionsMap.set(row.point_id, {
+        id: row.id,
+        pointId: row.point_id,
+        userId: row.user_id,
+        position: row.position,
+        reasoning: row.reasoning ?? undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      });
+    });
+
+    return positionsMap;
+  },
+
   // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================
