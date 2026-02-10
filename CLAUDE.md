@@ -313,7 +313,41 @@ Full guide: [feature-specs.md](docs/technical/feature-specs.md#file-locations)
 
 ### Feature File Format
 
-All features need `status` in frontmatter: `backlog | week | today | in-progress | blocked | done`
+**CRITICAL:** When creating ANY feature/bug file in `features/`, ALWAYS include frontmatter.
+
+**Minimum required frontmatter:**
+```yaml
+---
+status: backlog | week | today | in-progress | blocked | done
+type: feature | bug | task        # optional but recommended
+priority: p0 | p1 | p2 | p3       # optional
+tags: [tag1, tag2]                # optional
+---
+```
+
+**For bugs, add:**
+```yaml
+severity: low | medium | high | critical
+date_reported: YYYY-MM-DD
+date_resolved: YYYY-MM-DD         # when fixed
+root_cause: brief description     # after resolution
+```
+
+**Quick template:**
+```markdown
+---
+status: week
+type: feature
+---
+
+# P{N}: Title
+
+## Problem
+...
+
+## Solution
+...
+```
 
 Full format & lifecycle: [feature-specs.md](docs/technical/feature-specs.md)
 
