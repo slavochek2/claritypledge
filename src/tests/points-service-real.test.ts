@@ -321,39 +321,35 @@ describe('realPointsService', () => {
 
   describe('setPosition', () => {
     it('upserts position successfully', async () => {
-      // Mock UPDATE attempt (succeeds and finds rows)
-      mockUpdate.mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({
-              data: [{ point_id: 'point-1', user_id: 'user-1', position: 'agree' }],
-              error: null
-            }),
-          }),
-        }),
+      // Mock upsert (succeeds)
+      mockUpsert.mockResolvedValue({
+        data: { point_id: 'point-1', user_id: 'user-1', position: 'agree' },
+        error: null
       });
 
       const result = await realPointsService.setPosition('point-1', 'user-1', 'agree', 'I think so');
 
       expect(result).toBe(true);
       expect(mockFrom).toHaveBeenCalledWith('point_positions');
+      expect(mockUpsert).toHaveBeenCalledWith(
+        {
+          point_id: 'point-1',
+          user_id: 'user-1',
+          position: 'agree',
+          reasoning: 'I think so',
+        },
+        {
+          onConflict: 'point_id,user_id',
+        }
+      );
     });
 
     it('returns false on error', async () => {
-      // Mock UPDATE attempt (finds no rows) - will fall back to INSERT
-      mockUpdate.mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            select: vi.fn().mockResolvedValue({
-              data: [],
-              error: null
-            }),
-          }),
-        }),
+      // Mock upsert (fails with RLS violation)
+      mockUpsert.mockResolvedValue({
+        data: null,
+        error: { message: 'RLS violation' }
       });
-
-      // Mock INSERT attempt (also fails) - both must fail for setPosition to return false
-      mockInsert.mockResolvedValue({ error: { message: 'RLS violation' } });
 
       const result = await realPointsService.setPosition('point-1', 'user-1', 'agree');
 
