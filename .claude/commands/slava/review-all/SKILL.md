@@ -19,12 +19,12 @@ No parameters needed. The skill:
 
 1. **Identify scope** — What changed? (git diff)
 2. **Auto-find specs** — Match branch name/commits to `features/p*.md`
-3. **Spawn 4 review agents IN PARALLEL:**
+3. **Phase 1 (parallel):** Spawn 3 review agents:
    - Design Audit (visual consistency, buttons, states)
    - Code Review (architecture, patterns, security)
    - UX Review (user impact, missing states, errors)
-   - **Visual Verification** (browser testing with Chrome DevTools)
-4. **Wait for all to complete**
+4. **Phase 2 (sequential):** Spawn Visual Verification agent:
+   - Browser testing with Chrome DevTools MCP (runs alone to avoid MCP contention)
 5. **Consolidate findings** into prioritized report
 6. **Present to user** — you decide what to fix
 
@@ -110,18 +110,25 @@ Which option?
 
 **User picks an option** → proceed to Step 2
 
-### Step 2: Spawn Parallel Review Agents
+### Step 2: Spawn Review Agents (Two Phases)
 
-Launch ALL FOUR agents in a SINGLE message using the Task tool (parallel execution).
+**Phase 1 (Parallel):** Launch Design Audit + Code Review + UX Review in a SINGLE message using the Task tool.
 
-**Execution pattern:** Use the Task tool with `subagent_type: general-purpose` for each agent. Send all four Task tool calls in ONE message to run them in parallel. Example:
+**Execution pattern:** Use the Task tool with `subagent_type: general-purpose` for each agent. Send all three Task tool calls in ONE message to run them in parallel. Example:
 
 ```
 Task(description="Design audit", subagent_type="general-purpose", prompt="...")
 Task(description="Code review", subagent_type="general-purpose", prompt="...")
 Task(description="UX review", subagent_type="general-purpose", prompt="...")
+```
+
+**Phase 2 (Sequential):** After Phase 1 completes, launch Visual Verification alone:
+
+```
 Task(description="Visual verification", subagent_type="general-purpose", prompt="...")
 ```
+
+**Why sequential?** Browser automation tools (Chrome DevTools MCP, Playwright) support single-session only. Running visual verification after other reviews prevents MCP resource contention.
 
 **Timeout handling:** If any agent takes >3 minutes, proceed with partial results. Note which review was skipped in the final report.
 

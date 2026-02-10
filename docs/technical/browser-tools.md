@@ -169,6 +169,35 @@ Requires: claude --chrome (user must be logged in)
 
 ---
 
+## Concurrency Constraints
+
+**Browser automation tools support single-session use only.**
+
+When orchestrating multiple agents (e.g., `/review-all` spawning 4 parallel agents), only one agent can use browser tools at a time.
+
+**Why:** Chrome DevTools MCP, Playwright MCP, and Claude in Chrome are designed for single-agent precision testing. They cannot handle concurrent connections from multiple agents.
+
+**Symptoms of concurrent use:**
+- "MCP server busy" errors
+- Port conflicts
+- Session corruption
+- Visible browser windows popping up unexpectedly
+- Agents timing out waiting for browser access
+
+**Solution: Sequential boundaries**
+- ✅ **Parallel:** Code review, static analysis, file operations (no browser needed)
+- ❌ **Sequential required:** Visual verification, E2E tests, browser automation
+
+**Pattern:**
+```
+Phase 1 (Parallel): Design Audit + Code Review + UX Review
+Phase 2 (Sequential): Visual Verification (runs alone, owns the browser)
+```
+
+This ensures browser tools are never contended.
+
+---
+
 ## Troubleshooting
 
 **Chrome DevTools "browser already running":**
