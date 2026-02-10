@@ -1,44 +1,171 @@
 /**
  * @file live-content-cards.tsx
  * @description P128: Lightweight story/point cards for /live beginning screen content picker.
- * Uses production types (StoryWithAuthor, PointWithCreator).
+ * P133: Enhanced with inline expansion pattern + rich cards (avatar, metadata)
+ * Uses production types (StoryWithPoints, PointWithCreator).
  * Design reference: prototype at src/app/prototypes/linkedin-like/components/
  */
 import { useState, useMemo } from 'react';
-import { Search, CheckCircle2, BookOpen, MessageSquare } from 'lucide-react';
+import { Search, CheckCircle2, BookOpen, MessageSquare, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import type { StoryWithAuthor, PointWithCreator } from '@/app/types';
+import { Button } from '@/components/ui/button';
+import type { StoryWithAuthor, StoryWithPoints, PointWithCreator } from '@/app/types';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
+import { getFirstName, RatingButtons } from './shared';
 
 // ============================================================================
-// LIVE STORY CARD
+// LIVE STORY CARD (P133: Enhanced with inline expansion)
 // ============================================================================
 
 interface LiveStoryCardProps {
-  story: StoryWithAuthor;
-  onSelect: (storyId: string, label: string) => void;
+  story: StoryWithPoints;
+  partnerName: string;
+  isExpanded: boolean;
+  isSubmitting: boolean;
+  selectedRating: number | null;
+  error?: string;
+  onExpand: () => void;
+  onRatingSelect: (rating: number) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  onRetry?: () => void;
   disabled?: boolean;
 }
 
-export function LiveStoryCard({ story, onSelect, disabled }: LiveStoryCardProps) {
-  // Truncate content preview to ~100 chars
+export function LiveStoryCard({
+  story,
+  partnerName,
+  isExpanded,
+  isSubmitting,
+  selectedRating,
+  error,
+  onExpand,
+  onRatingSelect,
+  onSubmit,
+  onCancel,
+  onRetry,
+  disabled
+}: LiveStoryCardProps) {
+  const linkedPointsCount = story.points.length;
+  const partnerFirstName = getFirstName(partnerName);
+
+  // Truncate content preview to 2 lines (~100 chars) when collapsed
   const preview = story.content.length > 100
     ? story.content.slice(0, 100).trimEnd() + '…'
     : story.content;
 
+  // Collapsed state
+  if (!isExpanded) {
+    return (
+      <button
+        type="button"
+        onClick={onExpand}
+        disabled={disabled || isSubmitting}
+        className="w-full text-left bg-card rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        data-testid={`live-story-card-${story.id}`}
+      >
+        {/* Avatar + Story Preview */}
+        <div className="flex gap-3 mb-3">
+          <GravatarAvatar
+            name={story.authorName}
+            size="sm"
+            avatarColor={story.authorAvatarColor}
+            photoUrl={story.authorAvatarUrl}
+            isPledger={!!story.authorEarsCount}
+          />
+          <p className="text-sm font-medium text-foreground line-clamp-2 flex-1">{preview}</p>
+        </div>
+
+        {/* Metadata Row */}
+        <p className="text-xs text-muted-foreground mb-3">
+          {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked · {story.understoodCount} understood
+        </p>
+
+        {/* CTA Button (visual emphasis, entire card is clickable) */}
+        <div className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md text-center transition-colors">
+          Does {partnerFirstName} understand your story?
+        </div>
+      </button>
+    );
+  }
+
+  // Expanded state
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(story.id, preview)}
-      disabled={disabled}
-      className="w-full text-left bg-card rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-      data-testid={`live-story-card-${story.id}`}
+    <div
+      className="w-full bg-card rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4"
+      data-testid={`live-story-card-${story.id}-expanded`}
     >
-      <p className="text-sm font-medium text-foreground line-clamp-2">{preview}</p>
-      <p className="text-xs text-muted-foreground mt-2">
-        {story.understoodCount} understood
+      {/* Avatar + Full Story Text (scrollable if long) */}
+      <div className="flex gap-3 mb-3">
+        <GravatarAvatar
+          name={story.authorName}
+          size="sm"
+          avatarColor={story.authorAvatarColor}
+          photoUrl={story.authorAvatarUrl}
+          isPledger={!!story.authorEarsCount}
+        />
+        <div className="flex-1 max-h-[200px] overflow-y-auto">
+          <p className="text-sm font-medium text-foreground">{story.content}</p>
+        </div>
+      </div>
+
+      {/* Metadata (show points only when expanded) */}
+      <p className="text-xs text-muted-foreground mb-4">
+        {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked
       </p>
-    </button>
+
+      {/* Divider */}
+      <div className="border-t border-border my-4" />
+
+      {/* Rating UI (sticky on mobile) */}
+      <div className="sticky bottom-0 bg-card pt-2">
+        {/* Rating Question */}
+        <p className="text-sm font-medium text-foreground mb-3">
+          How much do you believe {partnerFirstName} understands your story?
+        </p>
+
+        {/* Rating Buttons */}
+        <div className="mb-4">
+          <RatingButtons
+            selectedRating={selectedRating}
+            onSelectRating={onRatingSelect}
+            disabled={isSubmitting}
+          />
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-sm text-red-700">⚠️ {error}</p>
+          </div>
+        )}
+
+        {/* Submit Button */}
+        <Button
+          onClick={error ? onRetry : onSubmit}
+          disabled={selectedRating === null || (isSubmitting && !error)}
+          className="w-full mb-2"
+          data-testid="submit-story-rating"
+        >
+          {isSubmitting && !error && (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          )}
+          {error ? 'Retry' : 'Submit Rating'}
+        </Button>
+
+        {/* Cancel Button */}
+        <Button
+          variant="ghost"
+          onClick={onCancel}
+          disabled={isSubmitting && !error}
+          className="w-full"
+          data-testid="cancel-story-rating"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -74,9 +201,10 @@ export function LivePointCard({ point, onSelect, disabled }: LivePointCardProps)
 // ============================================================================
 
 interface ContentPickerProps {
-  stories: StoryWithAuthor[];
+  stories: StoryWithPoints[];
   points: PointWithCreator[];
-  onSelectStory: (storyId: string, title: string) => void;
+  partnerName: string;
+  onSelectStory: (storyId: string, title: string, rating: number) => void;
   onSelectPoint: (pointId: string, title: string) => void;
   disabled?: boolean;
 }
@@ -84,6 +212,7 @@ interface ContentPickerProps {
 export function ContentPicker({
   stories,
   points,
+  partnerName,
   onSelectStory,
   onSelectPoint,
   disabled,
@@ -91,6 +220,55 @@ export function ContentPicker({
   const [searchQuery, setSearchQuery] = useState('');
   const totalItems = stories.length + points.length;
   const showSearch = totalItems >= 5;
+
+  // P133: State management for inline expansion
+  const [expandedStoryId, setExpandedStoryId] = useState<string | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [submissionState, setSubmissionState] = useState<{
+    status: 'idle' | 'submitting' | 'error';
+    storyId: string | null;
+    error?: string;
+  }>({ status: 'idle', storyId: null });
+
+  // P133: Handlers for inline expansion
+  const handleExpand = (storyId: string) => {
+    // Radio pattern: expanding one card auto-collapses others
+    setExpandedStoryId(storyId);
+    setSelectedRating(null); // Clear any prior selection
+    setSubmissionState({ status: 'idle', storyId: null }); // Clear any errors
+  };
+
+  const handleCancel = () => {
+    setExpandedStoryId(null);
+    setSelectedRating(null);
+    setSubmissionState({ status: 'idle', storyId: null });
+  };
+
+  const handleSubmit = async (storyId: string) => {
+    // Guard: Don't allow submission while another is in progress
+    if (submissionState.status === 'submitting' || selectedRating === null) return;
+
+    const story = stories.find(s => s.id === storyId);
+    if (!story) return;
+
+    setSubmissionState({ status: 'submitting', storyId });
+
+    try {
+      // Use preview text (first 100 chars) as the label
+      const preview = story.content.length > 100
+        ? story.content.slice(0, 100).trimEnd() + '…'
+        : story.content;
+
+      await onSelectStory(storyId, preview, selectedRating);
+      // Success: card will be replaced by StoryCardPreview in next phase
+    } catch (error) {
+      setSubmissionState({
+        status: 'error',
+        storyId,
+        error: error instanceof Error ? error.message : 'Failed to submit. Check network.',
+      });
+    }
+  };
 
   // P128: Track when user starts using search
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,8 +337,17 @@ export function ContentPicker({
             <LiveStoryCard
               key={story.id}
               story={story}
-              onSelect={onSelectStory}
-              disabled={disabled}
+              partnerName={partnerName}
+              isExpanded={expandedStoryId === story.id}
+              isSubmitting={submissionState.status === 'submitting' && submissionState.storyId === story.id}
+              selectedRating={expandedStoryId === story.id ? selectedRating : null}
+              error={submissionState.storyId === story.id ? submissionState.error : undefined}
+              onExpand={() => handleExpand(story.id)}
+              onRatingSelect={setSelectedRating}
+              onSubmit={() => handleSubmit(story.id)}
+              onCancel={handleCancel}
+              onRetry={() => handleSubmit(story.id)}
+              disabled={disabled || (submissionState.status === 'submitting' && submissionState.storyId !== story.id)}
             />
           ))}
         </div>
@@ -230,7 +417,82 @@ export function SessionHistoryList({ history, className = '' }: SessionHistoryLi
 }
 
 // ============================================================================
-// SELECTED CONTENT DISPLAY (shown during rating screens)
+// STORY CARD PREVIEW (P133: Rich persistent card for flow)
+// ============================================================================
+
+interface StoryCardPreviewProps {
+  story: StoryWithPoints;
+  showLinkedPoints?: boolean;
+}
+
+/**
+ * P133: Rich story card preview shown throughout the verification flow.
+ * Replaces SelectedContentDisplay with avatar + metadata.
+ */
+export function StoryCardPreview({ story, showLinkedPoints = true }: StoryCardPreviewProps) {
+  const linkedPointsCount = story.points.length;
+
+  // Truncate to 2 lines
+  const preview = story.content.length > 100
+    ? story.content.slice(0, 100).trimEnd() + '…'
+    : story.content;
+
+  return (
+    <div
+      className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-blue-500 border border-border shadow-sm p-4"
+      data-testid="story-card-preview"
+    >
+      {/* Avatar + Story Preview */}
+      <div className="flex gap-3">
+        <GravatarAvatar
+          name={story.authorName}
+          size="sm"
+          avatarColor={story.authorAvatarColor}
+          photoUrl={story.authorAvatarUrl}
+          isPledger={!!story.authorEarsCount}
+        />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-foreground line-clamp-2">{preview}</p>
+        </div>
+      </div>
+
+      {/* Metadata (optional linked points count) */}
+      {showLinkedPoints && (
+        <p className="text-xs text-muted-foreground mt-3">
+          {linkedPointsCount} {linkedPointsCount === 1 ? 'point' : 'points'} linked
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// POINT CARD PREVIEW (P133: For consistency with story preview)
+// ============================================================================
+
+interface PointCardPreviewProps {
+  point: PointWithCreator;
+}
+
+/**
+ * P133: Point card preview shown throughout the verification flow.
+ */
+export function PointCardPreview({ point }: PointCardPreviewProps) {
+  return (
+    <div
+      className="w-full max-w-sm bg-card rounded-lg border-l-4 border-l-muted-foreground/50 border border-border shadow-sm p-4"
+      data-testid="point-card-preview"
+    >
+      <p className="text-sm font-semibold text-foreground">{point.statement}</p>
+      {point.context && (
+        <p className="text-xs text-muted-foreground mt-2">{point.context}</p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// SELECTED CONTENT DISPLAY (DEPRECATED - kept for backwards compatibility)
 // ============================================================================
 
 interface SelectedContentDisplayProps {
@@ -239,6 +501,7 @@ interface SelectedContentDisplayProps {
 }
 
 /**
+ * @deprecated Use StoryCardPreview and PointCardPreview instead (P133)
  * Shows the selected story/point card during the verification flow
  * so both users see what's being verified.
  */

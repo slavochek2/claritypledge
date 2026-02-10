@@ -217,6 +217,30 @@ export function ProfilePageV2() {
           .select('point_id, story_id')
           .in('point_id', pointIds);
 
+        // P134: Type definitions for adapted prototype format
+        interface AdaptedPosition {
+          position: string;
+          timestamp: string;
+        }
+        interface AdaptedStory {
+          id: string;
+          text: string;
+          authorId: string;
+          createdAt: string;
+          visibility: 'public';
+          verificationCount: number;
+          tags: string[];
+          linkedPointIds: string[];
+        }
+        interface AdaptedPoint {
+          id: string;
+          text: string;
+          createdAt: string;
+          positions: Record<string, AdaptedPosition>;
+          linkedStoryIds: string[];
+          linkedStories: AdaptedStory[];
+        }
+
         // Build map: point_id → story_ids[]
         const linksByPoint = new Map<string, string[]>();
         (pointLinks || []).forEach(link => {
@@ -226,9 +250,9 @@ export function ProfilePageV2() {
         });
 
         // P134: Adapt points to prototype format with linked stories
-        const adaptedPoints = validPoints.map(point => {
+        const adaptedPoints: AdaptedPoint[] = validPoints.map(point => {
           const linkedStoryIds = linksByPoint.get(point.id) || [];
-          const positions: Record<string, any> = {};
+          const positions: Record<string, AdaptedPosition> = {};
 
           // Add profile owner's position if it exists
           if (point.userPosition) {
@@ -254,7 +278,7 @@ export function ProfilePageV2() {
                 linkedPointIds: story.points?.map(p => p.id) || [],
               };
             })
-            .filter((s): s is any => s !== null);
+            .filter((s): s is AdaptedStory => s !== null);
 
           return {
             id: point.id,
@@ -266,7 +290,7 @@ export function ProfilePageV2() {
           };
         });
 
-        setRealPoints(adaptedPoints as any);
+        setRealPoints(adaptedPoints);
       } else {
         setRealPoints(validPoints);
       }
@@ -656,19 +680,19 @@ export function ProfilePageV2() {
                   <p className="text-muted-foreground">No positions taken yet</p>
                 </div>
               ) : (
-                userPoints.map((point) => (
+                userPoints.map((point: AdaptedPoint) => (
                   <PointCardWithLinks
                     key={point.id}
-                    point={point as any}
-                    linkedStories={(point as any).linkedStories || []}
+                    point={point}
+                    linkedStories={point.linkedStories || []}
                     profileOwner={{
                       id: profile.id,
                       name: profile.name,
                       hasPledged: profile.hasPledged,
                       ear: credibilityStats.ear,
-                      position: (point as any).positions?.[profile.id]?.position || null,
+                      position: point.positions?.[profile.id]?.position || null,
                     }}
-                    getPointPositionCounts={(p: any) => {
+                    getPointPositionCounts={(p: AdaptedPoint) => {
                       // Count positions from the positions Record
                       const counts = {
                         strongly_agree: 0,
@@ -679,7 +703,7 @@ export function ProfilePageV2() {
                         disagree: 0,
                         strongly_disagree: 0,
                       };
-                      Object.values(p.positions || {}).forEach((entry: any) => {
+                      Object.values(p.positions || {}).forEach((entry: AdaptedPosition) => {
                         if (entry?.position) {
                           counts[entry.position as keyof typeof counts] = (counts[entry.position as keyof typeof counts] || 0) + 1;
                         }
@@ -994,6 +1018,7 @@ interface PointCardFullProps {
   credibilityStats: { ear: number; mic: number };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PointCardFull({
   point,
   profileOwner,

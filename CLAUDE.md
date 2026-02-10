@@ -182,7 +182,7 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
-**Frontmatter required:** All feature files MUST have YAML frontmatter with at minimum a `status` field. See [feature-specs.md](docs/technical/feature-specs.md) for complete format and lifecycle, or use `/slava:build:create-feature` skill.
+**Creating features/bugs:** MUST use `/slava:build:create-feature` skill (ensures correct frontmatter, P-number, priority). Do NOT create files manually. See [feature-specs.md](docs/technical/feature-specs.md) for format details.
 
 When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?" Never auto-create. If user declines, don't ask again that session. When done, update to `status: done`.
 

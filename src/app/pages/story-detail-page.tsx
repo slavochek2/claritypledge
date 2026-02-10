@@ -501,7 +501,6 @@ export function StoryDetailPage() {
 
         // P132: Fetch position data for linked points
         if (data.points.length > 0) {
-          setPositionLoading(true);
           try {
             const pointIds = data.points.map(p => p.id);
 
@@ -516,8 +515,6 @@ export function StoryDetailPage() {
           } catch (err) {
             console.error('Error loading position data:', err);
             // Non-fatal - show story without position data
-          } finally {
-            setPositionLoading(false);
           }
         }
       } catch (err) {

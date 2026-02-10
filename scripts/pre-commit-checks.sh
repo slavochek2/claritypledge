@@ -27,8 +27,18 @@ else
 fi
 echo ""
 
-# 2. TypeScript / Build
-echo ">>> Running build (TypeScript check)..."
+# 2. TypeScript Check (explicit)
+echo ">>> Running TypeScript check..."
+if npx tsc --noEmit; then
+    echo -e "${GREEN}✓ TypeScript passed${NC}"
+else
+    echo -e "${RED}✗ TypeScript errors found${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+echo ""
+
+# 3. Build
+echo ">>> Running build..."
 if npm run build; then
     echo -e "${GREEN}✓ Build passed${NC}"
 else
@@ -37,7 +47,7 @@ else
 fi
 echo ""
 
-# 3. Tests
+# 4. Tests
 echo ">>> Running tests..."
 if npm test; then
     echo -e "${GREEN}✓ Tests passed${NC}"
@@ -47,7 +57,7 @@ else
 fi
 echo ""
 
-# 4. Secrets scan (using gitleaks if available, fallback to grep)
+# 5. Secrets scan (using gitleaks if available, fallback to grep)
 echo ">>> Scanning for secrets..."
 if command -v gitleaks &> /dev/null; then
     # Use gitleaks for comprehensive secret detection
@@ -88,7 +98,7 @@ else
 fi
 echo ""
 
-# 5. Bundle size check
+# 6. Bundle size check
 echo ">>> Checking bundle size..."
 if [ -d "dist" ]; then
     BUNDLE_SIZE=$(du -sm dist | cut -f1)
@@ -104,7 +114,7 @@ else
 fi
 echo ""
 
-# 6. Console.log check (in staged files)
+# 7. Console.log check (in staged files)
 echo ">>> Checking for console.log..."
 if [ -n "$STAGED_FILES" ]; then
     # Filter to only .ts and .tsx files
@@ -126,7 +136,7 @@ else
 fi
 echo ""
 
-# 7. TODO/FIXME check (in diff)
+# 8. TODO/FIXME check (in diff)
 echo ">>> Checking for new TODOs/FIXMEs..."
 NEW_TODOS=$(git diff --cached 2>/dev/null | grep -E '^\+.*(/[/*]|#)\s*(TODO|FIXME|XXX|HACK)' || true)
 if [ -n "$NEW_TODOS" ]; then
@@ -138,7 +148,7 @@ else
 fi
 echo ""
 
-# 8. @ts-ignore / @ts-expect-error check (in staged files)
+# 9. @ts-ignore / @ts-expect-error check (in staged files)
 echo ">>> Checking for TypeScript escape hatches..."
 if [ -n "$TS_FILES" ]; then
     TS_IGNORES=$(echo "$TS_FILES" | xargs grep -n '@ts-ignore\|@ts-expect-error\|@ts-nocheck' 2>/dev/null || true)
@@ -154,7 +164,7 @@ else
 fi
 echo ""
 
-# 9. debugger statement check (in staged files)
+# 10. debugger statement check (in staged files)
 echo ">>> Checking for debugger statements..."
 if [ -n "$TS_FILES" ]; then
     DEBUGGERS=$(echo "$TS_FILES" | xargs grep -n '^\s*debugger' 2>/dev/null || true)
@@ -170,7 +180,7 @@ else
 fi
 echo ""
 
-# 10. Check for 'any' type in new code (stricter type safety)
+# 11. Check for 'any' type in new code (stricter type safety)
 echo ">>> Checking for new 'any' types..."
 if [ -n "$STAGED_FILES" ]; then
     # Only check staged TypeScript files, excluding test files
