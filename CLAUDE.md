@@ -99,9 +99,9 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 ---
 
-### Working Style — Founder Pattern
+### Working Style — Overintellectualization Pattern
 
-> **Pattern to watch:** When facing uncertainty, the founder tends to expand scope (add features, explore adjacent ideas) as a way to create false certainty.
+> **Pattern to watch:** When facing uncertainty, the founder overintellectualizes — expanding scope (adding features, exploring adjacent ideas) as a way to create false certainty.
 
 **If you notice:** Lots of "what about X?" questions, adding features before validating current hypothesis, exploring adjacent markets before proving the current one.
 
@@ -129,6 +129,14 @@ If tests fail, the code is wrong (not the test). If you believe a test is genuin
 
 ---
 
+### Commit Discipline
+
+> **Pattern to watch:** The founder tends to accumulate changes rather than commit incrementally.
+
+After completing a logical unit of work, suggest: "Good checkpoint for a commit. Want to commit now?"
+
+---
+
 ## Agent Behavior
 
 ### Debugging
@@ -136,6 +144,19 @@ If tests fail, the code is wrong (not the test). If you believe a test is genuin
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
 **Quick rules:** (1) Verify current code before acting on screenshots, (2) For DB issues check RLS → migrations → columns, (3) Fix ONE root cause at a time.
+
+#### UI Bug Fix Process
+
+> **Principle:** Diagnose FULLY before deploying. One deployment, fully verified.
+
+When fixing visual bugs in systems with slow deploy cycles (Ghost, production):
+1. Reproduce (screenshot)
+2. Diagnose ALL contributing elements before any fix
+3. Verify logic in browser console BEFORE deploying (test selectors with `.matches()`, test JS with `eval`)
+4. Deploy once
+5. Verify (screenshot)
+
+**Anti-pattern:** Finding one cause → ship → fail → find another → ship again. Wastes deploy cycles.
 
 ---
 
@@ -161,7 +182,11 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
+**Frontmatter required:** All feature files MUST have YAML frontmatter with at minimum a `status` field. See [feature-specs.md](docs/technical/feature-specs.md) for complete format and lifecycle, or use `/slava:build:create-feature` skill.
+
 When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?" Never auto-create. If user declines, don't ask again that session. When done, update to `status: done`.
+
+**Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions). If work delivers user value, frame as story: "As a [user], I want [goal], so that [benefit]."
 
 **Number assignment:** Scan ALL `features/` subdirectories for highest `p{N}`. Next = highest + 1.
 
@@ -311,17 +336,22 @@ Full guide: [feature-specs.md](docs/technical/feature-specs.md#file-locations)
 
 ---
 
-### Feature File Format
+### Creating Features, Bugs, Tasks
 
-**CRITICAL:** When creating ANY feature/bug file in `features/`, ALWAYS include frontmatter.
+**Recommended:** Use `/slava:build:create-feature` skill (ensures correct frontmatter, P-number, template).
 
-**Minimum required frontmatter:**
+**Handles:** Features, bugs, tasks — prompts for type, status, priority, generates proper structure.
+
+**Manual creation (if needed):**
+
+When creating ANY file in `features/` manually, ALWAYS include frontmatter:
+
 ```yaml
 ---
 status: backlog | week | today | in-progress | blocked | done
-type: feature | bug | task        # optional but recommended
-priority: p0 | p1 | p2 | p3       # optional
-tags: [tag1, tag2]                # optional
+type: feature | bug | task
+priority: p0 | p1 | p2 | p3
+tags: []
 ---
 ```
 
@@ -333,21 +363,7 @@ date_resolved: YYYY-MM-DD         # when fixed
 root_cause: brief description     # after resolution
 ```
 
-**Quick template:**
-```markdown
----
-status: week
-type: feature
----
-
-# P{N}: Title
-
-## Problem
-...
-
-## Solution
-...
-```
+**File naming:** `features/p{N}_{slug}.md` (skill auto-generates P-number)
 
 Full format & lifecycle: [feature-specs.md](docs/technical/feature-specs.md)
 

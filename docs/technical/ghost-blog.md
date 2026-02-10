@@ -200,6 +200,18 @@ Custom CSS/JS injected via Ghost Admin → Settings → Advanced → Code Inject
 - Ghost's default "Powered by Ghost" is hidden — replaced by our custom footer bottom section.
 - Ghost's built-in search is no longer accessible (hidden with the default header). Can be re-added later if needed.
 
+### Code Injection Best Practices
+
+**Never use `fill()` for large content in Ghost's CM6 editor:**
+- Types char-by-char, times out on 8KB+ content, corrupts the editor
+- For small edits (< 500 chars), `fill()` after `Meta+a` select-all is OK
+- **Preferred method:** Use Ghost Admin API (`PUT /ghost/api/admin/settings/`) to set `codeinjection_head` directly — bypasses CM6 entirely
+
+**CSS `:empty` gotcha:**
+- Does NOT match elements with whitespace text nodes (Ghost templates have them)
+- Use JS `DOMContentLoaded` + class toggle for conditional styling based on content presence
+- Current injection: `body.no-posts` class added when `.gh-feed` has no child elements
+
 ## Decisions
 
 | Decision | Choice | Reason |
