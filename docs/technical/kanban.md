@@ -22,6 +22,14 @@ kanban logs       # View logs
 | Frontend (Vite) | 9050 |
 | Backend API | 9051 |
 
+**Configuration:** Ports are defined in `tools/kanban/config.ts` (single source of truth). All consumers import from this config:
+- `vite.config.ts` — imports `KANBAN_CONFIG.ports.frontend`
+- `server/api.ts` — imports `KANBAN_CONFIG.ports.api`
+- `scripts/run-once.sh` — reads from `config.cjs` via Node
+- `scripts/kanban.sh` — reads from `config.cjs` via Node
+
+**To change ports:** Edit `tools/kanban/config.ts` only. All consumers update automatically.
+
 ## Process Management
 
 When killing processes to free ports, be surgical:
@@ -162,7 +170,11 @@ answers: [OQ-6, OQ-7]
 │   ├── done/              # Completed features
 │   └── archive/           # Archived/deprioritized
 ├── tools/kanban/          # kanban tool code
-└── scripts/kanban.sh      # start/stop script
+│   ├── config.ts          # Port config (single source of truth)
+│   ├── config.cjs         # CommonJS wrapper for shell scripts
+│   ├── vite.config.ts     # Imports from config.ts
+│   └── server/api.ts      # Imports from config.ts
+└── scripts/kanban.sh      # start/stop script (reads from config.cjs)
 ```
 
 **Excluded from kanban:** `features/uat/`, `features/research/`, dated archive folders

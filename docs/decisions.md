@@ -14,6 +14,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-11: Kanban Tool - Single Source of Truth for Configuration
+
+**Context:** Kanban tooling had hardcoded port numbers (9050, 9051) in 5 different files. During development, port references drifted out of sync (5050 vs 9050), causing a bug where the shell function and script disagreed about which port to use. Two launch mechanisms (shell function + script) duplicated logic. Root cause: copy-paste development without configuration abstraction.
+
+**Decision:** Create single source of truth for configuration. Implement config-as-data pattern:
+- Create `tools/kanban/config.ts` (TypeScript) + `config.cjs` (CommonJS wrapper for shell scripts)
+- All consumers import from config instead of hardcoding
+- Replace duplicate shell function with simple alias to unified script
+- Add `--browser` flag support to launch script
+
+**Alternatives rejected:**
+- **Keep hardcoded ports** — would guarantee future drift as requirements change
+- **Use environment variables** — overkill for tool-specific config, harder to discover
+- **Keep both launch mechanisms** — duplicates logic, maintenance burden
+
+**Consequences:**
+- **Maintenance:** Changing ports now requires editing 1 file instead of 5
+- **Consistency:** Single source of truth prevents drift
+- **Pattern:** Establishes template for other tools (`tools/*/config.ts`)
+- **Shell integration:** Config files can be consumed by both TypeScript (import) and shell scripts (node -e require)
+- **Terminal restart required:** Shell alias won't work until terminal reloads (shell function in snapshot takes precedence)
+
+**References:** `refactor(kanban): single config source + unified launch` (commit d4c93b5)
+
+---
+
 ## Technical Debt / Intentional Decisions
 
 - **Web3Forms API key in source**: The contact form on `/about` uses Web3Forms with a hardcoded access key. This is intentional - Web3Forms access keys are designed to be public (like Stripe publishable keys). Moving to env var is nice-to-have.
