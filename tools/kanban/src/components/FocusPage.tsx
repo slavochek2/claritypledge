@@ -354,9 +354,10 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWor
   const fetchMilestones = useCallback(async () => {
     setMilestoneError(null)
     try {
+      // Use relative URL - Vite proxy routes /api/* to backend (see vite.config.ts)
       const url = currentWorktree
-        ? `http://localhost:9051/api/milestones?worktree=${encodeURIComponent(currentWorktree)}`
-        : 'http://localhost:9051/api/milestones'
+        ? `/api/milestones?worktree=${encodeURIComponent(currentWorktree)}`
+        : '/api/milestones'
       const response = await fetch(url)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)

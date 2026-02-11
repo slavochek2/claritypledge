@@ -1,7 +1,9 @@
 #!/bin/bash
 # Prevents duplicate kanban instances and ensures cleanup on exit
 
-PORT=5050
+# Read port from config.cjs (single source of truth)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PORT=$(node -e "console.log(require('$SCRIPT_DIR/../config.cjs').KANBAN_CONFIG.ports.frontend)")
 
 # Check if already running
 if lsof -i :$PORT >/dev/null 2>&1; then

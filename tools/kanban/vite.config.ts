@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { KANBAN_CONFIG } from './config'
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 9050,
+    port: KANBAN_CONFIG.ports.frontend,
     proxy: {
-      '/api': 'http://localhost:9051'
+      '/api': `http://localhost:${KANBAN_CONFIG.ports.api}`
     }
   }
 })

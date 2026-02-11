@@ -535,7 +535,9 @@ app.post('/api/open', (req, res) => {
   })
 })
 
-const PORT = 9051
+import { KANBAN_CONFIG } from '../config'
+
+const PORT = KANBAN_CONFIG.ports.api
 app.listen(PORT, () => {
   console.log(`Kanban API running on http://localhost:${PORT}`)
   const worktrees = getWorktrees()

@@ -1,18 +1,38 @@
 #!/bin/bash
 # Kanban manager - start/stop across worktrees
-# Usage: kanban [w1|w2|main|stop|logs]
+# Usage: kanban [w1|w2|main|stop|logs] [--browser]
 # Examples:
-#   kanban w1    - Stop all, start from w1 (background)
-#   kanban main  - Stop all, start from main
-#   kanban stop  - Stop all
-#   kanban logs  - Tail the kanban logs
+#   kanban w1           - Stop all, start from w1 (background)
+#   kanban main         - Stop all, start from main
+#   kanban --browser    - Start from current dir, open browser
+#   kanban w1 --browser - Start from w1, open browser
+#   kanban stop         - Stop all
+#   kanban logs         - Tail the kanban logs
 
 set -e
 
-BASE_DIR="/Users/slavochek/Projects"
-PORTS="9050,9051"
+BASE_DIR="/Users/slavochek/Projects/public"
+# Read ports from config.cjs (single source of truth)
+FRONTEND_PORT=$(node -e "console.log(require('$BASE_DIR/claritypledge/tools/kanban/config.cjs').KANBAN_CONFIG.ports.frontend)")
+API_PORT=$(node -e "console.log(require('$BASE_DIR/claritypledge/tools/kanban/config.cjs').KANBAN_CONFIG.ports.api)")
+PORTS="$FRONTEND_PORT,$API_PORT"
 LOG_FILE="/tmp/kanban.log"
 PID_FILE="/tmp/kanban.pid"
+
+# Parse flags
+OPEN_BROWSER=false
+WORKTREE=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --browser)
+            OPEN_BROWSER=true
+            ;;
+        *)
+            WORKTREE="$arg"
+            ;;
+    esac
+done
 
 stop_kanban() {
     echo "Stopping kanban on ports $PORTS..."
@@ -44,10 +64,16 @@ start_kanban() {
     echo $! > "$PID_FILE"
     sleep 2
 
-    if lsof -ti:9050 > /dev/null 2>&1; then
-        echo "✓ Kanban running at http://localhost:9050"
+    if lsof -ti :$FRONTEND_PORT > /dev/null 2>&1; then
+        echo "✓ Kanban running at http://localhost:$FRONTEND_PORT"
         echo "  Logs: kanban logs"
         echo "  Stop: kanban stop"
+
+        # Open browser if --browser flag was passed
+        if [ "$OPEN_BROWSER" = true ]; then
+            sleep 1  # Give servers time to fully initialize
+            open "http://localhost:$FRONTEND_PORT"
+        fi
     else
         echo "✗ Failed to start. Check logs: kanban logs"
     fi
@@ -61,7 +87,7 @@ show_logs() {
     fi
 }
 
-case "${1:-}" in
+case "${WORKTREE:-}" in
     stop)
         stop_kanban
         ;;
@@ -72,7 +98,7 @@ case "${1:-}" in
         # Direct worktree: kanban w1, kanban main, kanban 1
         stop_kanban
         sleep 1
-        start_kanban "$1"
+        start_kanban "$WORKTREE"
         ;;
     "")
         # No arg: start from current dir
@@ -81,12 +107,14 @@ case "${1:-}" in
         start_kanban ""
         ;;
     *)
-        echo "Usage: kanban [w1|w2|main|stop|logs]"
-        echo "  kanban w1    - Stop all, start from w1"
-        echo "  kanban main  - Stop all, start from main"
-        echo "  kanban stop  - Stop all"
-        echo "  kanban logs  - View logs (tail -f)"
-        echo "  kanban       - Start from current dir"
+        echo "Usage: kanban [w1|w2|main|stop|logs] [--browser]"
+        echo "  kanban w1           - Stop all, start from w1"
+        echo "  kanban main         - Stop all, start from main"
+        echo "  kanban --browser    - Start from current dir, open browser"
+        echo "  kanban w1 --browser - Start from w1, open browser"
+        echo "  kanban stop         - Stop all"
+        echo "  kanban logs         - View logs (tail -f)"
+        echo "  kanban              - Start from current dir"
         exit 1
         ;;
 esac
