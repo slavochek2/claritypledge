@@ -37,19 +37,42 @@ vi.mock('@/app/data/points-service', () => ({
       { id: 'point-2', statement: 'Test point 2', createdAt: '2026-02-09' },
     ]),
     getPointsWithUserPositions: vi.fn().mockResolvedValue([]), // Returns 0 if no positions
-    getPointWithUserPosition: vi.fn().mockResolvedValue({
-      id: 'point-1',
-      statement: 'Test point 1',
-      positionCounts: {
-        strongly_agree: 0,
-        agree: 0,
-        somewhat_agree: 0,
-        unsure: 0,
-        somewhat_disagree: 0,
-        disagree: 0,
-        strongly_disagree: 0,
-      },
-      totalPositions: 0,
+    getPointWithUserPosition: vi.fn().mockImplementation((pointId: string) => {
+      // Return appropriate data based on the point ID
+      if (pointId === 'point-1') {
+        return Promise.resolve({
+          id: 'point-1',
+          statement: 'Test point 1',
+          createdAt: '2026-02-09',
+          positionCounts: {
+            strongly_agree: 0,
+            agree: 0,
+            somewhat_agree: 0,
+            unsure: 0,
+            somewhat_disagree: 0,
+            disagree: 0,
+            strongly_disagree: 0,
+          },
+          totalPositions: 0,
+        });
+      } else if (pointId === 'point-2') {
+        return Promise.resolve({
+          id: 'point-2',
+          statement: 'Test point 2',
+          createdAt: '2026-02-09',
+          positionCounts: {
+            strongly_agree: 0,
+            agree: 0,
+            somewhat_agree: 0,
+            unsure: 0,
+            somewhat_disagree: 0,
+            disagree: 0,
+            strongly_disagree: 0,
+          },
+          totalPositions: 0,
+        });
+      }
+      return Promise.resolve(null);
     }),
   },
 }));

@@ -65,5 +65,8 @@ GEMINI.md
 global_GEMINI.md
 .gemini/
 
-# Screenshots saved to project root (from browser automation)
+# Screenshots and temp files saved to project root (from browser automation)
 /*.png
+/*.jpg
+/*.jpeg
+TEST_*.md

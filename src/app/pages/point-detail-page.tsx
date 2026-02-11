@@ -10,6 +10,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Pin } from 'lucide-react';
+import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import type { PointWithCounts, PointPositionWithUser, PositionType } from '@/app/types';
 import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
@@ -39,6 +40,7 @@ function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [point, setPoint] = useState<PointWithCounts | null>(null);
@@ -114,9 +116,39 @@ export function PointDetailPage() {
     return toSevenPointCounts(point.positionCounts);
   }, [point]);
 
-  const handlePositionClick = (position: PositionType) => {
+  const handlePositionClick = async (position: PositionType) => {
+    if (!user || !id) return;
+
+    console.log('[DEBUG] handlePositionClick:', { position, userId: user.id, pointId: id });
+
     // Toggle: clicking same position removes it
-    setUserPosition(userPosition === position ? null : position);
+    const newPosition = userPosition === position ? null : position;
+
+    // Optimistic update
+    setUserPosition(newPosition);
+
+    // Persist to database
+    try {
+      let result;
+      if (newPosition === null) {
+        result = await pointsService.removePosition(id, user.id);
+        console.log('[DEBUG] removePosition result:', result);
+      } else {
+        result = await pointsService.setPosition(id, user.id, newPosition);
+        console.log('[DEBUG] setPosition result:', result);
+      }
+
+      // Reload point to get updated counts
+      const updatedPoint = await pointsService.getPointWithUserPosition(id, user.id);
+      if (updatedPoint) {
+        setPoint(updatedPoint);
+        console.log('[DEBUG] Point reloaded after position update');
+      }
+    } catch (err) {
+      console.error('[DEBUG] Failed to update position:', err);
+      // Revert optimistic update on error
+      setUserPosition(userPosition);
+    }
   };
 
   // Helper to navigate back safely
