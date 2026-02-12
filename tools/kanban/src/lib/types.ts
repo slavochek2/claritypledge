@@ -4,9 +4,6 @@ export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 
 // Feature type badge (first-class badge)
 export type FeatureType = 'bug' | 'task' | 'story' | 'comment'
 
-// Priority badge (first-class badge, AI-managed)
-export type Priority = 'p0' | 'p1' | 'p2' | 'p3'
-
 // Size badge (display-if-present, AI-managed)
 export type Size = 'xs' | 's' | 'm' | 'l' | 'xl'
 
@@ -20,7 +17,6 @@ export interface Feature {
   status: Status
   // First-class badges
   type?: FeatureType
-  priority?: Priority
   blocked_by?: string[] // AI-managed, display only
   // Display-if-present badges
   size?: Size // AI-managed
@@ -34,9 +30,8 @@ export interface Feature {
   created?: string
   // Added for P113: Backlog & Sorting improvements
   completed_at?: string // ISO date (YYYY-MM-DD) when moved to done
-  sort_order?: number // For within-column ordering (fractional)
   // Added for P141: Unified Rank System
-  rank?: number // Replaces priority + sort_order (fractional, e.g., 1.0, 1.5, 2.0)
+  rank: number // Fractional rank for ordering (e.g., 1.0, 1.5, 2.0)
   // Spec readiness (derived from prepped_date)
   prepped?: boolean // true if prepped_date is set
 }
@@ -51,7 +46,6 @@ export interface Milestone {
   filename: string // e.g., "m1-stories-live-events.md"
   path: string // full path to file
   status: MilestoneStatus
-  priority?: Priority
   summary?: string // One-line description for hover
   tests?: string[] // e.g., ["H-Stories"]
   answers?: string[] // e.g., ["OQ-6", "OQ-7"]

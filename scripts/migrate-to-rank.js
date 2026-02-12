@@ -1,121 +1,141 @@
 #!/usr/bin/env node
 
+/**
+ * Migration Script: Convert priority/sort_order to rank field
+ *
+ * This script migrates all active features from the dual ordering system
+ * (priority + sort_order) to the unified rank system.
+ *
+ * Usage:
+ *   node scripts/migrate-to-rank.js --dry-run    # Preview changes
+ *   node scripts/migrate-to-rank.js              # Execute migration
+ *   node scripts/migrate-to-rank.js --verbose    # Show detailed output
+ *
+ * Safety features:
+ *   - Dry-run mode (no file writes)
+ *   - Skips already-migrated features
+ *   - Skips done/archive/drafts folders
+ *   - Preserves all other frontmatter fields
+ *   - Atomic file writes (write to temp, then rename)
+ */
+
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-// Sorting constants (match kanban logic)
+// Parse command-line flags
+const args = process.argv.slice(2);
+const DRY_RUN = args.includes('--dry-run');
+const VERBOSE = args.includes('--verbose') || DRY_RUN;
+
+// Directories to scan
+const FEATURE_DIRS = [
+  path.join(__dirname, '..', 'features'),
+  path.join(__dirname, '..', 'features', 'bugs_and_debt')
+];
+
+// Directories to skip
+const SKIP_DIRS = ['done', 'archive', 'drafts'];
+
+// Status ordering (for sorting)
 const STATUS_ORDER = {
-  'in-progress': 0,
   'today': 1,
-  'blocked': 2,
-  'week': 3,
-  'backlog': 4,
-  'done': 5,
-  'rejected': 6,
-  'draft': 7,
+  'week': 2,
+  'in-progress': 3,
+  'blocked': 4,
+  'backlog': 5,
+  'draft': 6,
+  'rejected': 7
 };
 
-const PRIORITY_ORDER = {
-  'p0': 0,
-  'p1': 1,
-  'p2': 2,
-  'p3': 3,
-};
+/**
+ * Find all feature markdown files
+ */
+function findFeatureFiles() {
+  const files = [];
 
-// Parse command-line arguments
-const dryRun = process.argv.includes('--dry-run');
-const verbose = process.argv.includes('--verbose');
-
-// Directories to migrate (active features only, per Q1 decision)
-const INCLUDE_DIRS = [
-  'features',
-];
-
-// Directories to skip (historical data)
-const EXCLUDE_PATTERNS = [
-  'features/done',
-  'features/archive',
-  'features/drafts',
-  'features/research',
-  'features/uat',
-  'features/bugs_and_debt',
-];
-
-function log(msg, level = 'info') {
-  const prefix = dryRun ? '[DRY-RUN] ' : '';
-  if (level === 'verbose' && !verbose) return;
-  console.log(`${prefix}${msg}`);
-}
-
-function parseFrontmatter(content) {
-  const match = content.match(/^---\n([\s\S]+?)\n---\n([\s\S]+)$/);
-  if (!match) return null;
-
-  const [_, frontmatterText, body] = match;
-  try {
-    const frontmatter = yaml.load(frontmatterText);
-    return { frontmatter, body };
-  } catch (err) {
-    console.error(`YAML parse error: ${err.message}`);
-    return null;
-  }
-}
-
-function shouldExclude(filePath) {
-  return EXCLUDE_PATTERNS.some(pattern => filePath.includes(pattern));
-}
-
-function loadFeatures(dirs) {
-  const features = [];
-
-  for (const dir of dirs) {
-    const fullPath = path.join(process.cwd(), dir);
-    if (!fs.existsSync(fullPath)) {
-      log(`SKIP: Directory not found: ${dir}`, 'verbose');
+  for (const dir of FEATURE_DIRS) {
+    if (!fs.existsSync(dir)) {
+      console.warn(`⚠️  Directory not found: ${dir}`);
       continue;
     }
 
-    const files = fs.readdirSync(fullPath)
-      .filter(f => f.endsWith('.md') && f.match(/\bp\d+/))
-      .map(f => path.join(fullPath, f));
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    for (const file of files) {
-      if (shouldExclude(file)) {
-        log(`SKIP: Excluded: ${path.relative(process.cwd(), file)}`, 'verbose');
+    for (const entry of entries) {
+      // Skip directories in SKIP_DIRS
+      if (entry.isDirectory() && SKIP_DIRS.includes(entry.name)) {
         continue;
       }
 
-      const content = fs.readFileSync(file, 'utf8');
-      const parsed = parseFrontmatter(content);
-
-      if (!parsed) {
-        log(`SKIP: No frontmatter: ${path.relative(process.cwd(), file)}`);
-        continue;
+      // Only process .md files directly in the directory
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        files.push(path.join(dir, entry.name));
       }
-
-      const { frontmatter, body } = parsed;
-      const id = path.basename(file, '.md');
-
-      features.push({
-        file: file,
-        relPath: path.relative(process.cwd(), file),
-        id: id,
-        frontmatter: frontmatter,
-        body: body,
-        sort_order: frontmatter.sort_order ?? null,
-        priority: frontmatter.priority ?? null,
-        status: frontmatter.status ?? 'backlog',
-      });
     }
   }
 
-  return features;
+  return files;
 }
 
+/**
+ * Parse frontmatter from markdown file
+ */
+function parseFrontmatter(content) {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) {
+    throw new Error('No frontmatter found');
+  }
+
+  const frontmatterText = match[1];
+  const frontmatter = yaml.load(frontmatterText);
+  const bodyStart = match[0].length;
+  const body = content.substring(bodyStart);
+
+  return { frontmatter, body, frontmatterText };
+}
+
+/**
+ * Serialize frontmatter back to YAML
+ */
+function serializeFrontmatter(frontmatter) {
+  return yaml.dump(frontmatter, {
+    lineWidth: -1,  // No line wrapping
+    noRefs: true,   // No references
+    sortKeys: false // Preserve field order
+  }).trim();
+}
+
+/**
+ * Extract feature data for sorting
+ */
+function extractFeatureData(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const { frontmatter } = parseFrontmatter(content);
+
+  // Extract ID from filename (e.g., p141 from p141_unified_rank_system.md)
+  const filename = path.basename(filePath);
+  const idMatch = filename.match(/^(p\d+)/);
+  const id = idMatch ? idMatch[1] : filename;
+
+  return {
+    filePath,
+    filename,
+    id,
+    priority: frontmatter.priority,
+    sort_order: frontmatter.sort_order,
+    status: frontmatter.status,
+    rank: frontmatter.rank,
+    frontmatter
+  };
+}
+
+/**
+ * Sort features using kanban's current logic
+ */
 function sortFeatures(features) {
-  return [...features].sort((a, b) => {
-    // Primary: sort_order
+  return features.sort((a, b) => {
+    // Primary: sort_order (use 1000000 as fallback)
     const orderA = a.sort_order ?? 1000000;
     const orderB = b.sort_order ?? 1000000;
     if (orderA !== orderB) return orderA - orderB;
@@ -125,152 +145,179 @@ function sortFeatures(features) {
     const statusB = STATUS_ORDER[b.status] ?? 99;
     if (statusA !== statusB) return statusA - statusB;
 
-    // Tertiary: priority
-    const aPri = a.priority ? PRIORITY_ORDER[a.priority] : 99;
-    const bPri = b.priority ? PRIORITY_ORDER[b.priority] : 99;
-    if (aPri !== bPri) return aPri - bPri;
+    // Tertiary: priority (p0=0, p1=1, p2=2, p3=3, null=99)
+    const priorityA = a.priority ? parseInt(a.priority.substring(1)) : 99;
+    const priorityB = b.priority ? parseInt(b.priority.substring(1)) : 99;
+    if (priorityA !== priorityB) return priorityA - priorityB;
 
-    // Final: id
+    // Quaternary: id (alphabetical)
     return a.id.localeCompare(b.id);
   });
 }
 
-function assignRanks(features) {
-  const sorted = sortFeatures(features);
+/**
+ * Migrate a single feature file
+ */
+function migrateFeature(featureData, newRank) {
+  const { filePath, frontmatter, filename } = featureData;
 
-  sorted.forEach((feature, index) => {
-    // Sequential starting at 1.0 (Q2 decision)
-    feature.rank = (index + 1) * 1.0;
-  });
+  // Skip if already has rank field
+  if (frontmatter.rank !== undefined) {
+    if (VERBOSE) {
+      console.log(`⏭️  ${filename}: Already has rank (${frontmatter.rank}) - skipping`);
+    }
+    return { skipped: true, reason: 'already-migrated' };
+  }
 
-  return sorted;
-}
+  // Read original content
+  const content = fs.readFileSync(filePath, 'utf8');
+  const { body } = parseFrontmatter(content);
 
-function truncateRank(rank) {
-  // Truncate to 3 decimals (Q3 decision)
-  return Math.floor(rank * 1000) / 1000;
-}
+  // Create new frontmatter object
+  const newFrontmatter = { ...frontmatter };
 
-function writeFeature(feature) {
-  // Update frontmatter
-  const newFrontmatter = { ...feature.frontmatter };
-
-  // Add rank (truncated to 3 decimals)
-  newFrontmatter.rank = truncateRank(feature.rank);
+  // Add rank field
+  newFrontmatter.rank = parseFloat(newRank.toFixed(1));
 
   // Remove old fields
   delete newFrontmatter.priority;
   delete newFrontmatter.sort_order;
 
-  // Serialize
-  const frontmatterText = yaml.dump(newFrontmatter, {
-    lineWidth: -1, // No wrapping
-    noRefs: true,  // No YAML references
-  });
+  // Serialize new frontmatter
+  const newFrontmatterText = serializeFrontmatter(newFrontmatter);
+  const newContent = `---\n${newFrontmatterText}\n---${body}`;
 
-  const newContent = `---\n${frontmatterText}---\n${feature.body}`;
-
-  if (!dryRun) {
-    fs.writeFileSync(feature.file, newContent, 'utf8');
+  // Log changes
+  if (VERBOSE) {
+    const oldPriority = frontmatter.priority || 'none';
+    const oldSortOrder = frontmatter.sort_order || 'none';
+    console.log(`✏️  ${filename}:`);
+    console.log(`    priority: ${oldPriority}, sort_order: ${oldSortOrder} → rank: ${newRank.toFixed(1)}`);
   }
 
-  log(`${feature.relPath}: rank=${newFrontmatter.rank} (was: priority=${feature.priority}, sort_order=${feature.sort_order})`, 'verbose');
+  // Write to file (unless dry-run)
+  if (!DRY_RUN) {
+    // Atomic write: write to temp file, then rename
+    const tempPath = `${filePath}.tmp`;
+    fs.writeFileSync(tempPath, newContent, 'utf8');
+    fs.renameSync(tempPath, filePath);
+  }
+
+  return { skipped: false };
 }
 
+/**
+ * Main migration function
+ */
 function main() {
-  log('=== P141 Migration: priority + sort_order → rank ===\n');
+  console.log('🔄 P141 Migration: priority/sort_order → rank');
+  console.log('==============================================');
 
-  // Check dependency
-  try {
-    require.resolve('js-yaml');
-  } catch (e) {
-    console.error('ERROR: js-yaml not installed. Run: npm install js-yaml');
+  if (DRY_RUN) {
+    console.log('🔍 DRY-RUN MODE: No files will be modified\n');
+  }
+
+  const startTime = Date.now();
+
+  // Step 1: Find all feature files
+  console.log('📁 Scanning feature directories...');
+  const filePaths = findFeatureFiles();
+  console.log(`   Found ${filePaths.length} feature files\n`);
+
+  if (filePaths.length === 0) {
+    console.error('❌ No feature files found. Exiting.');
     process.exit(1);
   }
 
-  // Load features
-  log('Loading features...');
-  const features = loadFeatures(INCLUDE_DIRS);
-  log(`Loaded ${features.length} features\n`);
+  // Step 2: Extract feature data
+  console.log('📊 Parsing feature frontmatter...');
+  const features = [];
+  const parseErrors = [];
 
-  if (features.length === 0) {
-    log('No features found. Exiting.');
-    return;
+  for (const filePath of filePaths) {
+    try {
+      features.push(extractFeatureData(filePath));
+    } catch (error) {
+      parseErrors.push({ filePath, error: error.message });
+      console.error(`❌ ${path.basename(filePath)}: ${error.message}`);
+    }
   }
 
-  // Assign ranks
-  log('Sorting and assigning ranks...');
-  const rankedFeatures = assignRanks(features);
+  console.log(`   Parsed ${features.length} features successfully`);
+  if (parseErrors.length > 0) {
+    console.log(`   ⚠️  ${parseErrors.length} parse errors (see above)\n`);
+  } else {
+    console.log('');
+  }
 
-  // Write back
-  log(`\n${dryRun ? 'Would migrate' : 'Migrating'} ${rankedFeatures.length} features:\n`);
+  // Step 3: Sort features
+  console.log('🔢 Sorting features by (sort_order, status, priority, id)...');
+  const sortedFeatures = sortFeatures(features);
 
+  if (VERBOSE) {
+    console.log('\n   Sorted order (first 10):');
+    sortedFeatures.slice(0, 10).forEach((f, idx) => {
+      const priority = f.priority || 'none';
+      const sortOrder = f.sort_order || 'none';
+      console.log(`   ${idx + 1}. ${f.filename} (p=${priority}, so=${sortOrder}, s=${f.status})`);
+    });
+    console.log('');
+  }
+
+  // Step 4: Assign ranks and migrate
+  console.log('✨ Assigning ranks and migrating features...\n');
+
+  let nextRank = 1.0;
   let migrated = 0;
   let skipped = 0;
-  const stats = {
-    byStatus: {},
-    byPriority: {},
-    noSortOrder: 0,
-    noPriority: 0,
-    neither: 0,
-  };
+  const skipReasons = {};
 
-  for (const feature of rankedFeatures) {
-    // Skip if already migrated
-    if (feature.frontmatter.rank !== undefined && !feature.frontmatter.priority && !feature.frontmatter.sort_order) {
-      log(`SKIP: ${feature.relPath} (already migrated)`, 'verbose');
+  for (const feature of sortedFeatures) {
+    const result = migrateFeature(feature, nextRank);
+
+    if (result.skipped) {
       skipped++;
-      continue;
-    }
-
-    // Track stats
-    stats.byStatus[feature.status] = (stats.byStatus[feature.status] || 0) + 1;
-    if (feature.priority) {
-      stats.byPriority[feature.priority] = (stats.byPriority[feature.priority] || 0) + 1;
+      skipReasons[result.reason] = (skipReasons[result.reason] || 0) + 1;
     } else {
-      stats.byPriority['(none)'] = (stats.byPriority['(none)'] || 0) + 1;
+      migrated++;
+      nextRank += 1.0;
     }
-
-    if (!feature.sort_order) stats.noSortOrder++;
-    if (!feature.priority) stats.noPriority++;
-    if (!feature.sort_order && !feature.priority) stats.neither++;
-
-    writeFeature(feature);
-    migrated++;
   }
 
-  // Summary
-  log(`\n=== Migration ${dryRun ? 'Preview' : 'Complete'} ===`);
-  log(`Total: ${features.length} features`);
-  log(`Migrated: ${migrated} features`);
-  log(`Skipped: ${skipped} features (already migrated)`);
+  // Step 5: Summary
+  const endTime = Date.now();
+  const duration = ((endTime - startTime) / 1000).toFixed(2);
 
-  log(`\nBreakdown by status:`);
-  Object.entries(stats.byStatus).forEach(([status, count]) => {
-    log(`  ${status}: ${count} features`);
-  });
+  console.log('\n📈 Migration Summary');
+  console.log('===================');
+  console.log(`✅ Migrated: ${migrated} features`);
+  console.log(`⏭️  Skipped: ${skipped} features`);
 
-  log(`\nBreakdown by priority (before):`);
-  Object.entries(stats.byPriority).forEach(([priority, count]) => {
-    log(`  ${priority}: ${count} features`);
-  });
+  if (skipped > 0) {
+    Object.entries(skipReasons).forEach(([reason, count]) => {
+      console.log(`   - ${reason}: ${count}`);
+    });
+  }
 
-  log(`\nEdge cases:`);
-  log(`  No sort_order: ${stats.noSortOrder} features`);
-  log(`  No priority: ${stats.noPriority} features`);
-  log(`  Neither field: ${stats.neither} features`);
+  console.log(`⏱️  Duration: ${duration}s`);
 
-  if (dryRun) {
-    log('\n✓ Dry-run complete. Run without --dry-run to apply changes.');
+  if (DRY_RUN) {
+    console.log('\n🔍 DRY-RUN: No files were modified');
+    console.log('   Run without --dry-run to execute migration');
   } else {
-    log('\n✓ Migration complete! Run post-migration validation to verify.');
+    console.log('\n✅ Migration complete!');
+    console.log('   Next steps:');
+    console.log('   1. Run validation: ./scripts/post-migration-validation.sh');
+    console.log('   2. Verify in kanban: npm run kanban');
+    console.log('   3. Commit changes: git add features/ && git commit');
+  }
+
+  // Exit with error code if parse errors
+  if (parseErrors.length > 0) {
+    console.error(`\n⚠️  Warning: ${parseErrors.length} files had parse errors`);
+    process.exit(1);
   }
 }
 
-// Run
-try {
-  main();
-} catch (err) {
-  console.error('FATAL ERROR:', err);
-  process.exit(1);
-}
+// Run migration
+main();

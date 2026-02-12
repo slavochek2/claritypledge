@@ -195,8 +195,9 @@ export default function App() {
   }
 
   const getEffectiveOrder = (item: Feature | undefined): number => {
-    if (!item) return 1000000
-    return item.sort_order ?? 1000000
+    if (!item) return Number.MAX_SAFE_INTEGER
+    // P141: Prefer rank over sort_order (dual-mode support)
+    return item.rank ?? item.sort_order ?? Number.MAX_SAFE_INTEGER
   }
 
   const calculateSortOrder = (columnFeatures: Feature[], newIndex: number): number => {
@@ -319,7 +320,7 @@ export default function App() {
       if (!overId.startsWith('group:')) {
         const groupFeatures = features
           .filter((f) => (f.hypothesis || '__unlinked__') === currentHypothesis)
-          .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+          .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
 
         const oldIndex = groupFeatures.findIndex((f) => f.id === featureId)
         const newIndex = groupFeatures.findIndex((f) => f.id === overId)
@@ -339,13 +340,13 @@ export default function App() {
             (getEffectiveOrder(reordered[newPosition - 1]) + getEffectiveOrder(reordered[newPosition + 1])) / 2
         }
 
-        setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, sort_order: finalSortOrder } : f)))
+        setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, rank: finalSortOrder } : f)))
 
         try {
           const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sort_order: finalSortOrder }),
+            body: JSON.stringify({ rank: finalSortOrder }),
           })
           if (!res.ok) throw new Error('Failed to update')
         } catch {
@@ -361,7 +362,7 @@ export default function App() {
 
       const targetColumnFeatures = features
         .filter((f) => f.status === newStatus)
-        .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+        .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
       const newSortOrder = calculateSortOrder(targetColumnFeatures, targetColumnFeatures.length)
 
       const today = new Date().toISOString().split('T')[0]
@@ -370,7 +371,7 @@ export default function App() {
       setFeatures((prev) =>
         prev.map((f) =>
           f.id === featureId
-            ? { ...f, status: newStatus, sort_order: newSortOrder, ...(newStatus === 'done' ? { completed_at: today } : { completed_at: undefined }) }
+            ? { ...f, status: newStatus, rank: newSortOrder, ...(newStatus === 'done' ? { completed_at: today } : { completed_at: undefined }) }
             : f
         )
       )
@@ -379,7 +380,7 @@ export default function App() {
         const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus, sort_order: newSortOrder, completed_at }),
+          body: JSON.stringify({ status: newStatus, rank: newSortOrder, completed_at }),
         })
         if (!res.ok) throw new Error('Failed to update')
       } catch {
@@ -394,7 +395,7 @@ export default function App() {
     const targetStatus = targetFeature.status
     const columnFeatures = features
       .filter((f) => f.status === targetStatus && f.id !== featureId)
-      .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+      .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
 
     const targetIndex = columnFeatures.findIndex((f) => f.id === overId)
     const newSortOrder = calculateSortOrder(columnFeatures, targetIndex)
@@ -406,7 +407,7 @@ export default function App() {
       setFeatures((prev) =>
         prev.map((f) =>
           f.id === featureId
-            ? { ...f, status: targetStatus, sort_order: newSortOrder, ...(targetStatus === 'done' ? { completed_at: todayStr } : { completed_at: undefined }) }
+            ? { ...f, status: targetStatus, rank: newSortOrder, ...(targetStatus === 'done' ? { completed_at: todayStr } : { completed_at: undefined }) }
             : f
         )
       )
@@ -415,7 +416,7 @@ export default function App() {
         const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: targetStatus, sort_order: newSortOrder, completed_at: cardCompleted }),
+          body: JSON.stringify({ status: targetStatus, rank: newSortOrder, completed_at: cardCompleted }),
         })
         if (!res.ok) throw new Error('Failed to update')
       } catch {
@@ -426,7 +427,7 @@ export default function App() {
 
     const currentColumnFeatures = features
       .filter((f) => f.status === feature.status)
-      .sort((a, b) => (a.sort_order ?? 1000000) - (b.sort_order ?? 1000000))
+      .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
 
     const oldIndex = currentColumnFeatures.findIndex((f) => f.id === featureId)
     const newIndex = currentColumnFeatures.findIndex((f) => f.id === overId)
@@ -447,13 +448,13 @@ export default function App() {
         2
     }
 
-    setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, sort_order: finalSortOrder } : f)))
+    setFeatures((prev) => prev.map((f) => (f.id === featureId ? { ...f, rank: finalSortOrder } : f)))
 
     try {
       const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sort_order: finalSortOrder }),
+        body: JSON.stringify({ rank: finalSortOrder }),
       })
       if (!res.ok) throw new Error('Failed to update')
     } catch {
@@ -475,8 +476,8 @@ export default function App() {
         return true
       })
       .sort((a, b) => {
-        const orderA = a.sort_order ?? 1000000
-        const orderB = b.sort_order ?? 1000000
+        const orderA = getEffectiveOrder(a)
+        const orderB = getEffectiveOrder(b)
         if (orderA !== orderB) return orderA - orderB
         return a.id.localeCompare(b.id)
       })

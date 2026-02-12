@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Feature, Status, FeatureType, Priority, Size } from '../lib/types'
+import { Feature, Status, FeatureType, Size } from '../lib/types'
 
 interface CardDialogProps {
   feature: Feature
@@ -14,7 +14,6 @@ interface CardDialogProps {
 // Options for single-select fields
 const STATUS_OPTIONS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done']
 const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story']
-const PRIORITY_OPTIONS: (Priority | null)[] = [null, 'p0', 'p1', 'p2', 'p3']
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 
 // Color mapping for known property values
@@ -30,11 +29,6 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
   story: { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
-  // Priority
-  p0: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
-  p1: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
-  p2: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  p3: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
   // Size
   xs: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
   s: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
@@ -49,8 +43,8 @@ const DEFAULT_TAG = { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' }
 type EditingField =
   | 'status'
   | 'type'
-  | 'priority'
   | 'size'
+  | 'rank'
   | 'tags'
   | 'blocked_by'
   | 'milestone'
@@ -122,7 +116,7 @@ export function CardDialog({
 
   // Focus input when editing text fields
   useEffect(() => {
-    if (editingField && ['milestone', 'hypothesis'].includes(editingField)) {
+    if (editingField && ['milestone', 'hypothesis', 'rank'].includes(editingField)) {
       inputRef.current?.focus()
     }
   }, [editingField])
@@ -201,7 +195,7 @@ export function CardDialog({
 
   // Render single-select dropdown
   const renderSelectDropdown = (
-    field: 'status' | 'type' | 'priority' | 'size',
+    field: 'status' | 'type' | 'size',
     options: (string | null)[],
     currentValue: string | null | undefined
   ) => {
@@ -283,6 +277,46 @@ export function CardDialog({
             setEditingField(null)
           }}
           placeholder={`Enter ${formatPropertyName(field).toLowerCase()}...`}
+          style={{
+            width: '100%',
+            padding: '4px 8px',
+            fontSize: 'var(--font-size-14)',
+            border: '1px solid rgba(55, 53, 47, 0.16)',
+            borderRadius: '4px',
+            outline: 'none',
+            fontFamily: 'var(--font-family)',
+          }}
+        />
+      </div>
+    )
+  }
+
+  const renderNumberInput = () => {
+    return (
+      <div ref={dropdownRef} style={{ flex: 1 }}>
+        <input
+          ref={inputRef}
+          type="number"
+          step="0.001"
+          min="0"
+          value={textInputValue}
+          onChange={(e) => setTextInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const num = parseFloat(textInputValue)
+              updateFeature({ rank: !isNaN(num) && num >= 0 ? num : undefined })
+              setEditingField(null)
+            }
+            if (e.key === 'Escape') {
+              setEditingField(null)
+            }
+          }}
+          onBlur={() => {
+            const num = parseFloat(textInputValue)
+            updateFeature({ rank: !isNaN(num) && num >= 0 ? num : undefined })
+            setEditingField(null)
+          }}
+          placeholder="Enter rank (e.g., 1.5)..."
           style={{
             width: '100%',
             padding: '4px 8px',
@@ -428,7 +462,7 @@ export function CardDialog({
   const editableProperties: { key: EditingField; options?: (string | null)[] }[] = [
     { key: 'type', options: TYPE_OPTIONS as (string | null)[] },
     { key: 'status', options: STATUS_OPTIONS as string[] },
-    { key: 'priority', options: PRIORITY_OPTIONS as (string | null)[] },
+    { key: 'rank' }, // P141: number input (not select)
     { key: 'size', options: SIZE_OPTIONS as (string | null)[] },
     { key: 'tags' },
     { key: 'blocked_by' },
@@ -591,6 +625,8 @@ export function CardDialog({
                       setEditingField(key)
                       if (key === 'milestone' || key === 'hypothesis') {
                         setTextInputValue((value as string) || '')
+                      } else if (key === 'rank') {
+                        setTextInputValue(value !== undefined ? String(value) : '')
                       }
                     }
                   }}
@@ -610,7 +646,7 @@ export function CardDialog({
                         <>
                           {renderValue(value)}
                           {renderSelectDropdown(
-                            key as 'status' | 'type' | 'priority' | 'size',
+                            key as 'status' | 'type' | 'size',
                             options,
                             value as string | null
                           )}
@@ -618,6 +654,9 @@ export function CardDialog({
                       ) : key === 'tags' || key === 'blocked_by' ? (
                         // Multi-select tag input
                         renderTagInput(key, (value as string[]) || [])
+                      ) : key === 'rank' ? (
+                        // Number input for rank
+                        renderNumberInput()
                       ) : (
                         // Text input
                         renderTextInput(key as 'milestone' | 'hypothesis')

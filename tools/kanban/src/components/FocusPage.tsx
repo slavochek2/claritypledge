@@ -27,29 +27,20 @@ const STATUS_ORDER: Record<Status, number> = {
   'blocked': 2,
   'week': 3,
   'backlog': 4,
-  'done': 5,
-  'rejected': 6,
-}
-
-const PRIORITY_ORDER: Record<string, number> = {
-  'p0': 0,
-  'p1': 1,
-  'p2': 2,
-  'p3': 3,
+  'draft': 5,
+  'done': 6,
+  'rejected': 7,
 }
 
 function sortFeatures(features: Feature[]): Feature[] {
   return [...features].sort((a, b) => {
-    // Primary: manual sort_order (drag to reorder)
-    const orderA = a.sort_order ?? 1000000
-    const orderB = b.sort_order ?? 1000000
-    if (orderA !== orderB) return orderA - orderB
-    // Fallback: status → priority → id
+    // Primary: rank (P141) - treat undefined as Infinity (sorts to end)
+    const rankA = a.rank ?? Infinity
+    const rankB = b.rank ?? Infinity
+    if (rankA !== rankB) return rankA - rankB
+    // Fallback: status → id
     const statusDiff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
     if (statusDiff !== 0) return statusDiff
-    const aPri = a.priority ? PRIORITY_ORDER[a.priority] : 99
-    const bPri = b.priority ? PRIORITY_ORDER[b.priority] : 99
-    if (aPri !== bPri) return aPri - bPri
     return a.id.localeCompare(b.id)
   })
 }
@@ -76,14 +67,8 @@ const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  'draft': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
   'rejected': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
-}
-
-const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
-  p0: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
-  p1: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
-  p2: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  p3: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
 }
 
 const pillStyle: React.CSSProperties = {
@@ -154,7 +139,6 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
   }
 
   const statusColors = STATUS_COLORS[feature.status]
-  const priorityColors = feature.priority ? PRIORITY_COLORS[feature.priority] : null
 
   return (
     <>
@@ -172,15 +156,6 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
         {/* Name */}
         <div style={{ ...cellStyle, flex: 1, minWidth: 0, fontWeight: 'var(--font-weight-regular)' as never }}>
           {feature.type ? `${TYPE_PREFIX[feature.type]} ` : ''}{feature.title}
-        </div>
-
-        {/* Priority */}
-        <div style={{ ...cellStyle, width: 50, flexShrink: 0, textAlign: 'center' }}>
-          {priorityColors && (
-            <span style={{ ...pillStyle, background: priorityColors.bg, color: priorityColors.text }}>
-              {feature.priority}
-            </span>
-          )}
         </div>
 
         {/* Status */}
@@ -313,7 +288,6 @@ function MilestoneGroup({ groupId, name, icon, features, milestone, onFeatureUpd
         }}
       >
         <div style={{ ...cellStyle, flex: 1 }}>Name</div>
-        <div style={{ ...cellStyle, width: 50, flexShrink: 0, textAlign: 'center' }}>Prio</div>
         <div style={{ ...cellStyle, width: 100, flexShrink: 0, textAlign: 'center' }}>Status</div>
         <div style={{ ...cellStyle, width: 70, flexShrink: 0, textAlign: 'center' }}>Spec</div>
         <div style={{ ...cellStyle, width: 150, flexShrink: 0 }}>Tags</div>
@@ -393,7 +367,7 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWor
       }
     }
 
-    // Sort groups by milestone priority (active → next → future, then by priority, then by ID)
+    // Sort groups by milestone status (active → next → future, then by ID)
     const milestoneStatusOrder = { active: 0, next: 1, future: 2 }
     const sortedGroups = Array.from(milestoneMap.entries()).sort(([aId], [bId]) => {
       const aMilestone = milestones.find(m => m.id === aId)
@@ -403,11 +377,6 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWor
       if (aMilestone && bMilestone) {
         const statusDiff = milestoneStatusOrder[aMilestone.status] - milestoneStatusOrder[bMilestone.status]
         if (statusDiff !== 0) return statusDiff
-
-        // Then by priority
-        const aPri = aMilestone.priority ? PRIORITY_ORDER[aMilestone.priority] : 99
-        const bPri = bMilestone.priority ? PRIORITY_ORDER[bMilestone.priority] : 99
-        if (aPri !== bPri) return aPri - bPri
       }
 
       // Fallback to ID

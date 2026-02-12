@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Feature, FeatureType, Priority } from '../lib/types'
+import { Feature, FeatureType } from '../lib/types'
 import { CardDialog } from './CardDialog'
 
 interface CardProps {
@@ -14,13 +14,6 @@ const TYPE_PREFIX: Record<FeatureType, string> = {
   task: '[T]',
   bug: '[B]',
   comment: '[C]',
-}
-
-const PRIORITY_STYLES: Record<Priority, { bg: string; text: string }> = {
-  p0: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
-  p1: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
-  p2: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  p3: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
 }
 
 const TAG_COLORS = [
@@ -164,14 +157,12 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
 
       {/* Properties — each property type on its own row like Notion */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {/* Priority + Size */}
-        {(feature.priority || feature.size) && (
+        {/* Rank + Size */}
+        {(feature.rank !== undefined || feature.size) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {feature.priority && (
-              <span style={{ ...tagStyle, background: PRIORITY_STYLES[feature.priority].bg, color: PRIORITY_STYLES[feature.priority].text }}>
-                {feature.priority}
-              </span>
-            )}
+            <span style={{ ...tagStyle, background: 'var(--tag-blue-bg)', color: 'var(--tag-blue-text)' }}>
+              #{Math.floor(feature.rank)}
+            </span>
             {feature.size && (
               <span style={{ ...tagStyle, background: 'var(--tag-pink-bg)', color: 'var(--tag-pink-text)' }}>
                 {feature.size}

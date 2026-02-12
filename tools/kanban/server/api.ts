@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync } from 'child_process'
-import type { Feature, Status, FeatureType, Priority, Size, Milestone, MilestoneStatus } from '../src/lib/types'
+import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus } from '../src/lib/types'
 
 const app = express()
 app.use(cors())
@@ -67,7 +67,6 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
 // Valid values for enum fields
 const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'draft', 'rejected']
 const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story', 'comment']
-const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
 const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
 const VALID_MILESTONE_STATUS: MilestoneStatus[] = ['active', 'next', 'future']
 
@@ -117,10 +116,6 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
     const type: FeatureType | undefined =
       data.type && VALID_TYPE.includes(data.type) ? data.type : undefined
 
-    // Parse optional priority (first-class badge, AI-managed)
-    const priority: Priority | undefined =
-      data.priority && VALID_PRIORITY.includes(data.priority) ? data.priority : undefined
-
     // Parse optional size (display-if-present, AI-managed)
     const size: Size | undefined =
       data.size && VALID_SIZE.includes(data.size) ? data.size : undefined
@@ -134,13 +129,17 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
     const milestone: string | undefined =
       typeof data.milestone === 'string' ? data.milestone : undefined
 
-    // Parse optional rank (P141: Unified Rank System)
-    // Validate: positive number, truncate to 3 decimals
-    let rank: number | undefined = undefined
-    if (typeof data.rank === 'number') {
+    // Parse required rank (P141: Unified Rank System)
+    // Validate: positive finite number, truncate to 3 decimals
+    let rank: number = 1000000 // Default for files without rank
+    if (typeof data.rank === 'number' && Number.isFinite(data.rank)) {
       if (data.rank >= 0) {
         rank = Math.round(data.rank * 1000) / 1000 // Truncate to 3 decimals
+      } else {
+        console.warn(`Feature ${filename}: negative rank (${data.rank}), using default`)
       }
+    } else if (data.rank !== undefined) {
+      console.warn(`Feature ${filename}: invalid rank type (${data.rank}), using default`)
     }
 
     return {
@@ -149,7 +148,6 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       title,
       status,
       type,
-      priority,
       blocked_by,
       size,
       milestone,
@@ -157,7 +155,6 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       tags: Array.isArray(data.tags) ? data.tags : [],
       created: data.created,
       completed_at: data.completed_at,
-      sort_order: data.sort_order,
       rank,
       prepped: !!data.prepped_date,
     }
@@ -228,10 +225,6 @@ async function parseMilestoneFile(filePath: string): Promise<Milestone | null> {
       status = data.status
     }
 
-    // Parse optional priority
-    const priority: Priority | undefined =
-      data.priority && VALID_PRIORITY.includes(data.priority) ? data.priority : undefined
-
     // Parse optional fields
     const summary = typeof data.summary === 'string' ? data.summary : undefined
     const tests = Array.isArray(data.tests) ? data.tests : undefined
@@ -243,7 +236,6 @@ async function parseMilestoneFile(filePath: string): Promise<Milestone | null> {
       filename,
       path: filePath,
       status,
-      priority,
       summary,
       tests,
       answers,
@@ -327,12 +319,12 @@ app.get('/api/milestones', async (req, res) => {
 })
 
 // PATCH /api/features/:id - update feature fields
-// Supports: status, sort_order, rank, type, priority, size, tags, blocked_by, milestone, hypothesis
+// Supports: status, rank, type, size, tags, blocked_by, milestone, hypothesis
 // Query param: ?worktree=/path/to/worktree
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status, sort_order, rank, type, priority, size, tags, blocked_by, milestone, hypothesis } =
+    const { status, rank, type, size, tags, blocked_by, milestone, hypothesis } =
       req.body
     const worktreePath = req.query.worktree as string | undefined
 
@@ -343,16 +335,13 @@ app.patch('/api/features/:id', async (req, res) => {
     if (type !== undefined && type !== null && !VALID_TYPE.includes(type)) {
       return res.status(400).json({ error: 'Invalid type value' })
     }
-    if (priority !== undefined && priority !== null && !VALID_PRIORITY.includes(priority)) {
-      return res.status(400).json({ error: 'Invalid priority value' })
-    }
     if (size !== undefined && size !== null && !VALID_SIZE.includes(size)) {
       return res.status(400).json({ error: 'Invalid size value' })
     }
 
-    // Validate rank (P141: must be positive number if provided)
+    // Validate rank (P141: must be positive finite number if provided)
     if (rank !== undefined && rank !== null) {
-      if (typeof rank !== 'number' || rank < 0) {
+      if (typeof rank !== 'number' || !Number.isFinite(rank) || rank < 0) {
         return res.status(400).json({ error: 'Invalid rank value: must be a positive number' })
       }
     }
@@ -373,24 +362,15 @@ app.patch('/api/features/:id', async (req, res) => {
 
     // Update frontmatter - only update fields that are explicitly provided
     if (status !== undefined) data.status = status
-    if (sort_order !== undefined) data.sort_order = sort_order
     if (rank !== undefined) {
-      if (rank === null) {
-        delete data.rank
-      } else {
-        // Truncate to 3 decimals
-        data.rank = Math.round(rank * 1000) / 1000
-      }
+      // Truncate to 3 decimals
+      data.rank = Math.round(rank * 1000) / 1000
     }
 
     // Handle nullable enum fields (null = remove from frontmatter)
     if (type !== undefined) {
       if (type === null) delete data.type
       else data.type = type
-    }
-    if (priority !== undefined) {
-      if (priority === null) delete data.priority
-      else data.priority = priority
     }
     if (size !== undefined) {
       if (size === null) delete data.size
@@ -440,10 +420,8 @@ app.patch('/api/features/:id', async (req, res) => {
       const cachedFeature = cachedFeatures.find((f) => f.id === id)
       if (cachedFeature) {
         if (status !== undefined) cachedFeature.status = status
-        if (sort_order !== undefined) cachedFeature.sort_order = sort_order
-        if (rank !== undefined) cachedFeature.rank = rank === null ? undefined : rank
+        if (rank !== undefined) cachedFeature.rank = data.rank
         if (type !== undefined) cachedFeature.type = type === null ? undefined : type
-        if (priority !== undefined) cachedFeature.priority = priority === null ? undefined : priority
         if (size !== undefined) cachedFeature.size = size === null ? undefined : size
         if (tags !== undefined) cachedFeature.tags = tags || []
         if (blocked_by !== undefined) cachedFeature.blocked_by = blocked_by || undefined
