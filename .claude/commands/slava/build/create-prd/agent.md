@@ -46,6 +46,186 @@ Goal: Export button on results page
 
 ## Your Workflow
 
+### Phase 0: Strategic Alignment Check (NEW)
+
+**CRITICAL: Run this BEFORE spending time on comprehensive PRD.**
+
+**Purpose:** Catch strategic misalignment early (like P143 MCP server — infrastructure convenience, not validation-critical).
+
+---
+
+#### Step 1: Discover Current Strategy
+
+**Read these files to understand context:**
+
+1. **Milestones & Tracks:**
+   ```bash
+   # Discover active tracks
+   ls docs/milestones/*.md
+   ```
+   Then read `docs/milestones/README.md` to understand:
+   - Which tracks exist (R/C/E/X + foundation)
+   - What each track validates
+   - Priority hierarchy (Recognition PRIMARY, Coaching SAFETY)
+
+2. **Hypotheses (optional, if relevant):**
+   ```bash
+   # Check if hypotheses.md exists
+   test -f docs/hypotheses.md && cat docs/hypotheses.md
+   ```
+
+**Extract key info:**
+- Active milestone tracks (e.g., C1, C2, R1, E1, X1, foundation)
+- Track purposes (e.g., C-series = coaching validation, R-series = recognition, etc.)
+- Current priorities (from README.md Dual-Track Strategy section)
+
+---
+
+#### Step 2: Ask Strategic Alignment Questions
+
+**Use AskUserQuestion to ask TWO quick questions:**
+
+**Question 1: Hypothesis Connection**
+```json
+{
+  "question": "Which hypothesis or validation goal does this feature test?",
+  "header": "Hypothesis",
+  "options": [
+    {
+      "label": "Tests coaching track validation (C-series)",
+      "description": "Validates workshop value, participant behavior, or /live sessions"
+    },
+    {
+      "label": "Tests recognition track validation (R-series)",
+      "description": "Builds thought leadership, essay publishing, or visibility"
+    },
+    {
+      "label": "Enhances existing validated features (E-series)",
+      "description": "Improves something already proven to work"
+    },
+    {
+      "label": "Tests scale/network effects (X-series)",
+      "description": "Requires 100+ users to measure"
+    },
+    {
+      "label": "Infrastructure/tooling (foundation)",
+      "description": "Build tools, meta-work, no direct user validation"
+    },
+    {
+      "label": "None — this is convenience/nice-to-have",
+      "description": "Saves time or improves workflow, but doesn't test business hypotheses"
+    }
+  ]
+}
+```
+
+**Question 2: Priority Tier**
+```json
+{
+  "question": "Given dual-track priorities (Recognition PRIMARY, Coaching SAFETY), how critical is this feature?",
+  "header": "Priority",
+  "options": [
+    {
+      "label": "P0 - Validation blocker",
+      "description": "Prevents testing critical hypothesis. Can't proceed without this."
+    },
+    {
+      "label": "P1 - Strategic priority",
+      "description": "Directly tests Recognition or Coaching track hypotheses"
+    },
+    {
+      "label": "P2 - Enhancement or convenience",
+      "description": "Nice-to-have improvement, doesn't test core hypotheses"
+    },
+    {
+      "label": "P3 - Future work",
+      "description": "Good idea but not relevant until much later"
+    }
+  ]
+}
+```
+
+---
+
+#### Step 3: Evaluate Strategic Fit
+
+**After receiving answers, check for misalignment:**
+
+**🚨 RED FLAGS (suggest reconsidering):**
+
+1. **"None — convenience" + P1/P0 priority**
+   - Feature doesn't test hypotheses but marked high priority
+   - Example: P143 MCP (save 2 min/week, not validation-critical)
+   - **Action:** Flag to user: "This looks like infrastructure convenience marked as strategic priority. Should this be P2 instead?"
+
+2. **"Infrastructure/foundation" + "Tests coaching/recognition"**
+   - Contradictory answers (foundation = no validation, but claims to test hypothesis)
+   - **Action:** Flag: "You said this is infrastructure but also tests hypotheses. Which is it?"
+
+3. **Time investment vs validation ROI**
+   - If feature will take 3+ weeks but doesn't test any hypothesis
+   - **Action:** Flag: "This will take significant time but doesn't test validation hypotheses. Is this the best use of time given Recognition PRIMARY, Coaching SAFETY priorities?"
+
+**✅ GREEN LIGHTS (proceed with PRD):**
+
+1. **Tests hypothesis + appropriate priority**
+   - Example: "Tests coaching track (C-series)" + P1
+   - Clear alignment with dual-track strategy
+
+2. **Infrastructure + low priority**
+   - Example: "Infrastructure/foundation" + P2/P3
+   - Honest about not testing hypotheses, appropriately deprioritized
+
+3. **Enhancement of validated work + medium priority**
+   - Example: "Enhances E-series" + P1/P2
+   - Building on proven value
+
+---
+
+#### Step 4: Warn or Proceed
+
+**If RED FLAG detected:**
+
+```markdown
+⚠️ **Strategic Alignment Warning**
+
+Based on your answers:
+- Hypothesis: {answer1}
+- Priority: {answer2}
+
+**Concern:** {specific concern — e.g., "Infrastructure convenience marked P1"}
+
+**Context from milestones:**
+- Recognition track (PRIMARY): {R-series description}
+- Coaching track (SAFETY): {C-series description}
+
+**Questions to consider:**
+1. Is this the best use of time given current priorities?
+2. What hypothesis does this actually test?
+3. Should this be deprioritized (P2) or deferred?
+
+**Options:**
+1. Proceed anyway (you know something I don't)
+2. Adjust priority to P2 (nice-to-have, not strategic)
+3. Defer this feature (focus on validation work first)
+
+Which would you like?
+```
+
+**If GREEN LIGHT:**
+- Proceed directly to Phase 1 (Understand the Problem)
+- No additional prompts needed
+
+---
+
+**Benefits of Phase 0:**
+- Catches P143-style misalignment in 2 minutes (not after 1000-line PRD)
+- Uses dynamic discovery (reads milestones/README.md, no hardcoded values)
+- Educates user about dual-track strategy (shows context from docs)
+- Allows override ("proceed anyway") when user knows something you don't
+
+---
+
 ### Phase 1: Understand the Problem
 
 1. **Read input**
@@ -532,18 +712,99 @@ test('enforces RLS policies', async ({ page }) => {
 
 ### Phase 6: Return PRD
 
+**CRITICAL: File location**
+- **Create file at:** `features/p{N}_{slug}.md`
+- **NOT** in `docs/` or any other location
+- **Example:** `features/p143_mcp_server.md`
+
 **Format:**
 ```markdown
 ---
 status: week
-type: {feature|bug|task}
-priority: {p0|p1|p2|p3}
-tags: [{relevant tags}]
+type: feature
+priority: p1
+milestone: C2
+tags: [relevant, tags]
 ---
 
 # P{N}: {Title}
 
 {All sections generated above}
+```
+
+**📚 Canonical Reference:** For complete frontmatter field definitions, valid values, and examples, see `docs/technical/feature-specs.md`
+
+**IMPORTANT - Frontmatter must be kanban-compatible:**
+
+**Required fields:**
+- `status`: Use `week` by default (user can change later in kanban)
+  - Valid values: `backlog` | `week` | `today` | `in-progress` | `blocked` | `done` | `draft` | `rejected`
+- `type`: Use actual type based on feature classification (MUST be one of these):
+  - `story` - User-facing functionality (delivers user value)
+  - `bug` - Something broken
+  - `task` - Technical work without direct user value (refactor, infrastructure)
+  - `comment` - Decisions or architectural notes
+- `priority`: Use actual priority from user answer (Phase 2, Question 3): `p0` | `p1` | `p2` | `p3`
+- `milestone`: Dynamically discovered milestone (see below for details)
+- `tags`: Extract 2-4 relevant keywords from title/problem (lowercase, hyphenated)
+- `created`: Today's date in YYYY-MM-DD format
+
+**CRITICAL - Milestone field (REQUIRED for kanban visibility):**
+- `milestone`: Dynamically discover from docs/milestones/ and classify feature into appropriate track
+  - **How to determine:**
+    1. **Phase 0 already did this!** Use the answer from Question 1 (Hypothesis Connection)
+    2. Map answer to milestone:
+       - "Tests coaching track (C-series)" → Find current C-milestone from `ls docs/milestones/c*.md`
+       - "Tests recognition track (R-series)" → Find current R-milestone from `ls docs/milestones/r*.md`
+       - "Enhances validated features (E-series)" → Find current E-milestone
+       - "Tests scale/network (X-series)" → Find current X-milestone
+       - "Infrastructure/tooling (foundation)" → Use `foundation`
+       - "None — convenience" → Ask user which track, or default to `foundation`
+    3. If multiple milestones exist in a track (e.g., C1, C2), ask user which specific one OR use latest/current
+    4. Read `docs/milestones/README.md` to understand track categories if needed
+  - **Format:** C1, C2, R1, E1, X1, or foundation (lowercase or uppercase, system normalizes)
+  - **IMPORTANT:** Never hardcode milestone values. Always discover from filesystem and milestones/README.md
+
+**Examples:**
+
+```markdown
+# Feature: "Add dark mode toggle to profile page"
+# Priority: P1 (from user)
+# Classification: UI enhancement → E-series
+# Type: story (delivers user value - users can toggle dark mode)
+---
+status: week
+type: story
+priority: p1
+milestone: E1
+tags: [dark-mode, ui, profile, settings]
+created: 2026-02-12
+---
+
+# Bug: "Login button doesn't work on Safari mobile"
+# Priority: P0 (from user)
+# Classification: Critical auth bug → Coaching foundation (users can't access)
+---
+status: today
+type: bug
+priority: p0
+milestone: C1
+tags: [login, safari, mobile, critical]
+created: 2026-02-12
+---
+
+# Task: "Refactor authentication code to use new Supabase SDK"
+# Priority: P2 (from user)
+# Classification: Meta infrastructure work → foundation
+# Type: task (no direct user value, pure technical improvement)
+---
+status: week
+type: task
+priority: p2
+milestone: foundation
+tags: [refactor, auth, supabase, technical-debt]
+created: 2026-02-12
+---
 
 ---
 
@@ -577,6 +838,19 @@ ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p
 - Replace spaces with underscores
 - Remove special characters
 - Example: "Add Dark Mode Toggle" → "add_dark_mode_toggle"
+
+**Determine milestone:**
+- **Phase 0 already determined this!** Use the answer from strategic alignment questions.
+- **Dynamic discovery:**
+  - List milestones: `ls docs/milestones/*.md`
+  - Read `docs/milestones/README.md` for track descriptions
+  - Map user's answer to appropriate track:
+    - **C-series (Coaching track):** Workshop features, facilitation tools, Stories/Points/Live features
+    - **R-series (Recognition track):** Essays, publishing, visibility features
+    - **E-series (Enhancement track):** Improvements to existing features, optimization
+    - **X-series (Exploratory track):** Requires scale (>100 users), network effects
+    - **foundation:** Meta-work (infrastructure, documentation architecture, build tools)
+- **CRITICAL:** Milestone field is REQUIRED for kanban visibility. NEVER hardcode values — always discover from filesystem.
 
 ---
 

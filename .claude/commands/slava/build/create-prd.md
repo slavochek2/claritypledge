@@ -43,7 +43,7 @@ Or with existing draft:
 - Features with unclear scope (agent will clarify)
 
 ❌ **Don't use for:**
-- Quick skeleton only (use `/create-feature` instead)
+- Quick skeleton only (use `/quick-feature` instead)
 - Research notes (use `features/drafts/`)
 - Simple typo fixes
 
@@ -158,6 +158,7 @@ Before returning, agent verifies:
 status: week
 type: feature
 priority: p1
+milestone: C2
 tags: [export, csv, sifter]
 ---
 
@@ -320,9 +321,9 @@ test('handles export error gracefully', async ({ page }) => {
 
 ---
 
-## Comparison: /create-feature vs /create-prd
+## Comparison: /quick-feature vs /create-prd
 
-| Aspect | /create-feature | /create-prd |
+| Aspect | /quick-feature | /create-prd |
 |--------|----------------|-------------|
 | **Output** | Skeleton only | Complete PRD |
 | **Business requirements** | ❌ Empty | ✅ Generated (WHY, outcomes) |
@@ -333,7 +334,7 @@ test('handles export error gracefully', async ({ page }) => {
 | **When to use** | Quick placeholder | Ready to implement |
 
 **Rule of thumb:**
-- Use `/create-feature` for quick skeleton (you'll fill in manually)
+- Use `/quick-feature` for quick skeleton (you'll fill in manually)
 - Use `/create-prd` for comprehensive PRD (agent fills in for you)
 
 ---
@@ -351,5 +352,5 @@ test('handles export error gracefully', async ({ page }) => {
 
 - **First time using?** Start with a small feature to see output quality
 - **Agent asks questions?** Answer them - it's clarifying scope
-- **PRD too detailed?** You can ask agent to simplify (or use `/create-feature` instead)
+- **PRD too detailed?** You can ask agent to simplify (or use `/quick-feature` instead)
 - **PRD missing something?** Agent will flag uncertainties - just provide missing info

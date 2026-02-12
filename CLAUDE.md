@@ -164,6 +164,12 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 ---
 
+### Dynamic Discovery
+
+> **Principle:** Agents should discover current structure from files (Glob/Grep), not hardcode assumptions. Values that can change (milestone names, folder structures, schemas) must be discovered at runtime.
+
+---
+
 ### MCP Configuration Safety
 
 > **Principle:** NEVER touch MCP configs without backing up first.
@@ -234,7 +240,7 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
-**Creating features/bugs:** MUST use `/slava:build:create-feature` skill (ensures correct frontmatter, P-number, priority). Do NOT create files manually. See [feature-specs.md](docs/technical/feature-specs.md) for format details.
+**Creating features/bugs:** Use `/slava:build:quick-feature` (quick skeleton, 30 sec) or `/slava:build:create-prd` (comprehensive PRD, 3-5 min). Do NOT create files manually. See [feature-specs.md](docs/technical/feature-specs.md) for frontmatter format.
 
 When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?" Never auto-create. If user declines, don't ask again that session. When done, update to `status: done`.
 
@@ -390,9 +396,23 @@ Full guide: [feature-specs.md](docs/technical/feature-specs.md#file-locations)
 
 ### Creating Features, Bugs, Tasks
 
-**Recommended:** Use `/slava:build:create-feature` skill (ensures correct frontmatter, P-number, template).
+**Two options:**
 
-**Handles:** Features, bugs, tasks — prompts for type, status, priority, generates proper structure.
+1. **`/slava:build:quick-feature`** - Quick skeleton (30 seconds)
+   - Minimal template with empty placeholders
+   - For idea capture, simple features you'll fill in manually
+   - Prompts for: type, status, priority
+
+2. **`/slava:build:create-prd`** - Comprehensive PRD (3-5 minutes)
+   - Agent generates all sections: business requirements, technical analysis, implementation plan, test coverage
+   - For features ready to implement
+   - Asks clarifying questions, explores codebase, creates E2E test templates
+
+**When to use which:**
+- Quick placeholder → `/quick-feature`
+- Ready to implement → `/create-prd`
+
+**Frontmatter format:** See [feature-specs.md](docs/technical/feature-specs.md) for complete specification.
 
 **Manual creation (if needed):**
 
@@ -403,9 +423,12 @@ When creating ANY file in `features/` manually, ALWAYS include frontmatter:
 status: backlog | week | today | in-progress | blocked | done | draft | rejected
 type: story | bug | task | comment
 priority: p0 | p1 | p2 | p3
+milestone: C1 | C2 | R1 | E1 | X1 | foundation
 tags: []
 ---
 ```
+
+**CRITICAL:** `milestone` field is REQUIRED for kanban visibility.
 
 **Type semantics:**
 - `story` — User-facing value ("As a user, I want X")
