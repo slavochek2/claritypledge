@@ -1,0 +1,547 @@
+/**
+ * @file point-card-with-links.tsx
+ * @description Production PointCard component with linked Stories support
+ * Refactored from prototype to accept explicit props instead of using mock data
+ */
+
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Pin, Ear, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared/MobileTooltip';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import {
+  PointHeader,
+  PositionButtons,
+  PositionBadge,
+  ShareButton,
+  ThreadLineGroup,
+  ThreadLineItem,
+  type SevenPointCounts,
+} from '@/app/prototypes/linkedin-like/components/shared';
+import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
+import { getPositionGroup } from '@/app/prototypes/shared/types';
+
+/** Author information for a story in quoted context */
+export interface StoryAuthor {
+  id: string;
+  name: string;
+  role?: string;
+  hasPledged?: boolean;
+  ear?: number;
+}
+
+/** Profile owner information for point context */
+export interface PointProfileOwner {
+  id: string;
+  name: string;
+  hasPledged?: boolean;
+  ear?: number;
+  position?: PositionType;
+}
+
+interface PointCardWithLinksProps {
+  point: Point;
+  linkedStories?: Story[];
+  compact?: boolean;
+  isDetailView?: boolean;
+  /** When viewing on someone's profile, show their linked Story */
+  profileOwner?: PointProfileOwner;
+  /** Hide position buttons and action icons */
+  hideActions?: boolean;
+  /** Disable click-to-navigate behavior */
+  disableNavigation?: boolean;
+  /** Live session mode: shows position buttons + expandable stories, hides share/open */
+  liveSessionMode?: boolean;
+  /** Callback when position is selected (live session mode) */
+  onPositionSelect?: (position: Position) => void;
+  /** Pre-selected position (live session mode) */
+  selectedPosition?: Position;
+  /** Get position counts for the point */
+  getPointPositionCounts?: (point: Point) => SevenPointCounts;
+  /** Current user ID for position tracking */
+  currentUserId?: string;
+  /** Get author info for a story */
+  getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
+  /** Callback when user clicks on a story */
+  onStoryClick?: (storyId: string) => void;
+}
+
+/**
+ * PointCardWithLinks - displays a claim about reality (Point)
+ * Visual: Gray left border, Clarity logo avatar (platform-owned), position buttons
+ * Pattern B: Shows linked Stories expandable section
+ */
+export function PointCardWithLinks({
+  point,
+  linkedStories = [],
+  compact = false,
+  isDetailView = false,
+  profileOwner,
+  hideActions = false,
+  disableNavigation = false,
+  liveSessionMode = false,
+  onPositionSelect,
+  selectedPosition,
+  getPointPositionCounts,
+  currentUserId,
+  getStoryAuthor,
+  onStoryClick,
+}: PointCardWithLinksProps) {
+  const navigate = useNavigate();
+  const [userPosition, setUserPosition] = useState<Position>(
+    selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
+  );
+  const [storiesExpanded, setStoriesExpanded] = useState(false);
+
+  // Get base counts or use defaults
+  const baseCounts =
+    getPointPositionCounts?.(point) ?? {
+      strongly_agree: 0,
+      agree: 0,
+      somewhat_agree: 0,
+      unsure: 0,
+      somewhat_disagree: 0,
+      disagree: 0,
+      strongly_disagree: 0,
+    };
+
+  // In live session mode, show all linked stories (not filtered by owner)
+  const allLinkedStories = linkedStories;
+
+  // Track initial position
+  const initialPosition = currentUserId
+    ? point.positions[currentUserId]?.position || null
+    : null;
+
+  // Compute adjusted counts based on user's current position vs initial
+  const counts = useMemo((): SevenPointCounts => {
+    const adjusted: SevenPointCounts = {
+      strongly_agree: 0,
+      agree: baseCounts.agree,
+      somewhat_agree: 0,
+      unsure: baseCounts.unsure,
+      somewhat_disagree: 0,
+      disagree: baseCounts.disagree,
+      strongly_disagree: 0,
+    };
+
+    const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
+      if (!pos) return null;
+      return getPositionGroup(pos);
+    };
+
+    const initialGroup = getGroup(initialPosition as PositionType | null);
+    const currentGroup = getGroup(userPosition as PositionType | null);
+
+    if (initialGroup !== currentGroup) {
+      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (initialGroup === 'disagree')
+        adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+
+      if (currentGroup === 'agree') adjusted.agree++;
+      else if (currentGroup === 'disagree') adjusted.disagree++;
+      else if (currentGroup === 'unsure') adjusted.unsure++;
+    }
+
+    return adjusted;
+  }, [baseCounts, initialPosition, userPosition]);
+
+  // Show all linked stories (max 3) - points can be referenced by anyone's stories
+  // Unlike StoryCard, we don't filter by profileOwner because:
+  // - Stories are authored by the profile owner (filter their content)
+  // - Points are validated by the profile owner (show who references them)
+  const filteredStories = linkedStories;
+  const storiesToShow = filteredStories.slice(0, 3);
+
+  const handleCardClick = () => {
+    if (!isDetailView && !disableNavigation) {
+      navigate(`/point/${point.id}`);
+    }
+  };
+
+  const handlePositionClick = (position: Position) => {
+    // Toggle: clicking same position removes it
+    const newPosition = userPosition === position ? null : position;
+    setUserPosition(newPosition);
+    onPositionSelect?.(newPosition);
+  };
+
+  const cardClassName = isDetailView
+    ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden'
+    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all';
+
+  // Quote pattern: when on profile, show position label outside, Point in quoted box
+  const showQuotePattern =
+    profileOwner && profileOwner.position;
+
+  return (
+    <div className={cardClassName} onClick={handleCardClick}>
+      {/* Main content */}
+      <div className="p-4">
+        {showQuotePattern && profileOwner && profileOwner.position ? (
+          // Quote pattern: "{Name} {verb}:" outside, Point content in quoted box
+          <>
+            {/* Position label OUTSIDE the quoted box - Avatar + Name + Badge grouped */}
+            <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
+              <GravatarAvatar
+                name={profileOwner.name}
+                size="sm"
+                isPledger={profileOwner.hasPledged}
+                className="!w-5 !h-5 !text-[10px]"
+              />
+              <span className="font-medium">{profileOwner.name}</span>
+              {profileOwner.ear && profileOwner.ear > 0 && (
+                <MobileTooltip
+                  content={`${profileOwner.name.split(' ')[0]} understood ${profileOwner.ear} ${
+                    profileOwner.ear === 1 ? 'story' : 'stories'
+                  } as confirmed by their owners`}
+                >
+                  <span className="inline-flex items-center gap-0.5 text-gray-600">
+                    <Ear size={14} />
+                    {profileOwner.ear}
+                  </span>
+                </MobileTooltip>
+              )}
+              <PositionBadge position={profileOwner.position} />
+            </div>
+
+            {/* Quoted Point box */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              {/* Two-column layout matching StoryCard structure */}
+              <div className="flex items-start gap-3">
+                {/* Pin icon column - matches StoryCard avatar width */}
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
+                  <Pin size={16} className="rotate-45" />
+                </div>
+
+                {/* Content column */}
+                <div className="flex-1 min-w-0">
+                  {/* Point text */}
+                  <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+                    {point.text}
+                  </p>
+
+                  {/* Position buttons */}
+                  {!hideActions && currentUserId && (
+                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <PositionButtons
+                        userPosition={userPosition}
+                        counts={counts}
+                        onPositionClick={handlePositionClick}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
+              <div
+                className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-[44px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Collapsible trigger (if has linked stories) */}
+                {!isDetailView && filteredStories.length > 0 ? (
+                  <button
+                    onClick={() => setStoriesExpanded(!storiesExpanded)}
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                    aria-expanded={storiesExpanded}
+                    aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
+                  >
+                    {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <span>
+                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                    </span>
+                  </button>
+                ) : (
+                  <span />
+                )}
+
+                {/* Action icons - hidden in live session mode */}
+                {!hideActions && !liveSessionMode && (
+                  <div className="flex items-center gap-1">
+                    <ShareButton
+                      type="point"
+                      id={point.id}
+                      description={point.text.slice(0, 100)}
+                    />
+                    {!isDetailView && !disableNavigation && (
+                      <MobileTooltip content="Open point">
+                        <button
+                          onClick={() => navigate(`/point/${point.id}`)}
+                          className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                          aria-label="Open point"
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      </MobileTooltip>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          // Feed view: original layout with pin icon column
+          <div className="flex gap-3">
+            {/* Pin icon - same width as StoryCard avatar, blue to distinguish from Stories */}
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
+              <Pin size={20} />
+            </div>
+
+            {/* Content column - aligned with StoryCard */}
+            <div className="flex-1 min-w-0">
+              {/* Header row - matches StoryCard's author info structure */}
+              <div className="mb-2">
+                <PointHeader
+                  authorPosition={profileOwner?.position}
+                  authorName={profileOwner?.name}
+                  authorEarCount={profileOwner?.ear}
+                />
+              </div>
+
+              {/* Point text - same position as StoryCard text */}
+              <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+                {point.text}
+              </p>
+
+              {/* Position buttons */}
+              {!hideActions && currentUserId && (
+                <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                  <PositionButtons
+                    userPosition={userPosition}
+                    counts={counts}
+                    onPositionClick={handlePositionClick}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer row - only for feed view (non-quote pattern) or live session mode */}
+      {(!showQuotePattern || liveSessionMode) && (
+        <div
+          className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Collapsible trigger - show in live session mode with all stories, or on profile/feed with any linked stories */}
+          {!isDetailView &&
+          (liveSessionMode
+            ? allLinkedStories.length > 0
+            : filteredStories.length > 0) ? (
+            <button
+              onClick={() => setStoriesExpanded(!storiesExpanded)}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+              aria-expanded={storiesExpanded}
+              aria-label={`${storiesExpanded ? 'Collapse' : 'Expand'} linked stories`}
+            >
+              {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span>
+                {liveSessionMode
+                  ? `${allLinkedStories.length} ${
+                      allLinkedStories.length === 1 ? 'story' : 'stories'
+                    }`
+                  : `${filteredStories.length} ${
+                      filteredStories.length === 1 ? 'story' : 'stories'
+                    }`}
+              </span>
+            </button>
+          ) : (
+            <span /> /* Empty span for flexbox spacing */
+          )}
+
+          {/* Action icons - hidden in live session mode */}
+          {!hideActions && !liveSessionMode && (
+            <div className="flex items-center gap-1">
+              <ShareButton type="point" id={point.id} description={point.text.slice(0, 100)} />
+              {/* External link - only in feed (redundant in detail view) */}
+              {!isDetailView && !disableNavigation && (
+                <MobileTooltip content="Open point">
+                  <button
+                    onClick={() => navigate(`/point/${point.id}`)}
+                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Open point"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                </MobileTooltip>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Expanded linked stories - in feed view or live session mode */}
+      {!isDetailView &&
+        storiesExpanded &&
+        (liveSessionMode || profileOwner) &&
+        (liveSessionMode ? allLinkedStories : storiesToShow).length > 0 && (
+          <div
+            className={
+              showQuotePattern ? 'pl-4 sm:pl-[60px] pr-4 pb-4' : 'pl-4 sm:pl-[68px] pr-4 pb-4'
+            }
+          >
+            {(() => {
+              const stories = liveSessionMode ? allLinkedStories.slice(0, 3) : storiesToShow;
+              const totalStories = liveSessionMode ? allLinkedStories.length : filteredStories.length;
+
+              if (stories.length === 1) {
+                // Single story - no thread lines
+                return (
+                  <QuotedStory
+                    story={stories[0]}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onStoryClick) {
+                        onStoryClick(stories[0].id);
+                      } else if (!liveSessionMode) {
+                        navigate(`/story/${stories[0].id}`);
+                      }
+                    }}
+                    onAuthorClick={(e) => {
+                      e.stopPropagation();
+                      if (!liveSessionMode) navigate(`/p/${stories[0].authorId}`);
+                    }}
+                    getStoryAuthor={getStoryAuthor}
+                  />
+                );
+              }
+
+              // 2+ stories - show thread lines
+              return (
+                <ThreadLineGroup>
+                  {stories.map((story, index) => (
+                    <ThreadLineItem
+                      key={story.id}
+                      isLast={index === stories.length - 1 && totalStories <= 3}
+                    >
+                      <QuotedStory
+                        story={story}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onStoryClick) {
+                            onStoryClick(story.id);
+                          } else if (!liveSessionMode) {
+                            navigate(`/story/${story.id}`);
+                          }
+                        }}
+                        onAuthorClick={(e) => {
+                          e.stopPropagation();
+                          if (!liveSessionMode) navigate(`/p/${story.authorId}`);
+                        }}
+                        getStoryAuthor={getStoryAuthor}
+                      />
+                    </ThreadLineItem>
+                  ))}
+                  {totalStories > 3 && (
+                    <ThreadLineItem isLast>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!liveSessionMode) navigate(`/point/${point.id}`);
+                        }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        +{totalStories - 3} more stories
+                      </button>
+                    </ThreadLineItem>
+                  )}
+                </ThreadLineGroup>
+              );
+            })()}
+          </div>
+        )}
+    </div>
+  );
+}
+
+/**
+ * Twitter-style quoted Story card - shows a linked story within a Point.
+ */
+function QuotedStory({
+  story,
+  onClick,
+  onAuthorClick,
+  getStoryAuthor,
+}: {
+  story: Story;
+  onClick: (e: React.MouseEvent) => void;
+  /** Callback when author name/avatar is clicked */
+  onAuthorClick?: (e: React.MouseEvent) => void;
+  /** Get author info for the story */
+  getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
+}) {
+  const author = getStoryAuthor?.(story.authorId);
+
+  return (
+    <div
+      onClick={onClick}
+      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer"
+    >
+      {/* Author info at top */}
+      {author && (
+        <div className="flex items-center gap-2 mb-1.5">
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAuthorClick?.(e);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onAuthorClick?.(e as unknown as React.MouseEvent);
+              }
+            }}
+            className="hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            <GravatarAvatar
+              name={author.name}
+              size="sm"
+              isPledger={author.hasPledged}
+              className="!w-6 !h-6 !text-[11px]"
+            />
+          </span>
+          {/* Author name - clickable */}
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAuthorClick?.(e);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onAuthorClick?.(e as unknown as React.MouseEvent);
+              }
+            }}
+            className="text-xs font-medium text-gray-700 hover:underline cursor-pointer"
+          >
+            {author.name}
+          </span>
+          {/* Ear indicator - understanding credibility */}
+          {author.ear && author.ear > 0 && (
+            <MobileTooltip
+              content={`${author.name.split(' ')[0]} understood ${author.ear} ${
+                author.ear === 1 ? 'story' : 'stories'
+              } as confirmed by their owners`}
+            >
+              <span className="inline-flex items-center gap-0.5 text-xs text-gray-600">
+                <Ear size={12} />
+                {author.ear}
+              </span>
+            </MobileTooltip>
+          )}
+        </div>
+      )}
+      {/* Story text */}
+      <p className="text-sm text-gray-800 line-clamp-2">{story.text}</p>
+    </div>
+  );
+}
