@@ -18,17 +18,264 @@ Then increment by 1.
 - `p117_backend_api.md`
 - `p118_auth_refactor.md`
 
-## Required Frontmatter
+## Frontmatter Specification
+
+**All feature files MUST include YAML frontmatter.**
+
+### Core Fields (Required)
 
 ```yaml
 ---
-status: week           # Kanban column: backlog | week | today | in-progress | blocked | done
-prepped_date: null     # Set by /prep-spec when reviews pass (null = draft)
-reviews:               # Set during /prep-spec
+status: week                    # Kanban column placement (REQUIRED)
+type: feature                   # Classification (REQUIRED)
+priority: p1                    # Strategic importance (REQUIRED)
+tags: []                        # Searchable keywords (REQUIRED, can be empty)
+---
+```
+
+### Optional Fields
+
+```yaml
+---
+milestone: C2                   # Product track (optional but recommended)
+prepped_date: null              # Set by /prep-spec (null = draft)
+reviews:                        # Set during /prep-spec
   ux: null
   architect: null
   alignment: null
+completed_at: '2026-02-04'      # Set when status: done
 ---
+```
+
+---
+
+### Field Definitions
+
+#### `status` (REQUIRED)
+
+**Purpose:** Controls kanban column placement
+
+**Valid values:**
+- `backlog` - Not scheduled yet
+- `week` - Planned for this week
+- `today` - Working on today
+- `in-progress` - Currently being built
+- `blocked` - Waiting on something
+- `done` - Complete (move to `features/done/`)
+- `draft` - Early-stage idea (optional, can use `features/drafts/` folder instead)
+- `rejected` - Deprioritized (move to `features/archive/`)
+
+**Default:** `week` (when creating new features)
+
+---
+
+#### `type` (REQUIRED)
+
+**Purpose:** Classifies the work type
+
+**Valid values:**
+- `feature` - User-facing functionality (new capability or enhancement)
+- `bug` - Something broken that needs fixing
+- `task` - Technical work (refactor, infrastructure, tools, documentation)
+- `comment` - Notes, decisions, documentation (not actionable work)
+
+**How to choose:**
+- Delivers user value? → `feature`
+- Fixes broken behavior? → `bug`
+- Technical improvement with no user-visible change? → `task`
+- Documentation/notes only? → `comment`
+
+**Type-specific frontmatter:**
+
+For `bug` type, add:
+```yaml
+severity: low | medium | high | critical
+date_reported: '2026-02-12'
+date_resolved: '2026-02-13'    # when fixed
+root_cause: brief description   # after investigation
+```
+
+---
+
+#### `priority` (REQUIRED)
+
+**Purpose:** Strategic importance bucket
+
+**Valid values:**
+- `p0` - Critical (blocks launch or users, must do now)
+- `p1` - High priority (important, near-term)
+- `p2` - Medium priority (nice-to-have, can wait)
+- `p3` - Low priority (future, not urgent)
+
+**Default:** `p1` (when uncertain)
+
+**Note:** If P141 (Unified Rank System) is implemented, this will be replaced by `rank: number` field.
+
+---
+
+#### `milestone` (OPTIONAL but RECOMMENDED)
+
+**Purpose:** Assigns feature to product track for milestone planning
+
+**Valid values:**
+- `C1`, `C2`, `C3`, ... - Coaching track
+- `R1`, `R2`, `R3`, ... - Recognition track
+- `E1`, `E2`, `E3`, ... - Enhancements track
+- `X1`, `X2`, `X3`, ... - Exploratory track
+- `foundation` - Meta-work (infrastructure, tooling, refactors)
+
+**How to determine:**
+1. List available milestones: `ls docs/milestones/*.md`
+2. Read `docs/milestones/README.md` for track descriptions
+3. Classify:
+   - Coaching features (sifter, profiles, calibration) → `C*`
+   - Recognition/rewards/points → `R*`
+   - UI improvements, optimizations → `E*`
+   - Experiments, research → `X*`
+   - Infrastructure, tooling → `foundation`
+
+**Example:**
+```yaml
+# Feature: "Add dark mode toggle"
+milestone: E1  # UI enhancement
+
+# Bug: "Login broken on Safari"
+milestone: C1  # Blocks coaching (users can't access)
+
+# Task: "Refactor auth to new Supabase SDK"
+milestone: foundation  # Infrastructure work
+```
+
+**Leave empty if:** Feature doesn't fit into any current milestone track.
+
+---
+
+#### `tags` (REQUIRED, can be empty)
+
+**Purpose:** Searchable keywords for filtering/grouping
+
+**Format:** Array of lowercase, hyphenated strings
+```yaml
+tags: [dark-mode, ui, settings]
+```
+
+**Guidelines:**
+- 2-4 relevant tags per feature
+- Use existing tags when possible (check other features)
+- Lowercase, hyphenate multi-word tags: `dark-mode` not `Dark Mode`
+- Domain-specific: `auth`, `sifter`, `profile`, `points`
+- Technical: `refactor`, `performance`, `accessibility`
+- Can be empty: `tags: []`
+
+---
+
+#### `prepped_date` (OPTIONAL, set by /prep-spec)
+
+**Purpose:** Tracks spec review completion
+
+**Format:** `'YYYY-MM-DD'` or `null`
+
+**Values:**
+- `null` - Spec is draft, not reviewed
+- `'2026-02-05'` - Spec passed `/prep-spec` reviews on this date
+
+**Set by:** `/prep-spec` skill automatically (don't set manually)
+
+---
+
+#### `reviews` (OPTIONAL, set by /prep-spec)
+
+**Purpose:** Tracks individual agent review results
+
+**Format:**
+```yaml
+reviews:
+  ux: passed | passed-with-notes | needs-work | null
+  architect: passed | passed-with-notes | needs-work | null
+  alignment: passed | passed-with-notes | needs-work | null
+```
+
+**Set by:** `/prep-spec` skill automatically (don't set manually)
+
+---
+
+#### `completed_at` (OPTIONAL, set when done)
+
+**Purpose:** Records completion date
+
+**Format:** `'YYYY-MM-DD'`
+
+**When to set:** When changing `status: done` and moving to `features/done/`
+
+---
+
+### Complete Examples
+
+#### Feature Example
+
+```yaml
+---
+status: week
+type: feature
+priority: p1
+milestone: C2
+tags: [sifter, csv-export, data-analysis]
+prepped_date: '2026-02-10'
+reviews:
+  ux: passed
+  architect: passed-with-notes
+  alignment: passed
+---
+
+# P142: Export Sifter Responses as CSV
+
+## Problem
+Users want to analyze sifter responses in Excel/Sheets.
+
+## Solution
+Add "Export CSV" button to results page.
+```
+
+#### Bug Example
+
+```yaml
+---
+status: today
+type: bug
+priority: p0
+severity: critical
+milestone: C1
+tags: [login, safari, mobile, auth]
+date_reported: '2026-02-12'
+---
+
+# BUG: Login Button Doesn't Work on Safari Mobile
+
+## Problem
+Users on Safari mobile can't log in - button click has no effect.
+
+## Root Cause
+Event listener not firing on mobile Safari due to touch event issue.
+```
+
+#### Task Example
+
+```yaml
+---
+status: week
+type: task
+priority: p2
+milestone: foundation
+tags: [refactor, auth, supabase, technical-debt]
+---
+
+# TASK: Refactor Auth to New Supabase SDK
+
+## Goal
+Migrate authentication code from v1 to v2 Supabase SDK.
+
+## Motivation
+V1 SDK is deprecated, v2 has better types and error handling.
 ```
 
 ## Status Values (Kanban Columns)

@@ -1,7 +1,6 @@
 ---
 status: today
 type: story
-priority: p0
 milestone: E1
 tags:
   - stories
@@ -13,7 +12,7 @@ reviews:
   ux: passed
   architect: passed-with-notes
   alignment: passed-with-notes
-sort_order: 500000
+rank: 7
 ---
 
 # P131: Manual Points Creation + Story Linking

@@ -1,13 +1,12 @@
 ---
 status: blocked
 type: story
-priority: p1
 prepped_date: '2026-02-09'
 reviews:
   ux: passed-with-notes
   architect: needs-revision
   alignment: passed
-sort_order: 0.0390625
+rank: 1
 ---
 
 # P134: Profile Story-Point Links Display

@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: task
+rank: 17
 ---
 # P52: Cloud Agent & Telegram Bot Simplification
 

@@ -1,7 +1,6 @@
 ---
 status: week
 type: story
-priority: p1
 milestone: C1
 prepped_date: '2026-02-06'
 reviews:
@@ -19,6 +18,7 @@ decisions:
   - Progressive search: show all items by default, add search bar at 5+ items
   - Session history: checkmarks only, no scores (scores are private calibration data)
   - Build new lightweight LiveStoryCard/LivePointCard using production types (prototype is design reference only)
+rank: 11
 ---
 # P128: /live Beginning Screen — Pick Story, Point, or Free Live
 

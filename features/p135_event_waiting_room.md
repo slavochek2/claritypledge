@@ -1,7 +1,6 @@
 ---
 status: today
 type: story
-priority: p1
 milestone: C1
 blocked_by: []
 fixes: p124
@@ -11,7 +10,7 @@ reviews:
   ux: passed-with-notes
   architect: passed-with-notes
   alignment: passed
-sort_order: 1000000
+rank: 10
 ---
 # P135: Event Waiting Room — No Redirect from Event Page
 

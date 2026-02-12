@@ -1,7 +1,6 @@
 ---
 status: today
 type: story
-priority: p2
 milestone: C1
 prototype: /prototype/linkedin-like/live
 prepped_date: '2026-02-09'
@@ -10,27 +9,17 @@ reviews:
   architect: passed-with-notes
   alignment: passed
 decisions:
-  - >-
-    Inline rating expansion pattern (expand story card in picker, not separate
-    screen)
-  - >-
-    Rich story card with avatar + linked points count (matches prototype
-    StoryCardPreview)
+  - Inline rating expansion pattern (expand story card in picker, not separate screen)
+  - Rich story card with avatar + linked points count (matches prototype StoryCardPreview)
   - 'CTA button text: "Does {partner} understand your story?" for clarity'
   - Story persists at top throughout flow using enriched card format
-  - >-
-    Entire card clickable (button is visual emphasis, larger tap target for
-    mobile)
+  - Entire card clickable (button is visual emphasis, larger tap target for mobile)
   - 'Radio pattern: expanding one card auto-collapses others (single selection)'
-  - 'Cancel clears rating (clean state, no partial selections)'
-  - >-
-    Inline error display on submit failure (keep card expanded, show Retry
-    button)
-  - >-
-    Fixed max-height (200px) for expanded story text with sticky rating UI
-    (mobile-friendly)
+  - Cancel clears rating (clean state, no partial selections)
+  - Inline error display on submit failure (keep card expanded, show Retry button)
+  - Fixed max-height (200px) for expanded story text with sticky rating UI (mobile-friendly)
   - 'No empty state: ContentPicker not rendered if stories.length === 0'
-sort_order: 750000
+rank: 8
 ---
 # P133: /live Beginning Screen — Match Prototype Polish
 

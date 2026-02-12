@@ -1,12 +1,11 @@
 ---
 status: backlog
 type: story
-priority: p2
 milestone: C2
 tags:
   - validation
   - gtm
-sort_order: 1000008
+rank: 19
 ---
 
 # P105: Sales Playbook

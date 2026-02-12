@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: bug
-sort_order: 0.0390625
+rank: 2
 ---
 # P126: /live Departure Detection Unreliable
 

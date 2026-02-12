@@ -1,11 +1,10 @@
 ---
 status: blocked
 type: bug
-priority: p0
 severity: high
 date_reported: '2026-02-09'
 tags: []
-sort_order: 0.75
+rank: 5
 ---
 
 # BUG: P140 - Story Refresh Undefined State
@@ -57,7 +56,7 @@ The error is caught by outer try/catch, setting `error = 'network_error'`, which
 **Prevention (3 layers):**
 1. **Dev time:** Added explicit `tsc --noEmit` to pre-commit checks
 2. **Runtime:** Added E2E test for story refresh scenario
-3. **Process:** Strengthened CLAUDE.md to require `/slava:build:create-feature` skill
+3. **Process:** Strengthened CLAUDE.md to require `/slava:build:quick-feature` skill
 
 ## Verification
 

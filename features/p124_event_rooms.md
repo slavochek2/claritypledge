@@ -1,7 +1,6 @@
 ---
 status: today
 type: story
-priority: p1
 milestone: C1
 blocked_by:
   - p128
@@ -13,16 +12,12 @@ reviews:
 decisions:
   - Dropped dedicated Room screen — event page IS the room (simplification)
   - No Supabase Presence — RSVP list + DB status sufficient for in-person events
-  - >-
-    Navigate to /live with returnTo param — no ClarityLivePage refactoring
-    needed
-  - 'Scores private to pair — room shows completion only, not numbers'
+  - Navigate to /live with returnTo param — no ClarityLivePage refactoring needed
+  - Scores private to pair — room shows completion only, not numbers
   - Auto room open at event start time
   - Room closes when event ends
-  - >-
-    Reverses 2026-01-23 "QR/link sufficient" decision based on P123 data (0%
-    join rate)
-sort_order: 1000000
+  - Reverses 2026-01-23 "QR/link sufficient" decision based on P123 data (0% join rate)
+rank: 9
 ---
 # P124: Event Rooms — Tap to Step Aside
 

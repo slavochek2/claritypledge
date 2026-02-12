@@ -1,7 +1,6 @@
 ---
 status: in-progress
 type: infrastructure
-priority: p0
 milestone: C1
 created: 2026-02-09T00:00:00.000Z
 prepped_date: null
@@ -9,7 +8,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
-sort_order: 250000.5
+rank: 125000
 ---
 
 # P138: Fix E2E Test Infrastructure - Enable Agent Self-Verification

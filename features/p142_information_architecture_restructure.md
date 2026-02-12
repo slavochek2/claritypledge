@@ -1,14 +1,18 @@
 ---
 status: week
 type: task
-priority: p1
 milestone: foundation
-tags: [information-architecture, documentation, strategic-planning, agent-optimization]
+tags:
+  - information-architecture
+  - documentation
+  - strategic-planning
+  - agent-optimization
 prepped_date: '2026-02-12'
 reviews:
   ux: passed-with-notes
   architect: passed-with-notes
   alignment: passed-with-notes
+rank: 12
 ---
 
 # P142: Information Architecture Restructure — Separate Tracks/Hypotheses/Experiments/Outcomes/Milestones

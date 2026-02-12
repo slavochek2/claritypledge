@@ -1,9 +1,8 @@
 ---
 status: in-progress
 type: task
-priority: p0
 tags: []
-sort_order: 125000.25
+rank: 6
 ---
 
 # P141: Unified Rank System
@@ -128,7 +127,7 @@ The kanban currently has two overlapping ordering systems (`priority: p0-p3` for
 - **Impact:** CRITICAL — Board becomes unusable
 - **Fix:** Update to use `rank ?? sort_order` fallback (Phase 2)
 
-#### 4. Feature Creation (`.claude/commands/slava/build/create-feature.md`)
+#### 4. Feature Creation (`.claude/commands/slava/build/quick-feature.md`)
 - **Breaks:** Skill creates features with obsolete `priority` field
 - **Impact:** MEDIUM — New features won't sort correctly
 - **Fix:** Update templates to use `rank` (Phase 3)
@@ -896,7 +895,7 @@ test.describe('Status Folder Auto-Move', () => {
 
 - [ ] CLAUDE.md updated (remove `priority`, add `rank` to frontmatter examples)
 - [ ] `docs/technical/feature-specs.md` updated (remove priority, document rank)
-- [ ] `.claude/commands/slava/build/create-feature.md` updated to use `rank`
+- [ ] `.claude/commands/slava/build/quick-feature.md` updated to use `rank`
 - [ ] This feature (P141) moved to `features/done/` with `status: done`
 
 ### Agent Checklist Before Marking Complete
@@ -911,7 +910,7 @@ test.describe('Status Folder Auto-Move', () => {
 6. ✅ Did I run the migration validation script successfully?
 7. ✅ Are there zero console errors in the browser?
 8. ✅ Does `npm run build` succeed with zero TypeScript errors?
-9. ✅ Have I updated all documentation (CLAUDE.md, feature-specs.md, create-feature skill)?
+9. ✅ Have I updated all documentation (CLAUDE.md, feature-specs.md, quick-feature skill)?
 10. ✅ Can I provide commit SHAs for all code + test changes?
 
 **If any answer is NO → feature is NOT complete. Do NOT mark as done.**
@@ -993,7 +992,7 @@ git status
    - Phase 2: Add rank field to editable properties
    - Phase 4: Remove priority from PRIORITY_OPTIONS
 
-7. **`.claude/commands/slava/build/create-feature.md`**
+7. **`.claude/commands/slava/build/quick-feature.md`**
    - Phase 3: Replace priority prompt with rank prompt
 
 8. **`scripts/migrate-to-rank.js`** (NEW)
@@ -1052,7 +1051,7 @@ git status
 
 6. **Documentation** (1 hour)
    - Update CLAUDE.md, feature-specs.md
-   - Update create-feature skill
+   - Update quick-feature skill
    - Move this feature to done/
 
 **Total estimated effort:** 10-12 hours (includes test writing + verification)

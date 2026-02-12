@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: bug
+rank: 16
 ---
 # P38: Landing Page Missing Layout Wrapper
 

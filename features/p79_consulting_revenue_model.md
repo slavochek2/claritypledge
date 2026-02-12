@@ -2,7 +2,7 @@
 status: week
 type: story
 milestone: C2
-sort_order: 0.078125
+rank: 3
 ---
 # P79: Consulting & Revenue Model
 
