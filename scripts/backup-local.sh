@@ -1,18 +1,32 @@
 #!/bin/bash
-# Backup local project files and global configs to Dropbox
+# Encrypted backup of entire system to Google Drive
 # Run manually: ./scripts/backup-local.sh
-# Or schedule with cron: 0 9 * * * /path/to/backup-local.sh
+# Or scheduled via LaunchAgent (daily at 9am)
 #
-# What gets backed up:
-# - Project: .claude/, .local/, .bmad/
-# - Global: ~/.claude/ (skills, settings, CLAUDE.md)
-# - Dotfiles: ~/.zshrc, ~/.gitconfig
-# - Brewfile snapshot
+# What gets backed up (encrypted):
+# - ~/Projects/private/personal (full with git history)
+# - ~/Projects/public/claritypledge (main worktree only)
+# - ~/.zshrc, ~/.zprofile, ~/.gitconfig (shell/git configs)
+# - ~/.claude/ (skills, settings, CLAUDE.md - excluding credentials/cache)
+# - Brewfile snapshot (for package restoration)
+#
+# Recovery: gpg -d backup.tar.gz.gpg | tar -xzf - -C ~
 
-BACKUP_DIR="$HOME/Dropbox/Backups/claritypledge"
-SOURCE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+set -euo pipefail  # Exit on error, undefined variables, pipe failures
+
 DATE=$(date +%Y-%m-%d)
-TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+# Find Google Drive directory (works for any account)
+GOOGLE_DRIVE_ROOT=$(find "$HOME/Library/CloudStorage" -maxdepth 1 -name "GoogleDrive-*" -type d 2>/dev/null | head -1)
+BACKUP_DIR="${GOOGLE_DRIVE_ROOT}/My Drive/Backups"
+BACKUP_FILE="$BACKUP_DIR/system-backup.tar.gz.gpg"
+BACKUP_TEMP="$BACKUP_DIR/system-backup.tar.gz.gpg.tmp"
+TEMP_DIR=$(mktemp -d)
+KEYCHAIN_SERVICE="claritypledge-backup"
+KEYCHAIN_ACCOUNT="backup"
+REQUIRED_SPACE_MB=1500  # Minimum free space required
+
+# Secure temp directory
+chmod 700 "$TEMP_DIR"
 
 # Colors
 GREEN='\033[0;32m'
@@ -20,135 +34,109 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Logging
-log() { echo -e "[$TIMESTAMP] $1"; }
+# Logging with dynamic timestamps
+log() { echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1"; }
 success() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}⚠ $1${NC}"; }
 error() { echo -e "${RED}✗ $1${NC}"; }
 
+# Cleanup handler - runs on exit, error, or interrupt
+cleanup() {
+    if [ -n "${TEMP_DIR:-}" ] && [ -d "$TEMP_DIR" ]; then
+        rm -rf "$TEMP_DIR"
+    fi
+    if [ -f "${BACKUP_TEMP:-}" ]; then
+        rm -f "$BACKUP_TEMP"
+    fi
+}
+trap cleanup EXIT ERR INT TERM
+
 echo "=========================================="
-echo "  Backup Script - $DATE"
+echo "  Encrypted System Backup - $DATE"
 echo "=========================================="
 echo ""
 
-# Create backup directories
+###########################################
+# SECTION 1: Pre-flight Checks
+###########################################
+echo "=== Pre-flight Checks ==="
+
+# Check if gpg is installed
+if ! command -v gpg &> /dev/null; then
+    error "GPG not installed. Install with: brew install gnupg"
+    exit 1
+fi
+success "GPG installed"
+
+# Get password from keychain
+get_password() {
+    security find-generic-password -a "$KEYCHAIN_ACCOUNT" -s "$KEYCHAIN_SERVICE" -w 2>/dev/null || {
+        error "Password not found in keychain."
+        echo ""
+        echo "First-time setup required. Run:"
+        echo "  security add-generic-password -a backup -s claritypledge-backup -w 'your-secure-password'"
+        echo ""
+        exit 1
+    }
+}
+
+log "Checking keychain password..."
+if get_password > /dev/null 2>&1; then
+    success "Keychain password found"
+else
+    exit 1
+fi
+
+# Check required source paths exist
+log "Validating source directories..."
+REQUIRED_PATHS=(
+    "$HOME/Projects/private/personal"
+    "$HOME/Projects/public/claritypledge"
+)
+
+for path in "${REQUIRED_PATHS[@]}"; do
+    if [ ! -e "$path" ]; then
+        error "Required path missing: $path"
+        exit 1
+    fi
+done
+success "All source directories exist"
+
+# Check disk space
+log "Checking available disk space..."
+AVAILABLE_SPACE=$(df -m "$BACKUP_DIR" | awk 'NR==2 {print $4}')
+
+if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE_MB" ]; then
+    error "Insufficient disk space: ${AVAILABLE_SPACE}MB available, ${REQUIRED_SPACE_MB}MB required"
+    exit 1
+fi
+success "Sufficient disk space: ${AVAILABLE_SPACE}MB available"
+
+# Check if Google Drive is running
+if ! pgrep -x "Google Drive" > /dev/null; then
+    warn "Google Drive is not running. Backup will not sync to cloud."
+else
+    success "Google Drive is running"
+fi
+
+# Create backup directory
 mkdir -p "$BACKUP_DIR"
-mkdir -p "$BACKUP_DIR/global"
-mkdir -p "$BACKUP_DIR/dotfiles"
-
-###########################################
-# SECTION 1: Project-level backups
-###########################################
-echo "=== Project Backups (from $SOURCE_DIR) ==="
-
-# Backup project .claude
-if [ -d "$SOURCE_DIR/.claude" ]; then
-    log "Backing up project .claude..."
-    rsync -av --delete "$SOURCE_DIR/.claude/" "$BACKUP_DIR/claude/"
-    success ".claude backed up"
-else
-    warn ".claude not found"
-fi
-
-# Backup .local
-if [ -d "$SOURCE_DIR/.local" ]; then
-    log "Backing up .local..."
-    rsync -av --delete "$SOURCE_DIR/.local/" "$BACKUP_DIR/local/"
-    success ".local backed up"
-else
-    warn ".local not found"
-fi
-
-# Backup .bmad (workflow state)
-if [ -d "$SOURCE_DIR/.bmad" ]; then
-    log "Backing up .bmad..."
-    rsync -av --delete "$SOURCE_DIR/.bmad/" "$BACKUP_DIR/bmad/"
-    success ".bmad backed up"
-fi
-
-# Backup scripts/ folder
-if [ -d "$SOURCE_DIR/scripts" ]; then
-    log "Backing up scripts/..."
-    rsync -av --delete "$SOURCE_DIR/scripts/" "$BACKUP_DIR/scripts/"
-    success "scripts/ backed up"
-fi
-
-# Skip env files - regenerate from Supabase dashboard if needed
-warn "Skipping .env files (regenerate from Supabase if needed)"
 
 echo ""
 
 ###########################################
-# SECTION 2: Global Claude backups
+# SECTION 2: Generate Brewfile
 ###########################################
-echo "=== Global Claude Backups (from ~/.claude) ==="
-
-if [ -d "$HOME/.claude" ]; then
-    log "Backing up global ~/.claude..."
-
-    # Backup with exclusions (no credentials, cache, or large temp files)
-    rsync -av --delete \
-        --exclude='.credentials.json' \
-        --exclude='cache/' \
-        --exclude='debug/' \
-        --exclude='file-history/' \
-        --exclude='session-env/' \
-        --exclude='paste-cache/' \
-        --exclude='history.jsonl' \
-        "$HOME/.claude/" "$BACKUP_DIR/global/claude/"
-
-    success "Global ~/.claude backed up (excluding sensitive/temp files)"
-
-    # List what was backed up
-    echo "  Included: CLAUDE.md, settings.json, skills/, commands/, plugins/, plans/"
-    echo "  Excluded: .credentials.json, cache/, debug/, history.jsonl"
-else
-    warn "~/.claude not found"
-fi
-
-echo ""
-
-###########################################
-# SECTION 3: Dotfiles backup
-###########################################
-echo "=== Dotfiles Backup ==="
-
-# Shell config
-if [ -f "$HOME/.zshrc" ]; then
-    cp "$HOME/.zshrc" "$BACKUP_DIR/dotfiles/zshrc"
-    success ".zshrc backed up"
-fi
-
-if [ -f "$HOME/.zprofile" ]; then
-    cp "$HOME/.zprofile" "$BACKUP_DIR/dotfiles/zprofile"
-    success ".zprofile backed up"
-fi
-
-# Git config
-if [ -f "$HOME/.gitconfig" ]; then
-    cp "$HOME/.gitconfig" "$BACKUP_DIR/dotfiles/gitconfig"
-    success ".gitconfig backed up"
-fi
-
-if [ -f "$HOME/.gitignore_global" ]; then
-    cp "$HOME/.gitignore_global" "$BACKUP_DIR/dotfiles/gitignore_global"
-    success ".gitignore_global backed up"
-fi
-
-# Skip .cursor/mcp.json - contains API tokens
-warn "Skipping .cursor/mcp.json (contains API tokens)"
-
-echo ""
-
-###########################################
-# SECTION 4: Brewfile snapshot
-###########################################
-echo "=== Homebrew Snapshot ==="
+echo "=== Brewfile Snapshot ==="
 
 if command -v brew &> /dev/null; then
     log "Generating Brewfile..."
-    brew bundle dump --force --file="$BACKUP_DIR/dotfiles/Brewfile" 2>/dev/null
-    success "Brewfile generated ($(wc -l < "$BACKUP_DIR/dotfiles/Brewfile" | tr -d ' ') packages)"
+    BREWFILE="$TEMP_DIR/Brewfile"
+    if brew bundle dump --force --file="$BREWFILE" 2>/dev/null; then
+        success "Brewfile generated ($(wc -l < "$BREWFILE" | tr -d ' ') packages)"
+    else
+        warn "Brewfile generation failed"
+    fi
 else
     warn "Homebrew not installed"
 fi
@@ -156,18 +144,150 @@ fi
 echo ""
 
 ###########################################
+# SECTION 3: Prepare ~/.claude for backup
+###########################################
+echo "=== Preparing Claude config ==="
+
+CLAUDE_TEMP="$TEMP_DIR/claude"
+if [ -d "$HOME/.claude" ]; then
+    log "Copying ~/.claude (excluding credentials/cache)..."
+
+    if rsync -a \
+        --exclude='.credentials.json' \
+        --exclude='cache/' \
+        --exclude='debug/' \
+        --exclude='file-history/' \
+        --exclude='session-env/' \
+        --exclude='paste-cache/' \
+        --exclude='history.jsonl' \
+        "$HOME/.claude/" "$CLAUDE_TEMP/" 2>/dev/null; then
+        success "Claude config prepared"
+    else
+        warn "Failed to copy Claude config"
+    fi
+else
+    warn "~/.claude not found"
+fi
+
+echo ""
+
+###########################################
+# SECTION 4: Create encrypted archive
+###########################################
+echo "=== Creating Encrypted Archive ==="
+
+log "Backing up:"
+echo "  - ~/Projects/private/personal (full with git history)"
+echo "  - ~/Projects/public/claritypledge (main worktree only)"
+echo "  - ~/.zshrc, ~/.zprofile, ~/.gitconfig"
+echo "  - ~/.claude/ (excluding credentials)"
+echo "  - Brewfile"
+echo ""
+echo "Excluding:"
+echo "  - claritypledge-1 through claritypledge-7 (worktrees)"
+echo "  - polymet projects"
+echo "  - node_modules, .next, cache"
+echo ""
+
+log "Creating encrypted archive (writing to temp file)..."
+
+# Capture tar errors
+TAR_LOG="$TEMP_DIR/tar.log"
+
+# Create tarball with specific includes, pipe to GPG
+if tar -czf - \
+    --exclude='node_modules' \
+    --exclude='.next' \
+    --exclude='.cache' \
+    --exclude='*.log' \
+    --exclude='.DS_Store' \
+    -C "$HOME/Projects/private" personal \
+    -C "$HOME/Projects/public" claritypledge \
+    -C "$HOME" .zshrc \
+    -C "$HOME" .zprofile \
+    -C "$HOME" .gitconfig \
+    -C "$TEMP_DIR" claude \
+    -C "$TEMP_DIR" Brewfile \
+    2>"$TAR_LOG" | \
+    gpg --symmetric --cipher-algo AES256 --batch --passphrase "$(get_password)" > "$BACKUP_TEMP"; then
+
+    BACKUP_SIZE=$(du -h "$BACKUP_TEMP" | cut -f1)
+    success "Encrypted archive created: $BACKUP_SIZE"
+else
+    error "Archive creation failed"
+    cat "$TAR_LOG"
+    exit 1
+fi
+
+# Check for tar warnings
+if grep -i "error\|cannot\|permission denied" "$TAR_LOG" > /dev/null 2>&1; then
+    warn "Archive completed with warnings:"
+    cat "$TAR_LOG"
+fi
+
+echo ""
+
+###########################################
+# SECTION 5: Verify backup integrity
+###########################################
+echo "=== Verifying Backup ==="
+
+log "Testing backup can be decrypted and extracted..."
+
+if get_password | gpg --decrypt --batch --passphrase-fd 0 "$BACKUP_TEMP" 2>/dev/null | tar -tzf - > /dev/null 2>&1; then
+    success "Backup verification passed - archive is valid"
+else
+    error "Backup verification FAILED - archive is corrupt or password incorrect"
+    rm -f "$BACKUP_TEMP"
+    exit 1
+fi
+
+echo ""
+
+###########################################
+# SECTION 6: Atomic rename (replace old backup)
+###########################################
+echo "=== Finalizing Backup ==="
+
+log "Replacing old backup with new verified backup..."
+
+if mv "$BACKUP_TEMP" "$BACKUP_FILE"; then
+    success "Backup finalized successfully"
+else
+    error "Failed to move backup to final location"
+    exit 1
+fi
+
+echo ""
+
+###########################################
+# SECTION 7: Cleanup happens automatically via trap
+###########################################
+
+###########################################
 # Summary
 ###########################################
 echo "=========================================="
 echo "  Backup Complete!"
 echo "=========================================="
-echo "Location: $BACKUP_DIR"
+echo "Encrypted backup: $BACKUP_FILE"
+echo "Size: $BACKUP_SIZE"
+echo "Strategy: Single file (overwrite daily)"
+echo "Versioning: Google Drive keeps file versions"
 echo ""
-echo "Contents:"
-ls -la "$BACKUP_DIR"
+echo "Recovery commands:"
 echo ""
-echo "Global Claude:"
-ls -la "$BACKUP_DIR/global/claude/" 2>/dev/null | head -10
+echo "Full restore to home directory:"
+echo "  security find-generic-password -a backup -s claritypledge-backup -w | \\"
+echo "    gpg --decrypt --batch --passphrase-fd 0 --output /tmp/backup.tar.gz \"$BACKUP_FILE\" && \\"
+echo "    tar -xzf /tmp/backup.tar.gz -C ~ && rm /tmp/backup.tar.gz"
 echo ""
-echo "Dotfiles:"
-ls -la "$BACKUP_DIR/dotfiles/"
+echo "List contents without extracting:"
+echo "  security find-generic-password -a backup -s claritypledge-backup -w | \\"
+echo "    gpg --decrypt --batch --passphrase-fd 0 \"$BACKUP_FILE\" | tar -tzf - | head -20"
+echo ""
+
+# Send notification (optional - only if script is run by LaunchAgent)
+if [ "${TERM:-}" = "" ]; then
+    osascript -e 'display notification "Backup completed successfully" with title "System Backup"' 2>/dev/null || true
+fi
