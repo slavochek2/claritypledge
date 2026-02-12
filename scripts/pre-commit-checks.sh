@@ -17,22 +17,22 @@ NC='\033[0m' # No Color
 ERRORS=0
 WARNINGS=0
 
-# 1. Lint
-echo ">>> Running ESLint..."
-if npm run lint; then
-    echo -e "${GREEN}✓ Lint passed${NC}"
-else
-    echo -e "${RED}✗ Lint failed${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
-echo ""
-
-# 2. TypeScript Check (explicit)
+# 1. TypeScript Check (fastest, most fundamental - fail fast)
 echo ">>> Running TypeScript check..."
 if npx tsc --noEmit; then
     echo -e "${GREEN}✓ TypeScript passed${NC}"
 else
     echo -e "${RED}✗ TypeScript errors found${NC}"
+    ERRORS=$((ERRORS + 1))
+fi
+echo ""
+
+# 2. Lint
+echo ">>> Running ESLint..."
+if npm run lint; then
+    echo -e "${GREEN}✓ Lint passed${NC}"
+else
+    echo -e "${RED}✗ Lint failed${NC}"
     ERRORS=$((ERRORS + 1))
 fi
 echo ""
