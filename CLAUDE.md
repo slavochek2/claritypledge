@@ -139,6 +139,58 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 ## Agent Behavior
 
+### Leverage AI Agent Speed — Challenge the "Wait" Default
+
+> **Principle:** Don't defer parallelizable work. AI agents execute in minutes, not hours.
+
+**Anti-pattern to watch:** Saying "we should wait until X is done" when work can be parallelized NOW.
+
+**Example:**
+- ❌ "Let's update docs after M1 ships (in 2 weeks)"
+- ✅ Spawn 3 agents, update all docs in 15 minutes
+
+**Calibration check:**
+- If you catch yourself saying "this will take hours" → spawn agents and time it
+- If work is parallelizable (no dependencies) → do it now, not later
+- Document updates, file searches, multi-file refactors: **minutes with agents, not hours**
+
+**Rule:** Don't defer parallelizable work. The cost of spawning agents (5 min) is less than the cost of context-switching back to it later (20+ min).
+
+**When to use parallel agents:**
+- Updating multiple doc files (lean canvas, milestones, strategic docs)
+- Searching/analyzing multiple code areas
+- Running independent validations
+- Any work with clear separation of concerns
+
+---
+
+### MCP Configuration Safety
+
+> **Principle:** NEVER touch MCP configs without backing up first.
+
+**Before ANY MCP changes:**
+
+```bash
+./scripts/mcp-validate.sh                      # Check current state
+./scripts/mcp-backup.sh "before-<change>"      # Create backup
+# Make changes...
+./scripts/mcp-validate.sh                      # Verify new state
+./scripts/mcp-backup.sh "working-<change>"     # Backup working state
+```
+
+**Recovery:**
+
+```bash
+./scripts/mcp-restore.sh                       # Restore from backup (interactive)
+./scripts/mcp-diff.sh                          # Compare with backup
+```
+
+**Why:** MCP configs contain secrets (can't commit to git), live in multiple locations (easy to create conflicts), and break Claude if malformed. One bad edit = 30 min debugging session.
+
+**Full guide:** [docs/technical/mcp-backup-recovery.md](docs/technical/mcp-backup-recovery.md) | **Checklist:** [docs/technical/mcp-pre-change-checklist.md](docs/technical/mcp-pre-change-checklist.md)
+
+---
+
 ### Debugging
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
@@ -348,12 +400,18 @@ When creating ANY file in `features/` manually, ALWAYS include frontmatter:
 
 ```yaml
 ---
-status: backlog | week | today | in-progress | blocked | done
-type: feature | bug | task
+status: backlog | week | today | in-progress | blocked | done | draft | rejected
+type: story | bug | task | comment
 priority: p0 | p1 | p2 | p3
 tags: []
 ---
 ```
+
+**Type semantics:**
+- `story` — User-facing value ("As a user, I want X")
+- `task` — Technical work (refactoring, infrastructure, tools)
+- `bug` — Something broken that needs fixing
+- `comment` — Notes, decisions, documentation (not actionable work)
 
 **For bugs, add:**
 ```yaml

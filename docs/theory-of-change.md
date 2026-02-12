@@ -110,6 +110,51 @@ This is **Protocol-Led Growth** — distinct from Product-Led Growth:
 
 **The healthcare parallel:** Hospitals use "teach-back" (same mechanism as explain-back). Meta-analysis shows it reduces readmissions by 60%. We're applying proven verification loops to workplace communication.
 
+### Parallel Path: Rationalist Community Cascade
+
+**Different from coaching cascade:** The rationalist/EA/AI safety community operates on content-led distribution, not coaching relationships.
+
+**The distribution path:**
+```
+CONTENT-LED RECOGNITION CASCADE
+────────────────────────────────
+Author publishes on LessWrong/HN
+  ↓
+Post reaches AI safety researchers
+  ↓
+"This is what we need for agent alignment"
+  ↓
+Labs/orgs reach out: "Can we use this?"
+  ↓
+Enterprise adoption (12-month timeline)
+```
+
+**Why this path matters:**
+- **Coaching cascade** = √N growth (slow, steady, geometric)
+- **Rationalist cascade** = recognition threshold → step function (slower buildup, faster payoff)
+- **Different math:** Not network effects — legitimacy effects
+
+**The trigger:** One high-signal post that frames Stories as "calibration infrastructure for personal AI" connects to existing AI alignment discourse.
+
+**Timeline differences:**
+
+| Milestone | Coaching Path | Rationalist Path |
+|-----------|---------------|------------------|
+| First revenue | Month 1-2 (first coach) | Month 6-12 (first lab pilot) |
+| Network effects visible | Month 6+ (√N kicks in) | Month 12+ (recognition threshold) |
+| Scale unlock | Year 2-3 (recursion) | Year 1-2 (enterprise deals) |
+
+**The dual-track strategy (from decisions.md):**
+- **Don't abandon coaching** — it provides early revenue and validates core UX
+- **Add rationalist outreach** — it unlocks AI alignment market and higher ACVs
+- **They reinforce:** Coaches validate "humans need this," rationalists validate "AI systems need this"
+
+**Next actions:**
+1. Publish AI calibration framing (LessWrong or Alignment Forum)
+2. Demo: "Here's how verified understanding prevents agent drift"
+3. Invite AI safety researchers to test with their teams
+4. Convert recognition into pilots
+
 ---
 
 ### The √N Mathematics
@@ -386,7 +431,7 @@ Minimum ROI:                  2x
 
 When two people use the explain-back protocol, the gap between "how well I think I communicated" and "how well I actually communicated" decreases. Users report feeling more understood after /live than before.
 
-**Critical learning (2026-01-27):** H1 validated means the tool WORKS in-session. But "works" ≠ "sticky." Users praise /live, report liking it, but don't return. They ask "on what? when?" The tool lacks a trigger. This led to the Stories hypothesis (M1).
+**Critical learning (2026-01-27):** H1 validated means the tool WORKS in-session. But "works" ≠ "sticky." Users praise /live, report liking it, but don't return. They ask "on what? when?" The tool lacks a trigger. This led to the Stories hypothesis (C1).
 
 **H-Foundation: Calibration Drives Outcomes** ✅
 

@@ -38,6 +38,22 @@ Author creates story once → Story verifies many listeners → Author only revi
 
 **Key insight (2026-02-02):** The value isn't the story itself — it's knowing WHO understood it, HOW WELL, and WHERE they diverged. The story is infrastructure for scaled verification.
 
+**Dual-purpose framing (2026-02-12):**
+```
+HUMAN USE CASE:
+Stories scale understanding across people
+→ "Now my team understands my reasoning without me explaining 1-on-1"
+
+AI USE CASE:
+Stories are calibrated training data for personal AI agents
+→ "My digital twin learned from my verified understanding, not just my words"
+```
+
+**Why both matter:**
+- Coaches need Stories to solve communication breakdown (immediate pain)
+- AI labs need Stories to train aligned agents (strategic value)
+- Same infrastructure serves both markets
+
 ### Story Versions
 
 Stories have **immutable versions**. When a story is created, version 1 is auto-created via database trigger. When content changes, a new version is created. Verifications reference the specific `version_id` that was verified.
@@ -111,6 +127,74 @@ POSITION: "+2 (Agree) on this Point"
 - **Story → Point:** A Story can link to Points it explains your position on
 
 **Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point.
+
+---
+
+## Stories as AI Training Data
+
+### The Problem Stories Solve for AI
+
+Current AI training faces a calibration gap:
+
+| Training Source | Problem | Result |
+|-----------------|---------|--------|
+| **Scraped text** | Unknown intent — what did the author MEAN? | Agents learn surface patterns, not verified understanding |
+| **Self-report surveys** | Social desirability bias, no verification | Agents learn what people SAY, not what they actually value |
+| **Behavioral data** | No reasoning context — WHY did they act? | Agents predict actions but can't explain reasoning |
+
+**What Stories provide:** Verified understanding — the human confirmed "Yes, you understood what I meant" at ≥8/10.
+
+### Digital Twin (Mirror Agent)
+
+> **Definition:** An AI agent trained on YOUR verified Stories — capable of representing your reasoning, values, and decision-making patterns in conversations where you're not present.
+
+**How it's created:**
+1. You create Stories (your lived experiences, reasoning, context)
+2. AI verifies understanding (explains back, you rate ≥8/10)
+3. Twin is fine-tuned on verified Stories (not raw text)
+4. Twin's outputs are validated by YOU ("Did it capture my view?")
+
+**What makes it "calibrated":**
+- Trained only on understanding YOU confirmed as accurate
+- Can trace reasoning back to specific Stories
+- Continuously validated through your feedback loop
+
+**Use cases:**
+- **Personal assistants** — "Schedule meetings consistent with my priorities" (learned from Stories about what you value)
+- **Negotiation agents** — "Represent my position in discussions" (learned from Stories explaining your reasoning)
+- **Decision support** — "What would I do in this scenario?" (generalizes from verified Stories)
+
+**Key difference from generic AI:** A digital twin trained on YOUR verified understanding is auditable. You can ask "Why did you recommend X?" and it can reference the Story it learned from.
+
+### Personal AI Calibration
+
+> **Definition:** The process of training an AI agent on verified human understanding (Stories) rather than unverified signals (emails, chats, documents).
+
+**The calibration loop:**
+```
+1. HUMAN creates Story
+   ↓
+2. AI verifies understanding (≥8/10)
+   ↓
+3. AI fine-tunes on verified Story
+   ↓
+4. AI generates response
+   ↓
+5. HUMAN validates: "Did you represent me accurately?"
+   ↓
+6. Gap detected → correction → new training data
+```
+
+**Why this matters for AI alignment:**
+- **Unverified training:** AI learns from messy signals → value drift is invisible until failure
+- **Verified training:** AI learns from confirmed understanding → alignment is measurable at each step
+
+**The measurement:**
+- **AI confidence:** "How certain am I that I understood correctly?" (0-10)
+- **Human verification:** "How well did the AI represent my view?" (0-10)
+- **Calibration gap:** Human rating − AI confidence
+
+**The goal:** An AI agent that KNOWS when it doesn't understand you (well-calibrated uncertainty) and can flag "I need more context" rather than acting on misaligned assumptions.
 
 ---
 

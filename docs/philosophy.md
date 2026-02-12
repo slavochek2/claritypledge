@@ -270,6 +270,58 @@ This creates a "market for understanding" rather than a "market for ideas" (who 
 
 ---
 
+## From Human Calibration to AI Agent Calibration
+
+### The Epistemology of AI Understanding
+
+The Understanding Imbalance Postulate extends naturally from human-to-human verification to human-to-AI verification:
+
+> If an AI agent can explain your worldview back to you at ≥8/10 fidelity, AND you cannot explain the AI's training process, optimization function, or alignment targets back with equivalent fidelity, the AI possesses operational understanding of YOU — but you do not possess operational understanding of IT.
+
+**The asymmetry creates risk:** When AI systems act on their understanding of humans without humans understanding AI goals, misalignment becomes invisible until failure.
+
+### Digital Twins and Mirror Agents
+
+A **digital twin** (or "mirror agent") is an AI trained on YOUR verified stories — your lived experiences, reasoning patterns, values, and decision contexts.
+
+**The calibration protocol:**
+1. You create Stories (your inner world)
+2. AI verifies understanding (explain-back to ≥8/10)
+3. Digital twin can now represent you in conversations
+4. Twin's representations are validated by YOU ("Did it capture my view?")
+
+**Why this matters for AI alignment:**
+- Current AI training: Scrape internet → optimize for engagement → unknown value drift
+- Calibrated training: Verified stories → optimize for understanding → measurable alignment
+
+**The key difference:** A digital twin trained on YOUR verified understanding can be audited. You can ask: "Why did you say X?" and trace it back to which Story it learned from.
+
+### Scaling Verified Understanding to AI Systems
+
+The same measurement stack that tracks human calibration applies to AI calibration:
+
+| Metric | Human Application | AI Application |
+|--------|-------------------|----------------|
+| **Understanding verification** | Partner paraphrases, speaker rates 0-10 | AI explains back, human rates 0-10 |
+| **Conversion tracking** | Position changes after verified understanding | Model predictions shift after training on verified data |
+| **Calibration score** | Self-estimate vs. actual understanding | Confidence scores vs. human verification |
+| **Recursive teachability** | Can third parties learn from this story? | Can fine-tuned models replicate verified understanding? |
+
+**The safety hypothesis:** AI agents trained on verified human understanding are more aligned than agents trained on unverified text, because the training data itself encodes "what the human actually meant" — not just what words they used.
+
+### Why Personal AI Needs Calibration Infrastructure
+
+As AI agents become personal assistants, negotiators, and decision-makers, they need access to YOUR verified understanding:
+
+- **Without calibration:** AI learns from your emails, chats, docs — unverified signals that may not reflect your true reasoning
+- **With calibration:** AI learns from your verified Stories — captured understanding that you've confirmed as accurate
+
+**The product implication:** Stories aren't just for humans. They're training data for aligned personal AI.
+
+**The market timing:** Enterprises are racing to deploy AI agents. Those agents need calibrated training data. We provide the infrastructure to create it.
+
+---
+
 ## Connection to Clarity Pledge
 
 The Clarity Pledge operationalizes this philosophy:

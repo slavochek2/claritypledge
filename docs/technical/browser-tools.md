@@ -9,8 +9,10 @@ Three browser automation tools, each with a distinct purpose. No hierarchy — p
 | Tool | What It Is | Headless? | Needs User Browser? | CI? | Token Cost |
 |------|-----------|-----------|---------------------|-----|-----------|
 | **Playwright Tests** (`npm run test:e2e`) | Automated test framework | Yes | No | Yes | N/A (not agent-driven) |
-| **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Headless debugging & profiling | Yes | No | No | Medium (~100-500 tokens) |
+| **Chrome DevTools MCP** (`mcp__chrome-devtools__*`) | Debugging & profiling | No* | No | No | Medium (~100-500 tokens) |
 | **Claude in Chrome** (`mcp__claude-in-chrome__*`) | Visual QA in real browser | No | Yes (`claude --chrome`) | No | High (~1,500-4,000 tokens) |
+
+\* Configured for headless but currently opens visible browser (issue postponed)
 
 ---
 
@@ -44,8 +46,9 @@ Tools: `mcp__chrome-devtools__*`
 - **Performance profiling** — `performance_start_trace`, `stop_trace`, `analyze_insight`
 - **Network inspection** — request/response headers, timing, failures
 - **Console capture** — errors, warnings with full context
-- **Headless + isolated** — runs without the user's Chrome, each session gets a clean profile
+- **Isolated** — each session gets a clean profile, runs without the user's Chrome
 - **Works in any Claude session** — no `--chrome` flag needed
+- ⚠️ **Known issue:** Currently opens visible browser despite `--headless` flag (postponed fix)
 
 **Common tools:**
 - `navigate_page` — go to URL
@@ -56,7 +59,7 @@ Tools: `mcp__chrome-devtools__*`
 - `list_console_messages` — error checking
 - `performance_start_trace` — profiling
 
-**Configuration:** `~/.claude/settings.json` — runs with `--headless --isolated` flags.
+**Configuration:** `~/.claude/settings.json` — configured with `--headless --isolated` flags (headless not working currently).
 
 **Use when:** Debugging issues, profiling performance, inspecting network calls. Agent can use this independently without the user's browser.
 

@@ -14,6 +14,133 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-12: Milestone Restructure — M1-M12 → R/C/E/X Track System
+
+**Context:** Milestone analysis revealed structural issues:
+- M1-M12 numbering implied linear sequence when actually 3 parallel tracks (Recognition PRIMARY, Coaching SAFETY, Exploratory FUTURE)
+- MA/MB/MC buried recognition track (the primary goal) with inconsistent naming
+- M6-M12 numbered as if sequential but actually require 12+ months scale to test
+- M7+M8+M9 tested same group dynamics hypothesis with 70-80% overlap
+- M12 fully redundant with M7/M8/M10 (all tested "history creates trust")
+- Priority invisible — couldn't distinguish critical path from exploratory work
+
+**Decision:** Restructured milestones using track-based naming:
+- **R-track (Recognition - PRIMARY):** R1 Essay Writing, R2 Spec Publishing, R3 Recognition Checkpoint
+- **C-track (Coaching - SAFETY):** C1 Stories+/live+Events, C2 First Workshops, C3 Paid Workshops
+- **E-track (Enhancement - CONDITIONAL):** E1 Points+AI, E2 Partners+Async
+- **X-track (Exploratory - REQUIRES SCALE):** X1 Asymmetric Conversion, X2 Social Dynamics (merged M7+M8+M9), X3 Network Effects (merged M10+M11+M12)
+
+**Alternatives rejected:**
+- Keep M1-M12 numbering, add track field: Numbering still implies false sequence
+- Use status flags instead of tracks: Doesn't signal priority or dependencies
+- Rename to "Phase 1, Phase 2...": Implies stages when tracks run parallel
+
+**Consequences:**
+- 15 milestones → 11 milestones (merged M7-M9, M10-M12; deleted redundant M12)
+- Track visibility makes dual-track strategy explicit (recognition primary, coaching safety)
+- Priority signaling: R > C > E > X (not sequential, but importance order)
+- Clearer kill signals: If R-track fails, pivot to C-only; if C-track fails, stop; if both fail by Month 12, hard pivot or wind down
+- Checkpoint gates explicit: Month 3 (both tracks show traction), Month 6 (revenue OR recognition), Month 12 (raise/pivot/continue)
+- Files renamed: docs/milestones/m*.md → c*.md, r*.md, e*.md, x*.md
+- Created docs/milestones/README.md explaining track system, critical path, decision framework
+- Updated cross-references in: decisions.md, theory-of-change.md, lean-canvas.md, feature specs
+- Feature frontmatter updated: `milestone: M1` → `milestone: C1` (etc.)
+
+**Rationale:** Old structure optimized for a network-effects future that may never arrive. New structure optimizes for 0-6 month validation work that determines survival.
+
+---
+
+## 2026-02-12: Switched to taylorwilsdon/google_workspace_mcp for OAuth 2.1 security
+
+**Context:** Using @dguido/google-workspace-mcp (npm) for Google Drive/Docs integration. After MCP config debugging session revealed security concerns, evaluated alternatives. taylorwilsdon's package offers OAuth 2.1 (vs 2.0), 100+ tools (vs 4), and active maintenance (v1.6.0 Feb 9, 2026).
+
+**Decision:** Switched from @dguido/google-workspace-mcp to taylorwilsdon/workspace-mcp (Python/uvx).
+
+**Key improvements:**
+- OAuth 2.1 (newer, more secure standard)
+- Comprehensive tools: Gmail, Calendar, Tasks, Chat, Forms, Search (not just Drive/Docs/Sheets/Slides)
+- Stateless mode option (credentials in memory, not files)
+- OAuth proxy for secure authentication flow
+- Actively maintained (latest release 3 days ago)
+
+**Alternatives rejected:**
+- **Stay with @dguido** - Less secure (OAuth 2.0), limited features, less maintained
+- **Google Official MCP** - Most secure (IAM, Model Armor) but unclear if publicly available vs enterprise-only
+- **Other packages** (@iflow-mcp, @presto-ai, j3k0) - Less comprehensive or less maintained
+
+**Consequences:**
+- Requires Python 3.10+ and uvx (installed via `uv`)
+- Different auth flow (OAuth in browser vs env vars only)
+- More powerful but slightly more complex setup
+- Future access to Gmail/Calendar features when needed
+
+**References:**
+- [MCP backup/recovery docs](technical/mcp-backup-recovery.md)
+- [taylorwilsdon/google_workspace_mcp on GitHub](https://github.com/taylorwilsdon/google_workspace_mcp)
+
+---
+
+## 2026-02-11: Dual-track strategy — Recognition primary, coaching safety
+
+**Context:** After 6+ months of strategic uncertainty (coach outreach? workshop pivot? story features?), clarified through founder introspection what success actually looks like. The real goal isn't €5k/month — it's being recognized as "the calibration person" in AI/rationalist circles. Revenue is necessary but instrumental. Coaching workshops provide validation and safety (€5k/month = "enough") while allowing 12 months to prove recognition track viable.
+
+**Decision:** Dual-track strategy with explicit priority:
+
+**PRIMARY TRACK (Recognition):**
+- Goal: Be recognized as "the calibration person" in AI/rationalist communities
+- Audience: Rationalists, LessWrong, AI researchers
+- Positioning: "Calibration infrastructure for personal AI" (not just "communication tool")
+- Activities: Essays, specs, technical writing, build-in-public
+- Success signals: Essays reach 50+ readers, specs discussed on LW/X, inbound "you're the calibration expert" mentions
+- Willing to raise: €100-200k from aligned funders if traction exists (recognition + essays, not just coaching revenue)
+
+**SAFETY TRACK (Coaching):**
+- Goal: €5k/month = "enough" to fund recognition work
+- Audience: Workshop participants (revenue, not primary positioning)
+- Activities: Donation-based workshops → paid tier after validation
+- Success signals: 10 customers by Month 3, €3k/month by Month 6
+- Role: Validates tool UX, provides case studies, but NOT primary identity
+
+**Why dual-track (Trajectory Model):**
+- **Current constraint:** Burnout, low savings, survival anxiety (need €2-3k to feel safe)
+- **Month 1-3 (Fear-constrained):** Need cash to reduce survival anxiety → coaching provides bridge
+- **Month 4-6 (Psychology recovering):** €5k achieved → less anxious → can focus on recognition work
+- **Month 7-12 (Self-worth restoration):** Recognition signals appearing → confidence restored → can be bolder
+- **Month 12+ (Unbounded potential):** If trajectory good (recognition + essays resonating) → raise €1M+, swing for 1B company, build calibration infrastructure at scale
+- **€5k is not "enough" (ceiling)** — it's "minimum to recover psychology" (unlock point for bigger ambition)
+- **Coaching is not fallback** — it's the bridge that restores capacity to solve bigger problems
+
+**Checkpoints (not stop signals):**
+- **Month 3:** <10 workshop customers AND essays <50 readers → **can't unlock Month 4-6 psychology recovery** → need to extend Month 1-3 constraints
+- **Month 6:** <€3k/month revenue OR zero engagement on specs/essays → **can't unlock Month 7-12 self-worth restoration** → need to stay in recovery mode
+- **Month 12:** Zero recognition signals (no inbound, no LW discussion, no "you're the expert") → **can't unlock unbounded ambition phase** → stay focused on smaller scope until recognition appears
+
+These are GATES for unlocking next level, not reasons to quit. If trajectory is good at Month 12 (recognition appearing, essays resonating), constraints lift and ambition becomes unbounded.
+
+**Alternatives rejected:**
+- Coaching-only (ignore recognition) — Loses founder's intrinsic motivation, feels like compromise
+- Recognition-only (ignore revenue) — Too risky, runs out of runway
+- Pretend they're equal priority — False; recognition is PRIMARY, coaching is SAFETY
+- Commit to one track now — 12 months needed to validate recognition viability
+
+**Consequences:**
+- lean-canvas.md updated: dual customer segments (AI researchers primary, workshop attendees secondary)
+- milestones updated: C2 now framed as safety track, R1-R3 recognition track created (Feb 2026 restructure)
+- Feature prioritization: Essays/specs infrastructure > workshop features (unless workshop validation failing)
+- Brand positioning: Lead with "calibration for AI agents" not "communication workshops"
+- Fundraising strategy: If essays reach 200+ readers + spec engagement, approach aligned VCs/angels
+- 12-month checkpoint: Feb 2027 — if trajectory good, raise €1M+ and swing for 1B calibration infrastructure company
+
+**Deutsch-compatible framing:**
+- Problems are soluble (yes)
+- But solving them requires resources and psychological safety (practical constraint)
+- As early problems solved (money → psychology → recognition), capacity unlocks for bigger problems
+- €5k is not the ceiling — it's the floor that enables swinging for 1B+ calibration infrastructure
+
+**References:** [lean-canvas.md](lean-canvas.md) | [milestones/m2-first-workshops.md](milestones/m2-first-workshops.md)
+
+---
+
 ## 2026-02-11: Kanban Tool - Single Source of Truth for Configuration
 
 **Context:** Kanban tooling had hardcoded port numbers (9050, 9051) in 5 different files. During development, port references drifted out of sync (5050 vs 9050), causing a bug where the shell function and script disagreed about which port to use. Two launch mechanisms (shell function + script) duplicated logic. Root cause: copy-paste development without configuration abstraction.
@@ -120,9 +247,9 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 | Content | Old Location | New Location |
 |---------|--------------|--------------|
-| Active hypotheses (H-Stories, H-Biz) | hypotheses.md | Milestone files M1-M2 |
-| Blocked hypotheses (H2-H7, H-Safety, H-AI) | hypotheses.md | Future milestone files M7-M12 (status: future) |
-| North Star (H-Core) | hypotheses.md | M6 milestone file (status: future) |
+| Active hypotheses (H-Stories, H-Biz, H-Recognition) | hypotheses.md | Milestone files R1, C1-C2 |
+| Blocked hypotheses (H2-H7, H-Safety, H-AI) | hypotheses.md | Future milestone files X2-X3 (status: future) |
+| North Star (H-Core) | hypotheses.md | X1 milestone file (status: future) |
 | Evidence Base (research stats) | hypotheses.md | theory-of-change.md Evidence Base section |
 | Validated (H1, H-Foundation) | hypotheses.md | theory-of-change.md Evidence Base section |
 | Open Questions | hypotheses.md | Dissolved into milestone files |
@@ -137,7 +264,9 @@ tests: [H-Stories]
 answers: [OQ-6, OQ-7]
 ---
 
-# M1: Title
+# Track-Name: Title
+
+Use track prefixes: C (Coaching), R (Recognition), E (Enhancement), X (Exploratory)
 
 **Build:** P126 → P128 → P124
 **Done when:** [concrete exit criteria]
@@ -174,9 +303,9 @@ answers: [OQ-6, OQ-7]
 - `docs/hypotheses.md`
 
 **Feature frontmatter updated:**
-- p128, p124 → `milestone: M1`
-- p105 → `milestone: M2`, `priority: p2` (was p0), `status: backlog` (was week)
-- p129, p80, p108 drafts → `milestone: M2`
+- p128, p124 → `milestone: C1`
+- p105 → `milestone: C2`, `priority: p2` (was p0), `status: backlog` (was week)
+- p129, p80, p108 drafts → `milestone: C2`
 
 **References:** [P130 spec](../features/p130_merge_hypotheses_into_milestones.md) | [milestones/](milestones/)
 
@@ -449,7 +578,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 **Consequences:**
 - Updated lean-canvas.md job-to-be-done
-- Updated M2 milestone (H-Biz hypothesis)
+- Updated C2 milestone (H-Biz hypothesis)
 - Updated p105_sales_playbook.md validation questions
 - This is category creation, not competition with training companies
 
