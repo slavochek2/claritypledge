@@ -6,26 +6,28 @@ tests: []
 answers: [OQ-4]
 ---
 
-# M5: Scale — Clarity Partners + Async
+# E2: Scale — Clarity Partners + Async (Scaling Enhancement)
 
 **Build:** Partner program, async verification
 
 **Done when:** 1 partner runs a workshop; async users return weekly
 
-**Kill signal:** Quality drops without you; async has no retention
+**Kill signal:** <€3k/month revenue OR zero spec engagement
 
-**Unblocks:** M7 (social FOMO), M8 (visibility), M9 (status flip)
+**Unblocks:** X2 (Social Dynamics), X3 (Network Effects)
 
 ## Hypothesis: Can others run this? Does async enable retention?
 
 **What we're testing:**
 1. **Partner program:** Can others facilitate workshops with the tool?
 2. **Async verification:** Does asynchronous verification enable retention?
+3. **Spec publishing:** Do technical specs gain engagement in rationalist/AI communities?
+4. **Contributor recruitment:** Can specs attract aligned contributors?
 
 **Why this matters:**
 - If only you can run workshops → coaching business, not SaaS
 - If only live verification works → limited retention, scheduling friction
-- Async verification unblocks group dynamics testing (M7-M9)
+- Async verification unblocks group dynamics testing (X2, X3)
 
 **How to test:**
 - Train 1-2 partners to run workshops with tool
@@ -37,6 +39,9 @@ answers: [OQ-4]
 - Partner-run workshop rated >80% of your workshop quality
 - Async users return weekly (>30% retention in month 2)
 - Async doesn't degrade verification quality
+- €3k/month revenue from workshops (30 customers)
+- First spec published and discussed on LW/X/HN
+- 2+ contributors interested in building from specs
 
 ## Open Questions Answered
 

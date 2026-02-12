@@ -6,7 +6,7 @@ tests: []
 answers: [OQ-3]
 ---
 
-# M3: Points + AI Stories
+# E1: Points + AI Stories (Content Enhancement)
 
 **Build:** Points creation, AI Sifter (P98 revisited)
 
@@ -23,7 +23,7 @@ answers: [OQ-3]
 - **AI Sifter:** Help users create stories from raw input (lower friction)
 
 **How to test:**
-- Add Points after holistic verification proves insufficient (see M1/OQ-7)
+- Add Points after holistic verification proves insufficient (see C1/OQ-7)
 - Measure: Do Points make verification more focused?
 - Measure: Does AI creation increase story volume?
 

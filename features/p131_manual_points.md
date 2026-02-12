@@ -2,7 +2,7 @@
 status: in-progress
 type: story
 priority: p0
-milestone: M3
+milestone: E1
 tags:
   - stories
   - points

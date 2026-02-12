@@ -6,7 +6,7 @@ tests: [H-Core]
 answers: []
 ---
 
-# M6: Asymmetric Conversion (North Star)
+# X1: Asymmetric Conversion (North Star)
 
 **Build:** Position tracking, conversion analytics, large-scale verification data
 
@@ -59,4 +59,4 @@ Asymmetric conversion (H-Core) applies to **True Disagreements** — cases where
 - Symmetric conversion correlates with value-disagreements (not fact-disagreements)
 - Points with high asymmetric conversion are judged as "closer to truth" by domain experts
 
-**Status:** This is the ultimate goal. Cannot test until M1-M5 validated (need enough data from working verification network). Requires: Stories, Points, Positions, Verified Understanding, Conversion Tracking.
+**Status:** This is the ultimate goal. Cannot test until C1-E2 validated (need enough data from working verification network). Requires: Stories, Points, Positions, Verified Understanding, Conversion Tracking.

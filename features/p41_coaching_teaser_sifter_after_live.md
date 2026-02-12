@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-milestone: M2
+milestone: C2
 sort_order: 1000007
 ---
 # P41: AI Coaching Teaser (Email + Page)

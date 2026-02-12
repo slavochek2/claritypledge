@@ -6,7 +6,7 @@ tests: []
 answers: []
 ---
 
-# MB: Spec Publishing (Recognition Track, Month 6)
+# R2: Spec Publishing (Recognition Track, Month 6)
 
 **Build:** Technical specifications, API docs, architecture write-ups
 
@@ -56,7 +56,7 @@ Essays (awareness) → Specs (technical depth) → Contributors (scaling signal)
 - Specs viewed but not discussed (no technical depth perceived)
 
 **Alignment with dual-track:**
-- Recognition track milestone (parallel to M5 coaching scale)
+- Recognition track milestone (parallel to E2 coaching scale)
 - Specs validate positioning as "infrastructure, not just tool"
 - If contributor interest exists → potential to scale via community
 - If zero engagement → recognition track not resonating with technical audience

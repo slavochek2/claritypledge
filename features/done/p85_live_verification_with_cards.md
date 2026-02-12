@@ -2,7 +2,7 @@
 status: done
 type: story
 sort_order: 1000008
-milestone: M2
+milestone: C2
 completed_at: '2026-02-06'
 ---
 # P85: /live Verification with Cards

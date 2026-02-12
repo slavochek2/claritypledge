@@ -6,7 +6,7 @@ tests: []
 answers: []
 ---
 
-# MC: Recognition Signals (Decision Point, Month 12)
+# R3: Recognition Checkpoint (Decision Point, Month 12)
 
 **Build:** Nothing new — evaluation milestone
 
@@ -95,7 +95,7 @@ answers: []
 
 [decisions.md](../decisions.md) — Dual-track strategy decision (2026-02-11)
 [lean-canvas.md](../lean-canvas.md) — Updated with dual customer segments
-[MA essay writing](ma-essay-writing.md) — Recognition track, Months 1-3
-[MB spec publishing](mb-spec-publishing.md) — Recognition track, Month 6
-[M2 first workshops](m2-first-workshops.md) — Safety track, Months 1-3
-[M5 scale partners](m5-scale-partners-async.md) — Safety track, Month 6
+[R1 essay writing](r1-essay-writing.md) — Recognition track, Months 0-3
+[R2 spec publishing](r2-spec-publishing.md) — Recognition track, Month 6
+[C2 first workshops](c2-first-workshops.md) — Safety track, Months 1-3
+[E2 scale partners](e2-scale-partners-async.md) — Safety track, Month 6

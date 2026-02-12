@@ -2,7 +2,7 @@
 status: done
 type: story
 priority: p0
-milestone: M2
+milestone: C2
 tags:
   - content
   - demo

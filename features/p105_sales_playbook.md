@@ -2,7 +2,7 @@
 status: backlog
 type: story
 priority: p2
-milestone: M2
+milestone: C2
 tags:
   - validation
   - gtm

@@ -2,7 +2,7 @@
 status: done
 type: story
 sort_order: 1000009
-milestone: M2
+milestone: C2
 completed_at: '2026-02-06'
 ---
 # P98: Sifter (Revised Spec)

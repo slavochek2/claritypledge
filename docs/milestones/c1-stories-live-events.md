@@ -6,7 +6,7 @@ tests: [H-Stories]
 answers: [OQ-6, OQ-7]
 ---
 
-# M1: Stories + Live + Events
+# C1: Stories + Live + Events (Coaching Foundation)
 
 **Build:** P126 (create story) → P128 (/live beginning screen) → P124 (event rooms)
 

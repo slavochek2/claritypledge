@@ -2,7 +2,7 @@
 status: week
 type: story
 priority: p1
-milestone: M1
+milestone: C1
 prepped_date: '2026-02-06'
 reviews:
   ux: passed-with-notes

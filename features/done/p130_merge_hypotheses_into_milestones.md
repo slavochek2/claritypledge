@@ -2,7 +2,7 @@
 status: done
 type: comment
 priority: p1
-milestone: M1
+milestone: C1
 tags:
   - strategy
   - roadmap
@@ -72,13 +72,13 @@ docs/hypotheses.md                  # Everything distributed to better homes
 
 ```
 docs/theory-of-change.md            # Expanded evidence section (validated hypotheses + full research)
-features/p124_event_rooms.md        # milestone: M1
-features/p126_create_story.md       # milestone: M1
-features/p128_live_beginning.md     # milestone: M1
-features/p105_sales_playbook.md     # milestone: M2, priority: p2
-features/p129_unverified_user_flow.md  # milestone: M2
-features/drafts/p80_*.md            # Remove invalid H-GTM, add milestone: M2
-features/drafts/p108_*.md           # milestone: M2
+features/p124_event_rooms.md        # milestone: C1
+features/p126_create_story.md       # milestone: C1
+features/p128_live_beginning.md     # milestone: C1
+features/p105_sales_playbook.md     # milestone: C2, priority: p2
+features/p129_unverified_user_flow.md  # milestone: C2
+features/drafts/p80_*.md            # Remove invalid H-GTM, add milestone: C2
+features/drafts/p108_*.md           # milestone: C2
 ```
 
 ### Milestone file format
@@ -105,7 +105,7 @@ answers: [OQ-6, OQ-7]
 
 ```yaml
 # Feature frontmatter — replaces hypothesis: field
-milestone: M1
+milestone: C1
 ```
 
 Focus page groups features by milestone. Milestone file provides summary, status, done/kill signals. Sorted by priority top-to-bottom = the roadmap narrative.
@@ -163,11 +163,11 @@ Focus page groups features by milestone. Milestone file provides summary, status
 
 | Feature | Current | After | Reason |
 |---------|---------|-------|--------|
-| P126 | today, p1 | today, p1, milestone: M1 | No change — nearly done |
-| P128 | backlog, p1 | week, p1, milestone: M1 | Next after P126 |
-| P124 | today, p1 | week, p1, milestone: M1 | Blocked by P128 |
-| P105 | backlog, p0 | backlog, p2, milestone: M2 | Strategy doc, plan supersedes |
-| P129 | backlog, p2 | backlog, p2, milestone: M2 | Surfaces after first workshop |
+| P126 | today, p1 | today, p1, milestone: C1 | No change — nearly done |
+| P128 | backlog, p1 | week, p1, milestone: C1 | Next after P126 |
+| P124 | today, p1 | week, p1, milestone: C1 | Blocked by P128 |
+| P105 | backlog, p0 | backlog, p2, milestone: C2 | Strategy doc, plan supersedes |
+| P129 | backlog, p2 | backlog, p2, milestone: C2 | Surfaces after first workshop |
 
 ## Kanban Changes
 

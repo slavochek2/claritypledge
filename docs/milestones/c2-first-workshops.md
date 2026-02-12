@@ -6,13 +6,13 @@ tests: [H-Biz]
 answers: [OQ-1, OQ-2, OQ-5]
 ---
 
-# M2: First Workshops (donate-only)
+# C2: First Workshops (Coaching Validation)
 
-**Build:** Nothing new — use M1 features, run workshops
+**Build:** Nothing new — use C1 features, run workshops
 
 **Done when:** 3-5 workshops run, testimonials collected, return rate measured
 
-**Kill signal:** <30% say valuable, zero return interest
+**Checkpoint (unlock gate):** <10 workshop participants AND essays <50 readers → can't unlock Month 4-6 psychology recovery (both tracks need traction to lift constraints)
 
 ## Hypothesis: Be Your Own Coach First
 
@@ -40,12 +40,16 @@ You (as coach/trainer) → Run events (donation-based) → Participants get valu
 | H-Biz-2: Tool adds value beyond facilitation | Someone else runs event with tool, still works |
 | H-Biz-3: People will pay for software | WTP signal from participants after experiencing value |
 | H-Biz-4: Retention exists | Users return in month 2+ without being invited |
+| H-Recognition-1: Essays reach target audience | Essays reach 50+ readers in AI/rationalist circles |
+| H-Recognition-2: Recognition builds inbound | Inbound mentions as "calibration expert" begin appearing |
 
 **Success criteria:**
 - Run 5+ events as coach yourself
 - >30% repeat attendance (retention signal)
 - Someone else successfully runs event with tool (tool vs you test)
 - Clear WTP signal at some price point
+- Essays reach 50+ readers in AI/rationalist communities
+- Recognition signals: inbound mentions, LessWrong discussion, "you're the calibration expert"
 
 **Blog audience insight:** The build-in-public blog targets "calibrated listeners" -- people who already practice verification and are frustrated others don't. They need validation and vocabulary, not education. This is the founder's natural audience: practitioners who resonate with the mission. The blog builds reputation with this group; some will become event participants, early adopters, or amplifiers.
 

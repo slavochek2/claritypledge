@@ -6,13 +6,13 @@ tests: [H-Recognition-1, H-Recognition-2]
 answers: []
 ---
 
-# MA: Essay Writing (Recognition Track, Months 1-3)
+# R1: Essay Writing (Recognition Track, Months 0-3)
 
 **Build:** Essays, build-in-public content, technical writing
 
 **Done when:** 3+ essays published, 50+ readers reached, inbound mentions begin
 
-**Checkpoint (unlock gate):** <50 readers per essay OR zero engagement (no comments, shares, or discussion) — Note: at Month 3, BOTH recognition AND coaching tracks must show traction to unlock Month 4-6 psychology recovery (see M2 dual-track checkpoint)
+**Checkpoint (unlock gate):** <50 readers per essay OR zero engagement (no comments, shares, or discussion) — Note: at Month 3, BOTH recognition AND coaching tracks must show traction to unlock Month 4-6 psychology recovery (see C2 dual-track checkpoint)
 
 ## Hypothesis: Recognition via essays
 
@@ -56,6 +56,6 @@ Essays (calibration infrastructure for AI) → Recognition in target communities
 
 **Alignment with dual-track:**
 - This is PRIMARY track (coaching is secondary safety)
-- Runs parallel to M2 workshop validation
+- Runs parallel to C2 workshop validation
 - If essays gain traction + aligned funders exist → consider fundraising
 - If coaching hits €5k but zero recognition → decision point at Month 12

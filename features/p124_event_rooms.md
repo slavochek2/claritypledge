@@ -2,7 +2,7 @@
 status: in-progress
 type: story
 priority: p1
-milestone: M1
+milestone: C1
 blocked_by:
   - p128
 prepped_date: '2026-02-05'
