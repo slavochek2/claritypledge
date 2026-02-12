@@ -65,7 +65,7 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
 }
 
 // Valid values for enum fields
-const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'rejected']
+const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'draft', 'rejected']
 const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story', 'comment']
 const VALID_PRIORITY: Priority[] = ['p0', 'p1', 'p2', 'p3']
 const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
@@ -134,6 +134,15 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
     const milestone: string | undefined =
       typeof data.milestone === 'string' ? data.milestone : undefined
 
+    // Parse optional rank (P141: Unified Rank System)
+    // Validate: positive number, truncate to 3 decimals
+    let rank: number | undefined = undefined
+    if (typeof data.rank === 'number') {
+      if (data.rank >= 0) {
+        rank = Math.round(data.rank * 1000) / 1000 // Truncate to 3 decimals
+      }
+    }
+
     return {
       id: filename,
       path: filePath,
@@ -149,6 +158,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       created: data.created,
       completed_at: data.completed_at,
       sort_order: data.sort_order,
+      rank,
       prepped: !!data.prepped_date,
     }
   } catch {
@@ -317,12 +327,12 @@ app.get('/api/milestones', async (req, res) => {
 })
 
 // PATCH /api/features/:id - update feature fields
-// Supports: status, sort_order, type, priority, size, tags, blocked_by, milestone, hypothesis
+// Supports: status, sort_order, rank, type, priority, size, tags, blocked_by, milestone, hypothesis
 // Query param: ?worktree=/path/to/worktree
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status, sort_order, type, priority, size, tags, blocked_by, milestone, hypothesis } =
+    const { status, sort_order, rank, type, priority, size, tags, blocked_by, milestone, hypothesis } =
       req.body
     const worktreePath = req.query.worktree as string | undefined
 
@@ -338,6 +348,13 @@ app.patch('/api/features/:id', async (req, res) => {
     }
     if (size !== undefined && size !== null && !VALID_SIZE.includes(size)) {
       return res.status(400).json({ error: 'Invalid size value' })
+    }
+
+    // Validate rank (P141: must be positive number if provided)
+    if (rank !== undefined && rank !== null) {
+      if (typeof rank !== 'number' || rank < 0) {
+        return res.status(400).json({ error: 'Invalid rank value: must be a positive number' })
+      }
     }
 
     // Find the feature file
@@ -357,6 +374,14 @@ app.patch('/api/features/:id', async (req, res) => {
     // Update frontmatter - only update fields that are explicitly provided
     if (status !== undefined) data.status = status
     if (sort_order !== undefined) data.sort_order = sort_order
+    if (rank !== undefined) {
+      if (rank === null) {
+        delete data.rank
+      } else {
+        // Truncate to 3 decimals
+        data.rank = Math.round(rank * 1000) / 1000
+      }
+    }
 
     // Handle nullable enum fields (null = remove from frontmatter)
     if (type !== undefined) {
@@ -416,6 +441,7 @@ app.patch('/api/features/:id', async (req, res) => {
       if (cachedFeature) {
         if (status !== undefined) cachedFeature.status = status
         if (sort_order !== undefined) cachedFeature.sort_order = sort_order
+        if (rank !== undefined) cachedFeature.rank = rank === null ? undefined : rank
         if (type !== undefined) cachedFeature.type = type === null ? undefined : type
         if (priority !== undefined) cachedFeature.priority = priority === null ? undefined : priority
         if (size !== undefined) cachedFeature.size = size === null ? undefined : size
