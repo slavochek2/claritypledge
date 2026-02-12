@@ -1,10 +1,11 @@
 ---
-status: today
+status: in-progress
 prepped_date: null
 reviews:
   ux: null
   architect: null
   alignment: null
+sort_order: 187500.375
 ---
 
 # P139: E2E Test Cleanup Fails - FK Constraint on point_position_history

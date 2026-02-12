@@ -1,15 +1,40 @@
-# Create Feature/Bug File
+---
+name: quick-feature
+description: Quick feature/bug skeleton with frontmatter - minimal template for idea capture (30 seconds)
+when_to_use: Quick idea capture, simple placeholders - when you'll fill in sections manually later
+version: 2.0.0
+---
 
-**Purpose:** Create a properly formatted feature or bug specification file with correct frontmatter, P-number, and structure.
+# Quick Feature/Bug Skeleton
+
+**Purpose:** Create a minimal feature/bug skeleton with proper frontmatter and P-number. Sections are empty placeholders you'll fill in manually.
 
 **When to use:**
-- Starting work on a new feature
-- Documenting a bug
-- Creating a task specification
+- ✅ Quick idea capture (just need a placeholder file)
+- ✅ Meeting notes (capture idea, fill in details later)
+- ✅ Very simple features (you know exactly what to write)
 
 **DO NOT use for:**
-- Quick notes (use `features/drafts/`)
-- Research findings (use `features/research/`)
+- ❌ Features needing comprehensive spec → Use `/create-prd` instead
+- ❌ Features needing business requirements, technical analysis, or test coverage → Use `/create-prd`
+- ❌ Quick notes without P-number → Use `features/drafts/`
+- ❌ Research findings → Use `features/research/`
+
+---
+
+## Quick Feature vs Comprehensive PRD
+
+| Aspect | `/quick-feature` (this skill) | `/create-prd` |
+|--------|------------------------------|---------------|
+| **Output** | Skeleton with placeholders | Complete PRD with all sections |
+| **Time** | 30 seconds | 3-5 minutes |
+| **Business requirements** | ❌ Empty ("To be filled in") | ✅ Generated (WHY, outcomes) |
+| **Technical analysis** | ❌ Empty | ✅ Generated (current code) |
+| **Implementation plan** | ❌ Empty | ✅ Concrete (file paths) |
+| **Test requirements** | ❌ Empty | ✅ E2E test templates |
+| **When to use** | Quick placeholder | Ready to implement |
+
+**Rule of thumb:** If you know you'll need a comprehensive spec, use `/create-prd` from the start.
 
 ---
 
@@ -248,6 +273,7 @@ Creates: features/p140_refactor_authentication.md
 
 ## Related Skills
 
+- `/slava:build:create-prd` - Generate comprehensive PRD (use this instead for complex features)
 - `/slava:build:prep-spec` - Review spec before implementation
-- `/slava:done` - Mark feature complete and move to `features/done/`
 - `/slava:build:dev` - Start implementing the feature
+- `/slava:done` - Mark feature complete and move to `features/done/`

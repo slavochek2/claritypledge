@@ -1,5 +1,5 @@
 ---
-status: week
+status: backlog
 type: story
 milestone: C2
 sort_order: 1000007

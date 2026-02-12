@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: today
 type: story
 priority: p2
 milestone: C1
@@ -30,7 +30,7 @@ decisions:
     Fixed max-height (200px) for expanded story text with sticky rating UI
     (mobile-friendly)
   - 'No empty state: ContentPicker not rendered if stories.length === 0'
-sort_order: 1000001
+sort_order: 750000
 ---
 # P133: /live Beginning Screen — Match Prototype Polish
 

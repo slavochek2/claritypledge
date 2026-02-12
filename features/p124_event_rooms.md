@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: today
 type: story
 priority: p1
 milestone: C1
@@ -22,7 +22,7 @@ decisions:
   - >-
     Reverses 2026-01-23 "QR/link sufficient" decision based on P123 data (0%
     join rate)
-sort_order: 1
+sort_order: 1000000
 ---
 # P124: Event Rooms — Tap to Step Aside
 

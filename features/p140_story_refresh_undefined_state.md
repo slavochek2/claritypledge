@@ -1,10 +1,11 @@
 ---
-status: in-progress
+status: blocked
 type: bug
 priority: p0
 severity: high
 date_reported: '2026-02-09'
 tags: []
+sort_order: 0.75
 ---
 
 # BUG: P140 - Story Refresh Undefined State

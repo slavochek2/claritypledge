@@ -1,9 +1,14 @@
 ---
-status: today
+status: blocked
 type: bug
 priority: p0
-tags: [profile, technical-debt, duplication]
-blocks: [134]
+tags:
+  - profile
+  - technical-debt
+  - duplication
+blocks:
+  - 134
+sort_order: 0.078125
 ---
 
 # P136: Consolidate Profile Page Files & Fix Linked Stories/Points
