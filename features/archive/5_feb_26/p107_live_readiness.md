@@ -1,7 +1,7 @@
 ---
 status: done
 priority: p1
-milestone: M2
+milestone: C2
 tags:
   - testing
   - demo

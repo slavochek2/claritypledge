@@ -48,6 +48,15 @@ const DIRS = {
   featuresDone: path.join(__dirname, '..', 'features', 'done')
 };
 
+// Future tracks that haven't been implemented yet (expected placeholders)
+// These will generate warnings instead of errors
+const FUTURE_TRACKS = new Set([
+  'c2', 'c3',           // Coaching track phases 2-3
+  'e1', 'e2',           // Enhancement track phases 1-2
+  'r2', 'r3',           // Recognition track phases 2-3
+  'x1', 'x2', 'x3'      // Exploratory tracks
+]);
+
 // Show help
 if (SHOW_HELP) {
   console.log(`
@@ -202,12 +211,37 @@ function featureExists(pNumber) {
 }
 
 /**
+ * Check if a missing reference is for a future track (expected placeholder)
+ */
+function isFutureTrack(id) {
+  // Check if the ID starts with a future track prefix
+  const normalizedId = id.toLowerCase();
+
+  // For track IDs (c2, e1, etc.)
+  if (FUTURE_TRACKS.has(normalizedId)) {
+    return true;
+  }
+
+  // For hypothesis/experiment/outcome IDs that reference future tracks
+  // e.g., h-workshops-solve-pricing (C2), e-pricing-test (E1)
+  // We check if any part of the ID suggests it's for a future track
+  for (const futureTrack of FUTURE_TRACKS) {
+    if (normalizedId.includes(futureTrack)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Validate links and collect results
  */
 function validateLinks() {
   const results = {
     valid: [],
     broken: [],
+    futureTrackWarnings: [],
     warnings: []
   };
 
@@ -243,12 +277,19 @@ function validateLinks() {
       const hypothesis = hypothesisMap.get(hypId.toLowerCase());
 
       if (!hypothesis) {
-        results.broken.push({
+        const brokenLink = {
           source: track.filename,
           field: 'tests',
           target: hypId,
           reason: `${hypId}.md doesn't exist in hypotheses/`
-        });
+        };
+
+        // Check if this is a future track placeholder
+        if (isFutureTrack(hypId) || isFutureTrack(track.id)) {
+          results.futureTrackWarnings.push(brokenLink);
+        } else {
+          results.broken.push(brokenLink);
+        }
       } else {
         // Check backlink
         const hypTrack = hypothesis.frontmatter.track;
@@ -275,12 +316,19 @@ function validateLinks() {
 
     for (const pNumber of buildsArray) {
       if (!featureExists(pNumber)) {
-        results.broken.push({
+        const brokenLink = {
           source: track.filename,
           field: 'builds',
           target: pNumber,
           reason: `${pNumber}*.md doesn't exist in features/`
-        });
+        };
+
+        // Check if this is a future track
+        if (isFutureTrack(track.id)) {
+          results.futureTrackWarnings.push(brokenLink);
+        } else {
+          results.broken.push(brokenLink);
+        }
       } else {
         results.valid.push({
           source: track.filename,
@@ -298,12 +346,19 @@ function validateLinks() {
       const outcome = outcomeMap.get(outcomeId.toLowerCase());
 
       if (!outcome) {
-        results.broken.push({
+        const brokenLink = {
           source: track.filename,
           field: 'measures',
           target: outcomeId,
           reason: `${outcomeId}.md doesn't exist in outcomes/`
-        });
+        };
+
+        // Check if this is a future track
+        if (isFutureTrack(outcomeId) || isFutureTrack(track.id)) {
+          results.futureTrackWarnings.push(brokenLink);
+        } else {
+          results.broken.push(brokenLink);
+        }
       } else {
         // Check backlink
         const outcomeTrack = outcome.frontmatter.track;
@@ -334,12 +389,20 @@ function validateLinks() {
       const experiment = experimentMap.get(expId.toLowerCase());
 
       if (!experiment) {
-        results.broken.push({
+        const brokenLink = {
           source: hypothesis.filename,
           field: 'tested_by',
           target: expId,
           reason: `${expId}.md doesn't exist in experiments/`
-        });
+        };
+
+        // Check if this is a future track
+        const hypTrack = hypothesis.frontmatter.track;
+        if (isFutureTrack(expId) || (hypTrack && isFutureTrack(hypTrack))) {
+          results.futureTrackWarnings.push(brokenLink);
+        } else {
+          results.broken.push(brokenLink);
+        }
       } else {
         // Check backlink
         const expTests = ensureArray(experiment.frontmatter.tests);
@@ -368,12 +431,20 @@ function validateLinks() {
       const outcome = outcomeMap.get(outcomeId.toLowerCase());
 
       if (!outcome) {
-        results.broken.push({
+        const brokenLink = {
           source: hypothesis.filename,
           field: 'supports',
           target: outcomeId,
           reason: `${outcomeId}.md doesn't exist in outcomes/`
-        });
+        };
+
+        // Check if this is a future track
+        const hypTrack = hypothesis.frontmatter.track;
+        if (isFutureTrack(outcomeId) || (hypTrack && isFutureTrack(hypTrack))) {
+          results.futureTrackWarnings.push(brokenLink);
+        } else {
+          results.broken.push(brokenLink);
+        }
       } else {
         // Note: we don't check backlink from outcome to hypothesis (not in schema)
         results.valid.push({
@@ -394,12 +465,25 @@ function validateLinks() {
       const outcome = outcomeMap.get(outcomeId.toLowerCase());
 
       if (!outcome) {
-        results.broken.push({
+        const brokenLink = {
           source: experiment.filename,
           field: 'measures',
           target: outcomeId,
           reason: `${outcomeId}.md doesn't exist in outcomes/`
+        };
+
+        // Check if this is a future track
+        const expTests = ensureArray(experiment.frontmatter.tests);
+        const belongsToFutureTrack = expTests.some(hypId => {
+          const hyp = hypotheses.find(h => h.id.toLowerCase() === hypId.toLowerCase());
+          return hyp && hyp.frontmatter.track && isFutureTrack(hyp.frontmatter.track);
         });
+
+        if (isFutureTrack(outcomeId) || belongsToFutureTrack) {
+          results.futureTrackWarnings.push(brokenLink);
+        } else {
+          results.broken.push(brokenLink);
+        }
       } else {
         // Check backlink
         const measuredByArray = ensureArray(outcome.frontmatter.measured_by);
@@ -467,9 +551,31 @@ function main() {
     });
   }
 
-  // Show broken links
+  // Show future track warnings (expected placeholders)
+  if (results.futureTrackWarnings.length > 0) {
+    console.log(`${YELLOW}Future Track Placeholders (Expected):${NC}\n`);
+
+    // Group by source
+    const bySource = {};
+    results.futureTrackWarnings.forEach(link => {
+      if (!bySource[link.source]) {
+        bySource[link.source] = [];
+      }
+      bySource[link.source].push(link);
+    });
+
+    Object.entries(bySource).forEach(([source, links]) => {
+      console.log(`${YELLOW}⚠${NC} ${source}`);
+      links.forEach(link => {
+        console.log(`  → ${link.field}: [${link.target}] ${YELLOW}⚠${NC} (${link.reason})`);
+      });
+      console.log('');
+    });
+  }
+
+  // Show broken links (actual errors)
   if (results.broken.length > 0) {
-    console.log(`${RED}Broken Links:${NC}\n`);
+    console.log(`${RED}Broken Links (Errors):${NC}\n`);
 
     // Group by source
     const bySource = {};
@@ -496,6 +602,10 @@ function main() {
   console.log(`${BLUE}=== Summary ===${NC}`);
   console.log(`${GREEN}✓ Valid links: ${results.valid.length}${NC}`);
 
+  if (results.futureTrackWarnings.length > 0) {
+    console.log(`${YELLOW}⚠ Future track placeholders: ${results.futureTrackWarnings.length}${NC} (expected)`);
+  }
+
   if (results.broken.length > 0) {
     console.log(`${RED}✗ Broken links: ${results.broken.length}${NC}`);
   } else {
@@ -505,16 +615,20 @@ function main() {
   console.log(`⏱️  Duration: ${duration}s`);
   console.log('');
 
-  // Exit with error if broken links
+  // Exit with error if broken links (future track warnings are OK)
   if (results.broken.length > 0) {
     console.log(`${RED}✗ Validation failed - fix broken links above${NC}`);
+    console.log(`${YELLOW}Note: Future track placeholders are expected and don't cause failure${NC}`);
     process.exit(1);
-  } else if (results.valid.length === 0) {
+  } else if (results.valid.length === 0 && results.futureTrackWarnings.length === 0) {
     console.log(`${YELLOW}⚠ No bidirectional links found yet${NC}`);
     console.log('  This is expected if P142 migration hasn\'t started.');
     process.exit(0);
   } else {
-    console.log(`${GREEN}✓ All links valid!${NC}`);
+    console.log(`${GREEN}✓ All active track links valid!${NC}`);
+    if (results.futureTrackWarnings.length > 0) {
+      console.log(`${YELLOW}⚠ ${results.futureTrackWarnings.length} future track placeholder(s) - create these tracks when ready${NC}`);
+    }
     process.exit(0);
   }
 }

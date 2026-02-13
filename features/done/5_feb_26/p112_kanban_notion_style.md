@@ -4,7 +4,7 @@ priority: p0
 tags:
   - tooling
   - dx
-milestone: M2
+milestone: C2
 prepped_date: 2026-02-02T00:00:00.000Z
 reviews:
   ux: passed

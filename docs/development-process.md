@@ -527,3 +527,148 @@ If agent iterates 5+ times without progress, it will ask for help.
 **Process not working?** Open an issue or update this doc with improvements.
 
 **Found a better way?** Document it here and update the skills.
+
+---
+
+## Skills Ecosystem: Beyond the Core Flow
+
+The sequential flow (`/create-prd → /ux → /architect → /generate-tests → /dev`) is the core, but there are other skills that help optimize your workflow.
+
+### Pre-Work Skills (Optional - Use When Needed)
+
+**Decision tree for starting a feature:**
+
+```
+Starting a feature?
+│
+├─ 🤔 Unclear APPROACH (know what to build, not how)
+│   → Run /innovate to explore 30 alternatives
+│   → Then run /create-prd with chosen approach
+│
+├─ 🎯 Unclear SCOPE (idea feels too big)
+│   → Run /lean to challenge scope and find MVP
+│   → Then run /create-prd with refined scope
+│
+├─ 🌫️ Both unclear (fuzzy idea, unclear scope and approach)
+│   → Run /innovate to brainstorm possibilities
+│   → Run /lean to narrow to MVP
+│   → Then run /create-prd
+│
+└─ ✅ Clear on both scope and approach
+    → Run /create-prd directly
+```
+
+**Pre-work skills:**
+- `/lean` - Challenge scope, find the simplest thing that validates the hypothesis
+- `/innovate` - Explore 30 alternative approaches before committing to one
+
+**Research:**
+- Codebase research: Agents do this automatically during `/create-prd`, `/ux`, `/architect` (using Grep/Glob)
+- External research: You do this before starting (or spawn a research agent if needed)
+
+---
+
+### Bug Workflow (Different from Features)
+
+Bugs need a different approach than features. They require reproduction, diagnosis, and regression prevention.
+
+**Decision tree for bugs:**
+
+```
+Bug reported
+│
+├─ 🎯 Simple bug (cause is obvious)
+│   → Run /fix directly
+│   → Workflow: Reproduce → Test → Fix → Verify
+│
+└─ 🔍 Complex bug (cause unclear, hard to reproduce)
+    → Run /debugging to find root cause
+    → Then run /fix to remediate the identified issue
+```
+
+**Bug skills:**
+- `/debugging` - Root cause analysis for complex bugs (diagnostic tool)
+- `/fix` - Systematic bug remediation workflow (reproduce → test → fix → verify)
+
+**When to use which:**
+- Use `/debugging` when: symptoms are unclear, can't reproduce consistently, multiple potential causes
+- Use `/fix` when: you know what's broken, can reproduce reliably, root cause is clear
+
+---
+
+### Post-Work Skills (After Implementation)
+
+After `/dev` completes, there are additional steps for finishing and knowledge capture:
+
+**Post-implementation workflow:**
+
+```
+/dev completes
+│
+├─ UI files modified?
+│   → /dev suggests: "Run /design-audit before marking done? (y/n)"
+│   → If yes: Run /design-audit to verify UI compliance
+│
+└─ All verified
+    → Run /done to mark feature complete
+    → (Optional) Run /kdd to capture knowledge in strategic docs
+    → (Optional) Run /ship for deployment workflow
+```
+
+**Post-work skills:**
+- `/done` - Mark feature complete, update status, move to done/ folder
+- `/kdd` - Capture knowledge in strategic docs (decisions.md, milestones/, technical docs)
+- `/ship` - Deployment workflow (if applicable)
+
+---
+
+### Parallel Skills (Use Anytime)
+
+These skills can be used at any point during development when you need them:
+
+| Skill | When to Use | What It Does |
+|-------|-------------|--------------|
+| `/simplify` | Facing complex decision with many options | Decision-by-decision analysis and recommendations |
+| `/design-audit` | After UI changes, before shipping | Check UI compliance (buttons, colors, accessibility, consistency) |
+| `/debugging` | Stuck on complex bug, unclear root cause | Systematic debugging and root cause analysis |
+
+**Usage pattern:**
+- These don't block the main flow
+- Use them when you encounter the specific situation they address
+- Return to main flow after they provide clarity
+
+---
+
+### Complete Workflow Map
+
+**Full development lifecycle:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ PRE-WORK (Optional - when needed)                   │
+│ /lean      - Scope unclear? Challenge it            │
+│ /innovate  - Approach unclear? Explore alternatives │
+└─────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────┐
+│ CORE FLOW                                           │
+│                                                     │
+│ Features:                                           │
+│ /create-prd → /ux → /architect → /generate-tests → /dev │
+│                                                     │
+│ Bugs:                                               │
+│ /debugging (if complex) → /fix                      │
+└─────────────────────────────────────────────────────┘
+                        ↓
+┌─────────────────────────────────────────────────────┐
+│ POST-WORK                                           │
+│ /design-audit (if UI touched) → /done → /kdd       │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│ PARALLEL (use anytime when needed)                  │
+│ /simplify | /design-audit | /debugging              │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key principle:** Not every feature needs every skill. Use the decision trees above to determine which skills your specific situation requires.

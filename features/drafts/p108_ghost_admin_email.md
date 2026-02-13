@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-milestone: M2
+milestone: C2
 tags:
   - ghost
   - infrastructure

@@ -3,7 +3,7 @@ status: done
 completed_at: '2026-02-09'
 type: task
 priority: p1
-milestone: M1
+milestone: C1
 tags:
   - stories
   - points

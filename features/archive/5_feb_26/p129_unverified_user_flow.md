@@ -1,7 +1,7 @@
 ---
 status: backlog
 priority: p2
-milestone: M2
+milestone: C2
 depends_on:
   - stories_points_backend
 ---

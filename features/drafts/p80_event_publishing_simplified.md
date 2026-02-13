@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-milestone: M2
+milestone: C2
 sort_order: 500000
 ---
 # P80: Event Publishing Simplified

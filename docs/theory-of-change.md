@@ -10,8 +10,143 @@
 > By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality — not by forcing agreement, but by making disagreement informed.
 
 **For problem/solution context:** See [lean-canvas.md](lean-canvas.md)
-**For what we're testing:** See [milestones/](milestones/) (hypotheses merged into milestones in P130)
+**For what we're testing:** See [tracks/](tracks/) (work streams), [hypotheses/](hypotheses/) (testable beliefs), [experiments/](experiments/) (testing protocols)
 **For epistemological foundation:** See [philosophy.md](philosophy.md)
+
+---
+
+## Causal Pathway
+
+This section maps the logical chain from problem to impact, showing how our activities create change.
+
+### Problem
+
+**What exists today:**
+- Understanding miscalibration: Speakers overestimate how well they communicated (illusion of transparency), listeners overestimate how well they understood (illusion of knowing)
+- No feedback loop: Conversations end with both parties confident but misaligned
+- Measurement tools don't help: Current tools measure speaker behavior (talk ratios) or self-report (360 reviews), not actual understanding
+- Invisible cost: Miscommunication costs $12,506/employee/year (Grammarly 2024), but no way to measure reduction
+
+**Root cause:** The Understanding Gap is invisible. People walk away from conversations with miscalibrated confidence about mutual understanding.
+
+### Activities (What We Do)
+
+**Core activities:**
+- Build /live verification tool (real-time explain-back protocol)
+- Teach explain-back protocol (healthcare teach-back applied to workplace)
+- Create Stories as context for verification (solves "on what?" cold start problem)
+- Run workshops to train coaches (in-person skill building)
+- Publish essays to reach rationalist/AI safety communities (content-led recognition)
+- Build async verification tools (Slack integration, scale beyond real-time)
+
+**Distribution channels:**
+1. **Coaching cascade:** Coaches teach protocol → clients practice → teams adopt → √N growth
+2. **Content cascade:** Essays → AI safety researchers → enterprise pilots → legitimacy effects
+
+### Outputs (What We Produce)
+
+**Measurable outputs:**
+- Calibration measurements: Understanding Gap scores (listener confidence − speaker verification)
+- Certifications: Verified understanding records linking people to ideas
+- Protocol adoption: People using explain-back in daily conversations (with or without tool)
+- Content: Essays, specs, technical writing reaching aligned communities
+- Workshops delivered: Coaches trained, participants practice protocol
+
+**Data artifacts:**
+- Stories: Verified understanding corpus (training data for personal AI)
+- Topology maps: Who understands whom on which ideas (network visualization)
+- Reputation: Verified Listener Scores (weighted by network position)
+
+### Outcomes (What Changes)
+
+**Short-term outcomes (0-6 months):**
+- Workshop participants report reduced miscommunication (qualitative feedback)
+- Essays reach 50+ readers in rationalist/AI safety communities (O-Essay-Reach)
+- First coaches adopt protocol and integrate into practice (O-Workshop-Retention)
+- €5K/month workshop revenue validates business model (C3 outcome)
+
+**Medium-term outcomes (6-12 months):**
+- Recognition as "calibration expert" in AI alignment space (R3 outcome)
+- Inbound requests from aligned funders (Lightcone, Protocol Labs, SFF)
+- Protocol spreads beyond initial coaches (early √N growth signals)
+- Stories dataset grows (training data for personal AI agents)
+
+**Long-term outcomes (12-24 months):**
+- Protocol spreads via coaches teaching clients (√N growth kicks in)
+- AI labs adopt Stories for agent alignment (calibrated training data)
+- Network effects emerge: Topology maps reveal who understands whom
+- Common knowledge threshold: Verified understanding visible across disagreement
+
+### Impact (Civilizational Change)
+
+**The end state:**
+- Fractured private realities → Common shared reality
+- Not by forcing agreement, but by making disagreement informed
+- Coordination unlocked: People act together based on shared understanding map
+- Status flip: Verified understanding > confident assertion
+- AI alignment: Personal agents trained on verified understanding, not unverified signals
+
+**Civilizational-scale change:**
+- From invisible Understanding Gap → measured, improvable gap
+- From "loud voice wins" → "verified understander wins"
+- From private knowledge → common knowledge of what we disagree about
+- From misaligned AI (trained on unverified signals) → calibrated AI (trained on verified Stories)
+
+---
+
+## Strategic Assumptions
+
+These are foundational assumptions that hold across all tracks. If these fail, the entire theory of change collapses.
+
+**Assumption 1: Calibration training works**
+- **Evidence:** Meta-analysis shows effect sizes g=0.46-0.72 (Yang et al. 2023, N=15,889)
+- **Implication:** People can learn to know when they don't understand
+- **Risk:** Workplace context differs from academic studies
+- **Validation:** Run workshops, measure calibration improvement over time
+
+**Assumption 2: Explain-back protocol is teachable**
+- **Evidence:** Healthcare teach-back reduces readmissions by 45-60% (systematic review, RCTs)
+- **Implication:** Protocol can spread via coaches teaching clients
+- **Risk:** Healthcare (life/death stakes) ≠ workplace (lower stakes)
+- **Validation:** Workshop retention, coaches report client adoption
+
+**Assumption 3: People value being understood**
+- **Evidence:** Feeling heard → 40% engagement increase (Gallup 2024); r=.39 for perceived listening → work outcomes (Kluger et al. 2023, N=400K)
+- **Implication:** Users will invest time in verification if it makes them feel understood
+- **Risk:** Rational vs emotional: People SAY they value understanding, but will they DO the work?
+- **Validation:** /live usage retention, qualitative feedback
+
+**Assumption 4: Protocol-led growth is viable**
+- **Evidence:** Healthcare analogy (teach-back spreads free, hospitals pay for measurement); No direct precedent in SaaS
+- **Implication:** Protocol spreads without product; product captures value from protocol users who want measurement
+- **Risk:** If protocol is valuable without product, why pay for tool?
+- **Validation:** Workshop participants ask "how do I measure this?" → convert to product users
+
+**Assumption 5: AI alignment market exists**
+- **Evidence:** AI labs explicitly seek calibrated training data (personal AI alignment problem, see philosophy.md)
+- **Implication:** Stories (verified understanding corpus) are valuable to AI researchers
+- **Risk:** Timing — is the market ready now, or 2+ years out?
+- **Validation:** Essay reach in AI safety communities, inbound from labs
+
+**Note on hypothesis-specific assumptions:** These are STRATEGIC assumptions. Hypothesis-specific assumptions (e.g., "Stories solve cold start problem") live in `/docs/hypotheses/`. Experimental assumptions (e.g., "20 users sufficient to spot signal") live in `/docs/experiments/`.
+
+---
+
+## Strategic Evidence
+
+This section contains research evidence supporting the core theory of change. Hypothesis-specific evidence (e.g., "Stories solve cold start problem") lives in `/docs/hypotheses/`, not here.
+
+**What belongs here:**
+- Research validating calibration works (Yang et al., Thiede et al.)
+- Evidence that listening matters (Kluger et al., Gallup)
+- Proof that teach-back/explain-back works (healthcare RCTs)
+- Market data (miscommunication cost, AI alignment need)
+
+**What does NOT belong here:**
+- Evidence for specific hypotheses (e.g., "essays reach rationalists") → `/docs/hypotheses/h-recognition-via-essays.md`
+- Experimental results (e.g., "20-user pilot showed 50% story creation") → `/docs/experiments/e-story-creation-pilot.md`
+
+See **Evidence Base** section below for full research citations and ROI framework.
 
 ---
 
@@ -366,9 +501,11 @@ LAYER 4: TOPOLOGY MAP
 
 ---
 
-## Evidence Base
+## Evidence Base (Strategic Evidence)
 
-The theory of change is built on research-backed facts and validated assumptions.
+The theory of change is built on research-backed facts and validated assumptions. This is **strategic evidence** supporting core assumptions.
+
+**For hypothesis-specific evidence:** See `/docs/hypotheses/` (e.g., evidence that "Stories solve cold start" lives in `h-stories-solve-cold-start.md`, not here)
 
 ### The Problem (Pain)
 
@@ -451,7 +588,11 @@ Meta-analysis findings (2026-01-28):
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
-- [milestones/](milestones/) — What we're building, testing, and when we stop
+- [tracks/](tracks/) — Work streams (what we're building)
+- [hypotheses/](hypotheses/) — Testable beliefs (what we're testing)
+- [experiments/](experiments/) — Testing protocols (how we validate)
+- [outcomes/](outcomes/) — Measurable goals (what success looks like)
+- [milestones/](milestones/) — Observable achievements (when things happened)
 - [philosophy.md](philosophy.md) — Epistemological foundation (Asymmetric Conversion)
 - [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article with tactical frameworks (Three Asymmetries, Implementation Levels, Celebration Engine)
 - [Tournament Theory](visions/v2_tournament_theory.md) — Scaling protocol, √N mathematics
