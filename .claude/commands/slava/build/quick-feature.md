@@ -228,7 +228,8 @@ After creating the file, tell the user:
 
 **Next steps:**
 - Review and fill in remaining sections
-- Run `/slava:build:prep-spec` when ready for review
+- Run `/create-prd` to generate comprehensive business requirements (recommended)
+- OR continue manually for simple features
 - Change status to `in-progress` when starting work
 ```
 
@@ -302,6 +303,7 @@ Creates: features/p140_refactor_authentication.md
 ## Related Skills
 
 - `/slava:build:create-prd` - Generate comprehensive PRD (use this instead for complex features)
-- `/slava:build:prep-spec` - Review spec before implementation
+- `/slava:build:ux` - Design UX layer (if UI feature)
+- `/slava:build:architect` - Design technical architecture
 - `/slava:build:dev` - Start implementing the feature
 - `/slava:done` - Mark feature complete and move to `features/done/`

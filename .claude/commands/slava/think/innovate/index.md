@@ -203,12 +203,12 @@ Can invoke these for deeper analysis:
 - **When spec feels "obvious"** — obvious often means unconsidered
 - **When stuck** — 30 ideas breaks the logjam
 - **When scope is large** — find simpler alternatives
-- **During prep-spec** — runs automatically as Challenge agent
+- **Before creating PRD** — run standalone to explore alternatives
 
 ## Related
 
 - `/lean` — Complements this: /innovate finds alternatives, /lean strips to minimum
-- `/prep-spec` — Includes /innovate automatically
+- `/create-prd` — Run /innovate BEFORE creating PRD to explore possibilities
 - `/awesome:brainstorming` — Interactive Socratic exploration (different method)
 
 ---

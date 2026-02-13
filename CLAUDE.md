@@ -262,6 +262,19 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 
 **Approval required** before creating, modifying, or deleting skills, or installing plugins/MCP servers. **Always ask first:** "I'd like to create [X] for [reason]. OK?"
 
+### Sequential Flow (P143) — Current Standard
+
+**For new features (after 2026-02-13):**
+```
+/create-prd → /ux (if UI) → /architect → /generate-tests → /dev
+```
+
+Each layer has a review gate - user approves before proceeding to next layer.
+
+**Deprecated:** `/prep-spec` (old 3-agent parallel review) - Kept for backward compatibility only. Features started before 2026-02-13 can continue using it, but new features should use the sequential flow above.
+
+See [docs/development-process.md](docs/development-process.md) for complete workflow documentation.
+
 ---
 
 ## Tool Preferences

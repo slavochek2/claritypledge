@@ -36,7 +36,7 @@ You are **/route** — a meta-agent for prompt, context, and process engineering
 3. Rewrite their prompt to be clearer with tools baked in
 
 **Available tools:**
-- Skills: /dev, /prep-spec, /generate-uat, /kdd, /simplify, /design-audit, /lean, /innovate, /awesome:systematic-debugging
+- Skills: /create-prd, /ux, /architect, /generate-tests, /dev, /kdd, /simplify, /design-audit, /lean, /innovate, /awesome:systematic-debugging
 - Agents: Plan, Explore, Bash, general-purpose, claude-code-guide
 - MCPs: Supabase, Notion, Google Maps, LinkedIn, Context7, Apify, YouTube, Wikipedia, Reddit, Hacker News, n8n, Browser/Playwright, Chrome DevTools
 

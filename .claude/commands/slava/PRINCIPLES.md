@@ -12,16 +12,17 @@ Engineers who understand principles make better decisions in novel situations. E
 
 ---
 
-## Standalone Agents (4)
+## Core Development Agents (5)
 
-Use these anytime — they're invocable skills, not just prep-spec components.
+These agents form the sequential skill flow for feature development:
 
 | Agent | Command | Key Question | Principle |
 |-------|---------|--------------|-----------|
+| **Business** | `/create-prd` | "Why does this matter? What's the user value?" | Start with the problem, not the solution |
 | **UX** | `/ux` | "How does this affect real users?" | Protect the user |
-| **Dev** | `/dev` | "Will we regret this? Why will this fail?" | Think long-term, find weaknesses early |
-| **Lean** | `/lean` | "What's the simplest thing that validates?" | Build less, learn faster |
-| **Innovation** | `/innovate` | "What possibilities are we not seeing?" | Diverge before converging |
+| **Architect** | `/architect` | "Will we regret this? Is it secure?" | Think long-term, design for production |
+| **Tests** | `/generate-tests` | "How do we verify this works?" | Define success before building |
+| **Dev** | `/dev` | "Why will this fail?" | Find weaknesses early, iterate until tests pass |
 
 ### Two Pairs, Two Modes
 
@@ -38,28 +39,23 @@ Use these anytime — they're invocable skills, not just prep-spec components.
 - **UX + Dev**: Catch issues before they ship (user friction, tech debt, failure modes)
 - **Lean + Innovation**: Converge (eliminate waste) and diverge (explore possibilities)
 
-### When to Use Each
+### Sequential Flow (P143)
+
+**New features (after 2026-02-13):**
+```
+/create-prd → /ux (if UI) → /architect → /generate-tests → /dev
+```
+
+**Old features (before 2026-02-13):**
+- Can still use `/prep-spec` (deprecated, backward compatibility only)
+
+### When to Use Strategic Thinking Agents
 
 | Situation | Use |
 |-----------|-----|
-| About to write code | `/dev` — TDD + sustainability thinking |
-| Reviewing UI/flow | `/ux` — User perspective |
-| Scope feels bloated | `/lean` — Challenge, find MVP |
+| Starting a new feature | `/create-prd` — Generate business requirements |
+| Scope feels bloated | `/lean` — Challenge scope, find MVP |
 | Feeling stuck on approach | `/innovate` — Explore 30 alternatives |
-| Full spec review | `/prep-spec` — All perspectives |
-
----
-
-## prep-spec Agents (4)
-
-When you run `/prep-spec`, these four perspectives review the spec:
-
-| Agent | Key Question | Absorbs |
-|-------|--------------|---------|
-| **UX** | "How does this feel to use?" | — |
-| **Architect** | "Will we regret this in 6 months?" | sustainability, devils-advocate, execution-scout |
-| **Lean Coach** | "Are we building the right thing simply?" | lean-startup-coach, business, alternatives |
-| **Alignment** | "Does this fit our strategy?" | hypotheses, decisions, definitions, philosophy, kdd-scout |
 
 ---
 

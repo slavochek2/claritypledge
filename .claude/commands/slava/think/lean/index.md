@@ -282,7 +282,7 @@ When stuck, use these mental models:
 ## Related
 
 - `/innovate` — Complements this: /lean converges (eliminate waste), /innovate diverges (explore possibilities)
-- `/prep-spec` — Full spec review (includes /lean automatically)
+- `/create-prd` — Run /lean BEFORE creating PRD to challenge scope
 - `/simplify` — Lighter version, just distill to essentials
 
 ---

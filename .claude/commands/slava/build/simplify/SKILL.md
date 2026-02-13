@@ -105,7 +105,7 @@ Never recommend:
 
 ## When to Use Other Skills
 
-- `/slava:lean` — Challenge scope, find the MVP
-- `/slava:ux` — Deep dive on user experience
-- `/slava:innovate` — Explore alternative approaches
-- `/slava:prep-spec` — Full spec review before implementation
+- `/slava:think:lean:index` — Challenge scope, find the MVP
+- `/slava:build:ux` — Design UX layer (user flows, screens, edge cases)
+- `/slava:build:architect` — Design technical architecture and security
+- `/slava:think:innovate:index` — Explore alternative approaches

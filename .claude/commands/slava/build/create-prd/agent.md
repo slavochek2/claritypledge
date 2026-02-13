@@ -893,10 +893,12 @@ created: 2026-02-12
 ## Next Steps
 
 1. Review this PRD - confirm scope and approach
-2. Run `/prep-spec` (optional) - 3-agent review for P0/P1 features
-3. Implement - Run `/dev features/p{N}_{slug}.md`
-4. Verify - Run E2E tests, confirm acceptance criteria
-5. Ship - Run `/done` to mark complete
+2. Run `/ux` (if UI feature) - Design user flows and interactions
+3. Run `/architect` - Design technical architecture and security
+4. Run `/generate-tests` - Generate UAT scenarios and E2E test stubs
+5. Implement - Run `/dev features/p{N}_{slug}.md`
+6. Verify - Tests run automatically during `/dev`
+7. Ship - Run `/done` to mark complete
 ```
 
 **Determine P-number:**
