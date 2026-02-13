@@ -66,13 +66,12 @@ lsof -ti:9050,9051 | xargs kill
 ---
 status: backlog | week | today | in-progress | blocked | done  # REQUIRED
 type: bug | task | story | comment
-priority: p0 | p1 | p2 | p3   # strategic bucket (see Priority Model below)
+rank: number                   # Lower = higher priority (see Rank System below)
 size: xs | s | m | l | xl
 milestone: M1                  # Links to docs/milestones/m1-*.md (groups on Focus page)
 blocked_by: [p105, p106]
 tags: [validation, dx]
 completed_at: '2026-02-04'  # Set automatically when moving to done
-sort_order: 1.5            # For within-bucket ordering (see Priority Model below)
 ---
 
 # P123: Feature Title
@@ -82,32 +81,41 @@ sort_order: 1.5            # For within-bucket ordering (see Priority Model belo
 
 **Required:** `status` field determines kanban column placement
 
-## Priority Model
+## Rank System (P141 - Unified Ordering)
 
-Priority has two layers:
+**Concept:** Single numeric field determines feature ordering
 
-**Strategic bucket (`priority`)** — Which tier of importance:
+**How it works:**
+- Lower rank = higher priority (rank 1.0 is top)
+- Fractional numbers enable insertion (1.5 between 1.0 and 2.0)
+- Drag-and-drop updates rank automatically
+- No buckets - pure numeric ordering
 
-| Bucket | Meaning | Example |
-|--------|---------|---------|
-| `p0` | Critical — active GTM, core product | Demo kit, sifter prototype |
-| `p1` | High — important, supports current focus | Newsletter automation, live verification |
-| `p2` | Medium — valuable but not urgent | Sales playbook, event publishing |
-| `p3` | Low — nice to have, do when time allows | Polish, minor improvements |
-| *(none)* | **Out of scope** — not prioritized for near future | Future epics, pivots not pursuing, internal tooling |
+**Why fractional?**
+- Insert anywhere without renumbering other features
+- Git-friendly: only modified feature file changes
+- Agent-friendly: can re-prioritize without cascading updates
 
-**Tactical ordering (`sort_order`)** — Position within a column/group. Set by drag-and-drop. Fractional (e.g., inserting between 2.0 and 3.0 gets 2.5).
+**Agent convention:**
+- New features: `rank = max(existing_ranks) + 1.0`
+- First feature: `rank = 1.0`
+- Auto-calculated (no user prompt)
 
-**Rule:** If a feature is `in-progress`, `today`, or `week`, it should have a priority. No-priority means "not considering right now." If you're actively working on it, give it a bucket.
+**User workflow:**
+- Create feature → appears at bottom (highest rank number)
+- Drag to reorder → kanban calculates fractional rank
+- Manual edit via CardDialog if needed
 
-**Mapping from other frameworks:** Any prioritization framework (Eisenhower urgent/important, MoSCoW, RICE, etc.) maps into these buckets. The bucket is the output, not the framework.
+**Technical:**
+- Precision: 3 decimals (1.234)
+- Tiebreaker: status → id
+- Missing rank: treated as `Infinity` (sorts to end)
 
 ## Card Badges
 
 **First-class** (always shown):
 - ID badge (monospace, short form: `p108`)
 - Type badge (bug=red, task=gray, story=blue, comment=purple)
-- Priority badge (P0=red, P1=blue, P2-P3=gray)
 - Spec readiness badge: "prepped" (green) or "draft" (gray) — derived from `prepped_date`
 - Blocked_by chips (red outline)
 
@@ -117,7 +125,7 @@ Priority has two layers:
 ## Drag & Drop
 
 - **Between columns:** Changes status (moves card to new column)
-- **Within column:** Reorders cards (updates `sort_order` in frontmatter)
+- **Within column:** Reorders cards (updates `rank` in frontmatter)
 
 ## Opening Files
 
@@ -135,8 +143,9 @@ The Focus page groups active features by milestone, showing all non-done work or
   - Feature count and status breakdown
 - Groups are sorted by:
   1. Milestone status (active → next → future)
-  2. Priority (p0 → p1 → p2 → p3)
+  2. Milestone priority (p0 → p1 → p2 → p3)
   3. Milestone ID (M1 → M2 → M3)
+  4. Feature rank (within milestone)
 - Features without milestones appear in "Unlinked" group at the bottom
 
 **Milestone files** (`docs/milestones/`):

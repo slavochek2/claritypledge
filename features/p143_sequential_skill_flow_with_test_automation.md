@@ -1,7 +1,7 @@
 ---
 status: week
 type: task
-priority: p0
+rank: 13
 milestone: foundation
 tags: [development-process, skills, testing, automation]
 ---

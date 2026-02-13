@@ -58,13 +58,14 @@ Ask the user these questions (use `AskUserQuestion` tool):
   - Week - Planned for this week (Recommended for new items)
   - Today - Working on today
 
-**Question 3: Priority?**
-- Header: "Priority"
+**Question 3: Milestone?**
+- Header: "Milestone"
 - Options:
-  - P0 - Critical, must do
-  - P1 - High priority
-  - P2 - Medium priority
-  - P3 - Low priority / nice-to-have
+  - C1, C2, C3... - Coaching track
+  - R1, R2... - Recognition track
+  - E1, E2... - Enhancements track
+  - X1, X2... - Exploratory track
+  - foundation - Infrastructure/meta work
 
 **Question 4 (if bug): Severity?**
 - Header: "Severity"
@@ -90,7 +91,22 @@ ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p
 
 Take the highest number and add 1. Example: if highest is `p137`, use `p138`.
 
-### 4. Create File
+### 4. Calculate Rank
+
+**Automatically assign rank (new features go to bottom of backlog):**
+
+```bash
+MAX_RANK=$(grep "^rank:" features/*.md features/bugs_and_debt/*.md 2>/dev/null | \
+  grep -oE '[0-9]+(\.[0-9]+)?' | sort -n | tail -1)
+NEW_RANK=$(echo "${MAX_RANK:-0} + 1.0" | bc)
+echo "Assigning rank: $NEW_RANK"
+```
+
+**Edge cases:**
+- No existing ranks → Use `1.0`
+- `bc` not available → Use `awk`: `awk "BEGIN {print ${MAX_RANK:-0} + 1.0}"`
+
+### 5. Create File
 
 **Filename format:** `features/p{N}_{slug}.md`
 
@@ -104,8 +120,11 @@ Where:
 ---
 status: {from user}
 type: feature
-priority: {from user}
+rank: {calculated rank}
+milestone: {from user}
+created_date: {today's date YYYY-MM-DD}
 tags: []
+# For complete frontmatter specification, see docs/technical/feature-specs.md
 ---
 
 # P{N}: {Title}
@@ -132,16 +151,21 @@ _Implementation details, architecture decisions._
 _How to verify this works._
 ```
 
+**Frontmatter Reference:** See [docs/technical/feature-specs.md](../../../../docs/technical/feature-specs.md) for complete field definitions, valid values, and examples.
+
 **For bugs:**
 
 ```markdown
 ---
 status: {from user}
 type: bug
-priority: {from user}
+rank: {calculated rank}
+milestone: {from user}
 severity: {from user}
 date_reported: {today's date YYYY-MM-DD}
+created_date: {today's date YYYY-MM-DD}
 tags: []
+# For bug-specific fields (severity, root_cause), see docs/technical/feature-specs.md
 ---
 
 # BUG: {Title}
@@ -173,7 +197,9 @@ _How to confirm it's fixed._
 ---
 status: {from user}
 type: task
-priority: {from user}
+rank: {calculated rank}
+milestone: {from user}
+created_date: {today's date YYYY-MM-DD}
 tags: []
 ---
 
@@ -193,7 +219,7 @@ tags: []
 - [ ] _Completion criteria_
 ```
 
-### 5. Confirm with User
+### 6. Confirm with User
 
 After creating the file, tell the user:
 
@@ -217,7 +243,6 @@ After creating the file, tell the user:
 **If user provides incomplete info:**
 - Use sensible defaults:
   - Status: `week`
-  - Priority: `p2`
   - Severity (bugs): `medium`
 
 **If filename already exists:**
@@ -233,9 +258,10 @@ After creating the file, tell the user:
 User: "Add dark mode toggle"
 Type: Feature
 Status: Week
-Priority: P1
+Milestone: E2
 
 Creates: features/p138_add_dark_mode_toggle.md
+(Rank auto-calculated: 45.0)
 ```
 
 **Example 2: Bug**
@@ -243,10 +269,11 @@ Creates: features/p138_add_dark_mode_toggle.md
 User: "Login button doesn't work on mobile"
 Type: Bug
 Status: Today
-Priority: P0
 Severity: High
+Milestone: foundation
 
 Creates: features/p139_login_button_mobile_bug.md
+(Rank auto-calculated: 46.0)
 ```
 
 **Example 3: Task**
@@ -254,9 +281,10 @@ Creates: features/p139_login_button_mobile_bug.md
 User: "Refactor authentication code"
 Type: Task
 Status: Backlog
-Priority: P2
+Milestone: foundation
 
 Creates: features/p140_refactor_authentication.md
+(Rank auto-calculated: 47.0)
 ```
 
 ---

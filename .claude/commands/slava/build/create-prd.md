@@ -1,7 +1,7 @@
 ---
 name: create-prd
 description: Generate business requirements layer (WHY, intent, outcomes, user stories, JTBD)
-when_to_use: Starting any new feature (P0-P3), major bug requiring analysis, or technical task needing planning
+when_to_use: Starting any new feature, major bug requiring analysis, or technical task needing planning
 version: 2.0.0
 ---
 
@@ -38,7 +38,7 @@ Or with existing draft:
 ## When to Use
 
 ✅ **Use create-prd for:**
-- Any new feature (P0-P3) requiring business requirements
+- Any new feature requiring business requirements
 - Major bugs needing problem analysis
 - Technical tasks needing business justification
 - Features with unclear scope (agent will clarify)
@@ -165,9 +165,14 @@ Before returning, agent verifies:
 ---
 status: week
 type: feature
-priority: p1
+rank: 7.0
 milestone: C2
 tags: [export, csv, sifter]
+prepped_date: '2026-02-10'
+reviews:
+  ux: null
+  architect: null
+  alignment: null
 ---
 
 # P142: Export Sifter Responses as CSV
@@ -422,7 +427,7 @@ After generating business requirements, tell user which skill to run next:
 
 If spec already exists at {spec_file}, read it first and extend the Business layer. Do NOT modify existing UX or Technical sections.
 
-Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, type, priority, tags).
+Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, type, rank, milestone, tags, prepped_date, reviews).
 ```
 
 ---

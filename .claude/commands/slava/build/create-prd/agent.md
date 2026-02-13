@@ -81,69 +81,125 @@ Goal: Export button on results page
 
 ---
 
-#### Step 2: Ask Strategic Alignment Questions
+#### Step 2: Dynamically Generate Alignment Questions
 
-**Use AskUserQuestion to ask TWO quick questions:**
+**CRITICAL: Build questions from CURRENT state, don't hardcode options.**
 
-**Question 1: Hypothesis Connection**
+---
+
+**Question 1: Milestone/Track (dynamically discovered)**
+
+**Discover tracks:**
+```bash
+# List all milestone files
+ls docs/milestones/*.md 2>/dev/null | grep -v README
+
+# Extract track prefixes (c, r, e, x, foundation)
+# Parse descriptions from milestones/README.md
+```
+
+**Parse milestones/README.md to extract:**
+- Track names (e.g., "C-series", "R-series", "E-series", "X-series", "foundation")
+- Track purposes (e.g., "Coaching track: Workshop validation")
+- Priority context (e.g., "Recognition PRIMARY, Coaching SAFETY")
+
+**Generate options dynamically:**
 ```json
 {
-  "question": "Which hypothesis or validation goal does this feature test?",
-  "header": "Hypothesis",
+  "question": "Which milestone track does this feature belong to?",
+  "header": "Track",
   "options": [
+    // DYNAMICALLY GENERATED from milestones/README.md
+    // Example:
     {
-      "label": "Tests coaching track validation (C-series)",
-      "description": "Validates workshop value, participant behavior, or /live sessions"
+      "label": "C-series (Coaching)",
+      "description": "{extracted from README: what C-track validates}"
     },
     {
-      "label": "Tests recognition track validation (R-series)",
-      "description": "Builds thought leadership, essay publishing, or visibility"
+      "label": "R-series (Recognition)",
+      "description": "{extracted from README: what R-track validates}"
+    },
+    // ... other tracks found in docs/milestones/
+    {
+      "label": "foundation (Infrastructure)",
+      "description": "Meta-work, build tools, documentation architecture"
     },
     {
-      "label": "Enhances existing validated features (E-series)",
-      "description": "Improves something already proven to work"
-    },
-    {
-      "label": "Tests scale/network effects (X-series)",
-      "description": "Requires 100+ users to measure"
-    },
-    {
-      "label": "Infrastructure/tooling (foundation)",
-      "description": "Build tools, meta-work, no direct user validation"
-    },
-    {
-      "label": "None — this is convenience/nice-to-have",
-      "description": "Saves time or improves workflow, but doesn't test business hypotheses"
+      "label": "None — convenience/nice-to-have",
+      "description": "Doesn't fit any validation track"
     }
   ]
 }
 ```
 
-**Question 2: Priority Tier**
+**How to generate:**
+1. Read `docs/milestones/README.md`
+2. Find sections like "### PRIMARY: Recognition Track (R-series)" and extract track + description
+3. Parse track file names: `ls docs/milestones/*.md | grep -oE '^[a-z][0-9]+'`
+4. For each track found, create an option with label + description from README
+5. Always add "foundation" and "None" options at end
+
+---
+
+**Question 2: Priority (dynamically discovered)**
+
+**Discover existing priorities:**
+```bash
+# Scan all features for priority values
+grep -h "^priority:" features/*.md features/done/*.md features/archive/*.md 2>/dev/null | \
+  sed 's/priority: //' | \
+  sort -u
+
+# Also read docs/technical/feature-specs.md for priority semantics
+```
+
+**Expected output:**
+```
+p0
+p1
+p2
+p3
+```
+
+**Generate question based on discovered priorities + semantics:**
 ```json
 {
-  "question": "Given dual-track priorities (Recognition PRIMARY, Coaching SAFETY), how critical is this feature?",
+  "question": "What priority is this feature, relative to other work?",
   "header": "Priority",
   "options": [
+    // DYNAMICALLY GENERATED from discovered priorities
+    // Read feature-specs.md or CLAUDE.md for semantics, or use defaults:
     {
-      "label": "P0 - Validation blocker",
-      "description": "Prevents testing critical hypothesis. Can't proceed without this."
+      "label": "p0 - Critical blocker",
+      "description": "Blocks validation, launch, or users. Must do now."
     },
     {
-      "label": "P1 - Strategic priority",
-      "description": "Directly tests Recognition or Coaching track hypotheses"
+      "label": "p1 - High priority",
+      "description": "Important, tests core hypotheses, near-term work"
     },
     {
-      "label": "P2 - Enhancement or convenience",
-      "description": "Nice-to-have improvement, doesn't test core hypotheses"
+      "label": "p2 - Medium priority",
+      "description": "Nice-to-have, can wait, not validation-critical"
     },
     {
-      "label": "P3 - Future work",
-      "description": "Good idea but not relevant until much later"
+      "label": "p3 - Low priority",
+      "description": "Future work, not urgent"
     }
   ]
 }
 ```
+
+**How to generate:**
+1. Scan existing features for priority values: `grep -h "^priority:" features/**/*.md`
+2. Get unique values: `sort -u`
+3. For each discovered priority, check if semantics exist in `docs/technical/feature-specs.md`
+4. If semantics not found, use sensible defaults (p0 = critical, p1 = high, p2 = medium, p3 = low)
+5. Generate options list dynamically
+
+**Alternative (simpler):**
+- Just ask: "What priority? (p0 = critical, p1 = high, p2 = medium, p3 = low, or custom like p1.5)"
+- Accept free-text input
+- Let kanban system normalize it
 
 ---
 
@@ -153,32 +209,38 @@ Goal: Export button on results page
 
 **🚨 RED FLAGS (suggest reconsidering):**
 
-1. **"None — convenience" + P1/P0 priority**
-   - Feature doesn't test hypotheses but marked high priority
-   - Example: P143 MCP (save 2 min/week, not validation-critical)
-   - **Action:** Flag to user: "This looks like infrastructure convenience marked as strategic priority. Should this be P2 instead?"
+1. **"None — convenience" + high priority (p0/p1)**
+   - Feature doesn't test validation hypotheses but marked high priority
+   - Example: P143 MCP (save 2 min/week, not validation-critical, but marked p1)
+   - **Action:** Flag to user with context from milestones/README.md showing current priorities
 
-2. **"Infrastructure/foundation" + "Tests coaching/recognition"**
-   - Contradictory answers (foundation = no validation, but claims to test hypothesis)
-   - **Action:** Flag: "You said this is infrastructure but also tests hypotheses. Which is it?"
+2. **Track mismatch with description**
+   - User selects a validation track but feature description sounds like infrastructure
+   - OR selects "foundation" but claims it tests hypotheses
+   - **Action:** Ask for clarification: "You said {track} but the description suggests {other}. Which is it?"
 
 3. **Time investment vs validation ROI**
-   - If feature will take 3+ weeks but doesn't test any hypothesis
-   - **Action:** Flag: "This will take significant time but doesn't test validation hypotheses. Is this the best use of time given Recognition PRIMARY, Coaching SAFETY priorities?"
+   - If feature will take 3+ weeks but doesn't align with PRIMARY track from milestones/README.md
+   - **Action:** Show priorities from README.md, ask: "Is this the best use of time given current strategy?"
 
 **✅ GREEN LIGHTS (proceed with PRD):**
 
-1. **Tests hypothesis + appropriate priority**
-   - Example: "Tests coaching track (C-series)" + P1
-   - Clear alignment with dual-track strategy
+1. **Tests validation track + appropriate priority**
+   - Example: Selected PRIMARY track (from README.md) + p0 or p1
+   - Clear alignment with documented strategy
 
 2. **Infrastructure + low priority**
-   - Example: "Infrastructure/foundation" + P2/P3
+   - Example: Selected "foundation" + p2 or p3
    - Honest about not testing hypotheses, appropriately deprioritized
 
-3. **Enhancement of validated work + medium priority**
-   - Example: "Enhances E-series" + P1/P2
-   - Building on proven value
+3. **Enhancement or conditional track + reasonable priority**
+   - Example: Selected E-series (enhancement) + p1 or p2
+   - Building on validated work
+
+**IMPORTANT:** Don't hardcode what "high" vs "low" priority means. Priorities are RELATIVE to other work in the backlog. Discover context from:
+- What priorities exist: `grep "^priority:" features/*.md`
+- What the current milestone focus is: Read milestones/README.md
+- What's already p0/p1: `grep "priority: p0\|priority: p1" features/*.md`
 
 ---
 
@@ -721,9 +783,9 @@ test('enforces RLS policies', async ({ page }) => {
 ```markdown
 ---
 status: week
-type: feature
+type: story
 priority: p1
-milestone: C2
+milestone: {dynamically-discovered}
 tags: [relevant, tags]
 ---
 
@@ -744,7 +806,10 @@ tags: [relevant, tags]
   - `bug` - Something broken
   - `task` - Technical work without direct user value (refactor, infrastructure)
   - `comment` - Decisions or architectural notes
-- `priority`: Use actual priority from user answer (Phase 2, Question 3): `p0` | `p1` | `p2` | `p3`
+- `priority`: Use actual priority from user answer (Phase 0, Question 2)
+  - Discover valid values: `grep -h "^priority:" features/**/*.md | sed 's/priority: //' | sort -u`
+  - Common values: p0, p1, p2, p3 (but system supports decimals like p1.5, p2.5 for relative ordering)
+  - Priority is RELATIVE to other work, not absolute tiers
 - `milestone`: Dynamically discovered milestone (see below for details)
 - `tags`: Extract 2-4 relevant keywords from title/problem (lowercase, hyphenated)
 - `created`: Today's date in YYYY-MM-DD format
@@ -752,50 +817,59 @@ tags: [relevant, tags]
 **CRITICAL - Milestone field (REQUIRED for kanban visibility):**
 - `milestone`: Dynamically discover from docs/milestones/ and classify feature into appropriate track
   - **How to determine:**
-    1. **Phase 0 already did this!** Use the answer from Question 1 (Hypothesis Connection)
-    2. Map answer to milestone:
-       - "Tests coaching track (C-series)" → Find current C-milestone from `ls docs/milestones/c*.md`
-       - "Tests recognition track (R-series)" → Find current R-milestone from `ls docs/milestones/r*.md`
-       - "Enhances validated features (E-series)" → Find current E-milestone
-       - "Tests scale/network (X-series)" → Find current X-milestone
-       - "Infrastructure/tooling (foundation)" → Use `foundation`
-       - "None — convenience" → Ask user which track, or default to `foundation`
-    3. If multiple milestones exist in a track (e.g., C1, C2), ask user which specific one OR use latest/current
-    4. Read `docs/milestones/README.md` to understand track categories if needed
-  - **Format:** C1, C2, R1, E1, X1, or foundation (lowercase or uppercase, system normalizes)
-  - **IMPORTANT:** Never hardcode milestone values. Always discover from filesystem and milestones/README.md
+    1. **Phase 0 already did this!** Use the answer from Question 1 (Track selection)
+    2. Map user's selected track to actual milestone file:
+       ```bash
+       # User selected track, find corresponding milestone
+       TRACK_PREFIX=$(echo "$SELECTED_TRACK" | grep -oE '^[a-z]+' | head -1)
+       ls docs/milestones/${TRACK_PREFIX}*.md
+       ```
+    3. If multiple milestones exist in a track (e.g., c1, c2), ask user which specific one OR:
+       - Read milestones/README.md to see which is "current" for that track
+       - List files and let user pick: `ls docs/milestones/${TRACK_PREFIX}*.md`
+    4. Extract milestone name from filename:
+       ```bash
+       # Example: docs/milestones/c1-stories-live.md → c1
+       basename "$FILE" .md | grep -oE '^[a-z][0-9]+'
+       ```
+  - **Format:** Whatever format exists in docs/milestones/ (e.g., c1, r2, e1, x3, foundation)
+  - **IMPORTANT:** Never hardcode milestone values or track prefixes. Always discover from filesystem.
 
 **Examples:**
 
 ```markdown
 # Feature: "Add dark mode toggle to profile page"
-# Priority: P1 (from user)
-# Classification: UI enhancement → E-series
+# Priority: p1 (from user's Phase 0 answer)
+# Track: Enhancement track (discovered from milestones/README.md)
+# Milestone: e1 (discovered via ls docs/milestones/e*.md)
 # Type: story (delivers user value - users can toggle dark mode)
 ---
 status: week
 type: story
 priority: p1
-milestone: E1
+milestone: e1
 tags: [dark-mode, ui, profile, settings]
 created: 2026-02-12
 ---
 
 # Bug: "Login button doesn't work on Safari mobile"
-# Priority: P0 (from user)
-# Classification: Critical auth bug → Coaching foundation (users can't access)
+# Priority: p0 (from user - critical blocker)
+# Track: Coaching track (critical for users to access workshops)
+# Milestone: c1 (discovered via ls docs/milestones/c*.md, picked earliest)
+# Type: bug (something broken)
 ---
 status: today
 type: bug
 priority: p0
-milestone: C1
+milestone: c1
 tags: [login, safari, mobile, critical]
 created: 2026-02-12
 ---
 
 # Task: "Refactor authentication code to use new Supabase SDK"
-# Priority: P2 (from user)
-# Classification: Meta infrastructure work → foundation
+# Priority: p2 (from user - not urgent)
+# Track: Infrastructure/meta-work
+# Milestone: foundation (no validation track, pure infra)
 # Type: task (no direct user value, pure technical improvement)
 ---
 status: week
@@ -841,16 +915,21 @@ ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p
 
 **Determine milestone:**
 - **Phase 0 already determined this!** Use the answer from strategic alignment questions.
-- **Dynamic discovery:**
-  - List milestones: `ls docs/milestones/*.md`
-  - Read `docs/milestones/README.md` for track descriptions
-  - Map user's answer to appropriate track:
-    - **C-series (Coaching track):** Workshop features, facilitation tools, Stories/Points/Live features
-    - **R-series (Recognition track):** Essays, publishing, visibility features
-    - **E-series (Enhancement track):** Improvements to existing features, optimization
-    - **X-series (Exploratory track):** Requires scale (>100 users), network effects
-    - **foundation:** Meta-work (infrastructure, documentation architecture, build tools)
-- **CRITICAL:** Milestone field is REQUIRED for kanban visibility. NEVER hardcode values — always discover from filesystem.
+- **Dynamic discovery process:**
+  1. List all milestone files: `ls docs/milestones/*.md`
+  2. Read `docs/milestones/README.md` to understand what tracks currently exist and their purposes
+  3. Extract track prefix from user's selected track (from Phase 0 Question 1)
+  4. Find milestone file matching that prefix: `ls docs/milestones/${prefix}*.md`
+  5. If multiple files, ask user which specific milestone OR pick based on README.md guidance
+
+- **Example track patterns** (discovered dynamically, NOT hardcoded):
+  - c-prefixed files → Coaching track (workshop features, /live, stories)
+  - r-prefixed files → Recognition track (essays, publishing, visibility)
+  - e-prefixed files → Enhancement track (improvements to validated features)
+  - x-prefixed files → Exploratory track (scale, network effects)
+  - "foundation" → Meta-work (infra, docs, build tools)
+
+- **CRITICAL:** Milestone field is REQUIRED for kanban visibility. NEVER hardcode values — always discover from filesystem and README.md.
 
 ---
 

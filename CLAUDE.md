@@ -401,7 +401,7 @@ Full guide: [feature-specs.md](docs/technical/feature-specs.md#file-locations)
 1. **`/slava:build:quick-feature`** - Quick skeleton (30 seconds)
    - Minimal template with empty placeholders
    - For idea capture, simple features you'll fill in manually
-   - Prompts for: type, status, priority
+   - Prompts for: type, status
 
 2. **`/slava:build:create-prd`** - Comprehensive PRD (3-5 minutes)
    - Agent generates all sections: business requirements, technical analysis, implementation plan, test coverage
@@ -422,11 +422,18 @@ When creating ANY file in `features/` manually, ALWAYS include frontmatter:
 ---
 status: backlog | week | today | in-progress | blocked | done | draft | rejected
 type: story | bug | task | comment
-priority: p0 | p1 | p2 | p3
-milestone: C1 | C2 | R1 | E1 | X1 | foundation
+rank: number  # Auto-calculated by agents (max_rank + 1.0)
+milestone: C1 | C2 | R1 | E1 | X1 | foundation  # optional
 tags: []
 ---
 ```
+
+**Rank assignment:**
+- Agents MUST calculate rank automatically: `max(existing_ranks) + 1.0`
+- First feature: use `rank: 1.0`
+- Do NOT prompt user for rank value
+- New features appear at bottom of backlog (expected behavior)
+- Users reorder via kanban drag-and-drop
 
 **CRITICAL:** `milestone` field is REQUIRED for kanban visibility.
 

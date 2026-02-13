@@ -28,7 +28,7 @@ Then increment by 1.
 ---
 status: week                    # Kanban column placement (REQUIRED)
 type: feature                   # Classification (REQUIRED)
-priority: p1                    # Strategic importance (REQUIRED)
+rank: 7                         # Sort order (REQUIRED)
 tags: []                        # Searchable keywords (REQUIRED, can be empty)
 ---
 ```
@@ -97,19 +97,32 @@ root_cause: brief description   # after investigation
 
 ---
 
-#### `priority` (REQUIRED)
+#### `rank` (REQUIRED)
 
-**Purpose:** Strategic importance bucket
+**Purpose:** Determines sort order in kanban (lower rank = higher priority)
+
+**Format:** Positive number (integer or fractional)
 
 **Valid values:**
-- `p0` - Critical (blocks launch or users, must do now)
-- `p1` - High priority (important, near-term)
-- `p2` - Medium priority (nice-to-have, can wait)
-- `p3` - Low priority (future, not urgent)
+- `1.0` - First item (highest priority)
+- `5.5` - Between 5.0 and 6.0 (fractional insertion)
+- `1000.0` - Very low priority
 
-**Default:** `p1` (when uncertain)
+**How agents assign rank:**
+- Calculate `max(existing_ranks) + 1.0`
+- First feature in repo: use `1.0`
+- Do NOT prompt user for rank value
 
-**Note:** If P141 (Unified Rank System) is implemented, this will be replaced by `rank: number` field.
+**User workflow:**
+- New features appear at bottom of backlog
+- Drag-and-drop to reorder (updates rank automatically)
+- Edit rank manually via CardDialog if needed
+
+**Technical notes:**
+- Fractional ranks enable insertion without renumbering
+- Kanban UI truncates to 3 decimals on save
+- Features without rank sort to end (treated as `Infinity`)
+- Tiebreaker: status → id
 
 ---
 
@@ -217,7 +230,7 @@ reviews:
 ---
 status: week
 type: feature
-priority: p1
+rank: 7.0
 milestone: C2
 tags: [sifter, csv-export, data-analysis]
 prepped_date: '2026-02-10'
@@ -242,7 +255,7 @@ Add "Export CSV" button to results page.
 ---
 status: today
 type: bug
-priority: p0
+rank: 1.0
 severity: critical
 milestone: C1
 tags: [login, safari, mobile, auth]
@@ -264,7 +277,7 @@ Event listener not firing on mobile Safari due to touch event issue.
 ---
 status: week
 type: task
-priority: p2
+rank: 10.0
 milestone: foundation
 tags: [refactor, auth, supabase, technical-debt]
 ---
@@ -349,7 +362,7 @@ All feature files (`features/p{N}_{name}.md`) **must have frontmatter**:
 ---
 status: backlog | week | today | in-progress | blocked | done
 type: bug | task | story        # optional
-priority: p0 | p1 | p2 | p3     # strategic bucket — none = out of scope (see kanban.md)
+rank: number                    # sort order (lower = higher priority)
 tags: [tag1, tag2]              # optional
 ---
 
