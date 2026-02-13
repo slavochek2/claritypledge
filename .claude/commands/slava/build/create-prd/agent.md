@@ -815,24 +815,24 @@ tags: [relevant, tags]
 - `created`: Today's date in YYYY-MM-DD format
 
 **CRITICAL - Milestone field (REQUIRED for kanban visibility):**
-- `milestone`: Dynamically discover from docs/milestones/ and classify feature into appropriate track
+- `milestone`: Dynamically discover from docs/tracks/ and classify feature into appropriate track
   - **How to determine:**
     1. **Phase 0 already did this!** Use the answer from Question 1 (Track selection)
-    2. Map user's selected track to actual milestone file:
+    2. Map user's selected track to actual track file:
        ```bash
-       # User selected track, find corresponding milestone
+       # User selected track, find corresponding track file
        TRACK_PREFIX=$(echo "$SELECTED_TRACK" | grep -oE '^[a-z]+' | head -1)
-       ls docs/milestones/${TRACK_PREFIX}*.md
+       ls docs/tracks/${TRACK_PREFIX}*.md
        ```
-    3. If multiple milestones exist in a track (e.g., c1, c2), ask user which specific one OR:
-       - Read milestones/README.md to see which is "current" for that track
-       - List files and let user pick: `ls docs/milestones/${TRACK_PREFIX}*.md`
-    4. Extract milestone name from filename:
+    3. If multiple tracks exist in a category (e.g., c1, c2), ask user which specific one OR:
+       - Read tracks/README.md to see which is "current" for that track category
+       - List files and let user pick: `ls docs/tracks/${TRACK_PREFIX}*.md`
+    4. Extract track ID from filename:
        ```bash
-       # Example: docs/milestones/c1-stories-live.md → c1
+       # Example: docs/tracks/c1-stories-live.md → c1
        basename "$FILE" .md | grep -oE '^[a-z][0-9]+'
        ```
-  - **Format:** Whatever format exists in docs/milestones/ (e.g., c1, r2, e1, x3, foundation)
+  - **Format:** Whatever format exists in docs/tracks/ (e.g., c1, r2, e1, x3, v1, foundation)
   - **IMPORTANT:** Never hardcode milestone values or track prefixes. Always discover from filesystem.
 
 **Examples:**
@@ -840,8 +840,8 @@ tags: [relevant, tags]
 ```markdown
 # Feature: "Add dark mode toggle to profile page"
 # Priority: p1 (from user's Phase 0 answer)
-# Track: Enhancement track (discovered from milestones/README.md)
-# Milestone: e1 (discovered via ls docs/milestones/e*.md)
+# Track: Enhancement track (discovered from tracks/README.md)
+# Milestone: e1 (discovered via ls docs/tracks/e*.md)
 # Type: story (delivers user value - users can toggle dark mode)
 ---
 status: week
@@ -855,7 +855,7 @@ created: 2026-02-12
 # Bug: "Login button doesn't work on Safari mobile"
 # Priority: p0 (from user - critical blocker)
 # Track: Coaching track (critical for users to access workshops)
-# Milestone: c1 (discovered via ls docs/milestones/c*.md, picked earliest)
+# Milestone: c1 (discovered via ls docs/tracks/c*.md, picked earliest)
 # Type: bug (something broken)
 ---
 status: today
@@ -918,17 +918,18 @@ ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p
 **Determine milestone:**
 - **Phase 0 already determined this!** Use the answer from strategic alignment questions.
 - **Dynamic discovery process:**
-  1. List all milestone files: `ls docs/milestones/*.md`
-  2. Read `docs/milestones/README.md` to understand what tracks currently exist and their purposes
+  1. List all track files: `ls docs/tracks/*.md`
+  2. Read `docs/tracks/README.md` to understand what tracks currently exist and their purposes
   3. Extract track prefix from user's selected track (from Phase 0 Question 1)
-  4. Find milestone file matching that prefix: `ls docs/milestones/${prefix}*.md`
-  5. If multiple files, ask user which specific milestone OR pick based on README.md guidance
+  4. Find track file matching that prefix: `ls docs/tracks/${prefix}*.md`
+  5. If multiple files, ask user which specific track OR pick based on README.md guidance
 
 - **Example track patterns** (discovered dynamically, NOT hardcoded):
   - c-prefixed files → Coaching track (workshop features, /live, stories)
   - r-prefixed files → Recognition track (essays, publishing, visibility)
   - e-prefixed files → Enhancement track (improvements to validated features)
   - x-prefixed files → Exploratory track (scale, network effects)
+  - v-prefixed files → Vision track (far-future capabilities requiring new tech)
   - "foundation" → Meta-work (infra, docs, build tools)
 
 - **CRITICAL:** Milestone field is REQUIRED for kanban visibility. NEVER hardcode values — always discover from filesystem and README.md.
