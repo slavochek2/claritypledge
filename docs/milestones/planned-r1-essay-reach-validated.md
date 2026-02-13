@@ -1,11 +1,9 @@
 ---
-status: active
-priority: p0
-summary: "Build recognition as 'the calibration person' through essays reaching AI/rationalist audiences"
-tests: [h-recognition-via-essays]
-builds: []
-measures: [kr-essay-reach]
-answers: []
+date: TBD
+status: planned
+workstream: R
+type: checkpoint
+related_key_results: []
 ---
 
 # R1: Essay Writing (Recognition Track, Months 0-3)

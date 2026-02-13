@@ -7,10 +7,11 @@
 ## Naming Convention
 
 **Workstreams use track-based codes:**
-- **C1, C2, C3** = Coaching track (workstreams 1, 2, 3)
-- **R1, R2** = Recognition track (workstreams 1, 2)
-- **E1, E2** = Enhancement track
-- **X1, X2, X3** = eXploratory track
+- **C1** = Coaching track (workstream 1)
+- **E1, E2** = Enhancement track (workstreams 1, 2)
+- **X1, X2, X3** = eXploratory track (workstreams 1, 2, 3)
+
+**Note:** C2, C3, R1, R2 were reclassified as milestones (validation checkpoints) and moved to `/docs/milestones/`.
 
 **These are NOT milestone numbers.** Milestones live in `/docs/milestones/` with date-based names like `2026-02-10-first-essay-published.md` or `planned-recognition-checkpoint.md`.
 
@@ -21,10 +22,6 @@
 | Workstream | Focus | Status | Priority | Time Horizon |
 |-------|-------|--------|----------|--------------|
 | **C1** | Stories + Live + Events | Active | P1 | 0-3 months |
-| **C2** | First Workshops | Next | P1 | 3-6 months |
-| **C3** | Paid Workshops | Future | P2 | 6-9 months |
-| **R1** | Essay Writing | Active | P0 | 0-3 months |
-| **R2** | Spec Publishing | Future | P1 | 3-6 months |
 | **E1** | Points + AI Stories | Future | P2 | 6-12 months |
 | **E2** | Scale + Partners + Async | Future | P2 | 9-15 months |
 | **X1** | Asymmetric Conversion | Future | P3 | 18-24 months |
@@ -39,8 +36,8 @@ Five workstream categories (C/R/E/X/V) organize work by purpose and timeline:
 
 | Category | Name | Purpose | Time Horizon | Examples |
 |----------|------|---------|--------------|----------|
-| **C** | Coaching | Workshop revenue, validation | 0-6 months | C1, C2, C3 |
-| **R** | Recognition | Thought leadership, positioning | 3-12 months | R1, R2 |
+| **C** | Coaching | Workshop revenue, validation | 0-6 months | C1 |
+| **R** | Recognition | Thought leadership, positioning | 3-12 months | (none active - see milestones) |
 | **E** | Enhancement | Product improvements | 3-9 months | E1, E2 |
 | **X** | Exploratory | Ideas requiring scale | 12-24 months | X1, X2, X3 |
 | **V** | Vision | Far-future capabilities | 24+ months | (none yet) |
@@ -92,19 +89,14 @@ Each workstream file is a **lightweight index** linking to:
 
 ## Critical Path (Current Focus)
 
-**Feb-Mar 2026:**
+**Current workstream:**
 - **C1 (Stories + Live):** 20-user pilot → validate Stories solve cold start
-- **R1 (Essay Writing):** 3+ essays → 50+ readers → recognition signals
 
-**Apr-Jun 2026:**
-- **C2 (First Workshops):** 5 workshops → retention >30% → WTP signal
-- **R2 (Spec Publishing):** 3+ specs → technical credibility
+**Upcoming milestones:**
+- See `/docs/milestones/planned-*.md` for validation checkpoints (C2 workshops, R1 essay reach, R2 spec credibility, etc.)
 
 **Decision Point (Month 6):**
-- If C2 + R1 both show traction → continue dual-workstream
-- If only C2 → focus on coaching (safety)
-- If only R1 → focus on recognition (primary)
-- If neither → pivot or stop
+- Milestone validation will inform whether to create new workstreams or pivot
 
 ---
 

@@ -1,11 +1,9 @@
 ---
-status: future
-priority: p1
-summary: "Demonstrate technical depth through published specs and technical writing"
-tests: [h-specs-build-credibility]
-builds: []
-measures: [o-spec-discussion]
-answers: []
+date: TBD
+status: planned
+workstream: R
+type: checkpoint
+related_key_results: []
 ---
 
 # R2: Spec Publishing (Recognition Depth)

@@ -1,11 +1,9 @@
 ---
-status: future
-priority: p2
-summary: "Add payment infrastructure and charge $100/person for workshops to validate willingness to pay"
-tests: [h-paid-workshops]
-builds: []
-measures: [o-revenue-5k]
-answers: []
+date: TBD
+status: planned
+workstream: C
+type: checkpoint
+related_key_results: []
 ---
 
 # C3: Paid Workshops (Coaching Monetization)

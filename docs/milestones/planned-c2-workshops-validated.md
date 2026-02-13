@@ -1,11 +1,9 @@
 ---
-status: next
-priority: p1
-summary: "Run donation-based workshops to validate tool creates value and learn what people will pay for"
-tests: [h-workshops-validate-ux]
-builds: []
-measures: [o-workshop-retention]
-answers: [oq-1, oq-2, oq-5]
+date: TBD
+status: planned
+workstream: C
+type: checkpoint
+related_key_results: []
 ---
 
 # C2: First Workshops (Coaching Validation)
