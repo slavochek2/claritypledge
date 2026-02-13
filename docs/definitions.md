@@ -374,8 +374,149 @@ The real value is in detecting **false states**:
 
 ---
 
+## Strategic Planning Concepts
+
+### Track
+
+> **One-liner:** A work stream containing related hypotheses, experiments, builds, and outcomes — like an album of related strategic work.
+
+**Definition:** A Track is a thematically coherent collection of work testing a cluster of related hypotheses. Tracks have timelines (0-24+ months), resource requirements, and priority levels.
+
+**Five track categories:**
+
+| Track | Focus | Time Horizon | Resource Needs |
+|-------|-------|--------------|----------------|
+| **C (Coaching)** | Workshop revenue, skill building | 0-6 months | Facilitation skills |
+| **R (Recognition)** | Thought leadership, positioning | 3-12 months | Writing, technical depth |
+| **E (Enhancement)** | Product improvements requiring validation | 3-9 months | Engineering, existing users |
+| **X (Exploratory)** | Ideas requiring scale to test | 12-24 months | User base at scale (10K+) |
+| **V (Vision)** | Far-future ideas requiring new capabilities | 24+ months | ML/AI, transcription, advanced tech |
+
+**What a Track contains:**
+- **tests:** Hypotheses being tested (e.g., `[h-stories]`)
+- **builds:** Features being shipped (e.g., `[p126, p128]`)
+- **measures:** Outcomes being tracked (e.g., `[o-story-usage]`)
+- **answers:** Open questions being resolved
+
+**Key distinction:** Tracks are **work streams**, not achievements. See Milestone for observable achievements.
+
+### Milestone
+
+> **One-liner:** An observable, date-stamped achievement — something that happened, not something planned.
+
+**Definition:** A Milestone is a specific event or achievement that occurred on a specific date. Milestones are always past-tense (e.g., "First essay published on 2026-02-10"), never future plans.
+
+**Examples:**
+- "First essay published" (date: 2026-02-10)
+- "First workshop delivered" (date: 2026-02-28)
+- "€5K monthly revenue achieved" (date: TBD)
+
+**What a Milestone contains:**
+- **date:** When it happened (YYYY-MM-DD)
+- **track:** Which track it belongs to (C/R/E/X/V)
+- **type:** launch / checkpoint / achievement
+- **related_outcomes:** Which outcomes this milestone represents
+
+**Key distinction:** Milestones are **observable events** (past), not goals (future). See Outcome for forward-looking goals.
+
+### Hypothesis
+
+> **One-liner:** A testable belief about what will work — what we think is true and why.
+
+**Definition:** A Hypothesis is a specific claim about how the world works, backed by rationale and evidence, that can be tested through experiments.
+
+**What a Hypothesis contains:**
+- **Statement:** The claim (e.g., "Stories solve the cold start problem")
+- **Rationale:** Why we believe this
+- **Assumptions:** What must be true for this to hold
+- **Evidence:** Research or prior data supporting the hypothesis
+- **Success criteria:** How we'll know if validated
+- **Failure criteria:** Kill signals (when to abandon)
+
+**Frontmatter fields:**
+- **status:** active / validated / invalidated / paused
+- **track:** Which track tests this (C/R/E/X/V)
+- **tested_by:** Experiments testing this hypothesis
+- **supports:** Outcomes this hypothesis aims to achieve
+
+**Key distinction:** Hypotheses are **beliefs to test**, not features to build. See Track for what gets built.
+
+### Experiment
+
+> **One-liner:** How we test a hypothesis — the protocol, measurements, and timeline.
+
+**Definition:** An Experiment is a structured test with a protocol, sample size, measurements, and timeline designed to validate or invalidate a hypothesis.
+
+**What an Experiment contains:**
+- **Protocol:** How we test (step-by-step method)
+- **Sample size:** How many participants
+- **Measurements:** What we track (quantitative + qualitative)
+- **Timeline:** Start date, end date, analysis period
+- **Assumptions:** Experimental-level assumptions (e.g., "20 users sufficient to spot patterns")
+- **Success threshold:** When to proceed
+- **Kill threshold:** When to abandon
+
+**Frontmatter fields:**
+- **status:** planned / running / completed / aborted
+- **tests:** Which hypotheses this experiment tests
+- **measures:** Which outcomes this experiment tracks
+- **start_date, end_date:** Timeline
+
+**Key distinction:** Experiments are **how we test**, hypotheses are **what we believe**. See Hypothesis and Outcome.
+
+### Outcome
+
+> **One-liner:** What we're measuring — the SMART goal with target values and kill thresholds.
+
+**Definition:** An Outcome is a measurable goal with specific success and failure criteria. Outcomes are forward-looking (goals to achieve), not past events.
+
+**What an Outcome contains:**
+- **SMART definition:** Specific, Measurable, Achievable, Relevant, Time-bound
+- **Measurement method:** How we collect data
+- **Target value:** What success looks like
+- **Kill threshold:** When to abandon
+- **Related outcomes:** Connected goals
+
+**Frontmatter fields:**
+- **status:** active / achieved / missed / deprecated
+- **type:** leading (early signal) / lagging (final result)
+- **track:** Which track this outcome belongs to
+- **measured_by:** Which experiments measure this
+
+**Key distinction:** Outcomes are **goals to achieve** (future), milestones are **events that happened** (past). See Milestone.
+
+### Distinction Table
+
+| Concept | Nature | Tense | Example |
+|---------|--------|-------|---------|
+| **Track** | Work stream | Ongoing | C1: Stories + Live + Events |
+| **Hypothesis** | Testable belief | Present | "Stories solve cold start problem" |
+| **Experiment** | Testing protocol | Present/Future | "20-user pilot over 4 weeks" |
+| **Outcome** | Measurable goal | Future | "≥50% story creation rate" |
+| **Milestone** | Observable achievement | Past | "First essay published (2026-02-10)" |
+
+**Key relationships:**
+- Tracks **test** Hypotheses
+- Hypotheses are **tested by** Experiments
+- Experiments **measure** Outcomes
+- Outcomes become **Milestones** when achieved
+- Tracks **build** Features (from `/features/`)
+
+**File locations:**
+- Tracks: `/docs/tracks/` (e.g., `c1-stories-live-events.md`)
+- Hypotheses: `/docs/hypotheses/` (e.g., `h-stories-solve-cold-start.md`)
+- Experiments: `/docs/experiments/` (e.g., `e-story-creation-pilot.md`)
+- Outcomes: `/docs/outcomes/` (e.g., `o-story-usage.md`)
+- Milestones: `/docs/milestones/` (e.g., `2026-02-10-first-essay-published.md`)
+
+---
+
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
-- [milestones/](milestones/) — What we're building, testing, kill signals
+- [tracks/](tracks/) — Work streams testing hypotheses, building features
+- [hypotheses/](hypotheses/) — Testable beliefs being validated
+- [experiments/](experiments/) — How we test hypotheses
+- [outcomes/](outcomes/) — Measurable goals being tracked
+- [milestones/](milestones/) — Observable achievements (dated events)
 - [philosophy.md](philosophy.md) — Epistemological foundations

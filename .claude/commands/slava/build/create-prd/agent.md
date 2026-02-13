@@ -58,13 +58,13 @@ Goal: Export button on results page
 
 **Read these files to understand context:**
 
-1. **Milestones & Tracks:**
+1. **Tracks:**
    ```bash
    # Discover active tracks
-   ls docs/milestones/*.md
+   ls docs/tracks/*.md
    ```
-   Then read `docs/milestones/README.md` to understand:
-   - Which tracks exist (R/C/E/X + foundation)
+   Then read `docs/tracks/README.md` to understand:
+   - Which tracks exist (R/C/E/X/V + foundation)
    - What each track validates
    - Priority hierarchy (Recognition PRIMARY, Coaching SAFETY)
 
@@ -75,9 +75,9 @@ Goal: Export button on results page
    ```
 
 **Extract key info:**
-- Active milestone tracks (e.g., C1, C2, R1, E1, X1, foundation)
-- Track purposes (e.g., C-series = coaching validation, R-series = recognition, etc.)
-- Current priorities (from README.md Dual-Track Strategy section)
+- Active tracks (e.g., C1, C2, R1, E1, X1, V1, foundation)
+- Track purposes (e.g., C-track = coaching validation, R-track = recognition, etc.)
+- Current priorities (from README.md strategy section)
 
 ---
 
@@ -87,39 +87,39 @@ Goal: Export button on results page
 
 ---
 
-**Question 1: Milestone/Track (dynamically discovered)**
+**Question 1: Track (dynamically discovered)**
 
 **Discover tracks:**
 ```bash
-# List all milestone files
-ls docs/milestones/*.md 2>/dev/null | grep -v README
+# List all track files
+ls docs/tracks/*.md 2>/dev/null | grep -v README
 
-# Extract track prefixes (c, r, e, x, foundation)
-# Parse descriptions from milestones/README.md
+# Extract track prefixes (c, r, e, x, v, foundation)
+# Parse descriptions from tracks/README.md
 ```
 
-**Parse milestones/README.md to extract:**
-- Track names (e.g., "C-series", "R-series", "E-series", "X-series", "foundation")
+**Parse tracks/README.md to extract:**
+- Track names (e.g., "C-track", "R-track", "E-track", "X-track", "V-track", "foundation")
 - Track purposes (e.g., "Coaching track: Workshop validation")
 - Priority context (e.g., "Recognition PRIMARY, Coaching SAFETY")
 
 **Generate options dynamically:**
 ```json
 {
-  "question": "Which milestone track does this feature belong to?",
+  "question": "Which track does this feature belong to?",
   "header": "Track",
   "options": [
-    // DYNAMICALLY GENERATED from milestones/README.md
+    // DYNAMICALLY GENERATED from tracks/README.md
     // Example:
     {
-      "label": "C-series (Coaching)",
+      "label": "C-track (Coaching)",
       "description": "{extracted from README: what C-track validates}"
     },
     {
-      "label": "R-series (Recognition)",
+      "label": "R-track (Recognition)",
       "description": "{extracted from README: what R-track validates}"
     },
-    // ... other tracks found in docs/milestones/
+    // ... other tracks found in docs/tracks/
     {
       "label": "foundation (Infrastructure)",
       "description": "Meta-work, build tools, documentation architecture"
@@ -133,9 +133,9 @@ ls docs/milestones/*.md 2>/dev/null | grep -v README
 ```
 
 **How to generate:**
-1. Read `docs/milestones/README.md`
-2. Find sections like "### PRIMARY: Recognition Track (R-series)" and extract track + description
-3. Parse track file names: `ls docs/milestones/*.md | grep -oE '^[a-z][0-9]+'`
+1. Read `docs/tracks/README.md`
+2. Find sections like "### PRIMARY: Recognition Track (R-track)" and extract track + description
+3. Parse track file names: `ls docs/tracks/*.md | grep -oE '^[a-z][0-9]+'`
 4. For each track found, create an option with label + description from README
 5. Always add "foundation" and "None" options at end
 
@@ -239,7 +239,7 @@ p3
 
 **IMPORTANT:** Don't hardcode what "high" vs "low" priority means. Priorities are RELATIVE to other work in the backlog. Discover context from:
 - What priorities exist: `grep "^priority:" features/*.md`
-- What the current milestone focus is: Read milestones/README.md
+- What the current track focus is: Read tracks/README.md
 - What's already p0/p1: `grep "priority: p0\|priority: p1" features/*.md`
 
 ---
@@ -257,9 +257,9 @@ Based on your answers:
 
 **Concern:** {specific concern — e.g., "Infrastructure convenience marked P1"}
 
-**Context from milestones:**
-- Recognition track (PRIMARY): {R-series description}
-- Coaching track (SAFETY): {C-series description}
+**Context from tracks:**
+- Recognition track (PRIMARY): {R-track description}
+- Coaching track (SAFETY): {C-track description}
 
 **Questions to consider:**
 1. Is this the best use of time given current priorities?
@@ -282,8 +282,8 @@ Which would you like?
 
 **Benefits of Phase 0:**
 - Catches P143-style misalignment in 2 minutes (not after 1000-line PRD)
-- Uses dynamic discovery (reads milestones/README.md, no hardcoded values)
-- Educates user about dual-track strategy (shows context from docs)
+- Uses dynamic discovery (reads tracks/README.md, no hardcoded values)
+- Educates user about track strategy (shows context from docs)
 - Allows override ("proceed anyway") when user knows something you don't
 
 ---
