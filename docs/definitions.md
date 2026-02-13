@@ -376,15 +376,15 @@ The real value is in detecting **false states**:
 
 ## Strategic Planning Concepts
 
-### Track
+### Workstream
 
-> **One-liner:** A work stream containing related hypotheses, experiments, builds, and outcomes — like an album of related strategic work.
+> **One-liner:** A work stream containing related hypotheses, experiments, builds, and key results — like an album of related strategic work.
 
-**Definition:** A Track is a thematically coherent collection of work testing a cluster of related hypotheses. Tracks have timelines (0-24+ months), resource requirements, and priority levels.
+**Definition:** A Workstream is a thematically coherent collection of work testing a cluster of related hypotheses. Workstreams have timelines (0-24+ months), resource requirements, and priority levels.
 
-**Five track categories:**
+**Five workstream categories:**
 
-| Track | Focus | Time Horizon | Resource Needs |
+| Workstream | Focus | Time Horizon | Resource Needs |
 |-------|-------|--------------|----------------|
 | **C (Coaching)** | Workshop revenue, skill building | 0-6 months | Facilitation skills |
 | **R (Recognition)** | Thought leadership, positioning | 3-12 months | Writing, technical depth |
@@ -392,32 +392,33 @@ The real value is in detecting **false states**:
 | **X (Exploratory)** | Ideas requiring scale to test | 12-24 months | User base at scale (10K+) |
 | **V (Vision)** | Far-future ideas requiring new capabilities | 24+ months | ML/AI, transcription, advanced tech |
 
-**What a Track contains:**
+**What a Workstream contains:**
 - **tests:** Hypotheses being tested (e.g., `[h-stories]`)
 - **builds:** Features being shipped (e.g., `[p126, p128]`)
-- **measures:** Outcomes being tracked (e.g., `[o-story-usage]`)
+- **measures:** Key Results being tracked (e.g., `[kr-story-usage]`)
 - **answers:** Open questions being resolved
 
-**Key distinction:** Tracks are **work streams**, not achievements. See Milestone for observable achievements.
+**Key distinction:** Workstreams are **work streams**, not achievements. See Milestone for observable achievements.
 
 ### Milestone
 
-> **One-liner:** An observable, date-stamped achievement — something that happened, not something planned.
+> **One-liner:** An observable achievement — something planned to happen or already achieved.
 
-**Definition:** A Milestone is a specific event or achievement that occurred on a specific date. Milestones are always past-tense (e.g., "First essay published on 2026-02-10"), never future plans.
+**Definition:** A Milestone is a specific event or achievement with a target date. Milestones can be planned (future) or achieved (past). The `status` field tracks whether it's planned, achieved, or missed.
 
 **Examples:**
-- "First essay published" (date: 2026-02-10)
-- "First workshop delivered" (date: 2026-02-28)
-- "€5K monthly revenue achieved" (date: TBD)
+- "First essay published" (status: achieved, date: 2026-02-10)
+- "First workshop delivered" (status: planned, date: 2026-02-28)
+- "€5K monthly revenue achieved" (status: planned, date: TBD)
 
 **What a Milestone contains:**
-- **date:** When it happened (YYYY-MM-DD)
-- **track:** Which track it belongs to (C/R/E/X/V)
+- **date:** When it happened or is planned (YYYY-MM-DD)
+- **status:** planned / achieved / missed
+- **workstream:** Which workstream it belongs to (C/R/E/X/V)
 - **type:** launch / checkpoint / achievement
-- **related_outcomes:** Which outcomes this milestone represents
+- **related_key_results:** Which key results this milestone represents
 
-**Key distinction:** Milestones are **observable events** (past), not goals (future). See Outcome for forward-looking goals.
+**Key distinction:** Milestones are **observable events** with dates and status, not ongoing goals. See Key Result for forward-looking measurable goals.
 
 ### Hypothesis
 
@@ -435,11 +436,11 @@ The real value is in detecting **false states**:
 
 **Frontmatter fields:**
 - **status:** active / validated / invalidated / paused
-- **track:** Which track tests this (C/R/E/X/V)
+- **workstream:** Which workstream tests this (C/R/E/X/V)
 - **tested_by:** Experiments testing this hypothesis
-- **supports:** Outcomes this hypothesis aims to achieve
+- **supports:** Key Results this hypothesis aims to achieve
 
-**Key distinction:** Hypotheses are **beliefs to test**, not features to build. See Track for what gets built.
+**Key distinction:** Hypotheses are **beliefs to test**, not features to build. See Workstream for what gets built.
 
 ### Experiment
 
@@ -459,54 +460,54 @@ The real value is in detecting **false states**:
 **Frontmatter fields:**
 - **status:** planned / running / completed / aborted
 - **tests:** Which hypotheses this experiment tests
-- **measures:** Which outcomes this experiment tracks
+- **measures:** Which key results this experiment tracks
 - **start_date, end_date:** Timeline
 
-**Key distinction:** Experiments are **how we test**, hypotheses are **what we believe**. See Hypothesis and Outcome.
+**Key distinction:** Experiments are **how we test**, hypotheses are **what we believe**. See Hypothesis and Key Result.
 
-### Outcome
+### Key Result
 
 > **One-liner:** What we're measuring — the SMART goal with target values and kill thresholds.
 
-**Definition:** An Outcome is a measurable goal with specific success and failure criteria. Outcomes are forward-looking (goals to achieve), not past events.
+**Definition:** A Key Result is a measurable goal with specific success and failure criteria. Key Results are forward-looking (goals to achieve), tracking progress toward strategic outcomes.
 
-**What an Outcome contains:**
+**What a Key Result contains:**
 - **SMART definition:** Specific, Measurable, Achievable, Relevant, Time-bound
 - **Measurement method:** How we collect data
 - **Target value:** What success looks like
 - **Kill threshold:** When to abandon
-- **Related outcomes:** Connected goals
+- **Related key results:** Connected goals
 
 **Frontmatter fields:**
 - **status:** active / achieved / missed / deprecated
 - **type:** leading (early signal) / lagging (final result)
-- **track:** Which track this outcome belongs to
+- **workstream:** Which workstream this key result belongs to
 - **measured_by:** Which experiments measure this
 
-**Key distinction:** Outcomes are **goals to achieve** (future), milestones are **events that happened** (past). See Milestone.
+**Key distinction:** Key Results are **ongoing measurable goals**, milestones are **date-stamped events**. See Milestone.
 
 ### Distinction Table
 
 | Concept | Nature | Tense | Example |
 |---------|--------|-------|---------|
-| **Track** | Work stream | Ongoing | C1: Stories + Live + Events |
+| **Workstream** | Work stream | Ongoing | C1: Stories + Live + Events |
 | **Hypothesis** | Testable belief | Present | "Stories solve cold start problem" |
 | **Experiment** | Testing protocol | Present/Future | "20-user pilot over 4 weeks" |
-| **Outcome** | Measurable goal | Future | "≥50% story creation rate" |
-| **Milestone** | Observable achievement | Past | "First essay published (2026-02-10)" |
+| **Key Result** | Measurable goal | Ongoing | "≥50% story creation rate" |
+| **Milestone** | Observable achievement | Past/Future | "First essay published (achieved: 2026-02-10)" |
 
 **Key relationships:**
-- Tracks **test** Hypotheses
+- Workstreams **test** Hypotheses
 - Hypotheses are **tested by** Experiments
-- Experiments **measure** Outcomes
-- Outcomes become **Milestones** when achieved
-- Tracks **build** Features (from `/features/`)
+- Experiments **measure** Key Results
+- Key Results are **tracked by** Milestones (when date-specific)
+- Workstreams **build** Features (from `/features/`)
 
 **File locations:**
-- Tracks: `/docs/tracks/` (e.g., `c1-stories-live-events.md`)
+- Workstreams: `/docs/workstreams/` (e.g., `c1-stories-live-events.md`)
 - Hypotheses: `/docs/hypotheses/` (e.g., `h-stories-solve-cold-start.md`)
 - Experiments: `/docs/experiments/` (e.g., `e-story-creation-pilot.md`)
-- Outcomes: `/docs/outcomes/` (e.g., `o-story-usage.md`)
+- Key Results: `/docs/key-results/` (e.g., `kr-story-usage.md`)
 - Milestones: `/docs/milestones/` (e.g., `2026-02-10-first-essay-published.md`)
 
 ---
@@ -514,9 +515,9 @@ The real value is in detecting **false states**:
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
-- [tracks/](tracks/) — Work streams testing hypotheses, building features
+- [workstreams/](workstreams/) — Work streams testing hypotheses, building features
 - [hypotheses/](hypotheses/) — Testable beliefs being validated
 - [experiments/](experiments/) — How we test hypotheses
-- [outcomes/](outcomes/) — Measurable goals being tracked
-- [milestones/](milestones/) — Observable achievements (dated events)
+- [key-results/](key-results/) — Measurable goals being tracked
+- [milestones/](milestones/) — Observable achievements (dated events with status)
 - [philosophy.md](philosophy.md) — Epistemological foundations

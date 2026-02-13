@@ -172,33 +172,11 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 ### Spawning Subagents with Roles
 
-> **Principle:** When spawning subagents, assign appropriate roles to improve output quality. Role framing primes the model to think from that perspective.
+**Pattern:** `"You are a [role] specializing in [domain], top 1% in [skill]"`
 
-**Role assignment pattern:**
-```
-"You are a [role] at [company] specializing in [domain], top 1% in [key skill]"
-```
+**Example:** "You are a senior technical writer specializing in API documentation, top 1% in clarity"
 
-**Examples by task type:**
-
-| Task Type | Role Assignment |
-|-----------|----------------|
-| Documentation | "You are a senior technical writer specializing in developer experience, top 1% in clarity and usability" |
-| Code implementation | "You are a senior software engineer specializing in [domain], top 1% in code quality" |
-| Architecture | "You are a principal engineer specializing in system design, top 1% in scalability" |
-| QA/Testing | "You are a quality engineer specializing in test automation, top 1% in edge case coverage" |
-| Bug analysis | "You are a debugging specialist at Google, top 1% in root cause analysis" |
-| Refactoring | "You are a principal engineer specializing in code quality, top 1% in systematic improvement" |
-
-**Add company context when domain-relevant:**
-- Payment features → "at Stripe"
-- Next.js/deployment → "at Vercel"
-- Database/RLS → "at Supabase"
-- Search/indexing → "at Google"
-
-**Skip specific person names** - adds noise without clear benefit.
-
-**Why this matters:** Explicit role assignment consistently improves output quality by setting expertise level and domain focus.
+**Add company context when domain-relevant** (e.g., "at Stripe" for payments, "at Vercel" for Next.js)
 
 ---
 
@@ -321,6 +299,23 @@ Context7 MCP provides up-to-date docs for React, Supabase, Playwright, Tailwind,
 
 ---
 
+### CLI Tools (Supabase & Sentry)
+
+**Hybrid approach:** CLIs for scripting/automation, MCPs for conversational queries.
+
+| Task | Use | Why |
+|------|-----|-----|
+| Database queries (ad-hoc) | Supabase MCP | Conversational, no connection string needed |
+| Migrations & schema management | Supabase CLI | Version control, build automation |
+| Type generation | Supabase CLI | Build step (`supabase gen types`) |
+| Debug Sentry issues (ad-hoc) | Sentry MCP | Conversational, no issue IDs needed |
+| Release management | Sentry CLI | CI/CD, scripting |
+| Sourcemap uploads | Sentry CLI (via Vite) | Build automation |
+
+**Full guide:** [cli-tools.md](docs/technical/cli-tools.md)
+
+---
+
 ### Browser Automation
 
 Three tools, different lanes — pick based on the task:
@@ -397,7 +392,7 @@ Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not wor
 
 **Clarity Pledge** — Calibrated communication practice via /live verification. Target: coaches.
 
-Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [tracks/](docs/tracks/) | [hypotheses/](docs/hypotheses/) | [experiments/](docs/experiments/) | [outcomes/](docs/outcomes/) | [milestones/](docs/milestones/)
+Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [workstreams/](docs/workstreams/) | [hypotheses/](docs/hypotheses/) | [experiments/](docs/experiments/) | [key-results/](docs/key-results/) | [milestones/](docs/milestones/)
 
 ---
 
@@ -504,7 +499,7 @@ Full format & lifecycle: [feature-specs.md](docs/technical/feature-specs.md)
 
 ### Knowledge-Driven Development
 
-`/kdd` — Run after features to capture knowledge in strategic (`decisions.md`, `tracks/`, `hypotheses/`) and technical docs (`database.md`, `authentication.md`).
+`/kdd` — Run after features to capture knowledge in strategic (`decisions.md`, `workstreams/`, `hypotheses/`) and technical docs (`database.md`, `authentication.md`).
 
 ---
 
@@ -516,4 +511,4 @@ Mixpanel (analytics) and Sentry (errors) are production-only. See [analytics.md]
 
 ### Documentation Architecture
 
-**Source of truth:** `definitions.md` (concepts), `lean-canvas.md` (business), `tracks/` (work streams), `hypotheses/` (testable beliefs), `experiments/` (testing protocols), `outcomes/` (measurable goals), `milestones/` (dated achievements), `decisions.md` (trade-offs), `philosophy.md` (WHY), `theory-of-change.md` (evidence). Never duplicate — add to source and link.
+**Source of truth:** `definitions.md` (concepts), `lean-canvas.md` (business), `workstreams/` (work streams), `hypotheses/` (testable beliefs), `experiments/` (testing protocols), `key-results/` (measurable goals), `milestones/` (dated achievements with status), `decisions.md` (trade-offs), `philosophy.md` (WHY), `theory-of-change.md` (evidence). Never duplicate — add to source and link.

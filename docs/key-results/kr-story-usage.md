@@ -1,13 +1,13 @@
 ---
 status: active
 type: leading
-track: C1
+workstream: C1
 target_value: "≥50% story creation rate, ≥30% verification rate"
 kill_threshold: "<20% story creation rate after 4 weeks"
 measured_by: [e-story-creation-pilot]
 ---
 
-# O-Story-Usage: Story Creation + Verification Rates
+# KR-Story-Usage: Story Creation + Verification Rates
 
 ## SMART Goal Definition
 
@@ -56,7 +56,7 @@ Retention Rate = (Story authors who returned) / (Story authors) × 100%
 - 30% verification = stories actually used as intended (not just created and abandoned)
 - Qualitative = stories solve the "on what?" problem (users have clear purpose for /live)
 
-**Leading indicator:** This outcome predicts workshop success (C2). If users don't create stories organically, workshop participants won't either.
+**Leading indicator:** This key result predicts workshop success (C2). If users don't create stories organically, workshop participants won't either.
 
 ## Kill Threshold
 
@@ -73,19 +73,19 @@ Retention Rate = (Story authors who returned) / (Story authors) × 100%
 **Next steps if killed:**
 - Test alternative cold start solutions (pre-seeded topics, event prompts)
 - Consider: Is /live the problem, not lack of context?
-- Pivot C1 track or pause until solution found
+- Pivot C1 workstream or pause until solution found
 
-## Related Outcomes
+## Related Key Results
 
-**C-track outcomes:**
-- **O-Workshop-Retention (C2):** Do workshop participants create stories?
-- **O-Revenue-5K (C3):** Does workshop revenue validate business model?
+**C-workstream key results:**
+- **KR-Workshop-Retention (C2):** Do workshop participants create stories?
+- **KR-Revenue-5K (C3):** Does workshop revenue validate business model?
 
-**R-track outcomes:**
-- **O-Essay-Reach (R1):** Do essays mention Stories feature? (cross-promotion)
+**R-workstream key results:**
+- **KR-Essay-Reach (R1):** Do essays mention Stories feature? (cross-promotion)
 
-**E-track outcomes:**
-- **O-Point-Adoption (E1):** Do users prefer Points (structured) over Stories (holistic)?
+**E-workstream key results:**
+- **KR-Point-Adoption (E1):** Do users prefer Points (structured) over Stories (holistic)?
 
 ## Tracking Over Time
 
@@ -141,8 +141,8 @@ Retention Rate = (Story authors who returned) / (Story authors) × 100%
 **Experiment:**
 - [e-story-creation-pilot.md](../experiments/e-story-creation-pilot.md)
 
-**Track:**
-- [c1-stories-live-events.md](../tracks/c1-stories-live-events.md)
+**Workstream:**
+- [c1-stories-live-events.md](../workstreams/c1-stories-live-events.md)
 
 **Features:**
 - P126: Story creation (profiles)

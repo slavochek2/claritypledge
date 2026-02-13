@@ -1,14 +1,14 @@
-# Tracks: Work Streams Overview
+# Workstreams Overview
 
-**What's a Track?** A thematically coherent collection of work testing related hypotheses, containing features, experiments, and outcomes.
+**What's a Workstream?** A thematically coherent collection of work testing related hypotheses, containing features, experiments, and key results.
 
-**Key distinction:** Tracks are **work streams** (ongoing), not **milestones** (dated achievements). See `/docs/milestones/` for observable achievements.
+**Key distinction:** Workstreams are **work streams** (ongoing), not **milestones** (dated achievements). See `/docs/milestones/` for observable achievements.
 
 ---
 
 ## Quick Reference
 
-| Track | Focus | Status | Priority | Time Horizon |
+| Workstream | Focus | Status | Priority | Time Horizon |
 |-------|-------|--------|----------|--------------|
 | **C1** | Stories + Live + Events | Active | P1 | 0-3 months |
 | **C2** | First Workshops | Next | P1 | 3-6 months |
@@ -24,9 +24,9 @@
 
 ---
 
-## Track Categories
+## Workstream Categories
 
-Five track categories (C/R/E/X/V) organize work by purpose and timeline:
+Five workstream categories (C/R/E/X/V) organize work by purpose and timeline:
 
 | Category | Name | Purpose | Time Horizon | Examples |
 |----------|------|---------|--------------|----------|
@@ -40,14 +40,14 @@ Five track categories (C/R/E/X/V) organize work by purpose and timeline:
 
 ---
 
-## Dual-Track Strategy
+## Dual-Workstream Strategy
 
-**PRIMARY: Recognition Track (R)**
+**PRIMARY: Recognition Workstream (R)**
 - Essays → positioned as "calibration expert"
 - Target: AI safety/rationalist communities
 - Goal: Recognition → inbound from aligned funders
 
-**SAFETY: Coaching Track (C)**
+**SAFETY: Coaching Workstream (C)**
 - Workshops → €5K/month revenue
 - Target: Coaches, facilitators
 - Goal: Validate value + generate baseline revenue
@@ -56,9 +56,9 @@ Five track categories (C/R/E/X/V) organize work by purpose and timeline:
 
 ---
 
-## Track Structure
+## Workstream Structure
 
-Each track file is a **lightweight index** linking to:
+Each workstream file is a **lightweight index** linking to:
 
 **What we're testing:** `/docs/hypotheses/h-{name}.md`
 - Testable belief (e.g., "Stories solve cold start problem")
@@ -70,14 +70,14 @@ Each track file is a **lightweight index** linking to:
 - Sample size, measurements, timeline
 - Success/kill thresholds
 
-**What we measure:** `/docs/outcomes/o-{name}.md`
+**What we measure:** `/docs/key-results/kr-{name}.md`
 - SMART goal definition
 - Target value, kill threshold
 - Measurement method
 
 **What we build:** `/features/p{N}_{name}.md`
 - PRDs for features
-- Referenced in track's `builds:` field
+- Referenced in workstream's `builds:` field
 
 ---
 
@@ -92,7 +92,7 @@ Each track file is a **lightweight index** linking to:
 - **R2 (Spec Publishing):** 3+ specs → technical credibility
 
 **Decision Point (Month 6):**
-- If C2 + R1 both show traction → continue dual-track
+- If C2 + R1 both show traction → continue dual-workstream
 - If only C2 → focus on coaching (safety)
 - If only R1 → focus on recognition (primary)
 - If neither → pivot or stop
@@ -105,25 +105,25 @@ Each track file is a **lightweight index** linking to:
 
 ### Step 1: Time Horizon
 
-- **0-6 months, near-term value:** → C-track or R-track
-- **6-12 months, conditional on traction:** → E-track
-- **12-24 months, requires scale:** → X-track
-- **24+ months, requires new capabilities:** → V-track
+- **0-6 months, near-term value:** → C-workstream or R-workstream
+- **6-12 months, conditional on traction:** → E-workstream
+- **12-24 months, requires scale:** → X-workstream
+- **24+ months, requires new capabilities:** → V-workstream
 
 ### Step 2: Purpose
 
 **If 0-6 months:**
-- Tests workshop business model? → C-track
-- Builds recognition/positioning? → R-track
+- Tests workshop business model? → C-workstream
+- Builds recognition/positioning? → R-workstream
 - Neither? → foundation (infrastructure)
 
 **If 6-12 months:**
-- Improves existing validated features? → E-track
+- Improves existing validated features? → E-workstream
 - Tests new capabilities? → Back to Step 1 (might be X or V)
 
 **If 12+ months:**
-- Needs scale to test (10K+ users)? → X-track
-- Needs new capabilities (AI, ML, transcription)? → V-track
+- Needs scale to test (10K+ users)? → X-workstream
+- Needs new capabilities (AI, ML, transcription)? → V-workstream
 
 ### Step 3: Validate
 
@@ -136,26 +136,27 @@ Read category definition file (e.g., `coaching-track.md`) to confirm classificat
 **Strategic:**
 - [lean-canvas.md](../lean-canvas.md) — Business model
 - [theory-of-change.md](../theory-of-change.md) — Causal pathway
-- [decisions.md](../decisions.md) — Why we structured tracks this way
+- [decisions.md](../decisions.md) — Why we structured workstreams this way
 - [HOW-TO-NAVIGATE.md](../HOW-TO-NAVIGATE.md) — Human navigation guide
 
 **Classification:**
-- [coaching-track.md](coaching-track.md) — C-track definition
-- [recognition-track.md](recognition-track.md) — R-track definition
-- [enhancement-track.md](enhancement-track.md) — E-track definition
-- [exploratory-track.md](exploratory-track.md) — X-track definition
-- [vision-track.md](vision-track.md) — V-track definition
+- [coaching-track.md](coaching-track.md) — C-workstream definition
+- [recognition-track.md](recognition-track.md) — R-workstream definition
+- [enhancement-track.md](enhancement-track.md) — E-workstream definition
+- [exploratory-track.md](exploratory-track.md) — X-workstream definition
+- [vision-track.md](vision-track.md) — V-workstream definition
 
 **Structure:**
 - [/docs/hypotheses/](../hypotheses/) — Testable beliefs
 - [/docs/experiments/](../experiments/) — Testing protocols
-- [/docs/outcomes/](../outcomes/) — Measurable goals
-- [/docs/milestones/](../milestones/) — Observable achievements (dated)
+- [/docs/key-results/](../key-results/) — Measurable goals
+- [/docs/milestones/](../milestones/) — Observable achievements (dated with status)
 
 ---
 
 ## Changelog
 
+- **2026-02-13:** Terminology updates — Track → Workstream, Outcome → Key Result, Milestone now includes status field
 - **2026-02-13:** P142 restructure — separated tracks/hypotheses/experiments/outcomes/milestones, added category definition files, created HOW-TO-NAVIGATE.md
 - **2026-02-12:** Renamed M1-M12 → R/C/E/X track system (see decisions.md)
 - **2026-02-02:** Created milestone files (original structure)

@@ -13,37 +13,37 @@ The strategic documentation is organized into specialized folders optimized for 
 → `/docs/experiments/` (filter by `status: running`)
 
 **"What are we measuring?"**
-→ `/docs/outcomes/` (filter by `status: active`)
+→ `/docs/key-results/` (filter by `status: active`)
 
 **"What are we building?"**
-→ `/docs/tracks/` → look at `builds:` field → cross-reference with `/features/`
+→ `/docs/workstreams/` → look at `builds:` field → cross-reference with `/features/`
 
 **"When did X happen?"**
-→ `/docs/milestones/` (dated achievements like "2026-02-10-first-essay-published.md")
+→ `/docs/milestones/` (dated achievements with status like "2026-02-10-first-essay-published.md")
 
 **"What's the overall strategy?"**
 → Start with `/docs/lean-canvas.md` (business model) and `/docs/theory-of-change.md` (how we create impact)
 
 **"Where do I classify a new idea?"**
-→ `/docs/tracks/` → read category files (coaching-track.md, recognition-track.md, etc.) for decision framework
+→ `/docs/workstreams/` → read category files (coaching-track.md, recognition-track.md, etc.) for decision framework
 
 ---
 
-## Understanding a Track (Example: C1)
+## Understanding a Workstream (Example: C1)
 
-To understand the full picture of a track, follow this reading order:
+To understand the full picture of a workstream, follow this reading order:
 
-### 1. Start: Track Overview
-**File:** `/docs/tracks/c1-stories-live-events.md`
+### 1. Start: Workstream Overview
+**File:** `/docs/workstreams/c1-stories-live-events.md`
 
 **What you'll find:**
 - TL;DR summary (quick context)
-- Links to hypothesis, experiments, outcomes
+- Links to hypothesis, experiments, key results
 - Build requirements (what features we're shipping)
 - Kill signals (when to abandon)
 
 ### 2. Deep Dive: Hypothesis
-**File:** `/docs/hypotheses/h-stories-solve-cold-start.md` (linked from track)
+**File:** `/docs/hypotheses/h-stories-solve-cold-start.md` (linked from workstream)
 
 **What you'll find:**
 - Hypothesis statement ("Stories solve cold start problem")
@@ -62,8 +62,8 @@ To understand the full picture of a track, follow this reading order:
 - Timeline (start/end dates)
 - Success thresholds
 
-### 4. What We Measure: Outcome
-**File:** `/docs/outcomes/o-story-usage.md` (linked from experiment)
+### 4. What We Measure: Key Result
+**File:** `/docs/key-results/kr-story-usage.md` (linked from experiment)
 
 **What you'll find:**
 - SMART goal definition
@@ -72,7 +72,7 @@ To understand the full picture of a track, follow this reading order:
 - Measurement method
 
 ### 5. What We're Building: Features
-**Location:** `/features/` (cross-referenced from track's `builds:` field)
+**Location:** `/features/` (cross-referenced from workstream's `builds:` field)
 
 **What you'll find:**
 - Detailed PRDs for each feature
@@ -86,7 +86,7 @@ To understand the full picture of a track, follow this reading order:
 
 ```
 docs/
-├── tracks/              # Work streams (albums of related work)
+├── workstreams/         # Work streams (albums of related work)
 │   ├── c1-stories-live-events.md
 │   ├── c2-first-workshops.md
 │   ├── r1-essay-writing.md
@@ -107,12 +107,12 @@ docs/
 │   ├── e-essay-publishing.md
 │   └── ...
 │
-├── outcomes/            # Measurable goals (what success looks like)
-│   ├── o-story-usage.md
-│   ├── o-essay-reach.md
+├── key-results/         # Measurable goals (what success looks like)
+│   ├── kr-story-usage.md
+│   ├── kr-essay-reach.md
 │   └── ...
 │
-├── milestones/          # Observable achievements (dated events)
+├── milestones/          # Observable achievements (dated events with status)
 │   ├── 2026-02-10-first-essay-published.md
 │   ├── 2026-02-28-first-workshop-delivered.md
 │   └── ...
@@ -135,9 +135,9 @@ docs/
 - Linked (frontmatter creates bidirectional references)
 
 **For humans:**
-- Separation of concerns (hypotheses ≠ experiments ≠ outcomes)
-- Clear lifecycle (idea → hypothesis → experiment → outcome → milestone)
-- Traceable (can follow links from track → hypothesis → experiment → outcome)
+- Separation of concerns (hypotheses ≠ experiments ≠ key results)
+- Clear lifecycle (idea → hypothesis → experiment → key result → milestone)
+- Traceable (can follow links from workstream → hypothesis → experiment → key result)
 
 **Trade-off:**
 - **Cost:** Cognitive overhead (need to navigate 4 files instead of 1)
@@ -150,23 +150,23 @@ docs/
 
 ### Example 1: "I want to understand the coaching strategy"
 
-1. **Start:** `/docs/tracks/coaching-track.md` (category overview)
-2. **Read:** `/docs/tracks/c1-stories-live-events.md` (current work)
-3. **Deep dive:** Follow links to hypothesis/experiment/outcome files
+1. **Start:** `/docs/workstreams/coaching-track.md` (category overview)
+2. **Read:** `/docs/workstreams/c1-stories-live-events.md` (current work)
+3. **Deep dive:** Follow links to hypothesis/experiment/key result files
 4. **Features:** Check `/features/` for build status (filter by `milestone: c1`)
 
 ### Example 2: "I have a new feature idea — where does it belong?"
 
-1. **Read:** `/docs/tracks/coaching-track.md`, `recognition-track.md`, etc. (category files)
-2. **Match:** Find track that fits your idea's purpose + timeline
-3. **Decision framework:** Each category file has "Choose X-track if..." criteria
-4. **Create:** File feature spec with `milestone: {track-id}` frontmatter
+1. **Read:** `/docs/workstreams/coaching-track.md`, `recognition-track.md`, etc. (category files)
+2. **Match:** Find workstream that fits your idea's purpose + timeline
+3. **Decision framework:** Each category file has "Choose X-workstream if..." criteria
+4. **Create:** File feature spec with `milestone: {workstream-id}` frontmatter
 
 ### Example 3: "What did we achieve last month?"
 
-1. **Read:** `/docs/milestones/` (date-stamped achievements)
+1. **Read:** `/docs/milestones/` (date-stamped achievements with status)
 2. **Filter:** Files matching last month's dates
-3. **Cross-reference:** Look at `related_outcomes:` field to see which goals were achieved
+3. **Cross-reference:** Look at `related_key_results:` field to see which goals were achieved
 
 ### Example 4: "Is hypothesis X validated yet?"
 

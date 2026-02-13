@@ -4,7 +4,7 @@ priority: p1
 summary: "Stories give /live a purpose — verify understanding of specific stories, not abstract 'something'"
 tests: [h-stories-solve-cold-start]
 builds: [p128, p124]
-measures: [o-story-usage]
+measures: [kr-story-usage]
 answers: [oq-6, oq-7]
 ---
 
@@ -28,7 +28,7 @@ answers: [oq-6, oq-7]
 
 **What we're testing:** [H-Stories: Stories solve cold start problem](../hypotheses/h-stories-solve-cold-start.md)
 
-**What we're measuring:** [O-Story-Usage: Creation + verification rates](../outcomes/o-story-usage.md)
+**What we're measuring:** [KR-Story-Usage: Creation + verification rates](../key-results/kr-story-usage.md)
 
 **Experiments running:** [E-Story-Creation: Pilot with 20 users](../experiments/e-story-creation-pilot.md)
 
@@ -62,12 +62,12 @@ See [H-Stories kill criteria](../hypotheses/h-stories-solve-cold-start.md#failur
 
 ## Related Documents
 
-**Track category:** [Coaching Track](coaching-track.md) (classification guide)
+**Workstream category:** [Coaching Workstream](coaching-track.md) (classification guide)
 
 **Hypothesis:** [h-stories-solve-cold-start.md](../hypotheses/h-stories-solve-cold-start.md)
 
 **Experiment:** [e-story-creation-pilot.md](../experiments/e-story-creation-pilot.md)
 
-**Outcome:** [o-story-usage.md](../outcomes/o-story-usage.md)
+**Key Result:** [kr-story-usage.md](../key-results/kr-story-usage.md)
 
 **Features:** P128 (/live beginning screen), P124 (event rooms)
