@@ -2,7 +2,7 @@
 status: week
 type: task
 rank: 13
-milestone: foundation
+workstream: foundation
 tags: [development-process, skills, testing, automation]
 ---
 

@@ -166,7 +166,7 @@ Before returning, agent verifies:
 status: week
 type: feature
 rank: 7.0
-milestone: C2
+workstream: C2
 tags: [export, csv, sifter]
 prepped_date: '2026-02-10'
 reviews:

@@ -121,7 +121,7 @@ Where:
 status: {from user}
 type: feature
 rank: {calculated rank}
-milestone: {from user}
+workstream: {from user}
 created_date: {today's date YYYY-MM-DD}
 tags: []
 # For complete frontmatter specification, see docs/technical/feature-specs.md
@@ -160,7 +160,7 @@ _How to verify this works._
 status: {from user}
 type: bug
 rank: {calculated rank}
-milestone: {from user}
+workstream: {from user}
 severity: {from user}
 date_reported: {today's date YYYY-MM-DD}
 created_date: {today's date YYYY-MM-DD}
@@ -198,7 +198,7 @@ _How to confirm it's fixed._
 status: {from user}
 type: task
 rank: {calculated rank}
-milestone: {from user}
+workstream: {from user}
 created_date: {today's date YYYY-MM-DD}
 tags: []
 ---

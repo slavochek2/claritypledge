@@ -116,7 +116,7 @@ function FocusRow({ feature, onFeatureUpdate }: FocusRowProps) {
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: feature.id,
-    data: { milestone: feature.milestone || '__unlinked__' },
+    data: { workstream: feature.workstream || '__unlinked__' },
   })
 
   const style: React.CSSProperties = {

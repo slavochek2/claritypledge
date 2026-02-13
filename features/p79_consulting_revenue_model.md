@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-milestone: C2
+workstream: C2
 rank: 3
 ---
 # P79: Consulting & Revenue Model

@@ -1,7 +1,7 @@
 ---
 status: week
 type: story
-milestone: C1
+workstream: C1
 prepped_date: '2026-02-06'
 reviews:
   ux: passed-with-notes

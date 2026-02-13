@@ -47,7 +47,7 @@ type EditingField =
   | 'rank'
   | 'tags'
   | 'blocked_by'
-  | 'milestone'
+  | 'workstream'
   | 'hypothesis'
   | null
 
@@ -116,7 +116,7 @@ export function CardDialog({
 
   // Focus input when editing text fields
   useEffect(() => {
-    if (editingField && ['milestone', 'hypothesis', 'rank'].includes(editingField)) {
+    if (editingField && ['workstream', 'hypothesis', 'rank'].includes(editingField)) {
       inputRef.current?.focus()
     }
   }, [editingField])
@@ -255,7 +255,7 @@ export function CardDialog({
   }
 
   // Render text input for editing
-  const renderTextInput = (field: 'milestone' | 'hypothesis') => {
+  const renderTextInput = (field: 'workstream' | 'hypothesis') => {
     return (
       <div ref={dropdownRef} style={{ flex: 1 }}>
         <input
@@ -466,7 +466,7 @@ export function CardDialog({
     { key: 'size', options: SIZE_OPTIONS as (string | null)[] },
     { key: 'tags' },
     { key: 'blocked_by' },
-    { key: 'milestone' },
+    { key: 'workstream' },
     { key: 'hypothesis' },
   ]
 
@@ -623,7 +623,7 @@ export function CardDialog({
                   onClick={() => {
                     if (!isEditing) {
                       setEditingField(key)
-                      if (key === 'milestone' || key === 'hypothesis') {
+                      if (key === 'workstream' || key === 'hypothesis') {
                         setTextInputValue((value as string) || '')
                       } else if (key === 'rank') {
                         setTextInputValue(value !== undefined ? String(value) : '')
@@ -659,7 +659,7 @@ export function CardDialog({
                         renderNumberInput()
                       ) : (
                         // Text input
-                        renderTextInput(key as 'milestone' | 'hypothesis')
+                        renderTextInput(key as 'workstream' | 'hypothesis')
                       )
                     ) : (
                       // Display mode

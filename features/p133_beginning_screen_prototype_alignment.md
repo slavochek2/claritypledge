@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-milestone: C1
+workstream: C1
 prototype: /prototype/linkedin-like/live
 prepped_date: '2026-02-09'
 reviews:

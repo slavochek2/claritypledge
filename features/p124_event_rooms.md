@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-milestone: C1
+workstream: C1
 blocked_by:
   - p128
 prepped_date: '2026-02-05'

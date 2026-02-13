@@ -208,13 +208,13 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           </div>
         )}
 
-        {/* Milestone */}
-        {feature.milestone && (
+        {/* Workstream */}
+        {feature.workstream && (
           <span
             style={{ ...tagStyle, background: 'var(--tag-purple-bg)', color: 'var(--tag-purple-text)' }}
-            title={`Milestone: ${feature.milestone}`}
+            title={`Workstream: ${feature.workstream}`}
           >
-            {feature.milestone}
+            {feature.workstream}
           </span>
         )}
 

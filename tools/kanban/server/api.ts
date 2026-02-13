@@ -125,9 +125,9 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       ? data.blocked_by.filter((id: unknown) => typeof id === 'string')
       : undefined
 
-    // Parse optional milestone (AI-managed)
-    const milestone: string | undefined =
-      typeof data.milestone === 'string' ? data.milestone : undefined
+    // Parse optional workstream (AI-managed)
+    const workstream: string | undefined =
+      typeof data.workstream === 'string' ? data.workstream : undefined
 
     // Parse required rank (P141: Unified Rank System)
     // Validate: positive finite number, truncate to 3 decimals
@@ -150,7 +150,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       type,
       blocked_by,
       size,
-      milestone,
+      workstream,
       hypothesis: data.hypothesis,
       tags: Array.isArray(data.tags) ? data.tags : [],
       created: data.created,
@@ -319,12 +319,12 @@ app.get('/api/milestones', async (req, res) => {
 })
 
 // PATCH /api/features/:id - update feature fields
-// Supports: status, rank, type, size, tags, blocked_by, milestone, hypothesis
+// Supports: status, rank, type, size, tags, blocked_by, workstream, hypothesis
 // Query param: ?worktree=/path/to/worktree
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status, rank, type, size, tags, blocked_by, milestone, hypothesis } =
+    const { status, rank, type, size, tags, blocked_by, workstream, hypothesis } =
       req.body
     const worktreePath = req.query.worktree as string | undefined
 
@@ -388,9 +388,9 @@ app.patch('/api/features/:id', async (req, res) => {
     }
 
     // Handle text fields (empty string = remove)
-    if (milestone !== undefined) {
-      if (milestone === '' || milestone === null) delete data.milestone
-      else data.milestone = milestone
+    if (workstream !== undefined) {
+      if (workstream === '' || workstream === null) delete data.workstream
+      else data.workstream = workstream
     }
     if (hypothesis !== undefined) {
       if (hypothesis === '' || hypothesis === null) delete data.hypothesis
@@ -425,8 +425,8 @@ app.patch('/api/features/:id', async (req, res) => {
         if (size !== undefined) cachedFeature.size = size === null ? undefined : size
         if (tags !== undefined) cachedFeature.tags = tags || []
         if (blocked_by !== undefined) cachedFeature.blocked_by = blocked_by || undefined
-        if (milestone !== undefined)
-          cachedFeature.milestone = milestone === '' || milestone === null ? undefined : milestone
+        if (workstream !== undefined)
+          cachedFeature.workstream = workstream === '' || workstream === null ? undefined : workstream
         if (hypothesis !== undefined)
           cachedFeature.hypothesis =
             hypothesis === '' || hypothesis === null ? undefined : hypothesis

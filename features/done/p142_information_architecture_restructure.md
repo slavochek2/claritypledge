@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: done
 type: task
 milestone: foundation
 tags:
@@ -13,6 +13,7 @@ reviews:
   architect: passed
   alignment: passed
 rank: 125001
+completed_at: '2026-02-13'
 ---
 
 # P142: Information Architecture Restructure — Separate Tracks/Hypotheses/Experiments/Outcomes/Milestones

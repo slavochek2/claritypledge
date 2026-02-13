@@ -20,10 +20,10 @@ export interface Feature {
   blocked_by?: string[] // AI-managed, display only
   // Display-if-present badges
   size?: Size // AI-managed
-  milestone?: string // AI-managed (e.g., "M1", "M2")
+  workstream?: string // AI-managed (e.g., "C1", "C2", "R1")
   /**
-   * @deprecated Use milestone field instead. Hypotheses were merged into milestones (P130).
-   * See docs/decisions.md "2026-02-07: Milestones replace hypotheses"
+   * @deprecated Use workstream field instead. Hypotheses were merged into workstreams (P130).
+   * See docs/decisions.md "2026-02-07: Workstreams replace hypotheses"
    */
   hypothesis?: string // e.g., "H-Biz", "H2"
   tags: string[]

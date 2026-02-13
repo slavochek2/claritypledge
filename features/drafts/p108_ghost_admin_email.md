@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: task
-milestone: C2
+workstream: C2
 tags:
   - ghost
   - infrastructure

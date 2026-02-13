@@ -1,7 +1,7 @@
 ---
 status: backlog
 type: story
-milestone: C2
+workstream: C2
 tags:
   - validation
   - gtm

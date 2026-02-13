@@ -157,7 +157,7 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 **Rule:** Don't defer parallelizable work. The cost of spawning agents (5 min) is less than the cost of context-switching back to it later (20+ min).
 
 **When to use parallel agents:**
-- Updating multiple doc files (lean canvas, milestones, strategic docs)
+- Updating multiple doc files (lean canvas, workstreams, strategic docs)
 - Searching/analyzing multiple code areas
 - Running independent validations
 - Any work with clear separation of concerns
@@ -166,7 +166,7 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 ### Dynamic Discovery
 
-> **Principle:** Agents should discover current structure from files (Glob/Grep), not hardcode assumptions. Values that can change (milestone names, folder structures, schemas) must be discovered at runtime.
+> **Principle:** Agents should discover current structure from files (Glob/Grep), not hardcode assumptions. Values that can change (workstream names, folder structures, schemas) must be discovered at runtime.
 
 ---
 
@@ -414,7 +414,7 @@ Worktree ports & env setup: [infrastructure.md](docs/technical/infrastructure.md
 
 **Technical:** `docs/technical/` — architecture, auth, database, testing, debugging, git-workflow, infrastructure
 
-**Strategic:** `docs/` — decisions (trade-offs), milestones (what we're building), definitions (concepts), philosophy (WHY), theory-of-change (evidence)
+**Strategic:** `docs/` — decisions (trade-offs), workstreams (what we're building), definitions (concepts), philosophy (WHY), theory-of-change (evidence)
 
 ---
 
@@ -463,7 +463,7 @@ When creating ANY file in `features/` manually, ALWAYS include frontmatter:
 status: backlog | week | today | in-progress | blocked | done | draft | rejected
 type: story | bug | task | comment
 rank: number  # Auto-calculated by agents (max_rank + 1.0)
-milestone: C1 | C2 | R1 | E1 | X1 | foundation  # optional
+workstream: C1 | C2 | R1 | E1 | X1 | foundation  # optional
 tags: []
 ---
 ```
@@ -475,7 +475,7 @@ tags: []
 - New features appear at bottom of backlog (expected behavior)
 - Users reorder via kanban drag-and-drop
 
-**Milestone field:** OPTIONAL but recommended for kanban visibility.
+**CRITICAL:** `workstream` field is REQUIRED for kanban visibility.
 
 **Type semantics:**
 - `story` — User-facing value ("As a user, I want X")

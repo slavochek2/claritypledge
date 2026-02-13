@@ -2,7 +2,7 @@
 status: backlog
 type: story
 priority: p1
-milestone: C2
+workstream: C2
 tags:
   - marketing
   - automation

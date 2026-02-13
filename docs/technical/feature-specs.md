@@ -37,7 +37,7 @@ tags: []                        # Searchable keywords (REQUIRED, can be empty)
 
 ```yaml
 ---
-milestone: C2                   # Product track (optional but recommended)
+workstream: C2                   # Product track (optional but recommended)
 prepped_date: null              # Set by /prep-spec (null = draft)
 reviews:                        # Set during /prep-spec
   ux: null
@@ -150,13 +150,13 @@ root_cause: brief description   # after investigation
 **Example:**
 ```yaml
 # Feature: "Add dark mode toggle"
-milestone: E1  # UI enhancement
+workstream: E1  # UI enhancement
 
 # Bug: "Login broken on Safari"
-milestone: C1  # Blocks coaching (users can't access)
+workstream: C1  # Blocks coaching (users can't access)
 
 # Task: "Refactor auth to new Supabase SDK"
-milestone: foundation  # Infrastructure work
+workstream: foundation  # Infrastructure work
 ```
 
 **Leave empty if:** Feature doesn't fit into any current milestone track.
@@ -231,7 +231,7 @@ reviews:
 status: week
 type: story
 rank: 7.0
-milestone: C2
+workstream: C2
 tags: [sifter, csv-export, data-analysis]
 prepped_date: '2026-02-10'
 reviews:
@@ -257,7 +257,7 @@ status: today
 type: bug
 rank: 1.0
 severity: critical
-milestone: C1
+workstream: C1
 tags: [login, safari, mobile, auth]
 date_reported: '2026-02-12'
 ---
@@ -278,7 +278,7 @@ Event listener not firing on mobile Safari due to touch event issue.
 status: week
 type: task
 rank: 10.0
-milestone: foundation
+workstream: foundation
 tags: [refactor, auth, supabase, technical-debt]
 ---
 

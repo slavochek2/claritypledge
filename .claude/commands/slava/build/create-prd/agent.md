@@ -212,7 +212,7 @@ p3
 1. **"None — convenience" + high priority (p0/p1)**
    - Feature doesn't test validation hypotheses but marked high priority
    - Example: P143 MCP (save 2 min/week, not validation-critical, but marked p1)
-   - **Action:** Flag to user with context from milestones/README.md showing current priorities
+   - **Action:** Flag to user with context from workstreams/README.md showing current priorities
 
 2. **Track mismatch with description**
    - User selects a validation track but feature description sounds like infrastructure
@@ -220,7 +220,7 @@ p3
    - **Action:** Ask for clarification: "You said {track} but the description suggests {other}. Which is it?"
 
 3. **Time investment vs validation ROI**
-   - If feature will take 3+ weeks but doesn't align with PRIMARY track from milestones/README.md
+   - If feature will take 3+ weeks but doesn't align with PRIMARY track from workstreams/README.md
    - **Action:** Show priorities from README.md, ask: "Is this the best use of time given current strategy?"
 
 **✅ GREEN LIGHTS (proceed with PRD):**
@@ -785,7 +785,7 @@ test('enforces RLS policies', async ({ page }) => {
 status: week
 type: story
 priority: p1
-milestone: {dynamically-discovered}
+workstream: {dynamically-discovered}
 tags: [relevant, tags]
 ---
 
@@ -810,72 +810,72 @@ tags: [relevant, tags]
   - Discover valid values: `grep -h "^priority:" features/**/*.md | sed 's/priority: //' | sort -u`
   - Common values: p0, p1, p2, p3 (but system supports decimals like p1.5, p2.5 for relative ordering)
   - Priority is RELATIVE to other work, not absolute tiers
-- `milestone`: Dynamically discovered milestone (see below for details)
+- `workstream`: Dynamically discovered workstream (see below for details)
 - `tags`: Extract 2-4 relevant keywords from title/problem (lowercase, hyphenated)
 - `created`: Today's date in YYYY-MM-DD format
 
-**CRITICAL - Milestone field (REQUIRED for kanban visibility):**
-- `milestone`: Dynamically discover from docs/tracks/ and classify feature into appropriate track
+**CRITICAL - Workstream field (REQUIRED for kanban visibility):**
+- `workstream`: Dynamically discover from docs/workstreams/ and classify feature into appropriate workstream
   - **How to determine:**
-    1. **Phase 0 already did this!** Use the answer from Question 1 (Track selection)
-    2. Map user's selected track to actual track file:
+    1. **Phase 0 already did this!** Use the answer from Question 1 (Workstream selection)
+    2. Map user's selected workstream to actual workstream file:
        ```bash
-       # User selected track, find corresponding track file
-       TRACK_PREFIX=$(echo "$SELECTED_TRACK" | grep -oE '^[a-z]+' | head -1)
-       ls docs/tracks/${TRACK_PREFIX}*.md
+       # User selected workstream, find corresponding workstream file
+       WORKSTREAM_PREFIX=$(echo "$SELECTED_WORKSTREAM" | grep -oE '^[a-z]+' | head -1)
+       ls docs/workstreams/${WORKSTREAM_PREFIX}*.md
        ```
-    3. If multiple tracks exist in a category (e.g., c1, c2), ask user which specific one OR:
-       - Read tracks/README.md to see which is "current" for that track category
-       - List files and let user pick: `ls docs/tracks/${TRACK_PREFIX}*.md`
-    4. Extract track ID from filename:
+    3. If multiple workstreams exist in a category (e.g., c1, c2), ask user which specific one OR:
+       - Read workstreams/README.md to see which is "current" for that workstream category
+       - List files and let user pick: `ls docs/workstreams/${WORKSTREAM_PREFIX}*.md`
+    4. Extract workstream ID from filename:
        ```bash
-       # Example: docs/tracks/c1-stories-live.md → c1
+       # Example: docs/workstreams/c1-stories-live.md → c1
        basename "$FILE" .md | grep -oE '^[a-z][0-9]+'
        ```
-  - **Format:** Whatever format exists in docs/tracks/ (e.g., c1, r2, e1, x3, v1, foundation)
-  - **IMPORTANT:** Never hardcode milestone values or track prefixes. Always discover from filesystem.
+  - **Format:** Whatever format exists in docs/workstreams/ (e.g., c1, r2, e1, x3, v1, foundation)
+  - **IMPORTANT:** Never hardcode workstream values or workstream prefixes. Always discover from filesystem.
 
 **Examples:**
 
 ```markdown
 # Feature: "Add dark mode toggle to profile page"
 # Priority: p1 (from user's Phase 0 answer)
-# Track: Enhancement track (discovered from tracks/README.md)
-# Milestone: e1 (discovered via ls docs/tracks/e*.md)
+# Workstream: Enhancement workstream (discovered from workstreams/README.md)
+# Workstream ID: e1 (discovered via ls docs/workstreams/e*.md)
 # Type: story (delivers user value - users can toggle dark mode)
 ---
 status: week
 type: story
 priority: p1
-milestone: e1
+workstream: e1
 tags: [dark-mode, ui, profile, settings]
 created: 2026-02-12
 ---
 
 # Bug: "Login button doesn't work on Safari mobile"
 # Priority: p0 (from user - critical blocker)
-# Track: Coaching track (critical for users to access workshops)
-# Milestone: c1 (discovered via ls docs/tracks/c*.md, picked earliest)
+# Workstream: Coaching workstream (critical for users to access workshops)
+# Workstream ID: c1 (discovered via ls docs/workstreams/c*.md, picked earliest)
 # Type: bug (something broken)
 ---
 status: today
 type: bug
 priority: p0
-milestone: c1
+workstream: c1
 tags: [login, safari, mobile, critical]
 created: 2026-02-12
 ---
 
 # Task: "Refactor authentication code to use new Supabase SDK"
 # Priority: p2 (from user - not urgent)
-# Track: Infrastructure/meta-work
-# Milestone: foundation (no validation track, pure infra)
+# Workstream: Infrastructure/meta-work
+# Workstream ID: foundation (no validation workstream, pure infra)
 # Type: task (no direct user value, pure technical improvement)
 ---
 status: week
 type: task
 priority: p2
-milestone: foundation
+workstream: foundation
 tags: [refactor, auth, supabase, technical-debt]
 created: 2026-02-12
 ---
@@ -915,21 +915,21 @@ ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p
 - Remove special characters
 - Example: "Add Dark Mode Toggle" → "add_dark_mode_toggle"
 
-**Determine milestone:**
+**Determine workstream:**
 - **Phase 0 already determined this!** Use the answer from strategic alignment questions.
 - **Dynamic discovery process:**
-  1. List all track files: `ls docs/tracks/*.md`
-  2. Read `docs/tracks/README.md` to understand what tracks currently exist and their purposes
-  3. Extract track prefix from user's selected track (from Phase 0 Question 1)
-  4. Find track file matching that prefix: `ls docs/tracks/${prefix}*.md`
-  5. If multiple files, ask user which specific track OR pick based on README.md guidance
+  1. List all workstream files: `ls docs/workstreams/*.md`
+  2. Read `docs/workstreams/README.md` to understand what workstreams currently exist and their purposes
+  3. Extract workstream prefix from user's selected workstream (from Phase 0 Question 1)
+  4. Find workstream file matching that prefix: `ls docs/workstreams/${prefix}*.md`
+  5. If multiple files, ask user which specific workstream OR pick based on README.md guidance
 
-- **Example track patterns** (discovered dynamically, NOT hardcoded):
-  - c-prefixed files → Coaching track (workshop features, /live, stories)
-  - r-prefixed files → Recognition track (essays, publishing, visibility)
-  - e-prefixed files → Enhancement track (improvements to validated features)
-  - x-prefixed files → Exploratory track (scale, network effects)
-  - v-prefixed files → Vision track (far-future capabilities requiring new tech)
+- **Example workstream patterns** (discovered dynamically, NOT hardcoded):
+  - c-prefixed files → Coaching workstream (workshop features, /live, stories)
+  - r-prefixed files → Recognition workstream (essays, publishing, visibility)
+  - e-prefixed files → Enhancement workstream (improvements to validated features)
+  - x-prefixed files → Exploratory workstream (scale, network effects)
+  - v-prefixed files → Vision workstream (far-future capabilities requiring new tech)
   - "foundation" → Meta-work (infra, docs, build tools)
 
 - **CRITICAL:** Milestone field is REQUIRED for kanban visibility. NEVER hardcode values — always discover from filesystem and README.md.

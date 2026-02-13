@@ -1,7 +1,7 @@
 ---
 status: today
 type: story
-milestone: E1
+workstream: E1
 tags:
   - stories
   - points
