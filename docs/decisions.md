@@ -368,7 +368,7 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 2. **Technical patterns → `docs/technical/architecture.md`** (new doc)
 3. **Product decisions → `docs/decisions.md`** (already existed, no change)
 4. **Added "Where to Write" table to CLAUDE.md** for routing guidance
-5. **Created `/claude-md-check` skill** to validate proposed CLAUDE.md additions
+5. **Created `/claude-md-check` skill** to validate proposed CLAUDE.md additions (later upgraded to `/claude-md-maintain` — automated agent vs manual checklist)
 
 **Alternatives rejected:**
 - Add everything to CLAUDE.md — leads to bloat, not everything is universal
@@ -378,7 +378,7 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 **Consequences:**
 - CLAUDE.md stays focused, loads faster in context
 - Technical knowledge has a proper home (architecture.md)
-- `/claude-md-check` prevents drift
+- `/claude-md-maintain` (automated agent) prevents drift
 
 ---
 

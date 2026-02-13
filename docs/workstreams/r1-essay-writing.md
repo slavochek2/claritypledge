@@ -4,7 +4,7 @@ priority: p0
 summary: "Build recognition as 'the calibration person' through essays reaching AI/rationalist audiences"
 tests: [h-recognition-via-essays]
 builds: []
-measures: [o-essay-reach]
+measures: [kr-essay-reach]
 answers: []
 ---
 
@@ -28,7 +28,7 @@ answers: []
 
 **What we're testing:** [H-Recognition-Via-Essays](../hypotheses/h-recognition-via-essays.md)
 
-**What we're measuring:** [O-Essay-Reach: 50+ readers per essay](../outcomes/o-essay-reach.md)
+**What we're measuring:** [KR-Essay-Reach: 50+ readers per essay](../key-results/kr-essay-reach.md)
 
 **Experiments running:** [E-Essay-Publishing](../experiments/e-essay-publishing.md)
 
@@ -65,4 +65,4 @@ Essays (calibration infrastructure for AI) → Recognition in target communities
 
 **Experiment:** [e-essay-publishing.md](../experiments/e-essay-publishing.md)
 
-**Outcome:** [o-essay-reach.md](../outcomes/o-essay-reach.md)
+**Outcome:** [kr-essay-reach.md](../key-results/kr-essay-reach.md)

@@ -1,7 +1,7 @@
 ---
 status: running
 tests: [h-recognition-via-essays]
-measures: [o-essay-reach]
+measures: [kr-essay-reach]
 start_date: 2026-02-01
 end_date: 2026-05-01
 sample_size: 3
@@ -41,4 +41,4 @@ sample_size: 3
 ## Related
 
 **Hypothesis:** [h-recognition-via-essays.md](../hypotheses/h-recognition-via-essays.md)
-**Outcome:** [o-essay-reach.md](../outcomes/o-essay-reach.md)
+**Outcome:** [kr-essay-reach.md](../key-results/kr-essay-reach.md)

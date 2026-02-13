@@ -3,7 +3,7 @@ status: active
 priority: p0
 track: R1
 tested_by: [e-essay-publishing]
-supports: [o-essay-reach]
+supports: [kr-essay-reach]
 related_hypotheses: []
 ---
 

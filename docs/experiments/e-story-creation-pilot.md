@@ -1,7 +1,7 @@
 ---
 status: planned
 tests: [h-stories-solve-cold-start]
-measures: [o-story-usage]
+measures: [kr-story-usage]
 start_date: 2026-02-15
 end_date: 2026-03-15
 sample_size: 20
@@ -149,7 +149,7 @@ sample_size: 20
 - [h-stories-solve-cold-start.md](../hypotheses/h-stories-solve-cold-start.md)
 
 **Outcomes measured:**
-- [o-story-usage.md](../outcomes/o-story-usage.md)
+- [kr-story-usage.md](../key-results/kr-story-usage.md)
 
 **Track context:**
 - [c1-stories-live-events.md](../tracks/c1-stories-live-events.md)

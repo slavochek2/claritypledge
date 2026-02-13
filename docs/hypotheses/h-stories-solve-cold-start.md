@@ -3,7 +3,7 @@ status: active
 priority: p1
 track: C1
 tested_by: [e-story-creation-pilot]
-supports: [o-story-usage]
+supports: [kr-story-usage]
 related_hypotheses: []
 ---
 
@@ -99,7 +99,7 @@ See `/docs/experiments/`:
 ## Outcomes This Supports
 
 See `/docs/outcomes/`:
-- [o-story-usage.md](../outcomes/o-story-usage.md) — Story creation + verification rates
+- [kr-story-usage.md](../key-results/kr-story-usage.md) — Story creation + verification rates
 
 ## Track Context
 

@@ -1,6 +1,7 @@
 ---
 status: active
 type: leading
+track: C1
 workstream: C1
 target_value: "≥50% story creation rate, ≥30% verification rate"
 kill_threshold: "<20% story creation rate after 4 weeks"
