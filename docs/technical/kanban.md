@@ -64,7 +64,7 @@ lsof -ti:9050,9051 | xargs kill
 
 ```yaml
 ---
-status: backlog | week | today | in-progress | blocked | done  # REQUIRED
+status: backlog | week | today | in-progress | blocked | done | draft | rejected  # REQUIRED
 type: bug | task | story | comment
 rank: number                   # Lower = higher priority (see Rank System below)
 size: xs | s | m | l | xl

@@ -360,7 +360,7 @@ All feature files (`features/p{N}_{name}.md`) **must have frontmatter**:
 
 ```yaml
 ---
-status: backlog | week | today | in-progress | blocked | done
+status: backlog | week | today | in-progress | blocked | done | draft | rejected
 type: bug | task | story        # optional
 rank: number                    # sort order (lower = higher priority)
 tags: [tag1, tag2]              # optional
