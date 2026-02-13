@@ -582,17 +582,17 @@ Bug reported
 │   → Workflow: Reproduce → Test → Fix → Verify
 │
 └─ 🔍 Complex bug (cause unclear, hard to reproduce)
-    → Run /debugging to find root cause
+    → Investigate using debugging protocol (see docs/technical/debugging.md)
     → Then run /fix to remediate the identified issue
 ```
 
 **Bug skills:**
-- `/debugging` - Root cause analysis for complex bugs (diagnostic tool)
 - `/fix` - Systematic bug remediation workflow (reproduce → test → fix → verify)
 
-**When to use which:**
-- Use `/debugging` when: symptoms are unclear, can't reproduce consistently, multiple potential causes
-- Use `/fix` when: you know what's broken, can reproduce reliably, root cause is clear
+**For complex bugs:** Use the debugging protocol in `docs/technical/debugging.md` to find root cause:
+- Screenshot-driven debugging (verify current code state)
+- Database debugging (RLS → migrations → columns)
+- UI bug fix process (diagnose fully before deploying)
 
 ---
 
@@ -630,7 +630,6 @@ These skills can be used at any point during development when you need them:
 |-------|-------------|--------------|
 | `/simplify` | Facing complex decision with many options | Decision-by-decision analysis and recommendations |
 | `/design-audit` | After UI changes, before shipping | Check UI compliance (buttons, colors, accessibility, consistency) |
-| `/debugging` | Stuck on complex bug, unclear root cause | Systematic debugging and root cause analysis |
 
 **Usage pattern:**
 - These don't block the main flow
@@ -657,7 +656,7 @@ These skills can be used at any point during development when you need them:
 │ /create-prd → /ux → /architect → /generate-tests → /dev │
 │                                                     │
 │ Bugs:                                               │
-│ /debugging (if complex) → /fix                      │
+│ Investigate (if complex) → /fix                     │
 └─────────────────────────────────────────────────────┘
                         ↓
 ┌─────────────────────────────────────────────────────┐
@@ -667,7 +666,7 @@ These skills can be used at any point during development when you need them:
 
 ┌─────────────────────────────────────────────────────┐
 │ PARALLEL (use anytime when needed)                  │
-│ /simplify | /design-audit | /debugging              │
+│ /simplify | /design-audit                           │
 └─────────────────────────────────────────────────────┘
 ```
 

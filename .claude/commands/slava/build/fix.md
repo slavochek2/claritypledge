@@ -17,9 +17,9 @@ Systematic bug remediation workflow (reproduce → test → fix → verify).
 /fix "Login button broken on Safari"    # Creates minimal spec inline
 ```
 
-**When to use /fix vs /debugging:**
+**When to use /fix:**
 - ✅ Use `/fix` when bug is reproducible and cause is known
-- ❌ Use `/debugging` first when root cause is unclear or bug is hard to reproduce
+- ⚠️ For complex bugs (unclear cause, hard to reproduce): Investigate using debugging protocol (see docs/technical/debugging.md) before running /fix
 
 ---
 
@@ -63,16 +63,16 @@ Bug fixes are not just code changes — they're opportunities to prevent entire 
 - Simple fixes (typo, logic error, missing validation)
 
 ❌ **Don't use /fix for:**
-- Complex bugs with unclear cause → use `/debugging` first
-- Bugs that can't be reproduced → investigate with `/debugging`
+- Complex bugs with unclear cause → investigate first (see docs/technical/debugging.md)
+- Bugs that can't be reproduced → investigate with debugging protocol
 - "Bugs" that might be feature requests → clarify with user first
 
-**Relationship to /debugging:**
+**Relationship to debugging:**
 ```
 Bug reported
 │
 ├─ Simple (known cause) → /fix directly
-└─ Complex (unknown cause) → /debugging → /fix
+└─ Complex (unknown cause) → Investigate (debugging.md) → /fix
 ```
 
 ---
@@ -306,7 +306,7 @@ resolution: What was fixed  # Added after fix
 ## Relationship to Other Skills
 
 **Before /fix:**
-- `/debugging` - Use first if bug cause is unclear
+- Debugging protocol (docs/technical/debugging.md) - Use first if bug cause is unclear
 
 **After /fix:**
 - `/done` - Mark bug as resolved
