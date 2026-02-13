@@ -6,6 +6,7 @@ reviews:
   architect: null
   alignment: null
 rank: 62500
+type: task
 ---
 
 # P139: E2E Test Cleanup Fails - FK Constraint on point_position_history

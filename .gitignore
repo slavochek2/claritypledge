@@ -70,3 +70,6 @@ global_GEMINI.md
 /*.jpg
 /*.jpeg
 TEST_*.md
+
+# Personal data
+private/personal/

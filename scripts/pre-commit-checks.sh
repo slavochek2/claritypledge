@@ -203,6 +203,20 @@ else
 fi
 echo ""
 
+# 12. Doc links validation (for P142 information architecture)
+echo ">>> Validating doc links..."
+if [ -f "./scripts/validate-doc-links.cjs" ]; then
+    if ./scripts/validate-doc-links.cjs; then
+        echo -e "${GREEN}✓ All doc links valid${NC}"
+    else
+        echo -e "${RED}✗ Broken doc links found${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ Doc link validator not found (expected after P142)${NC}"
+fi
+echo ""
+
 # Summary
 echo "=== SUMMARY ==="
 if [ $ERRORS -gt 0 ]; then

@@ -1,6 +1,6 @@
 ---
 status: in-progress
-type: infrastructure
+type: task
 milestone: C1
 created: 2026-02-09T00:00:00.000Z
 prepped_date: null

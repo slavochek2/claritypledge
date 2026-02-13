@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 milestone: foundation
 tags:
@@ -7,12 +7,12 @@ tags:
   - documentation
   - strategic-planning
   - agent-optimization
-prepped_date: '2026-02-12'
+prepped_date: '2026-02-13'
 reviews:
-  ux: passed-with-notes
-  architect: passed-with-notes
-  alignment: passed-with-notes
-rank: 12
+  ux: passed
+  architect: passed
+  alignment: passed
+rank: 125001
 ---
 
 # P142: Information Architecture Restructure — Separate Tracks/Hypotheses/Experiments/Outcomes/Milestones
@@ -318,7 +318,54 @@ This creates a queryable graph:
 
 ## Execution Plan
 
-### Phase 1: Create folder structure + category definition files (2-3 hours)
+### Phase 0: Pre-Migration Audit + Definitions Update (2-3 hours) — NEW
+
+**Tasks:**
+1. **Update `docs/definitions.md` FIRST:**
+   - Add canonical definitions for: Track, Milestone (new definition), Hypothesis, Experiment, Outcome
+   - Include distinction table (Track vs Milestone vs Hypothesis vs Experiment vs Outcome)
+   - Update existing "Milestone" references in related docs section
+   - **Why first:** Agents and humans need canonical terms before restructure
+
+2. **Comprehensive reference scan:**
+   ```bash
+   # Find ALL references to milestones/ folder
+   grep -r "docs/milestones/" . --exclude-dir={node_modules,.git,dist}
+
+   # Find ALL references to old milestone names (M1-M12, MA-MC)
+   grep -r "M[0-9]\|M1[0-2]\|MA\|MB\|MC" docs/ .claude/ scripts/ tools/
+
+   # Count features with milestone: field
+   grep -h "^milestone:" features/**/*.md | wc -l
+   ```
+
+3. **Update skills BEFORE moving files:**
+   - `.claude/commands/slava/build/quick-feature/` → handle new track structure
+   - `.claude/commands/slava/build/create-prd/` → reference new structure
+   - Any other skills referencing `docs/milestones/`
+
+4. **Update CLAUDE.md references:**
+   - File locations table → new folder paths
+   - Classification guidance → track categories (R/C/E/X/V)
+   - Frontmatter schemas → updated with new structure
+
+5. **Document findings:**
+   - List ALL files to update (expand "Files to Update" section)
+   - Verify validation script exists: `./scripts/validate-doc-links.cjs` ✓ (already created 2026-02-13)
+
+**Success criteria:**
+- [ ] `definitions.md` updated with canonical terms
+- [ ] All milestone references catalogued (docs/, .claude/, scripts/, tools/)
+- [ ] Skills updated to use new structure
+- [ ] CLAUDE.md updated with new paths
+- [ ] Validation script confirmed working
+- [ ] "Files to Update" section expanded with all references found
+
+**Note:** Validation script (`./scripts/validate-doc-links.cjs`) already created and tested (2026-02-13). Added to pre-commit hook.
+
+---
+
+### Phase 1: Create folder structure + category definition files + navigation guide (3-4 hours)
 
 **Tasks:**
 1. Create 5 new directories: `mkdir -p docs/{tracks,hypotheses,experiments,outcomes,milestones}`
@@ -349,10 +396,35 @@ This creates a queryable graph:
      - Resources: ML/AI, transcription, advanced analytics
      - Examples: V1 (Transcription+AI), V2 (Mirror Agents), V3 (Predictive Calibration)
 
+3. **Create HOW-TO-NAVIGATE.md** (human navigation guide):
+   - Maps common questions → file locations
+   - Decision tree: "Start here if you want to understand [X]"
+   - Example workflows: "Understanding C1 strategy" → read these 4 files in this order
+   - Bridges cognitive overhead between humans and AI-optimized structure
+   - **Sample content:**
+     ```markdown
+     # How to Navigate the Strategic Docs
+
+     ## Common Questions
+
+     **"What are we testing right now?"** → `/docs/hypotheses/` (see status: active)
+     **"How are we testing it?"** → `/docs/experiments/` (see status: running)
+     **"What are we measuring?"** → `/docs/outcomes/` (see status: active)
+     **"What are we building?"** → `/docs/tracks/` → look at builds: field
+     **"When did X happen?"** → `/docs/milestones/` (dated achievements)
+
+     ## Understanding a Track (e.g., C1)
+
+     1. Start: `/docs/tracks/c1-stories-live-events.md` (overview + TL;DR)
+     2. Deep dive: Follow links to hypothesis, experiment, outcome files
+     3. Build plan: Check builds: field for feature specs
+     ```
+
 **Success criteria:**
 - [ ] 5 directories created
 - [ ] 5 category definition files written with classification criteria
 - [ ] Each category file includes decision framework + examples
+- [ ] HOW-TO-NAVIGATE.md created with question→file mapping
 
 ---
 
@@ -626,7 +698,19 @@ answers: [oq-6, oq-7]
 
 # C1: Stories + Live + Events (Coaching Foundation)
 
-## Overview
+## TL;DR (Quick Summary)
+
+**Hypothesis:** Stories solve the cold start problem — "verify understanding of THIS story" is clearer than "verify understanding of... something."
+
+**How we test:** 20-user pilot over 4 weeks. Users create stories, verify via /live.
+
+**Success metric:** ≥50% story creation rate, ≥30% verification rate, qualitative feedback: "Stories make /live purposeful."
+
+**Kill signal:** <20% story creation after 4 weeks, or stories don't improve /live sessions.
+
+---
+
+## Deep Dive (Full Details)
 
 **What we're building:** Story creation (profiles) + /live verification (beginning screen) + event rooms (workshop pairing)
 
@@ -846,41 +930,65 @@ If someone updates one side, who updates the other?
 
 ---
 
-## Prep Notes (2026-02-12)
+## Prep Notes (2026-02-13)
 
-**Reviews:** UX ✓, Architect ✓, Alignment ✓ — All passed with notes
+**Reviews:** UX ✓, Architect ✓, Alignment ✓ — All passed
 
-### Blockers (FIXED 2026-02-12)
+**Status:** READY TO IMPLEMENT
 
-1. ✅ **Phase ordering issue** — FIXED: Swapped Phase 5 and Phase 6. Feature reclassification now happens BEFORE cross-reference updates.
+### Completed Pre-Work (2026-02-13)
 
-2. ✅ **Bidirectional reference sync** — FIXED: Added "Bidirectional Reference Sync Protocol" section documenting manual sync + validation script approach.
+1. ✅ **Validation script created** — `./scripts/validate-doc-links.cjs` built and tested. All tests passed. Integrated into pre-commit hook.
 
-3. ✅ **Terminology inconsistency** — FIXED: Updated spec to consistently use "track" for C1/R1/etc. Reserved "milestone" for dated achievements only.
+2. ✅ **Linking tool analysis** — Evaluated Foam, Marksman, Obsidian. Decision: Keep manual sync + validation script (tools don't support YAML frontmatter).
 
-4. ✅ **Feature reclassification automation** — FIXED: Phase 5 now requires creating `scripts/reclassify-features.ts` (not optional). Includes script specification and validation steps.
+3. ✅ **Simplification decisions** — Reviewed all architectural decisions. V-track will be created, all 11 tracks migrated together, single PRD (no split).
 
-### Key Suggestions
+### Implementation Decisions (2026-02-13)
 
-- **Timeline reality check:** Realistic estimate is 24-32 hours (not 12-19). Consider splitting into P142a (foundation + C1/R1 + checkpoint) and P142b (full migration).
+**Confirmed:**
+- Create V-track during migration (not deferred)
+- Migrate all 11 tracks in one session (no P142a/P142b split)
+- Manual bidirectional sync + validation script (no specialized tools)
+- Timeline: 20-28 hours (realistic estimate with Phase 0)
 
-- **Add checkpoint after Phase 3:** Extract C1 (or C1+R1), review with founder, verify structure feels clearer BEFORE migrating remaining tracks.
+**To Add:**
+- Phase 0: Pre-migration audit + definitions.md update (2-3 hours)
+- HOW-TO-NAVIGATE.md in Phase 1 (30-60 min)
+- Inline TL;DR in track file template (preserves narrative)
 
-- **Defer V-track creation:** Don't create V1/V2/V3 files until vision work is prioritized. P33/P41 are E-track enhancements, not V-track vision.
+### Blockers (RESOLVED 2026-02-12)
 
-- **Add Phase 0 (pre-migration audit):** Scan entire codebase for milestone references outside `/docs/` (skills, CLAUDE.md, scripts). Update before restructure.
+1. ✅ **Phase ordering** — Feature reclassification (Phase 5) now happens BEFORE cross-reference updates (Phase 6).
 
-- **Git history preservation:** Use two-step commits — first `git mv` files only, second extract content. This preserves `git log --follow`.
+2. ✅ **Bidirectional reference sync** — Manual sync + validation script documented in "Bidirectional Reference Sync Protocol" section.
 
-- **Create validation script:** `./scripts/validate-doc-links.sh` to check frontmatter references resolve + bidirectional links are symmetric.
+3. ✅ **Terminology inconsistency** — Spec uses "track" for C1/R1/etc., "milestone" for dated achievements only.
 
-- **Add HOW-TO-NAVIGATE.md:** Spec optimizes for AI queryability but needs human navigation guide mapping common questions to file locations.
+4. ✅ **Feature reclassification** — Phase 5 requires creating `scripts/reclassify-features.cjs` (follows migrate-to-rank.cjs pattern).
+
+### Key Findings (2026-02-13)
+
+**UX Review:**
+- 5-folder structure creates cognitive overhead for humans — mitigated by HOW-TO-NAVIGATE.md + inline TL;DR
+- Track files should include 1-2 sentence summary before links (don't force 4-file navigation)
+- Validation script prevents manual sync errors
+
+**Architect Review:**
+- Missing Phase 0: Must scan ALL milestone references (docs/, .claude/, scripts/, tools/) before moving files
+- 35 files with references found (not just 4 planned in spec)
+- Validation script already created (2026-02-13) — moves to Phase 0, not Phase 1
+
+**Alignment Review:**
+- BLOCKER: Update `definitions.md` FIRST with Track/Hypothesis/Experiment/Outcome/Milestone canonical definitions
+- P142 reverses P130 (merged → separated for queryability) — document in decisions.md
+- Aligns with scientific method principles in philosophy.md
 
 ### Post-Implementation KDD
 
 After completion, `/kdd` should update:
-- `definitions.md` — Add Track vs Milestone distinction (canonical table)
-- `decisions.md` — Document separation rationale + alternatives rejected
+- `definitions.md` — Add Track/Hypothesis/Experiment/Outcome/Milestone canonical table
+- `decisions.md` — Document P130 reversal rationale + terminology shift
 - `theory-of-change.md` — Point to `/hypotheses/` folder, clarify evidence locations
 - `CLAUDE.md` — Classification decision tree, frontmatter schemas, updated skill references
 - `.claude/commands/slava/build/quick-feature/` — Handle new structure
