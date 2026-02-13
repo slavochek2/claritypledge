@@ -448,7 +448,7 @@ tags: []
 - New features appear at bottom of backlog (expected behavior)
 - Users reorder via kanban drag-and-drop
 
-**CRITICAL:** `milestone` field is REQUIRED for kanban visibility.
+**Milestone field:** OPTIONAL but recommended for kanban visibility.
 
 **Type semantics:**
 - `story` — User-facing value ("As a user, I want X")

@@ -27,7 +27,7 @@ Then increment by 1.
 ```yaml
 ---
 status: week                    # Kanban column placement (REQUIRED)
-type: feature                   # Classification (REQUIRED)
+type: story                     # Classification (REQUIRED)
 rank: 7                         # Sort order (REQUIRED)
 tags: []                        # Searchable keywords (REQUIRED, can be empty)
 ---
@@ -74,13 +74,13 @@ completed_at: '2026-02-04'      # Set when status: done
 **Purpose:** Classifies the work type
 
 **Valid values:**
-- `feature` - User-facing functionality (new capability or enhancement)
+- `story` - User-facing functionality (new capability or enhancement)
 - `bug` - Something broken that needs fixing
 - `task` - Technical work (refactor, infrastructure, tools, documentation)
 - `comment` - Notes, decisions, documentation (not actionable work)
 
 **How to choose:**
-- Delivers user value? → `feature`
+- Delivers user value? → `story`
 - Fixes broken behavior? → `bug`
 - Technical improvement with no user-visible change? → `task`
 - Documentation/notes only? → `comment`
@@ -229,7 +229,7 @@ reviews:
 ```yaml
 ---
 status: week
-type: feature
+type: story
 rank: 7.0
 milestone: C2
 tags: [sifter, csv-export, data-analysis]
