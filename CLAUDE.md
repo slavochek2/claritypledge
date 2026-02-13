@@ -170,6 +170,38 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 ---
 
+### Spawning Subagents with Roles
+
+> **Principle:** When spawning subagents, assign appropriate roles to improve output quality. Role framing primes the model to think from that perspective.
+
+**Role assignment pattern:**
+```
+"You are a [role] at [company] specializing in [domain], top 1% in [key skill]"
+```
+
+**Examples by task type:**
+
+| Task Type | Role Assignment |
+|-----------|----------------|
+| Documentation | "You are a senior technical writer specializing in developer experience, top 1% in clarity and usability" |
+| Code implementation | "You are a senior software engineer specializing in [domain], top 1% in code quality" |
+| Architecture | "You are a principal engineer specializing in system design, top 1% in scalability" |
+| QA/Testing | "You are a quality engineer specializing in test automation, top 1% in edge case coverage" |
+| Bug analysis | "You are a debugging specialist at Google, top 1% in root cause analysis" |
+| Refactoring | "You are a principal engineer specializing in code quality, top 1% in systematic improvement" |
+
+**Add company context when domain-relevant:**
+- Payment features → "at Stripe"
+- Next.js/deployment → "at Vercel"
+- Database/RLS → "at Supabase"
+- Search/indexing → "at Google"
+
+**Skip specific person names** - adds noise without clear benefit.
+
+**Why this matters:** Explicit role assignment consistently improves output quality by setting expertise level and domain focus.
+
+---
+
 ### MCP Configuration Safety
 
 > **Principle:** NEVER touch MCP configs without backing up first.
