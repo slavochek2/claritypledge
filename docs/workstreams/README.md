@@ -4,6 +4,16 @@
 
 **Key distinction:** Workstreams are **work streams** (ongoing), not **milestones** (dated achievements). See `/docs/milestones/` for observable achievements.
 
+## Naming Convention
+
+**Workstreams use track-based codes:**
+- **C1, C2, C3** = Coaching track (workstreams 1, 2, 3)
+- **R1, R2** = Recognition track (workstreams 1, 2)
+- **E1, E2** = Enhancement track
+- **X1, X2, X3** = eXploratory track
+
+**These are NOT milestone numbers.** Milestones live in `/docs/milestones/` with date-based names like `2026-02-10-first-essay-published.md` or `planned-recognition-checkpoint.md`.
+
 ---
 
 ## Quick Reference
@@ -15,7 +25,6 @@
 | **C3** | Paid Workshops | Future | P2 | 6-9 months |
 | **R1** | Essay Writing | Active | P0 | 0-3 months |
 | **R2** | Spec Publishing | Future | P1 | 3-6 months |
-| **R3** | Recognition Checkpoint | Future | P1 | 6-12 months |
 | **E1** | Points + AI Stories | Future | P2 | 6-12 months |
 | **E2** | Scale + Partners + Async | Future | P2 | 9-15 months |
 | **X1** | Asymmetric Conversion | Future | P3 | 18-24 months |
@@ -31,7 +40,7 @@ Five workstream categories (C/R/E/X/V) organize work by purpose and timeline:
 | Category | Name | Purpose | Time Horizon | Examples |
 |----------|------|---------|--------------|----------|
 | **C** | Coaching | Workshop revenue, validation | 0-6 months | C1, C2, C3 |
-| **R** | Recognition | Thought leadership, positioning | 3-12 months | R1, R2, R3 |
+| **R** | Recognition | Thought leadership, positioning | 3-12 months | R1, R2 |
 | **E** | Enhancement | Product improvements | 3-9 months | E1, E2 |
 | **X** | Exploratory | Ideas requiring scale | 12-24 months | X1, X2, X3 |
 | **V** | Vision | Far-future capabilities | 24+ months | (none yet) |
