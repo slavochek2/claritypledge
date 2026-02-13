@@ -1,23 +1,24 @@
 ---
 name: create-prd
-description: Generate comprehensive PRD with business requirements, technical analysis, implementation plan, and test coverage
+description: Generate business requirements layer (WHY, intent, outcomes, user stories, JTBD)
 when_to_use: Starting any new feature (P0-P3), major bug requiring analysis, or technical task needing planning
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Create PRD
 
-**Generate a comprehensive Product Requirements Document from a problem statement.**
+**Generate the business requirements layer from a problem statement.**
 
-Produces a complete PRD with:
-- Business requirements (WHY, intent, outcomes)
-- Technical analysis (current code state)
-- Technical requirements (implementation approach)
-- UX requirements (if UI work)
-- Verification requirements (unit + E2E tests with templates)
-- User stories (if large, split into testable pieces)
+Produces business requirements ONLY:
+- Problem statement
+- Intention (why this matters)
+- Business requirements (what solution must achieve)
+- User stories (atomic, testable)
+- Jobs to be done (explicit extraction)
+- Outcomes (measurable success metrics)
+- Acceptance criteria (business-level, not technical)
 
-**Announce at start:** "I'm using the create-prd skill to generate a comprehensive PRD."
+**Announce at start:** "I'm using the create-prd skill to generate business requirements."
 
 ---
 
@@ -37,9 +38,9 @@ Or with existing draft:
 ## When to Use
 
 ✅ **Use create-prd for:**
-- Any new feature (P0-P3)
-- Major bugs requiring root cause analysis
-- Technical tasks needing implementation planning
+- Any new feature (P0-P3) requiring business requirements
+- Major bugs needing problem analysis
+- Technical tasks needing business justification
 - Features with unclear scope (agent will clarify)
 
 ❌ **Don't use for:**
@@ -47,47 +48,49 @@ Or with existing draft:
 - Research notes (use `features/drafts/`)
 - Simple typo fixes
 
+**Next steps after create-prd:**
+- Run `/ux` for UX design layer (if UI feature)
+- Run `/architect` for technical architecture layer
+- Run `/generate-tests` for test automation
+- Run `/dev` for implementation
+
 ---
 
 ## What It Generates
 
+### Problem Statement
+- **Current state:** What exists today
+- **Pain points:** What's broken or missing
+- **Who's affected:** Target users
+
+### Intention (Why This Matters)
+- **Strategic importance:** Why this matters to business
+- **Why now:** Urgency, timing
+- **Impact if not solved:** Cost of inaction
+
 ### Business Requirements
-- **Intent:** WHY we're building this
-- **Motivation:** What problem exists today
-- **Outcomes:** What success looks like (measurable)
-- **Business requirements:** Must-haves for business value
-- **User impact:** How this affects users
+- **Must-haves:** What solution MUST achieve for business value
+- **Success conditions:** How we know it worked
+- **Constraints:** What we can't change
 
-### Technical Analysis
-- **Current state:** What code exists, how it works
-- **Dependencies:** What this touches
-- **Related systems:** How it integrates
-- **Files involved:** Specific paths
+### User Stories
+- **Atomic:** Each story independently deliverable
+- **Testable:** Clear acceptance criteria
+- **Format:** As a [user], I want [goal], so that [benefit]
 
-### Technical Requirements
-- **Implementation approach:** How we'll build it
-- **Architecture decisions:** Key choices and trade-offs
-- **Files to change:** Concrete file paths + what changes
-- **Phases:** If complex, break into phases with gates
+### Jobs to Be Done
+- **Explicit extraction:** When [situation], I want [motivation], so I can [outcome]
+- **Focus on motivation:** WHY user wants this, not HOW we build it
 
-### UX Requirements (if UI work)
-- **User flows:** Step-by-step interactions
-- **Edge cases:** Error states, loading states, empty states
-- **Accessibility:** Screen reader support, keyboard navigation
-- **Responsive design:** Mobile, tablet, desktop
+### Outcomes (Success Metrics)
+- **Measurable:** Time savings, quality improvements, user satisfaction
+- **Specific:** Not "better UX" but "reduce clicks from 5 to 2"
+- **Observable:** Can verify after shipping
 
-### Verification Requirements
-- **Business verification:** How to confirm outcomes achieved
-- **Technical verification:** How to confirm implementation correct
-- **Design verification:** How to confirm UX is good
-- **Unit tests:** What to test at unit level
-- **E2E tests:** Actual test templates with Given/When/Then
-- **Test all happy paths:** Every user journey tested
-
-### User Stories (if applicable)
-- If feature is large, split into smaller testable pieces
-- Each story independently deliverable
-- Each story has acceptance criteria + tests
+### Acceptance Criteria
+- **Business-level only:** User can do X, system achieves Y outcome
+- **NO technical details:** No file paths, architecture decisions, implementation approach
+- **Format:** Checkbox list for verification
 
 ---
 
@@ -98,47 +101,52 @@ Or with existing draft:
        ↓
 2. CLARIFY → Agent asks business questions
        ↓
-3. ANALYZE → Agent explores current code
+3. GENERATE → Agent creates business layer
        ↓
-4. GENERATE → Agent creates all sections
+4. SELF-REVIEW → Agent checks completeness
        ↓
-5. SELF-REVIEW → Agent checks completeness
+5. RETURN → Business requirements ready for user review
        ↓
-6. RETURN → Complete PRD ready for implementation
+6. USER REVIEWS → Approve or request changes
+       ↓
+7. NEXT STEP → Run /ux (if UI) or /architect (if backend)
 ```
 
 ---
 
 ## Agent Behavior
 
-The PRD Creator agent is **adaptive** - it decides what sections are needed:
+The PRD Creator agent focuses on **business requirements only**:
 
-| Feature Type | Sections Generated |
-|--------------|-------------------|
-| **UI feature** | Business + Technical Analysis + Technical Reqs + **UX** + Verification |
-| **Data migration** | Business + Technical Analysis + Technical Reqs + **Migration Scripts** + Verification |
-| **Refactor** | ~~Business~~ + Technical Analysis + Technical Reqs + Verification |
-| **Bug fix** | Business + Technical Analysis + **Root Cause** + Resolution + Verification |
-| **API endpoint** | Business + Technical Analysis + Technical Reqs + **API spec** + Verification |
+| Feature Type | Business Layer Sections |
+|--------------|------------------------|
+| **UI feature** | Problem + Intention + Business Reqs + User Stories + JTBD + Outcomes + Acceptance Criteria |
+| **Data migration** | Same (business justification, user impact) |
+| **Refactor** | Same (business value, technical debt cost) |
+| **Bug fix** | Same (problem statement, user impact, success criteria) |
+| **API endpoint** | Same (API consumer needs, business value) |
 
-**Adaptive sections:**
-- UX (if user-facing UI)
-- Migration scripts (if data transformation)
-- API spec (if backend endpoint)
-- Root cause analysis (if bug)
+**Consistent across all types:**
+- Always generates: Problem, Intention, Business Requirements, User Stories, JTBD, Outcomes, Acceptance Criteria
+- Never generates: Technical details, UX design, implementation approach, test templates
+- Next steps clearly documented: Which skill to run next (`/ux`, `/architect`, etc.)
 
 ---
 
 ## Quality Gates (Agent Self-Review)
 
 Before returning, agent verifies:
-- [ ] Business WHY is clear (not just "what")
-- [ ] Technical analysis explores current code (not assumptions)
-- [ ] Implementation approach is concrete (file paths, not vague)
-- [ ] Verification paths exist (how to confirm it works)
-- [ ] Test requirements specified (E2E test templates)
-- [ ] UX section present (if UI work)
-- [ ] Edge cases considered (not just happy path)
+- [ ] Problem statement is clear (current state, pain points, who's affected)
+- [ ] Intention explains WHY this matters (strategic importance, urgency)
+- [ ] Business requirements are concrete (must-haves for business value)
+- [ ] User stories are atomic and testable (independently deliverable)
+- [ ] Jobs to be done explicitly extracted (motivation focus, not implementation)
+- [ ] Outcomes are measurable (specific metrics, not vague goals)
+- [ ] Acceptance criteria are business-level only (no technical details)
+- [ ] NO technical analysis included (no file paths, architecture, implementation)
+- [ ] NO UX design included (no flows, screens, interactions)
+- [ ] NO test templates included (no E2E, unit test stubs)
+- [ ] Next steps documented (which skill to run next)
 - [ ] Uncertainties flagged (if agent unsure, it says so)
 
 **If any gate fails:** Agent flags what's missing and asks user for clarification.
@@ -164,160 +172,145 @@ tags: [export, csv, sifter]
 
 # P142: Export Sifter Responses as CSV
 
+## Problem Statement
+
+**Current state:** Users complete sifter exercises and view responses in-app only. No way to export or analyze responses offline.
+
+**Pain points:**
+- Can't track progress over time in spreadsheet tools
+- Can't share responses with coaches for review
+- Can't analyze patterns across multiple sifter sessions
+- Limited to in-app viewing only
+
+**Who's affected:** Users who want to track calibration progress over time, users working with coaches
+
+---
+
+## Intention (Why This Matters)
+
+**Strategic importance:** Enables coaches to work with users by reviewing their calibration data. Supports long-term habit formation by allowing users to track progress in their preferred tools.
+
+**Why now:** Coaches have been asking for this feature. Early adopters want to analyze patterns before we build in-app analytics (C3 milestone).
+
+**Impact if not solved:** Users can't work with coaches effectively. Limits product to solo users, blocks coach market segment.
+
+---
+
 ## Business Requirements
 
-**Intent:** Allow users to analyze sifter responses in spreadsheet tools
-
-**Motivation:** Users currently can only view responses in-app. They want to:
-- Track progress over time in Excel/Sheets
-- Share responses with coaches
-- Analyze patterns across multiple sifters
-
-**Outcomes:**
+**Must-haves:**
 - Users can export all responses for a sifter session
+- Export format: CSV (compatible with Excel, Google Sheets)
 - Export includes: question, response, timestamp, calibration score
-- Format: CSV (compatible with Excel, Google Sheets)
-
-**Business Requirements:**
-- Export button on sifter results page
 - File name: `sifter_responses_YYYY-MM-DD.csv`
-- Includes metadata: sifter type, date, user ID
+- Only user's own responses (no access to others' data)
 
-**User Impact:** Enables offline analysis, sharing with coaches
+**Success conditions:**
+- Users can open exported CSV in Excel/Sheets without errors
+- Exported data matches what's shown in-app
+- Feature works on mobile and desktop
 
----
-
-## Technical Analysis
-
-**Current State:**
-- Sifter responses stored in `responses` table (Supabase)
-- Results page: `src/app/sifter/[id]/results/page.tsx`
-- Response fetching: `src/lib/supabase/queries/responses.ts`
-
-**Dependencies:**
-- Supabase query (already exists)
-- CSV library (need to install)
-- Browser download API (built-in)
-
-**Related Systems:**
-- Authentication (only export own responses)
-- RLS policies (verify user can access responses)
+**Constraints:**
+- Must respect RLS policies (users can only export their own data)
+- Must not slow down results page load time
 
 ---
 
-## Technical Requirements
+## User Stories
 
-**Implementation Approach:**
-1. Add "Export CSV" button to results page
-2. Fetch all responses for sifter session
-3. Transform to CSV format (headers + rows)
-4. Trigger browser download
+**As a user tracking calibration progress:**
+- I want to export my sifter responses as CSV, so I can track progress over time in Excel
+- I want the export to include all response data (question, answer, timestamp, score), so I have complete history
+- I want the file name to include the date, so I can organize multiple exports
 
-**Architecture Decisions:**
-- Client-side CSV generation (no server endpoint needed)
-- Use `papaparse` library (lightweight, well-tested)
-- Browser download via blob URL + `<a download>`
+**As a user working with a coach:**
+- I want to export my responses, so I can share them with my coach for review
+- I want the export format to be standard CSV, so my coach can open it in any spreadsheet tool
 
-**Files to Change:**
-1. `src/app/sifter/[id]/results/page.tsx` (add button, export logic)
-2. `package.json` (add papaparse dependency)
-3. `src/lib/csv/export.ts` (NEW - export utility)
-
-**Phases:** Single phase (simple feature)
+**As a mobile user:**
+- I want the export button visible on mobile, so I can export on any device
+- I want export to work on mobile browsers, so I'm not limited to desktop
 
 ---
 
-## UX Requirements
+## Jobs to Be Done
 
-**User Flow:**
-1. User completes sifter → navigates to results page
-2. User clicks "Export CSV" button
-3. Browser downloads `sifter_responses_2026-02-12.csv`
-4. User opens in Excel/Sheets
+**When I complete a sifter session:**
+- I want confidence my responses are exportable, so I can analyze them later (motivation: progress tracking)
 
-**Edge Cases:**
-- No responses yet → Disable export button, show tooltip "No responses to export"
-- Export fails → Show error toast "Export failed. Try again."
-- Large dataset (100+ responses) → Show loading spinner during generation
+**When preparing for a coaching session:**
+- I want to quickly export recent responses, so I can share calibration data with my coach (motivation: external accountability)
 
-**Accessibility:**
-- Button keyboard accessible (Tab + Enter)
-- Screen reader announces "Export responses as CSV file"
-
-**Responsive Design:**
-- Button visible on mobile (don't hide in overflow menu)
+**When reviewing my calibration journey:**
+- I want to see all historical responses in one spreadsheet, so I can spot patterns over time (motivation: learning from trends)
 
 ---
 
-## Verification Requirements
+## Outcomes (Success Metrics)
 
-**Business Verification:**
-- [ ] User can export responses
-- [ ] CSV opens in Excel without errors
-- [ ] Exported data matches in-app responses
+**Time savings:**
+- Reduce time to share responses with coach from "manual screenshots" (10+ min) to "1-click export" (<30 sec)
 
-**Technical Verification:**
-- [ ] RLS policies enforced (can't export other users' responses)
-- [ ] File name format correct
-- [ ] CSV headers correct
+**Quality improvements:**
+- Enable coach-guided calibration practice (new capability)
+- Enable longitudinal progress tracking (new capability)
 
-**E2E Tests:**
-
-**File:** `e2e/sifter-csv-export.spec.ts`
-
-```typescript
-test('exports sifter responses as CSV', async ({ page }) => {
-  // Setup: Complete sifter with 3 responses
-  // Navigate to results page
-  // Click "Export CSV" button
-  // Expected: CSV file downloads
-  // Verify: File contains 3 rows + header
-});
-
-test('disables export when no responses', async ({ page }) => {
-  // Setup: Sifter with 0 responses
-  // Navigate to results page
-  // Expected: Export button disabled
-  // Verify: Tooltip shows "No responses to export"
-});
-
-test('handles export error gracefully', async ({ page }) => {
-  // Setup: Mock CSV generation failure
-  // Click export button
-  // Expected: Error toast appears
-  // Verify: Button re-enabled after error
-});
-```
-
-**Happy Paths to Test:**
-- ✅ Export with responses → CSV downloads
-- ✅ Open CSV in Excel → Data correct
-- ✅ Export with 0 responses → Button disabled
+**User satisfaction:**
+- Users can work with coaches (unblocks coach market segment)
+- Users have data portability (own their calibration data)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Export button visible on results page
-- [ ] Clicking button downloads CSV file
+**Business-level criteria:**
+- [ ] User can export sifter responses from results page
+- [ ] Exported CSV opens in Excel/Google Sheets without errors
 - [ ] CSV contains: question, response, timestamp, calibration score
-- [ ] File name: `sifter_responses_YYYY-MM-DD.csv`
-- [ ] Button disabled when no responses
-- [ ] Error handling for failed exports
-- [ ] E2E tests passing (3 scenarios)
-- [ ] Accessible (keyboard, screen reader)
+- [ ] File name format: `sifter_responses_YYYY-MM-DD.csv`
+- [ ] Export only includes user's own responses (RLS enforced)
+- [ ] Feature works on mobile and desktop browsers
+- [ ] Export button disabled when no responses exist
+- [ ] Error handling for failed exports (user sees friendly error message)
+
+---
+
+## Next Steps
+
+**After user approves business requirements:**
+1. Run `/ux features/p142_export_csv.md` to design user flows and interactions
+2. Run `/architect features/p142_export_csv.md` to design technical implementation
+3. Run `/generate-tests features/p142_export_csv.md` to create test automation
+4. Run `/dev features/p142_export_csv.md` to implement feature
 ```
 
 ---
 
 ## After PRD Generation
 
-**Next steps:**
-1. **Review PRD** - User confirms scope, approach
-2. **Run `/prep-spec`** (optional) - 3-agent review for P0/P1 features
-3. **Implement** - Run `/dev features/p142_export_csv.md`
-4. **Verify** - Run E2E tests, confirm acceptance criteria
-5. **Ship** - Run `/done` to mark complete
+**Sequential workflow with review gates:**
+
+1. **Review business requirements** - User confirms problem, intention, outcomes
+   - Approve → Proceed to step 2
+   - Request changes → Agent revises business layer
+
+2. **Run `/ux`** (if UI feature) - Generate UX design layer
+   - Agent designs: User flows, screens, interactions, edge cases, accessibility
+   - User reviews UX → Approve or request changes
+
+3. **Run `/architect`** - Generate technical architecture layer
+   - Agent designs: Technical analysis, architecture decisions, security review, implementation approach
+   - User reviews technical → Approve or request changes
+
+4. **Run `/generate-tests`** - Generate test automation
+   - Agent generates: UAT scenarios, E2E test stubs, smoke tests
+   - No user review needed (automated from approved layers)
+
+5. **Run `/dev`** - Implement feature
+   - Agent implements, runs tests, iterates until pass
+   - User validates UX only (not functionality)
+
+6. **Ship** - Run `/done` to mark complete
 
 ---
 
@@ -325,26 +318,112 @@ test('handles export error gracefully', async ({ page }) => {
 
 | Aspect | /quick-feature | /create-prd |
 |--------|----------------|-------------|
-| **Output** | Skeleton only | Complete PRD |
-| **Business requirements** | ❌ Empty | ✅ Generated (WHY, outcomes) |
-| **Technical analysis** | ❌ Empty | ✅ Generated (current code) |
-| **Implementation plan** | ❌ "To be filled in" | ✅ Concrete (file paths) |
-| **Test requirements** | ❌ "How to verify" | ✅ E2E test templates |
-| **Time to complete** | 30 seconds | 3-5 minutes |
-| **When to use** | Quick placeholder | Ready to implement |
+| **Output** | Skeleton only | Business requirements layer |
+| **Business requirements** | ❌ Empty | ✅ Generated (problem, intention, outcomes, JTBD) |
+| **UX design** | ❌ Empty | ❌ Empty (use `/ux` after) |
+| **Technical analysis** | ❌ Empty | ❌ Empty (use `/architect` after) |
+| **Test requirements** | ❌ Empty | ❌ Empty (use `/generate-tests` after) |
+| **Time to complete** | 30 seconds | 2-3 minutes |
+| **When to use** | Quick placeholder | Structured business analysis |
 
 **Rule of thumb:**
 - Use `/quick-feature` for quick skeleton (you'll fill in manually)
-- Use `/create-prd` for comprehensive PRD (agent fills in for you)
+- Use `/create-prd` for structured business requirements (agent generates WHY layer)
+- Use new sequential flow (`/create-prd` → `/ux` → `/architect` → `/generate-tests` → `/dev`) for complete feature development
 
 ---
 
 ## Related Skills
 
-- `/prep-spec` - Review PRD before implementation (UX, Architect, Alignment)
-- `/dev` - Implement the PRD with TDD
+**Sequential flow (recommended):**
+- `/ux` - Generate UX design layer (user flows, screens, interactions)
+- `/architect` - Generate technical architecture layer (implementation approach, security)
+- `/generate-tests` - Generate test automation (UAT, E2E stubs, smoke tests)
+- `/dev` - Implement the feature with test-driven development
+
+**Other related:**
 - `/done` - Mark feature complete
 - `/kdd` - Capture knowledge after implementation
+- `/quick-feature` - Quick skeleton (alternative to `/create-prd`)
+
+**Deprecated:**
+- `/prep-spec` - Old 3-agent review (replaced by `/ux` + `/architect` sequential flow)
+
+---
+
+## Implementation
+
+When invoked, this skill spawns a general-purpose agent with the following directive:
+
+```
+You are a PRD Creator agent. Your job is to generate the BUSINESS REQUIREMENTS layer only from the user's problem statement.
+
+Read the problem statement: {user_input}
+
+Generate a complete business requirements spec covering:
+
+1. **Problem Statement**
+   - Current state: What exists today
+   - Pain points: What's broken or missing
+   - Who's affected: Target users
+
+2. **Intention (Why This Matters)**
+   - Strategic importance: Why this matters to business
+   - Why now: Urgency, timing
+   - Impact if not solved: Cost of inaction
+
+3. **Business Requirements**
+   - Must-haves: What solution MUST achieve for business value
+   - Success conditions: How we know it worked
+   - Constraints: What we can't change
+
+4. **User Stories**
+   - Format: As a [user], I want [goal], so that [benefit]
+   - Make atomic (independently deliverable)
+   - Make testable (clear success criteria)
+
+5. **Jobs to Be Done**
+   - Format: When [situation], I want [motivation], so I can [outcome]
+   - Focus on WHY user wants this (motivation), not HOW we build it
+
+6. **Outcomes (Success Metrics)**
+   - Measurable: Time savings, quality improvements, user satisfaction
+   - Specific: Not "better UX" but "reduce clicks from 5 to 2"
+   - Observable: Can verify after shipping
+
+7. **Acceptance Criteria**
+   - Business-level only: User can do X, system achieves Y outcome
+   - NO technical details: No file paths, architecture decisions, implementation approach
+   - Format: Checkbox list for verification
+
+**Critical constraints:**
+- Generate BUSINESS layer only (Problem, Intention, Business Requirements, User Stories, JTBD, Outcomes, Acceptance Criteria)
+- DO NOT include: Technical analysis, UX design, architecture decisions, test templates, implementation details
+- If scope is unclear, ask clarifying questions about business requirements (not technical approach)
+- Flag uncertainties: If you're unsure about business requirements, say so explicitly
+
+**Next steps to document:**
+After generating business requirements, tell user which skill to run next:
+- For UI features → Run /ux next
+- For backend features → Skip /ux, run /architect next
+
+**Self-review before returning:**
+- [ ] Problem statement is clear (current state, pain points, who's affected)
+- [ ] Intention explains WHY this matters (strategic importance, urgency)
+- [ ] Business requirements are concrete (must-haves for business value)
+- [ ] User stories are atomic and testable
+- [ ] Jobs to be done explicitly extracted (motivation focus)
+- [ ] Outcomes are measurable (specific metrics)
+- [ ] Acceptance criteria are business-level only (no technical details)
+- [ ] NO technical analysis included
+- [ ] NO UX design included
+- [ ] NO test templates included
+- [ ] Next steps documented
+
+If spec already exists at {spec_file}, read it first and extend the Business layer. Do NOT modify existing UX or Technical sections.
+
+Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, type, priority, tags).
+```
 
 ---
 

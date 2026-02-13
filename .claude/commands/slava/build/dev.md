@@ -6,11 +6,24 @@ Execute a development task with TDD discipline and production thinking.
 
 ## Usage
 
+**Standard mode (with spec):**
 ```bash
-/dev fix the login button
-/dev features/p99.md
-/dev refactor the auth module
+/dev features/p99.md           # Implement feature from spec
+/dev refactor the auth module  # With inline description
 ```
+
+**Quick-fix mode (P0 bugs only):**
+```bash
+/dev "Fix login on Safari" --quick
+```
+
+**Quick-fix mode:**
+- Skips spec generation (creates minimal spec inline)
+- Creates basic E2E test
+stubs
+- Implements fix
+- Runs tests
+- **Use ONLY for P0 emergencies** (production down, critical bug)
 
 ---
 
@@ -44,12 +57,195 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
-1. **Understand** — Read spec, find `[ ]` tasks (skip `[x]` done)
-2. **TDD** — For each task: test → implement → verify
-3. **Skeptic check** — What could break? What did I assume?
-4. **Mark** — Change `[ ]` to `[x]` after task passes
-5. **Check** — Run `./scripts/pre-commit-checks.sh`
-6. **Done** — Report results
+1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
+2. **Understand** — Read spec, find `[ ]` tasks (skip `[x]` done)
+3. **Implement** — Feature code + fill in test stubs
+4. **Run tests** — Execute test suite, check results
+5. **Iterate** — Fix code until ALL tests pass (max 5 attempts)
+6. **Skeptic check** — What could break? What did I assume?
+7. **Mark** — Change `[ ]` to `[x]` after task passes
+8. **Check** — Run `./scripts/pre-commit-checks.sh`
+9. **Commit** — Only if ALL tests pass
+10. **Done** — Report results
+
+---
+
+## Test-Driven Workflow
+
+/dev follows strict test-driven development:
+
+```
+1. READ TESTS → Agent reads UAT, E2E stubs, acceptance criteria
+     ↓
+2. IMPLEMENT → Agent writes feature code + fills in test stubs
+     ↓
+3. RUN TESTS → Agent executes: npm test && npm run test:e2e
+     ↓
+4. ANALYZE → Agent checks results (how many pass/fail)
+     ↓
+5. ITERATE → If failures, agent fixes code and re-runs (step 3)
+     ↓
+6. COMMIT → Only when ALL tests pass ✅
+```
+
+**Why this matters:**
+- User validates UX only (not functionality)
+- Bugs caught during implementation (not after)
+- Regression tests prevent "fix breaks something else"
+- Manual testing time: 20 min → 5 min per feature
+
+---
+
+## Pre-Implementation: Read Tests
+
+Before implementing ANY feature, agent MUST read:
+
+1. **UAT scenarios** — `features/uat/pN.md`
+   - Given/When/Then test scenarios
+   - Acceptance criteria verification
+   - Edge cases to handle
+
+2. **E2E test stubs** — `e2e/pN-*.spec.ts`
+   - Test structure and expectations
+   - TODO stubs to fill in
+   - Integration test scenarios
+
+3. **Acceptance criteria** — From feature spec
+   - Business requirements
+   - Success metrics
+   - Definition of done
+
+**Example:**
+```bash
+# Read UAT file
+features/uat/p142.md
+
+# Read E2E test stubs
+e2e/p142-export-csv.spec.ts
+e2e/p142-smoke.spec.ts
+```
+
+**Agent reports:** "Found 3 acceptance criteria, 2 E2E test files, 4 test scenarios."
+
+---
+
+## Implementation: Feature + Tests
+
+Agent implements TWO things in parallel:
+
+### 1. Feature Code
+- Follows technical requirements from spec
+- Implements business logic
+- Follows code style (React 19, TypeScript, Tailwind)
+- Handles edge cases from UAT
+
+### 2. Test Implementation
+- **Fills in E2E test stubs** — Replace `// TODO: implement test` with actual test code
+- **Creates unit tests** — If needed for complex logic
+- **Verifies test structure** — Tests match acceptance criteria
+
+**Example:**
+```typescript
+// BEFORE (stub):
+test('should export CSV when clicking export button', async ({ page }) => {
+  // TODO: implement test
+});
+
+// AFTER (implemented):
+test('should export CSV when clicking export button', async ({ page }) => {
+  await setTestSession(page, testUser.email);
+  await page.goto('/sifter/123/results');
+
+  const exportButton = page.getByRole('button', { name: /export/i });
+  await exportButton.click();
+
+  // Verify CSV download
+  const download = await page.waitForEvent('download');
+  expect(download.suggestedFilename()).toMatch(/responses-.*\.csv/);
+});
+```
+
+---
+
+## Test Execution
+
+**Agent runs tests after implementation:**
+
+```bash
+# Unit tests
+npm test
+
+# E2E tests (specific feature)
+npm run test:e2e -- e2e/p142-*.spec.ts
+
+# All E2E tests
+npm run test:e2e
+```
+
+**Agent interprets results:**
+- ✅ All tests pass → Ready to commit
+- ❌ Some tests fail → Analyze errors, fix code, re-run
+- ⚠️ Tests can't run → Fix test infrastructure first
+
+**Progress reporting:**
+Agent tells user what's happening:
+- "Running tests... 7/10 passing"
+- "Fixing: Login validation missing email check"
+- "Re-running tests... 9/10 passing"
+- "Fixing: Empty state not handling null responses"
+- "All tests pass ✅"
+
+**Iteration limit:**
+- Agent iterates up to 5 times
+- If still failing after 5 iterations, agent reports to user for help
+
+---
+
+## Handling Test Failures
+
+**When tests fail, agent:**
+
+1. **Reads error messages carefully**
+   - What test failed?
+   - What was expected vs actual?
+   - Stack trace (where in code?)
+
+2. **Identifies root cause**
+   - Logic error in feature code?
+   - Edge case not handled?
+   - Test stub incorrectly filled in?
+
+3. **Fixes the CODE (not the test)**
+   - Principle: Tests are the spec, code must match
+   - If test seems wrong, agent flags it to user
+
+4. **Re-runs tests**
+   - Same command: `npm test && npm run test:e2e`
+   - Checks if fix resolved the failure
+
+5. **Iterates until pass**
+   - Max 5 iterations
+   - If still failing, reports to user: "Tests still failing after 5 attempts. Error: [details]. Need help debugging."
+
+**Example iteration:**
+
+```
+Iteration 1:
+  Tests: 8/10 passing
+  Failures:
+    - "Export button disabled" test failed
+    - Expected button to be disabled, but it was enabled
+
+  Analysis: Missing check for empty responses array
+  Fix: Add condition: disabled={responses.length === 0}
+
+  Re-running tests...
+
+Iteration 2:
+  Tests: 10/10 passing ✅
+
+  All tests pass. Ready to commit.
+```
 
 ---
 
@@ -67,6 +263,49 @@ You're not just writing code — you're building something that will run in prod
 - Pure refactoring (tests exist)
 - UI-only with no logic
 - Trivial changes (typos)
+
+---
+
+## Agent Behavior
+
+The dev agent:
+
+**1. Pre-flight checks:**
+- Reads feature spec (business + UX + technical)
+- Reads UAT scenarios (features/uat/pN.md)
+- Reads E2E test stubs (e2e/pN-*.spec.ts)
+- Reads acceptance criteria
+
+**2. Implementation:**
+- Implements feature code (follows technical requirements)
+- Fills in TODO stubs in E2E test files
+- Creates unit tests if needed
+- Follows code style (React 19, TypeScript, Tailwind)
+
+**3. Test execution:**
+- Runs: `npm test && npm run test:e2e`
+- Checks: How many pass? How many fail?
+- Reports progress to user
+
+**4. Iteration loop (if tests fail):**
+- Analyzes error messages
+- Identifies root cause
+- Fixes code (NOT the test)
+- Re-runs tests
+- Repeats until ALL tests pass (max 5 iterations)
+
+**5. Commit (only if tests pass):**
+- Runs pre-commit checks
+- Creates commit with descriptive message
+- Reports completion to user
+
+**Self-review checklist:**
+- [ ] Feature code implements all acceptance criteria
+- [ ] E2E test stubs filled in (no TODOs left)
+- [ ] All tests pass (unit + E2E)
+- [ ] No console errors
+- [ ] Code follows style guide
+- [ ] Pre-commit checks pass
 
 ---
 
@@ -102,10 +341,13 @@ Which approach?
 
 **Prod ready. Proud to ship it.**
 
-- Tests pass, pre-commit passes
+- ALL tests pass (unit + E2E + smoke)
+- Pre-commit checks pass
 - It actually works (you tried it)
 - You applied both lenses (sustainability + skeptic)
 - You'd be proud to debug this at 3am
+
+**CRITICAL: Do NOT commit if tests fail.**
 
 If you're hesitating — that's a signal. Fix what's causing it.
 
@@ -128,12 +370,24 @@ After each task passes tests, mark `[x]` in spec file. If interrupted, re-run `/
 
 **Task:** [description]
 
+**Test Results:**
+- Unit tests: [X/Y passing]
+- E2E tests: [X/Y passing]
+- Total: [X/Y passing] ✅
+
 **Test Evidence:**
 [PASTE npm test output]
+[PASTE npm run test:e2e output]
 
 **Files Changed:**
 - src/...
 - src/...
+- e2e/... (tests implemented)
+
+**Test Iteration Log:**
+- Iteration 1: [X/Y passing] - Fixed: [what was fixed]
+- Iteration 2: [X/Y passing] - Fixed: [what was fixed]
+- Final: [X/Y passing] ✅
 
 **Sustainability/Skeptic Notes:**
 - [Any concerns, assumptions, or things to watch]
@@ -143,7 +397,91 @@ After each task passes tests, mark `[x]` in spec file. If interrupted, re-run `/
 
 ---
 
+## Example Usage
+
+### Input
+```
+/dev features/p142_export_csv.md
+```
+
+### Output (with test-driven workflow)
+
+**Step 1: Reading tests**
+```
+Reading feature spec...
+Reading UAT scenarios: features/uat/p142.md
+Reading E2E test stubs: e2e/p142-export-csv.spec.ts, e2e/p142-smoke.spec.ts
+
+Found 3 acceptance criteria, 2 E2E test files, 4 test scenarios.
+```
+
+**Step 2: Implementation**
+```
+Implementing feature:
+  - Created: src/lib/csv/export.ts
+  - Modified: src/app/sifter/[id]/results/page.tsx
+  - Modified: package.json (added papaparse)
+
+Filling in test stubs:
+  - e2e/p142-export-csv.spec.ts (2 tests implemented)
+  - e2e/p142-smoke.spec.ts (1 test implemented)
+```
+
+**Step 3: Running tests**
+```
+Running: npm test && npm run test:e2e
+
+Tests: 9/10 passing
+Failures:
+  - "disables export when no responses" test failed
+  - Expected button disabled, but enabled
+
+Analyzing error...
+```
+
+**Step 4: Iteration**
+```
+Root cause: Missing check for empty responses array
+Fix: Added disabled={responses.length === 0} to ExportButton
+
+Re-running tests...
+
+Tests: 10/10 passing ✅
+```
+
+**Step 5: Commit**
+```
+All tests pass. Running pre-commit checks...
+
+Pre-commit checks pass ✅
+
+Creating commit:
+  feat(sifter): add CSV export for responses
+
+  - Export button on results page
+  - Generates CSV with question, response, timestamp
+  - Disabled when no responses
+  - E2E tests for export and disabled state
+  - Smoke test for page load
+
+  Tests: 10/10 passing
+
+  Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+Committed: abc1234
+```
+
+**Important notes:**
+- Agent NEVER skips tests
+- Agent NEVER commits if tests fail
+- Agent fixes code to match tests (not tests to match code)
+- Agent reports progress so user knows what's happening
+- Agent asks for help if stuck after 5 iterations
+
+---
+
 ## Related
 
 - `/slava:ux` — User experience review
 - `/slava:lean` — Challenge scope, find the MVP
+- `/slava:build:generate-uat` — Generate UAT scenarios and E2E test stubs
