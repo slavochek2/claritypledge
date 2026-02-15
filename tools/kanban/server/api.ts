@@ -296,9 +296,18 @@ app.get('/api/worktrees', (_req, res) => {
 
 // GET /api/features - list all features
 // Query param: ?worktree=/path/to/worktree
+// Query param: ?refresh=true - clear cache before fetching
 app.get('/api/features', async (req, res) => {
   try {
     const worktreePath = req.query.worktree as string | undefined
+    const refresh = req.query.refresh === 'true'
+
+    // Clear cache if refresh requested
+    if (refresh) {
+      const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
+      featuresCacheByWorktree.delete(cacheKey)
+    }
+
     const features = await getCachedFeatures(worktreePath)
     res.json(features)
   } catch {

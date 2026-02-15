@@ -124,9 +124,12 @@ export default function App() {
     return path
   }, [selectedWorktree])
 
-  const fetchFeatures = useCallback(async () => {
+  const fetchFeatures = useCallback(async (refresh = false) => {
     try {
-      const res = await fetch(buildUrl('/api/features'))
+      const url = buildUrl('/api/features')
+      const separator = url.includes('?') ? '&' : '?'
+      const finalUrl = refresh ? `${url}${separator}refresh=true` : url
+      const res = await fetch(finalUrl)
       if (!res.ok) throw new Error('Failed to fetch features')
       const data = await res.json()
       setFeatures(data)
@@ -592,7 +595,7 @@ export default function App() {
 
             {/* Refresh button */}
             <button
-              onClick={() => { setLoading(true); fetchFeatures() }}
+              onClick={() => { setLoading(true); fetchFeatures(true) }}
               title="Refresh"
               style={{
                 display: 'flex',
