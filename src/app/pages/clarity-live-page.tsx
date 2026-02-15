@@ -2318,10 +2318,6 @@ export function ClarityLivePage() {
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Or show them this QR code:
-            </p>
-
             {isFromEvent ? (
               <p className="text-xs text-muted-foreground">
                 • Tapping "Join" on the event page<br />
