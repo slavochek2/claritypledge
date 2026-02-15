@@ -475,7 +475,7 @@ tags: []
 - New features appear at bottom of backlog (expected behavior)
 - Users reorder via kanban drag-and-drop
 
-**CRITICAL:** `workstream` field is REQUIRED for kanban visibility.
+**Kanban visibility:** See [feature-specs.md](docs/technical/feature-specs.md#kanban-visibility-rules) for complete rules.
 
 **Type semantics:**
 - `story` — User-facing value ("As a user, I want X")
