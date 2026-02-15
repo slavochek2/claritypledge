@@ -200,17 +200,47 @@ export function ProfilePageV2() {
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
 
-      // Transform points to PointWithUserPosition
-      const pointsWithData = await Promise.all(
-        createdPoints.map(async (point) => {
-          const pointWithCounts = await pointsService.getPointWithUserPosition(point.id, profile.id);
-          return pointWithCounts;
-        })
-      );
-      const validPoints = pointsWithData.filter((p): p is PointWithUserPosition => p !== null);
+      // P145 FIX: Use batch pattern instead of N+1 queries
+      // BEFORE: 10 points = 10 queries (N+1 anti-pattern)
+      // AFTER: 10 points = 2 queries (batch pattern)
 
-      // P134: Batch query for linked stories (point → stories)
-      if (validPoints.length > 0) {
+      if (createdPoints.length === 0) {
+        setRealPoints([]);
+      } else {
+        const pointIds = createdPoints.map(p => p.id);
+
+        // Batch fetch position data (2 queries total)
+        const [counts, positions] = await Promise.all([
+          pointsService.getPositionCountsForPoints(pointIds),
+          pointsService.getMyPositionsForPoints(pointIds, profile.id),
+        ]);
+
+        // Merge batch data into PointWithUserPosition format
+        const pointsWithData: PointWithUserPosition[] = createdPoints.map(point => {
+          const positionCounts = counts.get(point.id) || {
+            strongly_agree: 0,
+            agree: 0,
+            somewhat_agree: 0,
+            unsure: 0,
+            somewhat_disagree: 0,
+            disagree: 0,
+            strongly_disagree: 0,
+          };
+
+          const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
+
+          return {
+            ...point,
+            positionCounts,
+            totalPositions,
+            userPosition: positions.get(point.id),
+          };
+        });
+
+        const validPoints = pointsWithData;
+
+        // P134: Batch query for linked stories (point → stories)
+        if (validPoints.length > 0) {
         const pointIds = validPoints.map(p => p.id);
         const { data: pointLinks } = await supabase
           .from('story_points')
@@ -290,10 +320,11 @@ export function ProfilePageV2() {
           };
         });
 
-        setRealPoints(adaptedPoints);
-      } else {
-        setRealPoints(validPoints);
-      }
+          setRealPoints(adaptedPoints);
+        } else {
+          setRealPoints(validPoints);
+        }
+      } // End of else (createdPoints.length > 0)
     }).catch(err => {
       console.error('Failed to load profile data:', err);
     });
