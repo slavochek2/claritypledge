@@ -65,6 +65,115 @@ related_key_results: []
 
 ---
 
+## The Strategy: Two Brands
+
+| Brand | Purpose | Revenue |
+|-------|---------|---------|
+| **ClarityPledge** | Movement (pledge, methodology, community) | Free / future platform revenue |
+| **Slava Coaching** | Personal consulting business | Paid coaching sessions |
+
+**Why separate:** The movement shouldn't be monetized directly. Coaching is Slava's personal business.
+
+**How they link:**
+- ClarityPledge `/about` mentions Slava as founder → links to coaching
+- Slava Coaching mentions "Founder of ClarityPledge" → credibility
+
+---
+
+## The Funnel: Events → Coaching
+
+**Key insight:** Events are the marketing. The coaching page is just a landing spot.
+
+```
+Events (free/donation)
+  ↓
+Attendees experience the method
+  ↓
+Small pitch at end ("Want to go deeper?")
+  ↓
+Some book Slava Coaching (paid sessions)
+```
+
+**This is a virtuous loop:**
+- Events validate ClarityPledge (H2)
+- Events generate coaching clients
+- Coaching funds more events
+- More events = more validation + more clients
+
+---
+
+## Event Format
+
+**Co-organized event (Zoom/Meet), 60-90 minutes**
+
+| Step | Time | What Happens |
+|------|------|--------------|
+| 1. Welcome + context | 10 min | Why calibrated listening matters |
+| 2. Teach protocol | 10 min | Explain-back protocol theory |
+| 3. Demo /live | 15 min | Share idea, someone plays back, show the gap |
+| 4. Participants pair up | 20 min | They verify each other, experience their own gap |
+| 5. Debrief | 15 min | What did you notice? How does this compare? |
+| 6. Observe WTP | 10 min | Note who asks about next steps |
+
+**Why event > 1-on-1:**
+- Participants experience their OWN miscalibration (not just hear about it)
+- Third-party verification (peers, not you) solves trust problem
+- Multiple data points in one session
+- You're facilitating, not selling
+
+---
+
+## Success Metrics
+
+### Workshop Metrics
+
+| Metric | Target | How to Measure |
+|--------|--------|----------------|
+| Events run | 3-5 | Count |
+| Participants per event | 5-10 | Registration |
+| Participants experience gap | 80%+ | Post-event survey |
+| Participants find it valuable | 70%+ | Post-event survey |
+| Repeat attendance | 30%+ | Track who comes to event 2+ |
+| WTP signal clarity | Clear yes/no | Conversation notes |
+
+### Decision Points
+
+**If <10 total participants across 3 events:**
+- Event format doesn't work OR marketing doesn't work
+- Iterate on format or audience before scaling
+
+**If participants don't experience value:**
+- Tool/facilitation needs work
+- Iterate before scaling
+
+**If no WTP signal:**
+- Value not landing where we think
+- Explore: who else sees value? Different pricing?
+
+**If it works:**
+- Systematize event format
+- Build toward scalable distribution
+- Consider founding members program (Phase 3)
+
+---
+
+## First Event Checklist
+
+**Priority #1:** Run the first event to learn.
+
+- [ ] Pick event topic (Clarity methodology? Startup coaching topic?)
+- [ ] Pick format (Online Zoom vs In-person)
+- [ ] Pick date (within 2 weeks)
+- [ ] Create simple event page (Luma, Eventbrite, or Google Form)
+- [ ] Invite 20+ people, aim for 5-10 attendees
+- [ ] Run event, observe what works
+- [ ] Collect feedback
+- [ ] Note WTP signals
+
+**After first event:** Learn what to put on the coaching page. Don't guess — learn from real attendees first.
+
+---
+
 ## Related Documents
 
 **Track category:** [Coaching Track](coaching-track.md)
@@ -72,3 +181,5 @@ related_key_results: []
 **Depends on:** C1 (Stories + /live validated)
 
 **Next:** C3 (Paid Workshops)
+
+**Consolidated from:** P79 (Consulting Revenue Model), P105 (Sales Playbook)

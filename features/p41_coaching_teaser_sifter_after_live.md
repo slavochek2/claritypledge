@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: draft
 type: story
 workstream: C2
 rank: 18
