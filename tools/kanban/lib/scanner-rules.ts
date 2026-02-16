@@ -56,7 +56,7 @@ export const DATE_ARCHIVE_PATTERN = /^\d{1,2}(?!\d)_(\d{1,2}_)?\w+_?\d{2}$/;
  */
 export function shouldSkipFolder(folderName: string): boolean {
   // Skip explicitly excluded folders
-  if (SKIP_FOLDERS.includes(folderName as any)) {
+  if ((SKIP_FOLDERS as readonly string[]).includes(folderName)) {
     return true;
   }
 
@@ -144,7 +144,7 @@ export function isValidTags(tags: unknown): tags is string[] {
  * @param frontmatter - Parsed frontmatter object
  * @returns Validation result with success flag and optional error message
  */
-export function validateFrontmatter(frontmatter: any): {
+export function validateFrontmatter(frontmatter: unknown): {
   success: boolean;
   error?: string;
 } {

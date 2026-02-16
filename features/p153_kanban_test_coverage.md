@@ -742,6 +742,191 @@ export function validateFrontmatter(data: unknown): FrontmatterSchema {
 
 ---
 
+## Agent Autonomy Findings
+
+Based on the P153 implementation (kanban test coverage), this section documents recommendations for agent autonomy in bug detection and fixing.
+
+### Finding 1: Should agents autonomously detect bugs during test writing?
+
+**Observation during P153:**
+- While writing unit tests for scanner rules, no unexpected bugs were discovered
+- P146 (refresh cache bug) and P137 (scanner/validation drift) were already known issues
+- Tests were written as regression protection for known bugs
+- The test-writing process validated existing behavior rather than discovering new issues
+
+**Recommendation: YES - with conditions**
+
+Agents should autonomously detect bugs during test writing when:
+- Test expectations don't match actual code behavior
+- Logic inconsistencies are discovered (e.g., validation script uses different logic than runtime scanner)
+- Edge cases reveal unexpected behavior (e.g., invalid input crashes instead of returning error)
+
+**Guardrails:**
+- Agent must clearly document: (1) what the test expected, (2) what the code actually does, (3) why this is a bug vs intended behavior
+- For ambiguous cases (unclear if bug or feature), agent should flag for human review rather than make assumption
+- Agent should cite specific code locations and behavior examples
+
+**Example from P153:**
+```
+Test expected: shouldSkipFolder('4_27_jan26') === true
+Code actually: Returns false (validation script doesn't exclude dated folders)
+Why it's a bug: Scanner excludes dated folders, but validation script doesn't (drift)
+```
+
+---
+
+### Finding 2: Should agents autonomously spawn fix agents when bugs detected?
+
+**Trade-offs:**
+
+**Benefits (velocity):**
+- Faster bug resolution (no wait for human decision)
+- Immediate feedback loop (fix → test → verify)
+- Reduces context switching (bug detected → immediately fixed in same session)
+- Enables rapid iteration on test-driven development
+
+**Risks (quality/safety):**
+- Agent might misunderstand requirements (fix "bug" that's actually intended behavior)
+- Fix could introduce new bugs (regression risk if test coverage incomplete)
+- Diverging from user's intended implementation path (user wanted approach A, agent fixes with approach B)
+- Breaking changes without user awareness (especially if fix changes public API or user-facing behavior)
+
+**Recommendation: CONDITIONAL - depends on test coverage and bug type**
+
+**YES - Autonomously spawn fix agent when:**
+1. **High test coverage exists** (>80% of critical paths covered)
+   - Why: Tests catch regressions from autonomous fixes
+   - Example: P153 scanner has 19 unit tests covering all core functions
+2. **Bug is clearly defined** (not ambiguous behavior)
+   - Why: Reduces risk of "fixing" intended behavior
+   - Example: Validation script uses different date pattern than scanner (objective drift)
+3. **Bug is isolated** (doesn't require architectural changes)
+   - Why: Small scope = lower risk of cascading failures
+   - Example: Off-by-one error in loop, typo in variable name, missing null check
+4. **Rollback is easy** (git revert, feature flag toggle)
+   - Why: Safety net if autonomous fix makes things worse
+   - Example: Changes to a single function with clear git history
+
+**NO - Require human approval when:**
+1. **Low test coverage** (<50% of critical paths)
+   - Why: No safety net to catch regressions from fix
+   - Example: Fixing scanner logic when only 3 tests exist
+2. **Behavioral ambiguity** (unclear if bug or feature)
+   - Why: Risk of "fixing" intended behavior
+   - Example: "Should empty tags default to [] or null?" (could be design decision)
+3. **Security/auth/data changes** (RLS policies, permissions, data migrations)
+   - Why: High-impact changes require human review
+   - Example: Changing database schema, modifying RLS policies, updating auth flows
+4. **Breaking changes** (public API changes, user-facing behavior)
+   - Why: User should decide on breaking changes
+   - Example: Changing validation error format, renaming enum values
+5. **Multiple possible fixes** (no clear "right" solution)
+   - Why: User preference matters
+   - Example: "Should we add retry logic or improve error messages?"
+
+---
+
+### Finding 3: What guardrails are needed for safe autonomous bug-fixing?
+
+**Proposed Guardrails Framework:**
+
+#### 1. Pre-Fix Validation
+- ✅ **Test coverage check:** At least 70% coverage of code area being fixed
+- ✅ **Bug classification:** Agent must classify bug severity (low/medium/high/critical)
+- ✅ **Impact analysis:** Agent documents what code/features are affected by fix
+- ✅ **Alternatives evaluation:** Agent considers at least 2 fix approaches, picks simplest
+
+#### 2. During Fix
+- ✅ **Test-first approach:** Write failing test before implementing fix (TDD)
+- ✅ **Minimal change principle:** Fix changes fewest lines possible
+- ✅ **Single responsibility:** One fix per commit (don't bundle multiple fixes)
+- ✅ **Documentation inline:** Add code comments explaining WHY fix was needed
+
+#### 3. Post-Fix Verification
+- ✅ **All tests pass:** Full test suite (unit + integration + E2E) must pass
+- ✅ **Pre-commit checks pass:** Lint, type-check, build, security scan all green
+- ✅ **Regression test added:** New test prevents bug from returning
+- ✅ **Git commit with context:** Commit message explains bug, fix, and verification
+
+#### 4. Approval Gates (when human review required)
+- ⚠️ **Security changes:** RLS policies, auth flows, data access patterns
+- ⚠️ **Breaking changes:** Public API modifications, schema changes
+- ⚠️ **High-impact areas:** Payment flows, user data, production configs
+- ⚠️ **Ambiguous bugs:** Unclear if bug or intended behavior
+
+#### 5. Rollback Mechanisms
+- ✅ **Git revert ready:** Each fix is a single commit (easy to revert)
+- ✅ **Feature flag support:** High-risk fixes behind feature flags (can disable without deploy)
+- ✅ **Monitoring alerts:** Sentry/logging configured to catch issues from fix
+- ✅ **Rollback plan documented:** Agent documents how to rollback if fix causes issues
+
+**Example Workflow (Autonomous Fix with Guardrails):**
+
+```
+1. Agent detects bug while writing tests
+   → Bug: shouldSkipFolder('5_feb_26') returns false (should be true)
+   → Classification: Medium severity (scanner/validation drift, no user impact)
+   → Impact: Features in dated folders incorrectly appear in kanban UI
+
+2. Pre-fix validation
+   → Test coverage: 19 unit tests cover scanner rules (>80% coverage)
+   → Alternatives: (A) Fix regex pattern, (B) Add special case for format
+   → Chosen: Fix regex pattern (simpler, no special cases)
+
+3. Implement fix (test-first)
+   → Write test: expect(shouldSkipFolder('5_feb_26')).toBe(true)
+   → Test fails ❌
+   → Fix regex: /^\d+_\d+_\w+\d+$/ → /^\d+_[a-z]+_?\d+$/
+   → Test passes ✅
+
+4. Post-fix verification
+   → npm test → 19 tests pass ✅
+   → npm run lint → no errors ✅
+   → npm run build → success ✅
+   → Regression test added ✅
+
+5. Commit with context
+   git commit -m "fix(scanner): exclude dated folders with format N_MMM_D
+
+   Bug: shouldSkipFolder('5_feb_26') returned false (should be true)
+   Root cause: Regex pattern didn't match underscores in date format
+   Fix: Updated pattern to handle both '5_feb_26' and '5_feb26' formats
+
+   Regression test: scanner-rules.test.ts line 45
+   "
+
+6. Report to user
+   "Fixed scanner drift bug detected during test writing. All tests pass.
+    Commit: abc123f (ready to review if you want, or proceed with next task)"
+```
+
+**Risk Mitigation:**
+- If ANY guardrail fails (test coverage low, tests fail, ambiguous bug) → Flag to human
+- If fix introduces new test failures → Rollback automatically, report failure
+- If pre-commit fails → Don't commit, report issue
+
+---
+
+### Implementation Recommendation for P153
+
+**For kanban test coverage specifically:**
+
+- **Enable autonomous bug detection:** YES (test writing revealed P137 drift)
+- **Enable autonomous fix spawning:** YES with conditions (scanner has 19 tests, good coverage)
+- **Guardrails to enforce:**
+  - All 19 unit tests must pass before fix commits
+  - Pre-commit checks must pass (lint, build, type-check)
+  - Regression test required for each bug fixed
+  - Human approval required for breaking changes (e.g., changing VALID_STATUS enum)
+
+**Success criteria:**
+- Agent autonomously detects drift between scanner and validation script
+- Agent spawns fix agent (with test coverage >80%)
+- Fix agent writes failing test, implements fix, verifies all tests pass
+- Human reviews commit (can approve/reject, but fix is already verified by tests)
+
+---
+
 ## Related Issues
 
 - **P146:** Kanban Refresh Button Cache Bug (UI regression that revealed testing gap)

@@ -165,6 +165,7 @@ export default defineConfig({
       '**/e2e/**',
       '**/.claude/**',
       '**/.local/**',
+      '**/tools/**', // Exclude tools (kanban has its own test suite)
     ],
   },
 })

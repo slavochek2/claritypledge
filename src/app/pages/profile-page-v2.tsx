@@ -72,7 +72,6 @@ import { pointsService } from "@/app/data/points-service";
 import { calibrationService } from "@/app/data/calibration-service";
 import type { StoryWithPoints, PointWithUserPosition, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
-import { usePointsForProfile } from "@/app/hooks/usePointsForDisplay";
 
 // Routes for detail pages (main app, not prototype)
 // Points include a 'from' param to provide profile context
@@ -336,6 +335,36 @@ export function ProfilePageV2() {
       toast.error('Failed to send email. Please try again.');
     } finally {
       setIsResending(false);
+    }
+  };
+
+  // P154: Handle position selection on profile points
+  const handleProfilePointPosition = async (pointId: string, position: Position) => {
+    if (!currentUser?.id || !profile?.id) return;
+
+    try {
+      // Persist to database
+      let result;
+      if (position === null) {
+        result = await pointsService.removePosition(pointId, currentUser.id);
+      } else {
+        result = await pointsService.setPosition(pointId, currentUser.id, position);
+      }
+
+      if (!result) {
+        toast.error('Failed to save position');
+        return;
+      }
+
+      // Refetch points to get updated counts and user positions
+      const updatedPoints = await pointsService.getPointsForProfileDisplay(
+        profile.id,
+        currentUser.id
+      );
+      setRealPoints(updatedPoints);
+    } catch (err) {
+      console.error('[DEBUG] Failed to update position:', err);
+      toast.error('Failed to save position');
     }
   };
 
@@ -692,6 +721,8 @@ export function ProfilePageV2() {
                       ear: credibilityStats.ear,
                       position: point.positions?.[profile.id]?.position || null,
                     }}
+                    currentUserId={currentUser?.id}
+                    onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
                     getPointPositionCounts={(p: AdaptedPoint) => {
                       // Count positions from the positions Record
                       const counts = {
@@ -895,6 +926,8 @@ function StoryCardFull({
               authorName={author.name}
               authorEarCount={credibilityStats.ear}
               authorHasPledged={author.hasPledged}
+              currentUserId={currentUser?.id}
+              onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
             />
           ))}
           {linkedPoints.length > 3 && (
@@ -921,6 +954,8 @@ interface QuotedPointCardProps {
   authorName: string;
   authorEarCount?: number;
   authorHasPledged: boolean;
+  currentUserId?: string;
+  onPositionSelect?: (position: Position) => void;
 }
 
 function QuotedPointCard({
@@ -929,6 +964,8 @@ function QuotedPointCard({
   authorName: _authorName,
   authorEarCount: _authorEarCount,
   authorHasPledged: _authorHasPledged,
+  currentUserId,
+  onPositionSelect,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(null);
@@ -958,7 +995,9 @@ function QuotedPointCard({
   }, [baseCounts, userPosition]);
 
   const handlePositionClick = (position: Position) => {
-    setUserPosition(userPosition === position ? null : position);
+    const newPosition = userPosition === position ? null : position;
+    setUserPosition(newPosition);
+    onPositionSelect?.(newPosition);
   };
 
   return (
@@ -979,15 +1018,17 @@ function QuotedPointCard({
           <div className="flex-1 min-w-0">
             <p className="text-sm text-foreground line-clamp-2">{point.statement}</p>
 
-            {/* Position buttons - compact */}
-            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-              <PositionButtons
-                userPosition={userPosition}
-                counts={counts}
-                onPositionClick={handlePositionClick}
-                compact
-              />
-            </div>
+            {/* Position buttons - compact, only show for authenticated users */}
+            {currentUserId && (
+              <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                <PositionButtons
+                  userPosition={userPosition}
+                  counts={counts}
+                  onPositionClick={handlePositionClick}
+                  compact
+                />
+              </div>
+            )}
           </div>
         </div>
       </button>
