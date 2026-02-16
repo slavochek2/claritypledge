@@ -27,6 +27,25 @@ else
 fi
 echo ""
 
+# 1.5. Conditional UI reminder (quick visual check)
+echo ">>> Checking for conditional UI changes..."
+STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || echo "")
+if [ -n "$STAGED_FILES" ]; then
+    # Check if any staged .tsx files have conditional rendering with text/UI classes
+    CONDITIONAL_UI=$(echo "$STAGED_FILES" | grep '\.tsx$' | xargs git diff --cached 2>/dev/null | grep -E '(\?.*:.*<|{.*\?.*className.*(text-|bg-|border-))' || true)
+    if [ -n "$CONDITIONAL_UI" ]; then
+        echo -e "${YELLOW}⚠ Conditional UI rendering changed${NC}"
+        echo -e "${YELLOW}  → Verify BOTH branches render correctly (no duplicate elements)${NC}"
+        echo -e "${YELLOW}  → See docs/technical/e2e-testing-guide.md#testing-conditional-rendering${NC}"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        echo -e "${GREEN}✓ No conditional UI changes detected${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠ No staged files to check${NC}"
+fi
+echo ""
+
 # 2. Lint
 echo ">>> Running ESLint..."
 if npm run lint; then

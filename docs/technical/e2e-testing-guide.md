@@ -275,6 +275,64 @@ test.afterEach(async () => {
 
 ---
 
+### Testing Conditional Rendering
+
+When testing components with conditional UI (ternaries, if/else blocks), write tests for **both branches** to catch duplicate elements and ensure each path renders correctly.
+
+**Common bug pattern:** Adding conditional logic without removing pre-existing unconditional elements, causing duplicates in one branch.
+
+#### Anti-pattern: Only testing one branch
+
+```typescript
+// Only tests the event flow - misses duplicates in non-event flow
+test('event waiting room shows partner name', async ({ page }) => {
+  await page.goto('/live?returnTo=/events/test&partner=Alice');
+  await expect(page.getByText('Waiting for Alice')).toBeVisible();
+});
+```
+
+#### Good pattern: Test both branches
+
+```typescript
+test.describe('waiting room conditional messaging', () => {
+  test('event flow shows partner name', async ({ page }) => {
+    await page.goto('/live?returnTo=/events/test&partner=Alice');
+    await expect(page.getByText('Waiting for Alice')).toBeVisible();
+    // Verify no duplicate text
+    await expect(page.getByText('Or show them this QR code')).toHaveCount(1);
+  });
+
+  test('non-event flow shows generic message', async ({ page }) => {
+    await page.goto('/live');
+    await expect(page.getByText('Invite Your Partner')).toBeVisible();
+    // Also verify no duplicate text
+    await expect(page.getByText('Or show them this QR code')).toHaveCount(1);
+  });
+});
+```
+
+#### When to write conditional tests
+
+**Write separate tests when:**
+- Different text/elements appear in each branch
+- Different user flows are triggered
+- Feature behavior changes based on context (event vs non-event, logged in vs out, etc.)
+
+**Don't write separate tests when:**
+- Same UI renders in both branches (testing implementation detail, not user-visible behavior)
+- Only internal state differs (CSS classes, data attributes that don't affect what user sees)
+
+#### Checklist when adding conditional rendering
+
+Before committing conditional UI changes:
+
+- [ ] Remove any pre-existing unconditional elements that now belong inside the conditional
+- [ ] Write one E2E test per visible outcome (not per code path)
+- [ ] Verify no duplicate elements appear in either branch using `.toHaveCount(1)`
+- [ ] Test the "else" branch - it's easy to forget when focused on the new feature path
+
+---
+
 ### Multi-User Tests
 
 **Example: Testing two users interacting:**
