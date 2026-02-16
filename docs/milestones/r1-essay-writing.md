@@ -4,8 +4,6 @@ priority: p0
 track: R
 milestone: R1
 summary: "Essays positioning calibration as 'AI infrastructure' reach aligned communities and build recognition"
-tests: [h-recognition-via-essays]
-measures: [kr-essay-reach]
 ---
 
 # R1: Essay Writing (Recognition Track)

@@ -40,10 +40,10 @@ const NC = '\033[0m'; // No Color
 
 // Directory paths
 const DIRS = {
-  tracks: path.join(__dirname, '..', 'docs', 'workstreams'),
-  hypotheses: path.join(__dirname, '..', 'docs', 'hypotheses'),
-  experiments: path.join(__dirname, '..', 'docs', 'experiments'),
-  outcomes: path.join(__dirname, '..', 'docs', 'key-results'),
+  tracks: path.join(__dirname, '..', 'docs', 'milestones'),
+  hypotheses: path.join(__dirname, '..', 'docs', 'milestones'),
+  experiments: path.join(__dirname, '..', 'docs', 'milestones'),
+  outcomes: path.join(__dirname, '..', 'docs', 'milestones'),
   features: path.join(__dirname, '..', 'features'),
   featuresDone: path.join(__dirname, '..', 'features', 'done')
 };

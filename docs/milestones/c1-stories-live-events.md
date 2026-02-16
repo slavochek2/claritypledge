@@ -4,9 +4,7 @@ priority: p1
 track: C
 milestone: C1
 summary: "Stories give /live a purpose — verify understanding of specific stories, not abstract 'something'"
-tests: [h-stories-solve-cold-start]
 builds: [p128, p124]
-measures: [kr-story-usage]
 answers: [oq-6, oq-7]
 ---
 

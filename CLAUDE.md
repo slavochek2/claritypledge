@@ -392,7 +392,7 @@ Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not wor
 
 **Clarity Pledge** — Calibrated communication practice via /live verification. Target: coaches.
 
-Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [workstreams/](docs/workstreams/) | [hypotheses/](docs/hypotheses/) | [experiments/](docs/experiments/) | [key-results/](docs/key-results/) | [milestones/](docs/milestones/)
+Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [milestones/](docs/milestones/)
 
 ---
 
@@ -499,7 +499,7 @@ Full format & lifecycle: [feature-specs.md](docs/technical/feature-specs.md)
 
 ### Knowledge-Driven Development
 
-`/kdd` — Run after features to capture knowledge in strategic (`decisions.md`, `workstreams/`, `hypotheses/`) and technical docs (`database.md`, `authentication.md`).
+`/kdd` — Run after features to capture knowledge in strategic (`decisions.md`, `milestones/`) and technical docs (`database.md`, `authentication.md`).
 
 ---
 
@@ -511,4 +511,4 @@ Mixpanel (analytics) and Sentry (errors) are production-only. See [analytics.md]
 
 ### Documentation Architecture
 
-**Source of truth:** `definitions.md` (concepts), `lean-canvas.md` (business), `workstreams/` (work streams), `hypotheses/` (testable beliefs), `experiments/` (testing protocols), `key-results/` (measurable goals), `milestones/` (dated achievements with status), `decisions.md` (trade-offs), `philosophy.md` (WHY), `theory-of-change.md` (evidence). Never duplicate — add to source and link.
+**Source of truth:** `definitions.md` (concepts), `lean-canvas.md` (business), `milestones/` (milestone files contain hypothesis, experiment, metrics), `decisions.md` (trade-offs), `philosophy.md` (WHY), `theory-of-change.md` (evidence). Never duplicate — add to source and link.
