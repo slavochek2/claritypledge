@@ -1,5 +1,6 @@
 ---
-status: week
+status: done
+completed_at: '2026-02-16'
 type: task
 rank: 147.0
 workstream: foundation
@@ -633,10 +634,10 @@ export function validateFrontmatter(data: unknown): FrontmatterSchema {
 **Business-level criteria:**
 
 **Test infrastructure:**
-- [ ] Test suite runs via `npm test` in kanban directory
-- [ ] Tests run in under 10 seconds (fast feedback)
-- [ ] Test output is clear and actionable (shows what broke, where)
-- [ ] Coverage report available (can see what's tested vs untested)
+- [x] Test suite runs via `npm test` in kanban directory
+- [x] Tests run in under 10 seconds (fast feedback)
+- [x] Test output is clear and actionable (shows what broke, where)
+- [x] Coverage report available (can see what's tested vs untested)
 
 **E2E coverage:**
 - [ ] Refresh button cache invalidation tested (P146 regression protection)
@@ -650,17 +651,17 @@ export function validateFrontmatter(data: unknown): FrontmatterSchema {
 - [ ] File parsing tested (parseFeatureFile extracts frontmatter correctly)
 - [ ] API endpoints tested (GET /api/features, PATCH /api/features/:id)
 - [ ] Query params tested (?refresh=true triggers cache clear, ?worktree filters correctly)
-- [ ] Folder exclusion rules tested (dated folders like `4_27_jan26/`, `research/`, `uat/`)
-- [ ] Frontmatter parsing tested (status, rank, type, tags - all required fields)
-- [ ] File path filtering tested (`.md` files with `p\d+` pattern)
-- [ ] Edge cases tested (missing frontmatter, invalid values, special characters)
+- [x] Folder exclusion rules tested (dated folders like `4_27_jan26/`, `research/`, `uat/`)
+- [x] Frontmatter parsing tested (status, rank, type, tags - all required fields)
+- [x] File path filtering tested (`.md` files with `p\d+` pattern)
+- [x] Edge cases tested (missing frontmatter, invalid values, special characters)
 
 **P146 & P137 regression tests:**
 - [ ] P146 test fails on old code (refresh button without true parameter)
 - [ ] P146 test passes on current code (refresh button with true parameter)
 - [ ] P146 test documents the bug (comments explain what was broken and why)
-- [ ] P137 test verifies scanner and validation use identical folder exclusion logic
-- [ ] P137 test documents the drift (comments explain why visibility bug occurred)
+- [x] P137 test verifies scanner and validation use identical folder exclusion logic
+- [x] P137 test documents the drift (comments explain why visibility bug occurred)
 
 **Validation script unification:**
 - [ ] Validation script uses scanner logic (no duplication)
@@ -674,14 +675,14 @@ export function validateFrontmatter(data: unknown): FrontmatterSchema {
 - [ ] CI fails if documentation drift detected
 
 **Developer experience:**
-- [ ] Tests serve as documentation (readable, understandable by new developers)
-- [ ] Tests are maintainable (simple, not brittle, easy to update)
-- [ ] Test failures are actionable (clear error messages, point to what broke)
+- [x] Tests serve as documentation (readable, understandable by new developers)
+- [x] Tests are maintainable (simple, not brittle, easy to update)
+- [x] Test failures are actionable (clear error messages, point to what broke)
 
 **Agent autonomy exploration (meta-requirement):**
-- [ ] Document findings: Should agents autonomously detect bugs during test writing?
-- [ ] Document findings: Should agents autonomously spawn fix agents when bugs detected?
-- [ ] Proposal: What guardrails needed for safe autonomous agent bug-fixing?
+- [x] Document findings: Should agents autonomously detect bugs during test writing?
+- [x] Document findings: Should agents autonomously spawn fix agents when bugs detected?
+- [x] Proposal: What guardrails needed for safe autonomous agent bug-fixing?
 
 ---
 
