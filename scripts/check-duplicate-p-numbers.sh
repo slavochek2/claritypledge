@@ -8,8 +8,12 @@ set -e
 echo ">>> Checking for duplicate P-numbers..."
 
 # Find all p*.md files in features/ and subdirectories
+# EXCLUDE archive/ and done/ folders (P-numbers can be reused after archival)
 # Extract P-numbers and check for duplicates
-p_numbers=$(find features -type f -name "p[0-9]*.md" 2>/dev/null |
+p_numbers=$(find features -type f -name "p[0-9]*.md" \
+  ! -path "*/archive/*" \
+  ! -path "*/done/*" \
+  2>/dev/null |
   sed -E 's/.*\/p([0-9]+)[_-].*/\1/' |
   sort -n)
 
@@ -32,8 +36,10 @@ echo "❌ DUPLICATE P-NUMBERS FOUND:"
 echo ""
 
 for dup in $duplicates; do
-  echo "  P$dup appears in:"
-  find features -type f -name "p${dup}_*.md" -o -name "p${dup}-*.md" |
+  echo "  P$dup appears in ACTIVE features:"
+  find features -type f \( -name "p${dup}_*.md" -o -name "p${dup}-*.md" \) \
+    ! -path "*/archive/*" \
+    ! -path "*/done/*" |
     sed 's/^/    /'
   echo ""
 done

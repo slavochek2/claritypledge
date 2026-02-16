@@ -5,7 +5,7 @@ priority: p2
 tags: [content, ghost, email, automation]
 ---
 
-# P120: Email Drip Sequence for New Subscribers
+# P158: Email Drip Sequence for New Subscribers
 
 ## Problem
 

@@ -2,7 +2,7 @@
 status: draft
 type: task
 ---
-# P110: Understanding Calibration Outcomes Research
+# P157: Understanding Calibration Outcomes Research
 
 **Status:** Draft (ready for execution)
 **Created:** 2026-01-29

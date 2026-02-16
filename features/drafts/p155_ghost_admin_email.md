@@ -7,7 +7,7 @@ tags:
   - infrastructure
 ---
 
-# P108-A: Switch Ghost Admin Email Back
+# P155: Switch Ghost Admin Email Back
 
 **Context:** Ghost admin email was temporarily changed to `slavochek@googlemail.com` because kasserver.com cached a negative DNS result for `mg.claritypledge.com` (no MX records at the time). MX records have since been added.
 
