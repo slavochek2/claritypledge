@@ -1,0 +1,205 @@
+#!/usr/bin/env node
+/**
+ * Validate feature frontmatter
+ *
+ * Checks:
+ * 1. All status: done features have completed_at field
+ * 2. All features in /done/ have status: done
+ * 3. All features have required frontmatter fields
+ * 4. completed_at is a valid date format (YYYY-MM-DD)
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+// ANSI colors
+const RED = '\x1b[31m';
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const NC = '\x1b[0m'; // No Color
+
+let errors = 0;
+let warnings = 0;
+
+/**
+ * Parse frontmatter from markdown file
+ */
+function parseFrontmatter(filePath) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+
+  if (!match) {
+    return null;
+  }
+
+  const frontmatter = {};
+  const lines = match[1].split('\n');
+
+  for (const line of lines) {
+    const [key, ...valueParts] = line.split(':');
+    if (key && valueParts.length > 0) {
+      const value = valueParts.join(':').trim();
+      // Remove quotes if present
+      frontmatter[key.trim()] = value.replace(/^['"]|['"]$/g, '');
+    }
+  }
+
+  return frontmatter;
+}
+
+/**
+ * Validate date format (YYYY-MM-DD)
+ */
+function isValidDate(dateString) {
+  if (!dateString) return false;
+  const regex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!regex.test(dateString)) return false;
+
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date);
+}
+
+/**
+ * Recursively get all .md files in directory
+ */
+function getMarkdownFiles(dir, fileList = []) {
+  const files = fs.readdirSync(dir);
+
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+
+    if (stat.isDirectory()) {
+      getMarkdownFiles(filePath, fileList);
+    } else if (file.endsWith('.md')) {
+      fileList.push(filePath);
+    }
+  }
+
+  return fileList;
+}
+
+/**
+ * Check if file is in /done/ directory
+ */
+function isInDoneDir(filePath) {
+  return filePath.includes('/done/') || filePath.includes(path.sep + 'done' + path.sep);
+}
+
+/**
+ * Check if file is in excluded directories
+ */
+function isExcluded(filePath) {
+  const excludedDirs = ['research/', 'uat/'];
+  return excludedDirs.some(dir => filePath.includes(dir));
+}
+
+/**
+ * Check if file is historical (in dated folders or /done/ directory)
+ */
+function isHistorical(filePath) {
+  // Dated folders like 1_nov25, 2_dec25, 3_1_jan26, etc.
+  const datedFolderPattern = /\/\d+_\w+\d+\//;
+  // Or in /done/ directory (root or subdirs)
+  const inDoneDir = filePath.includes('/done/') || filePath.includes(path.sep + 'done' + path.sep);
+  // Or in /archive/ directory
+  const inArchive = filePath.includes('/archive/');
+
+  return datedFolderPattern.test(filePath) || inDoneDir || inArchive;
+}
+
+/**
+ * Main validation
+ */
+function validateFeatures() {
+  console.log('>>> Validating feature frontmatter...\n');
+
+  const featuresDir = path.join(process.cwd(), 'features');
+  if (!fs.existsSync(featuresDir)) {
+    console.log(`${RED}✗ features/ directory not found${NC}`);
+    return 1;
+  }
+
+  const files = getMarkdownFiles(featuresDir);
+  let validCount = 0;
+
+  for (const file of files) {
+    if (isExcluded(file)) {
+      continue;
+    }
+
+    const frontmatter = parseFrontmatter(file);
+
+    if (!frontmatter) {
+      console.log(`${RED}✗ ${file}: No frontmatter found${NC}`);
+      errors++;
+      continue;
+    }
+
+    // Check 1: status: done features should have completed_at
+    if (frontmatter.status === 'done' && !frontmatter.completed_at) {
+      if (isHistorical(file)) {
+        // Historical files - warn but don't block
+        console.log(`${YELLOW}⚠ ${file}: status=done but missing completed_at (historical)${NC}`);
+        warnings++;
+      } else {
+        // New files - error and block
+        console.log(`${RED}✗ ${file}: status=done but missing completed_at${NC}`);
+        errors++;
+        continue;
+      }
+    }
+
+    // Check 2: Files in /done/ should have status: done
+    if (isInDoneDir(file) && frontmatter.status !== 'done') {
+      console.log(`${YELLOW}⚠ ${file}: In /done/ but status=${frontmatter.status}${NC}`);
+      warnings++;
+    }
+
+    // Check 3: Required fields
+    const requiredFields = ['status', 'type', 'rank'];
+    const missingFields = requiredFields.filter(field => !frontmatter[field]);
+
+    if (missingFields.length > 0) {
+      console.log(`${RED}✗ ${file}: Missing required fields: ${missingFields.join(', ')}${NC}`);
+      errors++;
+      continue;
+    }
+
+    // Check 4: completed_at format (if present)
+    if (frontmatter.completed_at && !isValidDate(frontmatter.completed_at)) {
+      console.log(`${RED}✗ ${file}: Invalid completed_at format (expected YYYY-MM-DD): ${frontmatter.completed_at}${NC}`);
+      errors++;
+      continue;
+    }
+
+    validCount++;
+  }
+
+  console.log('\n=== VALIDATION SUMMARY ===');
+  console.log(`Total files checked: ${files.length - files.filter(isExcluded).length}`);
+  console.log(`Valid: ${validCount}`);
+
+  if (errors > 0) {
+    console.log(`${RED}Errors: ${errors}${NC}`);
+  }
+
+  if (warnings > 0) {
+    console.log(`${YELLOW}Warnings: ${warnings}${NC}`);
+  }
+
+  if (errors === 0 && warnings === 0) {
+    console.log(`${GREEN}✓ All features valid${NC}`);
+    return 0;
+  } else if (errors === 0) {
+    console.log(`${YELLOW}⚠ Validation passed with warnings${NC}`);
+    return 0;
+  } else {
+    console.log(`${RED}✗ Validation failed${NC}`);
+    return 1;
+  }
+}
+
+// Run validation
+const exitCode = validateFeatures();
+process.exit(exitCode);

@@ -39,7 +39,8 @@ export const SKIP_FOLDERS = ['research', 'uat'] as const;
 // - Month-based without underscore: "1_nov25" (N_MMMYY format)
 // First number is 1-2 digits (sequence/month), optional second is 1-2 digits (day)
 // Month is letters, year is 2 digits (not 4-digit years like "2026")
-export const DATE_ARCHIVE_PATTERN = /^\d{1,2}_(\d{1,2}_)?\w+_?\d{2}$/;
+// Negative lookahead (?!\d) ensures we don't match the start of longer numbers
+export const DATE_ARCHIVE_PATTERN = /^\d{1,2}(?!\d)_(\d{1,2}_)?\w+_?\d{2}$/;
 
 /**
  * Determine if a folder should be skipped during scanning
