@@ -362,7 +362,7 @@ export function ProfilePageV2() {
         currentUser.id
       );
 
-      // Transform to AdaptedPoint format (same as initial load)
+      // Transform to AdaptedPoint format (same as initial load at line 251-288)
       const adaptedPoints = updatedPoints.map(point => {
         const positions: Record<string, { position: string; timestamp: string }> = {};
 
@@ -375,8 +375,9 @@ export function ProfilePageV2() {
         }
 
         return {
-          ...point,
+          id: point.id,
           text: point.statement,
+          createdAt: point.createdAt || new Date().toISOString(),
           positions,
           linkedStoryIds: [],
           linkedStories: [],

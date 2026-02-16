@@ -119,6 +119,15 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     // Wait for mutation to complete
     await page.waitForTimeout(3000);
 
+    // Verify in database FIRST (to ensure mutation completed)
+    const { data: savedPosition } = await supabaseAdmin
+      .from('point_positions')
+      .select('*')
+      .eq('point_id', pointData.id)
+      .eq('user_id', testUser.user.id)
+      .single();
+    expect(savedPosition?.position).toBe('agree');
+
     // Refresh page
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -127,17 +136,11 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     // Verify position still shows after refresh
     await expect(page.getByText('Test point: Click should persist')).toBeVisible();
     const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Click should persist' });
-    const refreshedAgreeButton = refreshedCard.getByRole('button', { name: /^Agree/i }).first();
-    await expect(refreshedAgreeButton).toHaveClass(/bg-blue-600/);
 
-    // Verify in database
-    const { data: savedPosition } = await supabaseAdmin
-      .from('point_positions')
-      .select('*')
-      .eq('point_id', pointData.id)
-      .eq('user_id', testUser.user.id)
-      .single();
-    expect(savedPosition?.position).toBe('agree');
+    // Check the segment div which has the bg-blue-600 class when active
+    // The segment div has rounded corners (rounded-r-lg for last segment) and min-h classes
+    const agreeSegment = refreshedCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
+    await expect(agreeSegment).toHaveClass(/bg-blue-600/);
   });
 
   test('toggling position (clicking same button twice) should remove it', async ({ page }) => {
@@ -180,10 +183,11 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await page.getByRole('tab', { name: /points/i }).click();
 
     const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
-    const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
-    await expect(agreeButton).toHaveClass(/bg-blue-600/);
+    const agreeSegment = pointCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
+    await expect(agreeSegment).toHaveClass(/bg-blue-600/);
 
-    // Click "Agree" button again (toggle off)
+    // Click "Agree" button (toggle off) - find the clickable button inside the segment
+    const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
     await agreeButton.click();
     await page.waitForTimeout(3000);
 
@@ -193,9 +197,9 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await page.getByRole('tab', { name: /points/i }).click();
 
     const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
-    const refreshedButton = refreshedCard.getByRole('button', { name: /^Agree/i }).first();
-    await expect(refreshedButton).not.toHaveClass(/bg-blue-600/);
-    await expect(refreshedButton).toHaveClass(/bg-white/);
+    const refreshedSegment = refreshedCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
+    await expect(refreshedSegment).not.toHaveClass(/bg-blue-600/);
+    await expect(refreshedSegment).toHaveClass(/bg-white/);
 
     // Verify in database that position was removed
     const { data: positions } = await supabaseAdmin
@@ -246,8 +250,10 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: /points/i }).click();
     const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Counts should update' });
-    const refreshedDisagreeButton = refreshedCard.getByRole('button', { name: /^Disagree/i }).first();
-    await expect(refreshedDisagreeButton).toHaveClass(/bg-blue-600/);
+
+    // Check the segment div - Disagree is the first segment (leftmost) with rounded-l-lg
+    const disagreeSegment = refreshedCard.locator('.rounded-l-lg').filter({ has: page.locator('button', { hasText: /Disagree/ }) });
+    await expect(disagreeSegment).toHaveClass(/bg-blue-600/);
   });
 
   test('unauthenticated users see position counts but cannot position', async ({ page }) => {

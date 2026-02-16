@@ -96,15 +96,9 @@ export function PointCardWithLinks({
   // P154: Sync userPosition state when position prop changes (after refetch)
   useEffect(() => {
     if (selectedPosition !== undefined) {
-      console.log('[P154 DEBUG] Setting userPosition from selectedPosition:', selectedPosition);
       setUserPosition(selectedPosition);
     } else if (currentUserId) {
       const propPosition = point.positions[currentUserId]?.position ?? null;
-      console.log('[P154 DEBUG] Setting userPosition from point.positions:', {
-        currentUserId,
-        positions: point.positions,
-        propPosition,
-      });
       setUserPosition(propPosition);
     }
   }, [point.positions, currentUserId, selectedPosition]);
