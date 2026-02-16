@@ -273,7 +273,7 @@ export const mockPointsService: PointsService = {
   },
 
   /**
-   * P145: Get points created by a user, ready for profile display
+   * P151: Get points created by a user, ready for profile display
    * Mock implementation
    */
   async getPointsForProfileDisplay(
@@ -310,7 +310,7 @@ export const mockPointsService: PointsService = {
   },
 
   /**
-   * P145: Get points for feed/discovery, ready for display
+   * P151: Get points for feed/discovery, ready for display
    * Mock implementation
    */
   async getPointsForFeedDisplay(

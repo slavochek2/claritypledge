@@ -584,11 +584,11 @@ export const realPointsService: PointsService = {
   },
 
   // ============================================================================
-  // P145: Display-Ready Point Loading (Efficient Batch Methods)
+  // P151: Display-Ready Point Loading (Efficient Batch Methods)
   // ============================================================================
 
   /**
-   * P145: Get points created by a user, ready for profile display
+   * P151: Get points created by a user, ready for profile display
    * Encapsulates efficient batch loading pattern
    */
   async getPointsForProfileDisplay(
@@ -627,7 +627,7 @@ export const realPointsService: PointsService = {
   },
 
   /**
-   * P145: Get points for feed/discovery, ready for display
+   * P151: Get points for feed/discovery, ready for display
    * Encapsulates efficient batch loading pattern
    */
   async getPointsForFeedDisplay(

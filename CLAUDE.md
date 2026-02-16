@@ -368,7 +368,7 @@ See [architecture.md](docs/technical/architecture.md) for details.
 
 ---
 
-### Point Display Patterns (P145)
+### Point Display Patterns (P151)
 
 **ALWAYS use these patterns when displaying points to users:**
 

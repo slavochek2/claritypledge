@@ -187,7 +187,7 @@ export function ProfilePageV2() {
     // Load stories, points, and calibration in parallel
     Promise.all([
       storiesService.getStoriesByAuthorWithPoints(profile.id),
-      // P145: Use getPointsForProfileDisplay (efficient batch loading)
+      // P151: Use getPointsForProfileDisplay (efficient batch loading)
       // This method:
       // - Returns points CREATED/VALIDATED by this user
       // - Includes position counts (batch loaded)
@@ -200,7 +200,7 @@ export function ProfilePageV2() {
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
 
-      // P145: Points now come with position counts and user positions pre-loaded
+      // P151: Points now come with position counts and user positions pre-loaded
       // No manual batch fetching needed!
 
       if (pointsWithData.length === 0) {

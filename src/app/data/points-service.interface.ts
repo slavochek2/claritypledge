@@ -121,7 +121,7 @@ export interface PointsService {
   ): Promise<Map<string, PointPosition>>;
 
   // ============================================================================
-  // P145: Display-Ready Point Loading (Efficient Batch Methods)
+  // P151: Display-Ready Point Loading (Efficient Batch Methods)
   // ============================================================================
 
   /**

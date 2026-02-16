@@ -1,6 +1,6 @@
 /**
  * @file usePointsForDisplay.ts
- * @description P145: React hooks for efficient point loading with positions
+ * @description P151: React hooks for efficient point loading with positions
  *
  * These hooks encapsulate the batch loading pattern for displaying points
  * with position counts and user positions. They handle loading states,

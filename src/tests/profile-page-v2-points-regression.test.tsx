@@ -37,7 +37,7 @@ vi.mock('@/app/data/points-service', () => ({
       { id: 'point-2', statement: 'Test point 2', createdAt: '2026-02-09' },
     ]),
     getPointsWithUserPositions: vi.fn().mockResolvedValue([]), // Returns 0 if no positions
-    // P145: New batch loading method for profile display
+    // P151: New batch loading method for profile display
     getPointsForProfileDisplay: vi.fn().mockResolvedValue([
       {
         id: 'point-1',
@@ -167,7 +167,7 @@ describe('ProfilePageV2 - Points Tab Regression (P136)', () => {
       expect(screen.getByText('Test User')).toBeInTheDocument();
     });
 
-    // P145: Must call getPointsForProfileDisplay (points created by user with positions)
+    // P151: Must call getPointsForProfileDisplay (points created by user with positions)
     await waitFor(() => {
       expect(pointsService.getPointsForProfileDisplay).toHaveBeenCalledWith('user-1', undefined);
     });
