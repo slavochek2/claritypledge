@@ -274,6 +274,15 @@ Include:
 - **Technical Analysis** subsection
 - **Architecture Decisions** subsection (Decision 1, Decision 2, etc. with Chosen/Rationale/Trade-off/Alternative rejected)
 - **Implementation Approach** subsection (Files to Create, Files to Modify, Build Sequence)
+
+**IMPORTANT - Delivery Stage Tracking:**
+1. BEFORE starting architecture design, advance delivery stage:
+   - Use Edit tool: `delivery_stage: ux-approved` (or `prd-approved` if backend feature with no UX)
+   - This confirms UX was approved by user
+
+2. AFTER appending Technical section, update delivery stage:
+   - Use Edit tool: `delivery_stage: arch-review`
+   - This signals architecture is ready for user review
 ```
 
 ### Security Agent

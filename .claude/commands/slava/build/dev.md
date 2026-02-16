@@ -575,6 +575,19 @@ Feature implementation complete.
 
 ---
 
+## Delivery Stage Tracking
+
+**AFTER successful implementation and commit, update delivery stage:**
+
+Use Edit tool to update the spec file's frontmatter:
+```yaml
+delivery_stage: implementation
+```
+
+This signals that feature is implemented and ready for UAT (user acceptance testing).
+
+---
+
 ## Related
 
 - `/slava:ux` — User experience review

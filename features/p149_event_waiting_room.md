@@ -6,6 +6,7 @@ blocked_by: []
 fixes: p124
 prepped_date: '2026-02-09'
 implemented_date: '2026-02-09'
+delivery_stage: uat
 reviews:
   ux: passed-with-notes
   architect: passed-with-notes

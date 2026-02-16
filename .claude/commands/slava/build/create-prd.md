@@ -425,9 +425,14 @@ After generating business requirements, tell user which skill to run next:
 - [ ] NO test templates included
 - [ ] Next steps documented
 
-If spec already exists at {spec_file}, read it first and extend the Business layer. Do NOT modify existing UX or Technical sections.
+If spec already exists at {spec_file}, read it first and extend the Business layer. DO NOT modify existing UX or Technical sections.
 
 Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, type, rank, milestone, tags, prepped_date, reviews).
+
+**IMPORTANT - Delivery Stage Tracking:**
+After creating/updating the spec file, set delivery_stage to indicate completion:
+- Use Edit tool to update frontmatter: `delivery_stage: prd-review`
+- This signals PRD is ready for user review
 ```
 
 ---

@@ -252,9 +252,9 @@ export function ProfilePageV2() {
           const linkedStoryIds = linksByPoint.get(point.id) || [];
           const positions: Record<string, AdaptedPosition> = {};
 
-          // Add profile owner's position if it exists
-          if (point.userPosition) {
-            positions[profile.id] = {
+          // Add current user's position if it exists (from getPointsForProfileDisplay viewer param)
+          if (point.userPosition && currentUser?.id) {
+            positions[currentUser.id] = {
               position: point.userPosition.position,
               timestamp: point.userPosition.createdAt,
             };
@@ -711,7 +711,7 @@ export function ProfilePageV2() {
               ) : (
                 userPoints.map((point: AdaptedPoint) => (
                   <PointCardWithLinks
-                    key={point.id}
+                    key={`${point.id}-${point.positions?.[currentUser?.id || '']?.position || 'none'}`}
                     point={point}
                     linkedStories={point.linkedStories || []}
                     profileOwner={{

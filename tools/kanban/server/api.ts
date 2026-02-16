@@ -6,7 +6,7 @@ import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus } from '../src/lib/types'
-import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE } from '../lib/scanner-rules'
+import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 
 const app = express()
 app.use(cors())
@@ -127,6 +127,11 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
     const workstream: string | undefined =
       typeof data.workstream === 'string' ? data.workstream : undefined
 
+    // Parse optional delivery_stage (AI-managed, software delivery process tracking)
+    const delivery_stage = data.delivery_stage && VALID_DELIVERY_STAGE.includes(data.delivery_stage)
+      ? data.delivery_stage
+      : undefined
+
     // Parse required rank (P141: Unified Rank System)
     // Validate: positive finite number, truncate to 3 decimals
     let rank: number = 1000000 // Default for files without rank
@@ -150,6 +155,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       size,
       workstream,
       hypothesis: data.hypothesis,
+      delivery_stage,
       tags: Array.isArray(data.tags) ? data.tags : [],
       created: data.created,
       completed_at: data.completed_at,
@@ -323,12 +329,12 @@ app.get('/api/milestones', async (req, res) => {
 })
 
 // PATCH /api/features/:id - update feature fields
-// Supports: status, rank, type, size, tags, blocked_by, workstream, hypothesis
+// Supports: status, rank, type, size, tags, blocked_by, workstream, hypothesis, delivery_stage
 // Query param: ?worktree=/path/to/worktree
 app.patch('/api/features/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { status, rank, type, size, tags, blocked_by, workstream, hypothesis } =
+    const { status, rank, type, size, tags, blocked_by, workstream, hypothesis, delivery_stage } =
       req.body
     const worktreePath = req.query.worktree as string | undefined
 
@@ -341,6 +347,9 @@ app.patch('/api/features/:id', async (req, res) => {
     }
     if (size !== undefined && size !== null && !VALID_SIZE.includes(size)) {
       return res.status(400).json({ error: 'Invalid size value' })
+    }
+    if (delivery_stage !== undefined && delivery_stage !== null && !VALID_DELIVERY_STAGE.includes(delivery_stage)) {
+      return res.status(400).json({ error: 'Invalid delivery_stage value' })
     }
 
     // Validate rank (P141: must be positive finite number if provided)
@@ -400,6 +409,10 @@ app.patch('/api/features/:id', async (req, res) => {
       if (hypothesis === '' || hypothesis === null) delete data.hypothesis
       else data.hypothesis = hypothesis
     }
+    if (delivery_stage !== undefined) {
+      if (delivery_stage === '' || delivery_stage === null) delete data.delivery_stage
+      else data.delivery_stage = delivery_stage
+    }
 
     // Handle completed_at based on status transition
     if (status === 'done' && oldStatus !== 'done') {
@@ -434,6 +447,9 @@ app.patch('/api/features/:id', async (req, res) => {
         if (hypothesis !== undefined)
           cachedFeature.hypothesis =
             hypothesis === '' || hypothesis === null ? undefined : hypothesis
+        if (delivery_stage !== undefined)
+          cachedFeature.delivery_stage =
+            delivery_stage === '' || delivery_stage === null ? undefined : delivery_stage
         if (status === 'done' && oldStatus !== 'done') {
           cachedFeature.completed_at = data.completed_at
         } else if (status && status !== 'done' && oldStatus === 'done') {

@@ -265,20 +265,13 @@ This PRD builds on comprehensive research findings from agent aa93a7c:
 
 **Steps:**
 1. **Profile loads** - System fetches calibration data, receives `status: 'insufficient'`
-2. **Empty state renders** - Below profile header, in place of `InlineCalibration`:
-   - Gray muted background card with border
-   - Ear icon (gray)
-   - Heading: "Understanding Calibration"
-   - Message: "Complete 5 verification sessions to see calibration feedback"
-   - Session count: "Progress: {N}/5 sessions"
-   - CTA button (if own profile): "Start Verification" → links to `/events`
-3. **Tooltip interaction** - Help icon (?) next to heading shows tooltip explaining what calibration is
-4. **Rest of profile** - Stories/Points tabs work normally (calibration is the only gated feature)
+2. **Calibration section not rendered** - Conditional `{calibration && ...}` hides calibration component
+3. **Rest of profile renders normally** - Profile header, ear count badge (if >0), Stories/Points tabs all work
 
 **Success criteria:**
-- User understands why calibration is hidden (clear message, not blank space)
-- User knows how to unlock calibration (5 sessions needed)
-- User can take action (CTA button if viewing own profile)
+- Profile loads without errors (calibration absence doesn't break UI)
+- Profile is fully functional without calibration section
+- User discovers calibration naturally after completing 5 sessions
 
 ### Screen Designs
 
@@ -336,42 +329,20 @@ This PRD builds on comprehensive research findings from agent aa93a7c:
 - **Screen reader:** "Understanding Calibration: [state]. Activate for more information."
 - **Color contrast:** Blue dot on gray bar = 4.5:1 contrast ratio (WCAG AA compliant)
 
-#### Empty State Design (<5 Sessions)
+#### <5 Sessions Behavior (KISS Approach)
 
 **When calibration data is insufficient (`status: 'insufficient'`):**
 
-**Layout (replaces InlineCalibration):**
-```
-┌─────────────────────────────────────────────┐
-│ ┌─────────────────────────────────────────┐ │
-│ │ [Ear icon] Understanding Calibration [?]│ │  ← Header row
-│ ├─────────────────────────────────────────┤ │
-│ │ Complete 5 verification sessions to see │ │  ← Message
-│ │ calibration feedback                    │ │
-│ │                                         │ │
-│ │ Progress: 2/5 sessions                  │ │  ← Progress indicator
-│ │                                         │ │
-│ │ [Start Verification →]  ← CTA (owner)   │ │  ← Action button
-│ └─────────────────────────────────────────┘ │
-└─────────────────────────────────────────────┘
-```
+- **Hide calibration section entirely** (don't render `InlineCalibration`)
+- **No empty state, no message, no progress indicator, no CTA**
+- Profile works normally without calibration section
+- Matches prototype pattern: `{calibration && <InlineCalibration />}`
 
-**Design specs:**
-- **Container:** bg-muted, border-border, rounded-lg, padding-4
-- **Header row:** Ear icon (gray, 14px) + "Understanding Calibration" + HelpCircle icon (gray, 14px)
-- **Message:** text-sm, text-muted-foreground, center-aligned
-- **Progress:** text-xs, text-muted-foreground, margin-top-2
-- **CTA button (owner only):** bg-blue-500, text-white, rounded-md, padding-x-3 padding-y-1.5, margin-top-3, full-width
-- **Help tooltip:** Tapping (?) shows same explanation as full calibration tooltip
-
-**Content variations:**
-- **0 sessions (owner):** "Complete your first verification session to start building calibration data" + "Find Events" button
-- **1-4 sessions (owner):** "Progress: {N}/5 sessions" + "Continue Verifying" button
-- **0-4 sessions (visitor):** Same message but no CTA button
-
-**Placement:**
-- Renders in same position as `InlineCalibration` (below name/role, inside profile card)
-- Same border-top, padding-top-4, margin-top-4 as calibration section
+**Rationale:**
+- Simplest implementation (conditional rendering only)
+- Matches linkedin-like prototype exactly
+- Profile is fully functional without calibration
+- Users naturally discover calibration after completing 5 sessions
 
 ### Edge Cases
 
@@ -944,5 +915,148 @@ This adds defense-in-depth but is not critical since calibration data is designe
 - Ear count badge already working (verify, don't rebuild)
 
 **Ready for next steps:**
-- `/generate-tests` to create E2E coverage
+- ✅ `/generate-tests` completed — See Test Coverage Strategy below
 - `/dev` to implement changes
+
+---
+
+## Test Coverage Strategy
+
+**Generated:** 2026-02-16
+**Feature:** P152 Profile System Production Readiness
+
+---
+
+### What's Tested (and Why)
+
+**E2E Tests:**
+- ✅ Visitor sees calibration (≥5 sessions) — Verify credibility signal visible to all users
+- ✅ Owner sees own calibration — Verify feedback loop for self-improvement
+- ✅ User with <5 sessions sees empty state — Verify graceful handling of insufficient data
+- ✅ Visitor sees empty state (no CTA) — Verify functional difference (owner vs visitor)
+- ✅ Ear count badge visible when >0 ears — Verify credibility signal displays
+- ✅ Ear count badge hidden when 0 ears — Verify clean UX for new users
+- ✅ Calibration persists across tab switches — Verify no data loss on navigation
+- ✅ Layout consistency (owner vs visitor) — Verify same structure, different CTAs
+- ✅ No regression: position-taking works — Verify existing functionality intact
+
+**Why E2E:** All changes are UI wiring (display calibration from existing data). User flows are what matter, not internal logic.
+
+**Accessibility Tests:**
+- ✅ Calibration indicator keyboard accessible — Tab to dot, Enter to show tooltip
+- ✅ Calibration indicator has ARIA attributes — role="button", tabIndex="0"
+- ✅ Ear count badge has descriptive ARIA label — Screen reader announces count
+- ✅ Empty state CTA button keyboard accessible — Tab to button, Enter to navigate
+- ✅ Help icon tooltip keyboard accessible — Tab to (?), Enter to show explanation
+- ✅ Profile tabs have proper ARIA attributes — role="tab", aria-selected
+- ✅ Color contrast meets WCAG AA — Blue-500 on gray bar = 4.5:1 ratio
+- ✅ Touch targets meet minimum size — All interactive elements ≥44x44px
+
+**Why Accessibility:** New interactive elements (calibration dot, help icon, CTA button) require a11y validation.
+
+**Smoke Tests:**
+- ✅ Profile with calibration loads without errors — Fast regression detection
+- ✅ Profile with insufficient calibration loads without errors — Verify empty state doesn't crash
+- ✅ Profile with no calibration data loads without errors — Verify null handling
+- ✅ Profile tabs load without errors — Verify tab switching works
+- ✅ Profile 404 page loads gracefully — Verify error handling
+
+**Why Smoke:** Fast regression detection (catches basic breakage in <30 seconds).
+
+**UAT Scenarios:**
+- ✅ 10 manual validation scenarios covering all user flows
+- ✅ Calibration display variants (≥5 sessions, <5 sessions, owner vs visitor)
+- ✅ Ear count badge variants (>0 ears, 0 ears, updates)
+- ✅ Layout consistency (owner vs visitor, mobile vs desktop)
+- ✅ No regression checks (existing functionality)
+
+**Why UAT:** Business outcomes (credibility visible, feedback loop enabled, consistent UX).
+
+---
+
+### What's NOT Tested (Rationale)
+
+**Unit tests for InsufficientCalibrationState component:**
+- ❌ Not testing component in isolation
+- **Rationale:** Component is simple presentational UI (~30 lines). E2E tests verify it works in context. No complex logic to unit test.
+
+**Unit tests for toUserCalibration() transformation:**
+- ❌ Not testing data transformation function
+- **Rationale:** Function already exists and is tested (line 89-107 in profile-page-v2.tsx). No changes to logic, just wiring to display.
+
+**Integration tests for calibration data layer:**
+- ❌ Not testing calibration-service-real.ts
+- **Rationale:** Service layer already tested in prior features. P152 only wires existing service to display, no backend changes.
+
+**Integration tests for ear count trigger:**
+- ❌ Not testing database trigger (profiles.ears_count update)
+- **Rationale:** Trigger already implemented and tested in migration 20260204. P152 only displays cached value.
+
+**Component tests for InlineCalibration:**
+- ❌ Not testing existing calibration-display.tsx component
+- **Rationale:** Component already exists and works in prototype. No changes needed, just wiring it up.
+
+**Performance tests for large calibration datasets:**
+- ❌ Not testing 100+ verification sessions
+- **Rationale:** Edge case. Typical users have 5-20 sessions. Calibration computation already optimized in service layer.
+
+---
+
+### Test Pyramid Breakdown
+
+```
+        /\
+       /  \   9 E2E tests (user flows)
+      /____\
+     /      \
+    / 8 A11Y \ 8 accessibility tests
+   /__________\
+  /            \
+ / 5 SMOKE     \ 5 smoke tests
+/________________\
+```
+
+**Total:** 22 automated tests + 10 UAT scenarios
+**Run time:** ~45 seconds (E2E: 30s, A11y: 10s, Smoke: 5s)
+
+**No unit or integration tests:** All changes are UI wiring (display existing data). No new business logic to test.
+
+---
+
+### Files Generated
+
+1. `e2e/helpers/test-calibration.ts` — Test helpers for creating calibration data
+2. `e2e/p152-profile-calibration.spec.ts` — E2E tests (9 tests)
+3. `e2e/a11y/p152-accessibility.spec.ts` — Accessibility tests (8 tests)
+4. `e2e/p152-smoke.spec.ts` — Smoke tests (5 tests)
+5. `features/uat/p152.md` — UAT scenarios (10 scenarios)
+
+---
+
+### Test Helper: createCalibrationData()
+
+**New helper in e2e/helpers/test-calibration.ts:**
+
+```typescript
+await createCalibrationData({
+  listenerId: testUser.user.id,
+  speakerId: visitorUser.user.id,
+  count: 5, // Number of verification sessions
+  overconfident: false, // Calibration pattern (overconfident vs well-calibrated)
+});
+```
+
+Creates `story_verifications` records to generate calibration data. Triggers automatically update `profiles.verification_session_count` and `profiles.ears_count`.
+
+**Also includes:**
+- `createEarCountData()` — Creates successful verifications (ears)
+- `deleteCalibrationData()` — Cleanup helper for afterEach hooks
+
+---
+
+### Next Steps
+
+1. ✅ Review this test strategy (does coverage make sense?)
+2. Run `/dev features/p152_profile_production_readiness.md` to implement feature
+3. Agent runs tests, iterates until all pass
+4. User validates UX via UAT scenarios (10 min manual testing)

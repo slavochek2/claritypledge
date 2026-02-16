@@ -7,6 +7,21 @@ export type FeatureType = 'bug' | 'task' | 'story' | 'comment'
 // Size badge (display-if-present, AI-managed)
 export type Size = 'xs' | 's' | 'm' | 'l' | 'xl'
 
+// Delivery stage (software delivery process tracking)
+export type DeliveryStage =
+  | 'prd-draft'
+  | 'prd-review'
+  | 'prd-approved'
+  | 'ux-design'
+  | 'ux-review'
+  | 'ux-approved'
+  | 'arch-design'
+  | 'arch-review'
+  | 'arch-approved'
+  | 'tests-generated'
+  | 'implementation'
+  | 'uat'
+
 // Column IDs match status values
 export type ColumnId = Status
 
@@ -26,6 +41,7 @@ export interface Feature {
    * See docs/decisions.md "2026-02-07: Workstreams replace hypotheses"
    */
   hypothesis?: string // e.g., "H-Biz", "H2"
+  delivery_stage?: DeliveryStage // Software delivery process stage (AI-managed)
   tags: string[]
   created?: string
   // Added for P113: Backlog & Sorting improvements

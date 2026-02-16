@@ -264,4 +264,13 @@ Generate a complete UX section covering:
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.
 
 Append UX section to {spec_file}. Do NOT modify existing Business Requirements content.
+
+**IMPORTANT - Delivery Stage Tracking:**
+1. BEFORE starting UX design, advance delivery stage from review to approved:
+   - Use Edit tool: `delivery_stage: prd-approved`
+   - This confirms PRD was approved by user
+
+2. AFTER appending UX section, update delivery stage to signal completion:
+   - Use Edit tool: `delivery_stage: ux-review`
+   - This signals UX is ready for user review
 ```

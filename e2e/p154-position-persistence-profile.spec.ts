@@ -1,0 +1,295 @@
+/**
+ * @file p154-position-persistence-profile.spec.ts
+ * @description E2E tests for P154 - Position Persistence on Profile Page
+ *
+ * Bug: Position buttons don't persist when clicked on profile page.
+ * Root cause: Missing currentUserId prop and onPositionSelect callback wiring.
+ *
+ * Related: P154 - Position persistence broken on profile page
+ */
+
+import { test, expect } from '@playwright/test';
+import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
+import { supabaseAdmin } from '../src/lib/supabase-admin';
+
+test.describe('Position Persistence on Profile Page (P154)', () => {
+  let testUser: TestUser;
+  let testPointIds: string[] = [];
+
+  test.beforeEach(async () => {
+    testUser = await createTestUser({ name: 'Position Persistence Test User' });
+    testPointIds = [];
+  });
+
+  test.afterEach(async () => {
+    // Clean up test points (must delete positions and history first due to FK constraints)
+    if (testPointIds.length > 0) {
+      // Delete position history entries first
+      await supabaseAdmin.from('point_position_history').delete().in('point_id', testPointIds);
+
+      // Delete positions
+      await supabaseAdmin.from('point_positions').delete().in('point_id', testPointIds);
+
+      // Delete points
+      await supabaseAdmin.from('points').delete().in('id', testPointIds);
+    }
+
+    // Clean up test user
+    if (testUser?.user?.id) {
+      await deleteTestUser(testUser.user.id);
+    }
+  });
+
+  test('position buttons should be visible on profile page for authenticated users', async ({ page }) => {
+    // Create a test point
+    const { data: pointData, error: pointError } = await supabaseAdmin
+      .from('points')
+      .insert({
+        statement: 'Test point: Position buttons should be visible',
+        context: 'Testing P154 - button visibility',
+        first_validator_id: testUser.user.id,
+        tags: ['test', 'p154'],
+      })
+      .select('id')
+      .single();
+
+    if (pointError || !pointData) {
+      throw new Error(`Failed to create test point: ${pointError?.message}`);
+    }
+    testPointIds.push(pointData.id);
+
+    // Set up authenticated session
+    await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
+
+    // Navigate to profile Points tab
+    await page.goto(`/p/${testUser.slug}`);
+    await page.getByRole('tab', { name: /points/i }).click();
+
+    // Verify point appears
+    await expect(page.getByText('Test point: Position buttons should be visible')).toBeVisible({ timeout: 10000 });
+
+    // Verify position buttons are visible
+    // Expected: Three position buttons (Agree, Disagree, Unsure) should be rendered
+    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Position buttons should be visible' });
+    await expect(pointCard).toBeVisible();
+
+    // Find position buttons within the point card (use .first() to avoid matching dropdown)
+    const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
+    const disagreeButton = pointCard.getByRole('button', { name: /^Disagree/i }).first();
+    const unsureButton = pointCard.getByRole('button', { name: /^Unsure/i }).first();
+
+    await expect(agreeButton).toBeVisible();
+    await expect(disagreeButton).toBeVisible();
+    await expect(unsureButton).toBeVisible();
+  });
+
+  test('clicking position button should save and persist after refresh', async ({ page }) => {
+    // Create a test point
+    const { data: pointData, error: pointError } = await supabaseAdmin
+      .from('points')
+      .insert({
+        statement: 'Test point: Click should persist',
+        context: 'Testing P154 - persistence',
+        first_validator_id: testUser.user.id,
+        tags: ['test', 'p154'],
+      })
+      .select('id')
+      .single();
+
+    if (pointError || !pointData) {
+      throw new Error(`Failed to create test point: ${pointError?.message}`);
+    }
+    testPointIds.push(pointData.id);
+
+    // Set up authenticated session
+    await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
+
+    // Navigate to profile Points tab
+    await page.goto(`/p/${testUser.slug}`);
+    await page.getByRole('tab', { name: /points/i }).click();
+    await expect(page.getByText('Test point: Click should persist')).toBeVisible({ timeout: 10000 });
+
+    // Click "Agree" button
+    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Click should persist' });
+    const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
+    await agreeButton.click();
+
+    // Wait for mutation to complete
+    await page.waitForTimeout(3000);
+
+    // Refresh page
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+
+    // Verify position still shows after refresh
+    await expect(page.getByText('Test point: Click should persist')).toBeVisible();
+    const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Click should persist' });
+    const refreshedAgreeButton = refreshedCard.getByRole('button', { name: /^Agree/i }).first();
+    await expect(refreshedAgreeButton).toHaveClass(/bg-blue-600/);
+
+    // Verify in database
+    const { data: savedPosition } = await supabaseAdmin
+      .from('point_positions')
+      .select('*')
+      .eq('point_id', pointData.id)
+      .eq('user_id', testUser.user.id)
+      .single();
+    expect(savedPosition?.position).toBe('agree');
+  });
+
+  test('toggling position (clicking same button twice) should remove it', async ({ page }) => {
+    // Create a test point
+    const { data: pointData, error: pointError } = await supabaseAdmin
+      .from('points')
+      .insert({
+        statement: 'Test point: Toggle should remove',
+        context: 'Testing P154 - toggle behavior',
+        first_validator_id: testUser.user.id,
+        tags: ['test', 'p154'],
+      })
+      .select('id')
+      .single();
+
+    if (pointError || !pointData) {
+      throw new Error(`Failed to create test point: ${pointError?.message}`);
+    }
+    testPointIds.push(pointData.id);
+
+    // Pre-set a position
+    await supabaseAdmin.from('point_positions').insert({
+      point_id: pointData.id,
+      user_id: testUser.user.id,
+      position: 'agree',
+    });
+
+    // Set up authenticated session
+    await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
+
+    // Navigate to profile Points tab
+    await page.goto(`/p/${testUser.slug}`);
+    await page.getByRole('tab', { name: /points/i }).click();
+    await expect(page.getByText('Test point: Toggle should remove')).toBeVisible({ timeout: 10000 });
+
+    // Verify position button shows as selected (refresh to load from DB)
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+
+    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
+    const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
+    await expect(agreeButton).toHaveClass(/bg-blue-600/);
+
+    // Click "Agree" button again (toggle off)
+    await agreeButton.click();
+    await page.waitForTimeout(3000);
+
+    // Refresh and verify button is no longer selected
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+
+    const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
+    const refreshedButton = refreshedCard.getByRole('button', { name: /^Agree/i }).first();
+    await expect(refreshedButton).not.toHaveClass(/bg-blue-600/);
+    await expect(refreshedButton).toHaveClass(/bg-white/);
+
+    // Verify in database that position was removed
+    const { data: positions } = await supabaseAdmin
+      .from('point_positions')
+      .select('*')
+      .eq('point_id', pointData.id)
+      .eq('user_id', testUser.user.id);
+    expect(positions).toHaveLength(0);
+  });
+
+  test('position counts should update immediately after click', async ({ page }) => {
+    // Create a test point
+    const { data: pointData, error: pointError } = await supabaseAdmin
+      .from('points')
+      .insert({
+        statement: 'Test point: Counts should update',
+        context: 'Testing P154 - count updates',
+        first_validator_id: testUser.user.id,
+        tags: ['test', 'p154'],
+      })
+      .select('id')
+      .single();
+
+    if (pointError || !pointData) {
+      throw new Error(`Failed to create test point: ${pointError?.message}`);
+    }
+    testPointIds.push(pointData.id);
+
+    // Set up authenticated session
+    await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
+
+    // Navigate to profile Points tab
+    await page.goto(`/p/${testUser.slug}`);
+    await page.getByRole('tab', { name: /points/i }).click();
+    await expect(page.getByText('Test point: Counts should update')).toBeVisible({ timeout: 10000 });
+
+    // Get initial counts (should be 0 for all)
+    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Counts should update' });
+
+    // Click "Disagree" button
+    const disagreeButton = pointCard.getByRole('button', { name: /^Disagree/i }).first();
+    await disagreeButton.click();
+    await page.waitForTimeout(3000);
+
+    // Refresh and verify count persists
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: /points/i }).click();
+    const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Counts should update' });
+    const refreshedDisagreeButton = refreshedCard.getByRole('button', { name: /^Disagree/i }).first();
+    await expect(refreshedDisagreeButton).toHaveClass(/bg-blue-600/);
+  });
+
+  test('unauthenticated users see position counts but cannot position', async ({ page }) => {
+    // Create a test point with a position
+    const { data: pointData, error: pointError } = await supabaseAdmin
+      .from('points')
+      .insert({
+        statement: 'Test point: Unauthenticated view',
+        context: 'Testing P154 - unauthenticated behavior',
+        first_validator_id: testUser.user.id,
+        tags: ['test', 'p154'],
+      })
+      .select('id')
+      .single();
+
+    if (pointError || !pointData) {
+      throw new Error(`Failed to create test point: ${pointError?.message}`);
+    }
+    testPointIds.push(pointData.id);
+
+    // Add a position from the test user
+    await supabaseAdmin.from('point_positions').insert({
+      point_id: pointData.id,
+      user_id: testUser.user.id,
+      position: 'strongly_agree',
+    });
+
+    // Visit profile WITHOUT authenticating
+    await page.goto(`/p/${testUser.slug}`);
+    await page.getByRole('tab', { name: /points/i }).click();
+    await expect(page.getByText('Test point: Unauthenticated view')).toBeVisible({ timeout: 10000 });
+
+    // Verify position buttons are NOT visible for unauthenticated users
+    // Since currentUserId is undefined, buttons should not render at all
+    const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Unauthenticated view' });
+    const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
+    const disagreeButton = pointCard.getByRole('button', { name: /^Disagree/i }).first();
+    const unsureButton = pointCard.getByRole('button', { name: /^Unsure/i }).first();
+
+    // Buttons should not be visible (currentUserId guard prevents rendering)
+    await expect(agreeButton).not.toBeVisible();
+    await expect(disagreeButton).not.toBeVisible();
+    await expect(unsureButton).not.toBeVisible();
+  });
+});

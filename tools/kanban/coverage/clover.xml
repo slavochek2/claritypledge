@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1771219204812" clover="3.2.0">
+  <project timestamp="1771219204812" name="All files">
+    <metrics statements="30" coveredstatements="29" conditionals="35" coveredconditionals="34" methods="9" coveredmethods="9" elements="74" coveredelements="72" complexity="0" loc="30" ncloc="30" packages="1" files="1" classes="1"/>
+    <file name="scanner-rules.ts" path="/Users/slavochek/Projects/public/claritypledge/tools/kanban/lib/scanner-rules.ts">
+      <metrics statements="30" coveredstatements="29" conditionals="35" coveredconditionals="34" methods="9" coveredmethods="9"/>
+      <line num="17" count="1" type="stmt"/>
+      <line num="28" count="1" type="stmt"/>
+      <line num="30" count="1" type="stmt"/>
+      <line num="33" count="1" type="stmt"/>
+      <line num="42" count="1" type="stmt"/>
+      <line num="58" count="23" type="cond" truecount="2" falsecount="0"/>
+      <line num="59" count="6" type="stmt"/>
+      <line num="63" count="17" type="cond" truecount="2" falsecount="0"/>
+      <line num="64" count="7" type="stmt"/>
+      <line num="67" count="10" type="stmt"/>
+      <line num="81" count="13" type="cond" truecount="2" falsecount="0"/>
+      <line num="91" count="21" type="cond" truecount="2" falsecount="0"/>
+      <line num="101" count="10" type="cond" truecount="2" falsecount="0"/>
+      <line num="111" count="1" type="cond" truecount="2" falsecount="0"/>
+      <line num="121" count="17" type="cond" truecount="3" falsecount="0"/>
+      <line num="131" count="12" type="stmt"/>
+      <line num="133" count="9" type="stmt"/>
+      <line num="151" count="10" type="cond" truecount="2" falsecount="0"/>
+      <line num="152" count="1" type="stmt"/>
+      <line num="156" count="9" type="cond" truecount="2" falsecount="0"/>
+      <line num="157" count="2" type="stmt"/>
+      <line num="164" count="7" type="cond" truecount="2" falsecount="0"/>
+      <line num="165" count="2" type="stmt"/>
+      <line num="172" count="5" type="cond" truecount="4" falsecount="0"/>
+      <line num="173" count="1" type="stmt"/>
+      <line num="180" count="4" type="cond" truecount="3" falsecount="1"/>
+      <line num="181" count="0" type="stmt"/>
+      <line num="188" count="4" type="cond" truecount="4" falsecount="0"/>
+      <line num="189" count="1" type="stmt"/>
+      <line num="195" count="3" type="stmt"/>
+    </file>
+  </project>
+</coverage>

@@ -189,6 +189,13 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           </span>
         )}
 
+        {/* Delivery stage */}
+        {feature.delivery_stage && (
+          <span style={{ ...tagStyle, background: 'var(--tag-blue-bg)', color: 'var(--tag-blue-text)' }}>
+            {feature.delivery_stage}
+          </span>
+        )}
+
         {/* Tags */}
         {(visibleTags.length > 0 || hiddenTagCount > 0) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

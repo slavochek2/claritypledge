@@ -4,7 +4,7 @@
  * Refactored from prototype to accept explicit props instead of using mock data
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, Ear, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared/MobileTooltip';
@@ -92,6 +92,22 @@ export function PointCardWithLinks({
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
+
+  // P154: Sync userPosition state when position prop changes (after refetch)
+  useEffect(() => {
+    if (selectedPosition !== undefined) {
+      console.log('[P154 DEBUG] Setting userPosition from selectedPosition:', selectedPosition);
+      setUserPosition(selectedPosition);
+    } else if (currentUserId) {
+      const propPosition = point.positions[currentUserId]?.position ?? null;
+      console.log('[P154 DEBUG] Setting userPosition from point.positions:', {
+        currentUserId,
+        positions: point.positions,
+        propPosition,
+      });
+      setUserPosition(propPosition);
+    }
+  }, [point.positions, currentUserId, selectedPosition]);
 
   // Get base counts or use defaults
   const baseCounts =
