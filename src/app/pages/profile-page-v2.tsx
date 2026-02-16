@@ -72,6 +72,7 @@ import { pointsService } from "@/app/data/points-service";
 import { calibrationService } from "@/app/data/calibration-service";
 import type { StoryWithPoints, PointWithUserPosition, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
+import { usePointsForProfile } from "@/app/hooks/usePointsForDisplay";
 
 // Routes for detail pages (main app, not prototype)
 // Points include a 'from' param to provide profile context
@@ -186,57 +187,25 @@ export function ProfilePageV2() {
     // Load stories, points, and calibration in parallel
     Promise.all([
       storiesService.getStoriesByAuthorWithPoints(profile.id),
-      // CRITICAL: Use getPointsByValidator (not getPointsWithUserPositions)
-      // - getPointsByValidator: Returns points CREATED/VALIDATED by this user
-      // - getPointsWithUserPositions: Returns points where user TOOK A POSITION
-      // Profile page should show points the user created, regardless of whether
-      // they've taken positions on them. Using getPointsWithUserPositions would
-      // show 0 points if the user hasn't positioned on their own points.
-      // See: src/tests/profile-page-v2-points-regression.test.tsx
-      pointsService.getPointsByValidator(profile.id),
+      // P145: Use getPointsForProfileDisplay (efficient batch loading)
+      // This method:
+      // - Returns points CREATED/VALIDATED by this user
+      // - Includes position counts (batch loaded)
+      // - Includes viewer's positions (batch loaded, using current user if available)
+      // - Avoids N+1 queries (2-3 queries total instead of 1+N)
+      pointsService.getPointsForProfileDisplay(profile.id, currentUser?.id),
       calibrationService.getCalibration(profile.id),
-    ]).then(async ([stories, createdPoints, calibration]) => {
+    ]).then(async ([stories, pointsWithData, calibration]) => {
       // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
 
-      // P145 FIX: Use batch pattern instead of N+1 queries
-      // BEFORE: 10 points = 10 queries (N+1 anti-pattern)
-      // AFTER: 10 points = 2 queries (batch pattern)
+      // P145: Points now come with position counts and user positions pre-loaded
+      // No manual batch fetching needed!
 
-      if (createdPoints.length === 0) {
+      if (pointsWithData.length === 0) {
         setRealPoints([]);
       } else {
-        const pointIds = createdPoints.map(p => p.id);
-
-        // Batch fetch position data (2 queries total)
-        const [counts, positions] = await Promise.all([
-          pointsService.getPositionCountsForPoints(pointIds),
-          pointsService.getMyPositionsForPoints(pointIds, profile.id),
-        ]);
-
-        // Merge batch data into PointWithUserPosition format
-        const pointsWithData: PointWithUserPosition[] = createdPoints.map(point => {
-          const positionCounts = counts.get(point.id) || {
-            strongly_agree: 0,
-            agree: 0,
-            somewhat_agree: 0,
-            unsure: 0,
-            somewhat_disagree: 0,
-            disagree: 0,
-            strongly_disagree: 0,
-          };
-
-          const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
-
-          return {
-            ...point,
-            positionCounts,
-            totalPositions,
-            userPosition: positions.get(point.id),
-          };
-        });
-
         const validPoints = pointsWithData;
 
         // P134: Batch query for linked stories (point → stories)

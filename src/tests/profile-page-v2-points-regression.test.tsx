@@ -37,6 +37,41 @@ vi.mock('@/app/data/points-service', () => ({
       { id: 'point-2', statement: 'Test point 2', createdAt: '2026-02-09' },
     ]),
     getPointsWithUserPositions: vi.fn().mockResolvedValue([]), // Returns 0 if no positions
+    // P145: New batch loading method for profile display
+    getPointsForProfileDisplay: vi.fn().mockResolvedValue([
+      {
+        id: 'point-1',
+        statement: 'Test point 1',
+        createdAt: '2026-02-09',
+        positionCounts: {
+          strongly_agree: 0,
+          agree: 0,
+          somewhat_agree: 0,
+          unsure: 0,
+          somewhat_disagree: 0,
+          disagree: 0,
+          strongly_disagree: 0,
+        },
+        totalPositions: 0,
+        userPosition: undefined,
+      },
+      {
+        id: 'point-2',
+        statement: 'Test point 2',
+        createdAt: '2026-02-09',
+        positionCounts: {
+          strongly_agree: 0,
+          agree: 0,
+          somewhat_agree: 0,
+          unsure: 0,
+          somewhat_disagree: 0,
+          disagree: 0,
+          strongly_disagree: 0,
+        },
+        totalPositions: 0,
+        userPosition: undefined,
+      },
+    ]),
     getPointWithUserPosition: vi.fn().mockImplementation((pointId: string) => {
       // Return appropriate data based on the point ID
       if (pointId === 'point-1') {
@@ -132,9 +167,9 @@ describe('ProfilePageV2 - Points Tab Regression (P136)', () => {
       expect(screen.getByText('Test User')).toBeInTheDocument();
     });
 
-    // CRITICAL: Must call getPointsByValidator (points created by user)
+    // P145: Must call getPointsForProfileDisplay (points created by user with positions)
     await waitFor(() => {
-      expect(pointsService.getPointsByValidator).toHaveBeenCalledWith('user-1');
+      expect(pointsService.getPointsForProfileDisplay).toHaveBeenCalledWith('user-1', undefined);
     });
 
     // MUST NOT call getPointsWithUserPositions (would return 0 if no positions taken)

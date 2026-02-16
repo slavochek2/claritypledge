@@ -584,6 +584,81 @@ export const realPointsService: PointsService = {
   },
 
   // ============================================================================
+  // P145: Display-Ready Point Loading (Efficient Batch Methods)
+  // ============================================================================
+
+  /**
+   * P145: Get points created by a user, ready for profile display
+   * Encapsulates efficient batch loading pattern
+   */
+  async getPointsForProfileDisplay(
+    validatorId: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]> {
+    log('⚡ getPointsForProfileDisplay:', { validatorId, viewerUserId });
+
+    // Get points created by this user
+    const points = await this.getPointsByValidator(validatorId);
+    if (points.length === 0) return [];
+
+    const pointIds = points.map(p => p.id);
+
+    // Batch fetch counts + positions (2 queries for N points - efficient!)
+    const [countsMap, positionsMap] = await Promise.all([
+      this.getPositionCountsForPoints(pointIds),
+      viewerUserId
+        ? this.getMyPositionsForPoints(pointIds, viewerUserId)
+        : Promise.resolve(new Map()),
+    ]);
+
+    // Combine into PointWithUserPosition[]
+    return points.map(point => {
+      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+      const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
+      const userPosition = positionsMap.get(point.id);
+
+      return {
+        ...point,
+        positionCounts,
+        totalPositions,
+        userPosition,
+      };
+    });
+  },
+
+  /**
+   * P145: Get points for feed/discovery, ready for display
+   * Encapsulates efficient batch loading pattern
+   */
+  async getPointsForFeedDisplay(
+    limit: number,
+    offset: number,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]> {
+    log('⚡ getPointsForFeedDisplay:', { limit, offset, viewerUserId });
+
+    // Get points feed (already has counts)
+    const points = await this.getPointsFeed(limit, offset);
+    if (points.length === 0) return [];
+
+    // If no viewer, return points with counts but no positions
+    if (!viewerUserId) {
+      return points.map(point => ({ ...point, userPosition: undefined }));
+    }
+
+    const pointIds = points.map(p => p.id);
+
+    // Batch fetch viewer's positions (1 query for N points)
+    const positionsMap = await this.getMyPositionsForPoints(pointIds, viewerUserId);
+
+    // Combine into PointWithUserPosition[]
+    return points.map(point => ({
+      ...point,
+      userPosition: positionsMap.get(point.id),
+    }));
+  },
+
+  // ============================================================================
   // MUTATIONS - Positions
   // ============================================================================
 

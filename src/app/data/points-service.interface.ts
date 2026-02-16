@@ -53,11 +53,19 @@ export interface PointsService {
 
   /**
    * Get points created by a user (first validator)
+   *
+   * @deprecated Use getPointsForProfileDisplay instead for UI display.
+   * This method does not load position counts or user positions.
+   * Only use this for internal data processing, not UI display.
    */
   getPointsByValidator(validatorId: string): Promise<PointWithCreator[]>;
 
   /**
    * Get points feed (paginated, newest first)
+   *
+   * @deprecated Use getPointsForFeedDisplay instead for UI display.
+   * This method does not load user positions.
+   * Only use this for internal data processing, not UI display.
    */
   getPointsFeed(limit: number, offset: number): Promise<PointWithCounts[]>;
 
@@ -111,6 +119,68 @@ export interface PointsService {
     pointIds: string[],
     userId: string
   ): Promise<Map<string, PointPosition>>;
+
+  // ============================================================================
+  // P145: Display-Ready Point Loading (Efficient Batch Methods)
+  // ============================================================================
+
+  /**
+   * Get points created by a user, ready for profile display
+   * Includes position counts + viewer's positions (if authenticated)
+   *
+   * This method encapsulates the efficient batch loading pattern:
+   * - Fetches points by validator
+   * - Batch loads position counts (1 query)
+   * - Batch loads viewer positions (1 query)
+   * - Merges into PointWithUserPosition format
+   *
+   * Use this instead of getPointsByValidator for display purposes.
+   *
+   * @param validatorId - User who created/validated the points
+   * @param viewerUserId - Current viewer (for loading their positions)
+   * @returns Points with complete display data (counts + positions)
+   *
+   * @example
+   * // Profile page - show points user created
+   * const points = await pointsService.getPointsForProfileDisplay(
+   *   profileUser.id,
+   *   currentUser?.id
+   * );
+   */
+  getPointsForProfileDisplay(
+    validatorId: string,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]>;
+
+  /**
+   * Get points for feed/discovery, ready for display
+   * Includes position counts + viewer's positions (if authenticated)
+   *
+   * This method encapsulates the efficient batch loading pattern:
+   * - Fetches points feed (already has counts)
+   * - Batch loads viewer positions (1 query)
+   * - Merges into PointWithUserPosition format
+   *
+   * Use this instead of getPointsFeed for display purposes.
+   *
+   * @param limit - Number of points to fetch
+   * @param offset - Pagination offset
+   * @param viewerUserId - Current viewer (for loading their positions)
+   * @returns Points with complete display data (counts + positions)
+   *
+   * @example
+   * // Feed page - discover new points
+   * const points = await pointsService.getPointsForFeedDisplay(
+   *   20,
+   *   page * 20,
+   *   currentUser?.id
+   * );
+   */
+  getPointsForFeedDisplay(
+    limit: number,
+    offset: number,
+    viewerUserId?: string
+  ): Promise<PointWithUserPosition[]>;
 
   // ============================================================================
   // MUTATIONS - Positions

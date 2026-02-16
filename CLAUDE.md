@@ -368,6 +368,49 @@ See [architecture.md](docs/technical/architecture.md) for details.
 
 ---
 
+### Point Display Patterns (P145)
+
+**ALWAYS use these patterns when displaying points to users:**
+
+**For profile pages (points created by user):**
+```typescript
+// ✅ CORRECT: Efficient batch loading
+const { points, loading, error } = usePointsForProfile(profileId);
+
+// ❌ WRONG: Manual loading creates N+1 queries
+const points = await pointsService.getPointsByValidator(profileId);
+```
+
+**For feed pages:**
+```typescript
+// ✅ CORRECT: Efficient batch loading
+const { points } = usePointsForFeed(20, page * 20);
+
+// ❌ WRONG: Missing user positions
+const points = await pointsService.getPointsFeed(20, page * 20);
+```
+
+**For detail pages (single point):**
+```typescript
+// ✅ CORRECT: Single point with positions
+const point = await pointsService.getPointWithUserPosition(pointId, user?.id);
+
+// ❌ WRONG: Missing user position
+const point = await pointsService.getPoint(pointId);
+```
+
+**Why this matters:**
+- Position buttons won't show user's current position without loading it
+- N+1 queries cause slow page loads (1+N database calls instead of 2-3)
+- TypeScript won't catch missing positions (type compatibility)
+
+**Enforcement:**
+- Service methods: `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
+- React hooks: `usePointsForProfile`, `usePointsForFeed`
+- Location: `src/app/hooks/usePointsForDisplay.ts`
+
+---
+
 ### Design System
 
 See [docs/design-system.md](docs/design-system.md). **Quick rule:** Blue for actions/CTAs, green for SUCCESS ONLY. Never green action buttons or amber/orange/yellow/purple in UI.
