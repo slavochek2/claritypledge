@@ -361,7 +361,29 @@ export function ProfilePageV2() {
         profile.id,
         currentUser.id
       );
-      setRealPoints(updatedPoints);
+
+      // Transform to AdaptedPoint format (same as initial load)
+      const adaptedPoints = updatedPoints.map(point => {
+        const positions: Record<string, { position: string; timestamp: string }> = {};
+
+        // Add current user's position if it exists
+        if (point.userPosition && currentUser?.id) {
+          positions[currentUser.id] = {
+            position: point.userPosition.position,
+            timestamp: point.userPosition.createdAt,
+          };
+        }
+
+        return {
+          ...point,
+          text: point.statement,
+          positions,
+          linkedStoryIds: [],
+          linkedStories: [],
+        };
+      });
+
+      setRealPoints(adaptedPoints);
     } catch (err) {
       console.error('[DEBUG] Failed to update position:', err);
       toast.error('Failed to save position');
