@@ -34,6 +34,8 @@ export interface Feature {
   rank: number // Fractional rank for ordering (e.g., 1.0, 1.5, 2.0)
   // Spec readiness (derived from prepped_date)
   prepped?: boolean // true if prepped_date is set
+  // Milestone association (for focus page grouping)
+  milestone?: string // e.g., "M1", "M2"
 }
 
 // Milestone status

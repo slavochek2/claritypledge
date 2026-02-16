@@ -6,6 +6,7 @@ import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus } from '../src/lib/types'
+import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE } from '../lib/scanner-rules'
 
 const app = express()
 app.use(cors())
@@ -64,10 +65,7 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
   }
 }
 
-// Valid values for enum fields
-const VALID_STATUS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'draft', 'rejected']
-const VALID_TYPE: FeatureType[] = ['bug', 'task', 'story', 'comment']
-const VALID_SIZE: Size[] = ['xs', 's', 'm', 'l', 'xl']
+// Valid values for enum fields (milestone status is kanban-specific, not in scanner-rules)
 const VALID_MILESTONE_STATUS: MilestoneStatus[] = ['active', 'next', 'future']
 
 // In-memory cache per worktree - invalidated on PATCH
@@ -175,14 +173,11 @@ async function getFeatures(worktreePath?: string): Promise<Feature[]> {
         const fullPath = join(dir, entry.name)
 
         if (entry.isDirectory()) {
-          // Skip folders that shouldn't be scanned
-          const skipFolders = ['research', 'uat']
-          // Also skip dated archive folders (e.g., "4_27_jan26")
-          const isDateArchive = /^\d+_\d+_\w+\d+$/.test(entry.name)
-          if (!skipFolders.includes(entry.name) && !isDateArchive) {
+          // Skip folders using shared scanner-rules logic (P147: prevents drift like P137)
+          if (!shouldSkipFolder(entry.name)) {
             await scanDir(fullPath)
           }
-        } else if (entry.name.endsWith('.md') && /\bp\d+/.test(entry.name)) {
+        } else if (isFeatureFile(entry.name)) {
           const feature = await parseFeatureFile(fullPath)
           if (feature) features.push(feature)
         }

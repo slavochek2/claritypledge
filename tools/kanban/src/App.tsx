@@ -199,8 +199,8 @@ export default function App() {
 
   const getEffectiveOrder = (item: Feature | undefined): number => {
     if (!item) return Number.MAX_SAFE_INTEGER
-    // P141: Prefer rank over sort_order (dual-mode support)
-    return item.rank ?? item.sort_order ?? Number.MAX_SAFE_INTEGER
+    // P141: Use rank for ordering
+    return item.rank ?? Number.MAX_SAFE_INTEGER
   }
 
   const calculateSortOrder = (columnFeatures: Feature[], newIndex: number): number => {
@@ -532,7 +532,7 @@ export default function App() {
         Error: {error}
         <br />
         <button
-          onClick={fetchFeatures}
+          onClick={() => fetchFeatures()}
           style={{
             marginTop: 16,
             padding: '6px 12px',
