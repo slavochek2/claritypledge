@@ -236,6 +236,48 @@ else
 fi
 echo ""
 
+# 13. Duplicate P-number check (prevents reused P-numbers)
+echo ">>> Checking for duplicate P-numbers..."
+if [ -f "./scripts/check-duplicate-p-numbers.sh" ]; then
+    if ./scripts/check-duplicate-p-numbers.sh; then
+        echo -e "${GREEN}✓ No duplicate P-numbers${NC}"
+    else
+        echo -e "${RED}✗ Duplicate P-numbers found${NC}"
+        echo -e "${YELLOW}  → See docs/technical/duplicate-prevention.md for resolution${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ Duplicate P-number checker not found${NC}"
+fi
+echo ""
+
+# 13. Root file pollution check (prevent agent-generated temp files)
+echo ">>> Checking for temporary files in project root..."
+ROOT_TEMP_FILES=$(ls -1 /*.md /*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
+
+if [ -n "$ROOT_TEMP_FILES" ]; then
+    # Check if any match agent-generated patterns
+    AGENT_FILES=$(echo "$ROOT_TEMP_FILES" | grep -E '(_AUDIT|_ANALYSIS|_SUMMARY|FIXES|DUPLICATE|-results\.json|-report\.json|-audit.*\.json|TEST_)' || true)
+
+    if [ -n "$AGENT_FILES" ]; then
+        echo -e "${YELLOW}⚠ Agent-generated files found in project root:${NC}"
+        echo "$AGENT_FILES" | while read -r file; do
+            echo -e "${YELLOW}  → $file${NC}"
+        done
+        echo -e "${YELLOW}  See CLAUDE.md (File Creation Discipline) and docs/technical/file-locations.md${NC}"
+        WARNINGS=$((WARNINGS + 1))
+    elif [ -n "$ROOT_TEMP_FILES" ]; then
+        echo -e "${YELLOW}⚠ Unexpected files in project root:${NC}"
+        echo "$ROOT_TEMP_FILES" | while read -r file; do
+            echo -e "${YELLOW}  → $file${NC}"
+        done
+        WARNINGS=$((WARNINGS + 1))
+    fi
+else
+    echo -e "${GREEN}✓ No temporary files in project root${NC}"
+fi
+echo ""
+
 # Summary
 echo "=== SUMMARY ==="
 if [ $ERRORS -gt 0 ]; then

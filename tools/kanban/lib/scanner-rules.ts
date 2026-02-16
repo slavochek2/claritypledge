@@ -11,7 +11,7 @@
  * - All logic is unit-testable
  */
 
-import type { Status, FeatureType, Size } from '../src/lib/types';
+import type { Status, FeatureType, Size, DeliveryStage } from '../src/lib/types';
 
 // Valid enum values (source of truth)
 export const VALID_STATUS: readonly Status[] = [
@@ -28,6 +28,21 @@ export const VALID_STATUS: readonly Status[] = [
 export const VALID_TYPE: readonly FeatureType[] = ['bug', 'task', 'story', 'comment'] as const;
 
 export const VALID_SIZE: readonly Size[] = ['xs', 's', 'm', 'l', 'xl'] as const;
+
+export const VALID_DELIVERY_STAGE: readonly DeliveryStage[] = [
+  'prd-draft',
+  'prd-review',
+  'prd-approved',
+  'ux-design',
+  'ux-review',
+  'ux-approved',
+  'arch-design',
+  'arch-review',
+  'arch-approved',
+  'tests-generated',
+  'implementation',
+  'uat',
+] as const;
 
 // Folders to skip during scanning
 export const SKIP_FOLDERS = ['research', 'uat'] as const;

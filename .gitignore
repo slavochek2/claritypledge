@@ -71,5 +71,17 @@ global_GEMINI.md
 /*.jpeg
 TEST_*.md
 
+# Agent-generated temporary files (analysis, audits, migration outputs)
+# TEMPORARY: After 1 month of zero violations (target: 2026-03-16),
+# upgrade pre-commit check #13 to ERROR and remove these patterns.
+/*_AUDIT*.md
+/*_ANALYSIS*.md
+/*_SUMMARY*.md
+/*FIXES*.md
+/*DUPLICATE*.md
+*-results.json
+*-report.json
+*-audit*.json
+
 # Personal data
 private/personal/

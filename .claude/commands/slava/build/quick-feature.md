@@ -83,13 +83,15 @@ Ask (text input, NOT AskUserQuestion):
 
 ### 3. Determine P-Number
 
-Run this command to find the next available number:
+Run this command to find the next available number (scans ALL subdirectories):
 
 ```bash
-ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p' -k2 -n | tail -1
+find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p' -k2 -n | tail -1
 ```
 
 Take the highest number and add 1. Example: if highest is `p137`, use `p138`.
+
+**IMPORTANT:** This scans ALL folders including `done/`, `archive/`, `bugs_and_debt/` to prevent P-number reuse.
 
 ### 4. Calculate Rank
 

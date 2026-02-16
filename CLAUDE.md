@@ -85,6 +85,20 @@ When you encounter friction, inefficiency, or repeated issues: (1) Identify the 
 
 ---
 
+### File Creation Discipline
+
+> **Principle:** Never create files in project root. Terminal output > files.
+
+**Quick rules:**
+- ❌ Never create `/*.md`, `/*.json`, or temp files in project root
+- ✅ Feature specs: Use `/create-prd` or `/quick-feature` (auto-creates in `features/`)
+- ✅ Analysis outputs: Terminal only (no files)
+- ✅ Migration scripts: `scripts/archive/migrations/YYYYMMDD-{name}.{ext}`
+
+**Full guidance:** [docs/technical/file-locations.md](docs/technical/file-locations.md)
+
+---
+
 ### Decisive Action — No False Choices
 
 > **Principle:** If analysis clearly points to one answer, take it. Only ask when there are genuine trade-offs or user preference matters.
@@ -250,7 +264,7 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
-**Creating features/bugs:** Use `/slava:build:quick-feature` (quick skeleton, 30 sec) or `/slava:build:create-prd` (comprehensive PRD, 3-5 min). Do NOT create files manually. See [feature-specs.md](docs/technical/feature-specs.md) for frontmatter format.
+**Creating features/bugs:** Use `/slava:build:quick-feature` (quick skeleton, 30 sec) or `/slava:build:create-prd` (comprehensive PRD, 3-5 min). Do NOT create files manually (see [File Creation Discipline](#file-creation-discipline) for location rules). See [feature-specs.md](docs/technical/feature-specs.md) for frontmatter format.
 
 When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?" Never auto-create. If user declines, don't ask again that session. When done, update to `status: done`.
 
@@ -535,6 +549,12 @@ root_cause: brief description     # after resolution
 ```
 
 **File naming:** `features/p{N}_{slug}.md` (skill auto-generates P-number)
+
+**Duplicate P-number prevention:**
+- Skills automatically scan ALL folders (`features/**/` including `done/`, `archive/`, etc.) when assigning P-numbers
+- Pre-commit hook checks for duplicates before allowing commits
+- Manual check: `./scripts/check-duplicate-p-numbers.sh`
+- See [duplicate-prevention.md](docs/technical/duplicate-prevention.md) for details
 
 Full format & lifecycle: [feature-specs.md](docs/technical/feature-specs.md)
 

@@ -903,11 +903,13 @@ created: 2026-02-12
 
 **Determine P-number:**
 ```bash
-# Find highest P-number
-ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p' -k2 -n | tail -1
+# Find highest P-number across ALL subdirectories (prevents reuse from done/archive)
+find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p' -k2 -n | tail -1
 
 # Add 1 to get next P-number
 ```
+
+**IMPORTANT:** This scans ALL folders including `done/`, `archive/`, `bugs_and_debt/` to prevent P-number reuse. See `docs/technical/duplicate-prevention.md` for details.
 
 **Determine filename slug:**
 - Lowercase title
