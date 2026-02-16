@@ -191,6 +191,14 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     await agreeButton.click();
     await page.waitForTimeout(3000);
 
+    // Verify in database that position was removed
+    const { data: positions } = await supabaseAdmin
+      .from('point_positions')
+      .select('*')
+      .eq('point_id', pointData.id)
+      .eq('user_id', testUser.user.id);
+    expect(positions).toHaveLength(0);
+
     // Refresh and verify button is no longer selected
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -200,14 +208,6 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     const refreshedSegment = refreshedCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
     await expect(refreshedSegment).not.toHaveClass(/bg-blue-600/);
     await expect(refreshedSegment).toHaveClass(/bg-white/);
-
-    // Verify in database that position was removed
-    const { data: positions } = await supabaseAdmin
-      .from('point_positions')
-      .select('*')
-      .eq('point_id', pointData.id)
-      .eq('user_id', testUser.user.id);
-    expect(positions).toHaveLength(0);
   });
 
   test('position counts should update immediately after click', async ({ page }) => {
@@ -244,6 +244,15 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     const disagreeButton = pointCard.getByRole('button', { name: /^Disagree/i }).first();
     await disagreeButton.click();
     await page.waitForTimeout(3000);
+
+    // Verify in database FIRST
+    const { data: savedPosition } = await supabaseAdmin
+      .from('point_positions')
+      .select('*')
+      .eq('point_id', pointData.id)
+      .eq('user_id', testUser.user.id)
+      .single();
+    expect(savedPosition?.position).toBe('disagree');
 
     // Refresh and verify count persists
     await page.reload();
