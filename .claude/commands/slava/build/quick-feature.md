@@ -83,15 +83,15 @@ Ask (text input, NOT AskUserQuestion):
 
 ### 3. Determine P-Number
 
-Run this command to find the next available number (scans ALL subdirectories):
+Run the canonical script:
 
 ```bash
-find features -type f -name "p[0-9]*.md" 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p' -k2 -n | tail -1
+./scripts/next-p-number.sh
 ```
 
-Take the highest number and add 1. Example: if highest is `p137`, use `p138`.
+It prints the correct next integer. Never compute it manually — the script handles exclusions correctly (`uat/` and `archive/` are excluded; they contain companion/retired files that must not drive the sequence).
 
-**IMPORTANT:** This scans ALL folders including `done/`, `archive/`, `bugs_and_debt/` to prevent P-number reuse.
+**If the script is unavailable:** halt and warn the user rather than guessing.
 
 ### 4. Calculate Rank
 

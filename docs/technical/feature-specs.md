@@ -8,11 +8,10 @@ Quick reference for creating and managing feature specification files.
 
 **To determine N:**
 ```bash
-# Find highest number across features/ and features/done/
-ls features/*.md features/done/*.md 2>/dev/null | grep -oE 'p[0-9]+' | sort -t'p' -k2 -n | tail -1
+./scripts/next-p-number.sh   # prints the correct next integer
 ```
 
-Then increment by 1.
+Never compute this manually — the script handles exclusions correctly (`uat/` and `archive/` must be excluded; they contain companion/retired files that must not drive the sequence). If the script is unavailable, halt and warn the user rather than guessing.
 
 **Examples:**
 - `p117_backend_api.md`

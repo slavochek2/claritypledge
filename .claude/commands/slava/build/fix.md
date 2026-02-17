@@ -50,7 +50,15 @@ Bug fixes are not just code changes — they're opportunities to prevent entire 
 - Test suite must pass after fix (no new bugs introduced)
 - Minimal changes reduce risk — fix first, refactor separately
 
-**Apply all three before marking bug as fixed.**
+### The Surface Lens
+> "Where else does this symptom exist?"
+
+- UI behavior bugs almost always exist in more than one component
+- Fixing one surface without checking others = filing the same bug again next month
+- Always grep for the pattern, not just the reported location
+- If you find other surfaces: surface them to the user explicitly. Never decide silently.
+
+**Apply all four before marking bug as fixed.**
 
 ---
 
@@ -108,17 +116,76 @@ Actual: [What actually happens]
 
 ---
 
+### Phase 1b: Surface Audit
+
+**Goal:** Find every place in the codebase where this symptom exists — not just the reported one.
+
+**Why this phase exists:** Bugs about UI behavior (counts, highlighting, persistence, state) almost always affect multiple components. Fixing only the reported surface leaves the bug alive elsewhere and you file it again next week.
+
+**Steps:**
+1. Identify the core symptom as a grep pattern. Examples:
+   - "position counts show 0" → grep for `PositionButtons`, `positionCounts`, `userPosition`
+   - "button not highlighted" → grep for `useState.*null` near position rendering
+2. Search codebase for every component that renders the affected behavior
+3. For each match, quickly assess: is the bug present here too? (look for the same pattern — hardcoded zeros, missing DB call, no initial state load)
+4. Present the full list to the user:
+
+```
+Surface audit for: "position counts show 0"
+
+Found this symptom on 3 surfaces:
+  1. Profile → Points tab          (reported)
+  2. Profile → Stories tab expanded (QuotedPointCard — hardcoded zeros)
+  3. Point detail page              (userPosition never loaded on mount)
+
+Which do you want fixed in this ticket?
+- Fix all 3 now?
+- Fix 1 now, defer 2 and 3? (I'll create tickets for them immediately)
+```
+
+5. Wait for explicit user confirmation before proceeding.
+6. For any surface the user defers: create a bug ticket NOW before moving on. Run `./scripts/next-p-number.sh` from repo root to get the next P-number, create `features/p{N}_{surface_slug}.md`, and include the P-number in your summary to the user. "Out of scope" without a ticket number is not allowed.
+
+**Output:**
+```
+Surface audit complete.
+In scope for this ticket: [list]
+Deferred (tickets created): [P-XXX: surface, P-YYY: surface]
+
+Proceeding with confirmed scope.
+```
+
+**Skip this phase only for:**
+- Bugs clearly isolated to infrastructure (build errors, DB migrations, CI config)
+- Bugs with zero UI behavior (pure logic, no rendering)
+
+---
+
 ### Phase 2: Write Regression Test
 
-**Goal:** Create test that FAILS before fix, PASSES after fix
+**Goal:** Create test that FAILS before fix, PASSES after fix — testing the USER-VISIBLE SYMPTOM, not the fix mechanism.
+
+**Critical rule:** The test must assert what a user would see, not what the code does internally.
+
+```
+❌ Wrong (tests mechanism):
+   await expect(page.getByText('Test point')).toBeVisible()
+   → passes even if counts are 0, button not highlighted
+
+✅ Right (tests symptom):
+   await expect(countLabel).toHaveText('1')
+   await expect(agreeButton).toHaveAttribute('aria-pressed', 'true')
+   → fails if counts are 0 or button not highlighted
+```
 
 **Steps:**
 1. Determine test type:
    - E2E test if bug affects user-facing behavior
    - Unit test if bug is in isolated function/logic
-2. Write test that reproduces the bug
+2. Write test that asserts the visible symptom (a number, a highlight, a state the user sees)
 3. Run test → should FAIL (proves bug exists)
 4. Document test location: `e2e/p{N}-bug-fix.spec.ts` or `src/tests/bug-fix.test.ts`
+5. For bugs affecting multiple surfaces (from Phase 1b): the test must cover ALL confirmed in-scope surfaces
 
 **Example E2E regression test:**
 ```typescript

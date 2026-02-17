@@ -427,6 +427,8 @@ After generating business requirements, tell user which skill to run next:
 
 If spec already exists at {spec_file}, read it first and extend the Business layer. DO NOT modify existing UX or Technical sections.
 
+**Determine P-number:** Run `./scripts/next-p-number.sh` from repo root — prints the correct next integer. Never compute manually (the script excludes `uat/` and `archive/` which must not drive the sequence). If the script is unavailable, halt and warn the user.
+
 Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, type, rank, milestone, tags, prepped_date, reviews).
 
 **IMPORTANT - Delivery Stage Tracking:**

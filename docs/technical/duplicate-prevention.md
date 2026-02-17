@@ -8,22 +8,21 @@
 
 ## Prevention Strategy
 
-### 1. Skills Updated to Scan ALL Folders
+### 1. Canonical Script for P-Number Assignment
 
-Both `/create-prd` and `/quick-feature` skills now scan:
-- `features/**/*.md` (all subdirectories)
-- Not just `features/*.md` (root only)
+All skills use `./scripts/next-p-number.sh` — the single source of truth.
 
-**Implementation:**
 ```bash
-# Find highest P-number across ALL folders
-max_p=$(find features -type f -name "p[0-9]*.md" 2>/dev/null |
-  sed -E 's/.*\/p([0-9]+)[_-].*/\1/' |
-  sort -n |
-  tail -1)
-
-next_p=$((max_p + 1))
+./scripts/next-p-number.sh   # prints next available integer
 ```
+
+**What it scans:** `features/` including `done/` subdirectories.
+
+**What it excludes:**
+- `uat/` — companion files keyed to existing P-numbers (e.g. `p192.md` is UAT for feature P192, not a new feature)
+- `archive/` — retired P-numbers; not available for reuse
+
+Never compute the next P-number with an ad-hoc `find` command. Different invocations produce different results depending on which folders they include.
 
 ### 2. Pre-Commit Hook Integration
 
@@ -81,7 +80,7 @@ When duplicates are detected:
 **Feb 2026 Cleanup:**
 - Fixed 47 duplicate P-numbers
 - Renumbered P135→P149, P143→P150, P145→P151, P146→P152, P147→P153
-- Root cause: Skills only scanned `features/` root
-- Fix: Updated skills to scan `features/**/*.md`
+- Root cause: Skills only scanned `features/` root; `uat/` and `archive/` inflated the sequence
+- Fix: Created `scripts/next-p-number.sh` — canonical tool that scans `features/**` while excluding `uat/` and `archive/`
 
-Most duplicates were in archived folders (expected - P-numbers reused after archival). Going forward, this is prevented by scanning ALL folders before assignment.
+Most duplicates were in archived folders (expected - P-numbers reused after archival). Going forward, all skills use the canonical script to prevent this.

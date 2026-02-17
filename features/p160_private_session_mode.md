@@ -1,15 +1,19 @@
 ---
-status: backlog
+status: in-progress
 type: story
-rank: 125235.0
+rank: 125001
 workstream: C2
-tags: [privacy, recording, live, consent]
+tags:
+  - privacy
+  - recording
+  - live
+  - consent
 prepped_date: '2026-02-17'
 delivery_stage: implementation
 reviews:
   ux: null
   architect: null
-created_date: 2026-02-17
+created_date: 2026-02-17T00:00:00.000Z
 ---
 
 # P160: Private Session Mode (No Recording)

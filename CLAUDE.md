@@ -270,7 +270,7 @@ When starting non-trivial work (multi-file changes, features, bug fixes), sugges
 
 **Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions). If work delivers user value, frame as story: "As a [user], I want [goal], so that [benefit]."
 
-**Number assignment:** Run `./scripts/next-p-number.sh` — prints the correct next P-number. Never compute it manually.
+**Number assignment:** Run `./scripts/next-p-number.sh` from the repo root — prints the correct next P-number. Never compute it manually.
 
 ---
 
@@ -553,7 +553,7 @@ root_cause: brief description     # after resolution
 **File naming:** `features/p{N}_{slug}.md` (skill auto-generates P-number)
 
 **Duplicate P-number prevention:**
-- Skills scan `features/` including `done/` when assigning P-numbers, but **exclude `uat/` and `archive/`** (companion/junk files there must not drive the sequence)
+- `./scripts/next-p-number.sh` is the canonical tool — scans `features/` including `done/`, excludes `uat/` (companion files keyed to existing P-numbers) and `archive/` (retired P-numbers not available for reuse)
 - Pre-commit hook checks for duplicates before allowing commits
 - Manual check: `./scripts/check-duplicate-p-numbers.sh`
 - See [duplicate-prevention.md](docs/technical/duplicate-prevention.md) for details

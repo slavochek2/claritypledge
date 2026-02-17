@@ -1,5 +1,5 @@
 ---
-status: blocked
+status: done
 type: bug
 tags:
   - profile
