@@ -1,5 +1,5 @@
 ---
-status: today
+status: done
 type: story
 workstream: E1
 tags:

@@ -1,5 +1,5 @@
 ---
-status: week
+status: done
 type: task
 rank: 13
 workstream: foundation

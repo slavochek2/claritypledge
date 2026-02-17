@@ -2,7 +2,7 @@
 
 ## Pre-Commit Hook Handling
 
-> **Principle:** If unrelated in-progress work causes pre-commit hooks to fail, isolate with stash.
+> **Principle:** If unrelated in-progress work causes pre-commit hooks to fail, isolate it with a WIP commit — not a stash.
 
 ### The Problem
 
@@ -11,16 +11,18 @@ Pre-commit hooks run tests on the ENTIRE codebase, not just staged files. If you
 ### The Solution
 
 ```bash
-# Stash unrelated changes before committing
-git stash push -m "temp: unrelated work" -- path/to/unrelated/file
+# Commit unrelated work as WIP (visible, recoverable, won't be lost)
+git add path/to/unrelated/file
+git commit -m "wip: unrelated work in progress"
 
 # Now commit your actual work
 git add path/to/actual/changes
 git commit -m "feat: your changes"
 
-# Restore unrelated work
-git stash pop
+# Later: squash or amend the WIP commit before merging
 ```
+
+**Why not stash?** Stashes are invisible pockets — easy to forget, permanently lost if pop fails. WIP commits appear in `git log`, survive any git operation, and can be recovered from `git reflog`.
 
 **When to use:** Pre-commit hooks fail due to test failures in files you didn't touch.
 

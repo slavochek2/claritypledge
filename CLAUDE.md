@@ -246,7 +246,7 @@ When fixing visual bugs in systems with slow deploy cycles (Ghost, production):
 
 See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full workflow.
 
-**Quick rules:** Prompt for commits after logical units of work, use `git stash` if pre-commit fails due to unrelated work, run `./scripts/pre-commit-checks.sh` before committing.
+**Quick rules:** Prompt for commits after logical units of work, run `./scripts/pre-commit-checks.sh` before committing.
 
 ---
 
@@ -270,7 +270,7 @@ When starting non-trivial work (multi-file changes, features, bug fixes), sugges
 
 **Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions). If work delivers user value, frame as story: "As a [user], I want [goal], so that [benefit]."
 
-**Number assignment:** Scan ALL `features/` subdirectories for highest `p{N}`. Next = highest + 1.
+**Number assignment:** Run `./scripts/next-p-number.sh` — prints the correct next P-number. Never compute it manually.
 
 ---
 
@@ -352,6 +352,8 @@ These are hard rules, not principles to reason about. Leaking secrets to git his
 - `git add .` — can stage secrets and ignored files
 - `git add -A` — same problem
 - `git add -f <file>` — forces adding ignored files
+- `git reset HEAD` (no args) — resets the **entire** index, not just target files; always use `git reset HEAD -- file1 file2`
+- `git stash` (agent-initiated) — agents must NOT stash unilaterally; only stash if user explicitly asks; prefer `git commit -m "wip: ..."` instead
 
 **ALWAYS use explicit file names:**
 ```bash
@@ -551,7 +553,7 @@ root_cause: brief description     # after resolution
 **File naming:** `features/p{N}_{slug}.md` (skill auto-generates P-number)
 
 **Duplicate P-number prevention:**
-- Skills automatically scan ALL folders (`features/**/` including `done/`, `archive/`, etc.) when assigning P-numbers
+- Skills scan `features/` including `done/` when assigning P-numbers, but **exclude `uat/` and `archive/`** (companion/junk files there must not drive the sequence)
 - Pre-commit hook checks for duplicates before allowing commits
 - Manual check: `./scripts/check-duplicate-p-numbers.sh`
 - See [duplicate-prevention.md](docs/technical/duplicate-prevention.md) for details
