@@ -13,6 +13,7 @@
  */
 
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { createClient } from '@supabase/supabase-js';
 import { Page } from '@playwright/test';
 import { User } from '@supabase/supabase-js';
 
@@ -94,46 +95,46 @@ export async function createTestUser(options: {
 
   console.log(`[TEST HELPER] Auth user created: ${authData.user.id}`);
 
-  // Wait a moment for auth user to be fully committed
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Sign in as the new user to get their JWT — use it to create the profile.
+  // This satisfies the "Users can insert their own profile" RLS policy (auth.uid() = id)
+  // and avoids relying on the service_role bypass policy which has proven unreliable.
+  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+    email,
+    password: TEST_PASSWORD,
+  });
 
-  // Create profile in database (simulating what AuthCallbackPage does)
-  // Retry up to 3 times with backoff to handle race conditions
-  let profileError: Error | null = null;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const { error } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        id: authData.user.id,
-        email,
-        name,
-        slug,
-        role: options.role || 'Test Engineer',
-        linkedin_url: options.linkedinUrl || '',
-        reason: options.reason || 'Testing the Clarity Pledge',
-        avatar_color: '#4A90E2',
-        is_verified: true,
-      }, { onConflict: 'id' });
-
-    if (!error) {
-      console.log(`[TEST HELPER] Profile created for slug: ${slug} (attempt ${attempt})`);
-      profileError = null;
-      break;
-    }
-
-    profileError = error;
-    console.warn(`[TEST HELPER] Profile creation attempt ${attempt} failed:`, error);
-
-    // Wait before retry (exponential backoff)
-    if (attempt < 3) {
-      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-    }
+  if (signInError || !signInData.session) {
+    throw new Error(`[TEST HELPER] Failed to sign in new user for profile creation: ${signInError?.message}`);
   }
+
+  // Create an authenticated client using the user's own JWT
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { error: profileError } = await userClient
+    .from('profiles')
+    .upsert({
+      id: authData.user.id,
+      email,
+      name,
+      slug,
+      role: options.role || 'Test Engineer',
+      linkedin_url: options.linkedinUrl || '',
+      reason: options.reason || 'Testing the Clarity Pledge',
+      avatar_color: '#4A90E2',
+      is_verified: true,
+    }, { onConflict: 'id' });
 
   if (profileError) {
-    console.error('[TEST HELPER] Failed to create profile after 3 attempts:', profileError);
+    console.error('[TEST HELPER] Failed to create profile:', profileError);
     throw profileError;
   }
+
+  console.log(`[TEST HELPER] Profile created for slug: ${slug}`);
 
   return {
     user: authData.user,
