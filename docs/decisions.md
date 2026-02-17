@@ -14,6 +14,27 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-17: P160 — Recording opt-out for privacy-sensitive sessions
+
+**Context:** Every `/live` session was recorded by default (audio → GCS → ML training pipeline). No opt-out existed. Friction points: users practicing with sensitive topics, new users before trust is established, coaches demoing to privacy-conscious clients.
+
+**Decision:** Added per-session recording toggle (default ON, creator-controlled, set before session starts). Joiner inherits creator's setting. Private sessions: no mic permission requested, no audio captured, no GCS upload, no `ml_training_sessions` entry. Session still saved to DB. Toggle locks once session begins.
+
+**Alternatives rejected:**
+- Account-level "never record" preference: Loses granularity — users may want some sessions recorded and others not
+- Always prompt (no default): Adds friction for the majority who want recording
+- Recording off by default: Reduces ML training data unnecessarily; recorded data has consent value
+
+**Consequences:**
+- Widens the pool of users willing to try the product (removes recording as a barrier)
+- Coach demos to privacy-conscious clients no longer blocked by recording objection
+- ML training data only comes from explicitly consenting sessions
+- Visual indicator on `/live` required to show current recording state to both participants
+
+**References:** [P160](../features/p160_private_session_mode.md)
+
+---
+
 ## 2026-02-12: Milestone Restructure — M1-M12 → R/C/E/X Track System
 
 **Context:** Milestone analysis revealed structural issues:
@@ -227,7 +248,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 - "Sandwich pattern" (P115): Public links (Pledgers, Manifesto, About) + separator + Account actions (Settings, Log Out)
 - Existing `/me`, `/home`, `/co-create` routes still work (not deleted, just removed from nav)
 
-**References:** [P116](../features/done/p116_story_point_detail_pages.md) | [P128](../features/p304_live_beginning_screen.md) | commit 951bb7b
+**References:** [P116](../features/done/p116_story_point_detail_pages.md) | [P128](../features/archive/p128_live_beginning_screen.md) | commit 951bb7b
 
 ---
 
