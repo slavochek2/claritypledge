@@ -231,36 +231,28 @@ export async function setTestSession(page: Page, email: string) {
     throw new Error(`[TEST HELPER] Profile not found after 5 attempts for user: ${userId}`);
   }
 
-  // Navigate to a page first so localStorage is available
-  await page.goto('/');
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const storageKey = `sb-${supabaseUrl.split('//')[1].split('.')[0]}-auth-token`;
+  const session = JSON.stringify({
+    access_token,
+    refresh_token,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    expires_in: 3600,
+    token_type: 'bearer',
+    user: null, // Will be populated by Supabase
+  });
 
-  // Store session in localStorage - Supabase client reads from here
-  await page.evaluate(
-    ({ access_token, refresh_token, supabaseUrl }) => {
-      const session = {
-        access_token,
-        refresh_token,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        expires_in: 3600,
-        token_type: 'bearer',
-        user: null // Will be populated by Supabase
-      };
-
-      // Supabase stores session in localStorage with this key format
-      const storageKey = `sb-${supabaseUrl.split('//')[1].split('.')[0]}-auth-token`;
-      localStorage.setItem(storageKey, JSON.stringify(session));
-    },
-    {
-      access_token,
-      refresh_token,
-      supabaseUrl: process.env.VITE_SUPABASE_URL!
-    }
+  // Inject session BEFORE every navigation so the Supabase client finds it
+  // synchronously on init — eliminates the loading-state race with auth gates.
+  await page.context().addInitScript(
+    ({ key, value }) => { localStorage.setItem(key, value); },
+    { key: storageKey, value: session }
   );
 
-  console.log('[TEST HELPER] Session stored in localStorage');
+  console.log('[TEST HELPER] Session injected via addInitScript');
 
-  // Reload page to trigger Supabase client to read session from localStorage
-  await page.reload();
+  // Navigate once to confirm the app picks up the session
+  await page.goto('/');
   await page.waitForLoadState('networkidle');
 }
 
@@ -286,8 +278,13 @@ export async function deleteTestUser(userId: string) {
   const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
   if (authError) {
-    console.error('[TEST HELPER] Failed to delete auth user:', authError);
-    throw authError;
+    // 404 = already deleted (idempotent cleanup — not an error)
+    if (authError.status === 404) {
+      console.warn(`[TEST HELPER] Auth user already deleted: ${userId}`);
+    } else {
+      console.error('[TEST HELPER] Failed to delete auth user:', authError);
+      throw authError;
+    }
   }
 
   console.log(`[TEST HELPER] Test user deleted: ${userId}`);
