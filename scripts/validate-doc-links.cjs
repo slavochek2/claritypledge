@@ -45,7 +45,8 @@ const DIRS = {
   experiments: path.join(__dirname, '..', 'docs', 'milestones'),
   outcomes: path.join(__dirname, '..', 'docs', 'milestones'),
   features: path.join(__dirname, '..', 'features'),
-  featuresDone: path.join(__dirname, '..', 'features', 'done')
+  featuresDone: path.join(__dirname, '..', 'features', 'done'),
+  featuresUat: path.join(__dirname, '..', 'features', 'uat')
 };
 
 // Future tracks that haven't been implemented yet (expected placeholders)
@@ -202,6 +203,15 @@ function featureExists(pNumber) {
   // Check features/done/
   if (fs.existsSync(doneDir)) {
     const files = fs.readdirSync(doneDir);
+    if (files.some(f => f.startsWith(pNumber) && f.endsWith('.md'))) {
+      return true;
+    }
+  }
+
+  // Check features/uat/
+  const uatDir = DIRS.featuresUat;
+  if (fs.existsSync(uatDir)) {
+    const files = fs.readdirSync(uatDir);
     if (files.some(f => f.startsWith(pNumber) && f.endsWith('.md'))) {
       return true;
     }
