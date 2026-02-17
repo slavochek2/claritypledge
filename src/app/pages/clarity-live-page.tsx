@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Share2, Check, Keyboard, Mic } from 'lucide-react';
+import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -143,6 +143,11 @@ export function ClarityLivePage() {
   const [verifiedEmailError, setVerifiedEmailError] = useState<string | null>(null);
   // P50: Consent checkbox state for non-logged-in users
   const [consentChecked, setConsentChecked] = useState(false);
+
+  // P160: Private session mode (recording toggle — creator only, locked after session created)
+  const [isPrivate, setIsPrivate] = useState(false);
+  // P160: Recording state for join-via-link flow (fetched from session data)
+  const [joinSessionIsPrivate, setJoinSessionIsPrivate] = useState(false);
 
   // Partner departure state
   const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
@@ -282,7 +287,8 @@ export function ClarityLivePage() {
   // P28.1: Start audio recording when session goes live AND mic permission granted
   // P28.2: Only record in production to avoid polluting training data with dev sessions
   useEffect(() => {
-    if (view === 'live' && session && !isRecording && micStatus === 'granted') {
+    // Gate C (P160): skip recording entirely for private sessions
+    if (view === 'live' && session && !isRecording && micStatus === 'granted' && !session.isPrivate) {
       // Skip recording in dev - only capture production sessions
       if (!import.meta.env.PROD) {
         console.log('[P28.1] Skipping recording in dev mode (mic permission granted)');
@@ -341,7 +347,8 @@ export function ClarityLivePage() {
   // This ensures the host is ready when partner joins (better UX than requesting mid-flow)
   useEffect(() => {
     // Only request if not already granted or in progress
-    if (view === 'waiting' && isCreator && micStatus === 'unknown') {
+    // Gate A (P160): skip mic request for private sessions — no recording needed
+    if (view === 'waiting' && isCreator && micStatus === 'unknown' && !isPrivate) {
       console.log('[Mic] Proactively requesting mic permission for host in waiting view');
       requestMicPermission().then((granted) => {
         if (!granted) {
@@ -351,7 +358,7 @@ export function ClarityLivePage() {
         }
       });
     }
-  }, [view, isCreator, micStatus, requestMicPermission]);
+  }, [view, isCreator, micStatus, isPrivate, requestMicPermission]);
 
   // HIGH #6: Restore session from sessionStorage on mount
   // IMPORTANT: Skip restoration if user is joining via link (urlCode takes priority)
@@ -419,6 +426,8 @@ export function ClarityLivePage() {
         if (sessionInfo?.creatorName) {
           setHostName(sessionInfo.creatorName);
         }
+        // P160: Capture session's recording state for joiner UI
+        setJoinSessionIsPrivate(sessionInfo?.isPrivate ?? false);
       } catch (err) {
         console.error('[Live] Failed to fetch host name:', err);
       }
@@ -1309,7 +1318,8 @@ export function ClarityLivePage() {
       // Note: We check permission directly, NOT via gateMicAndGoLive which also changes view
       console.log('[Join] Checking mic permission before joining session...');
 
-      let hasMicPermission = micStatus === 'granted';
+      // Gate B (P160): private sessions don't need mic permission
+      let hasMicPermission = joinSessionIsPrivate || micStatus === 'granted';
       if (!hasMicPermission) {
         hasMicPermission = await requestMicPermission();
       }
@@ -1427,7 +1437,7 @@ export function ClarityLivePage() {
 
     try {
       const trimmedName = name.trim();
-      const newSession = await createClaritySession(trimmedName, user?.id);
+      const newSession = await createClaritySession(trimmedName, user?.id, isPrivate);
 
       // P66: Record session consent for the authenticated user
       await recordSessionConsent(newSession.code, user.id);
@@ -1551,6 +1561,8 @@ export function ClarityLivePage() {
     setSession(null);
     setView('start');
     setRoomCode('');
+    // P160: Reset toggle to default (ON) when cancelling from waiting room
+    setIsPrivate(false);
     // Reset refs to ensure clean state for next session
     iAmLeavingRef.current = false;
     partnerLeftRef.current = false;
@@ -1756,6 +1768,13 @@ export function ClarityLivePage() {
   // This ensures users grant microphone access BEFORE seeing the live meeting UI
   // Returns true if transitioned to live, false if blocked by permission dialog
   const gateMicAndGoLive = useCallback(async (): Promise<boolean> => {
+    // Gate D (P160): private sessions bypass mic check entirely
+    if (isPrivate) {
+      console.log('[B48] Private session — skipping mic check, transitioning to live');
+      setView('live');
+      return true;
+    }
+
     // If already granted from a previous check, go straight to live
     if (micStatus === 'granted') {
       console.log('[B48] Mic already granted, transitioning to live');
@@ -1776,7 +1795,7 @@ export function ClarityLivePage() {
       setShowMicDialog(true);
       return false;
     }
-  }, [micStatus, requestMicPermission]);
+  }, [isPrivate, micStatus, requestMicPermission]);
 
   // B48: Effect to handle pending live transitions (from session restoration, subscription, polling)
   // This decouples the async mic permission check from synchronous state updates
@@ -1845,6 +1864,31 @@ export function ClarityLivePage() {
               )}
             </div>
 
+            {/* P160: Session recording status badge for joiner */}
+            <div
+              aria-live="polite"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border mb-6 ${
+                joinSessionIsPrivate
+                  ? 'bg-muted border-border'
+                  : 'bg-blue-50 border-blue-200'
+              }`}
+            >
+              {joinSessionIsPrivate ? (
+                <>
+                  <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Private session</div>
+                    <div className="text-xs text-muted-foreground">Not recorded</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <div className="text-sm text-blue-700">This session will be recorded for AI Insights</div>
+                </>
+              )}
+            </div>
+
             {/* B50: Verified user edge case - inline message */}
             {verifiedEmailError ? (
               <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
@@ -1899,6 +1943,7 @@ export function ClarityLivePage() {
                 {error && <p className="text-sm text-red-600">{error}</p>}
 
                 {/* P50: Consent checkbox (replaces passive notice) */}
+                {/* P160: Label changes based on session recording state */}
                 <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
@@ -1908,14 +1953,21 @@ export function ClarityLivePage() {
                     className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <label htmlFor="consent-join" className="text-sm text-muted-foreground leading-relaxed">
-                    I agree this session is recorded for AI Insights, and I accept the{' '}
-                    <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Terms
-                    </a>{' '}
-                    and{' '}
-                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Privacy Policy
-                    </a>.
+                    {joinSessionIsPrivate ? (
+                      <>
+                        I accept the{' '}
+                        <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
+                        and{' '}
+                        <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                      </>
+                    ) : (
+                      <>
+                        I agree this session is recorded for AI Insights, and I accept the{' '}
+                        <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
+                        and{' '}
+                        <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                      </>
+                    )}
                   </label>
                 </div>
 
@@ -2065,6 +2117,45 @@ export function ClarityLivePage() {
                       </>
                     )}
 
+                    {/* P160: Recording toggle — creator-only control, shown before session is created */}
+                    <div className="w-[280px]">
+                      <button
+                        role="switch"
+                        aria-checked={!isPrivate}
+                        aria-label={isPrivate ? 'Private session — recording disabled' : 'Record session for AI Insights'}
+                        onClick={() => {
+                          setIsPrivate((prev) => !prev);
+                          setConsentChecked(false); // User must re-agree when label changes
+                        }}
+                        className={`flex items-center gap-3 w-full min-h-[44px] px-3 py-2 rounded-lg border text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+                          isPrivate
+                            ? 'bg-muted border-border'
+                            : 'bg-blue-50 border-blue-200'
+                        }`}
+                      >
+                        {/* Switch thumb */}
+                        <div className={`relative flex-shrink-0 w-9 h-5 rounded-full transition-colors ${isPrivate ? 'bg-muted-foreground/30' : 'bg-blue-400'}`}>
+                          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${isPrivate ? 'left-0.5' : 'left-[18px]'}`} />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          {isPrivate ? (
+                            <>
+                              <span className="text-xs font-medium text-muted-foreground">Private session</span>
+                              <span className="text-xs text-muted-foreground">Not recorded</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Record for AI Insights</span>
+                          )}
+                        </div>
+                      </button>
+                      {/* SR-only announcement for screen readers when toggle changes */}
+                      <span className="sr-only" aria-live="polite">
+                        {isPrivate
+                          ? 'Recording disabled. Only Terms & Privacy acceptance is required.'
+                          : 'Recording enabled. Please re-confirm your consent.'}
+                      </span>
+                    </div>
+
                     {/* P50/P63: Consent checkbox - always visible for non-logged-in users */}
                     {!isLoggedIn && (
                       <div className="flex items-start gap-3 w-[280px]">
@@ -2076,14 +2167,21 @@ export function ClarityLivePage() {
                           className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
-                          I agree this session is recorded for AI Insights, and I accept the{' '}
-                          <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            Terms
-                          </a>{' '}
-                          and{' '}
-                          <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            Privacy Policy
-                          </a>.
+                          {isPrivate ? (
+                            <>
+                              I accept the{' '}
+                              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
+                              and{' '}
+                              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                            </>
+                          ) : (
+                            <>
+                              I agree this session is recorded for AI Insights, and I accept the{' '}
+                              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
+                              and{' '}
+                              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                            </>
+                          )}
                         </label>
                       </div>
                     )}
@@ -2318,6 +2416,34 @@ export function ClarityLivePage() {
               </Button>
             </div>
 
+            {/* P160: Recording status badge — display-only, locked once session created */}
+            <div
+              aria-live="polite"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border w-full ${
+                isPrivate
+                  ? 'bg-muted border-border'
+                  : 'bg-blue-50 border-blue-200'
+              }`}
+            >
+              {isPrivate ? (
+                <>
+                  <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Private session</div>
+                    <div className="text-xs text-muted-foreground">Not recorded</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium text-blue-700">Recording enabled</div>
+                    <div className="text-xs text-blue-600">Session recorded for AI Insights</div>
+                  </div>
+                </>
+              )}
+            </div>
+
             {isFromEvent ? (
               <p className="text-xs text-muted-foreground">
                 • Tapping "Join" on the event page<br />
@@ -2416,6 +2542,8 @@ export function ClarityLivePage() {
           userId={user?.id}
           onSelectStory={handleSelectStory}
           onSelectPoint={handleSelectPoint}
+          // P160: Private session mode indicator
+          isPrivate={session.isPrivate ?? false}
         />
 
         {/* Exit confirmation dialog */}

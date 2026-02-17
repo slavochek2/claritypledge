@@ -16,7 +16,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DoorOpen, Sparkles } from 'lucide-react';
+import { DoorOpen, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -52,7 +52,15 @@ import { analytics } from '@/lib/mixpanel';
  * The banner's purpose is transparency for users, not a technical indicator.
  */
 
-function RecordingIndicator() {
+function RecordingIndicator({ isPrivate = false }: { isPrivate?: boolean }) {
+  if (isPrivate) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-1.5 bg-muted border-b border-border" aria-live="polite">
+        <ShieldOff className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">Private session</span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-center gap-2 py-1.5 bg-blue-50 border-b border-blue-200">
       <Sparkles className="w-3.5 h-3.5 text-blue-500" />
@@ -160,6 +168,8 @@ interface LiveModeViewProps {
   onSelectStory?: (storyId: string, title: string) => void;
   /** P128: Select a point for content-attached verification */
   onSelectPoint?: (pointId: string, title: string) => void;
+  /** P160: When true, session is private — shows private band instead of recording band */
+  isPrivate?: boolean;
 }
 
 export function LiveModeView({
@@ -190,6 +200,7 @@ export function LiveModeView({
   userId,
   onSelectStory,
   onSelectPoint,
+  isPrivate = false,
 }: LiveModeViewProps) {
 
   // Hide site-wide SimpleNavigation and remove its top padding when live session is active
@@ -394,6 +405,7 @@ export function LiveModeView({
           onExit={onExitMeeting}
           hideHistory={true}
           waitingForPartnerToContinue={true}
+          isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -421,6 +433,7 @@ export function LiveModeView({
           onSkip={() => handleRequestSkip('decline')}
           onExit={onExitMeeting}
           localFlowType={localFlowType}
+          isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -443,6 +456,7 @@ export function LiveModeView({
           userId={userId}
           onSelectStory={onSelectStory}
           onSelectPoint={onSelectPoint}
+          isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -463,6 +477,7 @@ export function LiveModeView({
           onExit={onExitMeeting}
           selectedStory={selectedStory}
           selectedPoint={selectedPoint}
+          isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -517,6 +532,7 @@ export function LiveModeView({
           onLetThemSpeak={onLetThemSpeak}
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
+          isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -549,6 +565,7 @@ export function LiveModeView({
           onLetThemSpeak={onLetThemSpeak}
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
+          isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -569,6 +586,7 @@ export function LiveModeView({
         userId={userId}
         onSelectStory={onSelectStory}
         onSelectPoint={onSelectPoint}
+        isPrivate={isPrivate}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -602,6 +620,7 @@ interface IdleScreenProps {
   onSelectStory?: (storyId: string, title: string) => void;
   /** P128: Select a point card */
   onSelectPoint?: (pointId: string, title: string) => void;
+  isPrivate?: boolean;
 }
 
 function IdleScreen({
@@ -618,6 +637,7 @@ function IdleScreen({
   userId,
   onSelectStory,
   onSelectPoint,
+  isPrivate = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -744,7 +764,7 @@ function IdleScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={`${layoutClass} overflow-y-auto`}>
         {/* Show journey card if there's rating history or drawer is open */}
@@ -902,6 +922,7 @@ interface RatingScreenProps {
   onRatingSubmit: (rating: number) => void;
   onBack: () => void;
   onExit: () => void;
+  isPrivate?: boolean;
   /** P128: Selected story for content-attached verification */
   selectedStory?: StoryWithAuthor | null;
   /** P128: Selected point for content-attached verification */
@@ -915,6 +936,7 @@ function RatingScreen({
   onRatingSubmit,
   onBack,
   onExit,
+  isPrivate = false,
   selectedStory,
   selectedPoint,
 }: RatingScreenProps) {
@@ -948,7 +970,7 @@ function RatingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
@@ -1012,6 +1034,7 @@ interface RatingScreenWithOptionalDrawerProps {
   selectedStory?: StoryWithAuthor | null;
   /** P128: Selected point for content-attached verification */
   selectedPoint?: PointWithCreator | null;
+  isPrivate?: boolean;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1025,6 +1048,7 @@ function RatingScreenWithOptionalDrawer({
   localFlowType,
   selectedStory,
   selectedPoint,
+  isPrivate = false,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1066,7 +1090,7 @@ function RatingScreenWithOptionalDrawer({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={CONTENT_LAYOUT}>
         {/* Only show journey card if there's history from previous rounds */}
@@ -1623,6 +1647,7 @@ interface UnderstandingScreenProps {
   /** Speaker clarification handlers */
   onClarifyStart: () => void;
   onClarifyDone: () => void;
+  isPrivate?: boolean;
 }
 
 function UnderstandingScreen({
@@ -1646,6 +1671,7 @@ function UnderstandingScreen({
   onLetThemSpeak,
   onClarifyStart,
   onClarifyDone,
+  isPrivate = false,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1748,7 +1774,7 @@ function UnderstandingScreen({
       if (!listenerDone) {
         return (
           <div className="flex flex-col h-full">
-            <LiveHeader partnerName={partnerName} onExit={onExit} />
+            <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
             <div className={CONTENT_LAYOUT}>
               <JourneyToUnderstanding
                 checkerRating={checkerRating}
@@ -1812,7 +1838,7 @@ function UnderstandingScreen({
       const explainBackPrompt = `How well do you believe ${displayPartnerName} understands your intention?`;
       return (
         <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} />
+          <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
           <div className={CONTENT_LAYOUT}>
             <JourneyToUnderstanding
               checkerRating={checkerRating}
@@ -1891,7 +1917,7 @@ function UnderstandingScreen({
     if (hasTappedDone) {
       return (
         <div className="flex flex-col h-full">
-          <LiveHeader partnerName={partnerName} onExit={onExit} />
+          <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
           <div className={CONTENT_LAYOUT}>
             <JourneyToUnderstanding
               checkerRating={checkerRating}
@@ -1947,7 +1973,7 @@ function UnderstandingScreen({
     // BEFORE tapping "Done Explaining" - show microphone/speaking state
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2019,7 +2045,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
           {/* Hide ratings until both submit to prevent bias */}
           <JourneyToUnderstanding
@@ -2072,7 +2098,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
           {/* Celebration header */}
           <div className="text-center space-y-2">
@@ -2132,7 +2158,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2254,7 +2280,7 @@ function UnderstandingScreen({
 
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2372,7 +2398,7 @@ function UnderstandingScreen({
   if (clarificationPhase === 'speaker-clarifying') {
     return (
       <div className="flex flex-col h-full">
-        <LiveHeader partnerName={partnerName} onExit={onExit} />
+        <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2492,7 +2518,7 @@ function UnderstandingScreen({
 
   return (
     <div className="flex flex-col h-full">
-      <LiveHeader partnerName={partnerName} onExit={onExit} />
+      <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
       <div className={CONTENT_LAYOUT}>
         <JourneyToUnderstanding
           checkerRating={checkerRating}
@@ -2671,10 +2697,11 @@ function RatingDisplay({ label, rating, maxRating = 10, showCurrent = false }: R
 interface LiveHeaderProps {
   partnerName: string;
   onExit: () => void;
+  isPrivate?: boolean;
 }
 
 /** Header with banner + recording indicator. Reads returnTo from URL directly. */
-function LiveHeader({ partnerName, onExit }: LiveHeaderProps) {
+function LiveHeader({ partnerName, onExit, isPrivate = false }: LiveHeaderProps) {
   const [searchParams] = useSearchParams();
   const rawReturnTo = searchParams.get('returnTo');
   const returnTo = rawReturnTo && rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//')
@@ -2683,7 +2710,7 @@ function LiveHeader({ partnerName, onExit }: LiveHeaderProps) {
   return (
     <>
       <LiveSessionBanner partnerName={partnerName} onExit={onExit} returnTo={returnTo} />
-      <RecordingIndicator />
+      <RecordingIndicator isPrivate={isPrivate} />
     </>
   );
 }

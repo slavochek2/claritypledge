@@ -140,6 +140,8 @@ export interface ClaritySession {
   // P23: Live Clarity Meetings
   mode?: 'async' | 'live' | 'review';
   liveState?: Record<string, unknown>;
+  // P160: Private session mode (no audio/events captured for ML training)
+  isPrivate?: boolean;
 }
 
 export interface ClaritySessionState {
@@ -168,6 +170,8 @@ export interface DbClaritySession {
   // P23: Live Clarity Meetings
   mode?: 'async' | 'live' | 'review';
   live_state?: Record<string, unknown>;
+  // P160: Private session mode
+  is_private?: boolean;
 }
 
 // ============================================================================

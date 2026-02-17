@@ -5,7 +5,7 @@ rank: 125235.0
 workstream: C2
 tags: [privacy, recording, live, consent]
 prepped_date: '2026-02-17'
-delivery_stage: arch-review
+delivery_stage: implementation
 reviews:
   ux: null
   architect: null
@@ -117,19 +117,19 @@ created_date: 2026-02-17
 
 ## Acceptance Criteria
 
-- [ ] Recording toggle is visible in the waiting room before session starts, defaulting to ON
-- [ ] When toggle is turned OFF, no microphone permission dialog is shown
-- [ ] When toggle is turned OFF, no audio is recorded or uploaded
-- [ ] When toggle is turned OFF, no events snapshot is uploaded to GCS
-- [ ] When toggle is turned OFF, no entry is created in `ml_training_sessions`
-- [ ] The session is still saved to the database regardless of toggle state
-- [ ] The toggle is locked (non-editable) once the session transitions to active/live state
-- [ ] Joiner sees the recording state clearly when they join (e.g., "This session is private — not recorded" or "This session is being recorded")
-- [ ] The "Session recorded for AI Insights" banner is NOT shown in private mode
-- [ ] A clear "Private session" indicator IS shown in private mode
-- [ ] The consent checkbox for guest users changes label text in private mode (removes recording sentence, keeps T&C acceptance)
-- [ ] All clarity check mechanics (rating, explain-back, results, scoring) work identically in private mode
-- [ ] Private mode works on mobile and desktop
+- [x] Recording toggle is visible in the waiting room before session starts, defaulting to ON
+- [x] When toggle is turned OFF, no microphone permission dialog is shown
+- [x] When toggle is turned OFF, no audio is recorded or uploaded
+- [x] When toggle is turned OFF, no events snapshot is uploaded to GCS
+- [x] When toggle is turned OFF, no entry is created in `ml_training_sessions`
+- [x] The session is still saved to the database regardless of toggle state
+- [x] The toggle is locked (non-editable) once the session transitions to active/live state
+- [x] Joiner sees the recording state clearly when they join (e.g., "This session is private — not recorded" or "This session is being recorded")
+- [x] The "Session recorded for AI Insights" banner is NOT shown in private mode
+- [x] A clear "Private session" indicator IS shown in private mode
+- [x] The consent checkbox for guest users changes label text in private mode (removes recording sentence, keeps T&C acceptance)
+- [x] All clarity check mechanics (rating, explain-back, results, scoring) work identically in private mode
+- [x] Private mode works on mobile and desktop
 
 ---
 

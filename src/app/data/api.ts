@@ -770,6 +770,8 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
     // P23: Live Clarity Meetings
     mode: dbSession.mode,
     liveState: dbSession.live_state,
+    // P160: Private session mode
+    isPrivate: dbSession.is_private ?? false,
   };
 }
 
@@ -777,12 +779,14 @@ function mapSessionFromDb(dbSession: DbClaritySession): ClaritySession {
  * Creates a new Clarity Partners session.
  * @param creatorName - Name of the session creator
  * @param creatorProfileId - Optional profile ID of the authenticated creator
+ * @param isPrivate - When true, session skips audio/events upload for ML training
  * @param creatorNote - Optional note explaining why the partner is being invited
  * @returns The created session
  */
 export async function createClaritySession(
   creatorName: string,
   creatorProfileId?: string,
+  isPrivate = false,
   creatorNote?: string
 ): Promise<ClaritySession> {
   // Generate unique room code (retry if collision)
@@ -801,6 +805,7 @@ export async function createClaritySession(
         state: {},
         demo_status: 'waiting',
         partnership_status: 'pending',
+        is_private: isPrivate,
       })
       .select()
       .single();
@@ -890,7 +895,7 @@ export async function getClaritySession(code: string): Promise<ClaritySession | 
     .from('clarity_sessions')
     .select('*')
     .eq('code', normalizedCode)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return null;
