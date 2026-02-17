@@ -1,5 +1,5 @@
 ---
-status: today
+status: done
 type: story
 workstream: C1
 prototype: /prototype/linkedin-like/live
