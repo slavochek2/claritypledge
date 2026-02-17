@@ -250,6 +250,13 @@ Add to spec frontmatter: `feature_type: backend`
 
 ## Implementation
 
+This skill spawns TWO agents in parallel. After both complete:
+- The Architect agent will have already written Technical Analysis + Architecture Decisions + Implementation Approach to the spec (with a Security Review placeholder).
+- The parent agent (you) replaces the placeholder with the Security agent's findings using the Edit tool.
+
+**Parent agent merge step:**
+After both agents return, use Edit to replace `*Pending — Security agent completing in parallel.*` in the spec with the Security Review text from the security agent's response.
+
 This skill spawns TWO agents in parallel:
 
 ### Architect Agent
@@ -268,21 +275,25 @@ Generate Technical section covering:
 2. Architecture decisions (patterns, trade-offs, alternatives)
 3. Implementation approach (build sequence, files to change)
 
-Append to spec file. Do NOT modify existing content.
+**MANDATORY FINAL STEP — YOU MUST WRITE TO THE FILE.**
+After completing your analysis, use the Edit tool to append your Technical section to {spec_file}.
+- Append after the last line of the file
+- Do NOT modify any existing content above
+- Inside the Security Review subsection, write only the placeholder text: `*Pending — Security agent completing in parallel.*`
 
-Include:
-- **Technical Analysis** subsection
-- **Architecture Decisions** subsection (Decision 1, Decision 2, etc. with Chosen/Rationale/Trade-off/Alternative rejected)
-- **Implementation Approach** subsection (Files to Create, Files to Modify, Build Sequence)
+Include these subsections:
+- **Technical Analysis** (current code state, dependencies)
+- **Architecture Decisions** (Decision 1, Decision 2, etc. — each with: Chosen / Rationale / Trade-off / Alternative rejected)
+- **Security Review** — placeholder only: `*Pending — Security agent completing in parallel.*`
+- **Implementation Approach** (Files to Create, Files to Modify, Build Sequence)
 
-**IMPORTANT - Delivery Stage Tracking:**
-1. BEFORE starting architecture design, advance delivery stage:
-   - Use Edit tool: `delivery_stage: ux-approved` (or `prd-approved` if backend feature with no UX)
-   - This confirms UX was approved by user
+**Delivery Stage Tracking:**
+1. BEFORE starting architecture design:
+   - Edit frontmatter: change `delivery_stage: ux-review` → `delivery_stage: ux-approved` (or `prd-review` → `prd-approved` for backend features)
+2. AFTER the Edit tool confirms the Technical section was appended:
+   - Edit frontmatter: change `delivery_stage: ux-approved` → `delivery_stage: arch-review`
 
-2. AFTER appending Technical section, update delivery stage:
-   - Use Edit tool: `delivery_stage: arch-review`
-   - This signals architecture is ready for user review
+If any Edit call fails, retry with more surrounding context to make the match unique.
 ```
 
 ### Security Agent
@@ -298,9 +309,12 @@ Review for:
 4. Input validation (prevent injection)
 5. Data protection (PII, sensitive fields)
 
-Append Security Review subsection to Technical section. Flag risks with ⚠️.
+**Return your findings in your response text. Do NOT use Edit or Write tools — the parent agent will merge your output into the spec after both agents complete.**
 
-Use format:
+Use this format in your response:
+
+## Security Review
+
 **RLS Policies:**
 - ✅ or ⚠️ findings
 
