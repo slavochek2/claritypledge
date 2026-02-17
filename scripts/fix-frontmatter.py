@@ -52,6 +52,23 @@ def get_folder_priority(file_path):
     return 99
 
 
+def get_tracked_files():
+    """Return set of absolute path strings tracked by git in features/."""
+    try:
+        result = subprocess.run(
+            ['git', 'ls-files', '--', 'features/'],
+            capture_output=True, text=True, cwd=PROJECT_ROOT
+        )
+        tracked = set()
+        for line in result.stdout.strip().split('\n'):
+            line = line.strip()
+            if line:
+                tracked.add(str((PROJECT_ROOT / line).resolve()))
+        return tracked
+    except Exception:
+        return set()
+
+
 def get_git_date(file_path):
     try:
         result = subprocess.run(
@@ -109,6 +126,7 @@ def update_references(old_stem, new_stem, search_root):
 
 def fix_duplicates(all_files):
     """Auto-rename lower-priority duplicate P-number files. Returns rename log."""
+    tracked = get_tracked_files()
     seen = {}
     for f in all_files:
         m = re.match(r'p(\d+)', f.name)
@@ -122,8 +140,12 @@ def fix_duplicates(all_files):
     for num, files in seen.items():
         if len(files) <= 1:
             continue
-        # Sort: lowest priority index = highest priority = keep its P-number
-        files_sorted = sorted(files, key=get_folder_priority)
+        # Sort: tracked files always beat untracked (primary), then by folder priority (secondary).
+        # This ensures phantom untracked files never displace tracked active features.
+        def sort_key(f):
+            is_untracked = str(f.resolve()) not in tracked
+            return (is_untracked, get_folder_priority(f))
+        files_sorted = sorted(files, key=sort_key)
         keeper = files_sorted[0]
 
         for f_to_rename in files_sorted[1:]:
