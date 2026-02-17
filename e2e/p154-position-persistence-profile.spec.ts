@@ -140,7 +140,8 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
     // Check the segment div which has the bg-blue-600 class when active
     // The segment div has rounded corners (rounded-r-lg for last segment) and min-h classes
     const agreeSegment = refreshedCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
-    await expect(agreeSegment).toHaveClass(/bg-blue-600/);
+    // Allow extra time: auth resolves async after reload, triggering a second effect run that loads positions
+    await expect(agreeSegment).toHaveClass(/bg-blue-600/, { timeout: 10000 });
   });
 
   test('toggling position (clicking same button twice) should remove it', async ({ page }) => {
@@ -184,7 +185,8 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
 
     const pointCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
     const agreeSegment = pointCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
-    await expect(agreeSegment).toHaveClass(/bg-blue-600/);
+    // Allow extra time: auth resolves async after reload, triggering a second effect run that loads positions
+    await expect(agreeSegment).toHaveClass(/bg-blue-600/, { timeout: 10000 });
 
     // Click "Agree" button (toggle off) - find the clickable button inside the segment
     const agreeButton = pointCard.getByRole('button', { name: /^Agree/i }).first();
@@ -206,8 +208,9 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
 
     const refreshedCard = page.locator('.border-l-4', { hasText: 'Test point: Toggle should remove' });
     const refreshedSegment = refreshedCard.locator('.rounded-r-lg').filter({ has: page.locator('button', { hasText: /Agree/ }) });
-    await expect(refreshedSegment).not.toHaveClass(/bg-blue-600/);
-    await expect(refreshedSegment).toHaveClass(/bg-white/);
+    // Allow extra time: auth resolves async after reload, triggering a second effect run that loads positions
+    await expect(refreshedSegment).not.toHaveClass(/bg-blue-600/, { timeout: 10000 });
+    await expect(refreshedSegment).toHaveClass(/bg-white/, { timeout: 10000 });
   });
 
   test('position counts should update immediately after click', async ({ page }) => {
@@ -262,7 +265,68 @@ test.describe('Position Persistence on Profile Page (P154)', () => {
 
     // Check the segment div - Disagree is the first segment (leftmost) with rounded-l-lg
     const disagreeSegment = refreshedCard.locator('.rounded-l-lg').filter({ has: page.locator('button', { hasText: /Disagree/ }) });
-    await expect(disagreeSegment).toHaveClass(/bg-blue-600/);
+    // Allow extra time: auth resolves async after reload, triggering a second effect run that loads positions
+    await expect(disagreeSegment).toHaveClass(/bg-blue-600/, { timeout: 10000 });
+
+    // P155 REGRESSION: Verify count label shows 1 (not 0) after position save
+    // Root cause was: getPointPositionCounts used sparse positions map (at most 1 entry)
+    // instead of positionCounts from DB. After fix it should use toSevenPointCounts(p.positionCounts).
+    // Counts render as "(1)" in the button accessible name "Disagree (1)"
+    await expect(refreshedCard.getByRole('button', { name: 'Disagree (1)' })).toBeVisible({ timeout: 10000 });
+  });
+
+  test('p155 regression: story expand should not crash (StoryCardFull explicit props)', async ({ page }) => {
+    // Create a story linked to a point — exercises StoryCardFull expand path
+    const { data: pointData } = await supabaseAdmin
+      .from('points')
+      .insert({
+        statement: 'Test point for story expand regression',
+        context: 'Testing P155 - story expand crash fix',
+        first_validator_id: testUser.user.id,
+        tags: ['test', 'p155'],
+      })
+      .select('id')
+      .single();
+
+    if (!pointData) throw new Error('Failed to create test point');
+    testPointIds.push(pointData.id);
+
+    const { data: storyData } = await supabaseAdmin
+      .from('stories')
+      .insert({
+        content: 'Test story for expand regression test',
+        author_id: testUser.user.id,
+        visibility: 'public',
+      })
+      .select('id')
+      .single();
+
+    if (!storyData) throw new Error('Failed to create test story');
+
+    // Link point to story
+    await supabaseAdmin.from('story_points').insert({
+      story_id: storyData.id,
+      point_id: pointData.id,
+    });
+
+    await setTestSession(page, testUser.email);
+    await page.waitForLoadState('networkidle');
+
+    await page.goto(`/p/${testUser.slug}`);
+    // Stories tab is default — story card should be visible
+    await expect(page.getByText('Test story for expand regression test')).toBeVisible({ timeout: 10000 });
+
+    // Click "N points by..." to expand — this triggered ReferenceError before fix
+    const expandButton = page.getByRole('button', { name: /point.* by /i }).first();
+    await expandButton.click();
+
+    // Verify no crash: page still alive, expanded points visible
+    // Use .first() because the point text appears twice (in QuotedPointCard and story detail Key Points section)
+    await expect(page.getByText('Test point for story expand regression').first()).toBeVisible({ timeout: 5000 });
+
+    // Cleanup story
+    await supabaseAdmin.from('story_points').delete().eq('story_id', storyData.id);
+    await supabaseAdmin.from('stories').delete().eq('id', storyData.id);
   });
 
   test('unauthenticated users see position counts but cannot position', async ({ page }) => {
