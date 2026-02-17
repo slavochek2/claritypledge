@@ -128,7 +128,7 @@ test.describe('Signup Flow', () => {
     await reasonField.fill('Test reason');
 
     // Should show character count
-    await expect(page.getByText(/\/280 characters/i)).toBeVisible();
+    await expect(page.getByText(/\/280/i)).toBeVisible();
   });
 
   test('should have "Already Pledged? Log In" link', async ({ page }) => {

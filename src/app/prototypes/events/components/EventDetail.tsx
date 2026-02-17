@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -15,14 +15,12 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/auth';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
-import type { EventWithHost, EventAttendee, EventSubRoomWithProfiles, PersonRef } from '@/app/types';
+import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
-import { EventSessions, getOccupiedProfileIds } from './EventSessions';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -69,12 +67,6 @@ export function EventDetail() {
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
   const [showCancelEventDialog, setShowCancelEventDialog] = useState(false);
 
-  // P124: Event sub-rooms state
-  const [subRooms, setSubRooms] = useState<EventSubRoomWithProfiles[]>([]);
-  const [subRoomsLoading, setSubRoomsLoading] = useState(true);
-  const [subRoomsError, setSubRoomsError] = useState<string | null>(null);
-  const [isCreatingSubRoom, setIsCreatingSubRoom] = useState(false);
-
   // Check if current user is the host
   const isHost = isLoggedIn && user && event?.hostId === user.id;
 
@@ -98,68 +90,6 @@ export function EventDetail() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams, isLoggedIn]);
-
-  // P124: Fetch sub-rooms when event loads
-  const eventId = event?.id;
-  const fetchSubRooms = useCallback(async () => {
-    if (!eventId) return;
-    setSubRoomsLoading(true);
-    setSubRoomsError(null);
-    try {
-      const rooms = await eventsService.getEventSubRooms(eventId);
-      setSubRooms(rooms);
-    } catch (error) {
-      console.error('[EventDetail] Failed to fetch sub-rooms:', error);
-      setSubRoomsError('Failed to load sessions. Please try again.');
-    } finally {
-      setSubRoomsLoading(false);
-    }
-  }, [eventId]);
-
-  useEffect(() => {
-    fetchSubRooms();
-  }, [fetchSubRooms]);
-
-  // P124: Subscribe to real-time sub-room changes
-  useEffect(() => {
-    if (!eventId) return;
-    const channel = supabase
-      .channel(`event_sub_rooms:${eventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_sub_rooms',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => { fetchSubRooms(); }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [eventId, fetchSubRooms]);
-
-  // P124: Auto-navigate initiator to /live when sub-room becomes active
-  // Track which sub-rooms we've already navigated for to prevent duplicate navigation
-  const navigatedSubRoomsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!user?.id) return;
-
-    for (const room of subRooms) {
-      // Only navigate if: room is active, user is initiator, has session code, and we haven't navigated for this room yet
-      if (
-        room.status === 'active' &&
-        room.initiatorId === user.id &&
-        room.sessionCode &&
-        !navigatedSubRoomsRef.current.has(room.id)
-      ) {
-        navigatedSubRoomsRef.current.add(room.id);
-        navigate(`/live?code=${room.sessionCode}&returnTo=/events/${slug}`);
-        break;
-      }
-    }
-  }, [subRooms, user?.id, navigate, slug]);
 
   // Loading state
   if (loading) {
@@ -189,43 +119,6 @@ export function EventDetail() {
   const isPast = event.status === 'completed';
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
-
-  // P124: Always show sessions for non-cancelled events (MVP simplification)
-  const showSessions = !isCancelled;
-
-  // P124: Handlers for sub-room creation
-  const currentUserId = user?.id;
-
-  // P124: Compute occupied profiles (in pending/active sub-rooms)
-  const occupiedIds = getOccupiedProfileIds(subRooms);
-  // Current user is in a sub-room if they're in the occupied set
-  const currentUserInSubRoom = currentUserId ? occupiedIds.has(currentUserId) : false;
-
-  const handleVerifyTogether = async (attendee: EventAttendee) => {
-    if (!event || !slug) return;
-    if (!isLoggedIn || !currentUserId) return;
-    if (attendee.profileId === currentUserId) return; // Can't tap yourself
-    if (occupiedIds.has(attendee.profileId)) {
-      toast.error(`${attendee.name} is already in a session.`);
-      return;
-    }
-    if (currentUserInSubRoom) {
-      toast.error("You're already in a session.");
-      return;
-    }
-
-    // Create sub-room and navigate immediately
-    setIsCreatingSubRoom(true);
-    const subRoom = await eventsService.createSubRoom(event.id, attendee.profileId);
-    setIsCreatingSubRoom(false);
-
-    if (subRoom && subRoom.sessionCode) {
-      // Navigate to /live immediately
-      navigate(`/live?code=${subRoom.sessionCode}&returnTo=/events/${slug}&partner=${encodeURIComponent(attendee.name)}`);
-    } else {
-      toast.error(`Couldn't create session. ${attendee.name} may already be in one.`);
-    }
-  };
 
   const handleRsvp = async () => {
     if (!isLoggedIn || !user) {
@@ -557,74 +450,20 @@ export function EventDetail() {
                 Participants ({(event.attendees ?? []).length}{event.maxAttendees ? `/${event.maxAttendees}` : ''})
               </h2>
               <div className="space-y-2">
-                {(event.attendees ?? []).map(attendee => {
-                  const isSelf = attendee.profileId === currentUserId;
-                  const isOccupied = occupiedIds.has(attendee.profileId);
-                  const canStartSession = isLoggedIn && !isSelf && !isOccupied && !currentUserInSubRoom;
-
-                  return (
-                    <div
-                      key={attendee.profileId}
-                      className="flex items-center gap-3"
-                    >
-                      {/* Profile link (always works) */}
-                      <div className="flex-1 min-w-0">
-                        <PersonRow
-                          profileId={attendee.profileId}
-                          slug={attendee.slug}
-                          name={attendee.name}
-                          avatarColor={attendee.avatarColor}
-                          avatarUrl={attendee.avatarUrl}
-                          isPledger={attendee.hasPledged}
-                          action={isPast ? "attended" : "going"}
-                        />
-                      </div>
-
-                      {/* Session action button */}
-                      {canStartSession && (
-                        <Button
-                          onClick={() => handleVerifyTogether(attendee)}
-                          size="sm"
-                          className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-                          disabled={isCreatingSubRoom}
-                        >
-                          {isCreatingSubRoom ? (
-                            'Starting...'
-                          ) : (
-                            <>
-                              <span className="hidden sm:inline">Verify Together →</span>
-                              <span className="sm:hidden">Verify →</span>
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      {isOccupied && (
-                        <span className="shrink-0 text-xs text-muted-foreground px-3 py-1.5">
-                          In session
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                {(event.attendees ?? []).map(attendee => (
+                  <PersonRow
+                    key={attendee.profileId}
+                    profileId={attendee.profileId}
+                    slug={attendee.slug}
+                    name={attendee.name}
+                    avatarColor={attendee.avatarColor}
+                    avatarUrl={attendee.avatarUrl}
+                    isPledger={attendee.hasPledged}
+                    action={isPast ? "attended" : "going"}
+                  />
+                ))}
               </div>
             </div>
-
-            {/* P124: Sessions Section — visible when event is live or after */}
-            {showSessions && (
-              <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-                <h2 className="font-semibold text-sm text-muted-foreground mb-4">
-                  Sessions
-                </h2>
-                <EventSessions
-                  subRooms={subRooms}
-                  loading={subRoomsLoading}
-                  error={subRoomsError}
-                  onRetry={fetchSubRooms}
-                  currentUserId={currentUserId}
-                  eventSlug={event.slug}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>

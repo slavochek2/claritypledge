@@ -73,7 +73,7 @@ test.describe('Creator Detects Joiner', () => {
         await creatorCheckbox.check();
       }
 
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       // Wait for the waiting room with share link
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
@@ -105,7 +105,7 @@ test.describe('Creator Detects Joiner', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Step 3: Joiner should see the live view (this works per the bug report)
       await expect(joinerPage.getByText('Creator')).toBeVisible({ timeout: 10000 });
@@ -190,7 +190,7 @@ test.describe('Creator Detects Joiner', () => {
         await creatorCheckbox.check();
       }
 
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -215,7 +215,7 @@ test.describe('Creator Detects Joiner', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for joiner to be in live view
       await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });

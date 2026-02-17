@@ -42,7 +42,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByPlaceholder('Enter your name').fill('Alice');
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
@@ -53,7 +53,7 @@ test.describe('New Meeting After Session Ends', () => {
       // Joiner joins first meeting
       await joinerPage.goto(`/live/${roomCode1}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Both should be in live meeting
       await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 10000 });
@@ -66,8 +66,8 @@ test.describe('New Meeting After Session Ends', () => {
       // ========================================
 
       await joinerPage.getByRole('button', { name: 'Menu' }).click();
-      await joinerPage.getByRole('menuitem', { name: 'Leave Meeting' }).click();
-      await expect(joinerPage.getByText('Leave meeting?')).toBeVisible();
+      await joinerPage.getByRole('menuitem', { name: 'Leave Session' }).click();
+      await expect(joinerPage.getByText('Leave session?')).toBeVisible();
       await joinerPage.getByRole('button', { name: 'Leave' }).last().click();
 
       // Joiner back at start
@@ -85,7 +85,7 @@ test.describe('New Meeting After Session Ends', () => {
       // ========================================
 
       // Creator starts second meeting (name should be prefilled)
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       await expect(creatorPage.getByText('Waiting for partner to join...')).toBeVisible();
 
@@ -103,7 +103,7 @@ test.describe('New Meeting After Session Ends', () => {
       if (await nameInput.isVisible()) {
         await nameInput.fill('Bob');
       }
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // ========================================
       // CRITICAL: Both should connect in Meeting 2
@@ -141,7 +141,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByPlaceholder('Enter your name').fill('Host');
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink1 = await creatorPage.getByTestId('share-link').textContent();
@@ -151,11 +151,11 @@ test.describe('New Meeting After Session Ends', () => {
       // Joiner joins and leaves
       await joinerPage.goto(`/live/${roomCode1}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Guest');
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
       await expect(creatorPage.getByText('Guest')).toBeVisible({ timeout: 10000 });
 
       await joinerPage.getByRole('button', { name: 'Menu' }).click();
-      await joinerPage.getByRole('menuitem', { name: 'Leave Meeting' }).click();
+      await joinerPage.getByRole('menuitem', { name: 'Leave Session' }).click();
       await joinerPage.getByRole('button', { name: 'Leave' }).last().click();
 
       await expect(creatorPage.getByText('Guest has left')).toBeVisible({ timeout: 10000 });
@@ -164,7 +164,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.getByRole('button', { name: 'Start New Session' }).click();
       await expect(creatorPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 5000 });
 
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink2 = await creatorPage.getByTestId('share-link').textContent();
@@ -205,7 +205,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByPlaceholder('Enter your name').fill('Host');
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink1 = await creatorPage.getByTestId('share-link').textContent();
@@ -225,7 +225,7 @@ test.describe('New Meeting After Session Ends', () => {
 
       // End meeting - joiner leaves
       await joinerPage.getByRole('button', { name: 'Menu' }).click();
-      await joinerPage.getByRole('menuitem', { name: 'Leave Meeting' }).click();
+      await joinerPage.getByRole('menuitem', { name: 'Leave Session' }).click();
       await joinerPage.getByRole('button', { name: 'Leave' }).last().click();
 
       // Joiner is back at start screen (same tab, just navigated back)
@@ -238,7 +238,7 @@ test.describe('New Meeting After Session Ends', () => {
 
       // ========== MEETING 2 - SAME TABS ==========
       // Creator creates new meeting
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink2 = await creatorPage.getByTestId('share-link').textContent();
@@ -282,7 +282,7 @@ test.describe('New Meeting After Session Ends', () => {
           await creatorPage.getByPlaceholder('Enter your name').fill('Repeated');
         }
 
-        await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+        await creatorPage.getByRole('button', { name: 'New session' }).click();
         await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
         const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -295,7 +295,7 @@ test.describe('New Meeting After Session Ends', () => {
         if (await nameInput.isVisible()) {
           await nameInput.fill('Partner');
         }
-        await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+        await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
         // Should connect - look for the live meeting view with partner's name in banner
         // Use exact match to avoid matching "Waiting for Partner" banner
@@ -304,7 +304,7 @@ test.describe('New Meeting After Session Ends', () => {
 
         // End meeting (joiner leaves)
         await joinerPage.getByRole('button', { name: 'Menu' }).click();
-        await joinerPage.getByRole('menuitem', { name: 'Leave Meeting' }).click();
+        await joinerPage.getByRole('menuitem', { name: 'Leave Session' }).click();
         await joinerPage.getByRole('button', { name: 'Leave' }).last().click();
 
         await expect(creatorPage.getByText(/Partner has left|has left/)).toBeVisible({ timeout: 10000 });

@@ -770,37 +770,6 @@ export interface DbEventRsvp {
 }
 
 // ============================================================================
-// EVENT SUB-ROOMS TYPES (P124 - Event Rooms)
-// ============================================================================
-
-export type SubRoomStatus = 'pending' | 'active' | 'completed' | 'cancelled' | 'expired';
-
-export interface EventSubRoom {
-  id: string;
-  eventId: string;
-  sessionId: string | null;
-  sessionCode: string | null;
-  initiatorId: string;
-  targetId: string;
-  status: SubRoomStatus;
-  createdAt: string;
-  expiresAt: string;
-}
-
-/** Sub-room with participant profile info for display */
-export interface EventSubRoomWithProfiles extends EventSubRoom {
-  initiatorName: string;
-  initiatorSlug: string;
-  initiatorAvatarColor?: string;
-  initiatorAvatarUrl?: string;
-  targetName: string;
-  targetSlug: string;
-  targetAvatarColor?: string;
-  targetAvatarUrl?: string;
-}
-
-
-// ============================================================================
 // STORIES, POINTS, AND CALIBRATION TYPES (P117)
 // ============================================================================
 

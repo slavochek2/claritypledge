@@ -76,7 +76,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.waitForLoadState('networkidle');
 
       // Authenticated users skip the form and go straight to "New meeting"
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       // Get room code
@@ -97,7 +97,7 @@ test.describe.skip('Live Content Picker - P128', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Both users should transition to live view
       // Wait for partner names to appear in live session banner (more reliable than text search)
@@ -192,7 +192,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       // Creator starts meeting
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -212,7 +212,7 @@ test.describe.skip('Live Content Picker - P128', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Both in live view
       await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 15000 });
@@ -284,7 +284,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.goto('/live?returnTo=/events/test-event-123');
       await creatorPage.waitForLoadState('networkidle');
 
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -308,7 +308,7 @@ test.describe.skip('Live Content Picker - P128', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for live view
       await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 15000 });
@@ -372,7 +372,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.goto('/live?returnTo=https://evil.com/phishing');
       await creatorPage.waitForLoadState('networkidle');
 
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -396,7 +396,7 @@ test.describe.skip('Live Content Picker - P128', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for live view
       await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 15000 });
@@ -466,7 +466,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.goto('/live?returnTo=//evil.com/phishing');
       await creatorPage.waitForLoadState('networkidle');
 
-      await creatorPage.getByRole('button', { name: 'New meeting' }).click();
+      await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -490,7 +490,7 @@ test.describe.skip('Live Content Picker - P128', () => {
         await joinerCheckbox.check();
       }
 
-      await joinerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for live view
       await expect(creatorPage.getByText('Test Joiner')).toBeVisible({ timeout: 15000 });

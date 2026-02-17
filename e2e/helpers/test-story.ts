@@ -16,9 +16,9 @@ import { supabaseAdmin } from '../../src/lib/supabase-admin';
 
 export interface TestStory {
   id: string;
-  slug: string;
   authorId: string;
   title: string;
+  content: string;
 }
 
 /**
@@ -30,29 +30,26 @@ export async function createTestStory(
   authorId: string,
   options: {
     title?: string;
-    summary?: string;
+    content?: string;
     visibility?: 'public' | 'verified_only' | 'private';
     tags?: string[];
   } = {}
 ): Promise<TestStory> {
-  const slug = `test-story-${Date.now()}`;
   const title = options.title || `Test Story ${Date.now()}`;
-  const summary = options.summary || 'Test story for E2E tests';
+  const content = options.content || 'Test story for E2E tests';
 
   console.log(`[TEST HELPER] Creating test story: ${title}`);
 
   const { data, error } = await supabaseAdmin
     .from('stories')
     .insert({
-      slug,
       title,
-      summary,
+      content,
       author_id: authorId,
       visibility: options.visibility || 'public',
       tags: options.tags || ['test'],
-      status: 'published',
     })
-    .select('id, slug, author_id, title')
+    .select('id, author_id, title, content')
     .single();
 
   if (error) {
@@ -60,13 +57,13 @@ export async function createTestStory(
     throw new Error(`Failed to create test story: ${error.message}`);
   }
 
-  console.log(`[TEST HELPER] Test story created: ${data.id} (slug: ${data.slug})`);
+  console.log(`[TEST HELPER] Test story created: ${data.id}`);
 
   return {
     id: data.id,
-    slug: data.slug,
     authorId: data.author_id,
     title: data.title,
+    content: data.content,
   };
 }
 

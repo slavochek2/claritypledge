@@ -29,7 +29,7 @@ test.describe('P66: Live Page Auth Gate', () => {
       await expect(page).toHaveURL('/live/TEST123');
 
       // Should see the join form heading (even if session doesn't exist)
-      await expect(page.getByRole('heading', { name: 'Join Clarity Meeting' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Join Clarity Session' })).toBeVisible();
     });
   });
 
@@ -58,8 +58,8 @@ test.describe('P66: Live Page Auth Gate', () => {
       // Should NOT be redirected - should stay on /live
       await expect(page).toHaveURL('/live');
 
-      // Should see the "Start New Meeting" button (hosting control)
-      const startButton = page.getByRole('button', { name: /new meeting/i });
+      // Should see the "Start New Session" button (hosting control)
+      const startButton = page.getByRole('button', { name: /new session/i });
       await expect(startButton).toBeVisible();
     });
 

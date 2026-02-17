@@ -37,7 +37,7 @@ test.describe('Mic Permission Gating', () => {
     }
 
     // Click new meeting
-    await page.getByRole('button', { name: /new meeting/i }).click();
+    await page.getByRole('button', { name: /new session/i }).click();
 
     // Wait for waiting screen with session code
     await expect(page.getByText('Waiting for partner to join...')).toBeVisible({ timeout: 10000 });

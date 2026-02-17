@@ -1,4 +1,4 @@
-import type { EventWithHost, EventAttendee, EventSubRoomWithProfiles } from '@/app/types';
+import type { EventWithHost, EventAttendee } from '@/app/types';
 
 export interface EventsService {
   // Queries
@@ -24,12 +24,6 @@ export interface EventsService {
   rsvpToEvent(eventId: string, profileId: string): Promise<boolean>;
   cancelRsvp(eventId: string, profileId: string): Promise<boolean>;
 
-  // P124: Event Sub-Rooms
-  getEventSubRooms(eventId: string): Promise<EventSubRoomWithProfiles[]>;
-  createSubRoom(eventId: string, targetId: string): Promise<EventSubRoomWithProfiles | null>;
-  joinSubRoom(subRoomId: string): Promise<{ sessionCode: string } | null>;
-  cancelSubRoom(subRoomId: string): Promise<boolean>;
-  completeSubRoom(subRoomId: string): Promise<boolean>;
 }
 
 export interface CreateEventInput {

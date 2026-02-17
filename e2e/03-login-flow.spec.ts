@@ -25,7 +25,7 @@ test.describe('Login Flow', () => {
     await expect(page.getByRole('button', { name: /magic link/i })).toBeVisible();
 
     // Should have link to signup
-    await expect(page.getByRole('button', { name: /sign now/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /sign up/i })).toBeVisible();
   });
 
   test.skip('should login existing user with Admin API', async ({ page }) => {
@@ -115,7 +115,7 @@ test.describe('Login Flow', () => {
     await page.goto('/login');
 
     // Find signup link
-    const signupLink = page.getByRole('button', { name: /sign now/i });
+    const signupLink = page.getByRole('button', { name: /sign up/i });
     await expect(signupLink).toBeVisible();
 
     // Click it

@@ -34,7 +34,7 @@ test.describe('Microphone Permission Dialog (B48)', () => {
     await page.goto('/live');
 
     // Page should load without errors
-    await expect(page.locator('h1')).toContainText('Clarity Meeting');
+    await expect(page.locator('h1')).toContainText('Clarity Session');
 
     // Guest should see name and email inputs
     await expect(page.locator('input[placeholder="Enter your name"]')).toBeVisible();
@@ -43,8 +43,8 @@ test.describe('Microphone Permission Dialog (B48)', () => {
     // Consent checkbox should be visible
     await expect(page.locator('input[type="checkbox"]')).toBeVisible();
 
-    // New meeting and Join buttons should be visible
-    await expect(page.getByRole('button', { name: /new meeting/i })).toBeVisible();
+    // New session and Join buttons should be visible
+    await expect(page.getByRole('button', { name: /new session/i })).toBeVisible();
     await expect(page.locator('input[placeholder="Enter a code or link"]')).toBeVisible();
   });
 

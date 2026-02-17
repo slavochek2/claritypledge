@@ -38,7 +38,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill('Alice');
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       // Wait for the waiting room with share link
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
@@ -52,7 +52,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // Step 2: Listener (Bob) joins the meeting
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill('Bob');
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for both users to be in live view
       await expect(speakerPage.getByText('Bob')).toBeVisible({ timeout: 10000 });
@@ -146,7 +146,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill('Charlie');
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -154,7 +154,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill('Diana');
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText('Diana')).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByText('Charlie')).toBeVisible({ timeout: 10000 });
@@ -226,7 +226,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill('Eve');
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -234,7 +234,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill('Frank');
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
@@ -303,7 +303,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill('Grace');
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -311,7 +311,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill('Henry');
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText('Henry')).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByText('Grace')).toBeVisible({ timeout: 10000 });
@@ -375,7 +375,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill(speakerName);
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -383,7 +383,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for both users to see each other
       await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 15000 });
@@ -457,7 +457,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill('Kate');
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -465,7 +465,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill('Leo');
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText('Leo')).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByText('Kate')).toBeVisible({ timeout: 10000 });
@@ -524,7 +524,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill(speakerName);
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -532,7 +532,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 15000 });
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
@@ -612,7 +612,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill('Eve');
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -620,7 +620,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill('Frank');
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
@@ -695,7 +695,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
       await speakerPage.getByPlaceholder('Enter your name').fill(speakerName);
-      await speakerPage.getByRole('button', { name: 'New meeting' }).click();
+      await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -703,7 +703,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       await listenerPage.goto(`/live/${roomCode}`);
       await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
-      await listenerPage.getByRole('button', { name: 'Join Meeting' }).click();
+      await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
       await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 15000 });
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });

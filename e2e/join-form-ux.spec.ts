@@ -20,7 +20,7 @@ test.describe('Join Form UX - Context Clarity', () => {
 
     // CRITICAL UX ASSERTION: There should be a prominent heading inside the form area
     // that tells the user what they're joining, not just in the header
-    const formHeading = page.getByRole('heading', { name: /join.*meeting/i });
+    const formHeading = page.getByRole('heading', { name: /join.*session/i });
     await expect(formHeading).toBeVisible();
 
     // The heading should be reasonably large (at least h2 or equivalent)
@@ -34,7 +34,7 @@ test.describe('Join Form UX - Context Clarity', () => {
     await expect(page.locator('input[placeholder="Enter your name"]')).toBeVisible();
 
     // Get the heading and first input positions
-    const heading = page.getByRole('heading', { name: /join.*meeting/i });
+    const heading = page.getByRole('heading', { name: /join.*session/i });
     const nameInput = page.locator('input[placeholder="Enter your name"]');
 
     await expect(heading).toBeVisible();
@@ -61,6 +61,6 @@ test.describe('Join Form UX - Context Clarity', () => {
     const headerText = await headerBanner.textContent();
 
     // Header should just have "Clarity Pledge" (logo text), not the join title
-    expect(headerText).not.toMatch(/Join.*Meeting/i);
+    expect(headerText).not.toMatch(/Join.*Session/i);
   });
 });

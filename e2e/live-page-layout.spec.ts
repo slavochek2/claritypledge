@@ -22,7 +22,7 @@ test.describe('Live Page Layout - Desktop', () => {
     await expect(page.locator('h1')).toBeVisible();
 
     // Get the two main controls
-    const newMeetingBtn = page.getByRole('button', { name: /new meeting/i });
+    const newMeetingBtn = page.getByRole('button', { name: /new session/i });
     const joinInputContainer = page.locator('input[placeholder="Enter a code or link"]').locator('..');
 
     await expect(newMeetingBtn).toBeVisible();
@@ -86,7 +86,7 @@ test.describe('Live Page Layout - Mobile', () => {
 
     await expect(page.locator('h1')).toBeVisible();
 
-    const newMeetingBtn = page.getByRole('button', { name: /new meeting/i });
+    const newMeetingBtn = page.getByRole('button', { name: /new session/i });
     const joinInput = page.locator('input[placeholder="Enter a code or link"]');
 
     await expect(newMeetingBtn).toBeVisible();
@@ -116,7 +116,7 @@ test.describe('Live Page Auth State', () => {
     await page.goto('/live');
 
     // Wait for content to load
-    await expect(page.getByText('Clarity Meeting')).toBeVisible();
+    await expect(page.getByText('Clarity Session')).toBeVisible();
 
     // Name input should be visible for guests
     const nameInput = page.locator('input[placeholder="Enter your name"]');
@@ -138,11 +138,11 @@ test.describe('Live Page Auth State', () => {
     await page.goto('/live');
 
     // Wait for content to load
-    await expect(page.getByText('Clarity Meeting')).toBeVisible();
+    await expect(page.getByText('Clarity Session')).toBeVisible();
 
     // Get elements
     const nameInput = page.locator('input[placeholder="Enter your name"]');
-    const newMeetingBtn = page.getByRole('button', { name: /new meeting/i });
+    const newMeetingBtn = page.getByRole('button', { name: /new session/i });
 
     await expect(nameInput).toBeVisible();
     await expect(newMeetingBtn).toBeVisible();
