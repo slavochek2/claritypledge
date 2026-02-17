@@ -75,12 +75,14 @@ test.describe('P160 Smoke Tests — Authenticated (creator flow)', () => {
   test('/live page shows recording toggle', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await page.goto('/live');
+    await expect(page.locator('h1')).toContainText('Clarity Session');
     await expect(page.getByRole('switch')).toBeVisible();
   });
 
   test('/live page recording toggle defaults to ON', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await page.goto('/live');
+    await expect(page.locator('h1')).toContainText('Clarity Session');
     await expect(page.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -89,6 +91,7 @@ test.describe('P160 Smoke Tests — Authenticated (creator flow)', () => {
   }) => {
     await setTestSession(page, testUser.email);
     await page.goto('/live');
+    await expect(page.locator('h1')).toContainText('Clarity Session');
 
     const toggle = page.getByRole('switch');
     await expect(toggle).toBeVisible();
