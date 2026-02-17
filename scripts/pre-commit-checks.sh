@@ -82,8 +82,8 @@ if command -v gitleaks &> /dev/null; then
     # Use gitleaks for comprehensive secret detection
     # --no-git scans files directly, --staged scans staged changes
     if git diff --cached --quiet 2>/dev/null; then
-        # No staged changes, scan recent changes
-        GITLEAKS_OUTPUT=$(gitleaks detect --source . --no-git --redact -v 2>&1 || true)
+        # No staged changes, scan git-tracked files only (respects .gitignore)
+        GITLEAKS_OUTPUT=$(gitleaks detect --source . --redact -v 2>&1 || true)
     else
         # Scan staged changes
         GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
