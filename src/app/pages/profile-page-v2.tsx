@@ -56,6 +56,44 @@ interface ProfileOwner {
   hasPledged: boolean;
 }
 
+// P134: Type definitions for adapted prototype format (module-level for shared use)
+interface AdaptedPosition {
+  position: string;
+  timestamp: string;
+}
+interface AdaptedStory {
+  id: string;
+  text: string;
+  authorId: string;
+  createdAt: string;
+  visibility: 'public';
+  verificationCount: number;
+  tags: string[];
+  linkedPointIds: string[];
+}
+interface AdaptedPoint {
+  id: string;
+  text: string;
+  createdAt: string;
+  positions: Record<string, AdaptedPosition>;
+  positionCounts: Record<string, number>;
+  linkedStoryIds: string[];
+  linkedStories: AdaptedStory[];
+}
+
+/** Normalize real positionCounts to SevenPointCounts (ensure all keys present) */
+function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
+  return {
+    strongly_agree: counts.strongly_agree ?? 0,
+    agree: counts.agree ?? 0,
+    somewhat_agree: counts.somewhat_agree ?? 0,
+    unsure: counts.unsure ?? 0,
+    somewhat_disagree: counts.somewhat_disagree ?? 0,
+    disagree: counts.disagree ?? 0,
+    strongly_disagree: counts.strongly_disagree ?? 0,
+  };
+}
+
 function formatTimeAgo(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -215,30 +253,6 @@ export function ProfilePageV2() {
           .select('point_id, story_id')
           .in('point_id', pointIds);
 
-        // P134: Type definitions for adapted prototype format
-        interface AdaptedPosition {
-          position: string;
-          timestamp: string;
-        }
-        interface AdaptedStory {
-          id: string;
-          text: string;
-          authorId: string;
-          createdAt: string;
-          visibility: 'public';
-          verificationCount: number;
-          tags: string[];
-          linkedPointIds: string[];
-        }
-        interface AdaptedPoint {
-          id: string;
-          text: string;
-          createdAt: string;
-          positions: Record<string, AdaptedPosition>;
-          linkedStoryIds: string[];
-          linkedStories: AdaptedStory[];
-        }
-
         // Build map: point_id → story_ids[]
         const linksByPoint = new Map<string, string[]>();
         (pointLinks || []).forEach(link => {
@@ -283,6 +297,7 @@ export function ProfilePageV2() {
             text: point.statement,
             createdAt: point.createdAt || new Date().toISOString(),
             positions,
+            positionCounts: point.positionCounts ?? {},
             linkedStoryIds,
             linkedStories,
           };
@@ -296,7 +311,7 @@ export function ProfilePageV2() {
     }).catch(err => {
       console.error('Failed to load profile data:', err);
     });
-  }, [profile]);
+  }, [profile, currentUser?.id]);
 
   // Load ears count separately
   useEffect(() => {
@@ -362,7 +377,8 @@ export function ProfilePageV2() {
         currentUser.id
       );
 
-      // Transform to AdaptedPoint format (same as initial load at line 251-288)
+      // Transform to AdaptedPoint format, restoring linkedStories from current state
+      const existingPoints = realPoints as AdaptedPoint[];
       const adaptedPoints = updatedPoints.map(point => {
         const positions: Record<string, { position: string; timestamp: string }> = {};
 
@@ -374,13 +390,15 @@ export function ProfilePageV2() {
           };
         }
 
+        const existing = existingPoints.find(rp => rp.id === point.id);
         return {
           id: point.id,
           text: point.statement,
           createdAt: point.createdAt || new Date().toISOString(),
           positions,
-          linkedStoryIds: [],
-          linkedStories: [],
+          positionCounts: point.positionCounts ?? {},
+          linkedStoryIds: existing?.linkedStoryIds ?? [],
+          linkedStories: existing?.linkedStories ?? [],
         };
       });
 
@@ -723,6 +741,8 @@ export function ProfilePageV2() {
                       hasPledged: profile.hasPledged,
                     }}
                     credibilityStats={credibilityStats}
+                    currentUserId={currentUser?.id}
+                    onPointPositionSelect={handleProfilePointPosition}
                   />
                 ))
               )
@@ -734,7 +754,7 @@ export function ProfilePageV2() {
               ) : (
                 userPoints.map((point: AdaptedPoint) => (
                   <PointCardWithLinks
-                    key={`${point.id}-${point.positions?.[currentUser?.id || '']?.position || 'none'}`}
+                    key={point.id}
                     point={point}
                     linkedStories={point.linkedStories || []}
                     profileOwner={{
@@ -746,24 +766,7 @@ export function ProfilePageV2() {
                     }}
                     currentUserId={currentUser?.id}
                     onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
-                    getPointPositionCounts={(p: AdaptedPoint) => {
-                      // Count positions from the positions Record
-                      const counts = {
-                        strongly_agree: 0,
-                        agree: 0,
-                        somewhat_agree: 0,
-                        unsure: 0,
-                        somewhat_disagree: 0,
-                        disagree: 0,
-                        strongly_disagree: 0,
-                      };
-                      Object.values(p.positions || {}).forEach((entry: AdaptedPosition) => {
-                        if (entry?.position) {
-                          counts[entry.position as keyof typeof counts] = (counts[entry.position as keyof typeof counts] || 0) + 1;
-                        }
-                      });
-                      return counts;
-                    }}
+                    getPointPositionCounts={(p: AdaptedPoint) => toSevenPointCounts(p.positionCounts ?? {})}
                     getStoryAuthor={(authorId) => {
                       // Return author info for stories
                       if (authorId === profile.id) {
@@ -806,12 +809,16 @@ interface StoryCardFullProps {
   story: StoryWithPoints;
   author: ProfileOwner;
   credibilityStats: { ear: number; mic: number };
+  currentUserId?: string;
+  onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
 }
 
 function StoryCardFull({
   story,
   author,
   credibilityStats,
+  currentUserId,
+  onPointPositionSelect,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
@@ -949,8 +956,8 @@ function StoryCardFull({
               authorName={author.name}
               authorEarCount={credibilityStats.ear}
               authorHasPledged={author.hasPledged}
-              currentUserId={currentUser?.id}
-              onPositionSelect={(pos) => handleProfilePointPosition(point.id, pos)}
+              currentUserId={currentUserId}
+              onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
             />
           ))}
           {linkedPoints.length > 3 && (
@@ -1062,19 +1069,6 @@ function QuotedPointCard({
 // =============================================================================
 // PointCardFull - Full interactive PointCard using real data
 // =============================================================================
-
-/** Normalize real positionCounts to SevenPointCounts (ensure all keys present) */
-function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
-  return {
-    strongly_agree: counts.strongly_agree ?? 0,
-    agree: counts.agree ?? 0,
-    somewhat_agree: counts.somewhat_agree ?? 0,
-    unsure: counts.unsure ?? 0,
-    somewhat_disagree: counts.somewhat_disagree ?? 0,
-    disagree: counts.disagree ?? 0,
-    strongly_disagree: counts.strongly_disagree ?? 0,
-  };
-}
 
 interface PointCardFullProps {
   point: PointWithUserPosition;
