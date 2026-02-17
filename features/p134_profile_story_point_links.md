@@ -4,6 +4,7 @@ type: story
 rank: 1
 workstream: foundation
 tags: []
+created_date: 2026-02-12
 ---
 
 # P134: Profile Story-Point Links Display

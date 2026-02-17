@@ -1,6 +1,9 @@
 ---
 status: draft
 type: task
+tags: []
+rank: 125371.0
+created_date: 2026-01-18
 ---
 # P68: Agent SDK Self-Verifying Pipeline Experiment
 

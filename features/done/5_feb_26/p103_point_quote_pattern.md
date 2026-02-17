@@ -1,4 +1,6 @@
 ---
+status: backlog
+type: story
 prep_status: ready
 prep_date: 2026-01-26
 prep_by: /prep-spec
@@ -14,6 +16,9 @@ decisions:
   colon_after_verb: yes
   pin_icon_column: remove
   position_only_row: no-change (no Point box to quote)
+tags: []
+rank: 125341.0
+created_date: 2026-01-26
 ---
 
 # P103: Point Quote Pattern

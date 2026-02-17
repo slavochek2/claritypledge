@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125420.0
+created_date: 2026-01-05
+---
+
 # P25: Next.js Migration Finalization
 
 ## Status: Ready for Finalization

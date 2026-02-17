@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125425.0
+created_date: 2025-12-03
+---
+
 # Feature: Certificate Image Export (MVP)
 
 **Date:** 2025-12-03

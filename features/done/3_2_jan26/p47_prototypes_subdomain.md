@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125438.0
+created_date: 2026-01-07
+---
+
 # P47: Prototypes Subdomain
 
 ## Status: CLOSED - Solved with Vercel Preview Deployments

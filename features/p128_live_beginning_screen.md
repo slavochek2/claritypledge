@@ -19,6 +19,8 @@ decisions:
   - Session history: checkmarks only, no scores (scores are private calibration data)
   - Build new lightweight LiveStoryCard/LivePointCard using production types (prototype is design reference only)
 rank: 11
+tags: []
+created_date: 2026-02-06
 ---
 # P128: /live Beginning Screen — Pick Story, Point, or Free Live
 

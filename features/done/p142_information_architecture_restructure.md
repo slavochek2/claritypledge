@@ -14,6 +14,7 @@ reviews:
   alignment: passed
 rank: 125001
 completed_at: '2026-02-13'
+created_date: 2026-02-12
 ---
 
 # P142: Information Architecture Restructure — Separate Tracks/Hypotheses/Experiments/Outcomes/Milestones
@@ -307,7 +308,7 @@ Use frontmatter references to create bidirectional links:
 - **Track → Hypothesis:** `tests: [h-stories]`
 - **Hypothesis → Experiment:** `tested_by: [e-story-creation-pilot]`
 - **Experiment → Outcome:** `measures: [o-story-usage]`
-- **Track → Build:** `builds: [p126, p128, p124]`
+- **Track → Build:** `builds: [p126, p305, p303]`
 - **Milestone → Outcome:** `related_outcomes: [o-first-essay]`
 
 This creates a queryable graph:
@@ -692,7 +693,7 @@ status: active
 priority: p1
 summary: "Stories give /live a purpose — verify understanding of specific stories, not abstract 'something'"
 tests: [h-stories]
-builds: [p126, p128, p124]
+builds: [p126, p305, p303]
 measures: [o-story-usage]
 answers: [oq-6, oq-7]
 ---

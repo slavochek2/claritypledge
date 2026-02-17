@@ -1,6 +1,14 @@
+---
+status: done
+type: story
+tags: []
+rank: 125440.0
+created_date: 2026-01-15
+---
+
 # P50_1: Implementation Gaps & Missing Details
 
-**Parent Feature:** [P50: Profile & Pledge Separation](./p50_non_pledger_experience.md)
+**Parent Feature:** [P50: Profile & Pledge Separation](./p356_non_pledger_experience.md)
 **Created:** 2026-01-15
 **Status:** Architecture Review Complete
 **Purpose:** Documents what was missing from P50 spec and why these gaps would block implementation

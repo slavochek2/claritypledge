@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125442.0
+created_date: 2026-01-15
+---
+
 # P61: Design System Consolidation (Lightweight Spec + Simple Validation)
 
 **Status:** Complete

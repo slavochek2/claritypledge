@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125424.0
+created_date: 2025-12-27
+---
+
 # P23_1: Rating Flow Implementation
 
 **Status:** Ready for Development

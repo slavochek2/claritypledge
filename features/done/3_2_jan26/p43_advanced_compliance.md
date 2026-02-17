@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125437.0
+created_date: 2026-01-14
+---
+
 # P43: Advanced Compliance Features
 
 **Status:** Future Enhancement (Deploy at 100+ Users)
@@ -318,7 +326,7 @@ CREATE TABLE data_processors (
 
 ## Related Documents
 
-- [P37.2a: Consent Mechanism](./p37_2a_consent_mechanism.md)
+- [P37.2a: Consent Mechanism](./p353_2a_consent_mechanism.md)
 - [P37.2b: Data Rights](./p37_2b_data_rights.md)
 - [Privacy Policy](../src/app/pages/privacy-policy-page.tsx)
 - [CLAUDE.md - GDPR Compliance](../CLAUDE.md)

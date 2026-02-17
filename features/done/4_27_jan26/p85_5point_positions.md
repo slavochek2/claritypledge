@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125452.0
+created_date: 2026-01-22
+---
+
 # P85: 7-Point Position Scale with 3-Button UI
 
 ## Context

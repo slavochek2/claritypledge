@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125415.0
+created_date: 2026-01-23
+---
+
 # P90: Navigation & Information Architecture
 
 ## Problem

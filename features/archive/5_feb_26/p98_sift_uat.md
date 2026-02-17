@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125417.0
+created_date: 2026-01-27
+---
+
 # P98 Sift UAT - Manual Testing Checklist
 
 > **⚠️ ARCHIVED 2026-01-27:** Feature deprioritized due to cold start problem pivot. See [roadmap.md](../docs/roadmap.md) and [decisions.md](../docs/decisions.md) for context.

@@ -6,6 +6,7 @@ tags:
   - validation
   - gtm
 rank: 19
+created_date: 2026-02-02
 ---
 
 # P105: Sales Playbook

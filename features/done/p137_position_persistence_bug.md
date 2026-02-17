@@ -1,11 +1,15 @@
 ---
 status: done
+type: bug
 completed_at: '2026-02-09'
 prepped_date: null
 reviews:
   ux: null
   architect: null
   alignment: null
+tags: []
+rank: 125356.0
+created_date: 2026-02-11
 ---
 
 # P137: Position Persistence Bug - Profile Page Points Tab

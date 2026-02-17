@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125413.0
+created_date: 2026-01-21
+---
+
 # P83: Clarity Partners — Relationship Tiers Before Meetings
 
 **Status:** Planning

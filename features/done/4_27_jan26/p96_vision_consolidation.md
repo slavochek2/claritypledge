@@ -1,4 +1,6 @@
 ---
+status: backlog
+type: task
 prep_status: ready
 prep_date: 2026-01-25
 prep_by: /prep-spec
@@ -13,6 +15,9 @@ decisions:
   v0_fate: move (delete original after promotion)
   v8_evaluation: deferred (separate work)
   p6.1_task: removed (known reference material)
+tags: []
+rank: 125340.0
+created_date: 2026-01-25
 ---
 
 # P96: Philosophy & Theory of Change Docs

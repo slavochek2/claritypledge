@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125408.0
+created_date: 2026-01-15
+---
+
 # P63_UX: Google OAuth UX Flows (Prerequisite)
 
 **Status:** ✅ Complete

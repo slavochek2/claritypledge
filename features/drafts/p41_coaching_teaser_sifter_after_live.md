@@ -4,6 +4,7 @@ type: story
 workstream: C2
 rank: 18
 tags: []
+created_date: 2026-02-17
 ---
 # P41: AI Coaching Teaser (Email + Page)
 

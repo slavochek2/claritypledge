@@ -1,6 +1,14 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125403.0
+created_date: 2025-12-27
+---
+
 # P22.1: Simplified Live Protocol
 
-> **Note:** This conceptual doc has evolved into [P22_2: Live Referee Mode](./p22_2_live-referee-mode.md) which contains the implementation-ready spec. See P22_2 for current design decisions and MVP scope.
+> **Note:** This conceptual doc has evolved into [P22_2: Live Referee Mode](./p274_2_live-referee-mode.md) which contains the implementation-ready spec. See P22_2 for current design decisions and MVP scope.
 
 **Status:** Superseded by P22_2
 **Priority:** High
@@ -281,5 +289,5 @@ Current: Documented concept, ready for stress-test
 
 ## Related Documents
 
-- [P22: Unified Ideas Architecture](./p22_unified-ideas.md) - Data model backbone
+- [P22: Unified Ideas Architecture](./p275_unified-ideas.md) - Data model backbone
 - [Design Thinking Session](../docs/bmad/design-thinking-2025-12-21.md) - Previous session notes

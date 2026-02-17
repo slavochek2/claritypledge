@@ -9,6 +9,7 @@ reviews:
   ux: '2026-02-16'
   architect: null
   alignment: null
+created_date: 2026-02-16
 ---
 
 # P152: Profile System Production Readiness
@@ -1026,10 +1027,10 @@ This adds defense-in-depth but is not critical since calibration data is designe
 ### Files Generated
 
 1. `e2e/helpers/test-calibration.ts` — Test helpers for creating calibration data
-2. `e2e/p152-profile-calibration.spec.ts` — E2E tests (9 tests)
-3. `e2e/a11y/p152-accessibility.spec.ts` — Accessibility tests (8 tests)
-4. `e2e/p152-smoke.spec.ts` — Smoke tests (5 tests)
-5. `features/uat/p152.md` — UAT scenarios (10 scenarios)
+2. `e2e/p391-profile-calibration.spec.ts` — E2E tests (9 tests)
+3. `e2e/a11y/p391-accessibility.spec.ts` — Accessibility tests (8 tests)
+4. `e2e/p391-smoke.spec.ts` — Smoke tests (5 tests)
+5. `features/uat/p391.md` — UAT scenarios (10 scenarios)
 
 ---
 
@@ -1057,6 +1058,6 @@ Creates `story_verifications` records to generate calibration data. Triggers aut
 ### Next Steps
 
 1. ✅ Review this test strategy (does coverage make sense?)
-2. Run `/dev features/p152_profile_production_readiness.md` to implement feature
+2. Run `/dev features/p390_profile_production_readiness.md` to implement feature
 3. Agent runs tests, iterates until all pass
 4. User validates UX via UAT scenarios (10 min manual testing)

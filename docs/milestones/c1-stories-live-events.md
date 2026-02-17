@@ -4,7 +4,7 @@ priority: p1
 track: C
 milestone: C1
 summary: "Stories give /live a purpose — verify understanding of specific stories, not abstract 'something'"
-builds: [p128, p124]
+builds: [p305, p303]
 answers: [oq-6, oq-7]
 ---
 

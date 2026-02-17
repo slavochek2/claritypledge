@@ -27,7 +27,7 @@ P37.2a consent mechanism was partially implemented in worktree 1, but the UI div
 
 ## Source of Truth
 
-**Read [P37.2a spec](./p37_2a_consent_mechanism.md) for full requirements.** This task only describes the delta/fixes.
+**Read [P37.2a spec](./p353_2a_consent_mechanism.md) for full requirements.** This task only describes the delta/fixes.
 
 ---
 
@@ -205,7 +205,7 @@ Implement these flows (documented in P37.2a):
 
 ## Related Documents
 
-- [P37.2a: Recording Consent Mechanism](./p37_2a_consent_mechanism.md) — Full spec (source of truth)
+- [P37.2a: Recording Consent Mechanism](./p353_2a_consent_mechanism.md) — Full spec (source of truth)
 - [P41: Clarity Coach](./p41_clarity_coach.md) — Depends on this fix
 - [P40: Microphone Permission](./done/p40_microphone_permission.md) — Already implemented, wire up after consent
 

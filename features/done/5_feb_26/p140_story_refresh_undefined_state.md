@@ -8,6 +8,7 @@ completed_at: '2026-02-15'
 root_cause: P132 commit added setPositionLoading(true/false) calls without defining state variable
 tags: []
 rank: 5
+created_date: 2026-02-10
 ---
 
 # BUG: P140 - Story Refresh Undefined State

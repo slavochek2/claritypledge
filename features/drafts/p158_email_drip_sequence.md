@@ -3,6 +3,8 @@ status: backlog
 type: task
 priority: p2
 tags: [content, ghost, email, automation]
+rank: 125365.0
+created_date: 2026-02-06
 ---
 
 # P158: Email Drip Sequence for New Subscribers

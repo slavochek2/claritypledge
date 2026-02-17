@@ -1,4 +1,6 @@
 ---
+status: backlog
+type: task
 prep_status: ready
 prep_date: 2026-01-23
 prep_by: /prep-spec
@@ -9,6 +11,9 @@ reviews:
 open_questions: 0
 blindspots: 0
 execution: /loop --with-checkpoints
+tags: []
+rank: 125337.0
+created_date: 2026-01-23
 ---
 
 # P93: Story-Point Display Refactor

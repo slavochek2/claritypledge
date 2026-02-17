@@ -1,5 +1,6 @@
 ---
 status: done
+type: task
 priority: p2
 prepped_date: '2026-02-05'
 completed_at: '2026-02-05'
@@ -10,6 +11,9 @@ reviews:
 decisions:
   - witnesses-keep-checkmark
   - avatarColor-optional-with-fallback
+tags: []
+rank: 125348.0
+created_date: 2026-02-05
 ---
 
 # P118: Person Avatar Consolidation

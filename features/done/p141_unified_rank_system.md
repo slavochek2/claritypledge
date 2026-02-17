@@ -4,6 +4,7 @@ type: task
 tags: []
 rank: 6
 completed_at: '2026-02-12'
+created_date: 2026-02-12
 ---
 
 # P141: Unified Rank System

@@ -1,3 +1,11 @@
+---
+status: done
+type: task
+tags: []
+rank: 125432.0
+created_date: 2026-01-06
+---
+
 # P35: Add Test Coverage for Landing Page Refactor Components
 
 **Priority:** High

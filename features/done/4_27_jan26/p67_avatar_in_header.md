@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125448.0
+created_date: 2026-01-17
+---
+
 # P67: Avatar Replaces Hamburger for Signed-In Users
 
 ## Problem

@@ -20,6 +20,8 @@ decisions:
   - Fixed max-height (200px) for expanded story text with sticky rating UI (mobile-friendly)
   - 'No empty state: ContentPicker not rendered if stories.length === 0'
 rank: 8
+tags: []
+created_date: 2026-02-12
 ---
 # P133: /live Beginning Screen — Match Prototype Polish
 

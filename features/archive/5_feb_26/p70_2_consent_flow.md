@@ -1,5 +1,6 @@
 ---
 status: prepped
+type: comment
 prepped_date: 2026-01-19
 prepped_by: /prep-spec
 reviews:
@@ -10,6 +11,9 @@ execution: /loop
 notes: |
   All 5 blockers from review resolved (see Changelog 2026-01-19).
   12 warnings remain - see bmad/artifacts/p70_2_consent_flow-review.md
+tags: []
+rank: 125323.0
+created_date: 2026-01-18
 ---
 
 # P70_2: Opt-in AI Insights (Consent Flow)

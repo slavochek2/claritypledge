@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125400.0
+created_date: 2026-01-26
+---
+
 # P104: Private Events (Meeting Prep)
 
 **Status:** Placeholder

@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125368.0
+created_date: 2025-12-18
 ---
 # P21: SEO & Discoverability
 

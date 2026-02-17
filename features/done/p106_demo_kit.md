@@ -7,6 +7,8 @@ tags:
   - content
   - demo
 sort_order: 1000007
+rank: 125353.0
+created_date: 2026-02-06
 ---
 
 # P106: Demo Kit

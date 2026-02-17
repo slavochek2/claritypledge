@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125456.0
+created_date: 2026-02-04
+---
+
 # P116: Story & Point Detail Pages — Match Prototype Design
 
 ---

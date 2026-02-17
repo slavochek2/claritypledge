@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125376.0
+created_date: 2026-01-25
 ---
 # P99: Story After Position Flow
 

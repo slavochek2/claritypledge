@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125411.0
+created_date: 2026-01-20
+---
+
 # P78: User Personas
 
 ## Status: Planning

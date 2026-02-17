@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125446.0
+created_date: 2026-01-15
+---
+
 # P60: Exploration UX - Navigating Stories and Points
 
 ## Status: Planning

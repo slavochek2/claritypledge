@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125361.0
+created_date: 2026-01-11
 ---
 # P125: Network-Aware Matching
 

@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125375.0
+created_date: 2026-01-23
 ---
 # P92: Communities
 

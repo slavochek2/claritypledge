@@ -13,6 +13,7 @@ reviews:
   architect: passed-with-notes
   alignment: passed-with-notes
 rank: 7
+created_date: 2026-02-07
 ---
 
 # P131: Manual Points Creation + Story Linking

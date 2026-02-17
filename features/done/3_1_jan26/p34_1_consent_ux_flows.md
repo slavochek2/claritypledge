@@ -1,6 +1,14 @@
+---
+status: done
+type: story
+tags: []
+rank: 125431.0
+created_date: 2026-01-06
+---
+
 # P34.1: Consent UX Flows - Edge Cases & User Journeys
 
-> **⚠️ SUPERSEDED by [P37.2a](../p37_2a_consent_mechanism.md)**
+> **⚠️ SUPERSEDED by [P37.2a](../p353_2a_consent_mechanism.md)**
 >
 > This UX analysis was incorporated into P37.2a which provides:
 > - Single join dialog (consent + soft registration combined)

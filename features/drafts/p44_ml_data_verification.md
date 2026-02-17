@@ -1,6 +1,9 @@
 ---
 status: draft
 type: task
+tags: []
+rank: 125369.0
+created_date: 2026-01-05
 ---
 # P33: ML Data Verification Plan
 
@@ -200,6 +203,6 @@ After verifying 10 sessions:
 
 ## Related Docs
 
-- [P28.2 Spec](./p28_2_chunked_events_and_handover.md) - Implementation details
+- [P28.2 Spec](./p326_2_chunked_events_and_handover.md) - Implementation details
 - [ML Data Dictionary](../docs/technical/ml-data-dictionary.md) - Data format reference
 - [ML Training Setup](../docs/technical/ml-training-setup.md) - Infrastructure guide

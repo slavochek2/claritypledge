@@ -14,6 +14,8 @@ reviews:
   ux: passed-with-notes
   architect: passed-with-notes
   alignment: passed
+rank: 125349.0
+created_date: 2026-02-09
 ---
 
 # P132: Rich Story View with Backend Integration

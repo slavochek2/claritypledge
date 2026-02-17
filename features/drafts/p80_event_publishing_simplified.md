@@ -3,6 +3,9 @@ status: backlog
 type: story
 workstream: C2
 sort_order: 500000
+tags: []
+rank: 125372.0
+created_date: 2026-02-06
 ---
 # P80: Event Publishing Simplified
 

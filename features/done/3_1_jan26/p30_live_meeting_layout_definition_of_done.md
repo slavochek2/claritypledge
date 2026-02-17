@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125429.0
+created_date: 2026-01-03
+---
+
 # P30: Live Meeting Start Page - Definition of Done
 
 ## Problem Statement

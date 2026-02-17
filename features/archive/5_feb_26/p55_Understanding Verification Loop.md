@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125405.0
+created_date: 2026-01-11
+---
+
 > **Archived 2026-01-18:** Key concepts extracted to:
 > - [hypotheses.md](../docs/hypotheses.md) — Four States of Agreement, A1-A7 assumptions
 > - [lean-canvas.md](../docs/lean-canvas.md) — Layer 1-2-3 model, "calibration is per-idea"

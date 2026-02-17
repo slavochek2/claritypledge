@@ -7,6 +7,8 @@ tags: [mcp, api, events, ai-assistant, infrastructure]
 created: 2026-02-12
 rejected: 2026-02-12
 rejection_reason: Overengineered solution for 2 min/week problem. Not testing any documented hypothesis. Better to focus validation time on Recognition (essays/specs) or Coaching (workshops) tracks.
+rank: 125326.0
+created_date: 2026-02-13
 ---
 
 # P143: ClarityPledge MCP Server

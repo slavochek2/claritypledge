@@ -7,6 +7,8 @@ tags:
   - marketing
   - automation
 sort_order: 1000003
+rank: 125360.0
+created_date: 2026-02-06
 ---
 
 # P108: Newsletter Automation

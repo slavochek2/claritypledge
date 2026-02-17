@@ -3,7 +3,7 @@ status: today
 type: story
 workstream: C1
 blocked_by:
-  - p128
+  - p305
 prepped_date: '2026-02-05'
 reviews:
   ux: passed-with-notes
@@ -18,6 +18,8 @@ decisions:
   - Room closes when event ends
   - Reverses 2026-01-23 "QR/link sufficient" decision based on P123 data (0% join rate)
 rank: 9
+tags: []
+created_date: 2026-02-06
 ---
 # P124: Event Rooms — Tap to Step Aside
 

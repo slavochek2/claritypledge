@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125427.0
+created_date: 2026-01-02
+---
+
 # P26: Lightweight Signup & Guest Conversion Flow
 
 **Status:** SUPERSEDED by P37.2a + P41

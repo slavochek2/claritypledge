@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125406.0
+created_date: 2026-01-14
+---
+
 # P56.1: Event as Collective Sensemaking Container
 
 **Status:** Exploration (evolved from P56)

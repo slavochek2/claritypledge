@@ -200,7 +200,7 @@ ORDER BY ordinal_position;
    - Port mismatch (5173 vs 5001)
 
 2. **Migration Naming:** Two migrations for same table:
-   - `20260206_p124_event_sub_rooms.sql` - Original (not applied)
+   - `20260206_p303_event_sub_rooms.sql` - Original (not applied)
    - `20260209_fix_event_sub_rooms_schema.sql` - Fix (applied)
    - Consider consolidating or documenting why both exist
 

@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125374.0
+created_date: 2026-01-23
 ---
 # P90: Content Strength Signals (Impact Score)
 

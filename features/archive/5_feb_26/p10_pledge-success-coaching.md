@@ -1,9 +1,13 @@
 ---
 title: "P9: AI-Powered Pledge Success Coaching"
 epic: "AI-Powered Features"
-status: "Ready for Refinement"
+status: "ready for refinement"
+type: comment
 author: "Architect"
 date: "2025-12-05"
+tags: []
+rank: 125319.0
+created_date: 2025-12-05
 ---
 
 ### User Story

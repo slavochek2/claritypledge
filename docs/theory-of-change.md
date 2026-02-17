@@ -581,7 +581,7 @@ Meta-analysis findings (2026-01-28):
 
 **Implication:** Proceed with confidence. Don't oversell causal claims. Measurement itself is our moat — no one else measures actual understanding.
 
-**Full research:** [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md) | [p110_results.md](../features/research/p110_results.md)
+**Full research:** [p272_calibration_outcomes_research.md](../features/done/p272_calibration_outcomes_research.md) | [p110_results.md](../features/research/p110_results.md)
 
 ---
 

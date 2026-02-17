@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125414.0
+created_date: 2025-12-15
+---
+
 # P14: Clarity Partners & Network Effects
 
 ## Summary

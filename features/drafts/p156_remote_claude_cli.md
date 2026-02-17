@@ -1,6 +1,9 @@
 ---
 status: backlog
 type: story
+tags: []
+rank: 125363.0
+created_date: 2026-02-02
 ---
 # P156: Remote Claude CLI Access
 

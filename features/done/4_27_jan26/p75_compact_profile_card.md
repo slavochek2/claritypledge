@@ -1,5 +1,6 @@
 ---
 status: prepped
+type: story
 prepped_date: 2026-01-19
 prepped_by: /prep-spec
 reviews:
@@ -7,6 +8,9 @@ reviews:
   architect: passed
   tea: skipped
 execution: /loop
+tags: []
+rank: 125335.0
+created_date: 2026-01-19
 ---
 
 # P75: Compact Profile Card

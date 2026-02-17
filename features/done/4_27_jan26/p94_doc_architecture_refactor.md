@@ -1,4 +1,6 @@
 ---
+status: backlog
+type: task
 prep_status: done
 prep_date: 2026-01-25
 prep_by: /prep-spec
@@ -9,6 +11,9 @@ reviews:
 open_questions: 0
 blindspots: 0
 execution: /loop
+tags: []
+rank: 125338.0
+created_date: 2026-01-25
 ---
 
 # P94: Documentation Architecture Refactor

@@ -227,7 +227,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 - "Sandwich pattern" (P115): Public links (Pledgers, Manifesto, About) + separator + Account actions (Settings, Log Out)
 - Existing `/me`, `/home`, `/co-create` routes still work (not deleted, just removed from nav)
 
-**References:** [P116](../features/done/p116_story_point_detail_pages.md) | [P128](../features/p128_live_beginning_screen.md) | commit 951bb7b
+**References:** [P116](../features/done/p116_story_point_detail_pages.md) | [P128](../features/p304_live_beginning_screen.md) | commit 951bb7b
 
 ---
 
@@ -236,7 +236,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 **Context:** Hypotheses and kanban lived in separate worlds. Features had statuses and priorities but no "why." Hypotheses had validation logic but no "what to build." The roadmap existed only in conversation.
 
 **Audit findings:**
-- Focus page groups by `hypothesis:` field, but 3 key features (p124, p126, p128) used wrong fields (`tags:`, `tests:`) — invisible in grouping
+- Focus page groups by `hypothesis:` field, but 3 key features (p303, p126, p305) used wrong fields (`tags:`, `tests:`) — invisible in grouping
 - p80 referenced non-existent `H-GTM`
 - Hypothesis labels were cryptic — no descriptions, no hover context
 - `milestone:` field existed in kanban spec but was unused
@@ -303,7 +303,7 @@ Use track prefixes: C (Coaching), R (Recognition), E (Enhancement), X (Explorato
 - `docs/hypotheses.md`
 
 **Feature frontmatter updated:**
-- p128, p124 → `milestone: C1`
+- p305, p303 → `milestone: C1`
 - p105 → `milestone: C2`, `priority: p2` (was p0), `status: backlog` (was week)
 - p129, p80, p108 drafts → `milestone: C2`
 
@@ -720,7 +720,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 **New concept documented:** Protocol-Led Growth — the explain-back protocol spreads free (coaches → clients → teams); the measurement captures value.
 
 **References:**
-- [p104_calibration_outcomes_research.md](../features/done/p104_calibration_outcomes_research.md)
+- [p272_calibration_outcomes_research.md](../features/done/p272_calibration_outcomes_research.md)
 - [Kluger et al. 2023](https://link.springer.com/article/10.1007/s10869-023-09897-5)
 
 ---
@@ -955,7 +955,7 @@ Point
 - <8/10 rating keeps Points locked, offers "try again"
 - Creates meaningful sequence: listen → understand → react
 
-**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+**References:** [p371_live_verification_with_cards.md](../features/p371_live_verification_with_cards.md)
 
 ---
 
@@ -979,7 +979,7 @@ Point
 - No negotiation about what to verify
 - Clear ownership: your card = your verification to initiate
 
-**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+**References:** [p371_live_verification_with_cards.md](../features/p371_live_verification_with_cards.md)
 
 ---
 
@@ -998,7 +998,7 @@ Point
 - Cardless verifications still captured (rating without card reference)
 - Low barrier to entry; cards enhance but don't gate
 
-**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+**References:** [p371_live_verification_with_cards.md](../features/p371_live_verification_with_cards.md)
 
 ---
 
@@ -1017,7 +1017,7 @@ Point
 - Session continues even if formal flow is skipped
 - Respects that conversations are fluid, not always structured
 
-**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+**References:** [p371_live_verification_with_cards.md](../features/p371_live_verification_with_cards.md)
 
 ---
 
@@ -1036,7 +1036,7 @@ Point
 - Full history is future enhancement
 - Keeps /live focused on current conversation
 
-**References:** [p85_live_verification_with_cards.md](../features/p85_live_verification_with_cards.md)
+**References:** [p371_live_verification_with_cards.md](../features/p371_live_verification_with_cards.md)
 
 ---
 
@@ -1064,7 +1064,7 @@ User journey: **Clarify → Share → Verify**
 - Higher quality inputs to verification (already 10/10 understood by AI)
 - Existing Stories/Points on profile are "already sifted" — skip to invite
 
-**References:** [p98_sifter_prototype.md](../features/p98_sifter_prototype.md) | [p58_sifter_mvp.md](../features/p58_sifter_mvp.md)
+**References:** [p289_sifter_prototype.md](../features/p289_sifter_prototype.md) | [p58_sifter_mvp.md](../features/p58_sifter_mvp.md)
 
 ---
 
@@ -1083,7 +1083,7 @@ User journey: **Clarify → Share → Verify**
 - New content goes through Sifter; existing content skips it
 - Simplifies the "what do I do with my content" decision
 
-**References:** [p98_sifter_prototype.md](../features/p98_sifter_prototype.md)
+**References:** [p289_sifter_prototype.md](../features/p289_sifter_prototype.md)
 
 ---
 
@@ -1153,7 +1153,7 @@ User journey: **Clarify → Share → Verify**
 - Event outcomes section drives H4 (visibility, was H2) and H3 (FOMO, was H0b)
 - No presence system needed — link/QR sufficient for /live pairing
 
-**References:** [p85_event_verification_flow.md](../features/p85_event_verification_flow.md) | [milestones/m8-visibility-behavior.md](milestones/m8-visibility-behavior.md)
+**References:** [p369_event_verification_flow.md](../features/p369_event_verification_flow.md) | [milestones/m8-visibility-behavior.md](milestones/m8-visibility-behavior.md)
 
 ---
 
@@ -1409,7 +1409,7 @@ User journey: **Clarify → Share → Verify**
 - P76 will standardize this pattern in `GravatarAvatar` component with `isPledger` prop
 - Ring width is fixed at 4px (`p-1`); larger avatars may want `p-1.5` or `ring-3`
 
-**References:** [compact-profile-card.tsx](../src/app/components/profile/compact-profile-card.tsx) | [p76_pledger_avatar_distinction.md](../features/p76_pledger_avatar_distinction.md)
+**References:** [compact-profile-card.tsx](../src/app/components/profile/compact-profile-card.tsx) | [p365_pledger_avatar_distinction.md](../features/p365_pledger_avatar_distinction.md)
 
 ---
 
@@ -1432,7 +1432,7 @@ User journey: **Clarify → Share → Verify**
 - Pattern reusable for future features (Stories, Points) needing gradual backend rollout
 - Tests import mock service directly, unaffected by env var
 
-**References:** [events-service.interface.ts](../src/app/data/events-service.interface.ts) | [events-service.ts](../src/app/data/events-service.ts) | [p61.1_events_production.md](../features/p61.1_events_production.md)
+**References:** [events-service.interface.ts](../src/app/data/events-service.interface.ts) | [events-service.ts](../src/app/data/events-service.ts) | [p358.1_events_production.md](../features/p358.1_events_production.md)
 
 ---
 

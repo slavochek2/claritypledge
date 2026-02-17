@@ -1,11 +1,14 @@
 ---
 status: done
+type: comment
 priority: p1
 milestone: C2
 tags:
   - testing
   - demo
 sort_order: 1000006
+rank: 125318.0
+created_date: 2026-01-29
 ---
 
 # P107: /live Demo Readiness

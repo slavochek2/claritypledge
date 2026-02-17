@@ -2,6 +2,8 @@
 status: backlog
 type: task
 rank: 13
+tags: []
+created_date: 2026-01-16
 ---
 # P119: Bundle Size Optimization
 

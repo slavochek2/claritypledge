@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125402.0
+created_date: 2025-12-15
+---
+
 Onboarding Comprehension Check
 
 ## Summary

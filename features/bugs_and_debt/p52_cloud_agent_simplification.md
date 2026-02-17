@@ -2,6 +2,8 @@
 status: backlog
 type: task
 rank: 17
+tags: []
+created_date: 2026-01-11
 ---
 # P52: Cloud Agent & Telegram Bot Simplification
 

@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125435.0
+created_date: 2026-01-14
+---
+
 # P40: Microphone Permission Handling
 
 **Status:** FAILED ATTEMPT - Needs Re-implementation with TDD
@@ -617,6 +625,6 @@ Replace the try/catch in `startRecording` (lines 118-196) to use the new hook, o
 
 ## Related Documents
 
-- [P37.2a: Recording Consent](./p37_2a_consent_mechanism.md) - Consent flow (happens BEFORE mic check)
+- [P37.2a: Recording Consent](./p353_2a_consent_mechanism.md) - Consent flow (happens BEFORE mic check)
 - [clarity-live-page.tsx](../src/app/pages/clarity-live-page.tsx) - Integration point
 - [use-audio-recorder.ts](../src/hooks/use-audio-recorder.ts) - Existing mic handling to potentially refactor

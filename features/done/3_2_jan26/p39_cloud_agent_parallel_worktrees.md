@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125434.0
+created_date: 2026-01-14
+---
+
 # P39: Cloud Agent Parallel Worktrees
 
 ## Problem

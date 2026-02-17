@@ -8,6 +8,8 @@ completed_at: 2026-02-15
 rank: 146.0
 root_cause: Kanban server cached features on first request, cache never invalidated when new files created on disk
 resolution: Added cache-busting via ?refresh=true query parameter
+tags: []
+created_date: 2026-02-15
 ---
 
 # P146: Kanban Refresh Button Doesn't Invalidate Cache

@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125370.0
+created_date: 2026-01-14
 ---
 # V7: Context Portal Design — "Catch Up" for Events
 

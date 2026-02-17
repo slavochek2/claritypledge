@@ -9,6 +9,7 @@ delivery_stage: arch-review
 reviews:
   ux: null
   architect: null
+created_date: 2026-02-17
 ---
 
 # P160: Private Session Mode (No Recording)

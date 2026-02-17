@@ -1,3 +1,11 @@
+---
+status: done
+type: task
+tags: []
+rank: 125439.0
+created_date: 2026-01-14
+---
+
 # P49: Telegram Bot KISS Refactor
 
 ## Problem

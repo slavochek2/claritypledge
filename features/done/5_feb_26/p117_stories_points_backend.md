@@ -11,6 +11,9 @@ reviews:
 decisions:
   - story-versioning: "Use versions table (not snapshots in verifications) for normalization and future edit history UI"
   - calibration-averages: "Compute on-read via AVG() query, not stored columns — fast enough (<100ms), avoids trigger complexity"
+tags: []
+rank: 125347.0
+created_date: 2026-02-04
 ---
 
 # P117: Stories, Points, and Calibration Backend

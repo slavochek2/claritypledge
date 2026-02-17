@@ -1,4 +1,6 @@
 ---
+status: backlog
+type: story
 prep_status: ready
 prep_date: 2026-01-25
 prep_by: /prep-spec
@@ -9,6 +11,9 @@ reviews:
 open_questions: 0
 blindspots: 5
 execution: /loop
+tags: []
+rank: 125339.0
+created_date: 2026-01-25
 ---
 
 # Summary: "Start Session" Button Feature

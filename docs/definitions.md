@@ -394,7 +394,7 @@ The real value is in detecting **false states**:
 
 **What a Workstream contains:**
 - **tests:** Hypotheses being tested (e.g., `[h-stories]`)
-- **builds:** Features being shipped (e.g., `[p126, p128]`)
+- **builds:** Features being shipped (e.g., `[p126, p305]`)
 - **measures:** Key Results being tracked (e.g., `[kr-story-usage]`)
 - **answers:** Open questions being resolved
 

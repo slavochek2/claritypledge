@@ -9,6 +9,8 @@ reviews:
   architect: null
   alignment: null
 rank: 125000
+tags: []
+created_date: 2026-02-12
 ---
 
 # P138: Fix E2E Test Infrastructure - Enable Agent Self-Verification

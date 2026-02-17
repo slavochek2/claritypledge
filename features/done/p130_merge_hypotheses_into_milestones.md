@@ -8,6 +8,8 @@ tags:
   - roadmap
 sort_order: 0.5
 completed_at: '2026-02-09'
+rank: 125354.0
+created_date: 2026-02-06
 ---
 
 # P130: Milestones Replace Hypotheses
@@ -18,7 +20,7 @@ Hypotheses and kanban live in separate worlds. Features have statuses and priori
 
 **Audit findings (2026-02-06):**
 
-- Focus page groups by `hypothesis:` field, but 3 key features (p124, p126, p128) use wrong fields (`tags:`, `tests:`) — invisible in grouping
+- Focus page groups by `hypothesis:` field, but 3 key features (p303, p126, p305) use wrong fields (`tags:`, `tests:`) — invisible in grouping
 - p80 references non-existent `H-GTM`
 - Hypothesis labels are cryptic — no descriptions, no hover context
 - `milestone:` field exists in kanban spec but is unused
@@ -72,9 +74,9 @@ docs/hypotheses.md                  # Everything distributed to better homes
 
 ```
 docs/theory-of-change.md            # Expanded evidence section (validated hypotheses + full research)
-features/p124_event_rooms.md        # milestone: C1
-features/p126_create_story.md       # milestone: C1
-features/p128_live_beginning.md     # milestone: C1
+features/p302_event_rooms.md        # milestone: C1
+features/p309_create_story.md       # milestone: C1
+features/p305_live_beginning.md     # milestone: C1
 features/p105_sales_playbook.md     # milestone: C2, priority: p2
 features/p129_unverified_user_flow.md  # milestone: C2
 features/drafts/p80_*.md            # Remove invalid H-GTM, add milestone: C2

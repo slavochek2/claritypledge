@@ -1,6 +1,9 @@
 ---
 status: draft
 type: task
+tags: []
+rank: 125364.0
+created_date: 2026-01-29
 ---
 # P157: Understanding Calibration Outcomes Research
 
@@ -515,7 +518,7 @@ This is what we measure. Let me show you where your clients stand."
 
 ## Related Documents
 
-- [p104_calibration_outcomes_research.md](../done/p104_calibration_outcomes_research.md) — Listening → outcomes evidence
+- [p272_calibration_outcomes_research.md](../done/p272_calibration_outcomes_research.md) — Listening → outcomes evidence
 - [definitions.md](../../docs/definitions.md) — Understanding Calibration construct
 - [lean-canvas.md](../../docs/lean-canvas.md) — Problem statement
 - [hypotheses.md](../../docs/hypotheses.md) — What we're testing

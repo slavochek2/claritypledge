@@ -10,6 +10,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-02-16
 ---
 
 # P148: Kanban Sustainability - Prevent Documentation Drift

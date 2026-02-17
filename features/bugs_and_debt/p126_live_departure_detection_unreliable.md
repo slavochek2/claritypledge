@@ -2,6 +2,8 @@
 status: backlog
 type: bug
 rank: 2
+tags: []
+created_date: 2026-02-06
 ---
 # P126: /live Departure Detection Unreliable
 

@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125455.0
+created_date: 2026-01-22
+---
+
 # P89: Swipeable Card View for Feed
 
 ## Context

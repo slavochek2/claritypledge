@@ -1,3 +1,11 @@
+---
+status: done
+type: comment
+tags: []
+rank: 125404.0
+created_date: 2026-01-04
+---
+
 # P27.1: Verification Bar (Simple) + ML Data Capture
 
 ## Problem

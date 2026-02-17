@@ -1,3 +1,11 @@
+---
+status: done
+type: bug
+tags: []
+rank: 125450.0
+created_date: 2026-01-19
+---
+
 # Tech-Spec: Navigation & Post-Auth Redirect Fixes
 
 **Created:** 2026-01-19

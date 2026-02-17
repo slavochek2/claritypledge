@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125441.0
+created_date: 2026-01-09
+---
+
 # P51: Post-/live Email & AI Coaching CTA
 
 **Status:** Spec Draft
@@ -145,7 +153,7 @@ if (redirect && redirect.startsWith('/')) {
 
 ## Related Documents
 
-- [P50: Profile & Pledge Separation](./p50_non_pledger_experience.md) - Profile/verification infrastructure
+- [P50: Profile & Pledge Separation](./p356_non_pledger_experience.md) - Profile/verification infrastructure
 - [P41: AI Coaching Teaser](./p41_coaching_teaser.md) - Coaching feature this email promotes
 
 ---

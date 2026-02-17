@@ -3,7 +3,7 @@ status: today
 type: story
 workstream: C1
 blocked_by: []
-fixes: p124
+fixes: p303
 prepped_date: '2026-02-09'
 implemented_date: '2026-02-09'
 delivery_stage: uat
@@ -12,6 +12,8 @@ reviews:
   architect: passed-with-notes
   alignment: passed
 rank: 10
+tags: []
+created_date: 2026-02-12
 ---
 # P149: Event Waiting Room — No Redirect from Event Page
 

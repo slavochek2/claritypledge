@@ -79,15 +79,9 @@ echo ""
 # 5. Secrets scan (using gitleaks if available, fallback to grep)
 echo ">>> Scanning for secrets..."
 if command -v gitleaks &> /dev/null; then
-    # Use gitleaks for comprehensive secret detection
-    # --no-git scans files directly, --staged scans staged changes
-    if git diff --cached --quiet 2>/dev/null; then
-        # No staged changes, scan git-tracked files only (respects .gitignore)
-        GITLEAKS_OUTPUT=$(gitleaks detect --source . --redact -v 2>&1 || true)
-    else
-        # Scan staged changes
-        GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
-    fi
+    # Use gitleaks protect --staged: scans only staged diff, not git history.
+    # (gitleaks detect scans full git log and would flag old commits with .next/ artifacts)
+    GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
 
     if echo "$GITLEAKS_OUTPUT" | grep -q "no leaks found"; then
         echo -e "${GREEN}✓ No secrets detected (gitleaks)${NC}"

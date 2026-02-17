@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125436.0
+created_date: 2026-01-14
+---
+
 # P42: Data Rights (Export & Deletion)
 
 **Status:** Deferred (Deploy at 10-20 Users)
@@ -660,7 +668,7 @@ DELETE FROM profiles WHERE id = 'user-uuid';
 
 ## Related Documents
 
-- [P37.2a: Consent Mechanism](./p37_2a_consent_mechanism.md)
+- [P37.2a: Consent Mechanism](./p353_2a_consent_mechanism.md)
 - [P37.2c: Advanced Compliance](./p37_2c_advanced_compliance.md)
 - [Privacy Policy](../src/app/pages/privacy-policy-page.tsx)
 - [Settings Page](../src/app/pages/settings-page.tsx)

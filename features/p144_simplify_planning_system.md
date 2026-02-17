@@ -8,6 +8,7 @@ tags:
   - documentation
   - simplification
   - refactoring
+created_date: 2026-02-16
 ---
 
 # P144: Simplify Planning System — Restore One-File-Per-Milestone Structure
@@ -891,7 +892,7 @@ priority: p1
 track: C
 milestone: C1
 tests: [h-stories-solve-cold-start]
-builds: [p128, p124]
+builds: [p305, p303]
 measures: [kr-story-usage]
 answers: [oq-6, oq-7]
 ---

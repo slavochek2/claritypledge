@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125367.0
+created_date: 2025-12-15
 ---
 # P16: User Journey Map & Open Questions
 

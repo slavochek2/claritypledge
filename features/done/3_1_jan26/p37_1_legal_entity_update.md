@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125433.0
+created_date: 2026-01-06
+---
+
 # P37.1: Legal Entity Update (TechSalesBox OÜ)
 
 **Status:** Ready for Implementation

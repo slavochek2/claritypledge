@@ -1,3 +1,11 @@
+---
+status: done
+type: task
+tags: []
+rank: 125447.0
+created_date: 2026-01-16
+---
+
 # P65: CLAUDE.md Restructuring
 
 **Status:** Ready for Implementation

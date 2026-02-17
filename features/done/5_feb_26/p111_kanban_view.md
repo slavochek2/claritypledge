@@ -1,7 +1,11 @@
 ---
 status: done
+type: story
 sort_order: 1000001
 completed_at: '2026-02-04'
+tags: []
+rank: 125342.0
+created_date: 2026-02-02
 ---
 # P111: Local Kanban View for Features
 

@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125426.0
+created_date: 2025-12-03
+---
+
 # Feature: User Settings Page
 
 **Date:** 2025-12-03

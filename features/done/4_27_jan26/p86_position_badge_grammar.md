@@ -1,5 +1,6 @@
 ---
 status: prepped
+type: bug
 prepped_date: 2026-01-22
 prepped_by: /prep-spec
 reviews:
@@ -7,6 +8,9 @@ reviews:
   architect: passed
   tea: skipped
 execution: /loop
+tags: []
+rank: 125336.0
+created_date: 2026-01-22
 ---
 
 # P86: Position Badge — Hide for Self, Fix Grammar for Others

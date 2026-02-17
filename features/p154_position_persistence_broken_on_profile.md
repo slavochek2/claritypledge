@@ -6,7 +6,7 @@ workstream: C2
 severity: high
 date_reported: 2026-02-16
 created_date: 2026-02-16
-tags: [positions, persistence, profile-page, p151-followup]
+tags: [positions, persistence, profile-page, p389-followup]
 ---
 
 # BUG P154: Position Buttons Not Persisting on Profile Page

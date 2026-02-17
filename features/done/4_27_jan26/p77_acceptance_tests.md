@@ -1,3 +1,11 @@
+---
+status: done
+type: task
+tags: []
+rank: 125451.0
+created_date: 2026-01-20
+---
+
 # P77: Dashboard Empty State & Past Events — Acceptance Tests
 
 ## Scorecard

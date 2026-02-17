@@ -3,7 +3,7 @@
 **Author:** Slava (via PM Agent John)
 **Date:** 2026-01-04
 **Status:** Draft
-**Feature Doc:** [features/p32_ideas_in_live.md](../../features/p32_ideas_in_live.md)
+**Feature Doc:** [features/p350_ideas_in_live.md](../../features/p350_ideas_in_live.md)
 
 ---
 

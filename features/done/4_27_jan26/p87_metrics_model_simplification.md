@@ -1,3 +1,11 @@
+---
+status: done
+type: story
+tags: []
+rank: 125453.0
+created_date: 2026-01-22
+---
+
 # P87: Metrics Model Simplification (LinkedIn-like Prototype)
 
 **Status:** Completed

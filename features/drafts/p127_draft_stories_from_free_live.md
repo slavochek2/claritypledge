@@ -1,6 +1,9 @@
 ---
 status: draft
 type: story
+tags: []
+rank: 125362.0
+created_date: 2026-02-06
 ---
 # P127: Draft Stories from Free Live Sessions
 

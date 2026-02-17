@@ -1,10 +1,14 @@
 ---
 status: done
+type: bug
 completed_at: '2026-02-05'
 reviews:
   ux: passed
   architect: passed
   alignment: passed
+tags: []
+rank: 125346.0
+created_date: 2026-02-04
 ---
 
 # P115: Navigation & Data Source Fixes

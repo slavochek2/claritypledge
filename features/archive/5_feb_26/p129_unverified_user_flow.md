@@ -1,9 +1,13 @@
 ---
 status: backlog
+type: comment
 priority: p2
 milestone: C2
 depends_on:
   - stories_points_backend
+tags: []
+rank: 125320.0
+created_date: 2026-02-06
 ---
 
 # P129: Unverified User Flow

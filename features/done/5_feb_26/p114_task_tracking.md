@@ -14,6 +14,9 @@ decisions:
   - d1 reassigned to p119 (no number collisions)
   - Draft p106 reassigned to p122 (resolves collision with active p106)
   - Full migration of all files
+tags: []
+rank: 125345.0
+created_date: 2026-02-05
 ---
 # P114: Task Tracking — Kanban Visibility for All Work
 
@@ -120,12 +123,12 @@ Add `type: story` to frontmatter (filenames unchanged):
 | `p41_coaching_teaser_sifter_after_live.md` | `type: story` |
 | `p79_consulting_revenue_model.md` | `type: story` |
 | `p80_event_publishing_simplified.md` | `type: story` |
-| `p85_live_verification_with_cards.md` | `type: story` |
-| `p98_sifter_prototype.md` | `type: story` |
+| `p371_live_verification_with_cards.md` | `type: story` |
+| `p289_sifter_prototype.md` | `type: story` |
 | `p105_sales_playbook.md` | `type: story` |
 | `p106_demo_kit.md` | `type: story` |
 | `p108_newsletter_automation.md` | `type: story` |
-| `p112_kanban_sidebar_lean_canvas.md` | `type: story` |
+| `p375_kanban_sidebar_lean_canvas.md` | `type: story` |
 
 ### Migration — bugs_and_debt
 

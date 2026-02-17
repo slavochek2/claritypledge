@@ -2,6 +2,8 @@
 status: backlog
 type: bug
 rank: 14
+tags: []
+created_date: 2026-02-05
 ---
 # P120: Same Name Bug
 

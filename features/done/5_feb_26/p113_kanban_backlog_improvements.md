@@ -8,6 +8,8 @@ tags:
   - kanban
 prepped: true
 completed_at: '2026-02-04'
+rank: 125344.0
+created_date: 2026-02-04
 ---
 
 # P113: Kanban Backlog & Sorting Improvements
@@ -21,7 +23,7 @@ Current kanban has several limitations that prevent effective backlog management
 1. **No backlog status** — Items are either "in execution" or don't exist in the system
 2. **No way to reorder within columns** — Cards sort alphabetically by ID, not by priority
 3. **Done column shows all time** — No distinction between "finished today" vs "finished last month"
-4. **UAT files clutter the board** — `p112_uat.md` shows alongside `p112_kanban_notion_style.md` as duplicate cards
+4. **UAT files clutter the board** — `p112_uat.md` shows alongside `p374_kanban_notion_style.md` as duplicate cards
 5. **Can't demote items** — No way to move something from Week back to Backlog
 6. **Card ID is verbose** — Shows `p108_newsletter_automation` when `p108` would suffice (title already has the name)
 7. **Column order is wrong** — Blocked comes after In Progress, but blocked items should show before active work
@@ -45,7 +47,7 @@ Current kanban has several limitations that prevent effective backlog management
 5. Update CLAUDE.md "File Locations" table
 
 **File naming convention:**
-- Feature: `features/p112_kanban_notion_style.md`
+- Feature: `features/p374_kanban_notion_style.md`
 - UAT: `features/uat/p112.md` (drop the `_uat` suffix, folder makes it clear)
 
 ### Part 2: Backlog Status & Column
