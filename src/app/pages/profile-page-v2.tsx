@@ -602,26 +602,26 @@ export function ProfilePageV2() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-bold text-foreground truncate">{profile.name}</h2>
-                  {credibilityStats.ear > 0 && (
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground cursor-default">
-                            <Ear size={14} />
-                            {credibilityStats.ear}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            {isOwner
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-0.5 text-sm text-muted-foreground cursor-default">
+                          <Ear size={14} />
+                          {credibilityStats.ear}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>
+                          {credibilityStats.ear === 0
+                            ? (isOwner ? 'Stories you fully understood, as confirmed by their owners' : `Stories ${profile.name.split(' ')[0]} fully understood, as confirmed by their owners`)
+                            : (isOwner
                               ? `You understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`
-                              : `${profile.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`
-                            }
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
+                              : `${profile.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`)
+                          }
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 {profile.role && (
                   <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
@@ -657,10 +657,8 @@ export function ProfilePageV2() {
               )}
             </div>
 
-            {/* Calibration bars - inline */}
-            {calibration && (
-              <InlineCalibration calibration={calibration} />
-            )}
+            {/* Calibration bars - always shown; empty state when < 5 sessions */}
+            <InlineCalibration calibration={calibration} />
           </div>
 
           {/* Create Stories & Points CTA (owner only) */}

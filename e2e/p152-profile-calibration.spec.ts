@@ -83,7 +83,7 @@ test.describe('P152: Profile Calibration Display', () => {
     await expect(page.getByRole('button', { name: /create story/i })).toBeVisible();
   });
 
-  test('calibration hidden when user has <5 sessions', async ({ page }) => {
+  test('calibration shows empty state when user has <5 sessions', async ({ page }) => {
     // Setup: Create only 2 calibration sessions (insufficient)
     await createCalibrationData({
       listenerId: testUser.user.id,
@@ -98,10 +98,14 @@ test.describe('P152: Profile Calibration Display', () => {
     // Verify profile loads successfully
     await expect(page.getByRole('heading', { name: testUser.name })).toBeVisible();
 
-    // Verify calibration section NOT rendered (KISS approach - just hide it)
-    await expect(page.getByText('Understanding Calibration')).not.toBeVisible();
+    // Verify calibration bar IS rendered (always shown now — empty state)
+    await expect(page.getByText('Understanding Calibration')).toBeVisible();
 
-    // Verify profile works normally without calibration
+    // Verify no blue dot (no calibration data yet — empty bar, just the track)
+    const blueDot = page.locator('.bg-blue-500.rounded-full').filter({ hasText: '' });
+    await expect(blueDot).not.toBeVisible();
+
+    // Verify profile still works normally
     await expect(page.getByRole('tab', { name: /stories/i })).toBeVisible();
     await expect(page.getByRole('tab', { name: /points/i })).toBeVisible();
   });
@@ -127,17 +131,20 @@ test.describe('P152: Profile Calibration Display', () => {
     await expect(page.getByText(/understood.*stories/i).first()).toBeVisible();
   });
 
-  test('ear count badge hidden when user has 0 ears', async ({ page }) => {
+  test('ear count badge shows 0 when user has no ears', async ({ page }) => {
     // Setup: No ear count data created
 
     // Navigate to profile
     await page.goto(`/p/${testUser.slug}`);
     await page.waitForLoadState('networkidle');
 
-    // Verify ear count badge NOT visible
-    // Look for the ear icon next to name (shouldn't exist)
-    const earIcon = page.locator('svg').filter({ has: page.locator('[class*="lucide-ear"]') });
-    await expect(earIcon.first()).not.toBeVisible();
+    // Verify ear count badge IS visible showing 0 (always shown)
+    const earBadge = page.locator('span.inline-flex').filter({ hasText: '0' }).first();
+    await expect(earBadge).toBeVisible();
+
+    // Verify tooltip on hover explains the metric
+    await earBadge.hover();
+    await expect(page.getByText(/stories/i).first()).toBeVisible();
   });
 
   test('calibration persists across tab switches', async ({ page }) => {

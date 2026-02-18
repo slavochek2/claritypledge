@@ -114,21 +114,33 @@ const TOOLTIP_TEXT = {
 /**
  * Inline calibration display for embedding in profile cards.
  * Shows only listener calibration (how well they understand others).
+ * When calibration is null (< 5 sessions), shows an empty bar with a hint.
  */
 export function InlineCalibration({
   calibration,
 }: {
-  calibration: UserCalibration;
+  calibration: UserCalibration | null;
 }) {
-  // gap = self - actual: negative = overconfident (left), positive = underconfident (right)
-  // Must match CalibrationBar formula: ((clamped + 3) / 6) * 100
   const gapToPosition = (g: number) => {
     const clamped = Math.max(-3, Math.min(3, g));
     return ((clamped + 3) / 6) * 100;
   };
 
-  const listenerPos = gapToPosition(calibration.listener.avgGap);
-  const listenerLabel = getCalibrationLabel(calibration.listener.avgGap);
+  const listenerPos = calibration ? gapToPosition(calibration.listener.avgGap) : null;
+  const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
+
+  const barContent = (
+    <div className="relative h-6 flex-1 max-w-[140px]">
+      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
+      <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
+      {listenerPos !== null && (
+        <span
+          className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
+          style={{ left: `${listenerPos}%` }}
+        />
+      )}
+    </div>
+  );
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -139,10 +151,7 @@ export function InlineCalibration({
             <span className="text-xs font-medium text-muted-foreground">Understanding Calibration</span>
           </div>
 
-          <div className="relative h-6 flex-1 max-w-[140px]">
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
-            <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
-
+          {calibration ? (
             <CalibrationTooltip
               side="top"
               content={
@@ -155,12 +164,16 @@ export function InlineCalibration({
                 </>
               }
             >
-              <span
-                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-sm -translate-x-1/2 cursor-pointer"
-                style={{ left: `${listenerPos}%` }}
-              />
+              {barContent}
             </CalibrationTooltip>
-          </div>
+          ) : (
+            <CalibrationTooltip
+              side="top"
+              content={<p className="text-xs">5 sessions needed to unlock</p>}
+            >
+              {barContent}
+            </CalibrationTooltip>
+          )}
         </div>
       </div>
     </TooltipProvider>
