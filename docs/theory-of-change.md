@@ -245,7 +245,9 @@ This is **Protocol-Led Growth** — distinct from Product-Led Growth:
 
 **The healthcare parallel:** Hospitals use "teach-back" (same mechanism as explain-back). Meta-analysis shows it reduces readmissions by 60%. We're applying proven verification loops to workplace communication.
 
-### Parallel Path: Rationalist Community Cascade
+### Dependent Path: Rationalist Community Cascade
+
+**Sequencing (updated 2026-02-18):** Previously framed as a parallel path running simultaneously with the coaching cascade. Updated: Coaching Cascade happens FIRST (months 1-6), generating real calibration data from founder sessions. Rationalist Cascade is UNLOCKED by this data (months 7-12). Reason: "We ran 50 founder calibration sessions and measured X" is more credible to researchers than "Theory says calibration matters." Essays written from data reach further and last longer than speculative essays.
 
 **Different from coaching cascade:** The rationalist/EA/AI safety community operates on content-led distribution, not coaching relationships.
 
@@ -279,10 +281,12 @@ Enterprise adoption (12-month timeline)
 | Network effects visible | Month 6+ (√N kicks in) | Month 12+ (recognition threshold) |
 | Scale unlock | Year 2-3 (recursion) | Year 1-2 (enterprise deals) |
 
-**The dual-track strategy (from decisions.md):**
-- **Don't abandon coaching** — it provides early revenue and validates core UX
-- **Add rationalist outreach** — it unlocks AI alignment market and higher ACVs
-- **They reinforce:** Coaches validate "humans need this," rationalists validate "AI systems need this"
+> **Note:** Rationalist Path timing above assumes independence. In practice it is DATA-DEPENDENT: Rationalist Path essays cannot reach credibility threshold without coaching session corpus from Month 1-6. Treat Rationalist Path timelines as starting from Month 5 at earliest, after C2/C3 generate real founder data.
+
+**The dual-track strategy (from decisions.md, revised 2026-02-18):**
+- **Coaching primary (months 1-6):** Generate calibration corpus from founder sessions — proves the method works
+- **Recognition secondary, data-driven (months 7-12):** Essays leveraging real session data, framed as "what we learned from 10+ founder pairs"
+- **They reinforce:** Coaches validate UX; data validates theory; combined evidence unlocks AI alignment positioning
 
 **Next actions:**
 1. Publish AI calibration framing (LessWrong or Alignment Forum)

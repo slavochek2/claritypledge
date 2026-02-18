@@ -10,7 +10,7 @@ tags:
   - verification
   - calibration
 prepped_date: '2026-02-18'
-delivery_stage: arch-review
+delivery_stage: arch-approved
 reviews:
   ux: null
   architect: null
@@ -290,6 +290,7 @@ All component names below refer to existing production components in `live-mode-
 2. Both return to `IdleScreen`. The story card from the previous round is NOT automatically carried forward. The picker is available again.
 3. Speaker can search and select the same story again, or a different one, or start a round with no story.
 4. Session history (`SessionHistoryList`) shows completed rounds with story titles.
+5. `SessionHistoryList` (round history below the picker showing previous story titles) is out of scope for P272. It is not part of the accepted build sequence. Create a separate feature if needed.
 
 #### 1.8 Listener Expanding Points During / After a Round
 
@@ -352,7 +353,7 @@ All component names below refer to existing production components in `live-mode-
 #### Multi-Round: Starting Next Round
 
 - After both participants tap "Continue," `IdleScreen` loads fresh
-- `SessionHistoryList` shows the completed round
+- `SessionHistoryList` is out of P272 scope — not rendered.
 - Story card is not pre-loaded — speaker must search and select again if desired
 
 ---
@@ -739,7 +740,7 @@ The 7-point position scale component used in `StoryCardWithLinks` comes from `sr
 
 - ✅ Participants use Supabase Auth (`getOrCreateGuestUser()` creates anonymous auth users), providing real `auth.uid()` for all RLS checks.
 - ⚠️ `checkerName` / `proverName` in `live_state` are plain text strings stored in `sessionStorage`, not tied to `auth.uid()` at the DB level. Speaker/listener identity for the verification insert is resolved by matching `checkerName` against `session.creatorName` — which is also a plain text field. If `creatorName` is spoofed by a client, `speakerId`/`listenerId` mapping can be wrong.
-- ⚠️ `shared`-visibility stories will fail to render for the listener. The RLS select policy for `stories` blocks non-authors from reading `shared`/`private` stories. When the speaker selects a `shared` story and `selectedStoryId` is pushed to the listener via Realtime, the listener's `getStory(storyId)` call will return null, breaking story card display. Architect must define how session participation grants temporary read access to `shared` stories.
+- ✅ Story visibility in /live: resolved by pushing story content into `live_state.selectedStoryData` — listener reads from session state, not from the `stories` table. No RLS issue.
 
 **Authorization:**
 
@@ -963,8 +964,64 @@ const writeStoryVerification = useCallback(async ({
 
 **P279 dependency:** `StoryWithPoints.points[].userPosition` contains the viewer's own position. Showing the other participant's position in the /live story card depends on P279 (which fixes `getPointsForProfileDisplay` to load the profile subject's position). Until P279 ships, linked points will show each participant's own position only — which is the known gap documented in `## Dependencies`.
 
-**`shared`-visibility stories for listeners:** When the speaker selects a `shared` story and pushes `selectedStoryId` via Realtime, the listener's `getStory(storyId)` call will return null due to RLS. Resolve by either: (a) always using `public` stories in /live for the pilot, or (b) adding a session-scoped RLS policy that grants SELECT to authenticated session participants for stories selected in their session. Option (a) is simplest for the Feb/Mar pilot — document this as a known constraint.
+**Private and shared story visibility — product decision:**
+Speakers must be able to bring any story into /live — including `private` stories. The session is an implicit consent boundary: the listener sees the story within the session only, not via profile pages or search.
+
+Technical approach for pilot: when the speaker selects a story, push the story content (not just `selectedStoryId`) into `live_state` as `selectedStoryData: { id, title, content, points }`. The listener's card reads from `live_state.selectedStoryData` — bypassing the `stories` RLS entirely. The listener never queries the `stories` table directly.
+
+This means:
+- The `handleSelectStory` handler fetches `StoryWithPoints` and writes both `selectedStoryId` and `selectedStoryData` to `live_state`
+- `LiveStoryCardExpanded` receives its data from `live_state.selectedStoryData`, not from a separate `getStory(id)` call on the listener's client
+- No RLS policy changes needed for pilot
+
+Post-pilot: replace with a session-participation RLS policy that grants SELECT on stories where the requester is a participant in a session where the story is selected.
 
 **`checkerName` identity trust:** Speaker/listener identity for the verification insert is resolved by matching `checkerName` (a plain text string) against `session.creatorName`. In a trusted pilot context this is acceptable. For a scaled product, speaker identity should be tied to `auth.uid()` rather than a name string.
 
 **`live_state` JSONB validation:** Add a Zod schema for `LiveSessionState` and validate inbound updates before the Supabase call. Low priority for the pilot but closes a systemic gap.
+
+---
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ DB migration threshold (`accuracy_achieved` = 10, not ≥ 8) — integration test (MANDATORY)
+- ✅ Tightened RLS INSERT policy (speaker/listener only) — integration test
+- ✅ Story picker visible for authenticated creator with stories — E2E
+- ✅ Story selection syncs to listener screen — two-party E2E
+- ✅ Speak freely pre-round clears story from both screens — two-party E2E
+- ✅ Story card visible during rating phase (above drawer) — two-party E2E
+- ✅ `story_verifications` record written at speaker_rating=10 — two-party E2E + DB poll
+- ✅ Regression: sessions without story still work — E2E
+- ✅ Story picker search input aria-label — two-party a11y
+- ✅ Expand toggle aria-expanded attribute + keyboard accessible — two-party a11y
+- ✅ Share/external-link icons hidden in /live story card — two-party a11y
+- ✅ /live page smoke load (auth + guest) — smoke tests
+
+**What's NOT Tested (rationale):**
+- ❌ `writeStoryVerification` unit test — it's a fire-and-forget React callback, not an isolated utility; covered by E2E + integration
+- ❌ DB triggers (`update_story_understood_count`, `update_profile_ears_count`) — these predate P272 and are tested by existing calibration helper; covered in UAT-5.1
+- ❌ Story card expand/collapse with linked points in /live — requires P279 deployed; covered by UAT-6.3 (P279-gated)
+- ❌ Multi-round flow (story not carried to next round) — complex E2E, covered by UAT-4.3 manual
+- ❌ Disconnection mid-round story recovery — complex edge case, covered by UAT description
+
+**Test Pyramid:**
+```
+       /\
+      /  \   6 two-party E2E tests (story sync, speak freely, verification write, regression)
+     /____\
+    / 4 A11Y \  (story picker aria, expand toggle, keyboard, hidden icons)
+   /__________\
+  / 1 INTEGRATION \ (accuracy_achieved migration + RLS — MANDATORY)
+ /______________\
+/ 2 SMOKE        \  (page load, no console errors)
+```
+
+**Files generated:**
+- `e2e/integration/p272-accuracy-achieved-migration.spec.ts` — 6 tests (schema + threshold + RLS)
+- `e2e/p272-live-verification.spec.ts` — 6 two-party E2E tests
+- `e2e/p272-smoke.spec.ts` — 4 smoke tests
+- `e2e/a11y/p272-accessibility.spec.ts` — 4 a11y tests
+- `features/uat/p272.md` — 18 UAT scenarios
+
+**Total:** 20 automated tests + 18 UAT scenarios

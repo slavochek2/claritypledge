@@ -57,3 +57,37 @@ Ideas worth keeping in mind but not ready to act on.
 - [CNBC coverage of OpenClaw rise](https://www.cnbc.com/2026/02/02/openclaw-open-source-ai-agent-rise-controversy-clawdbot-moltbot-moltbook.html)
 
 ---
+
+## FD-2: Investor Angle — Calibration as Pre-Investment Due Diligence
+
+**Added:** 2026-02-18
+**Status:** Parked — revisit at Month 4-6 checkpoint
+
+### The Idea
+
+Investors routinely misjudge founders' self-awareness and communication clarity during diligence. Hypothesis: "Investors will pay for a calibration session with a founder they're considering backing, to verify self-awareness and communication clarity before writing a check."
+
+**Specific version:** Founder + lead investor do a /live session on the founder's theory of the business. Investor rates: "Did I understand what they were trying to say?" Founder rates: "Did I communicate my vision clearly?" The gap becomes a signal attached to diligence notes.
+
+### Why Keep
+
+- Investors are a high-value ICP (enterprise pricing, B2B motion)
+- Due diligence is a natural "when to use this" moment (high stakes, decision point)
+- VC credibility could accelerate both Recognition and Coaching tracks
+- Precedent: investors already pay for reference checks, background checks, expert calls
+
+### Why Not Now
+
+- Coaching track not yet validated — can't sell investors on calibration before proving it works with 10+ founder pairs
+- Depends on C2/C3 data — "10 founders improved calibration by X%" is the credibility play
+- VC sales cycle is slow (3-6 months) — premature before coaching traction exists
+- Different motion entirely (selling to investors vs. founders)
+
+### Revisit When
+
+- C2 hit: first 10+ paid sessions, calibration data shows measurable improvement
+- C3 hit: 5+ retainer pairs with month-2 retention data
+- Dashboard ready: aggregate calibration deltas visible across sessions
+- Reach out to 2-3 VCs in warm network and ask: "Would you pay for this pre-investment?"
+
+---

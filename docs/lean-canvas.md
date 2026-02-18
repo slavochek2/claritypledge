@@ -42,7 +42,9 @@ The tools for talking got better. The tools for understanding didn't.
 
 ### Dual-Track Strategy
 
-**Track 1 (PRIMARY): Recognition Path → Personal AI / Digital Twins**
+**Sequencing (updated 2026-02-18):** Coaching track is PRIMARY months 1-6 (build real founder data). Recognition track is SECONDARY — starts months 5-12 using real session data as evidence for essays and AI alignment positioning. Essays written from data are 2x more credible than theory-first pieces.
+
+**Track 1 (RECOGNITION PATH — Primary months 5-12, Secondary months 1-4)**
 
 Primary audience for recognition and thought leadership:
 - **Rationalists & LessWrong community** — deeply interested in calibration, epistemics, AI alignment
@@ -60,14 +62,16 @@ Primary audience for recognition and thought leadership:
 | Signal calibration as identity | "I care about verified understanding" |
 | Explore epistemics through practice | Theory meets measurement |
 
-**Track 2 (SAFETY): Workshop Revenue Path**
+**Track 2 (COACHING PATH — Primary months 1-6)**
 
-Safety track for revenue while building recognition:
-- **Event participants** (professionals, teams, leaders)
-- **Organizations** wanting better communication culture
-- **Teams** making high-stakes decisions
+Primary revenue track — founder coaching:
+- **Co-founder pairs** (functioning but misaligned — preventive, not in crisis) — PRIMARY ICP
+- **Solo founders** (routed to community after sessions) — SECONDARY
+- **Early-stage executive teams** — FUTURE
 
-**Value hypothesis:** Workshops generate €5k/month revenue while validating tool utility. If Track 1 fails to generate recognition, Track 2 provides financial runway.
+**Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
+
+**Value hypothesis:** Founder coaching generates €5k/month revenue while building real session data to power recognition essays and AI alignment positioning.
 
 **Jobs to be done:**
 | Job | Value |
@@ -81,16 +85,16 @@ Safety track for revenue while building recognition:
 
 | Use Case | Track | Why Promising |
 |----------|-------|---------------|
-| Personal AI calibration | 1 (PRIMARY) | Digital twin market growing (Viven $35M, Uare.ai $10M) |
-| AI alignment research | 1 (PRIMARY) | Academic/research community needs verified understanding |
-| Pre-decision alignment | 2 (SAFETY) | High stakes, clear "when" to use |
-| Team communication | 2 (SAFETY) | Clear ROI, measurable cost savings |
+| Co-founder pair alignment | 2 (COACHING — months 1-6) | High stakes, clear "when" to use, preventive not crisis |
+| Personal AI calibration | 1 (RECOGNITION — months 5-12) | Digital twin market growing (Viven $35M, Uare.ai $10M) |
+| AI alignment research | 1 (RECOGNITION — months 5-12) | Academic/research community needs verified understanding |
+| Team communication | 2 (COACHING — months 1-6) | Clear ROI, measurable cost savings |
 
 ---
 
 ## Market Size
 
-**Track 1 (PRIMARY): Personal AI / Digital Twins**
+**Track 1 (RECOGNITION PATH — Primary months 5-12): Personal AI / Digital Twins**
 - **Digital twin market:** Viven ($35M raised), Uare.ai ($10M raised) — emerging category for AI-powered personal representation
 - **AI alignment research:** Growing field with increasing funding (OpenAI, Anthropic, MIRI, etc.)
 - **Rationalist/EA community:** ~50k+ active members globally (LessWrong, EA Forum, adjacent communities)
@@ -98,34 +102,34 @@ Safety track for revenue while building recognition:
 
 **Why this market matters:** Not immediate revenue, but recognition → credibility → opportunities. Being "the calibration person" in AI/rationalist circles creates asymmetric value (consulting, advisory roles, aligned funding).
 
-**Track 2 (SAFETY): Workshops & Coaching**
+**Track 2 (COACHING PATH — Primary months 1-6): Founder Coaching**
 - 71,000+ ICF-credentialed coaches worldwide
 - Executive coaching: $15B+ global market
 - Leadership development: $60B+ global market
 - Sales training: $4.6B US market (active listening = core skill)
 
-**Target:** €5k/month by Month 6 validates workshops as revenue safety net.
+**Target:** €5k/month by Month 6 validates coaching as revenue foundation.
 
-**Path (Track 1):** Recognition → Credibility → Personal AI adoption → Network effects
-**Path (Track 2):** Workshops → Teams → Enterprise (if Track 1 doesn't materialize)
+**Path (Track 2):** Free Calibration Lab → Co-founder pair sessions → Retainer → Cohorts
+**Path (Track 1):** Real session data → Essays → Recognition → Personal AI adoption → Network effects
 
 ---
 
 ## Unique Value Proposition
 
-### Track 1 (PRIMARY): Recognition Path
+### Track 1 (RECOGNITION PATH — Primary months 5-12, Secondary months 1-4)
 > **Calibration infrastructure for personal AI — verify your digital twin actually understands you.**
 
 For rationalists, AI researchers, and those building personal AI agents: a systematic way to measure and improve the fidelity between your thinking and its AI representation.
 
 **Positioning:** Not "just a communication tool" but foundational infrastructure for the personal AI era. As digital twins and AI agents become extensions of ourselves, calibration becomes critical — how do you know your AI actually represents your thinking?
 
-### Track 2 (SAFETY): Workshop Path
-> **See your understanding gap, close it through practice.**
+### Track 2 (COACHING PATH — Primary months 1-6): Founder Coaching
+> **See your calibration gap with your co-founder — close it before it breaks you.**
 
-For professionals and teams: experience the gap between "I think I understood" and "I actually understood" — then build the skill to close it.
+For co-founder pairs: experience where your mental models diverge — then build the shared understanding that functional alignment requires.
 
-**Positioning:** Workshops as validation mechanism + revenue safety net, not primary brand identity.
+**Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
 
 **Shared foundation:**
 > **Scale your inner world — know who understood you, how well, and where they diverge — without being present for every conversation.**
@@ -243,28 +247,26 @@ Track your accuracy over time:
 
 ## Channels
 
-### Track 1 (PRIMARY): Recognition Path
+### Track 2 (PRIMARY months 1-6): Coaching Path
 
-Primary channels for thought leadership and recognition:
-- **LessWrong:** PRIMARY distribution channel for rationalist community — post calibration insights, epistemics, AI alignment angles
+Primary channels for founder coaching revenue:
+- **Free Calibration Lab:** Open enrollment group sessions (90 min) — cast wide, route to paid coaching post-session
+- **Founder networks:** Direct outreach to co-founder pairs in accelerators, founder communities, peer groups
+- **Direct outreach:** Target functioning-but-misaligned co-founder pairs specifically
+- **Coach partnerships:** Partner with executive coaches who work with founders → referrals
+
+**Success signals:** 10 coaching clients by Month 3, €3k/month by Month 6.
+
+### Track 1 (SECONDARY months 5-12): Recognition Path
+
+Secondary channels for thought leadership — built on real session data:
+- **LessWrong:** Distribution channel for rationalist community — post calibration insights, epistemics, AI alignment angles (backed by real founder data)
 - **Hacker News:** Technical audience interested in AI, measurement, calibration infrastructure
 - **Build-in-public blog:** Essays on calibration, epistemology, building journey. Audience = "calibrated listeners" (practitioners frustrated others don't verify). Manifesto sequence (8 posts) first subscriber drip. See [content/strategy.md](../content/strategy.md).
 - **AI research community:** Engage directly with alignment researchers, frame calibration as infrastructure
-- **Personal AI communities:** Where digital twin builders gather (Twitter/X, Discord servers, Reddit)
 - **Technical writing:** Specs, technical essays, build-in-public updates shared in rationalist/AI circles
 
 **Success signals:** Essays reach 50+ readers, specs discussed on LW/X, inbound "you're the calibration expert" mentions.
-
-### Track 2 (SAFETY): Workshop Path
-
-Secondary channels for revenue validation:
-- **Events (you as coach):** Run donation-based events → participants experience value → bring to teams → business conversions
-- **Newsletter:** Subscriber drip (blog posts) + weekly insights → builds audience → warm leads
-- **Protocol propagation:** Explain-back protocol spreads free through events → participants practice with teams
-- **Content:** Articles on miscommunication cost / measurement gap → free tool signups → business conversions
-- **Organic/viral:** Free users share calibration scores → others try tool → spread
-
-**Success signals:** 10 customers by Month 3, €3k/month by Month 6.
 
 ---
 
@@ -293,21 +295,21 @@ Secondary channels for revenue validation:
 
 ### Dual-Track Model (2026-02-11)
 
-**Track 1 (PRIMARY): Recognition Path**
+**Track 1 (RECOGNITION PATH — Primary months 5-12, Secondary months 1-4)**
 - **Revenue model:** Indirect, recognition-driven
 - **Goal:** Build credibility in rationalist/AI research communities — be recognized as "the calibration person"
 - **Monetization hypothesis:** Recognition → opportunities (consulting, advisory roles, aligned funding) OR Recognition → Personal AI adoption → premium features for AI integration
-- **Timeline:** Long-term play (12+ months to revenue)
+- **Timeline:** Long-term play (months 5-12+ to recognition, 12+ months to revenue)
 - **Success metric:** Thought leadership, community adoption, "calibration = standard" perception
-- **Willing to raise:** €100-200k from aligned funders if recognition + essay traction exists (not just workshop revenue)
+- **Willing to raise:** €100-200k from aligned funders if coaching validation + case studies (10+ founder sessions with measurable outcomes) exist (not just recognition or essay traction)
 
-**Track 2 (SAFETY): Workshop Revenue**
-- **Revenue model:** Direct, workshop-based
-- **Target:** €5,000/month by Month 6 = "enough" to fund recognition work
-- **Path:** Events (donation-based) → Team workshops (paid) → Subscription (if proven)
+**Track 2 (COACHING PATH — Primary months 1-6): Founder Coaching Revenue**
+- **Revenue model:** Direct, coaching-based
+- **Target:** €5,000/month by Month 6 = "enough" (unlock point, not ceiling) to fund recognition work
+- **Path:** Free Calibration Lab (open acquisition) → Co-founder pair sessions → Retainer → Cohorts
 - **Timeline:** Short-term revenue (Month 3+)
-- **Success metric:** Monthly recurring workshop revenue
-- **Role:** Validates tool UX, provides case studies, but NOT primary identity
+- **Success metric:** Monthly recurring coaching revenue
+- **Role:** Validates tool UX, generates real founder data for recognition essays, NOT just safety net
 
 **Checkpoints (Unlock Gates):**
 
@@ -316,7 +318,7 @@ These are gates to unlock next level of ambition, not reasons to quit. If a chec
 | Milestone | Signal | Consequence |
 |-----------|--------|-------------|
 | Month 3 | <10 workshop participants AND essays <50 readers | **Can't unlock Month 4-6 psychology recovery** — both tracks need traction to lift fear constraints |
-| Month 6 | <€3k/month revenue OR zero engagement on specs/essays | **Can't unlock Month 7-12 self-worth restoration** — need revenue stability OR recognition signals to proceed |
+| Month 6 | <€3k/month revenue OR zero engagement on specs/essays | **Can't unlock Month 7-12 self-worth restoration** — need revenue stability OR recognition signals to proceed. Note: €5k = minimum unlock gate; €10k is C3 retainer target by Month 6-7 (sequential, not conflicting). |
 | Month 12 | No Track 1 recognition (no inbound, no LW discussion, no "you're the expert") + <€5k/month Track 2 | **Can't unlock unbounded ambition phase** — trajectory insufficient for scaling, reassess strategy |
 
 **Decision point (Month 12):** If recognition gains traction + aligned funders exist → raise capital, scale recognition. If coaching hits €5k but zero recognition → decide: continue or pivot.
@@ -329,15 +331,16 @@ These are gates to unlock next level of ambition, not reasons to quit. If a chec
 - Basic stories/points: free
 - Rationalist/researcher use: free (community building)
 
-**Paid tier (Track 2 revenue):**
-- **Workshop facilitation:** €500-2,000/event (primary revenue source)
-- **Team subscriptions:** €100-500/team/month (if workshop participants convert)
-- **Enterprise:** Custom pricing (multiple teams, SSO, analytics)
+**Track 2 (PRIMARY): Founder Coaching Pricing**
+- **Free Calibration Lab** — open acquisition (90 min group session, cast wide, route post-session)
+- **€300–500** — single co-founder pair session (60-90 min)
+- **€800–1,500/month** — ongoing retainer per pair
+- **€2,000/person** — 4-week founder cohort (one-off workshop, distinct from C3 monthly Cohort retainer tier)
+- **€200–300/month** — founder community add-on (future C4)
 
-**Future tier (Track 1 potential):**
-- **Personal AI integration:** Premium features for digital twin calibration
-- **API access:** For developers building calibrated AI agents
-- **Advanced analytics:** Calibration insights, pattern recognition
+**Track 1 (SECONDARY): Recognition Path Pricing**
+- **€500–2,000/event** — workshop facilitation (validation tool, feeds coaching pipeline)
+- **Future:** personal AI integration premium features, API access
 
 ---
 

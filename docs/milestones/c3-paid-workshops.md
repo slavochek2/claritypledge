@@ -1,54 +1,101 @@
----
-date: TBD
-status: planned
-workstream: C
-type: checkpoint
-related_key_results: []
----
-
-# C3: Paid Workshops (Coaching Monetization)
+# C3: Paid Founder Retainers (Coaching Monetization)
 
 ## TL;DR
 
-**Hypothesis:** People will pay for calibrated communication workshops at $100/person.
+**Hypothesis:** Founder pairs will pay €800–1,500/month for structured calibration retainers after validating session value in C2.
 
-**Test:** Run paid workshops, track conversion from donation-based to paid.
+**Test:** Launch retainer offers to C2 session participants + warm leads. Track signup rate and month-2 retention.
 
-**Success:** 10+ paid participants, >5% conversion rate, €3k/month revenue baseline.
+**Success:** 10+ founder pairs in paid retainers, >60% month-2 retention, €10k MRR.
 
-**Kill signal:** <10 customers OR <5% conversion from donate to paid.
+**Kill signal:** <5 retainer signups OR <40% month-2 retention.
 
 ---
 
 ## Deep Dive
 
-**What we're building:** Payment infrastructure (own platform)
+**What we're building:** Retainer product (recurring billing, monthly calls, team dashboard)
 
-**What we're testing:** [H-Paid-Workshops: WTP for coaching](../hypotheses/h-paid-workshops.md) *(to be created)*
+**Done when:** 10+ founder pairs actively subscribed, month-2 retention >60%
 
-**What we're measuring:** [O-Revenue-5K: €5k/month workshop revenue](../outcomes/o-revenue-5k.md) *(to be created)*
+## Pricing Model
 
-**Done when:** 10+ people have paid for a workshop
+**Per-Founder-Pair Retainer:**
 
-## Pricing Hypothesis
+| Tier | Price | Includes |
+|------|-------|----------|
+| Base | €800/month | Monthly calibration call (60 min) + /live access (unlimited) + session notes |
+| Team | €1,200/month | Base + team dashboard (up to 4 members) + optional extra calls (+€200 each) |
+| Cohort | €1,500/month | Team + monthly cohort call (all pairs together) + peer calibration |
 
-- $100/person = accessible for individuals
-- $1000 for 10-person team = accessible for businesses
-- Goal: Prove WTP exists before building subscription product
+*Note: The 'Cohort' retainer tier (€1,500/month) is an ongoing subscription with group calls. This is distinct from the standalone 4-week founder cohort workshop (€2,000/person one-off) listed in lean-canvas.md.*
 
-## Alignment with Dual-Track Strategy
+**Revenue at success:** 10 pairs × €1,000 avg = €10k/month (by Month 6-7)
 
-- **Safety track (coaching)** aims for €3k/month by Month 6
-- 10 customers at $100 = $1k/month (baseline validation)
-- **Primary recognition track** continues in parallel (R1, R2)
-- Revenue proves value exists; recognition proves long-term positioning
+## Why Retainers, Not Workshops
+
+The shift from C3 "paid workshops" ($100/person events) to retainers (€800-1,500/month) is deliberate:
+- Founders won't pay $100/person for a one-off event and return
+- They WILL pay monthly for ongoing calibration as founders make decisions constantly
+- Retainers create predictable MRR vs. unpredictable event revenue
+- Monthly cadence mirrors how co-founder tensions actually compound over time
+
+**Positioning:** See [lean-canvas.md](../lean-canvas.md) Track 2 for full positioning. Monthly retainer cadence mirrors how co-founder tensions compound — preventive maintenance, not crisis response.
+
+## Go-to-Market
+
+**Phase 1 (Weeks 1-4):** Offer retainers to all C2 session participants
+- High conversion likely (they've experienced value in-session)
+- Target: 5-8 signups
+
+**Phase 2 (Weeks 5-8):** Expand to warm leads + referrals from Phase 1
+- Target: 10+ total signups
+
+**Acquisition:** Free Calibration Lab continues as top-of-funnel. Route co-founder pairs to C2 session → C3 retainer offer.
+
+## Success Metrics
+
+| Metric | Target | How to Measure |
+|--------|--------|----------------|
+| Retainers offered (from C2) | 3-5 | Sales conversations |
+| Retainers signed | ≥5 | Stripe recurring |
+| Month-2 retention | >60% | Active subscriptions |
+| NPS / satisfaction | ≥7/10 | Monthly check-in |
+| Expansion (upsell to cohort tier) | ≥2 | Tier upgrades |
+| **MRR at target** | **€10k** | Stripe MRR |
+
+## Decision Points
+
+**If <5 retainer signups:**
+- Either value story wrong OR pricing too high OR wrong go-to-market
+- Explore: Did session participants understand value? Should pricing start lower (€500)?
+
+**If <40% month-2 retention:**
+- Product-market fit issue (delivery not matching expectations)
+- Rethink: more calls? better tooling? different deliverables?
+
+**If ≥10 retainers + >60% retention:**
+- Validated recurring revenue model
+- Proceed to C4: Founder Community (€200-300/month cohort add-on)
+- Start R1 essays using real data from these 10+ pairs
+
+## Financial Model
+
+By end of C3:
+- ≥10 founder pairs paying
+- €10k+ MRR
+- Clear case studies: "Founders X/Y used retainers to prevent alignment drift on [decision]"
+- 60%+ month-2 retention = strong product-market fit signal
+- Evidence base ready for R1 essays (months 5-8)
 
 ---
 
-## Related Documents
+## Related
 
-**Track category:** [Coaching Track](coaching-track.md)
+**Track:** Coaching (C-track) — PRIMARY months 1-6
 
-**Depends on:** C2 (donation-based workshops validate value first)
+**Depends on:** C2 (Co-founder sessions validate value + conversion path)
 
-**Features:** Payment infrastructure (Stripe integration, workshop booking)
+**Next:** C4 (Founder Community — cohort add-on for €200-300/month)
+
+**Previous:** C2 (First Founder Sessions)
