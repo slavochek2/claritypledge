@@ -812,7 +812,7 @@ tags: [relevant, tags]
   - Priority is RELATIVE to other work, not absolute tiers
 - `workstream`: Dynamically discovered workstream (see below for details)
 - `tags`: Extract 2-4 relevant keywords from title/problem (lowercase, hyphenated)
-- `created`: Today's date in YYYY-MM-DD format
+- `created_date`: Today's date in YYYY-MM-DD format
 
 **CRITICAL - Workstream field (REQUIRED for kanban visibility):**
 - `workstream`: Dynamically discover from docs/workstreams/ and classify feature into appropriate workstream

@@ -37,6 +37,7 @@ tags: []                        # Searchable keywords (REQUIRED, can be empty)
 ```yaml
 ---
 workstream: C2                   # Product track (optional but recommended)
+created_date: '2026-02-18'      # Creation date — set by skill at creation, or auto-added by fix-frontmatter from git history
 prepped_date: null              # Set by /prep-spec (null = draft)
 reviews:                        # Set during /prep-spec
   ux: null

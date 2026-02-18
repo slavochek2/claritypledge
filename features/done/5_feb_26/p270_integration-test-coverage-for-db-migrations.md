@@ -6,6 +6,7 @@ workstream: foundation
 tags: [testing, process, migrations, integration-tests]
 delivery_stage: arch-review
 completed_at: "2026-02-18"
+created_date: 2026-02-18
 ---
 
 # P270: Integration Test Coverage for DB Migrations

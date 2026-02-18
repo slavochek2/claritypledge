@@ -7,6 +7,7 @@ tags:
   - unverified
   - error-handling
   - verification-gate
+created_date: 2026-02-18
 ---
 
 # P273: Verification gate — consistent blocked-action UX for unverified users

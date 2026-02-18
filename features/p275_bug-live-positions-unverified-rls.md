@@ -10,6 +10,7 @@ tags:
   - unverified
   - rls
   - p272
+created_date: 2026-02-18
 ---
 
 # P275: /live point positions silently fail for unverified guests (RLS conflict)

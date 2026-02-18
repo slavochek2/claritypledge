@@ -524,6 +524,7 @@ type: story | bug | task | comment
 rank: number  # Auto-calculated by agents (max_rank + 1.0)
 workstream: C1 | C2 | R1 | E1 | X1 | foundation  # optional
 tags: []
+created_date: YYYY-MM-DD  # Set at creation; auto-populated from git history by fix-frontmatter if missing
 ---
 ```
 

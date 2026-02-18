@@ -8,6 +8,7 @@ tags:
   - email
   - verification
   - live
+created_date: 2026-02-18
 ---
 
 # P274: Send verification email when unverified guest joins /live

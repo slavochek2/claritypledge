@@ -15,6 +15,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-02-18
 ---
 
 # P272: Verification of Stories and Points in /live
@@ -63,7 +64,7 @@ Without this feature, /live sessions produce no data. Participants experience an
 
 ## Business Requirements
 
-1. Story is the primary and only content unit in /live. When a speaker selects a story, it appears as a card above the existing check/prove buttons — on both screens simultaneously.
+1. Story is the primary and only content unit in /live. When a speaker selects a story, it appears as a card above the existing "Did you get it?" / "Did I get it?" buttons — on both screens simultaneously.
 
 2. The story card is expandable, using the same component as on profile pages. When expanded, it shows linked points with the 7-point position scale, rendered identically to how points appear on profiles.
 
@@ -75,13 +76,15 @@ Without this feature, /live sessions produce no data. Participants experience an
 
 6. The selected story remains visible to both participants throughout the entire round — during rating, during gap reveal, and during explain-back. It does not disappear between steps.
 
-7. Round mechanics are unchanged from the current check/prove model: sealed-bid 0–10 ratings from both participants, gap revealed as raw numbers, in-app guided explain-back option, speak freely exit. The only addition is that the round is now anchored to a specific story.
+7. Round mechanics are unchanged from the current /live model: sealed-bid 0–10 ratings from both participants, gap revealed as raw numbers, in-app guided explain-back option, speak freely exit. The only addition is that the round is now anchored to a specific story.
 
-8. A round begins when either participant clicks "did [partner] understand you?" or "did you understand [partner]?". A round can be with a story (story card present) or without (no story selected — speak freely).
+8. A round begins when either participant clicks "Did you get it?" or "Did I get it?". A round can be with a story (story card present) or without (no story selected — speak freely).
 
 9. A session may include multiple rounds. A new round can only begin after the current round is either completed (both ratings submitted, gap shown) or explicitly exited via speak freely. Partial abandonment mid-round is not permitted.
 
-10. A story_verifications record is written when the speaker's rating is 8 or above. This increments the story's understood_count and the listener's ears_count.
+10. A story_verifications record is written and the congratulations screen shown when the speaker's rating is 10 (perfect understanding). This increments the story's understood_count and the listener's ears_count. Ratings of 8–9 complete the round and show the gap, but do not trigger verification or count increments.
+
+    **Backend change required:** The current DB schema has `accuracy_achieved BOOLEAN GENERATED AS (speaker_rating >= 8)` and triggers wired to that threshold. These must be updated to `speaker_rating = 10` before this feature ships. No data migration needed — no story_verifications records currently exist.
 
 11. All state transitions — story selection, story removal, round start, rating submissions, gap reveal — are reflected on both screens in real time.
 
@@ -141,22 +144,28 @@ Pilot adoption targets (≥30% story verification rate, etc.) are tracked in the
 
 ## Acceptance Criteria
 
-- [ ] Speaker can search for and select a story from their library; not all stories shown at once.
-- [ ] Selected story appears on both screens immediately after selection.
+### New behavior (what this spec builds)
+
+- [ ] Speaker can search for and select a specific story from their library; stories are not all shown at once.
+- [ ] Selected story appears on both screens immediately after selection, as a card above the "Did you get it?" / "Did I get it?" buttons.
 - [ ] Speaker can remove or replace the selected story before a round begins.
-- [ ] Story card is expandable on both screens; when expanded, linked points appear with 7-point position scale matching profile rendering.
+- [ ] Story card is expandable on both screens; when expanded, linked points appear with 7-point position scale rendered identically to profile pages.
+- [ ] Point positions in the expanded story card show the other person's existing position (as on profile) — not hidden.
 - [ ] Either participant can expand the story card and update a point position at any time — before, during, or after a round.
-- [ ] The story card remains visible throughout the entire round (during rating, gap reveal, and explain-back).
-- [ ] A round begins when either participant clicks a check/prove button; round is anchored to the selected story if one is present.
-- [ ] Neither participant can see the other's 0–10 verification rating until both have submitted (sealed bid applies to ratings only).
-- [ ] Point positions on linked points are shown as on profile pages — the speaker's existing position is visible to the listener when they expand the story card, consistent with profile rendering.
+- [ ] Story card remains visible throughout the entire round — including the rating phase, gap reveal, explain-back, and success screen.
+- [ ] Share and open/external-link icons are hidden on the story card when rendered inside /live.
+- [ ] When a round completes with speaker rating = 10, a story_verifications record is created, understood_count increments, and listener's ears_count increments.
+
+### Preserved behavior (existing — must not regress)
+
+- [ ] Sessions with no story selected behave as the current speak freely flow.
+- [ ] A round begins when either participant clicks "Did you get it?" or "Did I get it?".
+- [ ] In the rating drawer, neither participant can see the other's understanding rating for the current round until both have submitted — the speaker's assessment of the listener's understanding and the listener's self-assessment are revealed together. Past rounds remain visible in the journey to understanding history above.
 - [ ] After both ratings are submitted, both values and the gap are shown to both participants.
 - [ ] After gap reveal, participants can choose: in-app explain-back round, speak freely exit, or end the round.
-- [ ] When speaker rating is 8 or above, a story_verifications record is created, understood_count increments, and listener's ears_count increments.
+- [ ] Congratulations screen shown at 10 (unchanged).
 - [ ] A new round can only begin after the current round is completed or exited via speak freely.
-- [ ] Sessions with no story selected behave as the current speak freely flow (no regression).
 - [ ] All state transitions are reflected on both screens in real time.
-- [ ] Point position rendering in the expanded story card is visually identical to how points appear on profile pages.
 
 
 ## UX Guidance (Decisions for the UX Agent)
@@ -167,15 +176,15 @@ The following decisions were made during PRD definition and should not be re-ope
 
 - **Story is the only picker element.** Points are not selectable from the picker. They are accessible exclusively by expanding a story card. Do not add a point picker.
 
-- **Reuse the expandable story card component from profile pages.** No new patterns for displaying a story with linked points. The same component that works on profiles should work in /live, with the story visible above the check/prove buttons.
-
-- **No readiness confirmation.** The app posts the story. There is no "I'm done, let's rate" confirmation button before the check/prove buttons. Either participant clicks when they are ready.
+- **Reuse the expandable story card component from profile pages.** No new patterns for displaying a story with linked points. The same component that works on profiles should work in /live, with the story visible above the "Did you get it?" / "Did I get it?" buttons.
 
 - **Hide share and open icons on the story card in /live.** The story card component shows share and open/external-link icons on profile pages — these must be hidden when the card is rendered inside a /live session. Tapping them would navigate the user away from the session, which must not happen.
 
 - **This is additive, not a redesign.** The story-anchored flow is the existing /live flow with a story card placed above it. Reuse existing components throughout — rating screen, gap reveal, explain-back, speak freely exit. Do not redesign any part of the existing flow because a story is now present. The story card being visible provides context; the surrounding components do not need to change to reference it. The only new element is the story card itself (reused from profile pages). Both flows — with and without a story — must feel like the same product.
 
-- **Check/prove buttons are unchanged.** They remain below the story card. The story card is context; the buttons are the action. Do not replace or move the buttons.
+- **"Did you get it?" / "Did I get it?" buttons are unchanged.** They remain below the story card. The story card is context; the buttons are the action. Do not replace or move the buttons.
+
+- **"Speak freely" is the exit for both participants before a round begins.** When a story is on screen but no button has been clicked, either participant can press "Speak freely" to clear the story from both screens and proceed without it. This is the same pattern used to exit mid-round — consistent. The listener does not get an X to remove the story (they didn't select it); speak freely is their equivalent. The speaker gets speak freely too, alongside the ability to remove/replace the story card directly.
 
 - **Story stays visible throughout the round — including the success screen.** Do not hide or collapse the story card during the rating phase, gap reveal, explain-back, or success screen (where both partners click continue). Participants should be able to refer to it and expand it at any point.
 
@@ -189,11 +198,9 @@ The following decisions were made during PRD definition and should not be re-ope
 
 **Open for UX design:**
 
-- **Story removal/replacement UX.** Should the speaker tap an X to remove and then browse again, or tap the story card directly to swap? Either is valid — UX agent decides.
+- **Story removal/replacement UX.** Speaker must be able to remove or replace the selected story before a round begins. Use common, minimalist patterns — UX agent decides the interaction.
 
 - **Story picker design.** Must be search-focused and not show all stories at once. How the search/browse experience looks (instant filter, recent stories shown first, etc.) is for UX to design.
-
-- **Waiting state while partner submits rating.** Both participants are in a sealed-bid hold — one submitted, the other hasn't. What does each screen show while waiting? UX agent decides.
 
 - **Explain-back round UX.** The round is in-app guided. What does "guided" look like — explicit steps, a timer, a prompt? UX agent decides.
 
