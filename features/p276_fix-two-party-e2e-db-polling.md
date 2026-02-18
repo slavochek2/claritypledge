@@ -4,6 +4,7 @@ type: task
 rank: 4.0
 workstream: foundation
 tags: [e2e, testing, realtime, playwright, supabase]
+created_date: 2026-02-18
 ---
 
 # P276: Fix Two-Party Live Session E2E Tests — Replace Realtime Presence with DB Polling
