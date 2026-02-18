@@ -734,6 +734,8 @@ export interface EventWithHost extends Event {
   hostAvatarUrl?: string;
   /** P118: Whether the host has signed the pledge (for badge display) */
   hostHasPledged?: boolean;
+  /** Number of confirmed understanding events for the host */
+  hostEarCount?: number;
   // Optional display fields - mock service populates these inline for convenience.
   // Real service fetches attendees separately via getEventAttendees().
   // Components should handle these being undefined when using real API.

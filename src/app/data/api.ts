@@ -3193,7 +3193,7 @@ function mapEventFromDb(dbEvent: DbEvent): Event {
  * Maps a database event with joined host profile to EventWithHost
  */
 function mapEventWithHostFromDb(
-  dbEvent: DbEvent & { profiles: { name?: string; slug?: string; role?: string; avatar_color?: string; avatar_url?: string } }
+  dbEvent: DbEvent & { profiles: { name?: string; slug?: string; role?: string; avatar_color?: string; avatar_url?: string; has_pledged?: boolean; ears_count?: number | null } }
 ): EventWithHost {
   return {
     ...mapEventFromDb(dbEvent),
@@ -3202,6 +3202,8 @@ function mapEventWithHostFromDb(
     hostRole: dbEvent.profiles?.role,
     hostAvatarColor: dbEvent.profiles?.avatar_color,
     hostAvatarUrl: dbEvent.profiles?.avatar_url,
+    hostHasPledged: dbEvent.profiles?.has_pledged ?? false,
+    hostEarCount: dbEvent.profiles?.ears_count ?? 0,
   };
 }
 
@@ -3216,7 +3218,7 @@ export async function getUpcomingEvents(): Promise<EventWithHost[]> {
     .from('events')
     .select(`
       *,
-      profiles:host_id (name, slug, role, avatar_color, avatar_url)
+      profiles:host_id (name, slug, role, avatar_color, avatar_url, has_pledged, ears_count)
     `)
     .in('status', ['upcoming', 'cancelled'])
     .order('datetime', { ascending: true });
@@ -3241,7 +3243,7 @@ export async function getPastEvents(): Promise<EventWithHost[]> {
     .from('events')
     .select(`
       *,
-      profiles:host_id (name, slug, role, avatar_color, avatar_url)
+      profiles:host_id (name, slug, role, avatar_color, avatar_url, has_pledged, ears_count)
     `)
     .eq('status', 'completed')
     .order('datetime', { ascending: false });
@@ -3266,7 +3268,7 @@ export async function getEventBySlug(slug: string): Promise<EventWithHost | null
     .from('events')
     .select(`
       *,
-      profiles:host_id (name, slug, role, avatar_color, avatar_url)
+      profiles:host_id (name, slug, role, avatar_color, avatar_url, has_pledged, ears_count)
     `)
     .eq('slug', slug)
     .single();

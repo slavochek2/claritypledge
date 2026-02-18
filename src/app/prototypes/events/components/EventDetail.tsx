@@ -12,7 +12,9 @@ import {
   Download,
   Pencil,
   Ban,
+  Ear,
 } from 'lucide-react';
+import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
@@ -439,7 +441,15 @@ export function EventDetail() {
                   size="lg"
                   className="mb-2"
                 />
-                <p className="font-semibold">{event.hostName}</p>
+                <div className="flex items-center justify-center gap-1.5">
+                  <p className="font-semibold">{event.hostName}</p>
+                  <MobileTooltip content={event.hostEarCount ? `${event.hostName.split(' ')[0]} understood ${event.hostEarCount} ${event.hostEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners` : `${event.hostName.split(' ')[0]} hasn't had any stories confirmed understood yet`}>
+                    <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                      <Ear size={12} />
+                      {event.hostEarCount ?? 0}
+                    </span>
+                  </MobileTooltip>
+                </div>
                 <p className="text-sm text-muted-foreground">{event.hostRole}</p>
               </Link>
             </div>
