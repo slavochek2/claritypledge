@@ -13,10 +13,12 @@
  * 5. Joiner tries to join NEW session → BUG: STUCK on "Waiting for Partner"
  */
 import { test, expect } from '@playwright/test';
-import { deleteClaritySession } from './helpers/test-user';
+import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
 import { waitForDBPresence } from './helpers/test-realtime';
 
 test.describe('New Meeting After Session Ends', () => {
+  test.describe.configure({ timeout: 120000 }); // Long tests with multiple meetings
+
   /**
    * This is the exact bug scenario:
    * - Same two users (creator + joiner) have a meeting
@@ -33,8 +35,13 @@ test.describe('New Meeting After Session Ends', () => {
     const joinerPage = await joinerContext.newPage();
 
     const sessionCodes: string[] = [];
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
+      // Creator (Alice) is authenticated — no name/email/consent inputs shown
+      testUser = await createTestUser({ name: 'Alice' });
+      await setTestSession(creatorPage, testUser.email);
+
       // ========================================
       // MEETING 1: First successful meeting
       // ========================================
@@ -42,7 +49,6 @@ test.describe('New Meeting After Session Ends', () => {
       // Creator starts first meeting
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
-      await creatorPage.getByPlaceholder('Enter your name').fill('Alice');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
@@ -51,9 +57,14 @@ test.describe('New Meeting After Session Ends', () => {
       const roomCode1 = shareLink1!.split('/').pop()!;
       sessionCodes.push(roomCode1);
 
-      // Joiner joins first meeting
+      // Joiner joins first meeting (guest — requires name, email, consent)
       await joinerPage.goto(`/live/${roomCode1}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
+      await joinerPage.getByPlaceholder('your@email.com').fill('bob@test.com');
+      const joinerCheckbox1 = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox1.isVisible()) {
+        await joinerCheckbox1.check();
+      }
       await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
@@ -88,7 +99,7 @@ test.describe('New Meeting After Session Ends', () => {
       // MEETING 2: Second meeting - THIS IS WHERE THE BUG OCCURS
       // ========================================
 
-      // Creator starts second meeting (name should be prefilled)
+      // Creator starts second meeting (authenticated — button enabled directly)
       await creatorPage.getByRole('button', { name: 'New session' }).click();
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
       await expect(creatorPage.getByText('Waiting for partner to join...')).toBeVisible();
@@ -100,12 +111,16 @@ test.describe('New Meeting After Session Ends', () => {
       // Verify it's a new session
       expect(roomCode2).not.toBe(roomCode1);
 
-      // Joiner joins second meeting (name should be prefilled from before)
+      // Joiner joins second meeting (guest — name/email/consent required again)
       await joinerPage.goto(`/live/${roomCode2}`);
-      // Name might be prefilled or need to re-enter
-      const nameInput = joinerPage.getByPlaceholder('Enter your name');
-      if (await nameInput.isVisible()) {
-        await nameInput.fill('Bob');
+      const nameInput2 = joinerPage.getByPlaceholder('Enter your name');
+      if (await nameInput2.isVisible()) {
+        await nameInput2.fill('Bob');
+      }
+      await joinerPage.getByPlaceholder('your@email.com').fill('bob@test.com');
+      const joinerCheckbox2 = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox2.isVisible()) {
+        await joinerCheckbox2.check();
       }
       await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
@@ -130,6 +145,9 @@ test.describe('New Meeting After Session Ends', () => {
       for (const code of sessionCodes) {
         await deleteClaritySession(code);
       }
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
+      }
     }
   });
 
@@ -142,12 +160,16 @@ test.describe('New Meeting After Session Ends', () => {
     const joinerPage = await joinerContext.newPage();
 
     const sessionCodes: string[] = [];
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
+      // Creator (Host) is authenticated — no name/email/consent inputs shown
+      testUser = await createTestUser({ name: 'Host' });
+      await setTestSession(creatorPage, testUser.email);
+
       // Meeting 1
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
-      await creatorPage.getByPlaceholder('Enter your name').fill('Host');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
@@ -155,9 +177,14 @@ test.describe('New Meeting After Session Ends', () => {
       const roomCode1 = shareLink1!.split('/').pop()!;
       sessionCodes.push(roomCode1);
 
-      // Joiner joins and leaves
+      // Joiner joins and leaves (guest — requires name, email, consent)
       await joinerPage.goto(`/live/${roomCode1}`);
       await joinerPage.getByPlaceholder('Enter your name').fill('Guest');
+      await joinerPage.getByPlaceholder('your@email.com').fill('guest@test.com');
+      const joinerCheckbox1 = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox1.isVisible()) {
+        await joinerCheckbox1.check();
+      }
       await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
@@ -195,6 +222,9 @@ test.describe('New Meeting After Session Ends', () => {
       for (const code of sessionCodes) {
         await deleteClaritySession(code);
       }
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
+      }
     }
   });
 
@@ -210,12 +240,16 @@ test.describe('New Meeting After Session Ends', () => {
     const joinerPage = await joinerContext.newPage();
 
     const sessionCodes: string[] = [];
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
+      // Creator (Host) is authenticated — no name/email/consent inputs shown
+      testUser = await createTestUser({ name: 'Host' });
+      await setTestSession(creatorPage, testUser.email);
+
       // ========== MEETING 1 ==========
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
-      await creatorPage.getByPlaceholder('Enter your name').fill('Host');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
@@ -223,10 +257,15 @@ test.describe('New Meeting After Session Ends', () => {
       const roomCode1 = shareLink1!.split('/').pop()!;
       sessionCodes.push(roomCode1);
 
-      // Joiner navigates to /live and enters code manually
+      // Joiner navigates to /live and enters code manually (guest — requires name, email, consent)
       await joinerPage.goto('/live');
       await joinerPage.waitForLoadState('networkidle');
       await joinerPage.getByPlaceholder('Enter your name').fill('Guest');
+      await joinerPage.getByPlaceholder('your@email.com').fill('guest@test.com');
+      const joinerCheckbox1 = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox1.isVisible()) {
+        await joinerCheckbox1.check();
+      }
       await joinerPage.getByPlaceholder('Enter a code or link').fill(roomCode1);
       await joinerPage.getByRole('button', { name: 'Join' }).click();
 
@@ -261,6 +300,19 @@ test.describe('New Meeting After Session Ends', () => {
 
       // Joiner enters NEW code manually (same tab, no full page reload)
       // This is the key - joiner's tab has React state from previous session
+      // Guest inputs (name/email/consent) may be prefilled from earlier in the session
+      const nameInput2 = joinerPage.getByPlaceholder('Enter your name');
+      if (await nameInput2.isVisible()) {
+        await nameInput2.fill('Guest');
+      }
+      const emailInput2 = joinerPage.getByPlaceholder('your@email.com');
+      if (await emailInput2.isVisible()) {
+        await emailInput2.fill('guest@test.com');
+      }
+      const joinerCheckbox2 = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox2.isVisible() && !(await joinerCheckbox2.isChecked())) {
+        await joinerCheckbox2.check();
+      }
       await joinerPage.getByPlaceholder('Enter a code or link').fill(roomCode2);
       await joinerPage.getByRole('button', { name: 'Join' }).click();
 
@@ -277,6 +329,9 @@ test.describe('New Meeting After Session Ends', () => {
       for (const code of sessionCodes) {
         await deleteClaritySession(code);
       }
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
+      }
     }
   });
 
@@ -289,14 +344,18 @@ test.describe('New Meeting After Session Ends', () => {
     const joinerPage = await joinerContext.newPage();
 
     const sessionCodes: string[] = [];
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
+      // Creator (Repeated) is authenticated — no name/email/consent inputs shown
+      testUser = await createTestUser({ name: 'Repeated' });
+      await setTestSession(creatorPage, testUser.email);
+
       for (let round = 1; round <= 3; round++) {
-        // Creator starts meeting
+        // First round: navigate to /live (setTestSession already navigated to /)
         if (round === 1) {
           await creatorPage.goto('/live');
           await creatorPage.waitForLoadState('networkidle');
-          await creatorPage.getByPlaceholder('Enter your name').fill('Repeated');
         }
 
         await creatorPage.getByRole('button', { name: 'New session' }).click();
@@ -306,11 +365,16 @@ test.describe('New Meeting After Session Ends', () => {
         const roomCode = shareLink!.split('/').pop()!;
         sessionCodes.push(roomCode);
 
-        // Joiner joins
+        // Joiner joins (guest — name, email, consent required each time via fresh navigation)
         await joinerPage.goto(`/live/${roomCode}`);
         const nameInput = joinerPage.getByPlaceholder('Enter your name');
         if (await nameInput.isVisible()) {
           await nameInput.fill('Partner');
+        }
+        await joinerPage.getByPlaceholder('your@email.com').fill('partner@test.com');
+        const joinerCheckbox = joinerPage.getByRole('checkbox');
+        if (await joinerCheckbox.isVisible()) {
+          await joinerCheckbox.check();
         }
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
@@ -337,6 +401,9 @@ test.describe('New Meeting After Session Ends', () => {
       await joinerContext.close();
       for (const code of sessionCodes) {
         await deleteClaritySession(code);
+      }
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
       }
     }
   });
