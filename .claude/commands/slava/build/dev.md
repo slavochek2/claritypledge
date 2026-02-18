@@ -76,6 +76,7 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
+0. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 2. **Understand** — Read spec, find `[ ]` tasks (skip `[x]` done)
 3. **Implement** — Feature code + fill in test stubs
@@ -288,6 +289,12 @@ Iteration 2:
 ## Agent Behavior
 
 The dev agent:
+
+**0. Mark in-progress (if P-number provided):**
+- Locate feature file: `features/p{N}_*.md`
+- Update frontmatter `status` → `in-progress`
+- Report: "Marked pN as in-progress in kanban."
+- Skip silently if no feature file (inline description mode)
 
 **1. Pre-flight checks:**
 - Reads feature spec (business + UX + technical)
