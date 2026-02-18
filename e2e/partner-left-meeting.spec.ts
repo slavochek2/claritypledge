@@ -5,10 +5,12 @@
  * sees the "Partner Left" or "Session Ended" screen.
  */
 import { test, expect } from '@playwright/test';
-import { deleteClaritySession } from './helpers/test-user';
+import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
 import { waitForDBPresence } from './helpers/test-realtime';
 
 test.describe('Partner Left Meeting Notification', () => {
+  test.describe.configure({ timeout: 60000 });
+
   test.describe('Joiner leaves - Creator sees notification', () => {
     test('Creator sees "Partner has left" screen when joiner leaves', async ({ browser }) => {
       // Create two browser contexts to simulate two users
@@ -29,10 +31,15 @@ test.describe('Partner Left Meeting Notification', () => {
         errors.push(err.message);
       });
 
-      // Track session for cleanup
+      // Track session and user for cleanup
       let roomCode: string | null = null;
+      let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
       try {
+        // Create authenticated creator
+        testUser = await createTestUser({ name: 'Alice' });
+        await setTestSession(creatorPage, testUser.email);
+
         // Step 1: Creator starts a meeting
         await creatorPage.goto('/live');
 
@@ -46,7 +53,6 @@ test.describe('Partner Left Meeting Notification', () => {
           throw new Error(`Page showed error: ${errors.join(', ')}`);
         }
 
-        await creatorPage.getByPlaceholder('Enter your name').fill('Alice');
         await creatorPage.getByRole('button', { name: 'New session' }).click();
 
         // Wait for the waiting room with share link
@@ -63,6 +69,11 @@ test.describe('Partner Left Meeting Notification', () => {
         // Step 2: Joiner joins the meeting
         await joinerPage.goto(`/live/${roomCode}`);
         await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
+        await joinerPage.getByPlaceholder('your@email.com').fill('bob@test.com');
+        const joinerCheckbox = joinerPage.getByRole('checkbox');
+        if (await joinerCheckbox.isVisible()) {
+          await joinerCheckbox.check();
+        }
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
         // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
@@ -106,6 +117,9 @@ test.describe('Partner Left Meeting Notification', () => {
         if (roomCode) {
           await deleteClaritySession(roomCode);
         }
+        if (testUser) {
+          await deleteTestUser(testUser.user.id);
+        }
       }
     });
   });
@@ -119,13 +133,18 @@ test.describe('Partner Left Meeting Notification', () => {
       const creatorPage = await creatorContext.newPage();
       const joinerPage = await joinerContext.newPage();
 
-      // Track session for cleanup
+      // Track session and user for cleanup
       let roomCode: string | null = null;
+      let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
       try {
+        // Create authenticated creator
+        testUser = await createTestUser({ name: 'Charlie' });
+        await setTestSession(creatorPage, testUser.email);
+
         // Step 1: Creator starts a meeting
         await creatorPage.goto('/live');
-        await creatorPage.getByPlaceholder('Enter your name').fill('Charlie');
+        await creatorPage.waitForLoadState('networkidle');
         await creatorPage.getByRole('button', { name: 'New session' }).click();
 
         // Wait for the waiting room with share link
@@ -142,6 +161,11 @@ test.describe('Partner Left Meeting Notification', () => {
         // Step 2: Joiner joins the meeting
         await joinerPage.goto(`/live/${roomCode}`);
         await joinerPage.getByPlaceholder('Enter your name').fill('Diana');
+        await joinerPage.getByPlaceholder('your@email.com').fill('diana@test.com');
+        const joinerCheckbox = joinerPage.getByRole('checkbox');
+        if (await joinerCheckbox.isVisible()) {
+          await joinerCheckbox.check();
+        }
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
         // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
@@ -185,6 +209,9 @@ test.describe('Partner Left Meeting Notification', () => {
         if (roomCode) {
           await deleteClaritySession(roomCode);
         }
+        if (testUser) {
+          await deleteTestUser(testUser.user.id);
+        }
       }
     });
   });
@@ -197,13 +224,18 @@ test.describe('Partner Left Meeting Notification', () => {
       const creatorPage = await creatorContext.newPage();
       const joinerPage = await joinerContext.newPage();
 
-      // Track session for cleanup
+      // Track session and user for cleanup
       let roomCode: string | null = null;
+      let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
       try {
+        // Create authenticated creator
+        testUser = await createTestUser({ name: 'Eve' });
+        await setTestSession(creatorPage, testUser.email);
+
         // Setup: Creator starts meeting
         await creatorPage.goto('/live');
-        await creatorPage.getByPlaceholder('Enter your name').fill('Eve');
+        await creatorPage.waitForLoadState('networkidle');
         await creatorPage.getByRole('button', { name: 'New session' }).click();
         await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
 
@@ -213,6 +245,11 @@ test.describe('Partner Left Meeting Notification', () => {
         // Joiner joins
         await joinerPage.goto(`/live/${roomCode}`);
         await joinerPage.getByPlaceholder('Enter your name').fill('Frank');
+        await joinerPage.getByPlaceholder('your@email.com').fill('frank@test.com');
+        const joinerCheckbox = joinerPage.getByRole('checkbox');
+        if (await joinerCheckbox.isVisible()) {
+          await joinerCheckbox.check();
+        }
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
         // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
@@ -233,6 +270,9 @@ test.describe('Partner Left Meeting Notification', () => {
         // Clean up the session from Supabase
         if (roomCode) {
           await deleteClaritySession(roomCode);
+        }
+        if (testUser) {
+          await deleteTestUser(testUser.user.id);
         }
       }
     });
