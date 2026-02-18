@@ -14,6 +14,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Migrate Supabase MCP from server-postgres to official HTTP transport
+
+**Context:** `mcp__supabase__query` started returning "Tenant or user not found" from the Supabase connection pooler. The old config used `@modelcontextprotocol/server-postgres` with a hardcoded postgres connection string (pooler port 6543). Supabase now offers an official MCP server at `https://mcp.supabase.com/mcp` that uses OAuth.
+
+**Decision:** Switch `.mcp.json` to `type: "http"` with the official Supabase MCP URL. Authenticate via `claude /mcp` → "supabase" → "Authenticate".
+
+**Alternatives rejected:** Resetting the DB password and updating the connection string — would fix the symptom but keep the brittle direct-postgres approach.
+
+**Consequences:** MCP auth is now OAuth-based (more stable, no hardcoded credentials). After any machine/session reset, need to re-run `claude /mcp` to re-authenticate. The old connection string in `.mcp.json.backup` should not be restored.
+
+**References:** [cli-tools.md](docs/technical/cli-tools.md)
+
+---
+
 ## 2026-02-17: P160 — Recording opt-out for privacy-sensitive sessions
 
 **Context:** Every `/live` session was recorded by default (audio → GCS → ML training pipeline). No opt-out existed. Friction points: users practicing with sensitive topics, new users before trust is established, coaches demoing to privacy-conscious clients.

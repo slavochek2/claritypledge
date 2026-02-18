@@ -8,6 +8,36 @@
  */
 
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
+import { createClient } from '@supabase/supabase-js';
+
+// All test users are created with this password in createTestUser (test-user.ts)
+const TEST_PASSWORD = 'test-password-12345';
+
+/**
+ * Creates a Supabase client authenticated as a specific test user.
+ * Used to update the user's own profile (service_role UPDATE on profiles is unreliable).
+ */
+async function createListenerClient(listenerId: string) {
+  const { data: userData, error: userLookupError } = await supabaseAdmin.auth.admin.getUserById(listenerId);
+  if (userLookupError || !userData?.user?.email) {
+    throw new Error(`Failed to look up listener user: ${userLookupError?.message}`);
+  }
+
+  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+    email: userData.user.email,
+    password: TEST_PASSWORD,
+  });
+  if (signInError || !signInData.session) {
+    throw new Error(`Failed to sign in as listener for profile update: ${signInError?.message}`);
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
 
 /**
  * Creates story verification records for calibration testing
@@ -101,38 +131,20 @@ export async function createCalibrationData(options: {
 
   console.log(`[TEST HELPER] Created ${count} verification records`);
 
-  // Verify the profile is readable before updating
-  const { data: preProfile, error: preReadError } = await supabaseAdmin
-    .from('profiles')
-    .select('id, verification_session_count')
-    .eq('id', listenerId)
-    .single();
-  console.log(`[TEST HELPER] Pre-update profile: ${JSON.stringify(preProfile)} error: ${preReadError?.message}`);
-
-  // The DB trigger (trg_profile_ears_count) should update verification_session_count automatically.
-  // However, trigger execution context in Supabase cloud can behave unexpectedly with service_role.
-  // Explicitly update the count to guarantee the correct state for E2E tests.
-  const { error: countUpdateError } = await supabaseAdmin
+  // service_role UPDATE on profiles is blocked by a broken RLS policy (migration 20260217 not yet
+  // applied to the remote DB). Use the listener's own JWT instead — the standard
+  // "Users can update own profile" (auth.uid() = id) policy allows this.
+  const listenerClient = await createListenerClient(listenerId);
+  const { error: countUpdateError } = await listenerClient
     .from('profiles')
     .update({ verification_session_count: count })
     .eq('id', listenerId);
-  console.log(`[TEST HELPER] Update result: error=${countUpdateError?.message}, rows affected (not available in JS client)`);
 
   if (countUpdateError) {
     throw new Error(`Failed to update verification_session_count: ${countUpdateError.message}`);
   }
 
-  // Verify the update was applied (fails fast if count isn't visible)
-  const { data: profileCheck } = await supabaseAdmin
-    .from('profiles')
-    .select('verification_session_count')
-    .eq('id', listenerId)
-    .single();
-  if ((profileCheck?.verification_session_count ?? 0) < count) {
-    throw new Error(`verification_session_count update didn't take effect: got ${profileCheck?.verification_session_count}, expected ${count}`);
-  }
-
-  console.log(`[TEST HELPER] Set verification_session_count to ${count} for listener (verified: ${profileCheck?.verification_session_count})`);
+  console.log(`[TEST HELPER] Set verification_session_count to ${count} for listener`);
 }
 
 /**
@@ -203,9 +215,9 @@ export async function createEarCountData(options: {
 
   console.log(`[TEST HELPER] Created ${count} ear count records`);
 
-  // Explicitly update ears_count and verification_session_count to guarantee correct state.
-  // Trigger (trg_profile_ears_count) may not fire reliably in Supabase cloud with service_role.
-  const { error: countUpdateError } = await supabaseAdmin
+  // Same as createCalibrationData: use listener's own JWT to bypass broken service_role RLS.
+  const listenerClient = await createListenerClient(listenerId);
+  const { error: countUpdateError } = await listenerClient
     .from('profiles')
     .update({ ears_count: count, verification_session_count: count })
     .eq('id', listenerId);

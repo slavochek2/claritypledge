@@ -55,7 +55,7 @@ E2E tests in this project use Playwright to test the full stack — from browser
 
 ## Test Helpers
 
-All test helpers live in `e2e/helpers/` and use the Supabase Admin API (service_role key) to bypass RLS.
+All test helpers live in `e2e/helpers/`. User creation uses the Admin API to create the auth user, then signs in with the user's own JWT to create the profile (satisfies `auth.uid() = id` RLS policy). Avoid service_role bypass for profile creation — PostgREST's `SET LOCAL ROLE` doesn't set the `current_setting('role')` GUC, making those policies unreliable.
 
 ### User Helpers (`test-user.ts`)
 

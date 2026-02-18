@@ -108,26 +108,28 @@ sentry-cli sourcemaps upload --release <version> ./dist
 
 ## Setup Notes
 
-### Supabase CLI Authentication
+### Supabase MCP Authentication
 
-The Supabase CLI uses the connection string from `.mcp.json` for database operations:
+The Supabase MCP uses the official HTTP transport (OAuth-based). Config in `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "supabase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres.***:***@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
-      ]
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=gfjctyxqlwexxwsmkakq"
     }
   }
 }
 ```
 
-For CLI operations, you can pass `--db-url` directly or use project linking.
+After adding/changing this config, authenticate by running `claude /mcp` in a regular terminal (not inside Claude Code), selecting "supabase" → "Authenticate".
+
+**Note:** The old `@modelcontextprotocol/server-postgres` approach with a direct connection string was replaced because the pooler auth broke ("Tenant or user not found"). The official MCP is more stable.
+
+### Supabase CLI Authentication
+
+The CLI requires a separate access token (not related to the MCP). Run `supabase login` in a terminal — it opens a browser OAuth flow. For CLI operations you can also pass `--db-url` directly or use project linking.
 
 ### Sentry CLI Authentication
 
