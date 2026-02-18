@@ -87,6 +87,17 @@ Bug reported
 
 ## Workflow
 
+### Phase 0: Mark in Progress
+
+If a P-number spec was provided (file path or short form like `p99`):
+1. Locate feature file: `features/p{N}_*.md`
+2. Update frontmatter `status` → `in-progress`
+3. Report: "Marked pN as in-progress in kanban."
+
+Skip silently if no feature file exists (inline description mode, e.g. `/fix "Login button broken"`).
+
+---
+
 ### Phase 1: Reproduce the Issue
 
 **Goal:** Confirm the bug exists and understand how to trigger it
