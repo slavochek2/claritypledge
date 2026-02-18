@@ -16,45 +16,37 @@ Command-line tools installed alongside MCPs for scripting, CI/CD, and automation
 - Local development (`supabase start`)
 - Database dumps (`supabase db dump`)
 
-**Connection:** Uses connection string from `.env.local` or `.mcp.json`
+**Connection:** DB password extracted from `SUPABASE_DB_URL` in `.env.local` by `scripts/migrate.sh`.
 
-**Common commands:**
+**Migration workflow (use this):**
 ```bash
-# Apply pending migrations (agent-autonomous — no project linking needed)
-DB_URL=$(python3 -c "import json; print(json.load(open('.mcp.json'))['mcpServers']['supabase']['args'][2])")
-supabase migration up --db-url "$DB_URL"
+# Push new migrations — run after creating any .sql file in supabase/migrations/
+./scripts/migrate.sh
 
-# Check migration status
-supabase migration list --db-url "$DB_URL"
+# Check status only
+npx supabase migration list -p "$DB_PASSWORD"
 
-# Generate TypeScript types
-supabase gen types typescript --db-url "$DB_URL" > src/types/supabase.ts
-
-# Dump database schema
-supabase db dump --db-url "$DB_URL" --schema public
+# Generate TypeScript types (requires project link or --db-url)
+npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/types/supabase.ts
 ```
 
-**Agent migration workflow (autonomous — use this):**
-```bash
-# 1. Get DB URL (always available in .mcp.json)
-DB_URL=$(python3 -c "import json; print(json.load(open('.mcp.json'))['mcpServers']['supabase']['args'][2])")
+**`scripts/migrate.sh` does:**
+1. Extracts DB password from `SUPABASE_DB_URL` in `.env.local`
+2. Runs `supabase migration list` (shows current state)
+3. Runs `supabase db push` (applies new migrations only)
 
-# 2. Apply migrations
-supabase migration up --db-url "$DB_URL"
-
-# 3. Verify with the dogfooding test
-npm run test:e2e -- e2e/integration/
-```
+**Migration file naming rule — CRITICAL:**
+Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple files sharing the same date permanently block `db push`. **One migration file per day.** If you need multiple same-day migrations, use `YYYYMMDDHHMMSS` timestamps (14 digits) to ensure uniqueness.
 
 **Known state:**
-- Supabase CLI access token expired — `supabase projects list` returns 401. Use `--db-url` workaround above instead.
-- Project not linked (no `.supabase/config.json`). `--db-url` bypasses this requirement.
-- To restore full CLI auth: go to https://app.supabase.com/account/tokens → create Personal API Token → add to `.env.local` as `SUPABASE_ACCESS_TOKEN` → run `supabase link --project-ref gfjctyxqlwexxwsmkakq`
-- Free tier: project auto-pauses after inactivity. If `supabase migration up` returns "Tenant or user not found" → unpause in Supabase Dashboard first.
+- Project linked via `supabase link --project-ref gfjctyxqlwexxwsmkakq`
+- DB password in `SUPABASE_DB_URL` in `.env.local` (format: `postgresql://user:PASSWORD@host/db`)
+- `supabase --db-url` / `migration up` commands do NOT work — pooler returns "Tenant or user not found" for direct pg connections
+- Free tier: project auto-pauses after inactivity → unpause in Dashboard before running migrate.sh
 
 **Limitations:**
-- Requires Docker for `pg_dump` operations
-- No direct SQL execution via CLI (use Supabase MCP for read queries, or `psql` for DDL when needed)
+- Requires Docker for `db dump` / `db diff` operations
+- No direct SQL via `psql` (not installed; pooler rejects direct pg connections)
 
 ---
 

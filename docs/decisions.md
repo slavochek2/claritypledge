@@ -14,6 +14,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Live session positions stored in live_state, not point_positions (P275)
+
+**Context:** Unverified guests joining `/live` sessions were silently blocked from setting positions on points. `point_positions` INSERT policy requires `is_verified = true` — guests never complete verification and thus could never register positions during a session.
+
+**Decision:** Store positions taken during a live session in `live_state.livePositions` (a JSONB field on `clarity_live_turns`), synced in real-time via the existing Supabase Realtime mechanism. For verified users, positions are also attempted to `point_positions` as a best-effort persistent write (fails silently for unverified guests — expected).
+
+**Alternatives rejected:** Adding a bypass RLS policy for `point_positions` to allow unverified users — this would undermine the integrity constraint that only verified users' positions appear in the public position feed. Storing a "guest session" flag on users — adds complexity without clear benefit.
+
+**Consequences:** `/live` positions are ephemeral by default; they exist for the session and are accessible via live_state. Verified users get persistence in `point_positions` for free. Code consuming point positions for calibration or profile display must NOT read from `live_state` — these are separate concerns. See P275 for migration details.
+
+---
+
+## 2026-02-18: Supabase migration workflow — scripts/migrate.sh + one-file-per-day rule
+
+**Context:** Supabase CLI (`db push`) was completely blocked by a history sync issue: multiple migration files shared the same 8-digit date prefix (e.g., five files on `20260206_*.sql`). The CLI tracks one history entry per date (primary key = 8-digit timestamp), so those extra files appeared as permanently "untracked" — `db push` refused every time with "Found local migration files to be inserted before last migration." Attempts to use `--include-all` were unsafe (non-idempotent SQL). Direct DB access (`pg`, `psql`) failed — pooler rejects connections with "Tenant or user not found".
+
+**Decision:** Two-part fix:
+1. **One-time repair**: Renamed 11 untracked migration files to unique dates (preserving logical order, especially `p124_sub_room_guards` after `fix_event_sub_rooms_schema` which drops the table). Used `supabase migration repair --status applied` to mark each as applied without re-running SQL. History is now fully in sync.
+2. **Permanent workflow**: `scripts/migrate.sh` — extracts DB password from `SUPABASE_DB_URL` in `.env.local`, runs `migration list` then `db push`. Run this after every new migration file. No Dashboard required.
+
+**Rule going forward:** One migration file per day. If multiple same-day migrations are needed, use 14-digit timestamps (`YYYYMMDDHHMMSS`) to guarantee uniqueness.
+
+**Alternatives rejected:** `--include-all` (re-runs already-applied SQL, unsafe for non-idempotent migrations like `CREATE TABLE`). Direct SQL via `pg` node client or `psql` (pooler returns "Tenant or user not found"; direct DB host DNS fails). Supabase Dashboard for every migration (manual, blocks agent autonomy).
+
+**Consequences:** Agents can now create and apply migrations autonomously without human intervention. Migration workflow is `create .sql file → ./scripts/migrate.sh`. The old documented pattern (`--db-url` from `.mcp.json`) is obsolete — `.mcp.json` uses OAuth HTTP transport now, not a DB URL.
+
+**References:** [cli-tools.md](technical/cli-tools.md) | [scripts/migrate.sh](../scripts/migrate.sh)
+
+---
+
 ## 2026-02-18: AI-agent delivery pipeline — spec-as-reference + /decompose for large features
 
 **Context:** Complex features (8-12 files, 6-10 build steps) produce specs of 700+ lines after PRD + UX + Architecture + Tests layers are appended. When /dev loads the full spec to begin implementation, spec alone consumes 30-40% of the context window before any code is read. Features of this size cannot complete in a single context window, and mid-feature compaction corrupts the build state.
