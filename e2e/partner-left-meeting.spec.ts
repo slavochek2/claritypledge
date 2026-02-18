@@ -6,6 +6,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { deleteClaritySession } from './helpers/test-user';
+import { waitForDBPresence } from './helpers/test-realtime';
 
 test.describe('Partner Left Meeting Notification', () => {
   test.describe('Joiner leaves - Creator sees notification', () => {
@@ -64,8 +65,11 @@ test.describe('Partner Left Meeting Notification', () => {
         await joinerPage.getByPlaceholder('Enter your name').fill('Bob');
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
+        // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+        await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode);
+
         // Wait for both users to be in live view
-        await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 10000 });
+        await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
         await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
 
         // Both should see the idle state buttons (the live meeting view)
@@ -140,8 +144,11 @@ test.describe('Partner Left Meeting Notification', () => {
         await joinerPage.getByPlaceholder('Enter your name').fill('Diana');
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
+        // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+        await waitForDBPresence('clarity_sessions', 'joiner_name', 'Diana', 'code', roomCode);
+
         // Wait for both users to be in live view
-        await expect(creatorPage.getByText('Diana')).toBeVisible({ timeout: 10000 });
+        await expect(creatorPage.getByText('Diana')).toBeVisible({ timeout: 5000 });
         await expect(joinerPage.getByText('Charlie')).toBeVisible({ timeout: 10000 });
 
         // Both should see the idle state buttons (the live meeting view)
@@ -208,7 +215,10 @@ test.describe('Partner Left Meeting Notification', () => {
         await joinerPage.getByPlaceholder('Enter your name').fill('Frank');
         await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
-        await expect(creatorPage.getByText('Frank')).toBeVisible({ timeout: 10000 });
+        // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+        await waitForDBPresence('clarity_sessions', 'joiner_name', 'Frank', 'code', roomCode);
+
+        await expect(creatorPage.getByText('Frank')).toBeVisible({ timeout: 5000 });
 
         // Joiner leaves via menu
         await joinerPage.getByRole('button', { name: 'Menu' }).click();

@@ -10,6 +10,7 @@
  * This ensures joiner only appears "joined" when they're actually ready.
  */
 import { test, expect, Page } from '@playwright/test';
+import { waitForDBPresence } from './helpers/test-realtime';
 
 test.describe('Mic Permission Gating', () => {
   /**
@@ -244,9 +245,12 @@ test.describe('Mic Permission Gating', () => {
 
       await joinerPage.getByRole('button', { name: /join/i }).click();
 
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Joiner', 'code', sessionCode);
+
       // Step 3: Both should transition to live view
       // Wait for creator to see live view (no longer waiting)
-      await expect(creatorPage.getByText('Waiting for partner to join...')).not.toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Waiting for partner to join...')).not.toBeVisible({ timeout: 5000 });
 
       // Joiner should also be in live view (not showing mic dialog)
       const joinerMicDialog = joinerPage.getByRole('dialog');

@@ -19,6 +19,7 @@
 
 import { test, expect } from '@playwright/test';
 import { deleteClaritySession } from './helpers/test-user';
+import { waitForDBPresence } from './helpers/test-realtime';
 
 test.describe('Speak Freely Button - Negotiation Flow', () => {
   // This test has timing issues - the critical scenario (dialog with drawer open) is covered by test 2
@@ -54,8 +55,11 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill('Bob');
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode!);
+
       // Wait for both users to be in live view
-      await expect(speakerPage.getByText('Bob')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
 
       // Both should see the idle state
@@ -156,7 +160,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill('Diana');
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText('Diana')).toBeVisible({ timeout: 10000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Diana', 'code', roomCode!);
+
+      await expect(speakerPage.getByText('Diana')).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText('Charlie')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check - opens rating locally
@@ -193,8 +200,9 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await speakFreelyButton.click();
 
       // CRITICAL: Speaker should see dialog EVEN with drawer open
+      // Uses polling fallback (1000ms) since Realtime doesn't propagate between isolated contexts
       const speakerDialog = speakerPage.getByText('Allow Diana to skip active listening?');
-      await expect(speakerDialog).toBeVisible({ timeout: 5000 });
+      await expect(speakerDialog).toBeVisible({ timeout: 10000 });
 
       // Optional: Listener's button may change to "Skip without waiting"
       // This is a nice-to-have UI feedback, not the critical behavior
@@ -236,7 +244,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill('Frank');
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 10000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Frank', 'code', roomCode!);
+
+      await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check
@@ -270,9 +281,9 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // Listener clicks "Speak freely" - THIS IS THE BUG
       await speakFreelyButton.click();
 
-      // Speaker should see dialog asking to allow skip
+      // Speaker should see dialog asking to allow skip (polling-driven, needs extra time)
       const speakerDialog = speakerPage.getByText('Allow Frank to skip active listening?');
-      await expect(speakerDialog).toBeVisible({ timeout: 5000 });
+      await expect(speakerDialog).toBeVisible({ timeout: 10000 });
 
       // Optional: Listener's button may change to "Skip without waiting"
       // This is a nice-to-have UI feedback, not the critical behavior
@@ -313,7 +324,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill('Henry');
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText('Henry')).toBeVisible({ timeout: 10000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Henry', 'code', roomCode!);
+
+      await expect(speakerPage.getByText('Henry')).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText('Grace')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check
@@ -332,18 +346,18 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await expect(speakFreelyButton).toBeVisible({ timeout: 5000 });
       await speakFreelyButton.click();
 
-      // Speaker sees negotiation dialog
-      await expect(speakerPage.getByText('Allow Henry to skip active listening?')).toBeVisible({ timeout: 5000 });
+      // Speaker sees negotiation dialog (polling-driven, needs extra time)
+      await expect(speakerPage.getByText('Allow Henry to skip active listening?')).toBeVisible({ timeout: 10000 });
 
       // Speaker clicks "Suggest explaining back first"
       const suggestButton = speakerPage.getByRole('button', { name: 'Suggest explaining back first' });
       await expect(suggestButton).toBeVisible({ timeout: 5000 });
       await suggestButton.click();
 
-      // CRITICAL: Listener should see dialog asking to continue or insist
-      await expect(listenerPage.getByText(/would like to feel understood/i)).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByRole('button', { name: 'Continue as listener' })).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByRole('button', { name: 'I really need to speak' })).toBeVisible({ timeout: 5000 });
+      // CRITICAL: Listener should see dialog asking to continue or insist (polling-driven)
+      await expect(listenerPage.getByText(/would like to feel understood/i)).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByRole('button', { name: 'Continue as listener' })).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByRole('button', { name: 'I really need to speak' })).toBeVisible({ timeout: 10000 });
 
     } finally {
       await speakerContext.close();
@@ -385,8 +399,11 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', listenerName, 'code', roomCode!);
+
       // Wait for both users to see each other
-      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 15000 });
+      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check - use ratings that create a clear gap
@@ -429,9 +446,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await suggestButton.click();
 
       // CRITICAL: Listener should see dialog IMMEDIATELY (not after speaker submits rating)
-      await expect(listenerPage.getByText(/would like to feel understood/i)).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByRole('button', { name: 'Continue as listener' })).toBeVisible({ timeout: 3000 });
-      await expect(listenerPage.getByRole('button', { name: 'I really need to speak' })).toBeVisible({ timeout: 3000 });
+      // Polling-driven cross-context sync needs extra time
+      await expect(listenerPage.getByText(/would like to feel understood/i)).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByRole('button', { name: 'Continue as listener' })).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByRole('button', { name: 'I really need to speak' })).toBeVisible({ timeout: 10000 });
 
     } finally {
       await speakerContext.close();
@@ -467,7 +485,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill('Leo');
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText('Leo')).toBeVisible({ timeout: 10000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Leo', 'code', roomCode!);
+
+      await expect(speakerPage.getByText('Leo')).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText('Kate')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check
@@ -488,8 +509,8 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // Listener clicks "Speak freely"
       await speakFreelyButton.click();
 
-      // Speaker should see dialog
-      await expect(speakerPage.getByText('Allow Leo to skip active listening?')).toBeVisible({ timeout: 5000 });
+      // Speaker should see dialog (polling-driven, needs extra time)
+      await expect(speakerPage.getByText('Allow Leo to skip active listening?')).toBeVisible({ timeout: 10000 });
 
       // CRITICAL: Listener's button should change to "Skip without waiting"
       await expect(listenerPage.getByRole('button', { name: 'Skip without waiting' })).toBeVisible({ timeout: 5000 });
@@ -534,7 +555,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 15000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', listenerName, 'code', roomCode!);
+
+      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
@@ -622,7 +646,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill('Frank');
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 10000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', 'Frank', 'code', roomCode!);
+
+      await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
 
       // Speaker starts check - opens rating locally
@@ -705,7 +732,10 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
 
-      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 15000 });
+      // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
+      await waitForDBPresence('clarity_sessions', 'joiner_name', listenerName, 'code', roomCode!);
+
+      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 5000 });
       await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check

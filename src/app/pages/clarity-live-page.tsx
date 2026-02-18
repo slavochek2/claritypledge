@@ -628,8 +628,9 @@ export function ClarityLivePage() {
         const explainBackDoneDrift = serverState.explainBackDone !== localState.explainBackDone;
         const checksCountDrift = serverState.checksCount !== localState.checksCount;
         const clarificationPhaseDrift = serverState.clarificationPhase !== localState.clarificationPhase;
+        const roleSwitchNegotiationDrift = serverState.roleSwitchNegotiation?.state !== localState.roleSwitchNegotiation?.state;
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift;
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
