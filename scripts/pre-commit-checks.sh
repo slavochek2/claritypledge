@@ -293,6 +293,20 @@ else
 fi
 echo ""
 
+# 15. Sweep loose done/ files into dated archive folders
+echo ">>> Sweeping loose done/ files into archive..."
+if [ -f "./scripts/sweep-done.sh" ]; then
+    if ./scripts/sweep-done.sh; then
+        echo -e "${GREEN}✓ Done archive organized${NC}"
+    else
+        echo -e "${YELLOW}⚠ Done archive sweep had an issue (non-blocking)${NC}"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+else
+    echo -e "${YELLOW}⚠ sweep-done.sh not found${NC}"
+fi
+echo ""
+
 # Summary
 echo "=== SUMMARY ==="
 if [ $ERRORS -gt 0 ]; then
