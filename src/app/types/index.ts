@@ -749,6 +749,8 @@ export interface EventAttendee {
   avatarUrl?: string;
   /** Whether this attendee has signed the pledge */
   hasPledged: boolean;
+  /** Number of confirmed understanding events (ear count) */
+  earCount: number;
 }
 
 export interface DbEvent {
