@@ -660,3 +660,65 @@ expect(rls).toBeNull(); // Fails if RLS blocks user access
 **File naming:** `e2e/integration/p{N}-{feature}-migration.spec.ts`
 
 **Root cause this prevents:** P160 — `is_private` column referenced in code but migration not applied to production. 44 automated tests all mocked the DB; none caught the missing column.
+
+**Note:** `e2e/integration/migration-template.spec.ts` is intentionally skipped (`test.describe.skip`) — it's a copy-paste template with placeholder `example_column`. Copy it and rename for each new migration.
+
+---
+
+## Known Pre-Existing Failures
+
+As of the test suite analysis (P276–P278), 79 tests fail — all pre-existing, not regressions. Categories:
+
+### 1. Two-Party Live Session Tests (~30 tests)
+
+**Files:** `speak-freely-button.spec.ts`, `partner-left-meeting.spec.ts`, `new-meeting-after-partner-left.spec.ts`, `live-meeting-mic-permission.spec.ts`
+
+**Root cause:** `browser.newContext()` creates isolated browser environments with separate WebSocket connections. Supabase Realtime subscriptions live inside each context — so context B's DB writes never trigger context A's Realtime listener. The DB IS updated correctly, but the Realtime event never arrives.
+
+**Symptom:** Tests hang for the full 30s timeout waiting for the other party to appear.
+
+**Remediation plan:** P276 — replace Realtime-dependent UI waits with `waitForDBPresence()` helper that polls `supabaseAdmin` directly from the Node.js test runner (bypasses browser context isolation entirely).
+
+**Do not:** Delete or skip these tests — they cover real user flows.
+
+### 2. Mic Permission Headless (~6 tests)
+
+**Files:** `live-page-layout.spec.ts`, parts of `p160-private-session.spec.ts`
+
+**Root cause:** Headless Chromium blocks `getUserMedia()` without the `--use-fake-ui-for-media-stream` flag. Tests that hit the mic permission dialog hang until timeout.
+
+**Remediation plan:** P278 — add `launchOptions.args: ['--use-fake-ui-for-media-stream']` to playwright.config.ts chromium project.
+
+### 3. Flaky (~2–4 tests)
+
+**Files:** `manual-points.spec.ts` (2 tests), `pledgers-page.spec.ts`, `story-detail-page-loads.spec.ts`
+
+**Root cause:** Race conditions — `waitForLoadState('networkidle')` doesn't wait for React state updates; some tests rely on async auto-focus. Remediation: anchor to specific element visibility before asserting.
+
+**Remediation plan:** P278.
+
+### Suite Health Baseline
+
+- **118 passing** / **79 failing** / **2 flaky** / **14 skipped** — 43 min total (workers: 1)
+- All 79 failures are in the categories above
+- Profile tests (p151, p152, p152-smoke): 19/19 pass
+
+---
+
+## Two-Party Test Pattern (Future Tests)
+
+When writing tests that require two users interacting in real time, use DB polling — not Realtime — for cross-context synchronization:
+
+```typescript
+import { waitForDBPresence } from './helpers/test-realtime'; // P276
+
+// Instead of:
+await expect(creatorPage.getByText('JoinerName')).toBeVisible({ timeout: 10000 });
+
+// Use:
+await waitForDBPresence('clarity_sessions', 'joiner_name', joinerName, 'code', roomCode);
+// Then assert UI (DB confirmed → React will update):
+await expect(creatorPage.getByText(joinerName)).toBeVisible({ timeout: 5000 });
+```
+
+This works because `waitForDBPresence` runs in Node.js (Playwright's runner), not in the browser — it bypasses the isolated context problem entirely.

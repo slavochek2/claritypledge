@@ -27,7 +27,7 @@ const COLUMN = 'example_column';          // New column added by migration
 const EXPECTED_DEFAULT = false;           // Default value per migration SQL
 // ────────────────────────────────────────────────────────────────────────────
 
-test.describe('Migration: {feature} — {column} column', () => {
+test.describe.skip('Migration: {feature} — {column} column — TEMPLATE (skip until configured)', () => {
   let testUserId: string;
   let testEmail: string;
 

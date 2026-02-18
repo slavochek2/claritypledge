@@ -39,20 +39,22 @@ const PORT = getWorktreePort();
 /**
  * Playwright E2E Test Configuration
  *
- * This config is optimized for testing the auth flow:
- * - Sequential test execution (workers: 1) to avoid DB conflicts
+ * - Parallel test execution with 3 workers locally (2 in CI)
  * - Screenshots on failure for debugging
  * - Automatic dev server startup
  * - Dynamic port based on worktree (5000 for main, 5N00 for worktree-N)
+ * - Override worker count: PLAYWRIGHT_WORKERS=N npm run test:e2e
  */
 
 export default defineConfig({
   // Test directory
   testDir: './e2e',
 
-  // Run tests sequentially to avoid database conflicts
-  fullyParallel: false,
-  workers: 1,
+  // Run tests in parallel; serial describe blocks (e.g. pledgers-page) are exempt
+  fullyParallel: true,
+  workers: process.env.PLAYWRIGHT_WORKERS
+    ? parseInt(process.env.PLAYWRIGHT_WORKERS)
+    : process.env.CI ? 2 : 3,
 
   // Timeouts
   timeout: 30000, // 30s per test
@@ -89,7 +91,12 @@ export default defineConfig({
     {
       name: 'chromium',
       testIgnore: '**/integration/**',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ['--use-fake-ui-for-media-stream'],
+        },
+      },
     },
     {
       // DB/migration tests — no browser needed, run with: npx playwright test --project=integration

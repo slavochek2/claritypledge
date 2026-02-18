@@ -14,6 +14,40 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Profile UI — always show ear badge and calibration bar (empty state over hidden)
+
+**Context:** P269 profile improvements. Ear badge (confirmed understanding count) and calibration bar were conditionally hidden when data was 0 / insufficient (< 5 sessions). Design question: show "🦻 0" and an empty calibration track, or hide them until data exists?
+
+**Decision:** Always show both elements. Ear badge shows `🦻 {count}` even when count is 0. Calibration bar renders the track always — no dot when < 5 sessions, tooltip says "5 sessions needed to unlock". Zero count tooltip explains the metric ("stories you fully understood, as confirmed by their owners").
+
+**Alternatives rejected:** Hide when zero — creates jarring appearance threshold, hides feature discovery for new users, simpler code but worse UX. Show placeholder text ("No data yet") — more words, less KISS than an empty bar.
+
+**Consequences:** New users immediately see both elements and understand what they're earning toward. Consistent profile layout regardless of data state — no layout shift when first ear or calibration session arrives. `InlineCalibration` now accepts `UserCalibration | null` (null = empty state).
+
+**References:** [P269](../features/p269_profile-ui-improvements.md)
+
+---
+
+## 2026-02-18: E2E test infrastructure — known failure categories + remediation plan
+
+**Context:** Full E2E suite analysis: 118 pass / 79 fail / 43 min. All 79 failures are pre-existing (not regressions). Root causes identified and remediation specs created.
+
+**Decision:** Three categories of pre-existing failures, each with a targeted fix spec:
+
+1. **Two-party Realtime failures** (~30 tests, ~15 min wasted) — `browser.newContext()` creates isolated browser environments; Supabase Realtime WebSocket subscriptions do NOT propagate between contexts. DB is updated correctly but the Realtime event never arrives in the other context. Fix: DB polling helper `waitForDBPresence()` — P276.
+
+2. **Mic permission headless** (~6 tests) — headless Chromium can't grant `getUserMedia` without `--use-fake-ui-for-media-stream` in `launchOptions`. Fix: one line in `playwright.config.ts` — P278.
+
+3. **Parallelization blocked at workers: 1** (~21 min opportunity) — one real blocker found (`pledgers-page` global empty-state assertion), all other tests are already parallel-safe. Fix: `fullyParallel: true` + `workers: 3` — P277.
+
+**Alternatives rejected:** Skipping/deleting failing two-party tests — they test real user flows; worth fixing. Mocking Supabase Realtime client-side — higher maintenance, couples tests to implementation details.
+
+**Consequences:** Remediation order: P278 (10 min, safe) → P276 (90 min, fixes 30 tests) → run full suite → P277 (parallelization last, to verify clean baseline first). Target post-remediation: ~15 min suite runtime, ~50 failures → <10 failures.
+
+**References:** [P276](../features/p276_fix-two-party-e2e-db-polling.md) | [P277](../features/p277_e2e-parallelization-multi-worker-test-execution.md) | [P278](../features/p278_e2e-quick-wins-mic-permission-template-skip-flaky-fixes.md)
+
+---
+
 ## 2026-02-18: Unverified guest model — three rules, nothing else
 
 **Context:** Unverified guests (people who join `/live` via invite without an account) accumulate in the DB with no verification path, no clear UX for blocked actions, and no defined lifecycle. We reviewed the full auth model, RLS policies, profile page behavior, and nav state to decide how much to change.
