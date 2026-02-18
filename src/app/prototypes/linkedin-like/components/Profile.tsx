@@ -90,8 +90,7 @@ export function Profile() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
-                      {credibilityStats.ear > 0 && (
-                        <TooltipProvider delayDuration={100}>
+                      <TooltipProvider delayDuration={100}>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center gap-0.5 text-sm text-gray-400 cursor-default">
@@ -100,11 +99,10 @@ export function Profile() {
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>{user.name.split(' ')[0]} understood {credibilityStats.ear} {credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners</p>
+                              <p>{credibilityStats.ear === 0 ? `${user.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${user.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      )}
                     </div>
                     {user.role && (
                       <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>
@@ -245,8 +243,7 @@ export function Profile() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-bold text-gray-900 truncate">{user.name}</h2>
-                    {credibilityStats.ear > 0 && (
-                      <TooltipProvider delayDuration={100}>
+                    <TooltipProvider delayDuration={100}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="inline-flex items-center gap-0.5 text-sm text-gray-400 cursor-default">
@@ -255,11 +252,10 @@ export function Profile() {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>You understood {credibilityStats.ear} {credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners</p>
+                            <p>{credibilityStats.ear === 0 ? "You haven't had any stories confirmed understood yet" : `You understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )}
                   </div>
                   {user.role && (
                     <p className="text-sm text-gray-500 truncate">{user.role}{user.company && ` at ${user.company}`}</p>

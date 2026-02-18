@@ -82,14 +82,12 @@ export function StoryCard({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{author.name}</span>
-          {authorCredibility.ear > 0 && (
-            <MobileTooltip content={`${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+          <MobileTooltip content={authorCredibility.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${authorCredibility.ear} ${authorCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
               <span className="inline-flex items-center gap-0.5 text-gray-600">
                 <Ear size={12} />
                 {authorCredibility.ear}
               </span>
             </MobileTooltip>
-          )}
           <PositionBadge position={authorPosition} />
         </div>
 

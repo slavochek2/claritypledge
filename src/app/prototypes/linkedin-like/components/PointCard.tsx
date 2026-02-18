@@ -151,8 +151,8 @@ export function PointCard({
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className="font-medium">{profileOwner.name}</span>
-              {profileOwnerCredibility && profileOwnerCredibility.ear > 0 && (
-                <MobileTooltip content={`${profileOwner.name.split(' ')[0]} understood ${profileOwnerCredibility.ear} ${profileOwnerCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+              {profileOwnerCredibility && (
+                <MobileTooltip content={profileOwnerCredibility.ear === 0 ? `${profileOwner.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${profileOwner.name.split(' ')[0]} understood ${profileOwnerCredibility.ear} ${profileOwnerCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
                   <span className="inline-flex items-center gap-0.5 text-gray-600">
                     <Ear size={14} />
                     {profileOwnerCredibility.ear}
@@ -470,8 +470,8 @@ function QuotedStory({
           </span>
         )}
         {/* Ear indicator - understanding credibility */}
-        {author && credibilityStats.ear > 0 && (
-          <MobileTooltip content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+        {author && (
+          <MobileTooltip content={credibilityStats.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
             <span className="inline-flex items-center gap-0.5 text-xs text-gray-600">
               <Ear size={12} />
               {credibilityStats.ear}

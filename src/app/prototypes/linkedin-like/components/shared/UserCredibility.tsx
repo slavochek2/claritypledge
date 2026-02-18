@@ -19,15 +19,13 @@ export function UserCredibility({ userId, userName, size = 'sm' }: UserCredibili
   const iconSize = size === 'sm' ? 12 : 14;
   const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
 
-  // Don't show if no stats
-  if (stats.ear === 0) {
-    return null;
-  }
-
   const firstName = userName?.split(' ')[0] || 'This user';
+  const tooltip = stats.ear === 0
+    ? `${firstName} hasn't had any stories confirmed understood yet`
+    : `${firstName} understood ${stats.ear} ${stats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`;
 
   return (
-    <MobileTooltip content={`${firstName} understood ${stats.ear} ${stats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+    <MobileTooltip content={tooltip}>
       <span className={`inline-flex items-center gap-0.5 ${textSize} text-gray-400`}>
         <Ear size={iconSize} />
         <span>{stats.ear}</span>

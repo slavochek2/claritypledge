@@ -201,9 +201,9 @@ export function PointCardWithLinks({
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className="font-medium">{profileOwner.name}</span>
-              {profileOwner.ear && profileOwner.ear > 0 && (
+              {profileOwner.ear !== undefined && (
                 <MobileTooltip
-                  content={`${profileOwner.name.split(' ')[0]} understood ${profileOwner.ear} ${
+                  content={profileOwner.ear === 0 ? `${profileOwner.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${profileOwner.name.split(' ')[0]} understood ${profileOwner.ear} ${
                     profileOwner.ear === 1 ? 'story' : 'stories'
                   } as confirmed by their owners`}
                 >
@@ -536,9 +536,9 @@ function QuotedStory({
             {author.name}
           </span>
           {/* Ear indicator - understanding credibility */}
-          {author.ear && author.ear > 0 && (
+          {author.ear !== undefined && (
             <MobileTooltip
-              content={`${author.name.split(' ')[0]} understood ${author.ear} ${
+              content={author.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${author.ear} ${
                 author.ear === 1 ? 'story' : 'stories'
               } as confirmed by their owners`}
             >

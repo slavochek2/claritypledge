@@ -43,8 +43,8 @@ export function PointHeader({
             <span className={`${textClass} text-gray-600`}>{authorName}</span>
           )}
           {/* Ear count - right after name */}
-          {authorEarCount !== undefined && authorEarCount > 0 && (
-            <MobileTooltip content={`${authorName?.split(' ')[0] || 'They'} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+          {authorEarCount !== undefined && (
+            <MobileTooltip content={authorEarCount === 0 ? `${authorName?.split(' ')[0] || 'They'} hasn't had any stories confirmed understood yet` : `${authorName?.split(' ')[0] || 'They'} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
               <span className={`flex items-center gap-0.5 ${textClass} text-gray-600`}>
                 <Ear size={iconSize} />
                 {authorEarCount}
