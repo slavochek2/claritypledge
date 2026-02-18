@@ -15,6 +15,8 @@ if [[ "$FILE_PATH" =~ /features/p[0-9].*\.md$ ]]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   SCRIPT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
   python3 "$SCRIPT_DIR/scripts/fix-frontmatter.py" "$FILE_PATH" 2>&1
+  # Bust kanban cache so new/edited cards appear immediately
+  curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null 2>&1 || true
 fi
 
 exit 0
