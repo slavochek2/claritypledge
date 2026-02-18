@@ -14,6 +14,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Auto-sweep done/ archive via pre-commit (no manual folder management)
+
+**Context:** `features/done/` root was accumulating loose files whenever features were marked done via Kanban drag-to-done or direct `git mv` — both paths bypass the `/done` skill, which already places files into `{N}_{mon}_{yy}` dated subfolders. The kanban scanner explicitly skips those dated subfolders (they're archives by design, invisible to kanban). The user was manually creating new subfolders when the root got crowded.
+
+**Decision:** `scripts/sweep-done.sh` + pre-commit section 15. On every pre-commit run, any `.md` files sitting at `features/done/` root get auto-swept into the current month's dated subfolder. Script is silent when there's nothing to sweep. Uses `{N}_{mon}_{yy}` naming to stay compatible with `DATE_ARCHIVE_PATTERN` in `scanner-rules.ts`.
+
+**Alternatives rejected:** Reading `completed_at` to route files to their exact completion month — bash `||` vs `|` precedence silently breaks the extraction pipeline (grep's output never reaches sed); and archive folder precision doesn't matter (git log has accurate dates). Switching to `YYYY-MM` naming — cleaner but would require updating `DATE_ARCHIVE_PATTERN` in scanner-rules.ts to keep the kanban archive behavior.
+
+**Consequences:** done/ root stays clean with zero user involvement. Any path that lands files there (Kanban, manual mv, KDD) is caught before the next commit. The sweep runs at commit time, so "current month" is accurate enough for archive purposes.
+
+**References:** [scripts/sweep-done.sh](scripts/sweep-done.sh) | [tools/kanban/lib/scanner-rules.ts](tools/kanban/lib/scanner-rules.ts)
+
+---
+
 ## 2026-02-18: Mandatory integration test layer for every DB migration (P270)
 
 **Context:** P160 (Private Session Mode) shipped with the `is_private` column missing from the production schema cache. The bug reached the `/live` page because 44 automated tests (unit, E2E, smoke, a11y) all mocked the DB, and 22 UAT scenarios were never executed. No layer verified that the migration was actually applied.

@@ -33,14 +33,16 @@
 - **Never** create manually (skills handle P-number assignment)
 
 **Completed features:**
-- Moved to `features/done/` when `status: done`
-- Use `/slava:done` skill to move files
+- Moved to `features/done/{N}_{mon}_{yy}/` dated subfolders
+- `/slava:done` skill handles the move and subfolder placement
+- `scripts/sweep-done.sh` auto-sweeps any files that land at done/ root (Kanban drag, manual mv) into the current month's folder on next pre-commit run
 
 **Examples:**
 ```
 features/p145_position_loading_architecture.md
 features/p147_kanban_ui_improvements.md
-features/done/p001_initial_setup.md
+features/done/5_feb_26/p268_position_display.md
+features/done/4_27_jan26/p101_cards_ux_overhaul.md
 ```
 
 ---
