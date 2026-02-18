@@ -28,7 +28,8 @@ test.describe('Mic Permission Gating', () => {
     await page.getByRole('button', { name: /new session/i }).click();
 
     // Wait for waiting screen with session code
-    await expect(page.getByText('Waiting for partner to join...')).toBeVisible({ timeout: 10000 });
+    // Normal sessions show "Invite Your Partner" (not "Waiting for partner to join..." which is event-only)
+    await expect(page.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
     // Extract the session code from the share link span (data-testid="share-link")
     // The span contains text like "localhost:5100/live/XCD47A"
@@ -87,7 +88,12 @@ test.describe('Mic Permission Gating', () => {
       navigator.mediaDevices.getUserMedia = async () => mockStream as unknown as MediaStream;
     });
 
-    // Don't mock on joiner's page - let it fail naturally
+    // Explicitly mock joiner's getUserMedia to REJECT — Playwright doesn't deny it naturally
+    await joinerPage.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        throw Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+      };
+    });
 
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
@@ -101,7 +107,7 @@ test.describe('Mic Permission Gating', () => {
       console.log(`[Test] Created meeting with code: ${sessionCode}`);
 
       // Creator should be on waiting screen
-      await expect(creatorPage.getByText('Waiting for partner to join...')).toBeVisible();
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible();
 
       // Step 2: Joiner navigates to join link
       await joinerPage.goto(`/live/${sessionCode}`);
@@ -163,7 +169,7 @@ test.describe('Mic Permission Gating', () => {
       await creatorPage.waitForTimeout(2000); // Give time for any subscription to fire
 
       // Creator should still see "Waiting for partner" - NOT the live view
-      const stillWaiting = await creatorPage.getByText('Waiting for partner to join...').isVisible();
+      const stillWaiting = await creatorPage.getByText('Invite Your Partner').isVisible();
       const inLiveView = await creatorPage.getByText(/I spoke|I heard you/i).isVisible().catch(() => false);
 
       console.log(`[Test] Creator still waiting: ${stillWaiting}, in live: ${inLiveView}`);
@@ -245,7 +251,7 @@ test.describe('Mic Permission Gating', () => {
 
       // Step 3: Both should transition to live view
       // Wait for creator to see live view (no longer waiting)
-      await expect(creatorPage.getByText('Waiting for partner to join...')).not.toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).not.toBeVisible({ timeout: 5000 });
 
       // Joiner should also be in live view (not showing mic dialog)
       const joinerMicDialog = joinerPage.getByRole('dialog');
@@ -314,7 +320,7 @@ test.describe('Mic Permission Gating', () => {
       await expect(joinerPage.getByRole('button', { name: /join/i })).toBeVisible({ timeout: 5000 });
 
       // Creator should still be waiting
-      await expect(creatorPage.getByText('Waiting for partner to join...')).toBeVisible();
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible();
 
     } finally {
       if (testUser) {
