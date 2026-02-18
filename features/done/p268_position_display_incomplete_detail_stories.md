@@ -6,6 +6,7 @@ workstream: C1
 severity: high
 date_reported: 2026-02-17T00:00:00.000Z
 date_resolved: 2026-02-18
+completed_at: 2026-02-18
 root_cause: >
   Surface A: getPointWithCounts() never loaded userPosition on mount — needed getPointWithUserPosition(id, userId).
   Surface B: getStoriesByAuthorWithPoints() didn't accept userId, so positionCounts/userPosition were never fetched.

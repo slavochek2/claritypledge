@@ -16,14 +16,28 @@ const TEST_PASSWORD = 'test-password-12345';
 /**
  * Creates a Supabase client authenticated as a specific test user.
  * Used to update the user's own profile (service_role UPDATE on profiles is unreliable).
+ *
+ * IMPORTANT: Uses a fresh admin client for sign-in to avoid corrupting the shared
+ * supabaseAdmin's auth state. Calling auth.signInWithPassword() on supabaseAdmin would
+ * cause all subsequent supabaseAdmin.from() calls to use the user JWT instead of
+ * service_role, breaking cleanup DELETEs.
  */
 async function createListenerClient(listenerId: string) {
-  const { data: userData, error: userLookupError } = await supabaseAdmin.auth.admin.getUserById(listenerId);
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+
+  // Fresh admin client — sign-in here won't affect the shared supabaseAdmin
+  const freshAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: userData, error: userLookupError } = await freshAdmin.auth.admin.getUserById(listenerId);
   if (userLookupError || !userData?.user?.email) {
     throw new Error(`Failed to look up listener user: ${userLookupError?.message}`);
   }
 
-  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  const { data: signInData, error: signInError } = await freshAdmin.auth.signInWithPassword({
     email: userData.user.email,
     password: TEST_PASSWORD,
   });
@@ -31,8 +45,6 @@ async function createListenerClient(listenerId: string) {
     throw new Error(`Failed to sign in as listener for profile update: ${signInError?.message}`);
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
     auth: { autoRefreshToken: false, persistSession: false },

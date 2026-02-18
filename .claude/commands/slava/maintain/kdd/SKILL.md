@@ -121,10 +121,16 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```bash
    ls features/*.md
    ```
-   If any features are complete based on the work done:
-   ```bash
-   mv features/pNN_feature.md features/done/
+   If any features are complete based on the work done, update frontmatter before moving:
+   ```yaml
+   status: done
+   completed_at: '{today YYYY-MM-DD}'
    ```
+   Then move:
+   ```bash
+   git mv features/pNN_feature.md features/done/
+   ```
+   **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
 ## Rules
 
