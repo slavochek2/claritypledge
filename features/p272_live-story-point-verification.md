@@ -205,6 +205,16 @@ The following decisions were made during PRD definition and should not be re-ope
 
 
 
+## Dependencies
+
+**P279 must ship before this spec is implemented.**
+
+This spec requires showing "the other person's existing position" on linked points inside the /live story card (acceptance criterion: "Point positions in the expanded story card show the other person's existing position — not hidden"). That behavior depends on the service layer loading the profile subject's position into the `positions` map — which is exactly what P279 fixes.
+
+Additionally, `live-mode-view.tsx` currently calls the deprecated `getPointsByValidator` (no position data, no counts). P279 replaces that call with `getPointsForProfileDisplay(userId, currentUser?.id)`. Until P279 ships, linked point positions in `/live` will always render empty regardless of this spec's implementation.
+
+---
+
 ## Next Steps
 
 This is a UI feature. Next skill: `/ux features/p272_live-story-point-verification.md`
@@ -240,12 +250,12 @@ All component names below refer to existing production components in `live-mode-
 4. Listener sees "Speak freely" below the buttons. Tapping it clears the story from both screens and returns both participants to a no-story idle state.
 5. Listener may also simply tap one of the two action buttons to start a round immediately with the story visible.
 
-#### 1.3 Story Removal Flow (Speaker, Pre-Round)
+#### 1.3 Story Removal Flow (Pre-Round, Either Participant)
 
-1. While in the "story selected, pre-round" state, the speaker sees an X button in the top-right corner of the story card.
-2. Tapping X removes the story from both screens immediately — no confirmation dialog. This is a low-stakes, reversible action (the speaker can re-select).
-3. After removal, the picker search bar reappears below the action buttons, ready for a new search.
-4. To replace (not just remove), the speaker types in the search bar again and selects a different story — the same flow as initial selection.
+1. When a story is selected but no round has started, either participant can tap "Speak freely" below the action buttons.
+2. This clears the selected story from both screens immediately and returns both participants to the no-story idle state.
+3. The search input reappears on the speaker's screen. The speaker can search and select a different story — this is the replace flow.
+4. There is no separate X or remove button on the story card. Speak freely is the single removal mechanism for both participants.
 
 #### 1.4 Speaker Flow: Starting a Round With Story Selected
 
@@ -266,7 +276,7 @@ All component names below refer to existing production components in `live-mode-
 
 1. When a story is selected but no round has started, "Speak freely" appears below the action buttons on both screens.
 2. Either participant can tap "Speak freely." This clears the selected story from both screens and returns both to the no-story idle state (current behavior).
-3. The speaker also has the X button on the story card for direct removal. The listener only has "Speak freely" — they did not select the story and cannot remove it independently.
+3. Both participants use "Speak freely" to clear the story. There is no X button — speak freely is the single clearing mechanism for both.
 
 #### 1.7 Multi-Round Flow
 
@@ -300,7 +310,6 @@ All component names below refer to existing production components in `live-mode-
 - Top: `LiveHeader`
 - Below header: `StoryCardWithLinks` rendered with `hideActions=true`, `disableNavigation=true`
   - Story card includes: author avatar, story text (collapsed by default on mobile), expand toggle for linked points
-  - X button in top-right corner of the card (speaker screen only; listener screen shows no X)
 - Below story card: `ActionArea` with two buttons (unchanged, same labels)
 - Below buttons: "Speak freely" text button (both screens)
 - No search bar visible while a story is selected
@@ -311,7 +320,7 @@ All component names below refer to existing production components in `live-mode-
 - Below header: `StoryCardWithLinks` (same card, collapsed by default; expand toggle still works)
 - Main area: `JourneyToUnderstanding` history card (if prior rounds exist)
 - Bottom: `RatingCard` in a non-dismissible `Drawer` (unchanged; slides up from bottom)
-- Story card is not hidden when drawer is open — it scrolls normally above the drawer handle area
+- Story card remains visible above the drawer — the drawer overlay/scrim must be removed (transparent or absent) so content behind the drawer handle area is readable. The drawer is partial-height (auto-sizes to its content); the story card above is not covered by the drawer itself, only potentially by the scrim. Remove the `DrawerOverlay` or set it to transparent for this drawer instance.
 
 #### Gap Reveal State — Story Visible
 
@@ -351,7 +360,6 @@ The picker is a search-first surface embedded in `IdleScreen`, below the two act
 - A single search input is shown with a search icon on the left and placeholder text: "Search your stories…"
 - Below the input, nothing else is shown. No story list, no scrollable grid. The field is empty and waiting.
 - This is intentional: the speaker knows their stories and can search for the right one. Showing all stories at once creates noise and does not match the search-focused requirement.
-- Exception: if the speaker has 1–2 stories in their library, show those stories immediately below the search input without requiring a search. At this quantity, scrolling a full list is not cognitively expensive.
 
 #### Typing: Instant Filter
 
@@ -389,26 +397,21 @@ The picker is a search-first surface embedded in `IdleScreen`, below the two act
 
 ### 4. Story Removal / Replacement UX
 
-#### Removing the Selected Story (Speaker)
+#### Single Mechanism: Speak Freely
 
-The speaker sees an X button (using `lucide-react`'s `X` icon) in the top-right corner of the story card header row, rendered only on the speaker's screen.
+There is no X button or remove button on the story card. "Speak freely" is the single clearing mechanism for both participants.
 
-- The X button is rendered inline in the card, to the right of the author avatar and story text, aligned with the top of the card content.
-- Tapping X removes the story from both screens immediately. No confirmation dialog.
-- Justification for no confirmation: removing a story before a round is low-stakes (no data written, no round in progress). Adding a dialog adds friction for a reversible action.
-- The story card disappears on both screens simultaneously (via shared state update).
-- The search bar reappears in its place on both screens — speaker can immediately search for a replacement.
+- Before a round begins, "Speak freely" appears below the action buttons on both screens.
+- Either participant taps "Speak freely" → story clears from both screens immediately → both return to no-story idle state.
+- No confirmation dialog. Removal is low-stakes and reversible (speaker can re-search immediately).
 
 #### Replacing the Selected Story
 
-There is no separate "replace" affordance. Replacement is simply: remove (tap X) → search → select. Two taps at most.
-
-- This keeps the interaction surface minimal and consistent with the search-first design.
+Replacement is: tap "Speak freely" → story clears → speaker searches and selects a different story. The search input reappears in the idle state.
 
 #### Round Lock
 
 Once either participant taps "Does [Partner] understand you?" or "Do you understand [Partner]?", the round begins. At this point:
-- The X button disappears from the story card on both screens.
 - The "Speak freely" text button below the action buttons disappears (round is now active; speak freely during a round is handled by the existing mid-round exit flow).
 - The story card is locked for this round and cannot be removed.
 
@@ -456,40 +459,21 @@ Once either participant taps "Does [Partner] understand you?" or "Do you underst
 
 ### 6. Accessibility
 
-#### Real-Time Story Card Appearance (Listener Screen)
-
-- When the story card appears on the listener's screen (pushed via real-time state update), announce to screen readers: "A story has been shared." This announcement uses `aria-live="polite"` on a region that wraps the story card area.
-- The card itself is focusable. When it appears, focus does NOT jump to it automatically (the listener may be mid-action). The `aria-live` announcement is sufficient.
+Scope: pilot-appropriate minimum. No aria-live announcements (add non-trivial complexity for a known-cohort pilot with no screen reader users). Use semantic HTML and aria-labels on interactive elements. Revisit before any public or scaled release.
 
 #### Story Picker — Search Input
 
-- The search input has a visible label or a descriptive `aria-label`: "Search your stories."
-- As results appear, announce the count using a live region: "3 stories found" (or "No results for [query]"). This uses `aria-live="polite"` on a results-status element.
-- Each result row is a `<button>` element with the full story preview as its accessible name (not truncated — the `aria-label` carries the full text, the visible text is truncated).
-
-#### Story Picker — Keyboard Navigation
-
-- Tab moves focus into the search input.
-- Typing filters results.
-- Arrow Down from the search input moves focus to the first result row.
-- Arrow Up / Arrow Down navigate between result rows.
-- Enter or Space selects the focused result.
-- Escape collapses the result list and returns focus to the search input.
+- The search input has `aria-label`: "Search your stories."
+- Each result row is a `<button>` element. The accessible name carries the full story text (not truncated), even if the visible label is truncated.
 
 #### Story Card Expand Toggle
 
 - The expand button (chevron) has `aria-expanded` set to `true`/`false` and `aria-label`: "Expand linked points" / "Collapse linked points."
-- When points expand, the newly visible content is announced via `aria-live="polite"` if the point count is non-zero. For empty state, announce "No points linked to this story."
-
-#### X Button (Remove Story)
-
-- The X button on the story card has `aria-label`: "Remove selected story."
-- After tapping, the live region for the story card area announces "Story removed." using `aria-live="polite"`.
 
 #### Round State Changes
 
 - When a round begins (buttons become disabled, drawer slides up), the `Drawer` component's `DrawerTitle` (currently `sr-only`) provides the screen reader context for the rating phase.
-- Existing `aria-live` patterns in `RatingCard` and `JourneyToUnderstanding` are unchanged.
+- Existing patterns in `RatingCard` and `JourneyToUnderstanding` are unchanged.
 
 #### Sealed Rating
 
@@ -517,9 +501,6 @@ The /live session hides the main navigation (`SimpleNavigation` is display:none 
 - Result list is a scrollable vertical list, max 6 visible rows, `overflow-y-auto` with a max height of approximately 280px before scrolling.
 - The picker is NOT a full-screen sheet (bottom sheet). It is inline, embedded below the action buttons. A full-screen sheet would obscure the story card and the action buttons, creating confusion about how to select without starting a round. Inline is simpler and consistent with the current `ContentPicker` implementation.
 - On keyboard open (iOS/Android soft keyboard), the screen shifts up. The search input stays visible because it is mid-page. If the result list is partially off-screen due to keyboard, the list itself scrolls internally.
-
-**Story removal X button on mobile:**
-- Minimum tap target: 44×44px (Apple HIG / WCAG). The X button is a `<button>` with padding to meet this minimum.
 
 #### Larger Screens (Tablet / Desktop)
 
