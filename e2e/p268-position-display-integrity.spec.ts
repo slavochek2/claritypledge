@@ -104,9 +104,9 @@ test.describe('P268: Position display — detail page + stories expanded', () =>
     }
 
     // Expand the story's linked points
-    // Use button[aria-expanded] to target the specific inline-expand button, not the outer
-    // story card div[role="button"] which navigates to story detail on click
-    const expandBtn = page.locator('button[aria-expanded]').first();
+    // Filter by text to avoid matching the user-avatar dropdown button (also button[aria-expanded])
+    // Story expand button text: "1 point by <author>" — outer story card div[role="button"] has no aria-expanded
+    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /point.*by/i }).first();
     await expect(expandBtn).toBeVisible();
     await expandBtn.click();
 
@@ -129,8 +129,8 @@ test.describe('P268: Position display — detail page + stories expanded', () =>
       await storiesTab.click();
     }
 
-    // button[aria-expanded] targets the specific expand button (not the outer story card div[role="button"])
-    const expandBtn = page.locator('button[aria-expanded]').first();
+    // Filter by text to avoid matching the user-avatar dropdown button (also button[aria-expanded])
+    const expandBtn = page.locator('button[aria-expanded]').filter({ hasText: /point.*by/i }).first();
     await expandBtn.click(); // expand
     await expandBtn.click(); // collapse
     await expandBtn.click(); // re-expand
