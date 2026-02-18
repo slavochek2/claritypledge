@@ -9,7 +9,7 @@ tags:
   - calibration
   - ear-count
 prepped_date: '2026-02-17'
-delivery_stage: prd-review
+delivery_stage: implementation
 reviews:
   ux: null
   architect: null
