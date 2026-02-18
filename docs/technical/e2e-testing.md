@@ -286,6 +286,31 @@ Located in [e2e/helpers/test-user.ts](../../e2e/helpers/test-user.ts):
 - **`deleteTestUserByEmail(email)`** - Cleanup by email
 - **`cleanupAllTestUsers()`** - Emergency cleanup
 
+Located in [e2e/helpers/test-point.ts](../../e2e/helpers/test-point.ts):
+
+- **`createTestPoint(firstValidatorId, options?)`** - Creates a point via service_role (no RLS restriction on points INSERT)
+- **`createTestPosition(pointId, userId, position)`** - Creates/updates a position using the **user's own JWT** (not service_role)
+- **`deleteTestPoint(pointId)`** - Deletes point and cascades to positions/history
+
+**Why `createTestPosition` uses user JWT (not service_role):**
+
+The `point_positions` INSERT policy requires `auth.uid() = user_id AND is_verified = true`. Service_role bypass via PostgREST is unreliable — PostgREST uses JWT claims (`auth.role()`), not GUC variables, so the bypass policy only works for tables that check `current_setting('role')`. For `point_positions`, service_role writes silently fail RLS.
+
+Fix pattern: sign in as the user with their credentials, create a client with user JWT:
+```typescript
+const { data: userData } = await supabaseAdmin.auth.admin.getUserById(userId);
+const { data: signInData } = await supabaseAdmin.auth.signInWithPassword({
+  email: userData.user.email, password: TEST_PASSWORD, // 'test-password-12345'
+});
+const userClient = createClient(url, anonKey, {
+  global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+await userClient.from('point_positions').upsert({ point_id, user_id, position });
+```
+
+This is the same pattern used in `createTestUser` for profile creation.
+
 **Example usage:**
 
 ```typescript

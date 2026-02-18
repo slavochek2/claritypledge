@@ -415,10 +415,24 @@ const point = await pointsService.getPointWithUserPosition(pointId, user?.id);
 const point = await pointsService.getPoint(pointId);
 ```
 
+**Profile visitor pattern — showing the subject's own position:**
+
+When displaying a profile to a visitor (User B viewing User A's points), `getPointsForProfileDisplay(validatorId, viewerUserId)` loads positions in three batches:
+1. Position counts for all points
+2. Viewer's own positions (skipped when viewer === subject)
+3. **Subject's own positions** → `point.profileSubjectPosition`
+
+Self-view optimization: when `viewerUserId === validatorId`, batch 3 serves both purposes.
+
+Display points using:
+- `point.userPosition` — current viewer's position (for action buttons)
+- `point.profileSubjectPosition` — profile owner's position (for display badge)
+
 **Why this matters:**
 - Position buttons won't show user's current position without loading it
 - N+1 queries cause slow page loads (1+N database calls instead of 2-3)
 - TypeScript won't catch missing positions (type compatibility)
+- Profile subject's position is invisible to visitors without the 3rd batch
 
 **Enforcement:**
 - Service methods: `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
