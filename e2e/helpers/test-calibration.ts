@@ -33,10 +33,8 @@ export async function createCalibrationData(options: {
     .from('stories')
     .insert({
       author_id: speakerId,
-      title: 'Test Story for Calibration',
-      content_json: JSON.stringify({ type: 'doc', content: [] }),
-      content_text: 'Test content',
-      is_public: true,
+      content: 'Test content for calibration data',
+      visibility: 'public',
     })
     .select('id')
     .single();
@@ -103,18 +101,19 @@ export async function createCalibrationData(options: {
 
   console.log(`[TEST HELPER] Created ${count} verification records`);
 
-  // Trigger to update verification_session_count runs automatically
-  // Wait for trigger to complete
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Verify the count was updated
-  const { data: profile } = await supabaseAdmin
+  // The DB trigger (trg_profile_ears_count) should update verification_session_count automatically.
+  // However, trigger execution context in Supabase cloud can behave unexpectedly with service_role.
+  // Explicitly update the count to guarantee the correct state for E2E tests.
+  const { error: countUpdateError } = await supabaseAdmin
     .from('profiles')
-    .select('verification_session_count')
-    .eq('id', listenerId)
-    .single();
+    .update({ verification_session_count: count })
+    .eq('id', listenerId);
 
-  console.log(`[TEST HELPER] Profile verification_session_count: ${profile?.verification_session_count}`);
+  if (countUpdateError) {
+    throw new Error(`Failed to update verification_session_count: ${countUpdateError.message}`);
+  }
+
+  console.log(`[TEST HELPER] Set verification_session_count to ${count} for listener`);
 }
 
 /**
@@ -139,10 +138,8 @@ export async function createEarCountData(options: {
     .from('stories')
     .insert({
       author_id: speakerId,
-      title: 'Test Story for Ear Count',
-      content_json: JSON.stringify({ type: 'doc', content: [] }),
-      content_text: 'Test content',
-      is_public: true,
+      content: 'Test content for ear count data',
+      visibility: 'public',
     })
     .select('id')
     .single();
@@ -187,17 +184,18 @@ export async function createEarCountData(options: {
 
   console.log(`[TEST HELPER] Created ${count} ear count records`);
 
-  // Wait for trigger to update ears_count
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Verify the count was updated
-  const { data: profile } = await supabaseAdmin
+  // Explicitly update ears_count and verification_session_count to guarantee correct state.
+  // Trigger (trg_profile_ears_count) may not fire reliably in Supabase cloud with service_role.
+  const { error: countUpdateError } = await supabaseAdmin
     .from('profiles')
-    .select('ears_count')
-    .eq('id', listenerId)
-    .single();
+    .update({ ears_count: count, verification_session_count: count })
+    .eq('id', listenerId);
 
-  console.log(`[TEST HELPER] Profile ears_count: ${profile?.ears_count}`);
+  if (countUpdateError) {
+    throw new Error(`Failed to update ears_count: ${countUpdateError.message}`);
+  }
+
+  console.log(`[TEST HELPER] Set ears_count and verification_session_count to ${count} for listener`);
 }
 
 /**

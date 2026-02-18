@@ -126,6 +126,22 @@ Decision:
   ❌ Skip integration test for download (browser API, covered by E2E)
 ```
 
+**⚠️ P270 RULE — MANDATORY for any feature with a DB migration:**
+
+If the spec mentions ANY of the following, ALWAYS generate `e2e/integration/p{N}-db-schema.spec.ts`:
+- A `supabase/migrations/` file path or SQL migration script
+- Adding/modifying columns, tables, enums, or indexes
+- New or changed RLS policies
+- A "Database Changes" or "Migration" section
+
+Use the two-client pattern:
+1. `supabaseAdmin` — query the new column/table to verify the migration was applied (fails immediately with a schema cache error if not)
+2. Check default values + non-default writes
+
+**Template:** `e2e/integration/migration-template.spec.ts` (copy and rename to `p{N}-db-schema.spec.ts`)
+
+**Why mandatory:** P160 shipped with 44 tests, all of which mocked the DB. The `is_private` column was missing and no test caught it. One integration test would have failed immediately. See `e2e/integration/p270-process-validation.spec.ts` for the reference implementation.
+
 ---
 
 #### E2E Tests (User Flows)

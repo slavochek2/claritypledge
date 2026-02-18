@@ -900,6 +900,8 @@ export interface PointSummary {
   statement: string;
   context?: string;
   tags: string[];
+  positionCounts?: Record<string, number>;
+  userPosition?: PositionType | null;
 }
 
 /** Point with creator profile info */

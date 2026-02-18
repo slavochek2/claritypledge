@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
-import type { PointWithCounts, PointPositionWithUser, PositionType } from '@/app/types';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType } from '@/app/types';
 import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
@@ -59,7 +59,9 @@ export function PointDetailPage() {
 
       try {
         const [pointData, positionData] = await Promise.all([
-          pointsService.getPointWithCounts(id),
+          user?.id
+            ? pointsService.getPointWithUserPosition(id, user.id)
+            : pointsService.getPointWithCounts(id),
           pointsService.getPositionsForPoint(id),
         ]);
 
@@ -71,6 +73,9 @@ export function PointDetailPage() {
 
         setPoint(pointData);
         setPositions(positionData);
+        if (user?.id && (pointData as PointWithUserPosition).userPosition) {
+          setUserPosition((pointData as PointWithUserPosition).userPosition!.position);
+        }
         setLoading(false);
       } catch (err) {
         console.error('Error loading point:', err);
@@ -80,7 +85,7 @@ export function PointDetailPage() {
     }
 
     loadData();
-  }, [id, retryKey]);
+  }, [id, user?.id, retryKey]);
 
   // Group positions by stance
   const positionGroups = useMemo(() => {

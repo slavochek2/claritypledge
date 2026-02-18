@@ -306,13 +306,23 @@ Total: 6 automated tests + 4 UAT scenarios
 
 **Generates:**
 - ❌ No unit tests (pure SQL)
-- ✅ Integration tests for RLS policies
+- ✅ **Integration test (MANDATORY)** — schema existence + RLS check
 - ❌ No E2E tests (no UI)
 - ❌ No accessibility tests (no UI)
 - ✅ Smoke test (migration runs without errors)
 - ✅ UAT scenarios (verify data migrated correctly)
 
 **Rationale:** Data migration → integration + smoke + UAT
+
+**⚠️ P270 RULE — Integration test is MANDATORY for any feature adding a DB migration.**
+
+The integration test MUST include a schema existence check using the **two-client pattern**:
+1. `supabaseAdmin` — query `{table}.select('{column}')` to verify column exists (fails immediately if migration not applied)
+2. User-scoped JWT client — write/read to verify RLS allows user access (service role bypasses RLS and would miss policy bugs)
+
+**Template:** Copy `e2e/integration/migration-template.spec.ts` — rename to `e2e/integration/p{N}-{feature}-migration.spec.ts`
+
+**Why this matters:** P160 shipped with 44 tests, all of which mocked or bypassed the DB. The `is_private` column was missing and no test caught it. A single integration test with `supabaseAdmin.from('clarity_sessions').select('is_private')` would have failed immediately.
 
 ---
 

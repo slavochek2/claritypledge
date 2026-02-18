@@ -622,3 +622,41 @@ CREATE POLICY "Test data: service_role bypass for profiles"
 ---
 
 **Run /kdd after:** Capture pattern: "E2E test infrastructure enables agent autonomy" in decisions.md
+
+---
+
+## Integration Tests (P270 — DB Migration Layer)
+
+**Location:** `e2e/integration/*.spec.ts`
+
+**Purpose:** Verify database migrations were applied and new columns/tables are accessible. Catches the class of bug where code references a column that doesn't exist in the schema cache.
+
+**When required:** Any feature that adds a migration file (`supabase/migrations/*.sql`) MUST have an integration test. This is mandatory — not optional.
+
+**Two-Client Pattern (mandatory):**
+
+```typescript
+// 1. Schema check — uses supabaseAdmin (bypasses RLS, proves column EXISTS)
+const { error } = await supabaseAdmin
+  .from('your_table')
+  .select('your_new_column')
+  .limit(1);
+expect(error).toBeNull(); // Fails immediately if migration wasn't applied
+
+// 2. RLS check — uses user-scoped JWT (proves users can actually READ/WRITE)
+const userClient = createClient(url, anonKey, {
+  global: { headers: { Authorization: `Bearer ${userToken}` } }
+});
+const { error: rls } = await userClient.from('your_table').insert({ your_new_column: value });
+expect(rls).toBeNull(); // Fails if RLS blocks user access
+```
+
+**Why two clients:**
+- `supabaseAdmin` (service_role) bypasses all RLS — proves the column exists but not that users can access it
+- User-scoped client (anon key + JWT) respects RLS — proves the policy is correct
+
+**Template:** `e2e/integration/migration-template.spec.ts`
+
+**File naming:** `e2e/integration/p{N}-{feature}-migration.spec.ts`
+
+**Root cause this prevents:** P160 — `is_private` column referenced in code but migration not applied to production. 44 automated tests all mocked the DB; none caught the missing column.

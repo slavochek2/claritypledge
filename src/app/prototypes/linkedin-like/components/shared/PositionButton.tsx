@@ -209,6 +209,7 @@ function SegmentButtonContent({
         <TooltipTrigger asChild>
           <button
             onClick={onClick}
+            aria-pressed={isActive}
             className="flex items-center gap-0.5 sm:gap-1 px-1 min-[360px]:px-1.5 sm:px-3 py-1.5 sm:py-2 min-h-[32px] sm:min-h-[44px] hover:opacity-80 transition-opacity whitespace-nowrap text-[11px] sm:text-xs"
           >
             {/* Icon: shown at all sizes, but alone on ultra-narrow */}

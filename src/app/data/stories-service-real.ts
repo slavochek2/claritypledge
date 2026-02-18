@@ -11,8 +11,10 @@ import type {
   StoryVersion,
   StoryVisibility,
   PointSummary,
+  PositionType,
 } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { pointsService } from './points-service';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -271,7 +273,8 @@ export const realStoriesService: StoriesService = {
           name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          ears_count
         )
       `)
       .eq('author_id', authorId)
@@ -285,7 +288,7 @@ export const realStoriesService: StoriesService = {
     return (data as DbStoryWithAuthor[]).map(mapStoryFromDb);
   },
 
-  async getStoriesByAuthorWithPoints(authorId: string): Promise<StoryWithPoints[]> {
+  async getStoriesByAuthorWithPoints(authorId: string, userId?: string): Promise<StoryWithPoints[]> {
     log(' getStoriesByAuthorWithPoints:', authorId);
 
     // Get all stories by author first
@@ -314,6 +317,8 @@ export const realStoriesService: StoriesService = {
 
     // Group points by story ID
     const pointsByStory = new Map<string, PointSummary[]>();
+    const allPointIds: string[] = [];
+
     (storyPoints || []).forEach(sp => {
       // Check if point exists before attempting to map (guards against orphaned story_points)
       if (!sp.point) {
@@ -327,7 +332,27 @@ export const realStoriesService: StoriesService = {
           pointsByStory.set(storyId, []);
         }
         pointsByStory.get(storyId)!.push(mapped);
+        allPointIds.push(mapped.id);
       }
+    });
+
+    // Batch-fetch position counts and user positions for all linked points
+    const [countsMap, userPositionsMap] = await Promise.all([
+      allPointIds.length > 0
+        ? pointsService.getPositionCountsForPoints(allPointIds)
+        : Promise.resolve(new Map<string, Record<string, number>>()),
+      allPointIds.length > 0 && userId
+        ? pointsService.getMyPositionsForPoints(allPointIds, userId)
+        : Promise.resolve(new Map<string, { position: string }>()),
+    ]);
+
+    // Enrich each PointSummary with counts and user position
+    pointsByStory.forEach((points, storyId) => {
+      pointsByStory.set(storyId, points.map(p => ({
+        ...p,
+        positionCounts: countsMap.get(p.id),
+        userPosition: (userPositionsMap.get(p.id) as { position: string } | undefined)?.position as PositionType | null ?? null,
+      })));
     });
 
     // Combine stories with their points

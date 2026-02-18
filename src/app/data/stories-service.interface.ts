@@ -59,7 +59,7 @@ export interface StoriesService {
   /**
    * Get stories by author with linked points
    */
-  getStoriesByAuthorWithPoints(authorId: string): Promise<StoryWithPoints[]>;
+  getStoriesByAuthorWithPoints(authorId: string, userId?: string): Promise<StoryWithPoints[]>;
 
   /**
    * Get stories feed (paginated, newest first)

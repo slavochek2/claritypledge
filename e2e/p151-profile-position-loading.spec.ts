@@ -22,12 +22,17 @@ test.describe('Profile Position Loading (P151)', () => {
   });
 
   test.afterEach(async () => {
-    // Clean up test points
     if (testPointIds.length > 0) {
+      // Delete history first to avoid FK constraint violation during cascade.
+      // When points cascade-delete positions, the trigger inserts into history.
+      // If history has point_id FK pointing to a point being deleted simultaneously,
+      // PostgreSQL rejects the insert. Explicit cleanup prevents this.
+      await supabaseAdmin.from('point_position_history').delete().in('point_id', testPointIds);
+      await supabaseAdmin.from('point_positions').delete().in('point_id', testPointIds);
       await supabaseAdmin.from('points').delete().in('id', testPointIds);
     }
 
-    // Clean up test user
+    // Clean up test user (after points are gone, no FK conflicts remain)
     if (testUser?.user?.id) {
       await deleteTestUser(testUser.user.id);
     }
@@ -79,8 +84,8 @@ test.describe('Profile Position Loading (P151)', () => {
     const pointCard = page.locator('.border-l-4', { hasText: 'Profile test: AI will transform education' });
     await expect(pointCard).toBeVisible();
 
-    // Position badge should be visible
-    const positionBadge = pointCard.getByText(/Agrees|Disagrees|Unsure/);
+    // Position badge should be visible (cursor-default distinguishes badge from interactive buttons)
+    const positionBadge = pointCard.locator('.cursor-default').filter({ hasText: /Agrees|Disagrees|Unsure/ });
     await expect(positionBadge).toBeVisible();
   });
 
@@ -134,7 +139,7 @@ test.describe('Profile Position Loading (P151)', () => {
     await expect(page.getByText('Point 3: Unsure position')).toBeVisible({ timeout: 10000 });
 
     // At least one position badge should be visible for each
-    const agreeBadge = page.locator('.border-l-4', { hasText: 'Point 1' }).getByText(/Agrees/);
+    const agreeBadge = page.locator('.border-l-4', { hasText: 'Point 1' }).locator('.cursor-default').filter({ hasText: /Agrees/ });
     await expect(agreeBadge).toBeVisible();
   });
 

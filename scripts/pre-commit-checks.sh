@@ -272,6 +272,27 @@ else
 fi
 echo ""
 
+# 14. Migration commit reminder (P270 — prevents P160-class bugs)
+# When a migration SQL file is staged, reminds developer to: (1) apply it,
+# (2) add an integration test. Cannot check if migration was applied (no
+# local Docker required). WARNING only — does not block commit.
+echo ">>> Checking for new migrations being committed..."
+STAGED_MIGRATIONS=$(git diff --cached --name-only 2>/dev/null | grep '^supabase/migrations/.*\.sql$' || true)
+if [ -n "$STAGED_MIGRATIONS" ]; then
+    echo -e "${YELLOW}⚠ New migration(s) staged for commit:${NC}"
+    echo "$STAGED_MIGRATIONS" | while IFS= read -r mig; do
+        echo -e "${YELLOW}  → $mig${NC}"
+    done
+    echo -e "${YELLOW}  Checklist before merging:${NC}"
+    echo -e "${YELLOW}  1. Applied to test DB? (supabase db push OR Supabase dashboard)${NC}"
+    echo -e "${YELLOW}  2. Integration test added? (e2e/integration/p{N}-db-schema.spec.ts)${NC}"
+    echo -e "${YELLOW}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
+    WARNINGS=$((WARNINGS + 1))
+else
+    echo -e "${GREEN}✓ No new migrations staged${NC}"
+fi
+echo ""
+
 # Summary
 echo "=== SUMMARY ==="
 if [ $ERRORS -gt 0 ]; then

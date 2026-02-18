@@ -223,7 +223,7 @@ export function ProfilePageV2() {
 
     // Load stories, points, and calibration in parallel
     Promise.all([
-      storiesService.getStoriesByAuthorWithPoints(profile.id),
+      storiesService.getStoriesByAuthorWithPoints(profile.id, currentUser?.id),
       // P151: Use getPointsForProfileDisplay (efficient batch loading)
       // This method:
       // - Returns points CREATED/VALIDATED by this user
@@ -285,7 +285,7 @@ export function ProfilePageV2() {
                 authorId: story.authorId,
                 createdAt: story.createdAt,
                 visibility: 'public' as const,
-                verificationCount: 0,
+                verificationCount: story.understoodCount,
                 tags: story.tags || [],
                 linkedPointIds: story.points?.map(p => p.id) || [],
               };
@@ -998,18 +998,24 @@ function QuotedPointCard({
   onPositionSelect,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
-  const [userPosition, setUserPosition] = useState<Position>(null);
+  const [userPosition, setUserPosition] = useState<Position>(
+    (point.userPosition as Position) ?? null
+  );
 
-  // For now, we don't have position data in PointSummary, so we'll use simple counts
-  const baseCounts: SevenPointCounts = {
-    strongly_agree: 0,
-    agree: 0,
-    somewhat_agree: 0,
-    unsure: 0,
-    somewhat_disagree: 0,
-    disagree: 0,
-    strongly_disagree: 0,
-  };
+  // Sync userPosition from prop when it changes (e.g. profile effect reruns after auth resolves)
+  useEffect(() => {
+    setUserPosition((point.userPosition as Position) ?? null);
+  }, [point.userPosition]);
+
+  const baseCounts = useMemo((): SevenPointCounts => ({
+    strongly_agree: point.positionCounts?.strongly_agree ?? 0,
+    agree: point.positionCounts?.agree ?? 0,
+    somewhat_agree: point.positionCounts?.somewhat_agree ?? 0,
+    unsure: point.positionCounts?.unsure ?? 0,
+    somewhat_disagree: point.positionCounts?.somewhat_disagree ?? 0,
+    disagree: point.positionCounts?.disagree ?? 0,
+    strongly_disagree: point.positionCounts?.strongly_disagree ?? 0,
+  }), [point.positionCounts]);
 
   const counts = useMemo((): SevenPointCounts => {
     const adjusted = { ...baseCounts };

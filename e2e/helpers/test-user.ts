@@ -264,7 +264,13 @@ export async function setTestSession(page: Page, email: string) {
 export async function deleteTestUser(userId: string) {
   console.log(`[TEST HELPER] Deleting test user: ${userId}`);
 
-  // Delete profile first (due to foreign key constraint)
+  // Pre-clean dependent records that might block cascade deletes or user deletion.
+  // These are safe to run even if records don't exist (delete with no match is a no-op).
+  await supabaseAdmin.from('story_verifications').delete()
+    .or(`listener_id.eq.${userId},speaker_id.eq.${userId}`);
+  await supabaseAdmin.from('stories').delete().eq('author_id', userId);
+
+  // Delete profile (cascades remaining FK-linked records)
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
     .delete()
@@ -283,8 +289,9 @@ export async function deleteTestUser(userId: string) {
     if (authError.status === 404) {
       console.warn(`[TEST HELPER] Auth user already deleted: ${userId}`);
     } else {
-      console.error('[TEST HELPER] Failed to delete auth user:', authError);
-      throw authError;
+      // Log but don't throw: auth deletion failures leave orphaned auth rows but
+      // don't affect test correctness. The profile and data are already cleaned up.
+      console.warn('[TEST HELPER] Auth user deletion failed (non-blocking):', authError.message);
     }
   }
 

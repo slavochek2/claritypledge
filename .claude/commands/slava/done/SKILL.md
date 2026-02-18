@@ -51,6 +51,27 @@ For each unchecked item:
 
 If no checklist found, skip this step.
 
+### Step 3.5: UAT Scorecard Gate (P270)
+
+Check if a UAT file exists for this feature:
+```
+features/uat/p{N}.md
+```
+
+If the file exists:
+1. Count `⬜` (untested) entries
+2. Count `✅` (tested) entries
+
+If **✅ count is 0 AND ⬜ count > 0** (all scenarios untested):
+- Warn: "UAT scorecard for P{N} has {count} untested scenarios and none completed. This means no manual acceptance testing was done."
+- Ask: "Proceed to close without UAT? (yes/no)"
+- If user says no → stop. Do not move to done.
+- If user says yes → proceed, but add to the commit message: "Note: UAT not executed"
+
+If file doesn't exist, or ✅ count > 0 → proceed silently.
+
+**Why this gate exists:** P160 was closed with 22 UAT scenarios all marked ⬜. The runtime error would have been caught by UAT scenario UAT-1.1 ("is_private column exists"). See P270 for full root cause analysis.
+
 ### Step 4: Move to `features/done/`
 
 Determine destination folder:

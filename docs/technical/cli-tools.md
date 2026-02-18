@@ -20,20 +20,41 @@ Command-line tools installed alongside MCPs for scripting, CI/CD, and automation
 
 **Common commands:**
 ```bash
-# Pull schema from remote database
-supabase db pull
+# Apply pending migrations (agent-autonomous — no project linking needed)
+DB_URL=$(python3 -c "import json; print(json.load(open('.mcp.json'))['mcpServers']['supabase']['args'][2])")
+supabase migration up --db-url "$DB_URL"
+
+# Check migration status
+supabase migration list --db-url "$DB_URL"
 
 # Generate TypeScript types
-supabase gen types typescript --local > src/types/supabase.ts
+supabase gen types typescript --db-url "$DB_URL" > src/types/supabase.ts
 
 # Dump database schema
-supabase db dump --db-url="<connection-string>" --schema public
+supabase db dump --db-url "$DB_URL" --schema public
 ```
 
+**Agent migration workflow (autonomous — use this):**
+```bash
+# 1. Get DB URL (always available in .mcp.json)
+DB_URL=$(python3 -c "import json; print(json.load(open('.mcp.json'))['mcpServers']['supabase']['args'][2])")
+
+# 2. Apply migrations
+supabase migration up --db-url "$DB_URL"
+
+# 3. Verify with the dogfooding test
+npm run test:e2e -- e2e/integration/
+```
+
+**Known state:**
+- Supabase CLI access token expired — `supabase projects list` returns 401. Use `--db-url` workaround above instead.
+- Project not linked (no `.supabase/config.json`). `--db-url` bypasses this requirement.
+- To restore full CLI auth: go to https://app.supabase.com/account/tokens → create Personal API Token → add to `.env.local` as `SUPABASE_ACCESS_TOKEN` → run `supabase link --project-ref gfjctyxqlwexxwsmkakq`
+- Free tier: project auto-pauses after inactivity. If `supabase migration up` returns "Tenant or user not found" → unpause in Supabase Dashboard first.
+
 **Limitations:**
-- Requires Docker for pg_dump operations
-- Project-based workflow (not ideal for ad-hoc queries)
-- No direct SQL execution (use `psql` for that)
+- Requires Docker for `pg_dump` operations
+- No direct SQL execution via CLI (use Supabase MCP for read queries, or `psql` for DDL when needed)
 
 ---
 
