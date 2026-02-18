@@ -219,6 +219,7 @@ export function HomePage() {
                     avatarColor={person.avatarColor}
                     avatarUrl={person.avatarUrl}
                     isPledger={person.hasPledged}
+                    earCount={person.earCount}
                     action="going"
                   />
                 ))}

@@ -3294,7 +3294,7 @@ export async function getEventAttendees(eventId: string): Promise<EventAttendee[
     .from('event_rsvps')
     .select(`
       profile_id,
-      profiles:profile_id (name, slug, avatar_color, avatar_url)
+      profiles:profile_id (name, slug, avatar_color, avatar_url, has_pledged, ears_count)
     `)
     .eq('event_id', eventId);
 
@@ -3303,13 +3303,18 @@ export async function getEventAttendees(eventId: string): Promise<EventAttendee[
     return [];
   }
 
-  return (data || []).map((rsvp) => ({
-    profileId: rsvp.profile_id,
-    name: (rsvp.profiles as { name?: string })?.name || 'Unknown',
-    slug: (rsvp.profiles as { slug?: string })?.slug || '',
-    avatarColor: (rsvp.profiles as { avatar_color?: string })?.avatar_color,
-    avatarUrl: (rsvp.profiles as { avatar_url?: string })?.avatar_url,
-  }));
+  return (data || []).map((rsvp) => {
+    const p = rsvp.profiles as { name?: string; slug?: string; avatar_color?: string; avatar_url?: string; has_pledged?: boolean; ears_count?: number | null } | null;
+    return {
+      profileId: rsvp.profile_id,
+      name: p?.name || 'Unknown',
+      slug: p?.slug || '',
+      avatarColor: p?.avatar_color,
+      avatarUrl: p?.avatar_url,
+      hasPledged: p?.has_pledged ?? false,
+      earCount: p?.ears_count ?? 0,
+    };
+  });
 }
 
 /**

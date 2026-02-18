@@ -459,6 +459,7 @@ export function EventDetail() {
                     avatarColor={attendee.avatarColor}
                     avatarUrl={attendee.avatarUrl}
                     isPledger={attendee.hasPledged}
+                    earCount={attendee.earCount}
                     action={isPast ? "attended" : "going"}
                   />
                 ))}
