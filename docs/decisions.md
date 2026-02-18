@@ -14,6 +14,37 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Unverified guest model — three rules, nothing else
+
+**Context:** Unverified guests (people who join `/live` via invite without an account) accumulate in the DB with no verification path, no clear UX for blocked actions, and no defined lifecycle. We reviewed the full auth model, RLS policies, profile page behavior, and nav state to decide how much to change.
+
+**Decision:** Three rules, keep everything else as-is:
+1. Unverified guests are session-only participants — they join `/live`, participate, but cannot create stories, points, or persistent positions. RLS already enforces this; nothing to change.
+2. The one verification moment is on `/live` join — when a new unverified guest enters their email and clicks Join, fire the standard Supabase magic link email (same template as signup). Only for `isNew: true`; no repeat emails on re-join.
+3. No profile page until verified — `slug: null` means no `/p/username` URL. Own profile shows verification prompt, not content.
+
+**Alternatives rejected:** Post-session email trigger (P41 model) — timing is worse, requires session-end tracking, and P41 has been stalled with dependencies for months. In-session verification prompts — adds complexity mid-flow. Custom email template — reusing the Supabase default is sufficient and removes all dependencies.
+
+**Consequences:** P274 is the minimal implementation (one `signInWithOtp()` call in `getOrCreateGuestUser()` for `isNew: true` users). P273 adds a `useVerificationGate` hook for consistent blocked-action messaging. P41 (coaching teaser) remains a valid future upgrade — P274 is the mechanism, P41 is the content.
+
+**References:** [P273](../features/p273_bug-create-story-unverified-error.md) | [P274](../features/p274_post-session-verification-email.md)
+
+---
+
+## 2026-02-18: /live point positions stored in clarity_live_turns, not point_positions
+
+**Context:** P272 requires either participant to update their position on linked points during a `/live` session. The listener is typically an unverified guest (`is_verified: false`). `point_positions` RLS blocks all writes from unverified users. If P272 writes to `point_positions`, the listener's position updates silently fail.
+
+**Decision:** Positions set during a `/live` session are stored in `clarity_live_turns` (or a session-scoped field), not in `point_positions`. Live positions are ephemeral game state — they capture each participant's view before and after the verification round, not their public persistent stance. Persistent positions (shown on profile pages) remain in `point_positions` and require `is_verified: true`. After a round, a verified user's position MAY optionally be written to `point_positions` as a separate, non-blocking update.
+
+**Alternatives rejected:** Relaxing `point_positions` RLS for active session context — more complex, higher risk of unintended access patterns, harder to reason about.
+
+**Consequences:** `point_positions` RLS stays unchanged. P275 must be resolved before P272 ships. Any future feature writing live-session positions must follow the same pattern.
+
+**References:** [P275](../features/p275_bug-live-positions-unverified-rls.md) | [P272](../features/p272_live-story-point-verification.md)
+
+---
+
 ## 2026-02-18: Auto-sweep done/ archive via pre-commit (no manual folder management)
 
 **Context:** `features/done/` root was accumulating loose files whenever features were marked done via Kanban drag-to-done or direct `git mv` — both paths bypass the `/done` skill, which already places files into `{N}_{mon}_{yy}` dated subfolders. The kanban scanner explicitly skips those dated subfolders (they're archives by design, invisible to kanban). The user was manually creating new subfolders when the root got crowded.

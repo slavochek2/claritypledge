@@ -364,6 +364,22 @@ The real value is in detecting **false states**:
 
 ---
 
+## User Types
+
+Three distinct user types exist, determined by `is_verified` and `has_pledged` on the `profiles` table:
+
+| Type | How created | Public profile | Can create content |
+|------|------------|---------------|-------------------|
+| **Verified Pledger** | `/sign-pledge` → magic link | ✅ `/p/username` | ✅ |
+| **Verified Non-Pledger** | `/signup` → magic link | ✅ `/p/username` | ✅ |
+| **Unverified Guest** | `/live` invite → enters email | ❌ no slug | ❌ |
+
+**Unverified Guest** — someone who joined a `/live` session via invite link without having an account. They have anonymous Supabase auth, `is_verified: false`, `slug: null`. They can participate in live sessions but cannot create stories, points, or persistent positions. Their conversion path: magic link email sent on join → they click → become a verified user.
+
+See [authentication.md](technical/authentication.md#guest--unverified-users) for the full technical flow.
+
+---
+
 ## Story Visibility Model
 
 | Level | Who sees | Use case |

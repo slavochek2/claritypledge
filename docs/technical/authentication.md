@@ -92,6 +92,58 @@ This is the **critical transaction handler** that runs after magic link verifica
 
 ---
 
+## Guest / Unverified Users
+
+A third user type exists alongside verified pledgers and verified non-pledgers: **unverified guests** who join `/live` sessions via invite.
+
+### Three user types
+
+| Type | `is_verified` | `slug` | Created by |
+|------|--------------|--------|-----------|
+| Verified pledger | `true` | ✅ | `/sign-pledge` → magic link → `AuthCallbackPage` |
+| Verified non-pledger | `true` | ✅ | `/signup` → magic link → `AuthCallbackPage` |
+| **Unverified guest** | `false` | `null` | `/live` join → `getOrCreateGuestUser()` → anonymous Supabase auth |
+
+### Guest join flow (`getOrCreateGuestUser()`)
+
+Location: `src/app/data/api.ts`
+
+1. User enters name + email in `/live` join form
+2. Lookup: does a profile with this email already exist?
+   - **Returning unverified (same email):** reuse existing profile + anonymous session
+   - **Verified user (is_verified: true):** block join, return `requiresLogin: true` — user must log in properly
+   - **New email:** create anonymous Supabase session + new profile (`is_verified: false`, `slug: null`)
+3. For `isNew: true`: fire `supabase.auth.signInWithOtp({ email })` as a side effect — sends the standard magic link email to the guest so they can verify at their leisure (P274)
+
+### What unverified guests can and cannot do
+
+**Can:**
+- Join and participate in `/live` sessions
+- View other users' profiles (read-only)
+- See event pages and public content
+- Take the pledge (converts them to a verified pledger via magic link)
+
+**Cannot (RLS-enforced):**
+- Create stories or points (`point_positions`, `stories`, `points` all require `is_verified: true`)
+- Set persistent positions on points
+- Get a public profile URL (`slug: null`)
+- See the user nav menu (shown same public CTAs as anonymous users)
+
+**Own profile:** redirects to `/me` which shows a "Verify Your Email" prompt — no content, no Create Story button.
+
+### Verification path for guests
+
+Guest clicks the magic link in their email → `/auth/callback` → `AuthCallbackPage` detects existing unverified profile by email → deletes old profile, creates new verified profile with slug generated → user is now `is_verified: true`.
+
+### Session persistence
+
+- Supabase anonymous auth session persists within the same browser (tab/session storage)
+- Email is NOT stored between sessions — guests re-enter it each time they join a new `/live` link
+- Same email → same profile reused. Different email → new profile created (old one orphaned — **accepted known debt**, low volume at current scale, no cleanup job exists yet)
+- No cross-device persistence
+
+---
+
 ## Critical Warnings
 
 ### DO NOT move profile creation to hooks or context
