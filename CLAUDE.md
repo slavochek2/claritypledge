@@ -254,7 +254,7 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
 
-**Ask before:** Installing new global tools, major refactors (10+ files), new frameworks/build systems, new schema designs affecting core tables, anything labeled "experimental." (Running `./scripts/migrate.sh` on an already-created migration file does NOT need asking.)
+**Ask before:** Installing new global tools, major refactors (10+ files), new frameworks/build systems, anything labeled "experimental." (Running `./scripts/migrate.sh` on an existing migration file does NOT need asking — schema design decisions do.)
 
 **Why:** Easy rollback if experiment fails.
 
@@ -436,18 +436,9 @@ See [docs/design-system.md](docs/design-system.md). **Quick rule:** Blue for act
 
 ### Database Access Policy
 
-Single Supabase instance. Schema changes are version-controlled migration files applied autonomously.
+Agents can create and apply migrations autonomously. **What needs asking:** Schema decisions affecting core tables (profiles, points, clarity_sessions). **What doesn't need asking:** Running `./scripts/migrate.sh` once a migration file exists.
 
-**Agent workflow for schema changes:**
-1. Create `supabase/migrations/YYYYMMDD_name.sql`
-2. Run `./scripts/migrate.sh` — autonomous, no Dashboard required
-3. Verify: `npm run test:e2e -- e2e/integration/`
-
-**Naming rule — CRITICAL:** One migration file per day. Multiple files on the same date permanently break `db push`. Use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations.
-
-**What needs asking:** Schema decisions that affect core tables (profiles, points, clarity_sessions). **What doesn't need asking:** Running `./scripts/migrate.sh` once a migration file exists.
-
-See [database.md](docs/technical/database.md) for RLS patterns and schema details.
+See [database.md](docs/technical/database.md) for workflow, naming rules, and RLS patterns.
 
 ---
 

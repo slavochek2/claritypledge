@@ -260,7 +260,7 @@ export function PointCardWithLinks({
                   >
                     {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     <span>
-                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}
+                      {filteredStories.length} {filteredStories.length === 1 ? 'story' : 'stories'}{profileOwner ? ` by ${profileOwner.name}` : ''}
                     </span>
                   </button>
                 ) : (
@@ -353,9 +353,7 @@ export function PointCardWithLinks({
                   ? `${allLinkedStories.length} ${
                       allLinkedStories.length === 1 ? 'story' : 'stories'
                     }`
-                  : `${filteredStories.length} ${
-                      filteredStories.length === 1 ? 'story' : 'stories'
-                    }`}
+                  : `${filteredStories.length} ${filteredStories.length === 1 ? 'story' : 'stories'}${profileOwner ? ` by ${profileOwner.name}` : ''}`}
               </span>
             </button>
           ) : (
