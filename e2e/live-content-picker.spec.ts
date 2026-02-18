@@ -77,7 +77,7 @@ test.describe.skip('Live Content Picker - P128', () => {
 
       // Authenticated users skip the form and go straight to "New meeting"
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       // Get room code
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
@@ -193,7 +193,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.goto('/live');
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
@@ -285,7 +285,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.waitForLoadState('networkidle');
 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
@@ -373,7 +373,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.waitForLoadState('networkidle');
 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
@@ -467,7 +467,7 @@ test.describe.skip('Live Content Picker - P128', () => {
       await creatorPage.waitForLoadState('networkidle');
 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;

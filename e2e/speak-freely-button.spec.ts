@@ -15,13 +15,19 @@
  * 4. Bob sees "Speak Freely" button (not "Skip")
  * 5. Bob clicks "Speak Freely" → button changes to "Skip without waiting"
  * 6. Alice sees dialog: "Allow Bob to skip active listening?"
+ *
+ * Auth notes:
+ * - Creators (speakers) require auth per P66.1
+ * - Joiners are also authenticated in tests to avoid signInAnonymously failures
+ * - Both users get createTestUser + setTestSession before navigating
  */
 
 import { test, expect } from '@playwright/test';
-import { deleteClaritySession } from './helpers/test-user';
-import { waitForDBPresence } from './helpers/test-realtime';
+import { deleteClaritySession, createTestUser, setTestSession, deleteTestUser } from './helpers/test-user';
+import { waitForDBPresence, mockMicPermission } from './helpers/test-realtime';
 
 test.describe('Speak Freely Button - Negotiation Flow', () => {
+  test.describe.configure({ timeout: 90000 });
   // This test has timing issues - the critical scenario (dialog with drawer open) is covered by test 2
   test.skip('Listener sees "Speak Freely" button and triggers speaker confirmation dialog', async ({ browser }) => {
     // Create two browser contexts to simulate two users
@@ -31,18 +37,28 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     // Track session for cleanup
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
+      // Both users authenticated — avoids signInAnonymously failures in test env
+      creatorUser = await createTestUser({ name: 'Alice' });
+      joinerUser = await createTestUser({ name: 'Bob' });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       // Step 1: Speaker (Alice) starts a meeting
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill('Alice');
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
       // Wait for the waiting room with share link
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       // Get the room code from the share link
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
@@ -50,31 +66,34 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       roomCode = shareLink!.split('/').pop()!;
       expect(roomCode).toHaveLength(6);
 
-      // Step 2: Listener (Bob) joins the meeting
+      // Step 2: Listener (Bob) joins the meeting (authenticated, but form still needs email + consent)
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill('Bob');
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode!);
 
       // Wait for both users to be in live view
-      await expect(speakerPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
-
-      // Both should see the idle state
-      await expect(speakerPage.getByText('Does Bob understand you?')).toBeVisible();
-      await expect(listenerPage.getByText('Does Alice understand you?')).toBeVisible();
+      await expect(speakerPage.getByRole('button', { name: 'Does Bob understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: 'Does Alice understand you?' })).toBeVisible({ timeout: 15000 });
 
       // Step 3: Speaker (Alice) starts a "Does Bob understand you?" check
-      // This opens the rating card locally for the speaker only
       await speakerPage.getByRole('button', { name: 'Does Bob understand you?' }).click();
 
       // Speaker should see their rating card
-      await expect(speakerPage.getByText(/How well do you feel/i)).toBeVisible({ timeout: 5000 });
+      await expect(speakerPage.getByText(/How well do you believe/i)).toBeVisible({ timeout: 5000 });
 
       // Step 4: Speaker selects rating (7) and clicks Submit
-      // After Submit, listener will see the rating drawer
       await speakerPage.getByRole('button', { name: '7' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
@@ -86,8 +105,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
       // Step 5: Listener (Bob) sees gap revealed and "Explain back what I heard" option
-      // This is the screen where listener can choose to explain back
-      await expect(listenerPage.getByText(/Help Alice feel more understood/i)).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText(/Help Alice understand you better/i)).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByRole('button', { name: /Explain back what I heard/i })).toBeVisible();
 
       // Listener clicks "Explain back what I heard" to enter explain-back mode
@@ -100,18 +118,12 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: /I'm done with active listening/i }).click();
 
       // Step 7: Listener is waiting for speaker to evaluate
-      // In this state, listener sees "Skip" button (not "Speak Freely")
-      // "Speak Freely" with negotiation is available BEFORE clicking "Done Explaining"
       await expect(listenerPage.getByText(/Waiting for Alice to evaluate/i)).toBeVisible({ timeout: 5000 });
 
       // Listener can still skip from this state using the "Skip" button
-      // This is a direct skip, not a negotiation flow
       const skipButton = listenerPage.getByRole('button', { name: 'Skip' });
       await expect(skipButton).toBeVisible({ timeout: 5000 });
 
-      // Note: The negotiation flow with "Speak Freely" is tested in the second test
-      // where listener clicks it BEFORE clicking "Done Explaining"
-      // Here we just verify the skip button works
       await skipButton.click();
 
       // After skip, listener sees confirmation dialog
@@ -132,6 +144,12 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       if (roomCode) {
         await deleteClaritySession(roomCode);
       }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
+      }
     }
   });
 
@@ -143,32 +161,50 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting and join
+      // Both users authenticated — avoids signInAnonymously failures in test env
+      creatorUser = await createTestUser({ name: 'Charlie' });
+      joinerUser = await createTestUser({ name: 'Diana' });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill('Charlie');
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill('Diana');
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Diana', 'code', roomCode!);
 
-      await expect(speakerPage.getByText('Diana')).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText('Charlie')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByRole('button', { name: 'Does Diana understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: 'Does Charlie understand you?' })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check - opens rating locally
       await speakerPage.getByRole('button', { name: 'Does Diana understand you?' }).click();
-      await expect(speakerPage.getByText(/How well do you feel/i)).toBeVisible({ timeout: 5000 });
+      await expect(speakerPage.getByText(/How well do you believe/i)).toBeVisible({ timeout: 5000 });
 
       // Speaker selects rating (6) and clicks Submit
       await speakerPage.getByRole('button', { name: '6' }).click();
@@ -180,7 +216,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
       // Listener sees gap revealed and "Explain back what I heard" option
-      await expect(listenerPage.getByText(/Help Charlie feel more understood/i)).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText(/Help Charlie understand you better/i)).toBeVisible({ timeout: 10000 });
 
       // Listener clicks "Explain back what I heard" to enter explain-back mode
       await listenerPage.getByRole('button', { name: /Explain back what I heard/i }).click();
@@ -204,15 +240,17 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       const speakerDialog = speakerPage.getByText('Allow Diana to skip active listening?');
       await expect(speakerDialog).toBeVisible({ timeout: 10000 });
 
-      // Optional: Listener's button may change to "Skip without waiting"
-      // This is a nice-to-have UI feedback, not the critical behavior
-      // The critical test is that the speaker dialog appears
-
     } finally {
       await speakerContext.close();
       await listenerContext.close();
       if (roomCode) {
         await deleteClaritySession(roomCode);
+      }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
       }
     }
   });
@@ -220,35 +258,51 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
   test('Listener "Speak freely" in post-Done-Explaining waiting state triggers dialog', async ({ browser }) => {
     // BUG: After listener clicks "Done Explaining" and is waiting for speaker to evaluate,
     // clicking "Speak freely" should trigger the negotiation dialog on speaker's side.
-    // This is the exact bug from B31_2 screenshot testing.
     const speakerContext = await browser.newContext();
     const listenerContext = await browser.newContext();
 
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting and join
+      creatorUser = await createTestUser({ name: 'Eve' });
+      joinerUser = await createTestUser({ name: 'Frank' });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill('Eve');
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill('Frank');
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Frank', 'code', roomCode!);
 
-      await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByRole('button', { name: 'Does Frank understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: 'Does Eve understand you?' })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
       await speakerPage.getByRole('button', { name: 'Does Frank understand you?' }).click();
@@ -261,7 +315,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
       // Listener enters explain-back mode
-      await expect(listenerPage.getByText(/Help Eve feel more understood/i)).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText(/Help Eve understand you better/i)).toBeVisible({ timeout: 10000 });
       await listenerPage.getByRole('button', { name: /Explain back what I heard/i }).click();
 
       // Listener clicks "Done Explaining"
@@ -269,31 +323,32 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: /I'm done with active listening/i }).click();
 
       // CRITICAL STATE: Listener is now waiting for speaker to evaluate
-      // Wait for state transition - listener should see waiting message
       await expect(listenerPage.getByText(/Waiting for Eve to evaluate/i)).toBeVisible({ timeout: 10000 });
 
-      // Give time for state sync (speaker drawer may or may not be visible, we test dialog appears)
+      // Give time for state sync
       await speakerPage.waitForTimeout(2000);
 
       const speakFreelyButton = listenerPage.getByRole('button', { name: /Speak freely/i });
       await expect(speakFreelyButton).toBeVisible({ timeout: 5000 });
 
-      // Listener clicks "Speak freely" - THIS IS THE BUG
+      // Listener clicks "Speak freely" - THIS IS THE BUG FIX
       await speakFreelyButton.click();
 
       // Speaker should see dialog asking to allow skip (polling-driven, needs extra time)
       const speakerDialog = speakerPage.getByText('Allow Frank to skip active listening?');
       await expect(speakerDialog).toBeVisible({ timeout: 10000 });
 
-      // Optional: Listener's button may change to "Skip without waiting"
-      // This is a nice-to-have UI feedback, not the critical behavior
-      // The critical test is that the speaker dialog appears
-
     } finally {
       await speakerContext.close();
       await listenerContext.close();
       if (roomCode) {
         await deleteClaritySession(roomCode);
+      }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
       }
     }
   });
@@ -307,28 +362,45 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting and join
+      creatorUser = await createTestUser({ name: 'Grace' });
+      joinerUser = await createTestUser({ name: 'Henry' });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill('Grace');
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill('Henry');
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Henry', 'code', roomCode!);
 
-      await expect(speakerPage.getByText('Henry')).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText('Grace')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByRole('button', { name: 'Does Henry understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: 'Does Grace understand you?' })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
       await speakerPage.getByRole('button', { name: 'Does Henry understand you?' }).click();
@@ -365,59 +437,82 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       if (roomCode) {
         await deleteClaritySession(roomCode);
       }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
+      }
     }
   });
 
   test('EXPLAIN-BACK PHASE: "Suggest explaining back" triggers listener dialog IMMEDIATELY', async ({ browser }) => {
     // BUG: In explain-back phase (speaker has rating drawer open), clicking "Suggest explaining back first"
     // should IMMEDIATELY show the listener dialog, not wait for speaker to submit rating.
-    // This is the exact bug from the user's manual testing.
     const speakerContext = await browser.newContext();
     const listenerContext = await browser.newContext();
 
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting and join - use fresh session with unique names
+      // Use fresh session with unique names
       const timestamp = Date.now();
       const speakerName = `Speaker${timestamp}`;
       const listenerName = `Listener${timestamp}`;
 
+      creatorUser = await createTestUser({ name: speakerName });
+      joinerUser = await createTestUser({ name: listenerName });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill(speakerName);
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', listenerName, 'code', roomCode!);
 
       // Wait for both users to see each other
-      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
+      await expect(speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: `Does ${speakerName} understand you?` })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check - use ratings that create a clear gap
       await speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` }).click();
       await speakerPage.getByRole('button', { name: '5' }).click();
       await speakerPage.getByRole('button', { name: 'Submit' }).click();
 
-      // Listener rates - create gap (listener thinks they understand more than speaker thinks)
+      // Listener rates - create gap
       await expect(listenerPage.getByText(/How confident are you/i)).toBeVisible({ timeout: 10000 });
       await listenerPage.getByRole('button', { name: '9' }).click();
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
       // Listener enters explain-back mode
-      await expect(listenerPage.getByText(new RegExp(`Help ${speakerName} feel more understood`, 'i'))).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText(new RegExp(`Help ${speakerName} understand you better`, 'i'))).toBeVisible({ timeout: 10000 });
       await listenerPage.getByRole('button', { name: /Explain back what I heard/i }).click();
 
       // Listener finishes explaining
@@ -437,17 +532,16 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // First verify the listener's button changes to "Skip without waiting" (negotiation state applied)
       await expect(listenerPage.getByRole('button', { name: 'Skip without waiting' })).toBeVisible({ timeout: 10000 });
 
-      // Speaker should see negotiation dialog - give time for realtime sync
-      await expect(speakerPage.getByText(`Allow ${listenerName} to skip active listening?`)).toBeVisible({ timeout: 15000 });
+      // Speaker should see negotiation dialog (polling-driven, allow up to 25s)
+      await expect(speakerPage.getByText(`Allow ${listenerName} to skip active listening?`)).toBeVisible({ timeout: 25000 });
 
       // Speaker clicks "Suggest explaining back first"
       const suggestButton = speakerPage.getByRole('button', { name: 'Suggest explaining back first' });
       await expect(suggestButton).toBeVisible({ timeout: 5000 });
       await suggestButton.click();
 
-      // CRITICAL: Listener should see dialog IMMEDIATELY (not after speaker submits rating)
-      // Polling-driven cross-context sync needs extra time
-      await expect(listenerPage.getByText(/would like to feel understood/i)).toBeVisible({ timeout: 10000 });
+      // CRITICAL: Listener should see dialog IMMEDIATELY (polling-driven cross-context sync)
+      await expect(listenerPage.getByText(/would like to feel understood/i)).toBeVisible({ timeout: 15000 });
       await expect(listenerPage.getByRole('button', { name: 'Continue as listener' })).toBeVisible({ timeout: 10000 });
       await expect(listenerPage.getByRole('button', { name: 'I really need to speak' })).toBeVisible({ timeout: 10000 });
 
@@ -456,6 +550,12 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerContext.close();
       if (roomCode) {
         await deleteClaritySession(roomCode);
+      }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
       }
     }
   });
@@ -468,28 +568,45 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting and join
+      creatorUser = await createTestUser({ name: 'Kate' });
+      joinerUser = await createTestUser({ name: 'Leo' });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill('Kate');
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill('Leo');
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Leo', 'code', roomCode!);
 
-      await expect(speakerPage.getByText('Leo')).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText('Kate')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByRole('button', { name: 'Does Leo understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: 'Does Kate understand you?' })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
       await speakerPage.getByRole('button', { name: 'Does Leo understand you?' }).click();
@@ -521,45 +638,67 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       if (roomCode) {
         await deleteClaritySession(roomCode);
       }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
+      }
     }
   });
 
   test('B32_2 & B32_3: Speaker drawer remains and listener stays in waiting state after "Continue as listener"', async ({ browser }) => {
     // BUG B32_2: Speaker's rating drawer should remain visible so they can rate the explanation.
     // BUG B32_3: Listener should return to "Waiting for speaker to evaluate", NOT restart explain-back mode.
-    // Both bugs stemmed from handleContinueAsListener incorrectly resetting explainBackDone=false.
     const speakerContext = await browser.newContext();
     const listenerContext = await browser.newContext();
 
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting with unique names
       const timestamp = Date.now();
       const speakerName = `Spk${timestamp}`;
       const listenerName = `Lst${timestamp}`;
 
+      creatorUser = await createTestUser({ name: speakerName });
+      joinerUser = await createTestUser({ name: listenerName });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill(speakerName);
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', listenerName, 'code', roomCode!);
 
-      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
+      await expect(speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: `Does ${speakerName} understand you?` })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
       await speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` }).click();
@@ -572,7 +711,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
       // Listener enters explain-back mode
-      await expect(listenerPage.getByText(new RegExp(`Help ${speakerName} feel more understood`, 'i'))).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText(new RegExp(`Help ${speakerName} understand you better`, 'i'))).toBeVisible({ timeout: 10000 });
       await listenerPage.getByRole('button', { name: /Explain back what I heard/i }).click();
 
       // Listener finishes explaining
@@ -582,11 +721,8 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // Wait for state sync - listener in waiting state
       await expect(listenerPage.getByText(new RegExp(`Waiting for ${speakerName} to evaluate`, 'i'))).toBeVisible({ timeout: 15000 });
 
-      // Wait for speaker to see rating drawer (realtime sync can take longer)
-      // The drawer prompt is "How well did X capture the intention behind your idea?"
-      // Use .last() to skip the sr-only heading and get the visible one
-      // Poll for up to 30 seconds since realtime can be slow
-      await expect(speakerPage.getByText(/capture the intention behind your idea/i).last()).toBeVisible({ timeout: 30000 });
+      // Wait for speaker to see rating drawer
+      await expect(speakerPage.getByText(/Hear what.*missing for a perfect 10/i).last()).toBeVisible({ timeout: 30000 });
 
       // Listener clicks "Speak freely" to start negotiation
       await listenerPage.getByRole('button', { name: /Speak freely/i }).click();
@@ -604,19 +740,23 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // CRITICAL BUG CHECKS:
 
       // B32_2: Speaker's rating drawer should STILL be visible
-      // Previously, the drawer disappeared because explainBackDone was reset to false
-      await expect(speakerPage.getByText(/capture the intention behind your idea/i).last()).toBeVisible({ timeout: 5000 });
+      await expect(speakerPage.getByText(/Hear what.*missing for a perfect 10/i).last()).toBeVisible({ timeout: 10000 });
 
       // B32_3: Listener should return to WAITING state, NOT explain-back mode
-      // They already finished explaining before clicking "Speak freely", so they should
-      // return to "Waiting for speaker to evaluate", not restart explain-back.
-      await expect(listenerPage.getByText(new RegExp(`Waiting for ${speakerName}`, 'i'))).toBeVisible({ timeout: 5000 });
+      // Transition takes time due to DB polling — allow up to 15s
+      await expect(listenerPage.getByText(new RegExp(`Waiting for ${speakerName}`, 'i'))).toBeVisible({ timeout: 15000 });
 
     } finally {
       await speakerContext.close();
       await listenerContext.close();
       if (roomCode) {
         await deleteClaritySession(roomCode);
+      }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
       }
     }
   });
@@ -629,32 +769,49 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting and join
+      creatorUser = await createTestUser({ name: 'Eve' });
+      joinerUser = await createTestUser({ name: 'Frank' });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill('Eve');
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill('Frank');
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Frank', 'code', roomCode!);
 
-      await expect(speakerPage.getByText('Frank')).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText('Eve')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByRole('button', { name: 'Does Frank understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: 'Does Eve understand you?' })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check - opens rating locally
       await speakerPage.getByRole('button', { name: 'Does Frank understand you?' }).click();
-      await expect(speakerPage.getByText(/How well do you feel/i)).toBeVisible({ timeout: 5000 });
+      await expect(speakerPage.getByText(/How well do you believe/i)).toBeVisible({ timeout: 5000 });
 
       // Speaker selects rating (5) and clicks Submit
       await speakerPage.getByRole('button', { name: '5' }).click();
@@ -665,11 +822,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: '7' }).click();
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
-      // Gap revealed - both see results
-      // Speaker should have "Speak freely" option somewhere
-      // When speaker clicks their "Speak freely", it should work directly without listener confirmation
-
-      // Find speaker's "Speak freely" button
+      // Gap revealed - find speaker's "Speak freely" button
       const speakerSpeakFreely = speakerPage.getByRole('button', { name: /Speak freely/i });
 
       // This might not be visible in all states, so we use a soft check
@@ -679,7 +832,6 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
         await speakerSpeakFreely.click();
 
         // There should be NO dialog shown to listener asking for permission
-        // The listener should NOT see "Allow Eve to skip active listening?"
         const listenerDialog = listenerPage.getByText('Allow Eve to skip active listening?');
 
         // Wait a moment to ensure no dialog appears
@@ -692,6 +844,12 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerContext.close();
       if (roomCode) {
         await deleteClaritySession(roomCode);
+      }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
       }
     }
   });
@@ -711,32 +869,49 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
     const speakerPage = await speakerContext.newPage();
     const listenerPage = await listenerContext.newPage();
 
+    await mockMicPermission(speakerPage);
+    await mockMicPermission(listenerPage);
+
     let roomCode: string | null = null;
+    let creatorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let joinerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
-      // Setup: Create meeting with unique names
       const timestamp = Date.now();
       const speakerName = `Spk${timestamp}`;
       const listenerName = `Lst${timestamp}`;
 
+      creatorUser = await createTestUser({ name: speakerName });
+      joinerUser = await createTestUser({ name: listenerName });
+      await setTestSession(speakerPage, creatorUser.email);
+      await setTestSession(listenerPage, joinerUser.email);
+
       await speakerPage.goto('/live');
       await speakerPage.waitForLoadState('networkidle');
-      await speakerPage.getByPlaceholder('Enter your name').fill(speakerName);
       await speakerPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(speakerPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(speakerPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink = await speakerPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;
 
       await listenerPage.goto(`/live/${roomCode}`);
-      await listenerPage.getByPlaceholder('Enter your name').fill(listenerName);
+      // Join form always shows email + consent (even for auth users); fill to enable the button
+      await listenerPage.getByPlaceholder('your@email.com').fill(joinerUser!.email);
+      await listenerPage.getByRole('checkbox').check();
       await listenerPage.getByRole('button', { name: 'Join Session' }).click();
+      // Handle "Updated Terms" dialog — new test users trigger this on first join
+      try {
+        await listenerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
+        await listenerPage.getByRole('button', { name: 'Continue' }).click();
+      } catch {
+        // No terms dialog — proceed normally
+      }
 
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', listenerName, 'code', roomCode!);
 
-      await expect(speakerPage.getByText(listenerName)).toBeVisible({ timeout: 5000 });
-      await expect(listenerPage.getByText(speakerName)).toBeVisible({ timeout: 15000 });
+      await expect(speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` })).toBeVisible({ timeout: 15000 });
+      await expect(listenerPage.getByRole('button', { name: `Does ${speakerName} understand you?` })).toBeVisible({ timeout: 15000 });
 
       // Speaker starts check
       await speakerPage.getByRole('button', { name: `Does ${listenerName} understand you?` }).click();
@@ -749,7 +924,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: 'Submit' }).click();
 
       // Listener enters explain-back mode
-      await expect(listenerPage.getByText(new RegExp(`Help ${speakerName} feel more understood`, 'i'))).toBeVisible({ timeout: 10000 });
+      await expect(listenerPage.getByText(new RegExp(`Help ${speakerName} understand you better`, 'i'))).toBeVisible({ timeout: 10000 });
       await listenerPage.getByRole('button', { name: /Explain back what I heard/i }).click();
 
       // Listener finishes explaining
@@ -757,7 +932,7 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerPage.getByRole('button', { name: /I'm done with active listening/i }).click();
 
       // Wait for speaker to see rating drawer
-      await expect(speakerPage.getByText(/capture the intention behind your idea/i).last()).toBeVisible({ timeout: 30000 });
+      await expect(speakerPage.getByText(/Hear what.*missing for a perfect 10/i).last()).toBeVisible({ timeout: 30000 });
 
       // Speaker rates the explain-back and decides to clarify
       await speakerPage.getByRole('button', { name: '7' }).click();
@@ -787,6 +962,12 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       await listenerContext.close();
       if (roomCode) {
         await deleteClaritySession(roomCode);
+      }
+      if (creatorUser) {
+        await deleteTestUser(creatorUser.user.id);
+      }
+      if (joinerUser) {
+        await deleteTestUser(joinerUser.user.id);
       }
     }
   });

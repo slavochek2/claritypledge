@@ -14,7 +14,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { createTestUser, setTestSession, deleteTestUser, deleteClaritySession } from './helpers/test-user';
-import { waitForDBPresence } from './helpers/test-realtime';
+import { waitForDBPresence, mockMicPermission } from './helpers/test-realtime';
 
 test.describe('New Meeting After Session Ends', () => {
   test.describe.configure({ timeout: 120000 }); // Long tests with multiple meetings
@@ -34,6 +34,10 @@ test.describe('New Meeting After Session Ends', () => {
     const creatorPage = await creatorContext.newPage();
     const joinerPage = await joinerContext.newPage();
 
+    // Mock mic on both contexts so the app's mic check doesn't block the join
+    await mockMicPermission(creatorPage);
+    await mockMicPermission(joinerPage);
+
     const sessionCodes: string[] = [];
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
@@ -51,7 +55,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink1 = await creatorPage.getByTestId('share-link').textContent();
       const roomCode1 = shareLink1!.split('/').pop()!;
@@ -71,10 +75,8 @@ test.describe('New Meeting After Session Ends', () => {
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode1);
 
       // Both should be in live meeting
-      await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
-      await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
-      await expect(creatorPage.getByText('Does Bob understand you?')).toBeVisible();
-      await expect(joinerPage.getByText('Does Alice understand you?')).toBeVisible();
+      await expect(creatorPage.getByRole('button', { name: 'Does Bob understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(joinerPage.getByRole('button', { name: 'Does Alice understand you?' })).toBeVisible({ timeout: 15000 });
 
       // ========================================
       // END MEETING 1: Joiner leaves
@@ -86,14 +88,14 @@ test.describe('New Meeting After Session Ends', () => {
       await joinerPage.getByRole('button', { name: 'Leave' }).last().click();
 
       // Joiner back at start
-      await expect(joinerPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 10000 });
+      await expect(joinerPage.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 10000 });
 
       // Creator sees partner left
       await expect(creatorPage.getByText('Bob has left')).toBeVisible({ timeout: 10000 });
 
       // Creator clicks Start New Session
       await creatorPage.getByRole('button', { name: 'Start New Session' }).click();
-      await expect(creatorPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 5000 });
 
       // ========================================
       // MEETING 2: Second meeting - THIS IS WHERE THE BUG OCCURS
@@ -101,7 +103,7 @@ test.describe('New Meeting After Session Ends', () => {
 
       // Creator starts second meeting (authenticated — button enabled directly)
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       await expect(creatorPage.getByText('Waiting for partner to join...')).toBeVisible();
 
       const shareLink2 = await creatorPage.getByTestId('share-link').textContent();
@@ -132,12 +134,9 @@ test.describe('New Meeting After Session Ends', () => {
       // Wait for DB to confirm joiner wrote their name for Meeting 2 (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Bob', 'code', roomCode2);
 
-      await expect(creatorPage.getByText('Bob')).toBeVisible({ timeout: 5000 });
-      await expect(joinerPage.getByText('Alice')).toBeVisible({ timeout: 10000 });
-
       // Both should see live meeting buttons
-      await expect(creatorPage.getByText('Does Bob understand you?')).toBeVisible();
-      await expect(joinerPage.getByText('Does Alice understand you?')).toBeVisible();
+      await expect(creatorPage.getByRole('button', { name: 'Does Bob understand you?' })).toBeVisible({ timeout: 15000 });
+      await expect(joinerPage.getByRole('button', { name: 'Does Alice understand you?' })).toBeVisible({ timeout: 15000 });
 
     } finally {
       await creatorContext.close();
@@ -159,6 +158,10 @@ test.describe('New Meeting After Session Ends', () => {
     const creatorPage = await creatorContext.newPage();
     const joinerPage = await joinerContext.newPage();
 
+    // Mock mic on both contexts so the app's mic check doesn't block the join
+    await mockMicPermission(creatorPage);
+    await mockMicPermission(joinerPage);
+
     const sessionCodes: string[] = [];
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
@@ -172,7 +175,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink1 = await creatorPage.getByTestId('share-link').textContent();
       const roomCode1 = shareLink1!.split('/').pop()!;
       sessionCodes.push(roomCode1);
@@ -190,7 +193,7 @@ test.describe('New Meeting After Session Ends', () => {
       // Wait for DB to confirm joiner wrote their name (Realtime doesn't propagate between isolated contexts)
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Guest', 'code', roomCode1);
 
-      await expect(creatorPage.getByText('Guest')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByRole('button', { name: 'Does Guest understand you?' })).toBeVisible({ timeout: 15000 });
 
       await joinerPage.getByRole('button', { name: 'Menu' }).click();
       await joinerPage.getByRole('menuitem', { name: 'Leave Session' }).click();
@@ -200,10 +203,10 @@ test.describe('New Meeting After Session Ends', () => {
 
       // Creator starts new session
       await creatorPage.getByRole('button', { name: 'Start New Session' }).click();
-      await expect(creatorPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 5000 });
 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink2 = await creatorPage.getByTestId('share-link').textContent();
       const roomCode2 = shareLink2!.split('/').pop()!;
@@ -239,6 +242,10 @@ test.describe('New Meeting After Session Ends', () => {
     const creatorPage = await creatorContext.newPage();
     const joinerPage = await joinerContext.newPage();
 
+    // Mock mic on both contexts so the app's mic check doesn't block the join
+    await mockMicPermission(creatorPage);
+    await mockMicPermission(joinerPage);
+
     const sessionCodes: string[] = [];
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
@@ -252,7 +259,7 @@ test.describe('New Meeting After Session Ends', () => {
       await creatorPage.waitForLoadState('networkidle');
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       const shareLink1 = await creatorPage.getByTestId('share-link').textContent();
       const roomCode1 = shareLink1!.split('/').pop()!;
       sessionCodes.push(roomCode1);
@@ -273,7 +280,7 @@ test.describe('New Meeting After Session Ends', () => {
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Guest', 'code', roomCode1);
 
       // Both connected
-      await expect(creatorPage.getByText('Does Guest understand you?')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByText('Does Guest understand you?')).toBeVisible({ timeout: 15000 });
       await expect(joinerPage.getByText('Does Host understand you?')).toBeVisible({ timeout: 10000 });
 
       // End meeting - joiner leaves
@@ -282,17 +289,17 @@ test.describe('New Meeting After Session Ends', () => {
       await joinerPage.getByRole('button', { name: 'Leave' }).last().click();
 
       // Joiner is back at start screen (same tab, just navigated back)
-      await expect(joinerPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 10000 });
+      await expect(joinerPage.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 10000 });
 
       // Creator sees partner left
       await expect(creatorPage.getByText('Guest has left')).toBeVisible({ timeout: 10000 });
       await creatorPage.getByRole('button', { name: 'Start New Session' }).click();
-      await expect(creatorPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 5000 });
 
       // ========== MEETING 2 - SAME TABS ==========
       // Creator creates new meeting
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink2 = await creatorPage.getByTestId('share-link').textContent();
       const roomCode2 = shareLink2!.split('/').pop()!;
@@ -320,7 +327,7 @@ test.describe('New Meeting After Session Ends', () => {
       await waitForDBPresence('clarity_sessions', 'joiner_name', 'Guest', 'code', roomCode2);
 
       // CRITICAL: Both should connect
-      await expect(creatorPage.getByText('Does Guest understand you?')).toBeVisible({ timeout: 5000 });
+      await expect(creatorPage.getByText('Does Guest understand you?')).toBeVisible({ timeout: 15000 });
       await expect(joinerPage.getByText('Does Host understand you?')).toBeVisible({ timeout: 10000 });
 
     } finally {
@@ -343,6 +350,10 @@ test.describe('New Meeting After Session Ends', () => {
     const creatorPage = await creatorContext.newPage();
     const joinerPage = await joinerContext.newPage();
 
+    // Mock mic on both contexts so the app's mic check doesn't block the join
+    await mockMicPermission(creatorPage);
+    await mockMicPermission(joinerPage);
+
     const sessionCodes: string[] = [];
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
@@ -359,7 +370,7 @@ test.describe('New Meeting After Session Ends', () => {
         }
 
         await creatorPage.getByRole('button', { name: 'New session' }).click();
-        await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+        await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
         const shareLink = await creatorPage.getByTestId('share-link').textContent();
         const roomCode = shareLink!.split('/').pop()!;
@@ -393,7 +404,7 @@ test.describe('New Meeting After Session Ends', () => {
 
         await expect(creatorPage.getByText(/Partner has left|has left/)).toBeVisible({ timeout: 10000 });
         await creatorPage.getByRole('button', { name: 'Start New Session' }).click();
-        await expect(creatorPage.getByText('Practice Clarity Together')).toBeVisible({ timeout: 5000 });
+        await expect(creatorPage.getByRole('button', { name: 'New session' })).toBeVisible({ timeout: 5000 });
       }
 
     } finally {

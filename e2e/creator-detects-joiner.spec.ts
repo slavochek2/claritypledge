@@ -76,7 +76,7 @@ test.describe('Creator Detects Joiner', () => {
       await creatorPage.getByRole('button', { name: 'New session' }).click();
 
       // Wait for the waiting room with share link
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
       await expect(creatorPage.getByText('Waiting for partner to join')).toBeVisible();
 
       // Get the room code from the share link
@@ -191,7 +191,7 @@ test.describe('Creator Detects Joiner', () => {
       }
 
       await creatorPage.getByRole('button', { name: 'New session' }).click();
-      await expect(creatorPage.getByText('Share this link with your partner')).toBeVisible({ timeout: 10000 });
+      await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       const shareLink = await creatorPage.getByTestId('share-link').textContent();
       roomCode = shareLink!.split('/').pop()!;

@@ -10,12 +10,18 @@ tags:
   - verification
   - calibration
 prepped_date: '2026-02-18'
-delivery_stage: ux-review
+delivery_stage: arch-review
 reviews:
   ux: null
   architect: null
   alignment: null
 created_date: 2026-02-18
+uat_file: features/uat/p272.md
+test_files:
+  - e2e/integration/p272-accuracy-achieved-migration.spec.ts
+  - e2e/p272-live-verification.spec.ts
+  - e2e/p272-smoke.spec.ts
+  - e2e/a11y/p272-accessibility.spec.ts
 ---
 
 # P272: Verification of Stories and Points in /live
@@ -351,6 +357,132 @@ All component names below refer to existing production components in `live-mode-
 
 ---
 
+### 2b. Screen Wireframes
+
+Mobile-first (`max-w-sm`). These five states cover all new UI surfaces. Existing states (gap reveal, explain-back, success screen) follow the same pattern as State 5 — story card above, drawer or content below.
+
+**State 1 — Picker open, no story selected**
+```
+┌──────────────────────────────────┐
+│ 🔴  You're live with Alex        │  LiveHeader
+├──────────────────────────────────┤
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │  Does Alex understand you? │  │  primary (blue)
+│  └────────────────────────────┘  │
+│  ┌────────────────────────────┐  │
+│  │  Do you understand Alex?   │  │  secondary (outline)
+│  └────────────────────────────┘  │
+│                                  │
+│  ┌─ 🔍 Search your stories ───┐  │
+│  └────────────────────────────┘  │
+│                                  │  ← empty until user types
+└──────────────────────────────────┘
+```
+
+**State 2 — Picker: results visible**
+```
+┌──────────────────────────────────┐
+│ 🔴  You're live with Alex        │
+├──────────────────────────────────┤
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │  Does Alex understand you? │  │
+│  └────────────────────────────┘  │
+│  ┌────────────────────────────┐  │
+│  │  Do you understand Alex?   │  │
+│  └────────────────────────────┘  │
+│                                  │
+│  ┌─ 🔍 calibrat______________ ┐  │
+│  ├────────────────────────────┤  │
+│  │ The calibration story      │  │  result row (<button>)
+│  │ "When I first realised..." │  │
+│  ├────────────────────────────┤  │
+│  │ My calibration method      │  │  result row (<button>)
+│  │ "I use a simple framew..." │  │
+│  └────────────────────────────┘  │
+└──────────────────────────────────┘
+```
+
+**State 3 — Story selected, pre-round (both screens)**
+```
+┌──────────────────────────────────┐
+│ 🔴  You're live with Alex        │
+├──────────────────────────────────┤
+│  ┌────────────────────────────┐  │
+│  │ The calibration story      │  │  LiveStoryCardExpanded
+│  │ "When I first realised..." │  │  collapsed by default
+│  │                          ▼ │  │  expand toggle (aria-expanded)
+│  └────────────────────────────┘  │
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │  Does Alex understand you? │  │  primary (blue)
+│  └────────────────────────────┘  │
+│  ┌────────────────────────────┐  │
+│  │  Do you understand Alex?   │  │  secondary (outline)
+│  └────────────────────────────┘  │
+│                                  │
+│          Speak freely            │  text button — clears story
+│                                  │  from both screens (no X button)
+└──────────────────────────────────┘
+```
+*Listener sees identical layout. No X button on either screen. No picker visible.*
+
+**State 4 — Story card expanded (points visible)**
+```
+┌──────────────────────────────────┐
+│ 🔴  You're live with Alex        │
+├──────────────────────────────────┤
+│  ┌────────────────────────────┐  │
+│  │ The calibration story      │  │
+│  │ "When I first realised     │  │
+│  │  that clarity is earned,   │  │
+│  │  not assumed..."           │  │
+│  │                          ▲ │  │  collapse toggle
+│  │  ────────────────────────  │  │
+│  │  Points (2)                │  │
+│  │                            │  │
+│  │  Calibration matters       │  │
+│  │  ● ○ ○ ○ ○ ○ ○            │  │  7-pt PositionButtons
+│  │                            │  │  other person's pos visible
+│  │  Clarity is a learned skill│  │
+│  │  ○ ○ ● ○ ○ ○ ○            │  │
+│  └────────────────────────────┘  │
+│                                  │
+│  [action buttons scroll off]     │  user scrolls down to reach
+└──────────────────────────────────┘
+```
+
+**State 5 — Rating drawer open, story visible above (no scrim)**
+```
+┌──────────────────────────────────┐
+│ 🔴  You're live with Alex        │
+├──────────────────────────────────┤
+│  ┌────────────────────────────┐  │
+│  │ The calibration story      │  │  ← VISIBLE — DrawerOverlay
+│  │ "When I first realised..." │  │    removed/transparent
+│  │                          ▼ │  │
+│  └────────────────────────────┘  │
+│  ┌────────────────────────────┐  │
+│  │ Journey to Understanding   │  │  JourneyToUnderstanding
+│  │ Round 1: You 7 · Alex 5   │  │
+│  └────────────────────────────┘  │
+├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  drawer handle (no dark overlay)
+│  Alex wants to know how well     │  DrawerContent
+│  you understood them             │
+│                                  │
+│  How confident are you?          │
+│  ○ ○ ○ ○ ● ○ ○ ○ ○ ○ ○          │  0–10 RatingCard
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │         Submit             │  │
+│  └────────────────────────────┘  │
+│            Decline               │
+└──────────────────────────────────┘
+```
+
+---
+
 ### 3. Story Picker Design
 
 The picker is a search-first surface embedded in `IdleScreen`, below the two action buttons. It replaces the current `ContentPicker` component (which shows all items at once) for the story-only scenario.
@@ -506,3 +638,333 @@ The /live session hides the main navigation (`SimpleNavigation` is display:none 
 
 - The existing `max-w-sm` container constrains all /live content. This constraint applies to the story card as well. No full-width expansion on desktop.
 - All layouts remain single-column.
+
+---
+
+## Technical Analysis
+
+### Current Code State
+
+**Live session infrastructure (`src/app/pages/clarity-live-page.tsx`):**
+The session uses Supabase Realtime + 1-second polling fallback. All shared state lives in `clarity_sessions.live_state` (JSONB). Any call to `updateLiveState(partial)` deep-merges the partial and writes to Supabase. The full `LiveSessionState` type is defined in `src/app/types/index.ts`.
+
+**`LiveSessionState` — synced fields relevant to P272:**
+- `selectedStoryId?: string` — already present from P128
+- `selectedPointId?: string` — already present from P128
+- `selectedContentTitle?: string` — already present from P128
+- `sessionHistory?: Array<...>` — already present from P128
+- `ratingPhase: RatingPhase` — `'idle' | 'waiting' | 'rating' | 'revealed' | 'results' | 'explain-back'`
+- `checkerName`, `checkerRating`, `checkerSubmitted`, `responderRating`, `responderSubmitted` — round state
+- `celebrationAcknowledgedBy?: string[]` — both users acknowledge to close a round
+
+**What happens today when a story is "selected" (`src/app/pages/clarity-live-page.tsx` `handleSelectStory`):**
+`handleSelectStory` writes `selectedStoryId` to shared state, then immediately calls `setLocalFlowType('check')` and `setIsLocallyRating(true)` — which triggers the rating drawer. Selecting a story today **starts a round immediately**. There is no "story selected, pre-round idle" state. P272 removes this coupling.
+
+**`IdleScreen` content rendering (`src/app/components/partners/live-mode-view.tsx`):**
+Renders `ContentPicker` from `live-content-cards.tsx` when `userId && contentLoaded && hasContent`. The `ContentPicker` shows both stories and points, embeds a rating UI inside the `LiveStoryCard` expansion, and calls `onSelectStory(storyId, title, rating)` with a rating already chosen. P272 replaces this entire block with a search-first story-only picker.
+
+**`StoryCardPreview` (`src/app/components/partners/live-content-cards.tsx`):**
+Static "selected story" display — text preview + point count, no expand toggle, no linked point interaction. Currently shown in `RatingScreen` and `RatingScreenWithOptionalDrawer`. P272 replaces this with an interactive expandable card.
+
+**`StoryCardWithLinks` (`src/app/components/social/story-card-with-links.tsx`):**
+Production profile story card. Has `hideActions` and `disableNavigation` props. Uses prototype types (`Story`, `Point` from `@/app/prototypes/shared/types`), not production `StoryWithPoints`. Adapting between these two type systems requires a non-trivial conversion layer. The profile page `StoryCardFull` pattern in `profile-page-v2.tsx` uses `StoryWithPoints` directly and is the template for the new live card.
+
+**`story_verifications.accuracy_achieved` (`supabase/migrations/20260204_stories_points_calibration.sql`):**
+Currently `BOOLEAN GENERATED ALWAYS AS (speaker_rating >= 8) STORED`. Must change to `speaker_rating = 10`. The two triggers reference `accuracy_achieved = true` and will apply the new threshold automatically. The partial index (`WHERE accuracy_achieved = true`) must be dropped and recreated. No data migration needed — the table is empty.
+
+**`calibrationService.recordVerification` (`src/app/data/calibration-service-real.ts`):**
+Insert path into `story_verifications` already exists. Requires: `storyId`, `versionId`, `sessionId`, `speakerId`, `listenerId`, `speakerRating`, `listenerRating`. `versionId` must be resolved by querying `story_versions WHERE story_id = $storyId ORDER BY version_number DESC LIMIT 1`.
+
+**`session.creatorProfileId` / `joinerProfileId`:** Added to `clarity_sessions` in the P204 migration. Must verify these are included in the `ClaritySession` TypeScript type in `src/app/data/api.ts` and returned by `getClaritySession`. If not present, add them.
+
+**`DrawerOverlay` (`src/components/ui/drawer.tsx`):**
+On mobile, the rating drawer renders `<div className="fixed inset-0 z-50 bg-black/80 ...">` as the overlay. The UX spec requires this overlay to be transparent so the story card above the drawer is visible during the rating phase. Fix: add optional `overlayClassName?: string` prop to `DrawerContent`.
+
+**7-point `PositionButtons` location:**
+The 7-point position scale component used in `StoryCardWithLinks` comes from `src/app/prototypes/linkedin-like/components/shared/PositionButtons` — not from `src/app/components/partners/position-buttons.tsx` (which is the old agree/disagree/skip 3-option component).
+
+---
+
+### Architecture Decisions
+
+**Decision 1: Decouple story selection from round start**
+- **Chosen:** Remove `setLocalFlowType('check')` and `setIsLocallyRating(true)` from `handleSelectStory` in `clarity-live-page.tsx`. Story selection writes `selectedStoryId` to shared state only. Both participants see the story card. A round starts when either participant taps an action button.
+- **Rationale:** The spec requires a "story selected, pre-round idle" state that does not exist today. The current P128 coupling skips this state entirely.
+- **Trade-off:** The `onSelectStory` callback signature changes from `(storyId, title, rating)` to `(storyId, title)` — the rating param is removed.
+- **Alternative rejected:** Keeping the immediate-rating-drawer with a "cancel and go back" path. Creates a confusing two-step that conflicts with the spec.
+
+**Decision 2: New `StorySearchPicker` replaces `ContentPicker` for story selection**
+- **Chosen:** Create `src/app/components/partners/story-search-picker.tsx`. Story-only, search-first (nothing shown until user types), instant filter, max 6 results, no embedded rating UI, calls `onSelectStory(storyId, title)` with two args.
+- **Rationale:** `ContentPicker` shows both stories and points, embeds a rating UI, calls `onSelectStory` with three args including a rating. All behaviors contradict P272.
+- **Trade-off:** `ContentPicker`, `LiveStoryCard`, `LivePointCard` remain in `live-content-cards.tsx` but are no longer used in the standard `IdleScreen` flow. They become dead code.
+- **Alternative rejected:** Extending `ContentPicker` with `storyOnly`, `searchFirst`, `hideRatingUI` props. Too many conditional branches in a shared component.
+
+**Decision 3: New `LiveStoryCardExpanded` component rather than reusing `StoryCardWithLinks`**
+- **Chosen:** Create `src/app/components/partners/live-story-card-expanded.tsx` using `StoryWithPoints` (production type). Mirrors the `StoryCardFull` pattern from `profile-page-v2.tsx` but with `hideActions = true` and `disableNavigation = true` hard-coded.
+- **Rationale:** `StoryCardWithLinks` uses prototype `Story`/`Point` types from `@/app/prototypes/shared/types`. The live session uses `StoryWithPoints` from `@/app/types`. Bridging these type systems requires a runtime adapter layer. `StoryCardFull` in `profile-page-v2.tsx` already does what we need with the right types.
+- **Trade-off:** Does not reuse `StoryCardWithLinks`. If `StoryCardWithLinks` is later migrated to production types, the live card can be consolidated.
+- **Alternative rejected:** Type adapter shim to convert `StoryWithPoints` → prototype `Story`. Adds runtime conversion logic and obscures the data model.
+
+**Decision 4: `accuracy_achieved` column change via new migration**
+- **Chosen:** `supabase/migrations/20260218_p272_accuracy_achieved_threshold.sql` — drop partial index, drop column, add new column with `= 10`, recreate index.
+- **Rationale:** PostgreSQL does not support `ALTER COLUMN` for generated columns. Table is empty. Triggers read `accuracy_achieved = true` and require no changes.
+- **Trade-off:** None. The table is empty.
+- **Alternative rejected:** Application-level filter in `recordVerification`. Would not fix the `understood_count` and `ears_count` triggers which read the DB column.
+
+**Decision 5: Verification insert fires inside `handleRatingSubmit` at `bothSubmitted` block**
+- **Chosen:** In `clarity-live-page.tsx` `handleRatingSubmit`, at the `bothSubmitted` block, when `checkerRatingValue === 10 AND currentState.selectedStoryId` is set, call `writeStoryVerification(...)` fire-and-forget. `speakerId`/`listenerId` are resolved from `session.creatorProfileId` / `session.joinerProfileId` matched against `checkerName`. Guard with a round-scoped `useRef<Set<string>>` to prevent duplicate inserts on re-renders.
+- **Rationale:** `handleRatingSubmit` is where `checkerRating` is definitively known and the `bothSubmitted` transition happens. Earliest reliable point.
+- **Trade-off:** Only one client fires the insert (the second submitter, inside the `bothSubmitted` block). If both clients race, the DB `UNIQUE` constraint on `story_verifications` handles it.
+- **Alternative rejected:** Insert on celebration continue button. Risks missing the insert if participant disconnects before tapping Continue.
+
+**Decision 6: "Speak freely" pre-round uses new `onClearStory` callback, not `onSkip`**
+- **Chosen:** New `onClearStory` prop on `LiveModeViewProps` and `IdleScreenProps`. Rendered below action buttons when `liveState.selectedStoryId && ratingPhase === 'idle'`. Calls `updateLiveState({ selectedStoryId: undefined, ... })` only.
+- **Rationale:** `onSkip` resets the entire round state. Pre-round clear only removes story selection — no round was in progress. They are semantically different.
+- **Trade-off:** None.
+- **Alternative rejected:** Reusing `onSkip` for pre-round clear. Would write a spurious `skippedBy` name to shared state and add a history entry when no round occurred.
+
+---
+
+### Security Review
+
+**RLS Policies:**
+
+- ⚠️ `story_verifications` INSERT policy is `WITH CHECK (auth.uid() IS NOT NULL)` only — any authenticated user can insert a verification for any story with any `speaker_id`/`listener_id` and a rating of 10, causing `understood_count` and `ears_count` to increment on arbitrary profiles via triggers. **Must be tightened before ship.** Minimum fix: `WITH CHECK (auth.uid() = speaker_id OR auth.uid() = listener_id)`.
+- ⚠️ `story_verifications` SELECT is `USING (true)` — all verification records (including both participant IDs, both ratings, timestamps) are publicly readable. This exposes the session participation graph. Make explicit product decision; consider restricting to `auth.uid() IN (speaker_id, listener_id)`.
+- ⚠️ `clarity_sessions` UPDATE policy (`WITH CHECK (creator_profile_id = auth.uid() OR creator_profile_id IS NULL)`) — guest-created sessions where `creator_profile_id IS NULL` are writable by any authenticated user. P272 writes `selectedStoryId` via this path; any user who knows a 6-character room code can overwrite `live_state` on guest sessions.
+- ✅ `stories` SELECT correctly blocks non-authors from reading `private` stories. However, `shared` stories are also blocked for non-authors — see Authentication note below.
+- ✅ `point_positions` INSERT/UPDATE enforces `auth.uid() = user_id`. Correct.
+
+**Authentication:**
+
+- ✅ Participants use Supabase Auth (`getOrCreateGuestUser()` creates anonymous auth users), providing real `auth.uid()` for all RLS checks.
+- ⚠️ `checkerName` / `proverName` in `live_state` are plain text strings stored in `sessionStorage`, not tied to `auth.uid()` at the DB level. Speaker/listener identity for the verification insert is resolved by matching `checkerName` against `session.creatorName` — which is also a plain text field. If `creatorName` is spoofed by a client, `speakerId`/`listenerId` mapping can be wrong.
+- ⚠️ `shared`-visibility stories will fail to render for the listener. The RLS select policy for `stories` blocks non-authors from reading `shared`/`private` stories. When the speaker selects a `shared` story and `selectedStoryId` is pushed to the listener via Realtime, the listener's `getStory(storyId)` call will return null, breaking story card display. Architect must define how session participation grants temporary read access to `shared` stories.
+
+**Authorization:**
+
+- ⚠️ No server-side enforcement on who can write `selectedStoryId` to `live_state`. The listener can inject a story ID they do not own into the shared state. `updateLiveState` accepts any `Record<string, unknown>` and writes to the JSONB column without an allowlist. For P272, this means the listener can push a `selectedStoryId` pointing to a story they do not own, and the subsequent verification insert would record it under that story.
+- ✅ `pointsService.updatePosition` enforces ownership via RLS (`auth.uid() = user_id`). Position saves from inside `/live` are safe.
+
+**Input Validation:**
+
+- ✅ Story search is performed client-side against an already-fetched owned list, or via Supabase `.ilike()` with parameterized queries — no SQL injection risk.
+- ✅ `story_verifications` has a DB-level `CHECK (speaker_rating BETWEEN 0 AND 10)` constraint. Out-of-range ratings are rejected at the DB level.
+- ⚠️ `live_state` JSONB accepts arbitrary key-value pairs with no schema validation. Any participant can write unexpected keys and potentially corrupt shared session state. Low severity for P272 specifically, but a systemic gap. Recommended: add a Zod schema validation layer in `updateClaritySessionLiveState` before the Supabase call.
+
+**Data Protection:**
+
+- ⚠️ `story_verifications` SELECT exposes session participation data publicly (who participated with whom, ratings given). Make an explicit product decision about whether verification data should be public or restricted to participants.
+- ⚠️ `point_position_history` SELECT is `USING (true)` — all historical position changes including free-text `reasoning` field are publicly readable.
+- ✅ Stories are protected by visibility-based RLS. Exception: `shared` stories need a session-participation-based grant for listener access (see Authentication above).
+
+**Risks requiring resolution before implementation:**
+
+1. **`story_verifications` INSERT policy** — tighten RLS before writing any verification records. Confidence: 95 (critical).
+2. **`shared`-visibility story access for listeners** — define how the listener gets read access to a story selected in the session. Confidence: 80 (will cause broken UX for shared stories).
+3. **Guest session write-by-anyone gap** — `creator_profile_id IS NULL` bypasses update restriction. Medium severity for `selectedStoryId` integrity. Confidence: 90.
+4. **`live_state` schema validation** — add Zod validation to `updateClaritySessionLiveState`. Low severity for P272 specifically. Confidence: 80.
+
+---
+
+### Implementation Approach
+
+#### DB Migration (do first)
+
+**File:** `supabase/migrations/20260218_p272_accuracy_achieved_threshold.sql`
+
+```sql
+-- P272: Change accuracy_achieved threshold from >= 8 to = 10
+-- No data migration needed — story_verifications table is empty.
+-- Triggers update_story_understood_count and update_profile_ears_count
+-- reference accuracy_achieved = true and require no changes.
+
+-- Step 1: Drop dependent partial index
+DROP INDEX IF EXISTS idx_verifications_achieved;
+
+-- Step 2: Drop generated column (PostgreSQL cannot ALTER a generated column)
+ALTER TABLE story_verifications
+  DROP COLUMN accuracy_achieved;
+
+-- Step 3: Add column with updated threshold
+ALTER TABLE story_verifications
+  ADD COLUMN accuracy_achieved BOOLEAN
+  GENERATED ALWAYS AS (speaker_rating = 10) STORED;
+
+-- Step 4: Recreate partial index
+CREATE INDEX idx_verifications_achieved
+  ON story_verifications(story_id)
+  WHERE accuracy_achieved = true;
+```
+
+Additionally, tighten the `story_verifications` INSERT RLS policy:
+
+```sql
+-- Tighten INSERT policy: caller must be speaker or listener
+DROP POLICY IF EXISTS "Anyone can insert verifications" ON story_verifications;
+CREATE POLICY "story_verifications_insert" ON story_verifications
+  FOR INSERT WITH CHECK (
+    auth.uid() IS NOT NULL AND
+    (auth.uid() = speaker_id OR auth.uid() = listener_id)
+  );
+```
+
+---
+
+#### Files to Create
+
+1. **`src/app/components/partners/story-search-picker.tsx`**
+   - Story-only search-first picker for `IdleScreen`
+   - Props: `stories: StoryWithPoints[]`, `onSelectStory: (storyId: string, title: string) => void`, `disabled?: boolean`
+   - Renders nothing when stories array is empty
+   - Shows empty search input on mount (no results until typing)
+   - Filters by `story.content.toLowerCase().includes(query)` on every keystroke
+   - Result row: 80-char preview with ellipsis + muted "N points" badge; no avatar
+   - Sorted by `createdAt` descending (passed in pre-sorted)
+   - Max 6 visible rows; container `max-h-[280px] overflow-y-auto`
+   - No-results: `<p className="text-sm text-muted-foreground">No stories match "{query}"</p>`
+   - Tapping a row calls `onSelectStory(story.id, preview)` immediately with no confirm step
+
+2. **`src/app/components/partners/live-story-card-expanded.tsx`**
+   - Expandable story card for all /live phases (above action buttons, above drawer, above gap-reveal)
+   - Props: `story: StoryWithPoints`, `currentUserId?: string`, `onPositionSelect?: (pointId: string, position: PositionType | null) => void`, `className?: string`
+   - Collapsed by default: avatar + 80-char preview + chevron with `aria-expanded`
+   - Expanded: full story text (`max-h-[200px] overflow-y-auto`) + linked points list
+   - Each linked point: point statement + 7-point `PositionButtons` from `@/app/prototypes/linkedin-like/components/shared`
+   - `onPositionSelect` fires on position button click; local state updated immediately (optimistic)
+   - `hideActions = true` hard-coded — no share button, no external link icon
+   - `disableNavigation = true` hard-coded — card click does nothing
+   - Empty points: "No points linked to this story." muted text
+   - `data-testid="live-story-card-expanded"`
+
+3. **`supabase/migrations/20260218_p272_accuracy_achieved_threshold.sql`**
+   - Content: see DB Migration section above
+
+---
+
+#### Files to Modify
+
+1. **`src/app/components/partners/live-mode-view.tsx`**
+   - `LiveModeViewProps`: add `onClearStory?: () => void`
+   - `IdleScreenProps`: add `onClearStory?: () => void`, `selectedStory?: StoryWithPoints | null`
+   - `IdleScreen`:
+     - When `liveState.selectedStoryId && selectedStory`: render `<LiveStoryCardExpanded>` above `<ActionArea>`
+     - When `liveState.selectedStoryId && ratingPhase === 'idle'`: render "Speak freely" ghost button below `<ActionArea>`, calling `onClearStory?.()`
+     - Replace `ContentPicker` render block with `<StorySearchPicker>` (shown only when `!liveState.selectedStoryId`)
+     - `onSelectStory` signature changes to `(storyId: string, title: string)` — no rating param
+   - `RatingScreen`: add `selectedStory?: StoryWithPoints | null` prop; render `<LiveStoryCardExpanded>` above drawer; add `overlayClassName="bg-transparent"` to the `<Drawer>`
+   - `RatingScreenWithOptionalDrawer`: same story card + overlay change
+   - `UnderstandingScreen`: add `selectedStory?: StoryWithPoints | null` prop; render `<LiveStoryCardExpanded>` above `<JourneyToUnderstanding>` in all sub-phases
+   - All `IdleScreen` render sites: pass `onClearStory` and `selectedStory`
+   - All `UnderstandingScreen` render sites: pass `selectedStory`
+
+2. **`src/app/pages/clarity-live-page.tsx`**
+   - `handleSelectStory`: Remove `setLocalFlowType('check')` and `setIsLocallyRating(true)`. Keep `updateLiveState` and analytics.
+   - Add `handleClearStory`: `updateLiveState({ selectedStoryId: undefined, selectedPointId: undefined, selectedContentTitle: undefined })`
+   - `handleRatingSubmit`, `bothSubmitted` block: add verification insert guard (see code sketch below)
+   - Add `writeStoryVerification` async helper (fire-and-forget with error guard)
+   - Add `handlePositionSelectInLive(pointId, position)`: calls `pointsService.updatePosition` fire-and-forget
+   - Pass `onClearStory`, `onPositionSelect` to `LiveModeView`
+
+3. **`src/components/ui/drawer.tsx`**
+   - Add `overlayClassName?: string` prop to `DrawerContent`
+   - Mobile overlay `<div>`: use `overlayClassName` as className when provided, falling back to default `"fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"`
+
+4. **`src/app/data/api.ts`** (if needed)
+   - Verify `ClaritySession` type includes `creatorProfileId?: string` and `joinerProfileId?: string`
+   - Verify `getClaritySession` SELECT query returns these columns; add if missing
+
+---
+
+#### `writeStoryVerification` code sketch
+
+```typescript
+// Inside ClarityLivePage component
+const verificationFiredRef = useRef<Set<string>>(new Set());
+
+const writeStoryVerification = useCallback(async ({
+  storyId, sessionId, checkerName, checkerRating, responderRating,
+}: {
+  storyId: string;
+  sessionId: string | undefined;
+  checkerName: string;
+  checkerRating: number;
+  responderRating: number;
+}) => {
+  const roundKey = `${storyId}_${sessionId}_${checkerName}`;
+  if (verificationFiredRef.current.has(roundKey)) return;
+  verificationFiredRef.current.add(roundKey);
+
+  if (!user?.id || !session) return;
+
+  try {
+    const speakerId = session.creatorName === checkerName
+      ? session.creatorProfileId
+      : session.joinerProfileId;
+    const listenerId = session.creatorName === checkerName
+      ? session.joinerProfileId
+      : session.creatorProfileId;
+
+    if (!speakerId || !listenerId) {
+      console.error('[P272] Cannot write verification: missing profile IDs');
+      return;
+    }
+
+    const { data: versionRow } = await supabase
+      .from('story_versions')
+      .select('id')
+      .eq('story_id', storyId)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!versionRow) {
+      console.error('[P272] No version found for story', storyId);
+      return;
+    }
+
+    await calibrationService.recordVerification({
+      storyId, versionId: versionRow.id, sessionId,
+      speakerId, listenerId,
+      speakerRating: checkerRating, listenerRating: responderRating,
+    });
+
+    analytics.track('live_story_verified', {
+      session_code: session.code, story_id: storyId,
+    });
+  } catch (err) {
+    console.error('[P272] writeStoryVerification failed:', err);
+    // Non-blocking — round completes regardless
+  }
+}, [user?.id, session, calibrationService]);
+
+// Reset ref at start of each new round (in handleCelebrationComplete and handleSkip)
+// verificationFiredRef.current.clear();
+```
+
+---
+
+#### Build Sequence
+
+1. **DB migration** — create `supabase/migrations/20260218_p272_accuracy_achieved_threshold.sql` with both the `accuracy_achieved` column change and the tightened RLS INSERT policy. Apply and verify triggers fire correctly.
+2. **`StorySearchPicker`** — create `src/app/components/partners/story-search-picker.tsx`. Test: empty on mount, filters on keystroke, max 6 rows, no-results state, tap collapses.
+3. **`LiveStoryCardExpanded`** — create `src/app/components/partners/live-story-card-expanded.tsx`. Test: collapsed default, expand toggle, no share/link icons, position buttons per point, `onPositionSelect` fires.
+4. **Drawer overlay fix** — add `overlayClassName` prop to `src/components/ui/drawer.tsx`. Verify story card is visible behind transparent overlay.
+5. **Decouple selection from round start** in `clarity-live-page.tsx` — remove `setLocalFlowType` + `setIsLocallyRating` from `handleSelectStory`. Add `handleClearStory`. Verify `ClaritySession` has `creatorProfileId`/`joinerProfileId`; add if missing.
+6. **Wire `IdleScreen`** in `live-mode-view.tsx` — `StorySearchPicker`, `LiveStoryCardExpanded`, "Speak freely" ghost button, `selectedStory` prop threading.
+7. **Replace `StoryCardPreview`** with `LiveStoryCardExpanded` in `RatingScreen`, `RatingScreenWithOptionalDrawer`, `UnderstandingScreen`. Apply transparent overlay to rating Drawers.
+8. **`writeStoryVerification` + insert hook** in `clarity-live-page.tsx` — add at `bothSubmitted && checkerRating === 10`. Add round-scoped guard ref.
+9. **Wire `onPositionSelect`** through `LiveModeView` props down to `LiveStoryCardExpanded`.
+10. **E2E tests** — story visible on both screens after selection, persists through all phases, `story_verifications` row written at rating=10, story cleared by "Speak freely".
+
+---
+
+#### Critical Details
+
+**P279 dependency:** `StoryWithPoints.points[].userPosition` contains the viewer's own position. Showing the other participant's position in the /live story card depends on P279 (which fixes `getPointsForProfileDisplay` to load the profile subject's position). Until P279 ships, linked points will show each participant's own position only — which is the known gap documented in `## Dependencies`.
+
+**`shared`-visibility stories for listeners:** When the speaker selects a `shared` story and pushes `selectedStoryId` via Realtime, the listener's `getStory(storyId)` call will return null due to RLS. Resolve by either: (a) always using `public` stories in /live for the pilot, or (b) adding a session-scoped RLS policy that grants SELECT to authenticated session participants for stories selected in their session. Option (a) is simplest for the Feb/Mar pilot — document this as a known constraint.
+
+**`checkerName` identity trust:** Speaker/listener identity for the verification insert is resolved by matching `checkerName` (a plain text string) against `session.creatorName`. In a trusted pilot context this is acceptable. For a scaled product, speaker identity should be tied to `auth.uid()` rather than a name string.
+
+**`live_state` JSONB validation:** Add a Zod schema for `LiveSessionState` and validate inbound updates before the Supabase call. Low priority for the pilot but closes a systemic gap.

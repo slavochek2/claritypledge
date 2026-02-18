@@ -13,7 +13,41 @@
  * polling/subscription mechanisms.
  */
 
+import { Page } from '@playwright/test';
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
+
+/**
+ * Mocks `navigator.mediaDevices.getUserMedia` on a page to return a fake audio stream.
+ *
+ * Two-party E2E tests require both contexts to have mic access so the app's
+ * mic permission check does not block the join flow. Call this on BOTH creator
+ * and joiner pages immediately after `page = await context.newPage()`, before
+ * any navigation, so the mock is injected on every subsequent page load.
+ *
+ * @param page - Playwright Page to inject the mic mock into
+ *
+ * @example
+ * const creatorPage = await creatorContext.newPage();
+ * const joinerPage  = await joinerContext.newPage();
+ * await mockMicPermission(creatorPage);
+ * await mockMicPermission(joinerPage);
+ */
+export async function mockMicPermission(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const mockAudioTrack = {
+      kind: 'audio' as const,
+      enabled: true,
+      stop: () => {},
+    };
+    const mockStream = {
+      getTracks: () => [mockAudioTrack],
+      getAudioTracks: () => [mockAudioTrack],
+    };
+    // Override getUserMedia globally so the app's mic check always succeeds.
+    // This is safe for two-party tests where mic behaviour is not under test.
+    navigator.mediaDevices.getUserMedia = async () => mockStream as unknown as MediaStream;
+  });
+}
 
 const DEFAULT_POLL_INTERVAL_MS = 500;
 const DEFAULT_TIMEOUT_MS = 10000;

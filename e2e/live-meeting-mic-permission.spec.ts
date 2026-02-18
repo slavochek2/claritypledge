@@ -11,33 +11,20 @@
  */
 import { test, expect, Page } from '@playwright/test';
 import { waitForDBPresence } from './helpers/test-realtime';
+import { createTestUser, setTestSession, deleteTestUser } from './helpers/test-user';
 
 test.describe('Mic Permission Gating', () => {
+  test.describe.configure({ timeout: 60000 });
+
   /**
    * Helper to create a meeting and return the session code.
-   * Creator context should have mic permission granted.
+   * Creator must be authenticated before calling this function —
+   * authenticated creators have no name/email/consent inputs.
    */
   async function createMeeting(page: Page): Promise<string> {
     await page.goto('/live');
 
-    // Fill creator name
-    const nameInput = page.locator('input[placeholder="Enter your name"]');
-    await expect(nameInput).toBeVisible();
-    await nameInput.fill('Creator');
-
-    // Fill email (required for guests - B50)
-    const emailInput = page.locator('input[placeholder*="email" i]');
-    if (await emailInput.isVisible()) {
-      await emailInput.fill('creator@test.com');
-    }
-
-    // Accept terms checkbox (required - B50)
-    const termsCheckbox = page.getByRole('checkbox');
-    if (await termsCheckbox.isVisible()) {
-      await termsCheckbox.check();
-    }
-
-    // Click new meeting
+    // Click new meeting (no form inputs — authenticated creator)
     await page.getByRole('button', { name: /new session/i }).click();
 
     // Wait for waiting screen with session code
@@ -102,7 +89,13 @@ test.describe('Mic Permission Gating', () => {
 
     // Don't mock on joiner's page - let it fail naturally
 
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+
     try {
+      // Step 0: Create and authenticate creator
+      testUser = await createTestUser({ name: 'Creator' });
+      await setTestSession(creatorPage, testUser.email);
+
       // Step 1: Creator creates meeting
       const sessionCode = await createMeeting(creatorPage);
       console.log(`[Test] Created meeting with code: ${sessionCode}`);
@@ -118,15 +111,11 @@ test.describe('Mic Permission Gating', () => {
       await expect(joinerNameInput).toBeVisible({ timeout: 5000 });
       await joinerNameInput.fill('Joiner');
 
-      const joinerEmailInput = joinerPage.locator('input[placeholder*="email" i]');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('joiner@test.com');
-      }
-
-      // Accept terms if checkbox exists
-      const termsCheckbox = joinerPage.getByRole('checkbox');
-      if (await termsCheckbox.isVisible()) {
-        await termsCheckbox.check();
+      // Email and consent are required for guest joiners (B50)
+      await joinerPage.getByPlaceholder('your@email.com').fill('joiner@test.com');
+      const joinerCheckbox = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox.isVisible()) {
+        await joinerCheckbox.check();
       }
 
       // Step 3: Joiner clicks Join - mic permission will be denied
@@ -187,6 +176,9 @@ test.describe('Mic Permission Gating', () => {
       console.log('[Test] SUCCESS: Creator still waiting after joiner denied mic');
 
     } finally {
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
+      }
       await creatorContext.close();
       await joinerContext.close();
     }
@@ -221,7 +213,13 @@ test.describe('Mic Permission Gating', () => {
     await creatorPage.addInitScript(mockMicScript);
     await joinerPage.addInitScript(mockMicScript);
 
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+
     try {
+      // Step 0: Create and authenticate creator
+      testUser = await createTestUser({ name: 'Creator' });
+      await setTestSession(creatorPage, testUser.email);
+
       // Step 1: Creator creates meeting
       const sessionCode = await createMeeting(creatorPage);
       console.log(`[Test] Created meeting with code: ${sessionCode}`);
@@ -233,14 +231,11 @@ test.describe('Mic Permission Gating', () => {
       await expect(joinerNameInput).toBeVisible({ timeout: 5000 });
       await joinerNameInput.fill('Joiner');
 
-      const joinerEmailInput = joinerPage.locator('input[placeholder*="email" i]');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('joiner@test.com');
-      }
-
-      const termsCheckbox = joinerPage.getByRole('checkbox');
-      if (await termsCheckbox.isVisible()) {
-        await termsCheckbox.check();
+      // Email and consent are required for guest joiners (B50)
+      await joinerPage.getByPlaceholder('your@email.com').fill('joiner@test.com');
+      const joinerCheckbox = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox.isVisible()) {
+        await joinerCheckbox.check();
       }
 
       await joinerPage.getByRole('button', { name: /join/i }).click();
@@ -259,6 +254,9 @@ test.describe('Mic Permission Gating', () => {
       console.log('[Test] SUCCESS: Both users in live view after mic granted');
 
     } finally {
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
+      }
       await creatorContext.close();
       await joinerContext.close();
     }
@@ -278,7 +276,13 @@ test.describe('Mic Permission Gating', () => {
     const creatorPage = await creatorContext.newPage();
     const joinerPage = await joinerContext.newPage();
 
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+
     try {
+      // Create and authenticate creator
+      testUser = await createTestUser({ name: 'Creator' });
+      await setTestSession(creatorPage, testUser.email);
+
       // Creator creates meeting
       const sessionCode = await createMeeting(creatorPage);
 
@@ -288,14 +292,11 @@ test.describe('Mic Permission Gating', () => {
       const joinerNameInput = joinerPage.locator('input[placeholder="Enter your name"]');
       await joinerNameInput.fill('Joiner');
 
-      const joinerEmailInput = joinerPage.locator('input[placeholder*="email" i]');
-      if (await joinerEmailInput.isVisible()) {
-        await joinerEmailInput.fill('joiner@test.com');
-      }
-
-      const termsCheckbox = joinerPage.getByRole('checkbox');
-      if (await termsCheckbox.isVisible()) {
-        await termsCheckbox.check();
+      // Email and consent are required for guest joiners (B50)
+      await joinerPage.getByPlaceholder('your@email.com').fill('joiner@test.com');
+      const joinerCheckbox = joinerPage.getByRole('checkbox');
+      if (await joinerCheckbox.isVisible()) {
+        await joinerCheckbox.check();
       }
 
       await joinerPage.getByRole('button', { name: /join/i }).click();
@@ -316,6 +317,9 @@ test.describe('Mic Permission Gating', () => {
       await expect(creatorPage.getByText('Waiting for partner to join...')).toBeVisible();
 
     } finally {
+      if (testUser) {
+        await deleteTestUser(testUser.user.id);
+      }
       await creatorContext.close();
       await joinerContext.close();
     }
