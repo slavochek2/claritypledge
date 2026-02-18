@@ -158,7 +158,9 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       delivery_stage,
       tags: Array.isArray(data.tags) ? data.tags : [],
       created: data.created,
-      completed_at: data.completed_at,
+      completed_at: data.completed_at instanceof Date
+        ? data.completed_at.toISOString().split('T')[0]
+        : data.completed_at,
       rank,
       prepped: !!data.prepped_date,
     }

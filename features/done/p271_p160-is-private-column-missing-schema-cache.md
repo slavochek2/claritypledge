@@ -6,7 +6,7 @@ workstream: foundation
 severity: high
 date_reported: 2026-02-17
 tags: [p160, migration, schema-cache, is_private, clarity_sessions]
-completed_at: 2026-02-18
+completed_at: "2026-02-18"
 ---
 
 # BUG P271: P160 — `is_private` column missing from schema cache on `/live`
