@@ -24,6 +24,14 @@ import {
  * - Edge cases (missing fields, invalid values, special characters)
  */
 
+/** Generate a dated folder name for the current month (sweep-done.sh format: N_mon_yy) */
+function currentMonthFolder(n = 1): string {
+  const now = new Date();
+  const mon = now.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+  const yy = String(now.getFullYear()).slice(-2);
+  return `${n}_${mon}_${yy}`;
+}
+
 describe('P147: Scanner Rules - Folder Exclusion', () => {
   it('excludes research/ folder', () => {
     expect(shouldSkipFolder('research')).toBe(true);
@@ -33,16 +41,15 @@ describe('P147: Scanner Rules - Folder Exclusion', () => {
     expect(shouldSkipFolder('uat')).toBe(true);
   });
 
-  it('excludes dated folders (format: N_D+_MMM+D+)', () => {
+  it('excludes past-month dated folders (format: N_D+_MMM+D+)', () => {
     /**
      * P137 BUG: Scanner and validation had different date patterns
      * Scanner: /^\d+_\d+_\w+\d+$/ (anchored, full folder name)
      * Validation: /\/\d+_\w+\d+\// (path-based, slightly different)
      *
-     * This test ensures dated folders like "4_27_jan26" are excluded
+     * Past-month dated folders are skipped to keep scan fast on large archives.
      */
     expect(shouldSkipFolder('4_27_jan26')).toBe(true);
-    expect(shouldSkipFolder('5_feb_26')).toBe(true);
     expect(shouldSkipFolder('1_nov25')).toBe(true);
     expect(shouldSkipFolder('12_01_dec24')).toBe(true);
 
@@ -50,6 +57,17 @@ describe('P147: Scanner Rules - Folder Exclusion', () => {
     expect(shouldSkipFolder('not_a_date')).toBe(false);
     expect(shouldSkipFolder('2026_feb_15')).toBe(false); // different format
     expect(shouldSkipFolder('archive')).toBe(false);
+  });
+
+  it('includes current-month dated folder (P___ regression: "Done Today" cards)', () => {
+    /**
+     * sweep-done.sh moves loose done files into a monthly folder like "5_feb_26".
+     * The scanner must NOT skip the current month's folder — it holds cards completed
+     * this month, including "Done Today" cards. Skipping it causes Done Today to go
+     * empty after a cache refresh.
+     */
+    expect(shouldSkipFolder(currentMonthFolder(1))).toBe(false);
+    expect(shouldSkipFolder(currentMonthFolder(5))).toBe(false);
   });
 
   it('includes done/ folder (not excluded)', () => {
@@ -249,10 +267,12 @@ describe('P147: P137 Regression Test - Scanner/Validation Drift', () => {
     // uat/ → excluded
     expect(shouldSkipFolder('uat')).toBe(true);
 
-    // Dated folders → excluded
+    // Past-month dated folders → excluded
     expect(shouldSkipFolder('4_27_jan26')).toBe(true);
-    expect(shouldSkipFolder('5_feb_26')).toBe(true);
     expect(shouldSkipFolder('1_nov25')).toBe(true);
+
+    // Current-month dated folder → NOT excluded (holds "Done Today" cards)
+    expect(shouldSkipFolder(currentMonthFolder())).toBe(false);
 
     // done/ → included (NOT excluded)
     expect(shouldSkipFolder('done')).toBe(false);

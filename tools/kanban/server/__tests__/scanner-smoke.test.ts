@@ -150,33 +150,35 @@ describe('P147: Scanner Smoke Tests - Critical Folder Exclusions', () => {
     expect(features.find(f => f.id === 'p99_uat')).toBeUndefined();
   });
 
-  it('excludes features from dated folders (P137 regression)', async () => {
+  it('excludes features from past-month dated folders (P137 regression)', async () => {
     /**
      * CRITICAL SMOKE TEST #3: Dated folder exclusion
      *
      * P137 BUG: Validation script didn't exclude dated folders like scanner did
-     * This test ensures scanner correctly excludes folders like "4_27_jan26/"
+     * This test ensures scanner correctly excludes past-month folders like "4_27_jan26/".
      *
-     * REGRESSION TEST VALIDATION:
-     * - If scanner includes dated folders: Test should FAIL
-     * - If scanner excludes dated folders: Test should PASS
+     * Note: The current month's folder is intentionally NOT excluded — it holds
+     * "Done Today" cards. See isCurrentMonthFolder() in scanner-rules.ts.
      */
 
-    // Create test feature in features/4_27_jan26/
+    // Create test feature in past-month folder features/4_27_jan26/
     await createTestFeature('p99_dated.md', { status: 'backlog', rank: 99.0 }, '# Dated', '4_27_jan26');
     await createTestFeature('p1_normal.md', { status: 'backlog', rank: 1.0 });
 
     // Scan features using scanner logic
     const features = await scanFeatures(TEST_FEATURES_DIR);
 
-    // Verify dated folder features are NOT included
+    // Verify past-month folder features are NOT included
     expect(features.length).toBe(1);
     expect(features[0].id).toBe('p1_normal');
     expect(features.find(f => f.id === 'p99_dated')).toBeUndefined();
 
-    // Additional verification: Test the date pattern directly
+    // Additional verification: past-month folders excluded, current-month NOT excluded
     expect(shouldSkipFolder('4_27_jan26')).toBe(true);
-    expect(shouldSkipFolder('5_feb_26')).toBe(true);
     expect(shouldSkipFolder('1_nov25')).toBe(true);
+    const now = new Date();
+    const mon = now.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+    const yy = String(now.getFullYear()).slice(-2);
+    expect(shouldSkipFolder(`1_${mon}_${yy}`)).toBe(false);
   });
 });

@@ -58,6 +58,23 @@ export const SKIP_FOLDERS = ['research', 'uat'] as const;
 export const DATE_ARCHIVE_PATTERN = /^\d{1,2}(?!\d)_(\d{1,2}_)?\w+_?\d{2}$/;
 
 /**
+ * Check if a dated archive folder belongs to the current month.
+ *
+ * sweep-done.sh creates folders like "5_feb_26" (N_mon_yy).
+ * The current month's folder must not be skipped — it holds "Done Today" cards.
+ *
+ * @param folderName - Name of the folder (not full path)
+ */
+function isCurrentMonthFolder(folderName: string): boolean {
+  const now = new Date();
+  const mon = now.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+  const yy = String(now.getFullYear()).slice(-2);
+  const lower = folderName.toLowerCase();
+  // Matches both "_feb_26" and "_feb26" separator styles
+  return lower.includes(`_${mon}_${yy}`) || lower.includes(`_${mon}${yy}`);
+}
+
+/**
  * Determine if a folder should be skipped during scanning
  *
  * P137 BUG: Scanner and validation had different exclusion logic
@@ -75,8 +92,10 @@ export function shouldSkipFolder(folderName: string): boolean {
     return true;
   }
 
-  // Skip dated archive folders (e.g., "4_27_jan26")
+  // Skip dated archive folders (e.g., "4_27_jan26"), but NOT the current
+  // month's folder — it contains cards moved to done this month, including today.
   if (DATE_ARCHIVE_PATTERN.test(folderName)) {
+    if (isCurrentMonthFolder(folderName)) return false;
     return true;
   }
 
