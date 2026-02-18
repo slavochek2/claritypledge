@@ -254,7 +254,7 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
 
-**Ask before:** Installing new global tools, major refactors (10+ files), new frameworks/build systems, database migrations, anything labeled "experimental."
+**Ask before:** Installing new global tools, major refactors (10+ files), new frameworks/build systems, new schema designs affecting core tables, anything labeled "experimental." (Running `./scripts/migrate.sh` on an already-created migration file does NOT need asking.)
 
 **Why:** Easy rollback if experiment fails.
 
@@ -396,6 +396,7 @@ const { points, loading, error } = usePointsForProfile(profileId);
 // ❌ WRONG: Manual loading creates N+1 queries
 const points = await pointsService.getPointsByValidator(profileId);
 ```
+When rendering a visitor's view of a profile, use `point.profileSubjectPosition` for the owner's badge and `point.userPosition` for the visitor's action buttons (see [architecture.md](docs/technical/architecture.md)).
 
 **For feed pages:**
 ```typescript
@@ -415,24 +416,10 @@ const point = await pointsService.getPointWithUserPosition(pointId, user?.id);
 const point = await pointsService.getPoint(pointId);
 ```
 
-**Profile visitor pattern — showing the subject's own position:**
-
-When displaying a profile to a visitor (User B viewing User A's points), `getPointsForProfileDisplay(validatorId, viewerUserId)` loads positions in three batches:
-1. Position counts for all points
-2. Viewer's own positions (skipped when viewer === subject)
-3. **Subject's own positions** → `point.profileSubjectPosition`
-
-Self-view optimization: when `viewerUserId === validatorId`, batch 3 serves both purposes.
-
-Display points using:
-- `point.userPosition` — current viewer's position (for action buttons)
-- `point.profileSubjectPosition` — profile owner's position (for display badge)
-
 **Why this matters:**
 - Position buttons won't show user's current position without loading it
 - N+1 queries cause slow page loads (1+N database calls instead of 2-3)
 - TypeScript won't catch missing positions (type compatibility)
-- Profile subject's position is invisible to visitors without the 3rd batch
 
 **Enforcement:**
 - Service methods: `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
@@ -449,7 +436,18 @@ See [docs/design-system.md](docs/design-system.md). **Quick rule:** Blue for act
 
 ### Database Access Policy
 
-Agents have TEST database access only. No production access. Workflow: Test on test DB → capture as migrations → human reviews → human applies to production. See [database.md](docs/technical/database.md) for details.
+Single Supabase instance. Schema changes are version-controlled migration files applied autonomously.
+
+**Agent workflow for schema changes:**
+1. Create `supabase/migrations/YYYYMMDD_name.sql`
+2. Run `./scripts/migrate.sh` — autonomous, no Dashboard required
+3. Verify: `npm run test:e2e -- e2e/integration/`
+
+**Naming rule — CRITICAL:** One migration file per day. Multiple files on the same date permanently break `db push`. Use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations.
+
+**What needs asking:** Schema decisions that affect core tables (profiles, points, clarity_sessions). **What doesn't need asking:** Running `./scripts/migrate.sh` once a migration file exists.
+
+See [database.md](docs/technical/database.md) for RLS patterns and schema details.
 
 ---
 

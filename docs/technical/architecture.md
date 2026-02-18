@@ -131,6 +131,17 @@ Stats include: `earsCount`, `listenerCalibrationAvg`, `listenerSelfRatingAvg`, `
 | `point_position_history` | Public | System (trigger) | — | — |
 | `story_verifications` | Public | Authenticated | — | — |
 
+### Profile Display — Dual Position Fields
+
+When rendering a profile page visited by someone other than the owner, `getPointsForProfileDisplay(validatorId, viewerUserId)` populates two position fields on each point:
+
+| Field | Meaning | Use for |
+|-------|---------|---------|
+| `point.userPosition` | Viewer's own position | Action buttons (what the visitor selected) |
+| `point.profileSubjectPosition` | Profile owner's own position | Display badge (what the owner believes) |
+
+Self-view: when `viewerUserId === validatorId`, both fields resolve from the same batch. The batch loading strategy is encapsulated in the service method — callers don't need to manage it.
+
 ### Migration
 
 Schema: `supabase/migrations/20260204_stories_points_calibration.sql`
