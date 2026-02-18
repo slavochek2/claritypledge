@@ -344,8 +344,24 @@ The integration test MUST include a schema existence check using the **two-clien
 3. **Agent determines:** What test types are needed (unit + integration + E2E + a11y + smoke + UAT)
 4. **Agent generates:** 7 test files + coverage report
 5. **Agent appends:** Test strategy to spec
-6. **You review:** Test coverage rationale (optional)
-7. **You proceed:** `/dev features/p142_csv_export.md` (implementation)
+6. **Agent updates frontmatter** — adds generated file paths to spec frontmatter using the Edit tool (insert before the closing `---`):
+   - `uat_file: features/uat/p{N}.md` (always)
+   - `test_files:` list of all generated automated test files (e2e, unit, integration, a11y, smoke)
+
+   Format:
+   ```yaml
+   uat_file: features/uat/p272.md
+   test_files:
+     - e2e/p272-live-verification.spec.ts
+     - e2e/p272-smoke.spec.ts
+     - e2e/integration/p272-live-migration.spec.ts
+     - e2e/a11y/p272-accessibility.spec.ts
+   ```
+
+   Omit any test type that was skipped (e.g., no unit tests generated → no unit test entry). Do not add `test_files:` if no automated tests were generated (UAT-only features).
+
+7. **You review:** Test coverage rationale (optional)
+8. **You proceed:** `/dev features/p142_csv_export.md` (implementation)
 
 ---
 

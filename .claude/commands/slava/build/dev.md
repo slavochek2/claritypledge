@@ -4,6 +4,25 @@ Execute a development task with TDD discipline and production thinking.
 
 > **Principle:** Write code you'd be proud to debug at 3am. Today's shortcut is tomorrow's incident.
 
+## Orchestrator Mode (when task manifest exists)
+
+If the spec contains `## Implementation Tasks`, /dev operates as an orchestrator:
+
+1. Read ONLY the `## Implementation Tasks` section (not the full spec)
+2. Find all unchecked tasks: `- [ ] Complete`
+3. For each unchecked task in dependency order:
+   a. Spawn a subagent with: task title + files list + spec refs (read only those lines from the spec, not the full file)
+   b. Subagent implements the task and runs its verification step
+   c. On success: mark `- [x] Complete` in the spec
+   d. Commit the task's changes before moving to next task
+4. After all tasks complete, run the full test suite (`npm test && npm run test:e2e`)
+
+**Parallelization:** Tasks listed under "Can parallelize" in the manifest summary can be dispatched simultaneously as concurrent subagents.
+
+If no `## Implementation Tasks` section exists, use standard /dev behavior (instructions below).
+
+---
+
 ## Usage
 
 **Standard mode (with spec):**

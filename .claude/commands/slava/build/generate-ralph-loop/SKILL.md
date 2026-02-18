@@ -20,6 +20,28 @@ Generate ready-to-run commands for iterative AI development loops.
 | Setup | Requires `ralph` CLI installed | Built into Claude Code |
 | Best for | Complex features, 10+ iterations | Simple tasks, <5 iterations |
 
+## Complexity Check
+
+Before generating commands, assess feature complexity from the `### Implementation Approach` / `#### Build Sequence` section:
+- Count **files** to create + modify (from `**Files to Create:**` / `**Files to Modify:**`)
+- Count **concerns** (distinct system layers: DB, service, UI, API, tests each = 1)
+- Count **build steps** (numbered items in Build Sequence)
+
+**If 5+ files OR 3+ concerns OR 6+ steps:**
+
+> "This feature exceeds ralph-loop's effective range (5+ files or 6+ steps).
+> Recommend: run /decompose first to create a task manifest, then /dev will orchestrate per-task subagents — each with fresh context, no compaction risk.
+> Ralph-loop works best for medium features (3–5 files, 3–5 steps)."
+
+Stop and output the recommendation above. Do not generate a ralph command.
+
+**If the spec already has `## Implementation Tasks`** (decompose already ran):
+- Generate ralph commands from the task manifest, one loop per task
+- Each loop covers one task's files, spec refs, and verification step
+- Use the task title as the loop description
+
+---
+
 ## Usage
 
 ```

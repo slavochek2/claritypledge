@@ -19,12 +19,17 @@ This document describes how features move from idea to production in the Clarity
 /architect features/pN_feature.md    # Technical layer
 # [Review & approve architecture]
 
+/decompose features/pN_feature.md    # Task manifest (complex features only*)
+# [Review & approve task breakdown]
+
 /generate-tests features/pN_feature.md  # Test generation
 # [Auto-generated, no review needed]
 
 /dev features/pN_feature.md          # Implementation
 # [Agent tests itself until all pass]
 ```
+
+**/decompose is optional** — only for complex features: 5+ files OR 3+ concerns OR 6+ build steps.
 
 **Time:** ~1 hour for P1 UI feature, ~50 min for P1 backend feature (vs 2-3 hours with old process including rework cycles)
 
@@ -155,6 +160,49 @@ This document describes how features move from idea to production in the Clarity
 
 ---
 
+### Layer 3.5: Task Decomposition (`/decompose`) — Optional
+
+**What it does:** Converts the architect's build sequence into a structured task manifest so /dev can dispatch one subagent per task instead of loading the full 700+ line spec.
+
+**When to use:** Only for complex features — triggers when ANY of:
+- 5+ files to create/modify
+- 3+ distinct system concerns (DB, service, UI, API, tests each = 1)
+- 6+ build steps in the architect's sequence
+
+**Skip when:** Below all three thresholds — run /dev directly.
+
+**Input:** Reads ONLY the `### Implementation Approach` section of the spec (not the full spec).
+
+**Output:** Appends `## Implementation Tasks` to the spec file. Each task has:
+- Files to create/modify (1–3 files, one concern)
+- Spec section references with line ranges (so subagents fetch only relevant lines)
+- Dependencies (which tasks must run first)
+- Verification method (how to confirm the task is done)
+- `[ ] Complete` checkbox (marked `[x]` by /dev as tasks complete)
+
+**Spec-as-reference pattern:** Agents read specific spec sections by line offset, never the full spec. The task manifest includes precise line range hints for this purpose.
+
+**Review gate:** User reviews task breakdown, approves or adjusts boundaries.
+
+**Example:**
+```bash
+/decompose features/p142_complex_feature.md
+
+# Agent outputs:
+# - Complexity: 7 files, 4 concerns, 8 build steps → exceeds threshold
+# - Task 1: DB migration (1 file, no deps, verify: migration runs clean)
+# - Task 2: Service layer (2 files, depends Task 1, verify: TypeScript passes)
+# - Task 3: UI component (2 files, depends Task 2, verify: renders correctly)
+# - Task 4: Wiring + integration (2 files, depends Task 3, verify: E2E test passes)
+# Can parallelize: none | Sequential: Task 1 → 2 → 3 → 4
+
+# User reviews, approves
+```
+
+**Next:** If approved → Run `/generate-tests`
+
+---
+
 ### Layer 4: Test Generation (`/generate-tests`)
 
 **What it does:** Auto-generates tests from spec (UAT, E2E stubs, smoke tests)
@@ -167,6 +215,8 @@ This document describes how features move from idea to production in the Clarity
 3. **Smoke tests** (`e2e/pN-smoke.spec.ts`) - Fast regression detection (page loads, no errors)
 
 **No review gate:** Auto-generated from approved layers (user doesn't need to review)
+
+**Frontmatter written:** After generating test files, /generate-tests writes `uat_file` and `test_files` keys to spec frontmatter. /decompose reads the `## Test Coverage Strategy` section and adds a `Tests:` line to each task manifest entry. This makes test files explicitly discoverable by /dev subagents without relying on naming convention guesses.
 
 **Example:**
 ```bash
@@ -186,9 +236,14 @@ This document describes how features move from idea to production in the Clarity
 
 **What it does:** Test-driven implementation (reads tests, implements, iterates until pass)
 
-**Input:** Reads business + UX + technical + tests from spec
+**Two modes:**
 
-**Workflow:**
+- **Standard mode** (no task manifest): Reads full spec, implements everything, iterates until tests pass.
+- **Orchestrator mode** (task manifest exists): Reads ONLY `## Implementation Tasks`. Dispatches one subagent per task in dependency order. Each subagent gets fresh context (only its task + referenced spec lines). Marks `[x] Complete` after each task commits. Runs full test suite when all tasks done.
+
+**Input:** Reads business + UX + technical + tests from spec (or task manifest if present)
+
+**Workflow (standard):**
 1. **Read tests** (UAT, E2E stubs, acceptance criteria)
 2. **Implement** (feature code + fill in test stubs)
 3. **Run tests** (`npm test && npm run test:e2e`)
@@ -326,7 +381,7 @@ Security review incomplete — what if user tries to set preference for another 
 Need RLS policy or validation that userId matches authenticated user.
 ```
 
-**Next:** If approved → Run `/generate-tests`
+**Next:** If approved → Run `/decompose` (if complex: 5+ files OR 3+ concerns OR 6+ steps) or `/generate-tests` (otherwise)
 
 ---
 
@@ -337,13 +392,42 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/create-prd` | Starting any new feature | Business requirements only |
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
+| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps | Task manifest (`## Implementation Tasks` in spec) |
 | `/generate-tests` | All features (after architecture approved) | UAT + E2E stubs + smoke tests |
-| `/dev` | All features (after tests generated) | Implementation + tests passing |
+| `/dev` | All features (after tests generated) | Implementation + tests passing; orchestrator mode if task manifest exists |
 | `/quick-feature` | Quick skeleton (different use case) | Empty spec structure |
 
 ---
 
 ## Common Questions
+
+### Q: When should I run /decompose?
+
+**A:** Only for features that hit at least one threshold:
+- 5+ files to create/modify
+- 3+ distinct system concerns (DB + service + UI = 3 concerns)
+- 6+ build steps in the architect's sequence
+
+Below all thresholds → run /dev directly. Above any one → run /decompose first.
+
+**Complexity tiers:**
+- Simple (< 5 files, < 3 concerns, < 6 steps): `/dev` directly
+- Medium (3–5 files, 3–5 steps): `/dev` or ralph-loop
+- Large (5+ files OR 3+ concerns OR 6+ steps): `/decompose` then `/dev`
+
+### Q: What changes in /dev when a task manifest exists?
+
+**A:** /dev switches to orchestrator mode. Instead of reading the full spec and implementing everything in one pass, it:
+1. Reads only `## Implementation Tasks`
+2. Spawns one subagent per task (each gets fresh context with only its relevant spec lines)
+3. Marks tasks complete as they finish
+4. Runs full test suite after all tasks complete
+
+This avoids context overflow on large features.
+
+### Q: Does /decompose replace ralph-loop?
+
+**A:** They solve the same problem (context overflow) at different complexity tiers. Ralph-loop is better for medium features (3–5 files, external iteration loop). /decompose + /dev orchestrator is better for large features (5+ files) because subagents get fresh context per task without needing an external tool.
 
 ### Q: Do I always need UX layer?
 **A:** No. Skip `/ux` for backend-only features (API endpoints, data migrations, infrastructure). Run `/architect` directly after `/create-prd`.
@@ -653,7 +737,9 @@ These skills can be used at any point during development when you need them:
 │ CORE FLOW                                           │
 │                                                     │
 │ Features:                                           │
-│ /create-prd → /ux → /architect → /generate-tests → /dev │
+│ /create-prd → /ux → /architect → /decompose* → /generate-tests → /dev │
+│                                                     │
+│ * /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
 │                                                     │
 │ Bugs:                                               │
 │ Investigate (if complex) → /fix                     │
