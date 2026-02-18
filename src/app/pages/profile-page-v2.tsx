@@ -881,8 +881,9 @@ function StoryCardFull({
                   </span>
                 </MobileTooltip>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {author.role} · {formatTimeAgo(story.createdAt)}
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <span>{author.role} · {formatTimeAgo(story.createdAt)}</span>
+                <VisibilityBadge visibility={story.visibility} />
               </p>
             </div>
 
@@ -924,7 +925,6 @@ function StoryCardFull({
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
-          <VisibilityBadge visibility={story.visibility} />
           <ShareButton
             type="story"
             id={story.id}
