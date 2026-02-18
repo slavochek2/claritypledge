@@ -246,12 +246,13 @@ test('should create profile after magic link token verification', async () => {
 
 ### Configuration
 
-**Sequential execution** (`workers: 1`) prevents database conflicts:
+**Parallel execution** (3 workers local, 2 CI) — safe because all test data is scoped by unique IDs:
 
 ```typescript
 // playwright.config.ts
 export default defineConfig({
-  workers: 1, // Run tests sequentially
+  fullyParallel: true,
+  workers: process.env.PLAYWRIGHT_WORKERS ? parseInt(process.env.PLAYWRIGHT_WORKERS) : process.env.CI ? 2 : 3,
   use: {
     baseURL: 'http://localhost:5001',
     screenshot: 'only-on-failure',
@@ -263,6 +264,13 @@ export default defineConfig({
     reuseExistingServer: true,
   },
 });
+```
+
+**Parallelization safety rule:** Tests are parallel-safe when all `supabaseAdmin.from()` calls are scoped by test-specific user IDs or slugs. Tests that query global state (e.g., "list all pledgers") must be marked serial:
+
+```typescript
+// e2e/pledgers-page.spec.ts
+test.describe.configure({ mode: 'serial' });
 ```
 
 ### Test Helpers

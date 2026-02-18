@@ -14,6 +14,32 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: E2E test suite — move from sequential (1 worker) to parallel (3 workers)
+
+**Context:** P277. Test suite took 43+ minutes with `workers: 1`. Question: can we parallelize safely given shared Supabase test DB?
+
+**Decision:** `fullyParallel: true`, 3 workers local / 2 CI. Override via `PLAYWRIGHT_WORKERS` env var. Tests that query global state (e.g., "all pledgers" list) marked `mode: 'serial'` at the describe block level.
+
+**Alternatives rejected:** Keeping sequential — too slow for iteration. Separate DB per worker — complex infrastructure overhead not worth it.
+
+**Consequences:** Parallelization safety is now a test authoring rule: all `supabaseAdmin.from()` calls must be scoped by test-specific IDs. Any test touching global state must declare `test.describe.configure({ mode: 'serial' })`. Pre-existing audit confirmed only `pledgers-page.spec.ts` had global state — all others were already scoped.
+
+**References:** [P277](../features/done/p277_e2e-parallelization-multi-worker-test-execution.md), [e2e-testing.md](technical/e2e-testing.md)
+
+---
+
+## 2026-02-18: Story detail — author badge and viewer position are independent data
+
+**Context:** On the story detail page, a point card shows the story author's stance badge (their position on their own point) and separately should show the viewing user's current position. These were conflated: the viewer's position was being displayed in the author badge slot.
+
+**Decision:** `StoryCardDetail` now accepts `profileOwnerPositions` (author's positions, always from story owner's profile) as a separate prop from the viewer's position. The story detail page fetches both independently.
+
+**Alternatives rejected:** Reusing a single position fetch — too easy to regress; the data has different semantics.
+
+**Consequences:** Any page embedding `StoryCardDetail` must pass `profileOwnerPositions` explicitly, sourced from the story author's profile, not the viewing session. Added E2E regression test `e2e/story-position-isolation.spec.ts`.
+
+---
+
 ## 2026-02-18: Profile UI — always show ear badge and calibration bar (empty state over hidden)
 
 **Context:** P269 profile improvements. Ear badge (confirmed understanding count) and calibration bar were conditionally hidden when data was 0 / insufficient (< 5 sessions). Design question: show "🦻 0" and an empty calibration track, or hide them until data exists?
