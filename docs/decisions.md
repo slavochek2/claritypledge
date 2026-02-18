@@ -14,6 +14,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Mandatory integration test layer for every DB migration (P270)
+
+**Context:** P160 (Private Session Mode) shipped with the `is_private` column missing from the production schema cache. The bug reached the `/live` page because 44 automated tests (unit, E2E, smoke, a11y) all mocked the DB, and 22 UAT scenarios were never executed. No layer verified that the migration was actually applied.
+
+**Decision:** Every migration file in `supabase/migrations/` MUST have a corresponding `e2e/integration/` test that (1) proves the column/table exists, (2) tests the default value, and (3) tests non-default writes. The `generate-tests` agent now mandates this. The pre-commit hook warns when a `.sql` file is staged without an integration test.
+
+**Alternatives rejected:** Relying on UAT execution alone — humans forget; relying on unit tests with mocks — they don't touch the real schema.
+
+**Consequences:** Migration bugs are caught by CI before they reach production. `e2e/integration/migration-template.spec.ts` is the reference. `e2e/integration/p270-process-validation.spec.ts` is the retroactive test for P160.
+
+**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | [features/p270](features/p270_integration-test-coverage-for-db-migrations.md)
+
+---
+
+## 2026-02-18: UAT gate in /done skill + two-client pattern for E2E profile updates
+
+**Context:** P160 UAT had 22 scenarios, all ⬜ (never executed), yet the feature was closed as done. Separately, `service_role` UPDATE on `profiles` proved unreliable in E2E helpers — PostgREST's `SET LOCAL ROLE` doesn't set the `current_setting('role')` GUC, so `auth.uid() = id` policies fail.
+
+**Decision:** (1) The `/done` skill now checks for all-⬜ UAT before closing and warns the developer. (2) E2E helpers that need to update a user's own profile sign in as that user (user JWT) instead of using `supabaseAdmin`. Reference: `createListenerClient()` in `e2e/helpers/test-calibration.ts`.
+
+**Alternatives rejected:** Hard-blocking on all-⬜ UAT — too strict, sometimes UAT is intentionally deferred. Using `supabase.rpc()` with `SET ROLE service_role` — not supported in PostgREST HTTP layer.
+
+**Consequences:** Unexecuted UAT is visible before features are closed. Profile update helpers are reliable. Pattern is: service_role for schema-level checks (column existence), user JWT for data-level operations (profile updates).
+
+**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | [.claude/commands/slava/done/SKILL.md](.claude/commands/slava/done/SKILL.md)
+
+---
+
 ## 2026-02-18: Migrate Supabase MCP from server-postgres to official HTTP transport
 
 **Context:** `mcp__supabase__query` started returning "Tenant or user not found" from the Supabase connection pooler. The old config used `@modelcontextprotocol/server-postgres` with a hardcoded postgres connection string (pooler port 6543). Supabase now offers an official MCP server at `https://mcp.supabase.com/mcp` that uses OAuth.
