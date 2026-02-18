@@ -721,8 +721,11 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
       // Wait for state sync - listener in waiting state
       await expect(listenerPage.getByText(new RegExp(`Waiting for ${speakerName} to evaluate`, 'i'))).toBeVisible({ timeout: 15000 });
 
-      // Wait for speaker to see rating drawer
-      await expect(speakerPage.getByText(/Hear what.*missing for a perfect 10/i).last()).toBeVisible({ timeout: 30000 });
+      // Wait for speaker to be in rating drawer (Branch 2, listenerDone=true).
+      // CRITICAL: "Hear what's missing for a perfect 10" only appears in Branch 1 (waiting, listenerDone=false).
+      // We must wait for Branch 2 text so speaker's confirmedLiveStateRef has explainBackDone=true
+      // before handleAskToExplainFirst fires — otherwise stale false poisons the DB write (B32_3 root cause).
+      await expect(speakerPage.getByText(new RegExp(`${listenerName} finished listening actively to you`, 'i'))).toBeVisible({ timeout: 30000 });
 
       // Listener clicks "Speak freely" to start negotiation
       await listenerPage.getByRole('button', { name: /Speak freely/i }).click();
@@ -739,8 +742,8 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       // CRITICAL BUG CHECKS:
 
-      // B32_2: Speaker's rating drawer should STILL be visible
-      await expect(speakerPage.getByText(/Hear what.*missing for a perfect 10/i).last()).toBeVisible({ timeout: 10000 });
+      // B32_2: Speaker's rating drawer should STILL be visible (listenerDone=true preserved via speakerSawExplainBackDone)
+      await expect(speakerPage.getByText(new RegExp(`${listenerName} finished listening actively to you`, 'i'))).toBeVisible({ timeout: 10000 });
 
       // B32_3: Listener should return to WAITING state, NOT explain-back mode
       // Transition takes time due to DB polling — allow up to 15s
