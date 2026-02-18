@@ -130,7 +130,7 @@ export function InlineCalibration({
   const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
 
   const barContent = (
-    <div className="relative h-6 flex-1 max-w-[140px]">
+    <div className="relative h-6 w-[120px]">
       <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
       <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
       {listenerPos !== null && (
@@ -148,7 +148,9 @@ export function InlineCalibration({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 shrink-0">
             <Ear size={12} className="text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground">Understanding Calibration</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {calibration ? 'Understanding Calibration' : 'Calibration (5 sessions needed)'}
+            </span>
           </div>
 
           {calibration ? (
