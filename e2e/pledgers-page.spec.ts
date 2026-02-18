@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, type TestUser } from './helpers/test-user';
 
 test.describe('Pledgers Page', () => {
+  test.describe.configure({ mode: 'serial' });
   let testUsers: TestUser[] = [];
 
   test.beforeEach(async () => {
