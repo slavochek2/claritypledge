@@ -10,7 +10,7 @@ tags:
   - live
 severity: high
 date_reported: 2026-02-18
-delivery_stage: decompose-review
+delivery_stage: implementation
 created_date: 2026-02-18
 ---
 
@@ -205,15 +205,15 @@ None.
 
 #### Build Sequence
 
-- [ ] Phase 1 — `src/app/types/index.ts`: Add `profileSubjectPosition` to `PointSummary` and `PointWithUserPosition`
-- [ ] Phase 2 — `src/app/data/points-service-real.ts`: Extend `getPointsForProfileDisplay` with subject positions batch + self-view optimization
-- [ ] Phase 3 — `src/app/data/points-service-mock.ts`: Mirror Phase 2
-- [ ] Phase 4 — `src/app/data/stories-service-real.ts`: Extend `getStoriesByAuthorWithPoints` with author positions batch
-- [ ] Phase 5 — `src/app/data/stories-service-mock.ts`: Populate positions in mock implementation
-- [ ] Phase 6 — `src/app/pages/profile-page-v2.tsx`: Populate `positions[profile.id]` in both adaptation loops; rename `profileOwnerPosition` in `PointCardFull`
-- [ ] Phase 7 — `src/app/components/social/story-card-with-links.tsx`: Rename `authorPosition` → `profileSubjectPosition`
-- [ ] Phase 8 — `src/app/components/partners/live-mode-view.tsx`: Replace `getPointsByValidator`; update state type
-- [ ] Phase 9 — Verify: `npm run build` (zero TS errors), manual cross-profile test (User B views User A), `npm test`, `npm run test:e2e -- --grep "P279"`
+- [x] Phase 1 — `src/app/types/index.ts`: Add `profileSubjectPosition` to `PointSummary` and `PointWithUserPosition`
+- [x] Phase 2 — `src/app/data/points-service-real.ts`: Extend `getPointsForProfileDisplay` with subject positions batch + self-view optimization
+- [x] Phase 3 — `src/app/data/points-service-mock.ts`: Mirror Phase 2
+- [x] Phase 4 — `src/app/data/stories-service-real.ts`: Extend `getStoriesByAuthorWithPoints` with author positions batch
+- [x] Phase 5 — `src/app/data/stories-service-mock.ts`: Populate positions in mock implementation
+- [x] Phase 6 — `src/app/pages/profile-page-v2.tsx`: Populate `positions[profile.id]` in both adaptation loops; rename `profileOwnerPosition` in `PointCardFull`
+- [x] Phase 7 — `src/app/components/social/story-card-with-links.tsx`: Rename `authorPosition` → `profileSubjectPosition`
+- [x] Phase 8 — `src/app/components/partners/live-mode-view.tsx`: Replace `getPointsByValidator`; update state type
+- [x] Phase 9 — Verify: `npm run build` (zero TS errors), manual cross-profile test (User B views User A), `npm test`, `npm run test:e2e -- --grep "P279"`
 
 > **Pre-generated tests** (read before implementing): `e2e/p279-profile-subject-position.spec.ts` (4 E2E), `e2e/p279-smoke.spec.ts` (2 smoke). These are the acceptance tests for Phases 2–6. Run `npm run test:e2e -- --grep "P279"` after each phase to verify progress.
 
@@ -277,48 +277,48 @@ npm run test:e2e -- --grep "P279"
 - **Spec refs:** "Technical Analysis > Implementation Approach > Files to Modify (lines ~176-180)"
 - **Depends on:** None
 - **Verify:** `npm run build` passes with zero TS errors; `PointSummary` and `PointWithUserPosition` both have `profileSubjectPosition` optional field
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: Extend points service with profile subject positions
 - **Files:** `src/app/data/points-service-real.ts` (modify), `src/app/data/points-service-mock.ts` (modify)
 - **Spec refs:** "Technical Analysis > Current State — Per Affected File (lines ~102-116)", "Technical Analysis > Architecture Decisions (lines ~132-142)"
 - **Depends on:** Task 1
 - **Verify:** `npm run build` passes; real service adds third `Promise.all` entry for `getMyPositionsForPoints(pointIds, validatorId)`; self-view optimization (`viewerIsSubject`) present; mock mirrors same pattern
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: Extend stories service with author positions
 - **Files:** `src/app/data/stories-service-real.ts` (modify), `src/app/data/stories-service-mock.ts` (modify)
 - **Spec refs:** "Technical Analysis > Current State — Per Affected File (lines ~110-116)"
 - **Depends on:** Task 1
 - **Verify:** `npm run build` passes; `getStoriesByAuthorWithPoints` adds third `Promise.all` entry for `getMyPositionsForPoints(allPointIds, authorId)`; mock populates `profileSubjectPosition` and `userPosition` per point
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: Wire profile page positions map + rename local variable
 - **Files:** `src/app/pages/profile-page-v2.tsx` (modify)
 - **Spec refs:** "Technical Analysis > Current State — Per Affected File (lines ~118-124)", "Technical Analysis > Implementation Approach > Files to Modify (lines ~192-196)"
 - **Depends on:** Task 2, Task 3
 - **Verify:** `npm run build` passes; both adaptation loops (initial load ~line 273 and refetch ~line 385) populate `positions[profile.id]` from `point.profileSubjectPosition`; local variable `profileOwnerPosition` replaced with `profileSubjectPosition` at lines 1093, 1140, 1155; call site to `StoryCardWithLinks` passes `profileSubjectPosition` prop
-- [ ] Complete
+- [x] Complete
 
 ### Task 5: Rename `authorPosition` prop in story card component
 - **Files:** `src/app/components/social/story-card-with-links.tsx` (modify)
 - **Spec refs:** "Technical Analysis > Current State — Per Affected File (lines ~122-124)", "Technical Analysis > Implementation Approach > Files to Modify (lines ~197-200)"
 - **Depends on:** Task 4
 - **Verify:** `npm run build` passes; `StoryCardWithLinksProps.authorPosition` renamed to `profileSubjectPosition` at line 52; all internal references updated (lines 83, 113, 114, 141)
-- [ ] Complete
+- [x] Complete
 
 ### Task 6: Replace deprecated `getPointsByValidator` in live-mode-view
 - **Files:** `src/app/components/partners/live-mode-view.tsx` (modify)
 - **Spec refs:** "Technical Analysis > Current State — Per Affected File (lines ~126-128)", "Technical Analysis > Implementation Approach > Files to Modify (lines ~201-204)"
 - **Depends on:** Task 2
 - **Verify:** `npm run build` passes; `points` state typed as `PointWithUserPosition[]`; call to `getPointsByValidator` replaced with `getPointsForProfileDisplay(userId, userId)`; no references to `getPointsByValidator` remain in this file
-- [ ] Complete
+- [x] Complete
 
 ### Task 7: Verify full test suite passes
 - **Files:** `e2e/p279-profile-subject-position.spec.ts` (pre-generated), `e2e/p279-smoke.spec.ts` (pre-generated)
 - **Spec refs:** "Test Coverage Strategy (lines ~222-258)"
 - **Depends on:** Task 4, Task 5, Task 6
 - **Verify:** `npm run build` zero TS errors; `npm run test:e2e -- --grep "P279"` all 6 tests pass; no regressions in existing profile E2E tests
-- [ ] Complete
+- [x] Complete
 
 **Total tasks:** 7 | **Can parallelize:** Task 2, Task 3 (both depend only on Task 1) | **Must be sequential:** Task 1 → Task 2 → Task 4 → Task 5 → Task 7, Task 1 → Task 3 → Task 4, Task 2 → Task 6 → Task 7
