@@ -86,8 +86,8 @@ test.describe('P152 Smoke Tests', () => {
     // Verify no console errors
     expect(consoleErrors).toHaveLength(0);
 
-    // Verify calibration section NOT shown (insufficient data — graceful empty state)
-    await expect(page.getByText('Understanding Calibration')).not.toBeVisible();
+    // Verify calibration section IS shown (always visible — shows empty bar when insufficient data)
+    await expect(page.getByText('Understanding Calibration')).toBeVisible();
     // Verify profile still loads
     await expect(page.getByRole('heading', { name: testUser.name })).toBeVisible();
   });
