@@ -46,7 +46,7 @@ test.describe('P270 + P160 retroactive: clarity_sessions.is_private migration', 
 
     const { data, error } = await supabaseAdmin
       .from('clarity_sessions')
-      .insert({ code, status: 'waiting' })
+      .insert({ code, creator_name: 'P270 Test' })
       .select('is_private, id')
       .single();
 
@@ -61,7 +61,7 @@ test.describe('P270 + P160 retroactive: clarity_sessions.is_private migration', 
 
     const { data, error } = await supabaseAdmin
       .from('clarity_sessions')
-      .insert({ code, status: 'waiting', is_private: true })
+      .insert({ code, creator_name: 'P270 Test', is_private: true })
       .select('is_private, id')
       .single();
 

@@ -101,6 +101,14 @@ export async function createCalibrationData(options: {
 
   console.log(`[TEST HELPER] Created ${count} verification records`);
 
+  // Verify the profile is readable before updating
+  const { data: preProfile, error: preReadError } = await supabaseAdmin
+    .from('profiles')
+    .select('id, verification_session_count')
+    .eq('id', listenerId)
+    .single();
+  console.log(`[TEST HELPER] Pre-update profile: ${JSON.stringify(preProfile)} error: ${preReadError?.message}`);
+
   // The DB trigger (trg_profile_ears_count) should update verification_session_count automatically.
   // However, trigger execution context in Supabase cloud can behave unexpectedly with service_role.
   // Explicitly update the count to guarantee the correct state for E2E tests.
@@ -108,12 +116,23 @@ export async function createCalibrationData(options: {
     .from('profiles')
     .update({ verification_session_count: count })
     .eq('id', listenerId);
+  console.log(`[TEST HELPER] Update result: error=${countUpdateError?.message}, rows affected (not available in JS client)`);
 
   if (countUpdateError) {
     throw new Error(`Failed to update verification_session_count: ${countUpdateError.message}`);
   }
 
-  console.log(`[TEST HELPER] Set verification_session_count to ${count} for listener`);
+  // Verify the update was applied (fails fast if count isn't visible)
+  const { data: profileCheck } = await supabaseAdmin
+    .from('profiles')
+    .select('verification_session_count')
+    .eq('id', listenerId)
+    .single();
+  if ((profileCheck?.verification_session_count ?? 0) < count) {
+    throw new Error(`verification_session_count update didn't take effect: got ${profileCheck?.verification_session_count}, expected ${count}`);
+  }
+
+  console.log(`[TEST HELPER] Set verification_session_count to ${count} for listener (verified: ${profileCheck?.verification_session_count})`);
 }
 
 /**

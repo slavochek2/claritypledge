@@ -104,12 +104,16 @@ test.describe('P268: Position display — detail page + stories expanded', () =>
     }
 
     // Expand the story's linked points
-    const expandBtn = page.getByRole('button', { name: /point.*by/i }).first();
+    // Use button[aria-expanded] to target the specific inline-expand button, not the outer
+    // story card div[role="button"] which navigates to story detail on click
+    const expandBtn = page.locator('button[aria-expanded]').first();
     await expect(expandBtn).toBeVisible();
     await expandBtn.click();
 
+    // Wait for position buttons to appear (auth may resolve after networkidle)
     // Button order: Disagree (nth 0) | Unsure (nth 1) | Agree (nth 2)
     // QuotedPointCard uses compact mode — counts hidden, but aria-pressed still set
+    await page.locator('button[aria-pressed]').nth(2).waitFor({ state: 'visible', timeout: 15000 });
     const agreeButton = page.locator('button[aria-pressed]').nth(2);
     await expect(agreeButton).toHaveAttribute('aria-pressed', 'true');
   });
@@ -125,11 +129,14 @@ test.describe('P268: Position display — detail page + stories expanded', () =>
       await storiesTab.click();
     }
 
-    const expandBtn = page.getByRole('button', { name: /point.*by/i }).first();
+    // button[aria-expanded] targets the specific expand button (not the outer story card div[role="button"])
+    const expandBtn = page.locator('button[aria-expanded]').first();
     await expandBtn.click(); // expand
     await expandBtn.click(); // collapse
     await expandBtn.click(); // re-expand
 
+    // Wait for position buttons to appear (auth may resolve after networkidle)
+    await page.locator('button[aria-pressed]').nth(2).waitFor({ state: 'visible', timeout: 15000 });
     const agreeButton = page.locator('button[aria-pressed]').nth(2);
     await expect(agreeButton).toHaveAttribute('aria-pressed', 'true');
   });

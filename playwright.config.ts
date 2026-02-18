@@ -103,6 +103,9 @@ export default defineConfig({
       VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
       VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      // Always use real API in E2E tests — mock services don't have test user data
+      VITE_USE_REAL_API: 'true',
+      VITE_USE_REAL_EVENTS_API: 'true',
     },
   },
 });
