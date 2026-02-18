@@ -454,6 +454,8 @@ export function StoryDetailPage() {
   // P132: Position data state
   const [positionCounts, setPositionCounts] = useState<Map<string, Record<PositionType, number>>>(new Map());
   const [userPositions, setUserPositions] = useState<Map<string, PointPosition>>(new Map());
+  // Positions of the story author on their own points (for display badges, independent of viewer)
+  const [storyAuthorPositions, setStoryAuthorPositions] = useState<Map<string, PointPosition>>(new Map());
 
   useEffect(() => {
     async function loadStory() {
@@ -503,15 +505,20 @@ export function StoryDetailPage() {
         if (data.points.length > 0) {
           try {
             const pointIds = data.points.map(p => p.id);
+            const viewerIsAuthor = user?.id === data.authorId;
 
             // Batch fetch position data
-            const [counts, positions] = await Promise.all([
+            const [counts, positions, authorPositions] = await Promise.all([
               pointsService.getPositionCountsForPoints(pointIds),
               user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map()),
+              // Always fetch story author's positions for display badges (independent of viewer)
+              pointsService.getMyPositionsForPoints(pointIds, data.authorId),
             ]);
 
             setPositionCounts(counts);
             setUserPositions(positions);
+            // If viewer is the author, reuse viewer positions to avoid redundant state
+            setStoryAuthorPositions(viewerIsAuthor ? positions : authorPositions);
           } catch (err) {
             console.error('Error loading position data:', err);
             // Non-fatal - show story without position data
@@ -704,6 +711,7 @@ export function StoryDetailPage() {
         linkedPoints={story.points}
         positionCounts={positionCounts}
         userPositions={userPositions}
+        profileOwnerPositions={storyAuthorPositions}
         onPositionClick={handlePositionClick}
         isDetailView={true}
         context="story-detail"

@@ -39,6 +39,8 @@ interface StoryCardDetailProps {
   positionCounts: Map<string, Record<PositionType, number>>;
   /** Current user positions - Map<pointId, PointPosition> */
   userPositions: Map<string, PointPosition>;
+  /** Profile/story owner positions - Map<pointId, PointPosition>. Drives badges next to author name. */
+  profileOwnerPositions?: Map<string, PointPosition>;
   /** Callback when user clicks a position button */
   onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   compact?: boolean;
@@ -68,6 +70,7 @@ export function StoryCardDetail({
   linkedPoints,
   positionCounts,
   userPositions,
+  profileOwnerPositions,
   onPositionClick,
   compact = false,
   isDetailView = false,
@@ -327,6 +330,7 @@ export function StoryCardDetail({
                       authorEarCount={story.authorEarsCount}
                       positionCounts={positionCounts}
                       userPositions={userPositions}
+                      profileOwnerPositions={profileOwnerPositions}
                       onPositionClick={onPositionClick}
                       onClick={e => {
                         e.stopPropagation();
@@ -347,6 +351,7 @@ export function StoryCardDetail({
                             authorEarCount={story.authorEarsCount}
                             positionCounts={positionCounts}
                             userPositions={userPositions}
+                            profileOwnerPositions={profileOwnerPositions}
                             onPositionClick={onPositionClick}
                             onClick={e => {
                               e.stopPropagation();
@@ -389,6 +394,7 @@ function QuotedPoint({
   authorEarCount,
   positionCounts,
   userPositions,
+  profileOwnerPositions,
   onPositionClick,
   onClick,
 }: {
@@ -397,10 +403,13 @@ function QuotedPoint({
   authorEarCount?: number;
   positionCounts: Map<string, Record<PositionType, number>>;
   userPositions: Map<string, PointPosition>;
+  profileOwnerPositions?: Map<string, PointPosition>;
   onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   onClick: (e: React.MouseEvent) => void;
 }) {
   const userPosition = userPositions.get(point.id);
+  // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
+  const ownerPosition = profileOwnerPositions?.get(point.id);
   const baseCounts = positionCounts.get(point.id) || {
     strongly_agree: 0,
     agree: 0,
@@ -463,7 +472,7 @@ function QuotedPoint({
   return (
     <div className="w-full text-left">
       {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-      {userPosition && (
+      {ownerPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
           <GravatarAvatar
             name={authorName}
@@ -482,7 +491,7 @@ function QuotedPoint({
               </span>
             </MobileTooltip>
           )}
-          <PositionBadge position={userPosition.position} />
+          <PositionBadge position={ownerPosition.position} />
         </div>
       )}
 
