@@ -632,6 +632,14 @@ export interface LiveSessionState {
 
   // Session history: completed verifications in this session (checkmarks only, no scores)
   sessionHistory?: Array<{ title: string; type: 'story' | 'point' | 'free' }>;
+
+  // ============================================================================
+  // P275: Live session point positions (stored here instead of point_positions table)
+  // Unverified guests cannot write to point_positions (RLS: is_verified=true required).
+  // Live positions are ephemeral game state — stored in live_state for real-time sync.
+  // Structure: { [participantName]: { [pointId]: PositionType | null } }
+  // ============================================================================
+  livePositions?: Record<string, Record<string, PositionType | null>>;
 }
 
 /** Default initial state for new live sessions */
@@ -671,6 +679,8 @@ export interface LiveTurn {
   flag?: LiveFlag;
   roundNumber: number;
   createdAt: string;
+  /** P275: Positions set by this participant during the round. { [pointId]: PositionType | null } */
+  pointPositions?: Record<string, PositionType | null>;
 }
 
 export interface DbLiveTurn {
@@ -687,6 +697,8 @@ export interface DbLiveTurn {
   flag?: LiveFlag;
   round_number: number;
   created_at: string;
+  /** P275: Positions set by this participant during the round. { [pointId]: PositionType | null } */
+  point_positions?: Record<string, PositionType | null>;
 }
 
 /** Rating button mapping */
@@ -906,6 +918,7 @@ export interface PointSummary {
   tags: string[];
   positionCounts?: Record<string, number>;
   userPosition?: PositionType | null;
+  profileSubjectPosition?: PositionType | null;
 }
 
 /** Point with creator profile info */
@@ -925,6 +938,7 @@ export interface PointWithCounts extends PointWithCreator {
 /** Point with user's position */
 export interface PointWithUserPosition extends PointWithCounts {
   userPosition?: PointPosition;
+  profileSubjectPosition?: PointPosition;
 }
 
 export interface DbPoint {

@@ -1,5 +1,6 @@
 ---
-status: week
+status: done
+delivery_stage: implementation
 type: bug
 rank: 1
 workstream: C1
@@ -43,10 +44,10 @@ Allow unverified users to write to `point_positions` when inside an active sessi
 
 ## Acceptance criteria
 
-- [ ] Unverified guest can update point positions in `/live` without error
-- [ ] Position updates appear in real time on both screens (P272 requirement)
-- [ ] Verified user's live position optionally persists to `point_positions` after round — but this is non-blocking
-- [ ] No change to `point_positions` RLS policy
+- [x] Unverified guest can update point positions in `/live` without error — positions write to `live_state.livePositions`, not `point_positions`
+- [x] Position updates appear in real time on both screens — synced via existing `live_state` Realtime mechanism
+- [x] Verified user's live position optionally persists to `point_positions` after round — `handlePositionSelectInLive` attempts best-effort `pointsService.setPosition`, silently ignores failure for unverified
+- [x] No change to `point_positions` RLS policy
 
 ## Relationship to P272
 

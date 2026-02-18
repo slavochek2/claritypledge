@@ -43,8 +43,10 @@ import { analytics } from '@/lib/mixpanel';
 import { useAuth } from '@/auth';
 import {
   type LiveSessionState,
+  type PositionType,
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
+import { pointsService } from '@/app/data/points-service';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
@@ -814,6 +816,37 @@ export function ClarityLivePage() {
     setLocalFlowType('check');
     setIsLocallyRating(true);
   }, [name, partnerName, session?.code, updateLiveState]);
+
+  // P275: Handle point position selection during a /live session.
+  // Stores positions in live_state.livePositions instead of point_positions table.
+  // Unverified guests (is_verified=false) cannot write to point_positions (RLS blocks it),
+  // so live positions are stored here and synced in real-time via live_state.
+  const handlePositionSelectInLive = useCallback(
+    (pointId: string, position: PositionType | null) => {
+      if (!name) return;
+
+      // Write to live_state for real-time sync — works for all participants
+      // including unverified guests (no verification requirement on live_state updates).
+      const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
+      const myPositions = currentPositions[name] ?? {};
+      updateLiveState({
+        livePositions: {
+          ...currentPositions,
+          [name]: { ...myPositions, [pointId]: position },
+        },
+      });
+
+      // Best-effort persistence to point_positions for verified users.
+      // Unverified guests: RLS will silently reject this — expected per P275.
+      // Failure is not surfaced to the user.
+      if (user?.id && position !== null) {
+        pointsService.setPosition(pointId, user.id, position).catch(() => {
+          // Silently ignored: expected failure for is_verified=false users
+        });
+      }
+    },
+    [name, updateLiveState, user?.id]
+  );
 
   // V7: Handle rating submission
   // "Did you get it?" flow: First person to submit becomes the checker
@@ -2543,6 +2576,8 @@ export function ClarityLivePage() {
           userId={user?.id}
           onSelectStory={handleSelectStory}
           onSelectPoint={handleSelectPoint}
+          // P275: Position selection during live — stores in live_state, not point_positions
+          onPositionSelect={handlePositionSelectInLive}
           // P160: Private session mode indicator
           isPrivate={session.isPrivate ?? false}
         />

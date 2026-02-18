@@ -2416,6 +2416,8 @@ function mapLiveTurnFromDb(db: DbLiveTurn): LiveTurn {
     flag: db.flag,
     roundNumber: db.round_number,
     createdAt: db.created_at,
+    // P275: positions set during the round
+    ...(db.point_positions ? { pointPositions: db.point_positions } : {}),
   };
 }
 
@@ -2443,6 +2445,8 @@ export async function saveLiveTurn(
       other_rating: turn.otherRating,
       flag: turn.flag,
       round_number: turn.roundNumber,
+      // P275: positions set during the round (safe for unverified guests)
+      ...(turn.pointPositions ? { point_positions: turn.pointPositions } : {}),
     })
     .select()
     .single();

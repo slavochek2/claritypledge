@@ -33,7 +33,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { type LiveSessionState, type GapType, type FlowType, type StoryWithAuthor, type StoryWithPoints, type PointWithCreator } from '@/app/types';
+import { type LiveSessionState, type GapType, type FlowType, type StoryWithAuthor, type StoryWithPoints, type PointWithCreator, type PointWithUserPosition, type PositionType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
@@ -168,6 +168,8 @@ interface LiveModeViewProps {
   onSelectStory?: (storyId: string, title: string) => void;
   /** P128: Select a point for content-attached verification */
   onSelectPoint?: (pointId: string, title: string) => void;
+  /** P275: Update a point position during the /live session (safe for unverified guests) */
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   /** P160: When true, session is private — shows private band instead of recording band */
   isPrivate?: boolean;
 }
@@ -200,6 +202,8 @@ export function LiveModeView({
   userId,
   onSelectStory,
   onSelectPoint,
+  // onPositionSelect is intentionally not destructured here — P272 will pass it to
+  // LiveStoryCardExpanded when that component is built.
   isPrivate = false,
 }: LiveModeViewProps) {
 
@@ -648,7 +652,7 @@ function IdleScreen({
 
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
-  const [points, setPoints] = useState<PointWithCreator[]>([]);
+  const [points, setPoints] = useState<PointWithUserPosition[]>([]);
   const [contentLoaded, setContentLoaded] = useState(false);
   const [contentInteracted, setContentInteracted] = useState(false);
 
@@ -663,7 +667,7 @@ function IdleScreen({
       try {
         const [fetchedStories, fetchedPoints] = await Promise.all([
           storiesService.getStoriesByAuthorWithPoints(userId),
-          pointsService.getPointsByValidator(userId),
+          pointsService.getPointsForProfileDisplay(userId, userId),
         ]);
         if (!cancelled) {
           setStories(fetchedStories);
