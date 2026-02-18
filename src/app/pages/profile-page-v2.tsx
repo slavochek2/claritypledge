@@ -46,6 +46,7 @@ import {
   PositionBadge,
   type SevenPointCounts,
 } from "@/app/prototypes/linkedin-like/components/shared";
+import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
 // Profile owner context for card components
@@ -873,14 +874,12 @@ function StoryCardFull({
                 >
                   {author.name}
                 </button>
-                {credibilityStats.ear > 0 && (
-                  <MobileTooltip content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-                    <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-                      <Ear size={12} />
-                      {credibilityStats.ear}
-                    </span>
-                  </MobileTooltip>
-                )}
+                <MobileTooltip content={credibilityStats.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+                  <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                    <Ear size={12} />
+                    {credibilityStats.ear}
+                  </span>
+                </MobileTooltip>
               </div>
               <p className="text-xs text-muted-foreground">
                 {author.role} · {formatTimeAgo(story.createdAt)}
@@ -925,6 +924,7 @@ function StoryCardFull({
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
+          <VisibilityBadge visibility={story.visibility} />
           <ShareButton
             type="story"
             id={story.id}
@@ -1144,14 +1144,12 @@ function PointCardFull({
               className="!w-5 !h-5 !text-[10px]"
             />
             <span className="font-medium">{profileOwner.name}</span>
-            {credibilityStats.ear > 0 && (
-              <MobileTooltip content={`${profileOwner.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
-                <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-                  <Ear size={14} />
-                  {credibilityStats.ear}
-                </span>
-              </MobileTooltip>
-            )}
+            <MobileTooltip content={credibilityStats.ear === 0 ? `${profileOwner.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${profileOwner.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}>
+              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+                <Ear size={14} />
+                {credibilityStats.ear}
+              </span>
+            </MobileTooltip>
             <PositionBadge position={profileOwnerPosition as PositionType} />
           </div>
         )}
