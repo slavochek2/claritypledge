@@ -470,7 +470,6 @@ export function EventDetail() {
                     avatarUrl={attendee.avatarUrl}
                     isPledger={attendee.hasPledged}
                     earCount={attendee.earCount}
-                    action={isPast ? "attended" : "going"}
                   />
                 ))}
               </div>

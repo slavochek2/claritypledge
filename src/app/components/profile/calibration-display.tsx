@@ -148,9 +148,7 @@ export function InlineCalibration({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 shrink-0">
             <Ear size={12} className="text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground">
-              {calibration ? 'Understanding Calibration' : 'Calibration (5 sessions needed)'}
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Understanding Calibration</span>
           </div>
 
           {calibration ? (
@@ -171,7 +169,7 @@ export function InlineCalibration({
           ) : (
             <CalibrationTooltip
               side="top"
-              content={<p className="text-xs">5 sessions needed to unlock</p>}
+              content={<p className="text-xs">Complete 5 live sessions to unlock your calibration score</p>}
             >
               {barContent}
             </CalibrationTooltip>
