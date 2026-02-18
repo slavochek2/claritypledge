@@ -30,13 +30,10 @@ test.describe('P270 + P160 retroactive: clarity_sessions.is_private migration', 
       .select('is_private')
       .limit(1);
 
-    // Either of these messages means the migration was not applied:
-    // "Could not find the 'is_private' column of 'clarity_sessions' in the schema cache"
-    // "column 'is_private' of relation 'clarity_sessions' does not exist"
     expect(
-      error?.message ?? '',
+      error,
       `P160 migration not applied. Run: supabase db push\nError: ${error?.message}`
-    ).not.toMatch(/is_private.*schema cache|schema cache.*is_private|column.*does not exist/i);
+    ).toBeNull();
   });
 
   // ── 2. Default value: new sessions should default to is_private = false ──

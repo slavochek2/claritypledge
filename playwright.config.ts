@@ -88,7 +88,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: '**/integration/**',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // DB/migration tests — no browser needed, run with: npx playwright test --project=integration
+      name: 'integration',
+      testMatch: '**/integration/**/*.spec.ts',
     },
   ],
 

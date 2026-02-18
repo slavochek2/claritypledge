@@ -57,22 +57,23 @@ test.describe('Migration: {feature} — {column} column', () => {
 
   // ── 2. Default value check: column has correct default (service role) ──────
   test('new rows get the correct default value', async () => {
-    // Create a minimal row without setting the new column
-    const { data, error } = await supabaseAdmin
-      .from(TABLE)
-      .insert({
-        // Provide required fields for the table here
-        // Leave COLUMN out — we want to verify the DB default
-      })
-      .select(`id, ${COLUMN}`)
-      .single();
+    let rowId: string | undefined;
+    try {
+      // FILL IN: add all required NOT NULL columns for TABLE here.
+      // Leave COLUMN out — we want the DB default to apply.
+      const { data, error } = await supabaseAdmin
+        .from(TABLE)
+        .insert({
+          // example: code: `TEST-TEMPLATE-${Date.now()}`, creator_name: 'Template Test'
+        })
+        .select(`id, ${COLUMN}`)
+        .single();
 
-    expect(error).toBeNull();
-    expect(data?.[COLUMN]).toBe(EXPECTED_DEFAULT);
-
-    // Cleanup
-    if (data?.id) {
-      await supabaseAdmin.from(TABLE).delete().eq('id', data.id);
+      rowId = data?.id;
+      expect(error).toBeNull();
+      expect(data?.[COLUMN]).toBe(EXPECTED_DEFAULT);
+    } finally {
+      if (rowId) await supabaseAdmin.from(TABLE).delete().eq('id', rowId);
     }
   });
 
@@ -92,22 +93,23 @@ test.describe('Migration: {feature} — {column} column', () => {
       { global: { headers: { Authorization: `Bearer ${signIn!.session!.access_token}` } } }
     );
 
-    // Attempt write as real user — fails if RLS blocks it
-    const { data, error } = await userClient
-      .from(TABLE)
-      .insert({
-        // Provide required fields for the table here
-        [COLUMN]: !EXPECTED_DEFAULT, // Write non-default to confirm write works
-      })
-      .select(`id, ${COLUMN}`)
-      .single();
+    let rowId: string | undefined;
+    try {
+      // FILL IN: add all required NOT NULL columns for TABLE here.
+      const { data, error } = await userClient
+        .from(TABLE)
+        .insert({
+          // example: code: `TEST-TEMPLATE-${Date.now()}`, creator_name: 'Template Test'
+          [COLUMN]: !EXPECTED_DEFAULT, // Write non-default to confirm write works
+        })
+        .select(`id, ${COLUMN}`)
+        .single();
 
-    expect(error, `RLS blocked write to ${COLUMN}: ${error?.message}`).toBeNull();
-    expect(data?.[COLUMN]).toBe(!EXPECTED_DEFAULT);
-
-    // Cleanup
-    if (data?.id) {
-      await supabaseAdmin.from(TABLE).delete().eq('id', data.id);
+      rowId = data?.id;
+      expect(error, `RLS blocked write to ${COLUMN}: ${error?.message}`).toBeNull();
+      expect(data?.[COLUMN]).toBe(!EXPECTED_DEFAULT);
+    } finally {
+      if (rowId) await supabaseAdmin.from(TABLE).delete().eq('id', rowId);
     }
   });
 });

@@ -54,26 +54,27 @@ describe('realCalibrationService', () => {
     });
 
     it('returns sufficient with calibration stats when sessions >= 5', async () => {
-      mockSelect.mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: { ears_count: 4, verification_session_count: 7 },
-            error: null,
-          }),
-        }),
-      });
-
-      // Mock RPC calls for calibration averages
-      mockRpc
+      mockSelect
+        // Profile lookup
         .mockReturnValueOnce({
-          single: vi.fn().mockResolvedValue({
-            data: { avg_speaker_rating: 7.5, avg_listener_rating: 8.2 },
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { ears_count: 4, verification_session_count: 7 },
+              error: null,
+            }),
+          }),
+        })
+        // Listener calibration: avg speaker_rating = 7.5, avg listener_rating = 8.2
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({
+            data: [{ speaker_rating: 7.5, listener_rating: 8.2 }],
             error: null,
           }),
         })
+        // Speaker calibration (unused by assertions but called by service)
         .mockReturnValueOnce({
-          single: vi.fn().mockResolvedValue({
-            data: { avg_speaker_rating: 6.8, avg_listener_rating: 7.0 },
+          eq: vi.fn().mockResolvedValue({
+            data: [{ speaker_rating: 6.8, listener_rating: 7.0 }],
             error: null,
           }),
         });

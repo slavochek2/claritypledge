@@ -5,7 +5,7 @@ rank: 270.0
 workstream: foundation
 tags: [testing, process, migrations, integration-tests]
 delivery_stage: arch-review
-completed_at: 2026-02-18
+completed_at: "2026-02-18"
 ---
 
 # P270: Integration Test Coverage for DB Migrations
@@ -31,11 +31,11 @@ Make it structurally impossible to ship a feature with a missing DB migration wi
 
 ## Acceptance Criteria
 
-- [ ] `/generate-tests` emits an integration test file for any feature spec that mentions a migration
-- [ ] That integration test does a real Supabase query against the affected table/column (not mocked)
-- [ ] `pre-commit-checks.sh` has a step that warns if new migrations in `supabase/migrations/` have not been applied to the local dev DB
-- [ ] `/done` skill checks UAT scorecard — warns (or blocks) if 100% of scenarios are ⬜
-- [ ] Process documented in `docs/technical/testing.md` under a new "Integration Tests" section
+- [x] `/generate-tests` emits an integration test file for any feature spec that mentions a migration
+- [x] That integration test does a real Supabase query against the affected table/column (not mocked)
+- [x] `pre-commit-checks.sh` has a step (Step 14) that reminds developer to apply staged migrations and add an integration test (note: detects staged SQL files, not whether migration was applied to local DB — see Decision 2 rationale)
+- [x] `/done` skill checks UAT scorecard — warns (or blocks) if 100% of scenarios are ⬜
+- [x] Process documented in `docs/technical/e2e-testing-guide.md` under "Integration Tests" section (line 630+)
 
 ## Scope / Out of Scope
 
@@ -198,10 +198,11 @@ fi
 
 ### Files to Modify
 
-1. `scripts/pre-commit-checks.sh` — add Step 14: migration freshness check
+1. `scripts/pre-commit-checks.sh` — add Step 14: migration commit reminder
 2. `.claude/commands/slava/done/SKILL.md` — insert UAT gate between Step 3 and Step 4
-3. `.claude/commands/slava/build/generate-tests.md` — update "Database Migration" example to use two-client pattern (admin for schema check, user-scoped for RLS assertions) and mandate `e2e/integration/` output
-4. `docs/technical/testing.md` — new "Integration Tests" section: when to write them, file location, two-client pattern, security constraints
+3. `.claude/commands/slava/build/generate-tests/SKILL.md` — update "Database Migration" example to use two-client pattern and mandate `e2e/integration/` output
+4. `docs/technical/e2e-testing-guide.md` — new "Integration Tests" section (line 630+)
+5. `playwright.config.ts` — add `integration` project (`testMatch: **/integration/**/*.spec.ts`), exclude from `chromium` project
 
 ### Build Sequence
 
