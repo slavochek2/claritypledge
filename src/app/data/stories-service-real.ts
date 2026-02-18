@@ -336,22 +336,26 @@ export const realStoriesService: StoriesService = {
       }
     });
 
-    // Batch-fetch position counts and user positions for all linked points
-    const [countsMap, userPositionsMap] = await Promise.all([
+    // Batch-fetch position counts, viewer positions, and author (subject) positions
+    const [countsMap, userPositionsMap, subjectPositionsMap] = await Promise.all([
       allPointIds.length > 0
         ? pointsService.getPositionCountsForPoints(allPointIds)
         : Promise.resolve(new Map<string, Record<string, number>>()),
       allPointIds.length > 0 && userId
         ? pointsService.getMyPositionsForPoints(allPointIds, userId)
         : Promise.resolve(new Map<string, { position: string }>()),
+      allPointIds.length > 0
+        ? pointsService.getMyPositionsForPoints(allPointIds, authorId)
+        : Promise.resolve(new Map<string, { position: string }>()),
     ]);
 
-    // Enrich each PointSummary with counts and user position
+    // Enrich each PointSummary with counts, user position, and author's position
     pointsByStory.forEach((points, storyId) => {
       pointsByStory.set(storyId, points.map(p => ({
         ...p,
         positionCounts: countsMap.get(p.id),
         userPosition: (userPositionsMap.get(p.id) as { position: string } | undefined)?.position as PositionType | null ?? null,
+        profileSubjectPosition: (subjectPositionsMap.get(p.id) as { position: string } | undefined)?.position as PositionType | null ?? null,
       })));
     });
 

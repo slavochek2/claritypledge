@@ -49,7 +49,7 @@ interface StoryCardWithLinksProps {
   /** Show thread line styling (used in point-detail hierarchy) */
   showThreadLine?: boolean;
   /** Author's position on the Point (used for data context, display removed to reduce redundancy since position sections already group by stance) */
-  authorPosition?: PositionType;
+  profileSubjectPosition?: PositionType;
   /** Hide action buttons (share, visibility) - useful in live session context */
   hideActions?: boolean;
   /** Disable click-to-navigate behavior */
@@ -67,7 +67,7 @@ interface StoryCardWithLinksProps {
  * Visual: Blue left border, author avatar, linked Points shown below
  * Pattern B: Yellow border line shows linked Points
  *
- * Quote Pattern (P103): When context='point-detail' with authorPosition,
+ * Quote Pattern (P103): When context='point-detail' with profileSubjectPosition,
  * shows "{Name} {verb}:" outside a quoted box containing the story.
  */
 export function StoryCardWithLinks({
@@ -80,7 +80,7 @@ export function StoryCardWithLinks({
   showVerifyButton = false,
   onVerify,
   showThreadLine: _showThreadLine = true,
-  authorPosition,
+  profileSubjectPosition,
   hideActions = false,
   disableNavigation = false,
   getPointPositionCounts,
@@ -110,8 +110,8 @@ export function StoryCardWithLinks({
     return `${Math.floor(seconds / 604800)}w ago`;
   };
 
-  // Quote pattern: show position label outside when in point-detail context with authorPosition
-  const showQuotePattern = context === 'point-detail' && authorPosition && author;
+  // Quote pattern: show position label outside when in point-detail context with profileSubjectPosition
+  const showQuotePattern = context === 'point-detail' && profileSubjectPosition && author;
 
   // Quote pattern rendering - when viewing Stories in a Point's position sections
   if (showQuotePattern) {
@@ -138,7 +138,7 @@ export function StoryCardWithLinks({
               </span>
             </MobileTooltip>
           )}
-          <PositionBadge position={authorPosition} />
+          <PositionBadge position={profileSubjectPosition} />
         </div>
 
         {/* Quoted Story box */}
@@ -412,7 +412,7 @@ function QuotedPoint({
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
-  const authorPosition = point.positions[authorId]?.position;
+  const profileSubjectPosition = point.positions[authorId]?.position;
 
   // Get base counts or use defaults
   const baseCounts =
@@ -472,7 +472,7 @@ function QuotedPoint({
   return (
     <div className="w-full text-left">
       {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-      {authorPosition && (
+      {profileSubjectPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
           <GravatarAvatar
             name={authorName}
@@ -493,7 +493,7 @@ function QuotedPoint({
               </span>
             </MobileTooltip>
           )}
-          <PositionBadge position={authorPosition} />
+          <PositionBadge position={profileSubjectPosition} />
         </div>
       )}
 

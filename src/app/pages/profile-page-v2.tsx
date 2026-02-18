@@ -111,7 +111,7 @@ function formatTimeAgo(dateStr: string): string {
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
 import { calibrationService } from "@/app/data/calibration-service";
-import type { StoryWithPoints, PointWithUserPosition, CalibrationResult } from "@/app/types";
+import type { StoryWithPoints, PointWithUserPosition, PointSummary, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
 // Routes for detail pages (main app, not prototype)
@@ -277,6 +277,14 @@ export function ProfilePageV2() {
             };
           }
 
+          // Add profile subject's position (always loaded; causes point to appear on their profile)
+          if (point.profileSubjectPosition) {
+            positions[profile.id] = {
+              position: point.profileSubjectPosition.position,
+              timestamp: point.profileSubjectPosition.createdAt,
+            };
+          }
+
           // Find stories from our loaded stories and adapt them to prototype format
           const linkedStories = linkedStoryIds
             .map(storyId => {
@@ -390,6 +398,14 @@ export function ProfilePageV2() {
           positions[currentUser.id] = {
             position: point.userPosition.position,
             timestamp: point.userPosition.createdAt,
+          };
+        }
+
+        // Add profile subject's position
+        if (point.profileSubjectPosition) {
+          positions[profile.id] = {
+            position: point.profileSubjectPosition.position,
+            timestamp: point.profileSubjectPosition.createdAt,
           };
         }
 
@@ -991,9 +1007,9 @@ interface QuotedPointCardProps {
 function QuotedPointCard({
   point,
   authorId,
-  authorName: _authorName,
-  authorEarCount: _authorEarCount,
-  authorHasPledged: _authorHasPledged,
+  authorName,
+  authorEarCount,
+  authorHasPledged,
   currentUserId,
   onPositionSelect,
 }: QuotedPointCardProps) {
@@ -1038,6 +1054,26 @@ function QuotedPointCard({
 
   return (
     <div className="w-full text-left">
+      {/* Author's position badge - shown above quoted box when available */}
+      {point.profileSubjectPosition && (
+        <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
+          <GravatarAvatar
+            name={authorName}
+            size="sm"
+            isPledger={authorHasPledged}
+            className="!w-5 !h-5 !text-[10px]"
+          />
+          <span className="font-medium">{authorName}</span>
+          {authorEarCount !== undefined && authorEarCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+              <Ear size={14} />
+              {authorEarCount}
+            </span>
+          )}
+          <PositionBadge position={point.profileSubjectPosition as PositionType} />
+        </div>
+      )}
+
       {/* Quoted Point box - entire box is clickable */}
       <button
         onClick={() => navigate(detailRoutes.point(point.id, authorId))}
@@ -1089,8 +1125,8 @@ function PointCardFull({
   credibilityStats,
 }: PointCardFullProps) {
   const navigate = useNavigate();
-  // Profile owner's position (loaded with their userId)
-  const profileOwnerPosition = point.userPosition?.position ?? null;
+  // Profile subject's position (always loaded; causes point to appear on their profile)
+  const profileSubjectPosition = point.profileSubjectPosition?.position ?? null;
   const [userPosition, setUserPosition] = useState<Position>(null);
   const baseCounts = useMemo(() => toSevenPointCounts(point.positionCounts), [point.positionCounts]);
 
@@ -1137,7 +1173,7 @@ function PointCardFull({
       {/* Main content */}
       <div className="p-4">
         {/* Quote pattern: position label outside, Point in quoted box */}
-        {profileOwnerPosition && (
+        {profileSubjectPosition && (
           <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
             <GravatarAvatar
               name={profileOwner.name}
@@ -1152,7 +1188,7 @@ function PointCardFull({
                 {credibilityStats.ear}
               </span>
             </MobileTooltip>
-            <PositionBadge position={profileOwnerPosition as PositionType} />
+            <PositionBadge position={profileSubjectPosition as PositionType} />
           </div>
         )}
 

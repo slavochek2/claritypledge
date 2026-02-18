@@ -14,6 +14,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: AI-agent delivery pipeline — spec-as-reference + /decompose for large features
+
+**Context:** Complex features (8-12 files, 6-10 build steps) produce specs of 700+ lines after PRD + UX + Architecture + Tests layers are appended. When /dev loads the full spec to begin implementation, spec alone consumes 30-40% of the context window before any code is read. Features of this size cannot complete in a single context window, and mid-feature compaction corrupts the build state.
+
+**Decision:** Adopted the "spec-as-reference" pattern with `/decompose` orchestration for features above the complexity threshold:
+- Spec file remains the single source of truth — all layers are appended to it as before.
+- `/decompose` converts the build sequence into a task manifest (`## Implementation Tasks`) appended to the spec. Each task entry contains a title, acceptance criteria, and line-range references to the relevant spec sections.
+- `/dev` operates as orchestrator: reads the task manifest only (~80 lines), then dispatches one subagent per task in sequence.
+- Each subagent receives only its task entry plus the referenced spec line ranges (50-150 lines total) — never the full spec.
+- No single agent ever loads more than ~150 lines of spec context.
+
+**Alternatives rejected:** Team-based parallel agents — too much coordination overhead when tasks have sequential dependencies (DB schema must exist before service layer, service layer before UI). Splitting the spec file into per-layer files — fragments the single source of truth and breaks all existing `/dev` assumptions.
+
+**Consequences:** Context usage on spec drops from 30-40% to under 10% per subagent. Each task runs in a fresh context window with no compaction risk. A failed task can be re-dispatched in isolation without restarting the session. Trade-off: subagents execute sequentially (one at a time), which is slower than a parallel team. `/decompose` adds one pipeline step — only triggered for features meeting the threshold: 5+ files OR 3+ concerns OR 6+ build steps. Below threshold, `/dev` is used directly as before.
+
+---
+
 ## 2026-02-18: E2E test suite — move from sequential (1 worker) to parallel (3 workers)
 
 **Context:** P277. Test suite took 43+ minutes with `workers: 1`. Question: can we parallelize safely given shared Supabase test DB?
@@ -161,6 +178,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-18: Dual-track strategy revised — Coaching PRIMARY months 1-6, Recognition SECONDARY months 7-12
+
+**Context:** Original dual-track (2026-02-11) positioned Recognition as PRIMARY and Coaching as SAFETY. Reality check: coaching validation is concrete and near-term; essays without real data are speculative; earning the right to write essays by having data first is more credible.
+
+**Decisions made:**
+1. **Coaching becomes PRIMARY (months 1-6):** Run founder sessions → build real calibration data → prove UX works with paying founders before writing essays about it
+2. **Recognition becomes SECONDARY, data-driven (months 7-12):** Use founder session data as evidence for essays. "We ran sessions with 10+ founder pairs, here's what we measured" is more credible than theory-first positioning
+3. **Co-founder pairs as primary C-track ICP:** Functioning but misaligned pairs (preventive, not therapeutic). Solo founders routed to community. Investor angle parked.
+4. **Investor angle parked until month 4-6+:** Hypothesis noted but deferred — needs coaching validation and case study data first. See future-directions.md FD-2.
+
+**Alternatives rejected:**
+- Keep Recognition primary — no real data yet; waiting risks runway
+- Abandon Recognition entirely — the long-term vision is still valid, just sequenced later
+- Run both tracks fully in parallel — creates resource thrashing
+
+**Consequences:**
+- C2 rewritten: co-founder pair sessions (€300-500) not generic workshops ($100/person)
+- C3 rewritten: retainer model (€800-1,500/month) not paid events
+- C4 added: founder community milestone (€200-300/month add-on)
+- R1 timing shifted: starts Month 5 (after C2/C3 build real data), not Month 1
+- Lean canvas ICPs and channels updated to reflect new sequencing
+
+---
+
 ## 2026-02-17: P160 — Recording opt-out for privacy-sensitive sessions
 
 **Context:** Every `/live` session was recorded by default (audio → GCS → ML training pipeline). No opt-out existed. Friction points: users practicing with sensitive topics, new users before trust is established, coaches demoing to privacy-conscious clients.
@@ -249,6 +290,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 ## 2026-02-11: Dual-track strategy — Recognition primary, coaching safety
+
+> **⚠️ SUPERSEDED by 2026-02-18 entry below.** This entry used "SAFETY TRACK" language for coaching and "PRIMARY" for recognition. The 2026-02-18 decision reversed this: Coaching is now PRIMARY (months 1-6), Recognition is SECONDARY (months 7-12). The reasoning below is preserved for historical context.
 
 **Context:** After 6+ months of strategic uncertainty (coach outreach? workshop pivot? story features?), clarified through founder introspection what success actually looks like. The real goal isn't €5k/month — it's being recognized as "the calibration person" in AI/rationalist circles. Revenue is necessary but instrumental. Coaching workshops provide validation and safety (€5k/month = "enough") while allowing 12 months to prove recognition track viable.
 

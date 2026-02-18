@@ -19,11 +19,11 @@ This document describes how features move from idea to production in the Clarity
 /architect features/pN_feature.md    # Technical layer
 # [Review & approve architecture]
 
-/decompose features/pN_feature.md    # Task manifest (complex features only*)
-# [Review & approve task breakdown]
-
 /generate-tests features/pN_feature.md  # Test generation
 # [Auto-generated, no review needed]
+
+/decompose features/pN_feature.md    # Task manifest (complex features only*)
+# [Review & approve task breakdown — /decompose reads Test Coverage section to add test refs to tasks]
 
 /dev features/pN_feature.md          # Implementation
 # [Agent tests itself until all pass]
@@ -171,6 +171,8 @@ This document describes how features move from idea to production in the Clarity
 
 **Skip when:** Below all three thresholds — run /dev directly.
 
+**Run order:** Run `/generate-tests` BEFORE `/decompose`. /decompose reads the `## Test Coverage Strategy` section (written by /generate-tests) to add `Tests:` lines to each task entry. If /decompose runs first, it cannot add test file references to tasks.
+
 **Input:** Reads ONLY the `### Implementation Approach` section of the spec (not the full spec).
 
 **Output:** Appends `## Implementation Tasks` to the spec file. Each task has:
@@ -199,7 +201,7 @@ This document describes how features move from idea to production in the Clarity
 # User reviews, approves
 ```
 
-**Next:** If approved → Run `/generate-tests`
+**Next:** If approved → Run `/dev`
 
 ---
 
@@ -381,7 +383,7 @@ Security review incomplete — what if user tries to set preference for another 
 Need RLS policy or validation that userId matches authenticated user.
 ```
 
-**Next:** If approved → Run `/decompose` (if complex: 5+ files OR 3+ concerns OR 6+ steps) or `/generate-tests` (otherwise)
+**Next:** If approved → Run `/generate-tests`, then `/decompose` (if complex: 5+ files OR 3+ concerns OR 6+ steps)
 
 ---
 
@@ -392,8 +394,8 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/create-prd` | Starting any new feature | Business requirements only |
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
-| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps | Task manifest (`## Implementation Tasks` in spec) |
 | `/generate-tests` | All features (after architecture approved) | UAT + E2E stubs + smoke tests |
+| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps — run AFTER /generate-tests | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
 | `/dev` | All features (after tests generated) | Implementation + tests passing; orchestrator mode if task manifest exists |
 | `/quick-feature` | Quick skeleton (different use case) | Empty spec structure |
 
@@ -737,9 +739,10 @@ These skills can be used at any point during development when you need them:
 │ CORE FLOW                                           │
 │                                                     │
 │ Features:                                           │
-│ /create-prd → /ux → /architect → /decompose* → /generate-tests → /dev │
+│ /create-prd → /ux → /architect → /generate-tests → /decompose* → /dev │
 │                                                     │
 │ * /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
+│   /decompose reads Test Coverage section from /generate-tests           │
 │                                                     │
 │ Bugs:                                               │
 │ Investigate (if complex) → /fix                     │

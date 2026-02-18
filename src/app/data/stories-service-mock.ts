@@ -140,11 +140,15 @@ export const mockStoriesService: StoriesService = {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   },
 
-  async getStoriesByAuthorWithPoints(authorId: string, _userId?: string): Promise<StoryWithPoints[]> {
-    const stories = await this.getStoriesByAuthor(authorId);
+  async getStoriesByAuthorWithPoints(_authorId: string, _userId?: string): Promise<StoryWithPoints[]> {
+    const stories = await this.getStoriesByAuthor(_authorId);
     return stories.map(story => ({
       ...story,
-      points: mockStoryPoints[story.id] || [],
+      points: (mockStoryPoints[story.id] || []).map(p => ({
+        ...p,
+        profileSubjectPosition: null,
+        userPosition: p.userPosition ?? null,
+      })),
     }));
   },
 

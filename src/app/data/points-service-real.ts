@@ -603,25 +603,31 @@ export const realPointsService: PointsService = {
 
     const pointIds = points.map(p => p.id);
 
-    // Batch fetch counts + positions (2 queries for N points - efficient!)
-    const [countsMap, positionsMap] = await Promise.all([
+    // Self-view optimization: viewer and subject are the same person
+    const viewerIsSubject = viewerUserId === validatorId;
+
+    // Batch fetch counts + viewer positions + subject positions (2-3 queries for N points)
+    const [countsMap, positionsMap, subjectPositionsMap] = await Promise.all([
       this.getPositionCountsForPoints(pointIds),
-      viewerUserId
+      !viewerIsSubject && viewerUserId
         ? this.getMyPositionsForPoints(pointIds, viewerUserId)
-        : Promise.resolve(new Map()),
+        : Promise.resolve(new Map<string, PointPosition>()),
+      this.getMyPositionsForPoints(pointIds, validatorId),
     ]);
 
     // Combine into PointWithUserPosition[]
     return points.map(point => {
       const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
       const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
-      const userPosition = positionsMap.get(point.id);
+      const profileSubjectPosition = subjectPositionsMap.get(point.id);
+      const userPosition = viewerIsSubject ? profileSubjectPosition : positionsMap.get(point.id);
 
       return {
         ...point,
         positionCounts,
         totalPositions,
         userPosition,
+        profileSubjectPosition,
       };
     });
   },

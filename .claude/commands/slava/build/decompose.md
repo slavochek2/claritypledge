@@ -1,7 +1,7 @@
 ---
 name: decompose
-description: Convert a large feature's build sequence into a task manifest. Run between /architect and /generate-tests for complex features (5+ files OR 3+ concerns OR 6+ build steps).
-when_to_use: After /architect approval, before /generate-tests, only for complex features
+description: Convert a large feature's build sequence into a task manifest. Run after /generate-tests for complex features (5+ files OR 3+ concerns OR 6+ build steps). Reads the Test Coverage Strategy section to add test refs to each task.
+when_to_use: After /generate-tests, before /dev, only for complex features
 version: 1.0.0
 ---
 
@@ -207,14 +207,17 @@ Use Edit tool for both frontmatter changes.
 Next steps:
 1. Review task manifest — ensure boundaries make sense, adjust if needed
 2. Say "Approved" to proceed
-3. Run /generate-tests — generates per-task test stubs using the task manifest
-4. Run /dev — dispatches one subagent per task in dependency order
+3. Run /dev — dispatches one subagent per task in dependency order
 ```
+
+> Note: /generate-tests must run BEFORE /decompose (not after). /decompose reads the
+> `## Test Coverage Strategy` section written by /generate-tests to add `Tests:` lines
+> to each task entry. If /generate-tests has not run, task entries will lack test refs.
 
 ---
 
 ## Related Skills
 
 - `/architect` — generates the Build Sequence that /decompose reads
-- `/generate-tests` — run after /decompose; generates stubs per task if manifest exists
+- `/generate-tests` — run BEFORE /decompose; /decompose reads its Test Coverage Strategy to add test refs to tasks
 - `/dev` — detects `## Implementation Tasks` and switches to orchestrator mode

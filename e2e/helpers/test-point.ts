@@ -12,7 +12,11 @@
  * "Test data: service_role bypass" policies.
  */
 
+import { createClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '../../src/lib/supabase-admin';
+
+// Same password used in createTestUser — must match
+const TEST_PASSWORD = 'test-password-12345';
 
 export interface TestPoint {
   id: string;
@@ -100,8 +104,31 @@ export async function createTestPosition(
     return { pointId, userId, position: null };
   }
 
-  // Create or update position
-  const { error } = await supabaseAdmin
+  // Sign in as the user to insert with their JWT.
+  // The point_positions INSERT policy requires auth.uid() = user_id and is_verified = true,
+  // so we use the user's own session (same pattern as createTestUser's profile creation).
+  const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (userError || !userData.user?.email) {
+    throw new Error(`Failed to get user for position creation: ${userError?.message}`);
+  }
+
+  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+    email: userData.user.email,
+    password: TEST_PASSWORD,
+  });
+
+  if (signInError || !signInData.session) {
+    throw new Error(`Failed to sign in user for position creation: ${signInError?.message}`);
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${signInData.session.access_token}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { error } = await userClient
     .from('point_positions')
     .upsert({
       point_id: pointId,
