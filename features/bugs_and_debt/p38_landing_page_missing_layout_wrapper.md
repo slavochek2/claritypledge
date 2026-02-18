@@ -2,6 +2,7 @@
 status: backlog
 type: bug
 rank: 16
+workstream: foundation
 tags: []
 created_date: 2026-01-06
 ---

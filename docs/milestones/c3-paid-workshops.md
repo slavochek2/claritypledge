@@ -1,3 +1,11 @@
+---
+milestone: C3
+status: future
+priority: p2
+track: C
+summary: "Founder pairs pay €800–1,500/month for structured calibration retainers"
+---
+
 # C3: Paid Founder Retainers (Coaching Monetization)
 
 ## TL;DR

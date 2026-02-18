@@ -1,6 +1,7 @@
 ---
 status: backlog
 type: story
+workstream: foundation
 tags: []
 rank: 125300.0
 created_date: 2026-02-06

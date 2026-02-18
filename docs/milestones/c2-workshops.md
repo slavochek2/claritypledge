@@ -1,3 +1,11 @@
+---
+milestone: C2
+status: next
+priority: p1
+track: C
+summary: "Co-founder pairs pay for calibrated sessions after C1 validates the tool"
+---
+
 # C2: First Founder Sessions (Coaching Validation)
 
 ## TL;DR

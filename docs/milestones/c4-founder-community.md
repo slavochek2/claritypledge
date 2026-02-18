@@ -1,3 +1,11 @@
+---
+milestone: C4
+status: future
+priority: p3
+track: C
+summary: "Founder pairs in retainers add peer community layer at €200–300/month"
+---
+
 # C4: Founder Community (Coaching Scale)
 
 ## TL;DR

@@ -2,6 +2,7 @@
 status: backlog
 type: bug
 rank: 2
+workstream: C1
 tags: []
 created_date: 2026-02-06
 ---

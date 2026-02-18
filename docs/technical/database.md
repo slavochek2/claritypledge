@@ -264,4 +264,8 @@ const witnesses = await getWitnesses(profile.id);
 | [supabase/schema.sql](../../supabase/schema.sql) | Base schema (profiles, witnesses) |
 | [supabase/migrations/20260204_stories_points_calibration.sql](../../supabase/migrations/20260204_stories_points_calibration.sql) | P117: Stories, Points, Calibration tables + triggers |
 
-When making schema changes, create migration files and apply via Supabase dashboard or `supabase db push`.
+**Migration workflow:** Create a `.sql` file in `supabase/migrations/` with a unique timestamp name, then run:
+```bash
+./scripts/migrate.sh
+```
+This extracts the DB password from `.env.local` and pushes the migration automatically. **Rule:** one file per day, or use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations. See [cli-tools.md](cli-tools.md) for details.

@@ -1,9 +1,11 @@
 ---
+milestone: R
 date: TBD
-status: planned
-workstream: R
+status: future
+track: R
 type: checkpoint
 related_key_results: [kr-recognition-threshold]
+summary: "Positioned as 'the calibration expert' with inbound recognition from aligned orgs"
 ---
 
 # Milestone: Recognition Checkpoint

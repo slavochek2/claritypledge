@@ -145,6 +145,12 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       console.warn(`Feature ${filename}: invalid rank type (${data.rank}), using default`)
     }
 
+    // Parse optional milestone — explicit field takes precedence, falls back to workstream
+    // (workstream values like "C1", "R1" match milestone IDs; "foundation" does not → Unlinked)
+    const milestone: string | undefined =
+      typeof data.milestone === 'string' && data.milestone ? data.milestone :
+      typeof data.workstream === 'string' && data.workstream ? data.workstream : undefined
+
     return {
       id: filename,
       path: filePath,
@@ -154,6 +160,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       blocked_by,
       size,
       workstream,
+      milestone,
       hypothesis: data.hypothesis,
       delivery_stage,
       tags: Array.isArray(data.tags) ? data.tags : [],
@@ -218,14 +225,25 @@ async function parseMilestoneFile(filePath: string): Promise<Milestone | null> {
     const filename = basename(filePath)
     const title = titleMatch?.[1] || filename
 
-    // Extract milestone ID from title (e.g., "M1: Title" -> "M1")
-    const milestoneIdMatch = title.match(/^(M\d+)/)
-    const id = milestoneIdMatch?.[1] || filename.replace('.md', '').toUpperCase()
+    // Extract milestone ID: frontmatter.milestone > title pattern > filename-derived
+    let id: string
+    if (typeof data.milestone === 'string' && data.milestone) {
+      id = data.milestone.toUpperCase()
+    } else {
+      // Match patterns like "C1:", "R1:", "M1:" at the start of the title
+      const milestoneIdMatch = title.match(/^([A-Z]\d*)/)
+      id = milestoneIdMatch?.[1] || filename.replace('.md', '').split('-')[0].toUpperCase()
+    }
 
-    // Parse status
+    // Parse status — map aliases to valid MilestoneStatus values
     let status: MilestoneStatus = 'future'
-    if (data.status && VALID_MILESTONE_STATUS.includes(data.status)) {
-      status = data.status
+    const rawStatus = data.status
+    if (rawStatus === 'active' || rawStatus === 'running') {
+      status = 'active'
+    } else if (rawStatus === 'next') {
+      status = 'next'
+    } else if (rawStatus && VALID_MILESTONE_STATUS.includes(rawStatus)) {
+      status = rawStatus
     }
 
     // Parse optional fields
@@ -257,7 +275,7 @@ async function getMilestones(worktreePath?: string): Promise<Milestone[]> {
     const entries = await readdir(milestonesDir, { withFileTypes: true })
 
     for (const entry of entries) {
-      if (entry.isFile() && entry.name.endsWith('.md') && entry.name.startsWith('m')) {
+      if (entry.isFile() && entry.name.endsWith('.md')) {
         const fullPath = join(milestonesDir, entry.name)
         const milestone = await parseMilestoneFile(fullPath)
         if (milestone) milestones.push(milestone)
@@ -267,12 +285,8 @@ async function getMilestones(worktreePath?: string): Promise<Milestone[]> {
     // Directory doesn't exist, return empty
   }
 
-  // Sort by milestone ID (M1, M2, ...)
-  return milestones.sort((a, b) => {
-    const aNum = parseInt(a.id.replace('M', ''))
-    const bNum = parseInt(b.id.replace('M', ''))
-    return aNum - bNum
-  })
+  // Sort by milestone ID alphanumerically (C1, C2, R, R1, ...)
+  return milestones.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
 }
 
 // Get cached milestones
