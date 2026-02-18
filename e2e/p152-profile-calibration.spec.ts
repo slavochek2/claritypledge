@@ -53,9 +53,10 @@ test.describe('P152: Profile Calibration Display', () => {
     const calibrationBar = page.locator('.bg-blue-500.rounded-full').filter({ hasText: '' }); // Blue dot
     await expect(calibrationBar).toBeVisible();
 
-    // Verify tooltip shows on click
+    // Verify tooltip shows on click (CalibrationTooltip has onClick handler)
     await calibrationBar.click();
-    await expect(page.getByText(/session/i)).toBeVisible(); // Tooltip mentions sessions
+    // Tooltip text: "Avg (their rating − your confidence) over N sessions"
+    await expect(page.getByText(/over \d+ session/i).first()).toBeVisible();
   });
 
   test('owner sees own calibration when they have ≥5 sessions', async ({ page }) => {
@@ -121,9 +122,9 @@ test.describe('P152: Profile Calibration Display', () => {
     const earBadge = page.locator('text="3"').filter({ has: page.locator('svg') }); // Number with ear icon
     await expect(earBadge.first()).toBeVisible();
 
-    // Verify tooltip shows on hover/click
-    await earBadge.first().click();
-    await expect(page.getByText(/understood.*stories/i)).toBeVisible();
+    // Verify tooltip shows on hover (Radix Tooltip opens on hover, not click)
+    await earBadge.first().hover();
+    await expect(page.getByText(/understood.*stories/i).first()).toBeVisible();
   });
 
   test('ear count badge hidden when user has 0 ears', async ({ page }) => {

@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MenuIcon, XIcon, CalendarIcon, UserIcon, SparklesIcon } from "lucide-react";
+import { MenuIcon, XIcon, CalendarIcon, UserIcon } from "lucide-react";
 import { ClarityLogo } from "@/components/ui/clarity-logo";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
@@ -104,18 +104,6 @@ export function SimpleNavigation() {
                 >
                   <CalendarIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">My Events</span>
-                </Link>
-                {/* Create */}
-                <Link
-                  to="/create"
-                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                    location.pathname === "/create"
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
-                >
-                  <SparklesIcon className="w-5 h-5" />
-                  <span className="text-xs mt-1 font-medium">Create</span>
                 </Link>
                 {/* My Profile */}
                 <Link

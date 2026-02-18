@@ -183,9 +183,9 @@ test.describe('Profile Position Loading (P151)', () => {
     await page.goto(`/p/${testUser.slug}`);
     await page.getByRole('tab', { name: /points/i }).click();
 
-    // Verify all points are visible
-    await expect(page.getByText('Batch test point 1')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(`Batch test point ${pointCount}`)).toBeVisible({ timeout: 10000 });
+    // Verify all points are visible (use .first() — point text may appear in card + link)
+    await expect(page.getByText('Batch test point 1').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(`Batch test point ${pointCount}`).first()).toBeVisible({ timeout: 10000 });
 
     // TODO: Verify each point has its position badge visible
     // TODO: Add network monitoring to verify batch loading (not N+1)

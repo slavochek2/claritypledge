@@ -1,7 +1,7 @@
 ---
-status: week
+status: in-progress
 type: story
-rank: 269.0
+rank: 1
 workstream: C1
 tags:
   - profile
@@ -13,7 +13,7 @@ delivery_stage: prd-review
 reviews:
   ux: null
   architect: null
-created_date: 2026-02-17
+created_date: 2026-02-17T00:00:00.000Z
 ---
 
 # P269: Profile Page UI Improvements — Promote LinkedIn Prototype Patterns

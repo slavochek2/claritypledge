@@ -135,62 +135,39 @@ export const realCalibrationService: CalibrationService = {
     }
 
     // Compute calibration averages on-read using SQL AVG() (per spec decision)
-    // Run both aggregate queries in parallel for efficiency
-    const [listenerResult, speakerResult] = await Promise.all([
-      supabase
-        .rpc('get_listener_calibration_avgs', { user_id_param: userId })
-        .single(),
-      supabase
-        .rpc('get_speaker_calibration_avgs', { user_id_param: userId })
-        .single(),
-    ]);
-
-    // Fallback: if RPC functions don't exist yet, compute from raw query
+    // Use direct aggregate queries — the RPC helpers (get_listener_calibration_avgs,
+    // get_speaker_calibration_avgs) are not available on all environments and would
+    // produce browser-level 404 errors when missing.
     let listenerCalibrationAvg: number | null = null;
     let listenerSelfRatingAvg: number | null = null;
     let calibrationGap: number | null = null;
     let speakerCalibrationAvg: number | null = null;
     let speakerListenerSelfRatingAvg: number | null = null;
 
-    if (listenerResult.error) {
-      // RPC not available — fallback to aggregate query
-      log('RPC get_listener_calibration_avgs not available, using fallback query');
-      const { data: listenerAgg } = await supabase
+    const [listenerAgg, speakerAgg] = await Promise.all([
+      supabase
         .from('story_verifications')
         .select('speaker_rating, listener_rating')
-        .eq('listener_id', userId);
+        .eq('listener_id', userId),
+      supabase
+        .from('story_verifications')
+        .select('speaker_rating, listener_rating')
+        .eq('speaker_id', userId),
+    ]);
 
-      if (listenerAgg && listenerAgg.length > 0) {
-        listenerCalibrationAvg =
-          listenerAgg.reduce((sum, v) => sum + v.speaker_rating, 0) / listenerAgg.length;
-        listenerSelfRatingAvg =
-          listenerAgg.reduce((sum, v) => sum + v.listener_rating, 0) / listenerAgg.length;
-        calibrationGap = listenerSelfRatingAvg - listenerCalibrationAvg;
-      }
-    } else if (listenerResult.data) {
-      listenerCalibrationAvg = listenerResult.data.avg_speaker_rating;
-      listenerSelfRatingAvg = listenerResult.data.avg_listener_rating;
-      if (listenerCalibrationAvg !== null && listenerSelfRatingAvg !== null) {
-        calibrationGap = listenerSelfRatingAvg - listenerCalibrationAvg;
-      }
+    if (listenerAgg.data && listenerAgg.data.length > 0) {
+      listenerCalibrationAvg =
+        listenerAgg.data.reduce((sum, v) => sum + v.speaker_rating, 0) / listenerAgg.data.length;
+      listenerSelfRatingAvg =
+        listenerAgg.data.reduce((sum, v) => sum + v.listener_rating, 0) / listenerAgg.data.length;
+      calibrationGap = listenerSelfRatingAvg - listenerCalibrationAvg;
     }
 
-    if (speakerResult.error) {
-      log('RPC get_speaker_calibration_avgs not available, using fallback query');
-      const { data: speakerAgg } = await supabase
-        .from('story_verifications')
-        .select('speaker_rating, listener_rating')
-        .eq('speaker_id', userId);
-
-      if (speakerAgg && speakerAgg.length > 0) {
-        speakerCalibrationAvg =
-          speakerAgg.reduce((sum, v) => sum + v.speaker_rating, 0) / speakerAgg.length;
-        speakerListenerSelfRatingAvg =
-          speakerAgg.reduce((sum, v) => sum + v.listener_rating, 0) / speakerAgg.length;
-      }
-    } else if (speakerResult.data) {
-      speakerCalibrationAvg = speakerResult.data.avg_speaker_rating;
-      speakerListenerSelfRatingAvg = speakerResult.data.avg_listener_rating;
+    if (speakerAgg.data && speakerAgg.data.length > 0) {
+      speakerCalibrationAvg =
+        speakerAgg.data.reduce((sum, v) => sum + v.speaker_rating, 0) / speakerAgg.data.length;
+      speakerListenerSelfRatingAvg =
+        speakerAgg.data.reduce((sum, v) => sum + v.listener_rating, 0) / speakerAgg.data.length;
     }
 
     const calibration: CalibrationStats = {

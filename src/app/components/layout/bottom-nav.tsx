@@ -6,8 +6,7 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation } from "react-router-dom";
-import { CalendarIcon, UserIcon, SparklesIcon, MicIcon } from "lucide-react";
-import { toast } from "sonner";
+import { CalendarIcon, UserIcon, MicIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 
 interface NavItem {
@@ -37,12 +36,6 @@ export function BottomNav() {
       icon: UserIcon,
       label: "My Profile",
       to: slug ? `/p/${slug}` : "/me",
-    },
-    {
-      icon: SparklesIcon,
-      label: "Create Story",
-      disabled: true,
-      onClick: () => toast("Coming soon"),
     },
     {
       icon: MicIcon,
