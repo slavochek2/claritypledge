@@ -13,6 +13,7 @@ delivery_stage: prd-review
 reviews:
   ux: null
   architect: null
+created_date: 2026-02-17
 ---
 
 # P269: Profile Page UI Improvements — Promote LinkedIn Prototype Patterns

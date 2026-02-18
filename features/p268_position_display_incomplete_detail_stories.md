@@ -12,6 +12,7 @@ tags:
   - story-expand
   - point-detail
   - persistence
+created_date: 2026-02-17
 ---
 
 # BUG P268: Position Display Incomplete — Detail Page + Stories Expanded

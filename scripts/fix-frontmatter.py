@@ -129,6 +129,9 @@ def fix_duplicates(all_files):
     tracked = get_tracked_files()
     seen = {}
     for f in all_files:
+        # UAT files share P-numbers by design (uat/p270.md = UAT for P270 feature)
+        if '/uat/' in str(f):
+            continue
         m = re.match(r'p(\d+)', f.name)
         if m:
             num = int(m.group(1))
