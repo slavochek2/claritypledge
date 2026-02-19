@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 0.5
 workstream: C1
@@ -9,7 +9,6 @@ tags:
   - verification
   - live
 created_date: 2026-02-18T00:00:00.000Z
-completed_at: '2026-02-19'
 ---
 
 # P274: Send verification email when unverified guest joins /live

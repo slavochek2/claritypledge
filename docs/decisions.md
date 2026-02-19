@@ -14,6 +14,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-19: Kanban status reversion — root cause confirmed, fix applied
+
+**Context:** Cards manually moved to `all-done` via CardDialog status selector repeatedly reverted back to `done`. Happened twice across many cards.
+
+**Root cause (confirmed via `git ls-files`):** The kanban PATCH handler moved files on disk using Node.js `rename()` but did NOT update git's index. As a result, git HEAD retained BOTH the old path (`features/done/5_feb_26/pXXX.md`) and the new path (`features/pXXX.md`). Any git operation that synced the working tree to HEAD (checkout, pull, reset, stash pop) restored the old `done/5_feb_26/` copy. The kanban scanner then found BOTH copies — one with `status: done` (in Done column) and one with `status: all-done` (in All Done). The user saw the card "back in Done" even though the `all-done` copy still existed.
+
+**Decision:** Three-layer fix:
+1. `moveAndStage()` — after every file move in the PATCH handler, call `spawnSync('git', ['add', '--', newPath])` and `spawnSync('git', ['rm', '--cached', '--', oldPath])` to stage the move in git's index immediately. Uses `spawnSync` with arg arrays (no shell, no injection risk).
+2. `locked_at` frontmatter field — written on every manual status change via the kanban UI; agents must not override status if `locked_at` is present (rule in `.claude/rules/features.md`)
+3. `all-done` documented in `.claude/rules/features.md` as a valid status with its file location semantics
+
+**Alternatives rejected:** Using `git mv` — cleaner but adds git as a hard dep to the move logic; `spawnSync` pair is equivalent and easier to reason about. Prompting users to commit after every status change — error-prone, same problem will recur.
+
+**Consequences:** Kanban file moves now auto-stage in git (index only, not committed). `git status` will show the moves as staged deletions/additions after the PATCH. Users should commit these alongside their normal work. If git is unavailable (no repo), `spawnSync` fails silently and the move still succeeds on disk.
+
+---
+
 ## 2026-02-18: Live session positions stored in live_state, not point_positions (P275)
 
 **Context:** Unverified guests joining `/live` sessions were silently blocked from setting positions on points. `point_positions` INSERT policy requires `is_verified = true` — guests never complete verification and thus could never register positions during a session.

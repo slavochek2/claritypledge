@@ -4,7 +4,7 @@ import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
-import { exec, execSync } from 'child_process'
+import { exec, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 
@@ -485,7 +485,17 @@ app.patch('/api/features/:id', async (req, res) => {
       }
     }
 
-    // Move files to correct folder based on status
+    // Move files to correct folder based on status.
+    // Also stage the move in git (spawnSync, no shell) so HEAD stays in sync.
+    // Without git staging, HEAD retains both old and new paths; any git
+    // checkout/pull restores the old copy, making the card appear to revert.
+    const moveAndStage = async (oldPath: string, newPath: string) => {
+      await rename(oldPath, newPath)
+      // Best-effort: if git staging fails the file move still succeeded
+      spawnSync('git', ['add', '--', newPath], { cwd: DEFAULT_PROJECT_ROOT, stdio: 'ignore' })
+      spawnSync('git', ['rm', '--cached', '--', oldPath], { cwd: DEFAULT_PROJECT_ROOT, stdio: 'ignore' })
+    }
+
     const featuresDir = getFeaturesDir(worktreePath)
     const isInDone = feature.path.includes('/done/')
     const isInArchive = feature.path.includes('/archive/')
@@ -493,7 +503,7 @@ app.patch('/api/features/:id', async (req, res) => {
 
     if (status === 'done' && !isInDone) {
       const newPath = join(featuresDir, 'done', basename(feature.path))
-      await rename(feature.path, newPath)
+      await moveAndStage(feature.path, newPath)
       if (cachedFeatures) {
         const cachedFeature = cachedFeatures.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath
@@ -501,7 +511,7 @@ app.patch('/api/features/:id', async (req, res) => {
     } else if (status === 'rejected' && !isInArchive) {
       await mkdir(join(featuresDir, 'archive'), { recursive: true })
       const newPath = join(featuresDir, 'archive', basename(feature.path))
-      await rename(feature.path, newPath)
+      await moveAndStage(feature.path, newPath)
       if (cachedFeatures) {
         const cachedFeature = cachedFeatures.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath
@@ -509,7 +519,7 @@ app.patch('/api/features/:id', async (req, res) => {
     } else if (status && status !== 'done' && status !== 'rejected' && isInSubfolder) {
       // Moving out of done/ or archive/ back to active
       const newPath = join(featuresDir, basename(feature.path))
-      await rename(feature.path, newPath)
+      await moveAndStage(feature.path, newPath)
       if (cachedFeatures) {
         const cachedFeature = cachedFeatures.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath

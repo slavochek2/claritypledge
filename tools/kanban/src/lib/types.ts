@@ -52,6 +52,8 @@ export interface Feature {
   prepped?: boolean // true if prepped_date is set
   // Milestone association (for focus page grouping)
   milestone?: string // e.g., "M1", "M2"
+  // Manual status lock — set by kanban UI when user changes status; agents must not override
+  locked_at?: string // ISO timestamp of last manual status change
 }
 
 // Milestone status
