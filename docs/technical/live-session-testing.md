@@ -1,7 +1,5 @@
 # Testing /live Sessions
 
-**Last Updated:** 2026-01-18
-
 ---
 
 ## Overview
@@ -152,42 +150,48 @@ await deleteClaritySession(sessionCode);
 
 ## Manual Testing with Browser Tools
 
-### Using Claude in Chrome — Two-Party via Token Injection (Preferred for /verify)
+### Using Claude in Chrome — Two-Party via Origin Isolation (Canonical Approach)
 
-Claude in Chrome (`mcp__claude-in-chrome__*`) shares a single Chrome profile, so both tabs
-share the same `localStorage`. Supabase stores auth tokens in localStorage. This prevents
-two different authenticated users in two tabs — **unless you inject the second user's token**.
+Claude in Chrome (`mcp__claude-in-chrome__*`) uses your real Chrome profile, so all same-origin
+tabs share `localStorage`. Supabase stores auth tokens in `localStorage` — this would normally
+prevent two different authenticated users from coexisting in two tabs.
 
-**Solution:** Call the Supabase REST API from inside tab 2 to sign in as a permanent test
-listener account, then inject the token into tab 2's localStorage before navigation.
+**Solution: use different hostnames.** Because Vite is configured with `host: true` (binds to
+`0.0.0.0`), the dev server is reachable as **both** `localhost:5001` and `127.0.0.1:5001`.
+Different origins = separate `localStorage` namespaces = two fully independent Supabase sessions
+in the same Chrome window.
 
-**Permanent listener account:** `e2e-verify-listener@gmail.com`
+```
+Tab 1 (creator):  http://localhost:5001        → localStorage[localhost:5001]
+Tab 2 (listener): http://127.0.0.1:5001        → localStorage[127.0.0.1:5001]
+```
+
+**Permanent listener account credentials:** stored in `.env.test.local`
+- `TEST_LISTENER_EMAIL` / `TEST_LISTENER_PASSWORD`
 - Created by: `scripts/setup-verify-listener.ts`
-- Credentials stored in: `.env.test.local` (`TEST_LISTENER_EMAIL`, `TEST_LISTENER_PASSWORD`)
 
-**Full protocol:** See `/verify` SKILL.md → Step 5a-TWO-PARTY.
+**Full boot protocol:** See `/verify` SKILL.md → Step 5a-TWO-PARTY (5-step macro B1–B5).
 
-**What was confirmed to work (tested session 8ZXFND):**
-- Story sync (UAT-2.1): Selecting a story in tab 1 appeared in tab 2 within ~2s ✅
-- Guest join via form works: name/email form, fills with any identity for the join record
+**What this approach enables (verified in P272 UAT):**
+- Role-specific UI isolation: story picker only on creator tab, not listener ✅
+- Real-time story sync: creator selects story → appears on listener within ~2s ✅
+- Identity-correct DB writes: `profile_id` differs for creator vs listener ✅
+- Verification writes (`story_verifications`) trigger with correct speaker/listener roles ✅
 
-**What does NOT work with this approach:**
-- Role-specific UI: both tabs show creator UI (story picker visible on both) because auth is shared
-- Identity-based verification writes: `profile_id` in session is the same user for both tabs
+**Limitations:**
+- Both origins must be reachable (requires `host: true` in vite.config.ts — already set)
+- Listener must log in as a real Supabase account (`e2e-verify-listener@gmail.com`), not guest
 
-**Key insight:** All same-origin Chrome tabs share `localStorage`, including the Supabase
-auth token. Injecting the listener's token in tab 2 triggers a `storage` event in tab 1,
-which causes the Supabase client in tab 1 to update its in-memory auth state to the listener.
-
-**Mitigation:** After injecting in tab 2, immediately snapshot and re-inject the creator's
-token back into tab 1 (via `javascript_tool` + `location.reload()`). The `/live` page uses
-`sessionStorage` (per-tab) for session persistence (session code, isCreator), so tab 1
-correctly restores to the creator's view after reload even though localStorage was briefly
-overwritten.
+**What does NOT work (abandoned approach — token injection):**
+The old method of injecting the listener's token into tab 2's `localStorage` via
+`javascript_tool` fails for role-specific UI testing: the `storage` event propagates to
+tab 1, overwriting the creator's auth state. Role-specific UI (story picker, verification
+writes) cannot be reliably tested this way. **Do not use token injection.**
 
 ### Using Chrome DevTools MCP
 
-Similar approach with `mcp__chrome-devtools__` tools (for debugging/performance).
+For debugging and performance profiling only — not two-party testing. Use the origin isolation
+approach above for any UAT that requires role-specific behavior.
 
 ## Coordination Patterns
 
