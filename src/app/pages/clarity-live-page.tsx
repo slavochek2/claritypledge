@@ -826,8 +826,10 @@ export function ClarityLivePage() {
         authorSlug: storyData.authorSlug,
         authorAvatarColor: storyData.authorAvatarColor,
         authorAvatarUrl: storyData.authorAvatarUrl,
+        authorRole: storyData.authorRole,
         authorEarsCount: storyData.authorEarsCount,
         authorHasPledged: storyData.authorHasPledged,
+        visibility: storyData.visibility,
         createdAt: storyData.createdAt,
       } : undefined,
     });
