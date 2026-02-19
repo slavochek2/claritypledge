@@ -322,7 +322,7 @@ export function LiveModeView({
         const snippet = statement.length > 42 ? statement.slice(0, 42) + '…' : statement;
         toast.custom(
           () => (
-            <div className="bg-background border border-border rounded-lg shadow-md px-3 py-2 text-sm text-foreground">
+            <div className="px-3 py-2 text-sm text-foreground">
               <div className="flex items-center gap-2">
                 <GravatarAvatar name={firstName} size="sm" isPledger={false} className="!w-5 !h-5 !text-[10px]" />
                 <span className="font-medium">{firstName}</span>

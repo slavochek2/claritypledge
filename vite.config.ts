@@ -158,6 +158,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    pool: 'forks', // Prevents vi.mock() state leaking between test files
     setupFiles: './src/tests/setup.tsx',
     exclude: [
       '**/node_modules/**',
