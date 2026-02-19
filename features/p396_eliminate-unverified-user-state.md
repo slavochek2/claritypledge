@@ -1,7 +1,7 @@
 ---
-status: today
+status: blocked
 type: task
-rank: 4.0
+rank: 1
 workstream: C1
 tags:
   - auth
@@ -9,7 +9,7 @@ tags:
   - guest
   - unverified
   - live
-created_date: 2026-02-19
+created_date: 2026-02-19T00:00:00.000Z
 delivery_stage: prd-review
 reviews:
   ux: null

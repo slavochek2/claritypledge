@@ -1,14 +1,15 @@
 ---
-status: in-progress
+status: done
 type: story
-rank: 3.0
+rank: 0.5
 workstream: C1
 tags:
   - unverified
   - email
   - verification
   - live
-created_date: 2026-02-18
+created_date: 2026-02-18T00:00:00.000Z
+completed_at: '2026-02-19'
 ---
 
 # P274: Send verification email when unverified guest joins /live
