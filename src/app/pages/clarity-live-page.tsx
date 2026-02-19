@@ -1109,11 +1109,11 @@ export function ClarityLivePage() {
     const prevHistory = currentState.sessionHistory ?? [];
     const contentTitle = currentState.selectedContentTitle;
     const historyEntry = currentState.selectedStoryId
-      ? { title: contentTitle || 'Story verification', type: 'story' as const }
+      ? { title: contentTitle || 'Story verification', type: 'story' as const, skipped: true }
       : currentState.selectedPointId
-        ? { title: contentTitle || 'Point verification', type: 'point' as const }
+        ? { title: contentTitle || 'Point verification', type: 'point' as const, skipped: true }
         : currentState.checkerName
-          ? { title: 'Free conversation', type: 'free' as const }
+          ? { title: 'Free conversation', type: 'free' as const, skipped: true }
           : null;
 
     // Reset to idle state for a fresh start
@@ -1168,11 +1168,21 @@ export function ClarityLivePage() {
       // P128: Append to session history before clearing content
       const prevHistory = currentState.sessionHistory ?? [];
       const contentTitle = currentState.selectedContentTitle;
+      // P398: Capture journey data at completion time
+      const journeyData = {
+        checkerRating: currentState.checkerRating,
+        responderRating: currentState.responderRating,
+        explainBackRatings: [...(currentState.explainBackRatings ?? [])],
+        checkerName: currentState.checkerName,
+        partnerName: partnerName ?? undefined,
+        completedAt: new Date().toISOString(),
+        isChecker: currentState.checkerName === name,
+      };
       const historyEntry = currentState.selectedStoryId
-        ? { title: contentTitle || 'Story verification', type: 'story' as const }
+        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData }
         : currentState.selectedPointId
-          ? { title: contentTitle || 'Point verification', type: 'point' as const }
-          : { title: 'Free conversation', type: 'free' as const };
+          ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
+          : { title: 'Free conversation', type: 'free' as const, ...journeyData };
 
       // Both done - reset to idle state for a fresh start
       updateLiveState({

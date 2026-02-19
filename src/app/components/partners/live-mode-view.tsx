@@ -39,6 +39,7 @@ import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
 import { SessionHistoryList, PointCardPreview } from './live-content-cards';
+import { RoundSummaryScreen } from './round-summary-screen';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -811,6 +812,16 @@ function IdleScreen({
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
 
+  // P398: Selected history index for inline summary view
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
+
+  // P398: Auto-close summary when a new round starts (ratingPhase leaves 'idle')
+  useEffect(() => {
+    if (liveState.ratingPhase !== 'idle') {
+      setSelectedHistoryIndex(null);
+    }
+  }, [liveState.ratingPhase]);
+
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
   const [points, setPoints] = useState<PointWithUserPosition[]>([]);
@@ -928,91 +939,105 @@ function IdleScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={`${layoutClass} overflow-y-auto`}>
-        {/* Show journey card if there's rating history or drawer is open */}
-        {(hasRatingData || showRatingDrawer) && (
-          <JourneyToUnderstanding
-            checkerRating={liveState.checkerRating}
-            responderRating={liveState.responderRating}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={false} // On idle screen, show neutral perspective (listener view)
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
-            hideUntilBothSubmitted={showRatingDrawer}
+        {/* P398: Show round summary screen inline when a history entry is selected */}
+        {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
+          <RoundSummaryScreen
+            item={sessionHistory[selectedHistoryIndex]}
+            onBack={() => setSelectedHistoryIndex(null)}
           />
-        )}
+        ) : (
+          <>
+            {/* Show journey card if there's rating history or drawer is open */}
+            {(hasRatingData || showRatingDrawer) && (
+              <JourneyToUnderstanding
+                checkerRating={liveState.checkerRating}
+                responderRating={liveState.responderRating}
+                explainBackRatings={liveState.explainBackRatings}
+                isChecker={false} // On idle screen, show neutral perspective (listener view)
+                displayPartnerName={displayPartnerName}
+                checkerName={checkerName}
+                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+                className="w-full max-w-sm"
+                hideUntilBothSubmitted={showRatingDrawer}
+              />
+            )}
 
-        {/* P272: Story card shown when story is selected */}
-        {selectedStory && (
-          <LiveStoryCardExpanded
-            story={selectedStory}
-            onPositionSelect={onPositionSelect}
-            className="w-full max-w-sm mb-2"
-            badgePersonName={badgePersonName}
-            badgePersonEarsCount={badgePersonEarsCount}
-          />
-        )}
+            {/* P272: Story card shown when story is selected */}
+            {selectedStory && (
+              <LiveStoryCardExpanded
+                story={selectedStory}
+                onPositionSelect={onPositionSelect}
+                className="w-full max-w-sm mb-2"
+                badgePersonName={badgePersonName}
+                badgePersonEarsCount={badgePersonEarsCount}
+              />
+            )}
 
-        <ActionArea
-          className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
-        >
-          {/* P400 Bug 4: conditionally render (not just disable) so buttons are hidden when drawer is open */}
-          {!showRatingDrawer && (
-            <Button
-              size="lg"
-              className="bg-blue-500 hover:bg-blue-600 w-full"
-              onClick={handleStartCheckWithTracking}
-              disabled={waitingForPartnerToContinue}
-              data-testid="start-check"
+            <ActionArea
+              className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
             >
-              Does <span className="font-bold">{displayPartnerName}</span> understand you?
-            </Button>
-          )}
+              {/* P400 Bug 4: conditionally render (not just disable) so buttons are hidden when drawer is open */}
+              {!showRatingDrawer && (
+                <Button
+                  size="lg"
+                  className="bg-blue-500 hover:bg-blue-600 w-full"
+                  onClick={handleStartCheckWithTracking}
+                  disabled={waitingForPartnerToContinue}
+                  data-testid="start-check"
+                >
+                  Does <span className="font-bold">{displayPartnerName}</span> understand you?
+                </Button>
+              )}
 
-          {!showRatingDrawer && (
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={handleStartProveWithTracking}
-              disabled={waitingForPartnerToContinue}
-              data-testid="start-prove"
-            >
-              Do you understand <span className="font-bold">{displayPartnerName}</span>?
-            </Button>
-          )}
+              {!showRatingDrawer && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleStartProveWithTracking}
+                  disabled={waitingForPartnerToContinue}
+                  data-testid="start-prove"
+                >
+                  Do you understand <span className="font-bold">{displayPartnerName}</span>?
+                </Button>
+              )}
 
-          {/* Waiting for partner to continue indicator */}
-          {waitingForPartnerToContinue && (
-            <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
-          )}
-        </ActionArea>
+              {/* Waiting for partner to continue indicator */}
+              {waitingForPartnerToContinue && (
+                <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
+              )}
+            </ActionArea>
 
-        {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
-        {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
-          <StorySearchPicker
-            stories={stories}
-            onSelectStory={handleSelectStoryWithTracking}
-            disabled={showRatingDrawer || waitingForPartnerToContinue}
-          />
-        )}
+            {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
+            {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
+              <StorySearchPicker
+                stories={stories}
+                onSelectStory={handleSelectStoryWithTracking}
+                disabled={showRatingDrawer || waitingForPartnerToContinue}
+              />
+            )}
 
-        {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
-        {/* P400: removed !showRatingDrawer gate — Speak Freely must show whenever story card is visible */}
-        {liveState.selectedStoryId && !waitingForPartnerToContinue && (
-          <button
-            onClick={onClearStory}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
-            type="button"
-          >
-            Speak freely
-          </button>
-        )}
+            {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
+            {/* P400: removed !showRatingDrawer gate — Speak Freely must show whenever story card is visible */}
+            {liveState.selectedStoryId && !waitingForPartnerToContinue && (
+              <button
+                onClick={onClearStory}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+                type="button"
+              >
+                Speak freely
+              </button>
+            )}
 
-        {/* P128: Session history */}
-        {sessionHistory.length > 0 && (
-          <SessionHistoryList history={sessionHistory} className="mt-4" />
+            {/* P128: Session history */}
+            {sessionHistory.length > 0 && (
+              <SessionHistoryList
+                history={sessionHistory}
+                className="mt-4"
+                onItemClick={(i) => setSelectedHistoryIndex(i)}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -1479,7 +1504,7 @@ function RatingCard({ question, onSelect, className = '', onSkip, skipLabel = 'S
  */
 const JOURNEY_MIN_HEIGHT = 'min-h-[180px]';
 
-interface JourneyToUnderstandingProps {
+export interface JourneyToUnderstandingProps {
   /** Initial checker rating (Round 0) - undefined if not yet submitted */
   checkerRating?: number;
   /** Initial responder rating (Round 0) - undefined if not yet submitted */
@@ -1508,7 +1533,7 @@ interface JourneyToUnderstandingProps {
   hideUntilBothSubmitted?: boolean;
 }
 
-function JourneyToUnderstanding({
+export function JourneyToUnderstanding({
   checkerRating,
   responderRating,
   explainBackRatings,

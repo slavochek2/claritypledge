@@ -589,7 +589,7 @@ describe('LiveModeView', () => {
     });
   });
 
-  describe.skip('P398: Clickable Session History — skip until P398 implemented', () => {
+  describe('P398: Clickable Session History', () => {
     const completedEntry = {
       title: 'The bridge story',
       type: 'story' as const,

@@ -6,7 +6,7 @@
  * Design reference: prototype at src/app/prototypes/linkedin-like/components/
  */
 import { useState, useMemo } from 'react';
-import { Search, CheckCircle2, BookOpen, MessageSquare, Loader2 } from 'lucide-react';
+import { Search, CheckCircle2, BookOpen, MessageSquare, Loader2, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import type { StoryWithAuthor, StoryWithPoints, PointWithCreator, SessionHistoryItem } from '@/app/types';
