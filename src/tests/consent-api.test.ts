@@ -415,6 +415,39 @@ describe('Consent API Functions', () => {
       expect(result.isNew).toBe(true);
       expect(result.userId).toBe('44444444-4444-4444-8444-444444444444');
       expect(supabase.auth.signInAnonymously).toHaveBeenCalled();
+      // P274: verification email fires for new guests (shouldCreateUser defaults to true)
+      expect(supabase.auth.signInWithOtp).toHaveBeenCalledWith({ email: 'new@example.com' });
+    });
+
+    it('P274: should NOT fire verification email for returning unverified guest', async () => {
+      // Mock: existing session
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: { user: { id: 'existing-session-id' } } },
+        error: null,
+      } as any);
+
+      // Returning unverified user
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: '22222222-2222-4222-8222-222222222222', is_verified: false },
+                  error: null,
+                }),
+              }),
+            }),
+          } as any;
+        }
+        return {} as any;
+      });
+
+      const { getOrCreateGuestUser } = await import('@/app/data/api');
+      const result = await getOrCreateGuestUser('returning@example.com', 'Returning User');
+
+      expect(result.isNew).toBe(false);
+      expect(supabase.auth.signInWithOtp).not.toHaveBeenCalled();
     });
 
     it('should throw error when anonymous auth fails', async () => {

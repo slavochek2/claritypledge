@@ -3135,9 +3135,11 @@ export async function getOrCreateGuestUser(
 
   console.log('Guest user created (no slug - not a pledger):', { userId, email, name });
 
-  // P274: Fire verification email — same as signup, non-blocking fire-and-forget
-  // shouldCreateUser: false — profile already created above; this only sends the email
-  supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+  // P274: Fire verification email — creates email auth user + sends magic link, fire-and-forget.
+  // shouldCreateUser: true (default) because the anonymous auth session has no email — there is
+  // no existing email-based auth user to look up. AuthCallbackPage handles the ID migration when
+  // they click the link (looks up profile by email, migrates anonymous profile to email user).
+  supabase.auth.signInWithOtp({ email });
 
   return { userId, isNew: true, requiresLogin: false };
 }
