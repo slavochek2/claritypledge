@@ -76,10 +76,10 @@ Refactoring is not about rewriting code — it's about improving clarity, mainta
 **Relationship to other skills:**
 ```
 Implementation flow:
-/dev → All tests pass → /refactor (optional) → /done
+/dev → All tests pass → feature auto-closed → /refactor (optional code cleanup)
 
 Bug fix flow:
-/fix → All tests pass → /refactor (optional, if needed) → /done
+/fix → All tests pass → feature auto-closed → /refactor (optional, if needed)
 
 Never:
 /dev (tests failing) → /refactor ❌
@@ -380,7 +380,7 @@ Code quality improvements:
     4. Enter invalid credentials
     5. Verify error message displays
 
-Refactoring complete. All tests pass. Ready for /done.
+Refactoring complete. All tests pass.
 ```
 
 **If verification fails:**
@@ -548,7 +548,7 @@ Quality improvements:
     2. [Step 2]
     3. [Step 3]
 
-Ready for /done.
+Refactoring complete.
 ```
 
 **Failure handling:**
@@ -660,7 +660,6 @@ If you're hesitating — that's a signal. Either fix what's causing it or accept
 - `/fix` - Bug fixed, all tests pass
 
 **After /refactor:**
-- `/done` - Mark feature/bug as complete (user runs separately)
 - `/kdd` - Capture learnings (user runs separately)
 
 **Parallel:**
@@ -669,7 +668,6 @@ If you're hesitating — that's a signal. Either fix what's causing it or accept
 **NEVER combine:**
 - ❌ `/dev` + `/refactor` (implement first, refactor after)
 - ❌ `/fix` + `/refactor` (fix first, refactor after)
-- ❌ `/refactor` + `/done` (user runs /done separately)
 
 ---
 
@@ -722,7 +720,7 @@ If you're hesitating — that's a signal. Either fix what's causing it or accept
    2. [Critical user flow step 2]
    3. [Critical user flow step 3]
 
-**Status:** COMPLETE (ready for /done)
+**Status:** COMPLETE
 ```
 
 ---
@@ -793,7 +791,7 @@ Quality metrics:
 - Lines of code: 342 → 289 (15% reduction)
 - Test coverage: 78% → 94%
 
-Refactoring complete. Ready for /done.
+Refactoring complete. Refactoring complete.
 ```
 
 ---
@@ -864,7 +862,7 @@ Quality metrics:
 Note: Custom hook extraction deferred (violates hooks rules)
 Marked as tech debt: P144 (extract Dashboard data fetching to proper hook)
 
-Refactoring complete. Ready for /done.
+Refactoring complete. Refactoring complete.
 ```
 
 ---
@@ -899,7 +897,7 @@ Quality metrics:
 
 ⚠️  CRITICAL: This is a P0 feature (payment processing)
 
-RECOMMENDATION: Manual smoke test REQUIRED before /done
+RECOMMENDATION: Manual smoke test REQUIRED before shipping
 
 Manual test steps:
 1. Open /checkout in browser
@@ -912,7 +910,7 @@ Manual test steps:
 
 Refactoring complete. Tests pass. MANUAL VERIFICATION REQUIRED.
 
-Ready for manual test, then /done.
+Ready for manual smoke test.
 ```
 
 ---
@@ -921,7 +919,6 @@ Ready for manual test, then /done.
 
 - `/dev` - Implementation (run before /refactor)
 - `/fix` - Bug fixes (run before /refactor)
-- `/done` - Mark complete (user runs after /refactor)
 - `/kdd` - Capture learnings (user runs after /refactor)
 - `/design-audit` - If UI changes during refactor
 
@@ -935,7 +932,7 @@ Ready for manual test, then /done.
 - **Revert is your friend** - If tests fail, revert immediately and try different approach
 - **Small steps win** - One change at a time, test after each change
 - **P0/P1 features need manual testing** - Automated tests aren't enough for critical paths
-- **/refactor does NOT include /done or /kdd** - User runs those separately
+- **/refactor does NOT include /kdd** - User runs that separately. Feature was already closed by `/dev` or `/fix`.
 
 ---
 

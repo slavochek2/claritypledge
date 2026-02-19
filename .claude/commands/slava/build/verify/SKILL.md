@@ -11,9 +11,7 @@ Live UAT execution from the user's perspective. Opens the running app in Chrome,
 ## Usage
 
 ```bash
-/verify p273          # Verify a specific P-number
 /verify               # Auto-detect from current branch
-/verify p273 --quick  # Skip visual quality pass, just functional checks
 ```
 
 ## What Makes This Different
@@ -235,7 +233,7 @@ Visit the main page(s) affected by this feature. Take screenshots. Assess:
 - [ ] Looks intentional, not hacked together
 - [ ] A user seeing this for the first time would trust it
 
-If `--quick` flag: skip this step.
+Skip this step if only functional accuracy matters (e.g., a backend bug fix).
 
 Report the visual pass:
 ```
@@ -338,9 +336,8 @@ Fix UAT-3.1 failure, then re-run `/verify p{N}` to confirm.
 
 If ❌ verdict:
 1. **List failures clearly** — exact scenario, what was expected, what happened
-2. **Don't mark the feature done** — do NOT call `/done` automatically
-3. **Suggest the fix** — "UAT-3.1 failed: looks like `story-detail-page.tsx` still uses the old one-off check. The hook migration may be incomplete."
-4. **Tell user next step** — "Fix the issue, commit, then run `/verify p{N}` again."
+2. **Suggest the fix** — "UAT-3.1 failed: looks like `story-detail-page.tsx` still uses the old one-off check. The hook migration may be incomplete."
+3. **Tell user next step** — "Fix the issue, commit, then run `/verify` again."
 
 If ⚠️ verdict (visual issues only):
 1. List them as non-blocking
@@ -364,7 +361,5 @@ If ⚠️ verdict (visual issues only):
 ## Related Skills
 
 - `/generate-tests` — Generates the UAT file this skill reads
-- `/dev` — Runs automated tests (Playwright e2e, unit)
+- `/dev` — Runs automated tests, auto-closes feature on success
 - `/review-all` — Code/design/UX static review
-- `/ship` → calls this? Consider: "Run `/verify` before `/ship`" as a recommended gate
-- `/done` — Close the feature (run this after `/verify` returns ✅)

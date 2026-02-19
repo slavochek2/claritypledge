@@ -34,7 +34,7 @@
 
 **Completed features:**
 - Moved to `features/done/{N}_{mon}_{yy}/` dated subfolders
-- `/slava:done` skill handles the move and subfolder placement
+- `/dev` and `/fix` auto-close on success (move + set `status: done` + `completed_at`)
 - `scripts/sweep-done.sh` auto-sweeps any files that land at done/ root (Kanban drag, manual mv) into the current month's folder on next pre-commit run
 
 **Examples:**

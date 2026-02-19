@@ -12,7 +12,7 @@ This file provides guidance for AI agents working with code in this repository.
 
 **Clarity Pledge** — TypeScript web app for calibrated communication practice.
 
-**Development pattern:** Read spec → implement → test → commit → `/verify` → `/done`
+**Development pattern:** Read spec → implement → test → `/dev` auto-closes on success. Run `/verify` for visual QA when needed.
 
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
@@ -137,9 +137,7 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 ### Test Integrity Principle
 
-> **Principle:** Tests are executable specifications. Modifying tests to pass means changing the spec.
-
-If tests fail, the code is wrong (not the test). If you believe a test is genuinely incorrect, explain why and ask before changing it. Never enable skipped tests without understanding why, use `.only()` (breaks CI), delete failing tests, or change assertions to match buggy output.
+Tests are specs — fix code, not tests. Rules auto-load when editing test files via `.claude/rules/tests.md`.
 
 ---
 
@@ -240,9 +238,7 @@ When starting non-trivial work (multi-file changes, features, bug fixes), sugges
 
 **Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions).
 
-**Number assignment:** Run `./scripts/next-p-number.sh` — never compute manually.
-
-For frontmatter format, rank assignment, type semantics, and duplicate-P-number prevention: see [feature-specs.md](docs/technical/feature-specs.md).
+Feature spec rules (frontmatter, status values, P-number, lifecycle) auto-load when editing `features/` files via `.claude/rules/features.md`.
 
 ---
 
@@ -263,18 +259,18 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 ### Sequential Flow — Current Standard
 
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /decompose* → /dev → /verify → /done
+/create-prd → /ux (if UI) → /architect → /generate-tests → /decompose* → /dev
 ```
 
 `* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps).
 
-Each layer has a review gate — user approves before proceeding to next layer.
+Each layer has a review gate. `/dev` and `/fix` auto-close the feature on success (move to `features/done/`, set `completed_at`).
 
-**Post-work:** `/verify → /done`. That's the standard path.
-- `/kdd` optional if there are notable learnings.
-- `/review-all` and `/ship` exist for high-stakes situations (big merges, security changes). See [development-process.md](docs/development-process.md).
+**Optional post-work:** `/verify` — live browser UAT + visual QA. Run when you care about look/feel.
+- `/kdd` — capture notable learnings.
+- `/review-all` and `/ship` — high-stakes situations (big merges, security changes).
 
-**Deprecated:** `/prep-spec` (old 3-agent parallel review) — kept for backward compatibility only. New features should use the sequential flow above.
+**Deprecated:** `/prep-spec`, `/done` — kept in archive for backward compatibility only.
 
 See [docs/development-process.md](docs/development-process.md) for complete workflow documentation.
 
@@ -354,32 +350,13 @@ git rm --cached <file>       # Untrack (if already tracked)
 
 ## Code & Architecture
 
-### Code Style
+### Code & Architecture
 
-- **Never put dates in documentation** — Use relative terms ("current", "recent"). Git history provides temporal context.
-- React 19 patterns, hooks at top, Supabase for state, Tailwind CSS, shadcn/ui
+See [architecture.md](docs/technical/architecture.md) for patterns.
 
-See [architecture.md](docs/technical/architecture.md) for details.
+Code style, design system, point display, and data fetching rules auto-load when editing `src/` files via `.claude/rules/src.md`.
 
----
-
-### Point Display Patterns
-
-Always use the dedicated hooks and service methods for displaying points — never raw service calls. Wrong patterns cause N+1 queries and missing user positions. See [architecture.md](docs/technical/architecture.md#point-display-patterns).
-
----
-
-### Design System
-
-See [docs/design-system.md](docs/design-system.md). **Quick rule:** Blue for actions/CTAs, green for SUCCESS ONLY. Never green action buttons or amber/orange/yellow/purple in UI.
-
----
-
-### Database Access Policy
-
-Agents can create and apply migrations autonomously. **What needs asking:** Schema decisions affecting core tables (profiles, points, clarity_sessions). **What doesn't need asking:** Running `./scripts/migrate.sh` once a migration file exists.
-
-See [database.md](docs/technical/database.md) for workflow, naming rules, and RLS patterns.
+Database migration rules, RLS debugging, and schema decisions auto-load when editing `supabase/` files via `.claude/rules/database.md`.
 
 ---
 
@@ -391,64 +368,20 @@ Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not wor
 
 ## Reference Guide
 
-### Product Overview
-
-**Clarity Pledge** — Calibrated communication practice via /live verification. Target: coaches.
-
+**Product:** Calibrated communication practice via /live. Target: coaches.
 Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [milestones/](docs/milestones/)
 
----
-
-### Development Commands
-
-**Non-obvious commands:**
+**Key commands:**
 ```bash
 ./scripts/pre-commit-checks.sh  # REQUIRED before committing
 npm run kanban                   # Feature prioritization (port 9050)
+npm run dev && npm test && npm run build  # Standard dev loop
 ```
 
-**Standard commands:** `npm run dev`, `npm test`, `npm run build` — see `package.json` for full list.
+**Where things live:** `docs/technical/` (guides) · `features/` (specs) · `src/app/` (source) · `e2e/` (tests) · `supabase/` (database) · `.claude/rules/` (path-specific agent rules)
 
-Worktree ports & env setup: [infrastructure.md](docs/technical/infrastructure.md)
+**Source of truth docs:** `definitions.md` (concepts) · `lean-canvas.md` (business) · `milestones/` (hypothesis + metrics) · `decisions.md` (trade-offs) · `philosophy.md` (WHY). Never duplicate — add to source and link.
 
----
+**Post-feature:** `/kdd` — captures knowledge in strategic + technical docs.
 
-### Deep Dive References
-
-**Technical:** `docs/technical/` — architecture, auth, database, testing, debugging, git-workflow, infrastructure
-
-**Strategic:** `docs/` — decisions (trade-offs), workstreams (what we're building), definitions (concepts), philosophy (WHY), theory-of-change (evidence)
-
----
-
-### Project Structure
-
-Key folders: `docs/technical/` (guides), `features/` (specs), `src/app/` (source), `e2e/` (tests), `supabase/` (database).
-
-Full structure: [README.md](README.md#project-structure)
-
----
-
-### File Locations
-
-Feature specs: `features/p{N}_{name}.md` | Completed: `features/done/` | Skills: `.claude/commands/slava/`
-
-Full guide: [feature-specs.md](docs/technical/feature-specs.md#file-locations)
-
----
-
-### Knowledge-Driven Development
-
-`/kdd` — Run after features to capture knowledge in strategic (`decisions.md`, `milestones/`) and technical docs (`database.md`, `authentication.md`).
-
----
-
-### Observability
-
-Mixpanel (analytics) and Sentry (errors) are production-only. See [analytics.md](docs/technical/analytics.md) for event catalog.
-
----
-
-### Documentation Architecture
-
-**Source of truth:** `definitions.md` (concepts), `lean-canvas.md` (business), `milestones/` (milestone files contain hypothesis, experiment, metrics), `decisions.md` (trade-offs), `philosophy.md` (WHY), `theory-of-change.md` (evidence). Never duplicate — add to source and link.
+**Observability:** Mixpanel + Sentry are production-only. See [analytics.md](docs/technical/analytics.md).

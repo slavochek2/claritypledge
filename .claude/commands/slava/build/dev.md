@@ -25,24 +25,10 @@ If no `## Implementation Tasks` section exists, use standard /dev behavior (inst
 
 ## Usage
 
-**Standard mode (with spec):**
 ```bash
 /dev features/p99.md           # Implement feature from spec
 /dev refactor the auth module  # With inline description
 ```
-
-**Quick-fix mode (P0 bugs only):**
-```bash
-/dev "Fix login on Safari" --quick
-```
-
-**Quick-fix mode:**
-- Skips spec generation (creates minimal spec inline)
-- Creates basic E2E test
-stubs
-- Implements fix
-- Runs tests
-- **Use ONLY for P0 emergencies** (production down, critical bug)
 
 ---
 
@@ -86,7 +72,7 @@ You're not just writing code — you're building something that will run in prod
 7. **Mark** — Change `[ ]` to `[x]` after task passes
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
 9. **Commit** — Only if ALL tests pass
-10. **Done** — Report results
+10. **Close** — Move spec to `features/done/`, set `status: done` + `completed_at`, prompt for `/kdd`
 
 ---
 
@@ -398,10 +384,11 @@ Before marking a feature complete, `/dev` verifies:
 ✅ No regressions detected
 
 [If UI touched]
-⚠️  UI files modified. Recommend running /design-audit before /done.
+⚠️  UI files modified. Recommend running /design-audit.
    Run now? (y/n)
 
-Feature implementation complete. Ready for /done.
+Feature closed → features/done/5_feb_26/
+Capture learnings with /kdd? (y/n)
 ```
 
 **Failure handling:**
@@ -532,7 +519,7 @@ Running completion checklist...
 ✅ Acceptance criteria verified
 
 ⚠️  UI files modified: src/app/sifter/[id]/results/page.tsx
-    Recommend /design-audit before /done.
+    Recommend /design-audit.
     Run now? (y/n)
 
 Feature implementation complete.
@@ -593,7 +580,7 @@ Running completion checklist...
 ✅ Acceptance criteria verified
 
 ⚠️  UI files modified: src/app/components/ProfileHeader.tsx
-    Recommend /design-audit before /done.
+    Recommend /design-audit.
     Run now? (y/n)
 
 Feature implementation complete.
@@ -601,16 +588,26 @@ Feature implementation complete.
 
 ---
 
-## Delivery Stage Tracking
+## Feature Closure
 
-**AFTER successful implementation and commit, update delivery stage:**
+After successful commit, close the feature:
 
-Use Edit tool to update the spec file's frontmatter:
-```yaml
-delivery_stage: implementation
-```
+1. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
+2. Find destination:
+   ```bash
+   ls -d features/done/*/ 2>/dev/null | sort -V | tail -1
+   ```
+   Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
+3. Move files:
+   ```bash
+   mkdir -p features/done/{folder}
+   git mv features/{spec} features/done/{folder}/
+   git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
+   ```
+4. Commit: `chore: close P{N} — {title}`
+5. Ask: "Capture learnings with /kdd? (y/n)"
 
-This signals that feature is implemented and ready for UAT (user acceptance testing).
+If no spec file exists (inline description mode), skip closure silently.
 
 ---
 

@@ -83,6 +83,8 @@ Bug reported
 └─ Complex (unknown cause) → Investigate (debugging.md) → /fix
 ```
 
+/fix auto-closes the feature on success: moves spec to `features/done/`, sets `status: done` + `completed_at`, prompts for `/kdd`.
+
 ---
 
 ## Workflow
@@ -304,7 +306,7 @@ Bug spec updated:
 - root_cause: Safari event.target incompatibility on buttons
 - resolution: Changed to use formData reference
 
-Bug fixed and verified. Ready for /done.
+Bug fixed and verified. Closing feature.
 ```
 
 ---
@@ -381,13 +383,30 @@ resolution: What was fixed  # Added after fix
 
 ---
 
+## Feature Closure
+
+After commit succeeds:
+
+1. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
+2. Find destination: `ls -d features/done/*/ 2>/dev/null | sort -V | tail -1`
+   Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
+3. Move files:
+   ```bash
+   mkdir -p features/done/{folder}
+   git mv features/{spec} features/done/{folder}/
+   git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
+   ```
+4. Commit: `chore: close P{N} — {title}`
+5. Ask: "Capture learnings with /kdd? (y/n)"
+
+---
+
 ## Relationship to Other Skills
 
 **Before /fix:**
 - Debugging protocol (docs/technical/debugging.md) - Use first if bug cause is unclear
 
 **After /fix:**
-- `/done` - Mark bug as resolved
 - `/kdd` - Capture learnings (optional, if bug revealed patterns)
 
 **Parallel:**
@@ -418,7 +437,7 @@ Phase 4: Verify
 ✅ Regression test passes
 ✅ All tests pass (512/512)
 
-Bug fixed. Ready for /done.
+Bug fixed. Closing feature.
 ```
 
 ### Complex Bug (Debugging first)
@@ -437,7 +456,7 @@ Bug fixed. Ready for /done.
 → Fix with debounce + queue
 → Verify
 
-Bug fixed. Ready for /done.
+Bug fixed. Closing feature.
 ```
 
 ---

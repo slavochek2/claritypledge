@@ -447,7 +447,7 @@ This avoids context overflow on large features.
 **A:** Later skills will fail or produce incomplete output. Follow the sequence.
 
 ### Q: Can I still use /prep-spec?
-**A:** Yes for backward compatibility (features started before 2026-02-13), but it's deprecated. New features should use sequential flow.
+**A:** Yes for backward compatibility (features started before the new sequential flow), but it's deprecated. New features should use sequential flow.
 
 ### Q: Do I need to manually test anymore?
 **A:** Yes, but only UX validation (5 min): "Does this feel right?" Not functionality testing (agent does that).
@@ -456,7 +456,7 @@ This avoids context overflow on large features.
 **A:** Agent iterates up to 5 times. If still failing, agent reports to you with details for debugging help.
 
 ### Q: What about P0 urgent bugs?
-**A:** For P0 hotfixes, use quick-fix mode: `/dev "Fix login on Safari" --quick`. This skips spec generation and goes straight to implementation + minimal tests. **Use sparingly** — only for production emergencies.
+**A:** Run `/fix "Fix login on Safari"` directly. It creates a minimal spec inline, implements + tests, and closes on success.
 
 ---
 
@@ -684,19 +684,11 @@ Bug reported
 
 ### Post-Work Skills (After Implementation)
 
-After `/dev` completes:
+`/dev` and `/fix` auto-close the feature on success — spec moves to `features/done/`, `status: done` and `completed_at` are set.
 
-```
-/verify → /done
-```
+**Optional:** Run `/verify` for live browser UAT + visual quality check when you care about look/feel. Returns ✅ / ❌. Can be run on specs already in `features/done/`.
 
-That's it. Two steps, always the same.
-
-- `/verify` — opens the running app in Chrome, walks through UAT scenarios, checks each acceptance criterion, judges visual quality. Returns ✅ ship it / ❌ fix it.
-- `/done` — closes the spec (updates frontmatter, moves to `features/done/`)
 - `/kdd` — optional: capture notable learnings in strategic docs
-
-**When tests fail `/verify`:** fix the code, commit, re-run `/verify`.
 
 ---
 
@@ -704,9 +696,10 @@ That's it. Two steps, always the same.
 
 These exist but aren't in the default path. Invoke them when you have a specific reason:
 
+- `/refactor` — post-implementation code cleanup (rename, deduplicate, restructure). Run after `/dev` closes the feature, only when code quality warrants it.
 - `/review-all` — parallel code + design + UX static review. Useful before a big merge, security-sensitive changes, or when an agent wrote code you didn't closely supervise.
 - `/design-audit` — focused design system compliance check. Subset of `/review-all`.
-- `/ship` — meta-pipeline: `/review-all` + auto-fix HIGH issues + quality gate + `/done`. One command when you want thoroughness over speed.
+- `/ship` — meta-pipeline: `/review-all` + auto-fix HIGH issues + quality gate + closure. One command when you want thoroughness over speed.
 
 ---
 
@@ -752,7 +745,8 @@ These skills can be used at any point during development when you need them:
                         ↓
 ┌─────────────────────────────────────────────────────┐
 │ POST-WORK                                           │
-│ /verify → /done                                     │
+│ (auto) /dev or /fix closes feature on success       │
+│ (optional) /verify — live UAT + visual QA           │
 │ (optional) /kdd                                     │
 └─────────────────────────────────────────────────────┘
 

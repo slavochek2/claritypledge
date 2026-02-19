@@ -190,7 +190,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Consequences:** Unexecuted UAT is visible before features are closed. Profile update helpers are reliable. Pattern is: service_role for schema-level checks (column existence), user JWT for data-level operations (profile updates).
 
-**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | [.claude/commands/slava/done/SKILL.md](.claude/commands/slava/done/SKILL.md)
+**References:** [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md) | [.claude/commands/slava/archive/done/SKILL.md](.claude/commands/slava/archive/done/SKILL.md)
 
 ---
 

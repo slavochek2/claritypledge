@@ -315,7 +315,7 @@ reviews:
    - Agent implements, runs tests, iterates until pass
    - User validates UX only (not functionality)
 
-6. **Ship** - Run `/done` to mark complete
+6. **Ship** - `/dev` auto-closes on success
 
 ---
 
@@ -347,7 +347,7 @@ reviews:
 - `/dev` - Implement the feature with test-driven development
 
 **Other related:**
-- `/done` - Mark feature complete
+- `/verify` - Optional live browser UAT after implementation
 - `/kdd` - Capture knowledge after implementation
 - `/quick-feature` - Quick skeleton (alternative to `/create-prd`)
 
