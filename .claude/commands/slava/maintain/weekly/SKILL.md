@@ -17,15 +17,27 @@ Context hygiene + evidence-based solo founder retrospective. Evidence first, que
 
 ```bash
 # Get last run date, fall back to 7 days ago
-LAST_RUN=$(grep "^date:" ~/.claude_weekly_last_run 2>/dev/null | awk '{print $2}')
+LAST_RUN=$(grep "^date:" ~/.claude_weekly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
 if [ -z "$LAST_RUN" ]; then
   SINCE="7 days ago"
   DAYS=7
   echo "No prior run found — analyzing last 7 days"
 else
-  SINCE="$LAST_RUN"
-  DAYS=$(( ( $(date +%s) - $(date -j -f "%Y-%m-%d" "$LAST_RUN" +%s) ) / 86400 ))
-  echo "Last review: $LAST_RUN ($DAYS days ago)"
+  # Validate format before using (guard against corrupt state file)
+  if echo "$LAST_RUN" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+    SINCE="$LAST_RUN"
+    LAST_TS=$(date -j -f "%Y-%m-%d" "$LAST_RUN" +%s 2>/dev/null)
+    if [ -z "$LAST_TS" ]; then
+      SINCE="7 days ago"; DAYS=7
+      echo "WARNING: Could not parse date '$LAST_RUN' — falling back to 7 days"
+    else
+      DAYS=$(( ( $(date +%s) - LAST_TS ) / 86400 ))
+      echo "Last review: $LAST_RUN ($DAYS days ago)"
+    fi
+  else
+    SINCE="7 days ago"; DAYS=7
+    echo "WARNING: Malformed date in state file ('$LAST_RUN') — falling back to 7 days"
+  fi
 fi
 ```
 
@@ -76,7 +88,7 @@ Query: unresolved errors from last 7 days
 git log --since="$SINCE" --oneline --no-merges
 
 # Features shipped
-git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- "features/done/*" | grep "\.md$"
+git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- 'features/done/*.md'
 
 # Features created (new specs)
 git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- "features/p*.md" | grep "\.md$"
@@ -86,11 +98,11 @@ git log --since="$SINCE" --name-only --pretty="" \
   -- "docs/milestones/" "docs/lean-canvas.md" "docs/decisions.md" \
      "docs/philosophy.md" "CLAUDE.md" ".claude/" | sort -u
 
-# Repeated fix areas
-git log --since="$SINCE" --oneline --no-merges | grep -i "fix\|chore\|refactor" | \
-  sed 's/[a-f0-9]* //' | cut -d: -f1 | sort | uniq -c | sort -rn | head -10
+# Repeated fix areas (same scope fixed 2+ times = smell; refactors excluded)
+git log --since="$SINCE" --oneline --no-merges | grep -iE "^[a-f0-9]+ fix" | \
+  sed 's/^[a-f0-9]* //' | sort | uniq -c | sort -rn | head -10
 
-# Last run commitment
+# Last run commitment (read verbatim — agent will ask founder to self-assess against it)
 cat ~/.claude_weekly_last_run 2>/dev/null || echo "(no prior commitment)"
 ```
 
@@ -98,16 +110,19 @@ cat ~/.claude_weekly_last_run 2>/dev/null || echo "(no prior commitment)"
 
 ### 4. Evidence Picture
 
-Present this before asking anything:
+Present this before asking anything. For LAST WEEK: read the saved commitment verbatim, then ask: "Did you do this? Yes / partial / no — one word." Wait for the answer before proceeding.
 
 ```
 SHIPPED:    [N features — list titles]
 CREATED:    [N new specs — list titles]
 COMMITS:    [N total — split by type: feat/fix/chore/docs/refactor]
 STRATEGY:   [docs touched or "none"]
-SMELLS:     [areas fixed 3+ times, or "none"]
-LAST WEEK:  [commitment followed through / partial / missed]
+SMELLS:     [areas fixed 2+ times — scope only, not count; or "none"]
+LAST WEEK:  [paste saved commitment] → [founder's yes/partial/no]
+USER CONVOS: [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
 ```
+
+Collect the user conversation answer before moving to questions. Zero = flag immediately in the evidence table.
 
 Then compute these signals:
 
@@ -117,7 +132,8 @@ Then compute these signals:
 | **specs created > shipped** | Backlog growing faster than execution |
 | **strategy docs touched** | Decisions re-opened — settling or drifting? |
 | **repeated fix areas** | Patching symptoms not root causes |
-| **zero user conversations** | Builder's refuge week |
+| **zero user conversations** | Builder's refuge. Building is safe. Selling is where the loop breaks. Flag this explicitly — do not soften it. |
+| **last week commitment missed** | Pattern of commitments that don't bind. Name it: "This is the second/third time." |
 
 ---
 
@@ -144,28 +160,37 @@ Show the evidence picture first. Then ask — **evidence-derived questions first
 *(Watch for: zero user conversations = builder's refuge. Building is safe. Selling is where the loop breaks.)*
 
 **3. Hypothesis integrity**
-> "What assumption did you test this week with a real person or real data? What surprised you?"
-*(No surprise = not learning, or only hearing confirmation. Theoretical validation doesn't count.)*
+> "What assumption did you test this week with a real person or real usage data? What surprised you?"
+*(Codebase surprises, refactor discoveries, and UI edge cases don't count. Real-person test or production usage data only. If the answer is "nothing" or "it worked as expected," that's a flag — no surprise means no real test.)*
 
 **4. Scope / re-derivation check**
-> "Did you make any decisions this week that you've already made before? What's actually new?"
-*(The pattern: same strategy gets re-derived when commitment feels close. Each re-derivation feels like refinement. Collectively they delay the moment of actual test.)*
+If strategy docs were touched: "You opened [doc] this week. Read back the last change before this one. What's substantively different in your thinking now? If the answer is 'mostly the same framing,' that's re-derivation — the decision was already made and you're circling it."
+
+If no strategy docs touched: "Did you find yourself re-explaining your strategy or direction in any conversation this week — to me, to a user, to yourself in writing? Same idea, new words = re-derivation."
+
+*(The tell: each re-derivation feels like refinement. The question is whether anything actually changed — new data, new constraint, new evidence — or whether the act of re-deriving is itself the avoidance.)*
 
 ---
 
 ### 6. Personal Pattern Interrupt
 
-After the questions, check the evidence against these known patterns. Flag only if evidence supports it — don't lecture:
+Run this check using the evidence picture and the answers just given. Surface at most 2 patterns. State them plainly — not as questions, not preachy. One sentence each. If none apply, skip this section entirely.
 
-| Pattern | Signal in evidence | Flag |
-|---------|-------------------|------|
-| **Scope expansion** | New specs > shipped; strategy docs re-opened | "This looks like scope expanding before the current hypothesis is tested." |
-| **Framework substitution** | Heavy docs/refactor week, no user contact | "Lots of architectural work. Did frameworks replace conversations this week?" |
-| **Prerequisite creep** | Feature count high but nothing user-facing shipped | "What's the actual blocker — or did the bar keep moving?" |
-| **Anxiety pivot** | Strategy docs changed + no new external data | "Did new information arrive that changed direction, or did anxiety spike?" |
-| **Virtue shield** | n/a (ask directly if user mentions "can't charge", "people like me") | "Is that a real constraint or a protection mechanism?" |
+**Triggers and flags:**
 
-Only surface 1–2 patterns. Don't pile on.
+- **Scope expansion:** New specs > shipped AND strategy docs re-opened → "The backlog grew and direction shifted. That's scope expanding before the current hypothesis has a result."
+
+- **Framework substitution:** >50% commits are docs/refactor/chore AND zero user conversations → "This was an architectural week with no external contact. Frameworks replaced conversations."
+
+- **Prerequisite creep:** Multiple features in-progress AND nothing user-facing shipped in 2+ weeks → "The list of things that need to be done before launch keeps growing. Name the actual blocker."
+
+- **Anxiety pivot:** Strategy docs changed AND no new external data in evidence → "Something changed direction this week. Was there new information, or did anxiety spike?"
+
+- **Virtue shield:** If the founder mentions inability to charge, "people like me," or fairness concerns about pricing → "That framing protects you from testing whether people will pay. Is the constraint real or is it a shield?"
+
+- **Zero user conversations (automatic flag, no trigger needed):** If USER CONVOS = 0 → "Zero user conversations. That's the most important number in this review. Everything else is internal."
+
+Only surface what the evidence actually shows. One sentence per pattern. Don't pile on.
 
 ---
 
@@ -174,12 +199,16 @@ Only surface 1–2 patterns. Don't pile on.
 Always end with this. Save to state file for accountability next week:
 
 ```
-STOP:        [one specific thing]
-START:       [one specific thing — ideally involves a real person]
-SCARY THING: [the smallest scary action — user contact, price named, thing shipped publicly]
-HYPOTHESIS:  "I believe [X] will cause [Y], measured by [Z]"
+STOP:        [one specific behavior — not a project, a behavior]
+START:       [one specific action — must involve a real person or real user]
+SCARY THING: [verb] + [named person or public channel] + [by specific date]
+             Example: "Send pricing page to Marcus by Thursday"
+             Not acceptable: "reach out to users", "think about pricing", "send a message"
+HYPOTHESIS:  "I believe [X] will cause [Y], measured by [Z] by [date]"
 KILL DATE:   "I'll reconsider this direction if [condition] by [date]"
 ```
+
+If the scary thing doesn't have a name and a date, it's not a commitment — push back and ask again.
 
 Save it:
 ```bash
@@ -215,7 +244,8 @@ EOF
 **Commits:** [N] ([feat/fix/chore split])
 **Strategy touched:** [docs or "none"]
 **Smells:** [repeated fixes or "none"]
-**Last week:** [followed through / partial / missed]
+**User conversations:** [N — names if any, or "zero"]
+**Last week:** [commitment text] → [yes/partial/no]
 
 ### Evidence Signals
 [table of signals with interpretations]
@@ -239,9 +269,13 @@ Kill date: ...
 ## Rules
 
 - **Evidence first. Questions after.** Never ask before showing the picture.
+- **Collect user conversation count before questions** — it's the most important number.
+- **Last week's commitment: paste it verbatim, ask yes/partial/no, wait for answer.** Don't infer.
 - **Questions must be derived from evidence** — never generic "what went well?"
 - **Always ask all 4 mandatory questions** — avoidance, ratio, hypothesis, re-derivation.
-- **Pattern interrupt is evidence-based** — only flag what the data actually suggests.
-- **The scary thing is required** — every commitment must name a smallest scary action.
+- **Q3 hypothesis check: real person or real usage data only.** Reject codebase answers.
+- **Q4 re-derivation: anchor to the specific strategy doc touched.** Don't accept self-assessment without anchoring.
+- **Pattern interrupt: plain statements, not questions, at most 2.** If none apply, skip the section.
+- **The scary thing must have a name and a date.** Push back if it doesn't.
 - **A retro that never stings is a journal entry.** If this feels comfortable, it's not working.
 - Implement improvements now if identified. Keep it under 15 minutes.
