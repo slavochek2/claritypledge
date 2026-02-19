@@ -1,5 +1,5 @@
 ---
-status: backlog
+status: week
 type: story
 rank: 10
 workstream: C1

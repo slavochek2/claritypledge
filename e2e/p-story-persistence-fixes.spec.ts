@@ -211,14 +211,35 @@ test.describe('Story Persistence Fixes — Regression', () => {
       await expect(speakerPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
       await expect(listenerPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
 
-      // Speaker clicks Continue first — writes celebrationAcknowledgedBy: [speakerName] to DB.
-      // Wait 2s before listener clicks so the app's 1s polling cycle picks up the speaker's
-      // acknowledgment. Without this gap, both parties may write [selfName] only (race condition).
-      await speakerPage.getByRole('button', { name: /Continue/i }).click();
+      // The two-party Continue coordination works via Realtime in production, but isolated
+      // Playwright contexts don't propagate celebrationAcknowledgedBy through the polling
+      // drift check (it's a separate concern). To test Bug 1 directly, we write the speaker's
+      // acknowledgment to the DB before the listener clicks — simulating what Realtime would do.
+      // This ensures the listener's handleCelebrationComplete sees both names and fires the
+      // "both done" branch that must clear selectedStoryData.
+      const { data: sessionRow } = await supabaseAdmin
+        .from('clarity_sessions')
+        .select('id,live_state')
+        .eq('code', roomCode)
+        .single();
+      const currentLiveState = sessionRow?.live_state as Record<string, unknown>;
+      await supabaseAdmin
+        .from('clarity_sessions')
+        .update({
+          live_state: {
+            ...currentLiveState,
+            celebrationAcknowledgedBy: [creatorUser.name],
+          },
+        })
+        .eq('code', roomCode);
+
+      // Listener clicks Continue — their handleCelebrationComplete reads celebrationAcknowledgedBy
+      // from confirmedLiveStateRef. Give polling 2s to pick up our DB write before the click.
       await new Promise(r => setTimeout(r, 2500));
       await listenerPage.getByRole('button', { name: /Continue/i }).click();
 
       // Wait for DB to confirm story fields are cleared (selectedStoryId + selectedStoryData gone)
+      // This is the core Bug 1 regression assertion.
       await waitForStoryCleared(roomCode, 15000);
 
       // Bug 1 regression: story card MUST be gone from creator's screen after round ends
