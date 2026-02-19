@@ -69,6 +69,26 @@ The spec will have these sections (created by previous skills):
    - What outcomes must be measurable? (from Business Requirements)
    - What acceptance criteria must pass? (from all sections)
 
+5. **Complexity classification (determines next step after tests):**
+
+   Count implementation layers:
+   - DB migration (adds/modifies schema, GENERATED columns, RLS)
+   - New React components (2+)
+   - Real-time sync or WebSocket/polling changes
+   - Service/business logic changes
+   - Background jobs or external integrations
+
+   **Complex** (→ recommend `/decompose` after tests) if ANY of:
+   - 3+ distinct implementation layers
+   - Build sequence with 7+ steps
+   - DB migration is a hard prerequisite for UI work (e.g., schema must exist before components can be built)
+   - Multiple new components that depend on each other
+
+   **Simple** (→ recommend `/dev` after tests) if:
+   - ≤ 2 implementation layers
+   - Single-flow feature
+   - All changes in one area (UI only, or DB only)
+
 ---
 
 ### Phase 2: Design Test Strategy
@@ -719,7 +739,7 @@ export async function deleteTestSifter(sifterId: string): Promise<void> {
 ### Next Steps
 
 1. Review this test strategy (does coverage make sense?)
-2. Run `/dev` to implement feature + fill in test stubs
+2. Run `/decompose` (complex multi-layer feature) or `/dev` (simple feature) — see closing recommendation
 3. Agent runs tests, iterates until all pass
 4. User validates UX via UAT scenarios (5 min)
 ```
@@ -757,7 +777,11 @@ export async function deleteTestSifter(sifterId: string): Promise<void> {
 
 ---
 
-**Next step:** Run `/dev features/p142_csv_export.md` to implement + run tests
+**Next step:** [Choose based on complexity classification from Phase 1]
+- **Complex feature** (3+ layers, 7+ build steps, or DB migration blocks UI): `/decompose features/p{N}.md` — break into sub-features first
+- **Simple feature** (≤ 2 layers, single flow): `/dev features/p{N}.md` — implement directly
+
+State which applies and why (e.g., "P272 has 4 implementation layers + DB migration prerequisite → `/decompose`")
 ```
 
 ---
