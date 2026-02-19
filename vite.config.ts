@@ -25,6 +25,9 @@ export default defineConfig({
   server: {
     port: getPort(),
     strictPort: true, // Fail if port is already in use
+    host: true, // Bind to 0.0.0.0 so 127.0.0.1 and local network IP also work
+    // This enables two-party /verify: localhost:5001 (creator) and 127.0.0.1:5001 (listener)
+    // have separate localStorage → can hold two different Supabase auth sessions simultaneously
   },
   build: {
     sourcemap: true, // Required for Sentry source maps

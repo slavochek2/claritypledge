@@ -4,16 +4,16 @@ This project uses git worktrees to enable parallel development with multiple AI 
 
 ## Overview
 
-**Main Repository:** `/Users/slavochek/Documents/polymet-clarity-pledge-app` (port 5001)
+**Main Repository:** `/Users/slavochek/Projects/public/claritypledge` (port 5001)
 
 **Worktrees:**
-- Tree 1: `/Users/slavochek/Documents/claritypledge-1` (port 5100, branch: `worktree-1`)
-- Tree 2: `/Users/slavochek/Documents/claritypledge-2` (port 5200, branch: `worktree-2`)
-- Tree 3: `/Users/slavochek/Documents/claritypledge-3` (port 5300, branch: `worktree-3`)
-- Tree 4: `/Users/slavochek/Documents/claritypledge-4` (port 5400, branch: `worktree-4`)
-- Tree 5: `/Users/slavochek/Documents/claritypledge-5` (port 5500, branch: `worktree-5`)
-- Tree 6: `/Users/slavochek/Documents/claritypledge-6` (port 5600, branch: `worktree-6`)
-- Tree 7: `/Users/slavochek/Documents/claritypledge-7` (port 5700, branch: `worktree-7`)
+- Tree 1: `/Users/slavochek/Projects/public/claritypledge-1` (port 5100, branch: `worktree-1`)
+- Tree 2: `/Users/slavochek/Projects/public/claritypledge-2` (port 5200, branch: `worktree-2`)
+- Tree 3: `/Users/slavochek/Projects/public/claritypledge-3` (port 5300, branch: `worktree-3`)
+- Tree 4: `/Users/slavochek/Projects/public/claritypledge-4` (port 5400, branch: `worktree-4`)
+- Tree 5: `/Users/slavochek/Projects/public/claritypledge-5` (port 5500, branch: `worktree-5`)
+- Tree 6: `/Users/slavochek/Projects/public/claritypledge-6` (port 5600, branch: `worktree-6`)
+- Tree 7: `/Users/slavochek/Projects/public/claritypledge-7` (port 5700, branch: `worktree-7`)
 
 ## Port Configuration
 
@@ -35,11 +35,11 @@ export default defineConfig({
 
 ```bash
 # Tree 1
-cd /Users/slavochek/Documents/claritypledge-1
+cd /Users/slavochek/Projects/public/claritypledge-1
 npm run dev  # Starts on http://localhost:5100
 
 # Tree 2
-cd /Users/slavochek/Documents/claritypledge-2
+cd /Users/slavochek/Projects/public/claritypledge-2
 npm run dev  # Starts on http://localhost:5200
 
 # ... and so on
@@ -53,9 +53,9 @@ git worktree list
 
 Output:
 ```
-/Users/slavochek/Documents/polymet-clarity-pledge-app  56e5f28 [main]
-/Users/slavochek/Documents/claritypledge-1             850cb2f [worktree-1]
-/Users/slavochek/Documents/claritypledge-2             56e5f28 [worktree-2]
+/Users/slavochek/Projects/public/claritypledge  56e5f28 [main]
+/Users/slavochek/Projects/public/claritypledge-1             850cb2f [worktree-1]
+/Users/slavochek/Projects/public/claritypledge-2             56e5f28 [worktree-2]
 ...
 ```
 
@@ -69,7 +69,7 @@ If the port configuration is committed to the branch (recommended):
 
 ```bash
 # From main repo
-cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+cd /Users/slavochek/Projects/public/claritypledge
 
 # Reset to branch HEAD (discards uncommitted changes)
 cd ../claritypledge-1
@@ -89,7 +89,7 @@ If you need to completely recreate a worktree:
 
 ```bash
 # From main repo
-cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+cd /Users/slavochek/Projects/public/claritypledge
 
 # Remove worktree
 git worktree remove ../claritypledge-1
@@ -118,7 +118,7 @@ npm install  # May need to reinstall dependencies
 ### Checking Port Config Status
 
 ```bash
-cd /Users/slavochek/Documents/claritypledge-1
+cd /Users/slavochek/Projects/public/claritypledge-1
 git log --oneline vite.config.ts
 
 # Should show commit with port configuration
@@ -146,10 +146,10 @@ git commit -m "Configure dev server port for worktree-1"
 
 ```bash
 # Link .env.local to all worktrees (run from main repo)
-cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+cd /Users/slavochek/Projects/public/claritypledge
 
 for i in 1 2 3 4 5 6 7; do
-  ln -sf /Users/slavochek/Documents/polymet-clarity-pledge-app/.env.local ../claritypledge-$i/.env.local
+  ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-$i/.env.local
 done
 ```
 
@@ -164,7 +164,7 @@ done
 ls -la ../claritypledge-X/.env.local
 
 # If missing, recreate the symlink
-ln -sf /Users/slavochek/Documents/polymet-clarity-pledge-app/.env.local ../claritypledge-X/.env.local
+ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-X/.env.local
 ```
 
 ## Creating New Worktrees
@@ -173,13 +173,13 @@ To add additional worktrees (e.g., Tree 4):
 
 ```bash
 # From main repo
-cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+cd /Users/slavochek/Projects/public/claritypledge
 
 # Create new worktree with new branch
 git worktree add ../claritypledge-4 -b worktree-4
 
 # Link environment variables
-ln -sf /Users/slavochek/Documents/polymet-clarity-pledge-app/.env.local ../claritypledge-4/.env.local
+ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-4/.env.local
 
 # Configure port in new worktree
 cd ../claritypledge-4
@@ -221,7 +221,7 @@ Compare implementations by visiting their dev servers:
 Choose the winning implementation and merge it to main:
 
 ```bash
-cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+cd /Users/slavochek/Projects/public/claritypledge
 
 # Merge winning branch (e.g., worktree-2)
 git merge worktree-2 --no-ff
@@ -240,7 +240,7 @@ git fetch origin
 git reset --hard origin/main
 
 # Option B: Remove and recreate worktrees
-cd /Users/slavochek/Documents/polymet-clarity-pledge-app
+cd /Users/slavochek/Projects/public/claritypledge
 git worktree remove ../claritypledge-1
 git worktree add ../claritypledge-1 worktree-1
 ```

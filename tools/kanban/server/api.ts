@@ -575,6 +575,58 @@ app.post('/api/open', (req, res) => {
   })
 })
 
+// GET /api/goals - parse pilot sequence from active milestone
+app.get('/api/goals', async (_req, res) => {
+  try {
+    const milestones = await getCachedMilestones()
+    const active = milestones.find((m) => m.status === 'active')
+    if (!active) return res.json({ steps: [], hypothesis: '', question: '' })
+
+    const raw = readFileSync(active.path, 'utf-8')
+    const { content } = matter(raw)
+
+    const hypothesisMatch = content.match(/\*\*Hypothesis:\*\*\s*(.+)/m)
+    const hypothesis = hypothesisMatch?.[1]?.trim() || ''
+
+    const questionMatch = content.match(/\*\*The question:\*\*\s*(.+)/m)
+    const question = questionMatch?.[1]?.trim() || ''
+
+    const seqMatch = content.match(/## Pilot Sequence([\s\S]*?)(?=\n##|$)/)
+    const seqBlock = seqMatch?.[1] || ''
+    const stepMatches = [...seqBlock.matchAll(/^\d+\. \[([ x])\] (.+)$/gm)]
+    const steps = stepMatches.map((m, i) => ({ index: i, text: m[2].trim(), done: m[1] === 'x' }))
+
+    res.json({ steps, hypothesis, question, milestoneId: active.id, milestoneTitle: active.title })
+  } catch {
+    res.status(500).json({ error: 'Failed to read goals' })
+  }
+})
+
+// PATCH /api/goals/:index - toggle a pilot sequence step done/undone
+app.patch('/api/goals/:index', (req, res) => {
+  try {
+    const stepIndex = parseInt(req.params.index, 10)
+    const { done } = req.body as { done: boolean }
+
+    const milestones = [...(milestonesCacheByWorktree.get(DEFAULT_PROJECT_ROOT) || [])]
+    const active = milestones.find((m) => m.status === 'active')
+    if (!active) return res.status(404).json({ error: 'No active milestone' })
+
+    let raw = readFileSync(active.path, 'utf-8')
+    let i = 0
+    raw = raw.replace(/^(\d+\. )\[([ x])\] (.+)$/gm, (full, num, _check, text) => {
+      if (i++ === stepIndex) return `${num}[${done ? 'x' : ' '}] ${text}`
+      return full
+    })
+
+    writeFileSync(active.path, raw, 'utf-8')
+    milestonesCacheByWorktree.clear()
+    res.json({ success: true })
+  } catch {
+    res.status(500).json({ error: 'Failed to update goal' })
+  }
+})
+
 import { KANBAN_CONFIG } from '../config'
 
 const PORT = KANBAN_CONFIG.ports.api

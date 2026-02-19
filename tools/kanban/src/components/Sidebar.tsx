@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export type PageId = 'board' | 'focus'
+export type PageId = 'board' | 'focus' | 'goals'
 
 interface SidebarProps {
   currentPage: PageId
@@ -12,6 +12,7 @@ interface SidebarProps {
 const PAGES: { id: PageId; icon: string; label: string }[] = [
   { id: 'board', icon: '\u{1F4CB}', label: 'Board' },
   { id: 'focus', icon: '\u{1F3AF}', label: 'Focus' },
+  { id: 'goals', icon: '\u{1F9ED}', label: 'Goals' },
 ]
 
 export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse }: SidebarProps) {

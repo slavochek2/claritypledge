@@ -16,11 +16,11 @@ answers: [oq-6, oq-7]
 
 **How we test:** 20-user pilot over 4 weeks (Feb 15 - Mar 15). Users create stories, verify via /live.
 
-**Success metric:** ≥50% story creation rate, ≥30% verification rate, qualitative feedback: "Stories make /live purposeful."
+**Success signal:** After 10 sessions — people create stories without prompting, /live sessions happen on those stories, and when asked "did having a specific story make /live feel more purposeful?" the answer is yes.
 
-**Kill signal:** <20% story creation after 4 weeks, or stories don't improve /live sessions.
+**Kill signal:** People don't create stories, or sessions happen but feel forced ("I still didn't know what to verify").
 
-**What we're building:** Story creation (profiles) + /live beginning screen (P128) + event rooms (P124)
+**What we're building:** Story + point creation (done) + /live story verification (P272) + event room entry (before 1-to-many)
 
 ---
 
@@ -28,7 +28,7 @@ answers: [oq-6, oq-7]
 
 See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-solve-lives-cold-start-problem) in hypotheses.md. Stories give /live a concrete "verify understanding of THIS" purpose, solving the cold start trigger problem ("on what? when?").
 
-**Success:** ≥50% story creation rate, ≥30% verification rate. **Kill if:** <20% creation after 4 weeks.
+**Success:** After 10 sessions — stories created, /live sessions happened, qualitative: "purposeful." **Kill if:** stories don't trigger sessions, or sessions feel forced.
 
 ---
 
@@ -43,47 +43,53 @@ See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-solve-liv
 **Timeline:** Feb 15 - Mar 15 (4 weeks)
 
 **Measurements:**
-- **Quantitative:** Story creation rate (% who create ≥1 story), verification frequency (verifications per story), retention (do authors return?)
-- **Qualitative:** Exit interviews ("Did stories make /live feel more purposeful?"), observation (do users ask "on what?" less?), sentiment ("natural" vs "forced")
+- **Manual counts:** did the person create a story? did a /live session happen on it?
+- **One question after each session:** "Did having a specific story make /live feel more purposeful?" (yes/no + one sentence)
+- No dashboard. No Mixpanel. 20 people — count manually.
 
 **Key decisions:**
 - Manual story creation (test if people WANT to create before adding AI)
 - Holistic verification (0-10 "did they get it?" not Points-based)
 - Mix of returning + new users (test retention + cold start)
-- 4-week timeline (long enough for habits, short enough to iterate)
+- Decide after 10 sessions, not 4 weeks
 
 ---
 
 ## What We're Measuring
 
-**SMART Goal:** Users create stories on profiles and verify understanding via /live.
+**The question:** Did having a story to point to make /live feel purposeful?
 
-**Target values:**
-- ≥50% story creation rate (10+ of 20 users create stories)
-- ≥30% verification rate (stories get verified, not just created)
-- Qualitative: "Stories make /live purposeful"
+**After each session, record:**
+- Story existed before the session? (yes/no)
+- /live session happened on that story? (yes/no)
+- Their answer: "Did this feel more purposeful than a generic /live session?" (yes/no + quote)
 
-**Kill thresholds:**
-- <20% story creation rate after 4 weeks (too low engagement)
-- <10% verification rate (stories don't trigger /live usage)
-- Qualitative: "Stories feel forced" (poor UX fit)
+**Proceed to C2 if:** After 10 sessions — majority say yes, sessions are happening without heavy prompting.
 
-**Data sources:**
-- Database events: `story_created`, `verification_completed`, retention tracking
-- Analytics: Mixpanel events, drop-off points
-- User surveys: Exit interviews, NPS, qualitative feedback
-
-**Tracking:** Weekly snapshots during pilot, month-end full analysis with decision recommendation (proceed to C2 / iterate / kill).
+**Kill if:** Stories don't trigger sessions, or sessions happen but people still feel "I didn't know what to verify."
 
 ---
 
 ## What We're Building
 
-**Phase 1-2:** Story creation on profiles (P126 - planned)
-**Phase 3:** /live beginning screen linking to stories (P128 - in progress)
-**Phase 4:** Event rooms for workshop pairing (P124 - planned)
+**Done:** Story + point creation on profiles, /live session flow, story verification in /live (P272), post-session magic link email (P274)
+**Before 1-to-many:** Event room entry (must be easy, not QR/link friction)
 
-**Done when:** Can run a workshop where participants create stories, verify in /live, pair via event rooms.
+**Done when:** Can run a workshop where participants create stories, verify in /live, enter rooms from event page.
+
+## Pilot Sequence
+
+Track current position:
+
+1. [x] Finish P272 (story verification in /live)
+2. [ ] Push to production
+3. [ ] Create own stories (active listening) — test the loop yourself
+4. [ ] 1-on-1 free sessions (invite 20 warm contacts)
+5. [ ] 1-on-1 paid, money-back guarantee
+6. [ ] Fix event room entry (before 1-to-many)
+7. [ ] 1-to-many free (Calibration Lab, lead gen)
+8. [ ] 1-to-many paid
+9. [ ] Offline events
 
 ---
 
@@ -103,4 +109,4 @@ Decision: Start with holistic verification (0-10 rating). Add Points only if hol
 
 **Features:** P126 (story creation), P128 (/live beginning screen), P124 (event rooms)
 
-**Next milestone:** C2 (First Workshops) if pilot validates ≥50% creation + ≥30% verification
+**Next milestone:** C2 (First Founder Sessions) — gate: run ≥1 paid 1-on-1 session and hear "yes" to the purposeful question

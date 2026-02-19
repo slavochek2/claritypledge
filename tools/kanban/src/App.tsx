@@ -13,6 +13,7 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { Column } from './components/Column'
 import { Sidebar, PageId } from './components/Sidebar'
 import { FocusPage } from './components/FocusPage'
+import { GoalsPage } from './components/GoalsPage'
 import { Feature, FeatureType, Status } from './lib/types'
 
 export interface DropIndicator {
@@ -108,6 +109,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState<PageId>(() => {
     const stored = localStorage.getItem(PAGE_KEY)
     if (stored === 'focus') return 'focus'
+    if (stored === 'goals') return 'goals'
     return 'board'
   })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -748,6 +750,12 @@ export default function App() {
                 dropIndicator={focusDropIndicator}
                 currentWorktree={selectedWorktree || undefined}
               />
+            </div>
+          )}
+
+          {currentPage === 'goals' && (
+            <div style={{ overflow: 'auto', flex: 1 }}>
+              <GoalsPage />
             </div>
           )}
         </div>
