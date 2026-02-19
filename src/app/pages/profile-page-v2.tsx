@@ -688,7 +688,7 @@ export function ProfilePageV2() {
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <Sparkles size={18} />
-                <span className="text-sm font-medium">Create Story</span>
+                <span className="text-sm font-medium">Create a Story</span>
               </button>
             </div>
           )}
