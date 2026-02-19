@@ -102,9 +102,13 @@ git log --since="$SINCE" --name-only --pretty="" \
 git log --since="$SINCE" --oneline --no-merges | grep -iE "^[a-f0-9]+ fix" | \
   sed 's/^[a-f0-9]* //' | sort | uniq -c | sort -rn | head -10
 
-# Last run commitment (read verbatim — agent will ask founder to self-assess against it)
-cat ~/.claude_weekly_last_run 2>/dev/null || echo "(no prior commitment)"
+# (Last run commitment — read the file internally, do NOT echo it to terminal;
+#  it already appears in the Kanban Goals view)
+# Just note whether the file exists:
+[ -f ~/.claude_weekly_last_run ] && echo "Commitment file: found" || echo "Commitment file: none"
 ```
+
+> **Agent note:** Read `~/.claude_weekly_last_run` with the Read tool — do not print its raw contents to the terminal. Incorporate the commitment into the evidence picture silently.
 
 ---
 

@@ -61,11 +61,16 @@ const ALL_DONE_COLUMN: ColumnConfig = {
 const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'all-done', 'rejected'])
 
 type ViewMode = 'active' | 'backlog' | 'all-done'
+type FocusViewMode = 'active' | 'backlog' | 'done'
 const VIEW_MODE_KEY = 'kanban-view-mode'
+const FOCUS_VIEW_MODE_KEY = 'kanban-focus-view-mode'
 const TYPE_FILTER_KEY = 'kanban-type-filter'
 const WORKTREE_KEY = 'kanban-worktree'
 const PAGE_KEY = 'kanban-page'
 const SIDEBAR_COLLAPSED_KEY = 'kanban-sidebar-collapsed'
+
+const FOCUS_BACKLOG_STATUSES = new Set(['draft', 'backlog'])
+const FOCUS_DONE_STATUSES = new Set(['done', 'all-done', 'rejected'])
 
 type TypeFilter = FeatureType | 'all'
 
@@ -99,6 +104,11 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const stored = localStorage.getItem(VIEW_MODE_KEY)
     if (stored === 'backlog' || stored === 'all-done') return stored
+    return 'active'
+  })
+  const [focusViewMode, setFocusViewMode] = useState<FocusViewMode>(() => {
+    const stored = localStorage.getItem(FOCUS_VIEW_MODE_KEY)
+    if (stored === 'backlog' || stored === 'done') return stored
     return 'active'
   })
   const [typeFilter, setTypeFilter] = useState<TypeFilter>(() => {
@@ -181,6 +191,11 @@ export default function App() {
     localStorage.setItem(VIEW_MODE_KEY, mode)
   }
 
+  const changeFocusViewMode = (mode: FocusViewMode) => {
+    setFocusViewMode(mode)
+    localStorage.setItem(FOCUS_VIEW_MODE_KEY, mode)
+  }
+
   const changeTypeFilter = (filter: TypeFilter) => {
     setTypeFilter(filter)
     localStorage.setItem(TYPE_FILTER_KEY, filter)
@@ -243,7 +258,7 @@ export default function App() {
       } else {
         const overFeature = features.find((f) => f.id === overId)
         if (overFeature) {
-          const groupId = overFeature.hypothesis || '__unlinked__'
+          const groupId = overFeature.milestone || '__unlinked__'
           setFocusDropIndicator({ groupId, beforeId: overId })
         } else {
           setFocusDropIndicator(null)
@@ -284,35 +299,35 @@ export default function App() {
     const feature = features.find((f) => f.id === featureId)
     if (!feature) return
 
-    // Focus page: drag between hypothesis groups or reorder within group
+    // Focus page: drag between milestone groups or reorder within group
     if (currentPage === 'focus') {
       setFocusDropIndicator(null)
 
-      let targetHypothesis: string | null = null
+      let targetMilestone: string | null = null
       if (overId.startsWith('group:')) {
-        targetHypothesis = overId.slice('group:'.length)
+        targetMilestone = overId.slice('group:'.length)
       } else {
         const targetRow = features.find((f) => f.id === overId)
         if (targetRow) {
-          targetHypothesis = targetRow.hypothesis || '__unlinked__'
+          targetMilestone = targetRow.milestone || '__unlinked__'
         }
       }
-      if (!targetHypothesis) return
-      const currentHypothesis = feature.hypothesis || '__unlinked__'
+      if (!targetMilestone) return
+      const currentMilestone = feature.milestone || '__unlinked__'
 
-      // Cross-group: change hypothesis
-      if (targetHypothesis !== currentHypothesis) {
-        const newHypothesis = targetHypothesis === '__unlinked__' ? null : targetHypothesis
+      // Cross-group: change milestone (write to workstream — the field all files use)
+      if (targetMilestone !== currentMilestone) {
+        const newMilestone = targetMilestone === '__unlinked__' ? null : targetMilestone
 
         setFeatures((prev) =>
-          prev.map((f) => (f.id === featureId ? { ...f, hypothesis: newHypothesis ?? undefined } : f))
+          prev.map((f) => (f.id === featureId ? { ...f, milestone: newMilestone ?? undefined, workstream: newMilestone ?? undefined } : f))
         )
 
         try {
           const res = await fetch(buildUrl(`/api/features/${encodeURIComponent(featureId)}`), {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hypothesis: newHypothesis }),
+            body: JSON.stringify({ workstream: newMilestone }),
           })
           if (!res.ok) throw new Error('Failed to update')
         } catch {
@@ -321,10 +336,10 @@ export default function App() {
         return
       }
 
-      // Same group: reorder within hypothesis
+      // Same group: reorder within milestone
       if (!overId.startsWith('group:')) {
         const groupFeatures = features
-          .filter((f) => (f.hypothesis || '__unlinked__') === currentHypothesis)
+          .filter((f) => (f.milestone || '__unlinked__') === currentMilestone)
           .sort((a, b) => getEffectiveOrder(a) - getEffectiveOrder(b))
 
         const oldIndex = groupFeatures.findIndex((f) => f.id === featureId)
@@ -501,14 +516,17 @@ export default function App() {
     return cols
   }, [viewMode])
 
-  // Filtered features for Focus page (search + type filter)
+  // Filtered features for Focus page (search + type filter + view mode)
   const filteredFeatures = useMemo(() => {
     return features.filter((f) => {
       if (searchQuery && !f.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
       if (typeFilter !== 'all' && f.type !== typeFilter) return false
-      return true
+      if (focusViewMode === 'backlog') return FOCUS_BACKLOG_STATUSES.has(f.status)
+      if (focusViewMode === 'done') return FOCUS_DONE_STATUSES.has(f.status)
+      // active: week/today/blocked/in-progress/done only
+      return !FOCUS_BACKLOG_STATUSES.has(f.status) && f.status !== 'all-done' && f.status !== 'rejected'
     })
-  }, [features, searchQuery, typeFilter])
+  }, [features, searchQuery, typeFilter, focusViewMode])
 
   // Notion-style view tab
   const viewTabStyle = (isActive: boolean): React.CSSProperties => ({
@@ -743,13 +761,32 @@ export default function App() {
           )}
 
           {currentPage === 'focus' && (
-            <div style={{ overflow: 'auto', flex: 1 }}>
-              <FocusPage
-                features={filteredFeatures}
-                onFeatureUpdate={fetchFeatures}
-                dropIndicator={focusDropIndicator}
-                currentWorktree={selectedWorktree || undefined}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div style={{ padding: '0 var(--spacing-16)', flexShrink: 0 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--spacing-4)',
+                  paddingBottom: 'var(--spacing-12)',
+                  borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
+                }}>
+                  {(['backlog', 'active', 'done'] as FocusViewMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      style={viewTabStyle(focusViewMode === mode)}
+                      onClick={() => changeFocusViewMode(mode)}
+                    >
+                      {mode === 'active' ? 'Main Board' : mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ overflow: 'auto', flex: 1 }}>
+                <FocusPage
+                  features={filteredFeatures}
+                  onFeatureUpdate={fetchFeatures}
+                  dropIndicator={focusDropIndicator}
+                  currentWorktree={selectedWorktree || undefined}
+                />
+              </div>
             </div>
           )}
 

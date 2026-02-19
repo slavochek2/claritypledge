@@ -29,6 +29,7 @@ const STATUS_ORDER: Record<Status, number> = {
   'backlog': 4,
   'draft': 5,
   'done': 6,
+  'all-done': 6,
   'rejected': 7,
 }
 
@@ -67,6 +68,7 @@ const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+  'all-done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
   'draft': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
   'rejected': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },
 }
@@ -354,7 +356,6 @@ export function FocusPage({ features, onFeatureUpdate, dropIndicator, currentWor
     const unlinked: Feature[] = []
 
     for (const feature of features) {
-      if (feature.status === 'done' || feature.status === 'rejected') continue
       if (feature.milestone) {
         const existing = milestoneMap.get(feature.milestone)
         if (existing) {

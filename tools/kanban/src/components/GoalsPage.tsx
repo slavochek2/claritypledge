@@ -14,19 +14,33 @@ interface GoalsData {
   milestoneTitle: string
 }
 
+interface WeeklyCommitment {
+  date: string
+  stop?: string
+  start?: string
+  scary_thing?: string
+  hypothesis?: string
+  kill_date?: string
+}
+
 export function GoalsPage() {
   const [data, setData] = useState<GoalsData | null>(null)
+  const [weekly, setWeekly] = useState<WeeklyCommitment | null>(null)
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState<number | null>(null)
+  const [hoveringDone, setHoveringDone] = useState<number | null>(null)
 
   const fetchGoals = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/goals')
-      if (!res.ok) throw new Error('Failed to fetch goals')
-      setData(await res.json())
+      const [goalsRes, weeklyRes] = await Promise.all([
+        fetch('/api/goals'),
+        fetch('/api/weekly'),
+      ])
+      if (goalsRes.ok) setData(await goalsRes.json())
+      if (weeklyRes.ok) setWeekly(await weeklyRes.json())
     } catch {
-      setData(null)
+      // leave state null
     } finally {
       setLoading(false)
     }
@@ -50,213 +64,266 @@ export function GoalsPage() {
   }
 
   if (loading) {
-    return (
-      <div style={{ padding: 40, color: 'var(--text-tertiary)', fontSize: 14 }}>Loading...</div>
-    )
+    return <div style={{ padding: 40, color: 'var(--text-tertiary)', fontSize: 14 }}>Loading...</div>
   }
 
-  if (!data || data.steps.length === 0) {
-    return (
-      <div style={{ padding: 40, color: 'var(--text-tertiary)', fontSize: 14 }}>
-        No active milestone with a pilot sequence.
-      </div>
-    )
-  }
-
-  const total = data.steps.length
-  const doneCount = data.steps.filter((s) => s.done).length
+  const total = data?.steps.length ?? 0
+  const doneCount = data?.steps.filter((s) => s.done).length ?? 0
   const progress = total > 0 ? doneCount / total : 0
-  const remaining = data.steps.filter((s) => !s.done)
+  const doneSteps = data?.steps.filter((s) => s.done) ?? []
+  const remaining = data?.steps.filter((s) => !s.done) ?? []
   const nextStep = remaining[0]
   const upcomingSteps = remaining.slice(1)
 
-  // Absolute step number (1-indexed) for display
-  const stepNum = (step: GoalStep) => step.index + 1
-
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 560 }}>
+    <div style={{ padding: '28px 36px', display: 'flex', gap: 36, alignItems: 'flex-start' }}>
 
-      {/* Header: milestone + progress */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{
-          fontSize: 11,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.8px',
-          color: 'var(--text-tertiary)',
-        }}>
-          {data.milestoneId}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-          {doneCount} / {total} complete
-        </span>
-      </div>
+      {/* ── Left: mindset priming ── */}
+      <div style={{ width: 264, flexShrink: 0 }}>
+        <SectionLabel text="This week" />
 
-      {/* Progress bar */}
-      <div style={{
-        height: 3,
-        background: 'var(--border-table)',
-        borderRadius: 2,
-        marginBottom: 20,
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%',
-          width: `${progress * 100}%`,
-          background: progress === 1 ? '#22c55e' : '#3b82f6',
-          borderRadius: 2,
-          transition: 'width 0.3s ease',
-          minWidth: progress > 0 ? 4 : 0,
-        }} />
-      </div>
+        {weekly ? (
+          <>
+            {/* Scary thing */}
+            {weekly.scary_thing && (
+              <div style={{
+                padding: '10px 12px',
+                background: 'var(--tag-orange-bg)',
+                borderRadius: 4,
+                marginBottom: 14,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--tag-orange-text)', marginBottom: 4, opacity: 0.7 }}>
+                  Scary thing
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--tag-orange-text)', lineHeight: 1.5 }}>
+                  {weekly.scary_thing}
+                </div>
+              </div>
+            )}
 
-      {/* Context: hypothesis + question */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 4 }}>
-          {data.hypothesis}
-        </div>
-        {data.question && (
-          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-            {data.question}
+            {/* Stop */}
+            {weekly.stop && (
+              <MindsetRow
+                label="Stop"
+                value={weekly.stop}
+                bg="var(--tag-red-bg)"
+                color="var(--tag-red-text)"
+              />
+            )}
+
+            {/* Start */}
+            {weekly.start && (
+              <MindsetRow
+                label="Start"
+                value={weekly.start}
+                bg="var(--tag-green-bg)"
+                color="var(--tag-green-text)"
+              />
+            )}
+
+            {/* Hypothesis */}
+            {weekly.hypothesis && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)',
+                  textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6,
+                }}>
+                  Hypothesis
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  {weekly.hypothesis}
+                </div>
+              </div>
+            )}
+
+            {/* Kill date */}
+            {weekly.kill_date && (
+              <div style={{
+                marginTop: 14, paddingTop: 12,
+                borderTop: '1px solid var(--border-table)',
+                fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5,
+              }}>
+                <span style={{ fontWeight: 500 }}>Kill: </span>{weekly.kill_date}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+            No commitment saved. Run <code>/weekly</code>.
           </div>
         )}
       </div>
 
-      {/* All done */}
-      {doneCount === total && (
-        <div style={{
-          padding: '16px 20px',
-          background: '#f0fdf4',
-          border: '1px solid #bbf7d0',
-          borderRadius: 8,
-          fontSize: 14,
-          color: '#166534',
-          fontWeight: 500,
-        }}>
-          All steps complete — time to move to the next milestone.
-        </div>
-      )}
+      {/* ── Divider ── */}
+      <div style={{ width: 1, background: 'var(--border-table)', alignSelf: 'stretch', flexShrink: 0 }} />
 
-      {/* Next step */}
-      {nextStep && (
-        <div
-          onClick={() => toggle(nextStep)}
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12,
-            padding: '14px 16px',
-            background: 'rgba(59, 130, 246, 0.07)',
-            border: '1px solid rgba(59, 130, 246, 0.25)',
-            borderRadius: 8,
-            cursor: toggling === nextStep.index ? 'wait' : 'pointer',
-            marginBottom: 8,
-            transition: 'background 0.1s',
-            opacity: toggling === nextStep.index ? 0.6 : 1,
-          }}
-          onMouseEnter={(e) => { if (toggling === null) (e.currentTarget as HTMLElement).style.background = 'rgba(59, 130, 246, 0.12)' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(59, 130, 246, 0.07)' }}
-        >
-          {/* Step number */}
-          <span style={{
-            flexShrink: 0,
-            width: 22,
-            height: 22,
-            borderRadius: '50%',
-            background: '#3b82f6',
-            color: 'white',
-            fontSize: 11,
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginTop: 1,
-          }}>
-            {stepNum(nextStep)}
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#1d4ed8', lineHeight: 1.4 }}>
-              {nextStep.text}
+      {/* ── Right: pilot sequence ── */}
+      <div style={{ flex: 1, maxWidth: 400 }}>
+        {!data || data.steps.length === 0 ? (
+          <div style={{ color: 'var(--text-tertiary)', fontSize: 14, paddingTop: 2 }}>No active milestone.</div>
+        ) : (
+          <>
+            {/* Milestone header + progress */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+                letterSpacing: '0.5px', color: 'var(--text-tertiary)', flexShrink: 0,
+              }}>
+                {data.milestoneId}
+              </span>
+              <div style={{ flex: 1, height: 3, background: 'var(--border-table)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${progress * 100}%`,
+                  background: progress === 1 ? 'var(--tag-green-text)' : 'var(--tag-blue-text)',
+                  borderRadius: 2,
+                  transition: 'width 0.3s ease',
+                  minWidth: progress > 0 ? 3 : 0,
+                }} />
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                {doneCount} / {total}
+              </span>
             </div>
-          </div>
-          {/* Checkbox */}
-          <input
-            type="checkbox"
-            checked={false}
-            readOnly
-            onClick={(e) => e.stopPropagation()}
-            onChange={() => toggle(nextStep)}
-            style={{ marginTop: 3, cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }}
-          />
-        </div>
-      )}
 
-      {/* Upcoming steps */}
-      {upcomingSteps.length > 0 && (
-        <div style={{ marginTop: 4 }}>
-          {upcomingSteps.map((step, i) => {
-            const isNear = i < 2
-            return (
+            {/* Done steps */}
+            {doneSteps.map((step) => (
+              <div
+                key={step.index}
+                onClick={() => toggle(step)}
+                onMouseEnter={() => setHoveringDone(step.index)}
+                onMouseLeave={() => setHoveringDone(null)}
+                title="Click to uncheck"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '4px 6px', borderRadius: 3, marginBottom: 1,
+                  cursor: toggling !== null ? 'wait' : 'pointer',
+                  opacity: toggling === step.index ? 0.3 : 1,
+                  background: hoveringDone === step.index ? 'var(--bg-table-row-hover)' : 'transparent',
+                  transition: 'background 0.1s',
+                }}
+              >
+                <span style={{
+                  width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--tag-green-bg)',
+                  color: 'var(--tag-green-text)',
+                  fontSize: 10, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  ✓
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--text-tertiary)', textDecoration: 'line-through', flex: 1 }}>
+                  {step.text}
+                </span>
+              </div>
+            ))}
+
+            {doneSteps.length > 0 && (nextStep || upcomingSteps.length > 0) && (
+              <div style={{ height: 1, background: 'var(--border-table)', margin: '8px 0' }} />
+            )}
+
+            {doneCount === total && (
+              <div style={{
+                padding: '8px 12px', background: 'var(--tag-green-bg)',
+                borderRadius: 4, fontSize: 13, color: 'var(--tag-green-text)', fontWeight: 500,
+              }}>
+                All done — move to next milestone.
+              </div>
+            )}
+
+            {/* Next step */}
+            {nextStep && (
+              <div
+                onClick={() => toggle(nextStep)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', marginBottom: 2,
+                  background: 'var(--tag-blue-bg)',
+                  borderRadius: 4,
+                  cursor: toggling !== null ? 'wait' : 'pointer',
+                  opacity: toggling === nextStep.index ? 0.5 : 1,
+                }}
+              >
+                <span style={{
+                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--tag-blue-text)',
+                  color: '#fff', fontSize: 10, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {nextStep.index + 1}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--tag-blue-text)', lineHeight: 1.4, flex: 1 }}>
+                  {nextStep.text}
+                </span>
+              </div>
+            )}
+
+            {/* Upcoming steps */}
+            {upcomingSteps.map((step, i) => (
               <div
                 key={step.index}
                 onClick={() => toggle(step)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '8px 16px',
-                  borderRadius: 6,
-                  cursor: toggling === step.index ? 'wait' : 'pointer',
-                  opacity: toggling === step.index ? 0.4 : isNear ? 0.75 : 0.45,
-                  transition: 'opacity 0.1s, background 0.1s',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '4px 6px', borderRadius: 3, marginBottom: 1,
+                  cursor: toggling !== null ? 'wait' : 'pointer',
+                  opacity: toggling === step.index ? 0.3 : i < 2 ? 0.65 : 0.4,
                 }}
-                onMouseEnter={(e) => { if (toggling === null) (e.currentTarget as HTMLElement).style.background = 'var(--bg-table-row-hover)' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
               >
-                {/* Step number */}
                 <span style={{
-                  flexShrink: 0,
-                  width: 22,
-                  height: 22,
-                  borderRadius: '50%',
-                  border: '1.5px solid var(--border-table)',
-                  color: 'var(--text-tertiary)',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                  border: '1px solid var(--border-table)',
+                  color: 'var(--text-tertiary)', fontSize: 10, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {stepNum(step)}
+                  {step.index + 1}
                 </span>
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--text-secondary)' }}>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 1 }}>
                   {step.text}
                 </span>
-                <input
-                  type="checkbox"
-                  checked={false}
-                  readOnly
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => toggle(step)}
-                  style={{ cursor: 'pointer', flexShrink: 0, opacity: 0.5 }}
-                />
               </div>
-            )
-          })}
-        </div>
-      )}
+            ))}
 
-      {/* Gate to next milestone */}
-      <div style={{
-        marginTop: 32,
-        paddingTop: 16,
-        borderTop: '1px solid var(--border-table)',
-        fontSize: 12,
-        color: 'var(--text-tertiary)',
-      }}>
-        Gate to C2 — run ≥1 paid 1-on-1 session and hear "yes, this felt purposeful"
+            {/* Gate */}
+            <div style={{
+              marginTop: 18, paddingTop: 12,
+              borderTop: '1px solid var(--border-table)',
+              fontSize: 11, color: 'var(--text-tertiary)',
+            }}>
+              Gate to C2: ≥1 paid session + "yes, this felt purposeful"
+            </div>
+          </>
+        )}
       </div>
 
+    </div>
+  )
+}
+
+function SectionLabel({ text }: { text: string }) {
+  return (
+    <div style={{
+      fontSize: 11, fontWeight: 600, textTransform: 'uppercase',
+      letterSpacing: '0.5px', color: 'var(--text-tertiary)', marginBottom: 14,
+    }}>
+      {text}
+    </div>
+  )
+}
+
+function MindsetRow({ label, value, bg, color }: { label: string; value: string; bg: string; color: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'flex-start' }}>
+      <span style={{
+        fontSize: 11, fontWeight: 500, padding: '1px 6px',
+        background: bg, color, borderRadius: 3,
+        flexShrink: 0, marginTop: 1,
+      }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        {value}
+      </span>
     </div>
   )
 }

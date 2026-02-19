@@ -170,6 +170,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
         : data.completed_at,
       rank,
       prepped: !!data.prepped_date,
+      locked_at: typeof data.locked_at === 'string' ? data.locked_at : undefined,
     }
   } catch {
     return null
@@ -439,6 +440,11 @@ app.patch('/api/features/:id', async (req, res) => {
       delete data.completed_at
     }
 
+    // Lock status against automated overrides: record that a human set this manually
+    if (status !== undefined) {
+      data.locked_at = new Date().toISOString()
+    }
+
     // Write to file
     const newContent = matter.stringify(body, data)
     writeFileSync(feature.path, newContent)
@@ -470,6 +476,9 @@ app.patch('/api/features/:id', async (req, res) => {
           cachedFeature.completed_at = data.completed_at
         } else if (status && status !== 'done' && oldStatus === 'done') {
           cachedFeature.completed_at = undefined
+        }
+        if (status !== undefined) {
+          cachedFeature.locked_at = data.locked_at
         }
         // Keep prepped in sync with frontmatter
         cachedFeature.prepped = !!data.prepped_date
@@ -603,12 +612,12 @@ app.get('/api/goals', async (_req, res) => {
 })
 
 // PATCH /api/goals/:index - toggle a pilot sequence step done/undone
-app.patch('/api/goals/:index', (req, res) => {
+app.patch('/api/goals/:index', async (req, res) => {
   try {
     const stepIndex = parseInt(req.params.index, 10)
     const { done } = req.body as { done: boolean }
 
-    const milestones = [...(milestonesCacheByWorktree.get(DEFAULT_PROJECT_ROOT) || [])]
+    const milestones = await getCachedMilestones()
     const active = milestones.find((m) => m.status === 'active')
     if (!active) return res.status(404).json({ error: 'No active milestone' })
 
@@ -624,6 +633,23 @@ app.patch('/api/goals/:index', (req, res) => {
     res.json({ success: true })
   } catch {
     res.status(500).json({ error: 'Failed to update goal' })
+  }
+})
+
+// GET /api/weekly - read weekly commitment from ~/.claude_weekly_last_run
+app.get('/api/weekly', (_req, res) => {
+  try {
+    const homedir = process.env.HOME || ''
+    const raw = readFileSync(join(homedir, '.claude_weekly_last_run'), 'utf-8')
+    const result: Record<string, string> = {}
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^(\w+):\s*(.+)/)
+      if (m) result[m[1]] = m[2].trim()
+    }
+    if (!result.date) return res.json(null)
+    res.json(result)
+  } catch {
+    res.json(null)
   }
 })
 
