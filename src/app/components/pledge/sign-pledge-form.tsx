@@ -74,6 +74,12 @@ export function SignPledgeForm({
     isNameLocked: shouldPrefill, // P64: Name is locked when form is prefilled
   });
 
+  // TODO: useVerificationGate — P273 left the take-pledge flow out of scope.
+  // An unverified guest taking the pledge is the desired funnel entry point.
+  // If the UX question of "what happens after submit for an already-unverified profile"
+  // is answered, add: if (!checkVerified('take the pledge')) return;
+  // in the submit handler here (or inside usePledgeForm).
+
   // P50: Prefill form fields for ANY authenticated user at ?prefill=true
   // This includes unverified /live users - they see prefilled data but still need magic link
   useEffect(() => {

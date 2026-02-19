@@ -14,18 +14,14 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { createClient } from '@supabase/supabase-js';
 import {
   createTestUser,
   setTestSession,
   deleteTestUser,
 } from './helpers/test-user';
-import { createTestStory, deleteTestStory } from './helpers/test-story';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createTestStory, deleteTestStory, linkStoryToPoint } from './helpers/test-story';
+import { createTestPoint, deleteTestPoint } from './helpers/test-point';
+import { supabaseAdmin } from '../src/lib/supabase-admin';
 
 /** Creates a test user whose profile has is_verified = false. */
 async function createUnverifiedTestUser(name: string) {
@@ -123,15 +119,25 @@ test.describe('P273: Set position — verification gate', () => {
     let storyOwner: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let unverifiedUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
+    let pointId: string | null = null;
 
     try {
       storyOwner = await createTestUser({ name: 'P273 Story Owner' });
-      unverifiedUser = await createUnverifiedTestUser('P273 Unverified Positioner');
-
+      // Create story + point BEFORE the second user — createUnverifiedTestUser calls
+      // supabaseAdmin.auth.signInWithPassword which overwrites the service_role
+      // session with the user's JWT. All admin DB writes must happen while
+      // supabaseAdmin still has storyOwner's verified-user JWT.
       const story = await createTestStory(storyOwner.user.id, {
         content: 'P273 test story for position gate check',
       });
       storyId = story.id;
+      const point = await createTestPoint(storyOwner.user.id, {
+        statement: 'P273 test point for position gate',
+      });
+      pointId = point.id;
+      await linkStoryToPoint(storyId, pointId);
+
+      unverifiedUser = await createUnverifiedTestUser('P273 Unverified Positioner');
 
       await setTestSession(page, unverifiedUser.email);
       await page.goto(`/story/${storyId}`);
@@ -144,7 +150,7 @@ test.describe('P273: Set position — verification gate', () => {
       await expect(positionButton).toBeVisible({ timeout: 10000 });
       await positionButton.click();
 
-      // Must NOT show the old one-off message (hardcoded in story-detail-page.tsx:576)
+      // Must NOT show the old one-off message (hardcoded in story-detail-page.tsx)
       await expect(
         page.getByText('Please verify your email to record positions')
       ).not.toBeVisible({ timeout: 2000 }).catch(() => {});
@@ -154,6 +160,7 @@ test.describe('P273: Set position — verification gate', () => {
         page.getByText(/verify your email to.*check your inbox/i)
       ).toBeVisible({ timeout: 5000 });
     } finally {
+      if (pointId) await deleteTestPoint(pointId);
       if (storyId) await deleteTestStory(storyId);
       if (unverifiedUser) await deleteTestUser(unverifiedUser.user.id);
       if (storyOwner) await deleteTestUser(storyOwner.user.id);
@@ -164,15 +171,23 @@ test.describe('P273: Set position — verification gate', () => {
     let storyOwner: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let verifiedUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
+    let pointId: string | null = null;
 
     try {
       storyOwner = await createTestUser({ name: 'P273 Story Owner 2' });
-      verifiedUser = await createTestUser({ name: 'P273 Verified Positioner' });
-
+      // Create story + point before the second user — signInWithPassword in
+      // createTestUser overwrites supabaseAdmin's session.
       const story = await createTestStory(storyOwner.user.id, {
         content: 'P273 test story for verified position test',
       });
       storyId = story.id;
+      const point = await createTestPoint(storyOwner.user.id, {
+        statement: 'P273 test point for verified positioner',
+      });
+      pointId = point.id;
+      await linkStoryToPoint(storyId, pointId);
+
+      verifiedUser = await createTestUser({ name: 'P273 Verified Positioner' });
 
       await setTestSession(page, verifiedUser.email);
       await page.goto(`/story/${storyId}`);
@@ -189,6 +204,7 @@ test.describe('P273: Set position — verification gate', () => {
         page.getByText(/verify your email/i)
       ).not.toBeVisible({ timeout: 3000 }).catch(() => {});
     } finally {
+      if (pointId) await deleteTestPoint(pointId);
       if (storyId) await deleteTestStory(storyId);
       if (verifiedUser) await deleteTestUser(verifiedUser.user.id);
       if (storyOwner) await deleteTestUser(storyOwner.user.id);
