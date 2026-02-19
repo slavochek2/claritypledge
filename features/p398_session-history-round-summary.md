@@ -18,6 +18,7 @@ test_files:
   - e2e/p398-session-history-summary.spec.ts
   - e2e/p398-smoke.spec.ts
   - e2e/a11y/p398-accessibility.spec.ts
+delivery_stage: tests-generated
 ---
 
 # P398: Clickable Session Round History with Summary Screen

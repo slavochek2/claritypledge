@@ -2750,6 +2750,14 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          {/* P400: Story card visible throughout round including clarifying phase */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           {isChecker ? (
             // Speaker view: "Clarifying..." with microphone icon
             <ActionArea
