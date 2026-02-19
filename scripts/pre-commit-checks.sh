@@ -260,8 +260,14 @@ if [ -n "$STAGED_DONE_FILES" ]; then
 
         UAT_FILE="features/uat/${P_NUM}.md"
         if [ -f "$UAT_FILE" ]; then
-            UNTESTED=$(grep -cF '⬜' "$UAT_FILE" 2>/dev/null || echo 0)
-            TESTED=$(grep -cF '✅' "$UAT_FILE" 2>/dev/null || echo 0)
+            # Count only table rows ("| UAT-..." rows) to avoid false positives from
+            # Legend lines and Success Criteria bullets that also contain ⬜/✅.
+            # Use || true (not || echo 0) because grep -c always outputs a count,
+            # but exits with code 1 when count is 0; || echo 0 would double the output.
+            UNTESTED=$(grep -cE '^\| UAT-.*\| ⬜' "$UAT_FILE" 2>/dev/null || true)
+            TESTED=$(grep -cE '^\| UAT-.*\| ✅' "$UAT_FILE" 2>/dev/null || true)
+            UNTESTED=${UNTESTED:-0}
+            TESTED=${TESTED:-0}
             if [ "$TESTED" -eq 0 ] && [ "$UNTESTED" -gt 0 ]; then
                 echo -e "${YELLOW}⚠ UAT for ${P_NUM} has ${UNTESTED} untested scenario(s) (all ⬜). Run manual acceptance tests before marking done. See ${UAT_FILE}${NC}"
                 UAT_WARNING_COUNT=$((UAT_WARNING_COUNT + 1))
