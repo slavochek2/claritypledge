@@ -64,7 +64,8 @@ Session history entries remain decorative. Facilitators and participants cannot 
 
 - Cross-session persistence (history is still in-memory, lost when the session ends — that is a separate future feature).
 - Sharing or exporting round summaries.
-- Summary screens for skipped rounds (skipped rounds already appear in the history list with the same `{ title, type }` shape; they will remain non-clickable or display a simplified "Skipped" summary — decision at implementation time).
+- Summary screens for skipped rounds — skipped entries are non-clickable (no chevron, muted appearance).
+- Continuing a round from history (re-entering a completed round to resume explain-back from where it left off) — would require restoring shared live state and partner coordination; start a fresh round instead.
 
 
 ## Data Model Change
@@ -214,7 +215,7 @@ Reset `selectedHistoryIndex` to `null` when a new round starts (e.g. when `ratin
 2. The new history entry shows a right-chevron icon, signalling it is tappable.
 3. The user taps the history entry.
 4. The idle screen content is replaced inline by the Round Summary Screen — the header and overall session frame remain unchanged; only the scrollable body content swaps.
-5. The user reads the summary (title, partner name, timestamp, Journey to Understanding).
+5. The user sees the same celebration screen that appeared when the round completed — the existing component reused as-is.
 6. The user taps "Back". The idle screen content is restored exactly as it was before the tap. Session state is unchanged.
 
 #### Skipped Round
@@ -278,41 +279,63 @@ Decision rationale: showing a "Skipped" stub summary adds complexity for minimal
 
 #### B. Round Summary Screen
 
-The idle screen body content is replaced with the Round Summary Screen. The `LiveHeader` (partner name + exit button) and the `RecordingIndicator` bar remain visible above. The summary is scrollable if it is taller than the viewport.
+The idle screen body content is replaced with the existing celebration screen — the same component already shown when a round completes. No new design. The `LiveHeader` (partner name + exit button) remains visible above unchanged.
 
-**Header area:**
+**No new header, no timestamp, no extra metadata.** The partner name is already visible in `LiveHeader`. The time is irrelevant. Just show the story/journey exactly as the celebration screen shows it.
 
-- Title: story or point title in `text-base font-semibold text-foreground`. Truncates to two lines (`line-clamp-2`).
-- Subtitle line: `[partner name] · Round completed [time]` — formatted as a relative or absolute short time (e.g. "2:34 PM"), in `text-sm text-muted-foreground`.
-- Layout: left-aligned, matching the existing `CONTENT_LAYOUT` padding (`max-w-sm mx-auto w-full`).
+- Reuse the existing celebration screen component with the stored journey data from `SessionHistoryItem`.
+- `isChecker`, `displayPartnerName`, `checkerName` come from the history item.
+- `hideUntilBothSubmitted` = `false` — all ratings are final.
+- A "Back" button (`variant="outline"`, full width) below the celebration content returns to idle.
 
-**Body:**
+**Idle screen layouts (for reference — nothing changes here):**
 
-- The `JourneyToUnderstanding` component fills the body, using the ratings stored in the history item.
-- `isChecker` is derived from whether the current user was the checker in that round (use `checkerName` stored on the history item matched against the current user's name).
-- `displayPartnerName` and `checkerName` come from the history item.
-- No `hideUntilBothSubmitted` — both ratings are already final and fully revealed in the summary.
-- The component renders identically to how it appears on the celebration screen (variant `'default'`, full mode with round numbers where applicable).
-
-**Footer:**
-
-- A single "Back" button, `variant="outline"`, full width (`w-full max-w-sm`), at the bottom of the scroll area.
-- On short screens where the journey data fits without scrolling, the button sits directly below the journey card with standard spacing (`mt-4` or equivalent).
-- On longer screens the button scrolls into view naturally (no sticky footer needed — the layout already uses `overflow-y-auto`).
-
-**Overall layout (inline content swap):**
-
+No story selected, user has stories:
 ```
-[ LiveHeader — partner name + exit ] ← unchanged
-[ RecordingIndicator banner         ] ← unchanged
-┌─────────────────────────────────────┐
-│  [Story/point title              ]  │
-│  [Partner · 2:34 PM              ]  │
-│                                     │  ← scrollable body
-│  [JourneyToUnderstanding card    ]  │
-│                                     │
-│  [Back                           ]  │
-└─────────────────────────────────────┘
+┌─────────────────────────────────┐
+│  👤 Alex              [Leave]  │  ← LiveHeader
+├─────────────────────────────────┤
+│  [Does Alex understand you?  ] │
+│  [Do you understand Alex?    ] │
+│                                 │
+│  🔍 Search stories...          │  ← StorySearchPicker
+│                                 │
+│  THIS SESSION                   │
+│  ✓ 📖  "The bridge story"   ›  │  ← clickable (chevron added)
+│  ✓ 📌  "Trust in teams"     ›  │
+│  ✓ 📖  "Weekend hike"  Skipped │  ← no chevron, muted
+└─────────────────────────────────┘
+```
+
+Story selected:
+```
+┌─────────────────────────────────┐
+│  👤 Alex              [Leave]  │
+├─────────────────────────────────┤
+│  ┌──────────────────────────┐  │
+│  │ 📖 The bridge story      │  │  ← LiveStoryCardExpanded
+│  │ "Once upon a time in..." │  │
+│  └──────────────────────────┘  │
+│  [Does Alex understand you?  ] │
+│  [Do you understand Alex?    ] │
+│         Speak freely            │  ← clears story
+│                                 │
+│  THIS SESSION                   │
+│  ✓ 📖  "The bridge story"   ›  │
+└─────────────────────────────────┘
+```
+
+After tapping a history entry (body swaps, header stays):
+```
+┌─────────────────────────────────┐
+│  👤 Alex              [Leave]  │  ← unchanged
+├─────────────────────────────────┤
+│                                 │
+│  ← existing celebration screen  │
+│     with stored journey data    │
+│                                 │
+│  [        ← Back        ]      │
+└─────────────────────────────────┘
 ```
 
 ---
@@ -337,7 +360,7 @@ When `ratingPhase` transitions away from `'idle'`, the selected history index is
 
 #### Very Long Title
 
-The title in the summary header truncates at two lines (`line-clamp-2`). The full title is not expanded in the summary — the truncation is acceptable because the user already knows what round they selected.
+The celebration screen already handles long titles. No special casing needed in the summary.
 
 #### History List with Many Entries
 
