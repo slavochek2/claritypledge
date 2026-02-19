@@ -10,6 +10,7 @@ vi.mock('@/lib/supabase', () => ({
     from: vi.fn(),
     auth: {
       signInAnonymously: vi.fn(),
+      signInWithOtp: vi.fn(),
       getSession: vi.fn(),
     },
   },

@@ -33,11 +33,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { type LiveSessionState, type GapType, type FlowType, type StoryWithAuthor, type StoryWithPoints, type PointWithCreator, type PointWithUserPosition, type PositionType } from '@/app/types';
+import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoints, type PointWithCreator, type PointWithUserPosition, type PositionType } from '@/app/types';
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
-import { ContentPicker, SessionHistoryList, StoryCardPreview, PointCardPreview } from './live-content-cards';
+import { SessionHistoryList, PointCardPreview } from './live-content-cards';
+import { StorySearchPicker } from './story-search-picker';
+import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
@@ -165,9 +167,11 @@ interface LiveModeViewProps {
   /** P128: Authenticated user ID for fetching stories/points */
   userId?: string;
   /** P128: Select a story for content-attached verification */
-  onSelectStory?: (storyId: string, title: string) => void;
+  onSelectStory?: (storyId: string, title: string, storyData?: StoryWithPoints) => void;
   /** P128: Select a point for content-attached verification */
   onSelectPoint?: (pointId: string, title: string) => void;
+  /** P272: Clear selected story (return to free-form mode) */
+  onClearStory?: () => void;
   /** P275: Update a point position during the /live session (safe for unverified guests) */
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   /** P160: When true, session is private — shows private band instead of recording band */
@@ -202,8 +206,8 @@ export function LiveModeView({
   userId,
   onSelectStory,
   onSelectPoint,
-  // onPositionSelect is intentionally not destructured here — P272 will pass it to
-  // LiveStoryCardExpanded when that component is built.
+  onClearStory,
+  onPositionSelect,
   isPrivate = false,
 }: LiveModeViewProps) {
 
@@ -223,27 +227,27 @@ export function LiveModeView({
   const [selectedStory, setSelectedStory] = useState<StoryWithPoints | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<PointWithCreator | null>(null);
 
+  // P272: Read selectedStory directly from liveState.selectedStoryData (no async fetch needed)
   useEffect(() => {
-    const storyId = liveState.selectedStoryId;
-    const pointId = liveState.selectedPointId;
-
-    // Clear if no selection
-    if (!storyId && !pointId) {
+    if (liveState.selectedStoryData) {
+      // Cast is safe: selectedStoryData has all fields used by LiveStoryCardExpanded
+      setSelectedStory(liveState.selectedStoryData as unknown as StoryWithPoints);
+    } else {
       setSelectedStory(null);
+    }
+  }, [liveState.selectedStoryData]);
+
+  // P128: Fetch selected point for display during verification
+  useEffect(() => {
+    const pointId = liveState.selectedPointId;
+    if (!pointId) {
       setSelectedPoint(null);
       return;
     }
-
     let cancelled = false;
-    if (storyId) {
-      storiesService.getStory(storyId).then(s => { if (!cancelled) setSelectedStory(s); });
-      setSelectedPoint(null);
-    } else if (pointId) {
-      pointsService.getPoint(pointId).then(p => { if (!cancelled) setSelectedPoint(p); });
-      setSelectedStory(null);
-    }
+    pointsService.getPoint(pointId).then(p => { if (!cancelled) setSelectedPoint(p); });
     return () => { cancelled = true; };
-  }, [liveState.selectedStoryId, liveState.selectedPointId]);
+  }, [liveState.selectedPointId]);
 
   // Track previous skip state to detect new skips
   const prevSkippedByRef = useRef<string | undefined>(undefined);
@@ -409,6 +413,9 @@ export function LiveModeView({
           onExit={onExitMeeting}
           hideHistory={true}
           waitingForPartnerToContinue={true}
+          onClearStory={onClearStory}
+          selectedStory={selectedStory}
+          onPositionSelect={onPositionSelect}
           isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
@@ -434,6 +441,7 @@ export function LiveModeView({
           showDrawer={partnerAlreadySubmitted}
           selectedStory={selectedStory}
           selectedPoint={selectedPoint}
+          onPositionSelect={onPositionSelect}
           onSkip={() => handleRequestSkip('decline')}
           onExit={onExitMeeting}
           localFlowType={localFlowType}
@@ -460,6 +468,9 @@ export function LiveModeView({
           userId={userId}
           onSelectStory={onSelectStory}
           onSelectPoint={onSelectPoint}
+          onClearStory={onClearStory}
+          selectedStory={selectedStory}
+          onPositionSelect={onPositionSelect}
           isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
@@ -481,6 +492,7 @@ export function LiveModeView({
           onExit={onExitMeeting}
           selectedStory={selectedStory}
           selectedPoint={selectedPoint}
+          onPositionSelect={onPositionSelect}
           isPrivate={isPrivate}
                   />
         {skipNotificationDialog}
@@ -537,6 +549,8 @@ export function LiveModeView({
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
           isPrivate={isPrivate}
+          selectedStory={selectedStory}
+          onPositionSelect={onPositionSelect}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -570,6 +584,8 @@ export function LiveModeView({
           onClarifyStart={onClarifyStart}
           onClarifyDone={onClarifyDone}
           isPrivate={isPrivate}
+          selectedStory={selectedStory}
+          onPositionSelect={onPositionSelect}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -590,6 +606,9 @@ export function LiveModeView({
         userId={userId}
         onSelectStory={onSelectStory}
         onSelectPoint={onSelectPoint}
+        onClearStory={onClearStory}
+        selectedStory={selectedStory}
+        onPositionSelect={onPositionSelect}
         isPrivate={isPrivate}
               />
       {skipNotificationDialog}
@@ -621,9 +640,15 @@ interface IdleScreenProps {
   /** P128: Authenticated user ID for fetching stories/points (undefined = guest) */
   userId?: string;
   /** P128: Select a story card */
-  onSelectStory?: (storyId: string, title: string) => void;
+  onSelectStory?: (storyId: string, title: string, storyData?: StoryWithPoints) => void;
   /** P128: Select a point card */
   onSelectPoint?: (pointId: string, title: string) => void;
+  /** P272: Clear selected story (return to free-form mode) */
+  onClearStory?: () => void;
+  /** P272: Story currently selected (passed from LiveModeView state) */
+  selectedStory?: StoryWithPoints | null;
+  /** P275: Update a point position during the /live session */
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   isPrivate?: boolean;
 }
 
@@ -640,7 +665,10 @@ function IdleScreen({
   waitingForPartnerToContinue = false,
   userId,
   onSelectStory,
-  onSelectPoint,
+  onSelectPoint: _onSelectPoint,
+  onClearStory,
+  selectedStory = null,
+  onPositionSelect: _onPositionSelect,
   isPrivate = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
@@ -758,12 +786,8 @@ function IdleScreen({
   // P128: Wrap story/point selection to mark interaction
   const handleSelectStoryWithTracking = (storyId: string, title: string) => {
     setContentInteracted(true);
-    onSelectStory?.(storyId, title);
-  };
-
-  const handleSelectPointWithTracking = (pointId: string, title: string) => {
-    setContentInteracted(true);
-    onSelectPoint?.(pointId, title);
+    const storyData = stories.find(s => s.id === storyId);
+    onSelectStory?.(storyId, title, storyData);
   };
 
   return (
@@ -783,6 +807,15 @@ function IdleScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
             hideUntilBothSubmitted={showRatingDrawer}
+          />
+        )}
+
+        {/* P272: Story card shown when story is selected */}
+        {selectedStory && (
+          <LiveStoryCardExpanded
+            story={selectedStory}
+            onPositionSelect={onPositionSelect}
+            className="w-full max-w-sm mb-2"
           />
         )}
 
@@ -819,23 +852,24 @@ function IdleScreen({
           )}
         </ActionArea>
 
-        {/* P128: Content picker (only for authenticated users with content) */}
-        {userId && contentLoaded && hasContent && onSelectStory && onSelectPoint && (
-          <>
-            <div className="flex items-center gap-3 w-full max-w-sm my-2">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground">or pick something specific</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-            <ContentPicker
-              stories={stories}
-              points={points}
-              partnerName={partnerName}
-              onSelectStory={handleSelectStoryWithTracking}
-              onSelectPoint={handleSelectPointWithTracking}
-              disabled={showRatingDrawer || waitingForPartnerToContinue}
-            />
-          </>
+        {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
+        {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
+          <StorySearchPicker
+            stories={stories}
+            onSelectStory={handleSelectStoryWithTracking}
+            disabled={showRatingDrawer || waitingForPartnerToContinue}
+          />
+        )}
+
+        {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
+        {liveState.selectedStoryId && !showRatingDrawer && !waitingForPartnerToContinue && (
+          <button
+            onClick={onClearStory}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+            type="button"
+          >
+            Speak freely
+          </button>
         )}
 
         {/* P128: Session history */}
@@ -927,10 +961,12 @@ interface RatingScreenProps {
   onBack: () => void;
   onExit: () => void;
   isPrivate?: boolean;
-  /** P128: Selected story for content-attached verification */
-  selectedStory?: StoryWithAuthor | null;
+  /** P272: Selected story with points for expanded card display during verification */
+  selectedStory?: StoryWithPoints | null;
   /** P128: Selected point for content-attached verification */
   selectedPoint?: PointWithCreator | null;
+  /** P272: Handler for position selection on story points */
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
 }
 
 function RatingScreen({
@@ -943,6 +979,7 @@ function RatingScreen({
   isPrivate = false,
   selectedStory,
   selectedPoint,
+  onPositionSelect,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -992,16 +1029,22 @@ function RatingScreen({
           />
         )}
 
-        {/* P128: Show selected content during verification */}
-        {selectedStory && <StoryCardPreview story={selectedStory} showLinkedPoints />}
+        {/* P272: Story card visible above rating drawer (stays visible throughout round) */}
+        {selectedStory && (
+          <LiveStoryCardExpanded
+            story={selectedStory}
+            onPositionSelect={onPositionSelect}
+            className="w-full max-w-sm mb-2"
+          />
+        )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
           dismissible={false} prevents accidental swipe/overlay close.
-          User must tap explicit "Back" button to cancel. */}
+          overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
       <Drawer open={true} dismissible={false}>
-        <DrawerContent>
+        <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Rate your understanding</DrawerTitle>
             <DrawerDescription>{prompt}</DrawerDescription>
@@ -1034,11 +1077,13 @@ interface RatingScreenWithOptionalDrawerProps {
   onExit: () => void;
   /** Local flow type - needed to detect "Did I get you?" before shared state is updated */
   localFlowType?: FlowType;
-  /** P128: Selected story for content-attached verification */
-  selectedStory?: StoryWithAuthor | null;
+  /** P272: Selected story with points for expanded card display during verification */
+  selectedStory?: StoryWithPoints | null;
   /** P128: Selected point for content-attached verification */
   selectedPoint?: PointWithCreator | null;
   isPrivate?: boolean;
+  /** P272: Handler for position selection on story points */
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1053,6 +1098,7 @@ function RatingScreenWithOptionalDrawer({
   selectedStory,
   selectedPoint,
   isPrivate = false,
+  onPositionSelect,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1112,16 +1158,22 @@ function RatingScreenWithOptionalDrawer({
           />
         )}
 
-        {/* P128: Show selected content during verification */}
-        {selectedStory && <StoryCardPreview story={selectedStory} showLinkedPoints />}
+        {/* P272: Story card visible above rating drawer (stays visible throughout round) */}
+        {selectedStory && (
+          <LiveStoryCardExpanded
+            story={selectedStory}
+            onPositionSelect={onPositionSelect}
+            className="w-full max-w-sm mb-2"
+          />
+        )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
           dismissible={false} prevents accidental swipe/overlay close.
-          User must tap explicit "Back" or "Decline" button to cancel. */}
+          overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
       <Drawer open={true} dismissible={false}>
-        <DrawerContent>
+        <DrawerContent overlayClassName="bg-transparent">
           <DrawerHeader className={drawerDescription ? "text-center pb-2" : "sr-only"}>
             {drawerDescription && (
               <DrawerDescription className="text-sm text-muted-foreground">
@@ -1652,6 +1704,10 @@ interface UnderstandingScreenProps {
   onClarifyStart: () => void;
   onClarifyDone: () => void;
   isPrivate?: boolean;
+  /** P272: Full story with points for expanded card display */
+  selectedStory?: StoryWithPoints | null;
+  /** P272: Handler for position selection on story points */
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
 }
 
 function UnderstandingScreen({
@@ -1676,6 +1732,8 @@ function UnderstandingScreen({
   onClarifyStart,
   onClarifyDone,
   isPrivate = false,
+  selectedStory,
+  onPositionSelect,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1780,6 +1838,14 @@ function UnderstandingScreen({
           <div className="flex flex-col h-full">
             <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
             <div className={CONTENT_LAYOUT}>
+              {/* P272: Story card visible throughout round */}
+              {selectedStory && (
+                <LiveStoryCardExpanded
+                  story={selectedStory}
+                  onPositionSelect={onPositionSelect}
+                  className="w-full max-w-sm mb-2"
+                />
+              )}
               <JourneyToUnderstanding
                 checkerRating={checkerRating}
                 responderRating={responderRating}
@@ -1844,6 +1910,14 @@ function UnderstandingScreen({
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
           <div className={CONTENT_LAYOUT}>
+            {/* P272: Story card visible throughout round */}
+            {selectedStory && (
+              <LiveStoryCardExpanded
+                story={selectedStory}
+                onPositionSelect={onPositionSelect}
+                className="w-full max-w-sm mb-2"
+              />
+            )}
             <JourneyToUnderstanding
               checkerRating={checkerRating}
               responderRating={responderRating}
@@ -1860,7 +1934,7 @@ function UnderstandingScreen({
               dismissible={false} prevents accidental swipe/overlay close.
               User must tap explicit skip button to end the round. */}
           <Drawer open={true} dismissible={false}>
-            <DrawerContent>
+            <DrawerContent overlayClassName="bg-transparent">
               <DrawerHeader className="text-center pb-2">
                 <DrawerDescription className="text-sm text-muted-foreground">
                   {displayPartnerName} finished listening actively to you
@@ -1923,6 +1997,14 @@ function UnderstandingScreen({
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
           <div className={CONTENT_LAYOUT}>
+            {/* P272: Story card visible throughout round */}
+            {selectedStory && (
+              <LiveStoryCardExpanded
+                story={selectedStory}
+                onPositionSelect={onPositionSelect}
+                className="w-full max-w-sm mb-2"
+              />
+            )}
             <JourneyToUnderstanding
               checkerRating={checkerRating}
               responderRating={responderRating}
@@ -1979,6 +2061,14 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2104,6 +2194,14 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           {/* Celebration header */}
           <div className="text-center space-y-2">
             <div className="text-4xl">🎉</div>
@@ -2164,6 +2262,14 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2524,6 +2630,14 @@ function UnderstandingScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
       <div className={CONTENT_LAYOUT}>
+        {/* P272: Story card visible throughout all UnderstandingScreen phases */}
+        {selectedStory && (
+          <LiveStoryCardExpanded
+            story={selectedStory}
+            onPositionSelect={onPositionSelect}
+            className="w-full max-w-sm mb-2"
+          />
+        )}
         <JourneyToUnderstanding
           checkerRating={checkerRating}
           responderRating={responderRating}

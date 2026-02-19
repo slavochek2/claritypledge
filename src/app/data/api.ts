@@ -3134,6 +3134,11 @@ export async function getOrCreateGuestUser(
   }
 
   console.log('Guest user created (no slug - not a pledger):', { userId, email, name });
+
+  // P274: Fire verification email — same as signup, non-blocking fire-and-forget
+  // shouldCreateUser: false — profile already created above; this only sends the email
+  supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+
   return { userId, isNew: true, requiresLogin: false };
 }
 
