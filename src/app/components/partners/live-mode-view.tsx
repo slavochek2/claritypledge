@@ -668,7 +668,7 @@ function IdleScreen({
   onSelectPoint: _onSelectPoint,
   onClearStory,
   selectedStory = null,
-  onPositionSelect: _onPositionSelect,
+  onPositionSelect,
   isPrivate = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);

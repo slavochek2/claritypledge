@@ -245,10 +245,19 @@ export async function setTestSession(page: Page, email: string) {
     expires_at: Math.floor(Date.now() / 1000) + 3600,
     expires_in: 3600,
     token_type: 'bearer',
-    // Include the user object so the Supabase client has it synchronously on init.
-    // Without this, the client would need an extra async API call to fetch the user,
-    // creating a race where userId is undefined when components mount (e.g. story picker).
-    user: data.user,
+    // Include a minimal user object so the Supabase client has the user ID synchronously
+    // on init. Without this, the client would need an extra async /auth/v1/user API call
+    // to populate the user, creating a race where userId is undefined when components mount
+    // (e.g. the story picker requires userId). Only include fields the auth library needs.
+    user: {
+      id: data.user.id,
+      email: data.user.email,
+      created_at: data.user.created_at,
+      app_metadata: data.user.app_metadata,
+      user_metadata: data.user.user_metadata,
+      aud: 'authenticated',
+      role: 'authenticated',
+    },
   });
 
   // Restore supabaseAdmin to service_role mode — signInWithPassword above modified its
@@ -341,6 +350,17 @@ export async function deleteTestUserByEmail(email: string) {
  */
 export async function deleteClaritySession(code: string) {
   console.log(`[TEST HELPER] Deleting clarity session: ${code}`);
+
+  // Pre-clean story_verifications that reference this session (FK constraint)
+  const { data: session } = await supabaseAdmin
+    .from('clarity_sessions')
+    .select('id')
+    .eq('code', code)
+    .single();
+
+  if (session?.id) {
+    await supabaseAdmin.from('story_verifications').delete().eq('session_id', session.id);
+  }
 
   const { error } = await supabaseAdmin
     .from('clarity_sessions')
