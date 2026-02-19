@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+delivery_stage: implementation
 type: task
 rank: 2.0
 workstream: C1
@@ -64,12 +65,12 @@ The `action` label is used in the message: "Verify your email to [action]." One 
 
 ## Acceptance criteria
 
-- [ ] `useVerificationGate` hook exists in `src/app/hooks/` (or equivalent shared location)
-- [ ] Create story page uses it — unverified user sees clear message, not "Save failed"
-- [ ] Set position on point uses the hook (replaces one-off check in `story-detail-page.tsx:568`)
-- [ ] Any other `isVerified` checks found in the codebase are migrated to use the hook
-- [ ] Adding a gate to a new action in future requires one line: `if (!checkVerified('action label')) return;`
-- [ ] Verified users: no change in behaviour
+- [x] `useVerificationGate` hook exists in `src/app/hooks/` (or equivalent shared location)
+- [x] Create story page uses it — unverified user sees clear message, not "Save failed"
+- [x] Set position on point uses the hook (replaces one-off check in `story-detail-page.tsx:568`)
+- [x] Any other `isVerified` checks found in the codebase are migrated to use the hook
+- [x] Adding a gate to a new action in future requires one line: `if (!checkVerified('action label')) return;`
+- [x] Verified users: no change in behaviour
 
 ## Notes on actions not in scope
 
