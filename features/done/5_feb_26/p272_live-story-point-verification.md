@@ -15,7 +15,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-02-18
+created_date: 2026-02-18T00:00:00.000Z
 uat_file: features/uat/p272.md
 test_files:
   - e2e/integration/p272-accuracy-achieved-migration.spec.ts

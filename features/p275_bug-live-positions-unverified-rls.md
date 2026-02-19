@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: '2026-02-19'
+status: all-done
 delivery_stage: implementation
 type: bug
 rank: 1
@@ -12,7 +11,7 @@ tags:
   - unverified
   - rls
   - p272
-created_date: 2026-02-18
+created_date: 2026-02-18T00:00:00.000Z
 ---
 
 # P275: /live point positions silently fail for unverified guests (RLS conflict)

@@ -12,7 +12,7 @@ This file provides guidance for AI agents working with code in this repository.
 
 **Clarity Pledge** — TypeScript web app for calibrated communication practice.
 
-**Development pattern:** Read spec → implement → test → commit → `/done`
+**Development pattern:** Read spec → implement → test → commit → `/verify` → `/done`
 
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
@@ -198,26 +198,9 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 > **Principle:** NEVER touch MCP configs without backing up first.
 
-**Before ANY MCP changes:**
+Run `./scripts/mcp-validate.sh` and `./scripts/mcp-backup.sh "before-<change>"` before any change.
 
-```bash
-./scripts/mcp-validate.sh                      # Check current state
-./scripts/mcp-backup.sh "before-<change>"      # Create backup
-# Make changes...
-./scripts/mcp-validate.sh                      # Verify new state
-./scripts/mcp-backup.sh "working-<change>"     # Backup working state
-```
-
-**Recovery:**
-
-```bash
-./scripts/mcp-restore.sh                       # Restore from backup (interactive)
-./scripts/mcp-diff.sh                          # Compare with backup
-```
-
-**Why:** MCP configs contain secrets (can't commit to git), live in multiple locations (easy to create conflicts), and break Claude if malformed. One bad edit = 30 min debugging session.
-
-**Full guide:** [docs/technical/mcp-backup-recovery.md](docs/technical/mcp-backup-recovery.md) | **Checklist:** [docs/technical/mcp-pre-change-checklist.md](docs/technical/mcp-pre-change-checklist.md)
+**Full guide:** [mcp-backup-recovery.md](docs/technical/mcp-backup-recovery.md) | **Checklist:** [mcp-pre-change-checklist.md](docs/technical/mcp-pre-change-checklist.md)
 
 ---
 
@@ -225,20 +208,7 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
-**Quick rules:** (1) Verify current code before acting on screenshots, (2) For DB issues check RLS → migrations → columns, (3) Fix ONE root cause at a time.
-
-#### UI Bug Fix Process
-
-> **Principle:** Diagnose FULLY before deploying. One deployment, fully verified.
-
-When fixing visual bugs in systems with slow deploy cycles (Ghost, production):
-1. Reproduce (screenshot)
-2. Diagnose ALL contributing elements before any fix
-3. Verify logic in browser console BEFORE deploying (test selectors with `.matches()`, test JS with `eval`)
-4. Deploy once
-5. Verify (screenshot)
-
-**Anti-pattern:** Finding one cause → ship → fail → find another → ship again. Wastes deploy cycles.
+**Quick rules:** (1) Verify current code before acting on screenshots, (2) For DB issues check RLS → migrations → columns, (3) Fix ONE root cause at a time, (4) For slow-deploy systems: diagnose ALL causes before deploying — one deployment, fully verified.
 
 ---
 
@@ -264,13 +234,15 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 > **Principle:** Non-trivial work should be visible. Suggest tracking, never force it.
 
-**Creating features/bugs:** Use `/slava:build:quick-feature` (quick skeleton, 30 sec) or `/slava:build:create-prd` (comprehensive PRD, 3-5 min). Do NOT create files manually (see [File Creation Discipline](#file-creation-discipline) for location rules). See [feature-specs.md](docs/technical/feature-specs.md) for frontmatter format.
+**Creating features/bugs:** Use `/slava:build:quick-feature` (quick skeleton, 30 sec) or `/slava:build:create-prd` (comprehensive PRD, 3-5 min). Do NOT create files manually.
 
 When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?" Never auto-create. If user declines, don't ask again that session. When done, update to `status: done`.
 
-**Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions). If work delivers user value, frame as story: "As a [user], I want [goal], so that [benefit]."
+**Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions).
 
-**Number assignment:** Run `./scripts/next-p-number.sh` from the repo root — prints the correct next P-number. Never compute it manually.
+**Number assignment:** Run `./scripts/next-p-number.sh` — never compute manually.
+
+For frontmatter format, rank assignment, type semantics, and duplicate-P-number prevention: see [feature-specs.md](docs/technical/feature-specs.md).
 
 ---
 
@@ -284,24 +256,25 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 
 **All skills live in `.claude/commands/slava/`** — visible in IDE, version controlled with project.
 
-**Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `think/` · `util/` · `archive/` (deprecated). Never create a skill without a namespace — if none fits, propose a new one first.
+**Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `think/` · `util/` · `archive/` (houses deprecated skills). Never create a skill without a namespace — if none fits, propose a new one first.
 
 **Approval required** before creating, modifying, or deleting skills, or installing plugins/MCP servers. **Always ask first:** "I'd like to create [X] for [reason]. OK?"
 
-### Sequential Flow (P143) — Current Standard
+### Sequential Flow — Current Standard
 
-**For new features (after 2026-02-13):**
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /dev → /verify → /done
+/create-prd → /ux (if UI) → /architect → /generate-tests → /decompose* → /dev → /verify → /done
 ```
 
-Each layer has a review gate - user approves before proceeding to next layer.
+`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps).
+
+Each layer has a review gate — user approves before proceeding to next layer.
 
 **Post-work:** `/verify → /done`. That's the standard path.
 - `/kdd` optional if there are notable learnings.
-- `/review-all` and `/ship` exist for high-stakes situations (big merges, security changes) — not standard flow.
+- `/review-all` and `/ship` exist for high-stakes situations (big merges, security changes). See [development-process.md](docs/development-process.md).
 
-**Deprecated:** `/prep-spec` (old 3-agent parallel review) - Kept for backward compatibility only. Features started before 2026-02-13 can continue using it, but new features should use the sequential flow above.
+**Deprecated:** `/prep-spec` (old 3-agent parallel review) — kept for backward compatibility only. New features should use the sequential flow above.
 
 See [docs/development-process.md](docs/development-process.md) for complete workflow documentation.
 
@@ -390,47 +363,9 @@ See [architecture.md](docs/technical/architecture.md) for details.
 
 ---
 
-### Point Display Patterns (P151)
+### Point Display Patterns
 
-**ALWAYS use these patterns when displaying points to users:**
-
-**For profile pages (points created by user):**
-```typescript
-// ✅ CORRECT: Efficient batch loading
-const { points, loading, error } = usePointsForProfile(profileId);
-
-// ❌ WRONG: Manual loading creates N+1 queries
-const points = await pointsService.getPointsByValidator(profileId);
-```
-When rendering a visitor's view of a profile, use `point.profileSubjectPosition` for the owner's badge and `point.userPosition` for the visitor's action buttons (see [architecture.md](docs/technical/architecture.md)).
-
-**For feed pages:**
-```typescript
-// ✅ CORRECT: Efficient batch loading
-const { points } = usePointsForFeed(20, page * 20);
-
-// ❌ WRONG: Missing user positions
-const points = await pointsService.getPointsFeed(20, page * 20);
-```
-
-**For detail pages (single point):**
-```typescript
-// ✅ CORRECT: Single point with positions
-const point = await pointsService.getPointWithUserPosition(pointId, user?.id);
-
-// ❌ WRONG: Missing user position
-const point = await pointsService.getPoint(pointId);
-```
-
-**Why this matters:**
-- Position buttons won't show user's current position without loading it
-- N+1 queries cause slow page loads (1+N database calls instead of 2-3)
-- TypeScript won't catch missing positions (type compatibility)
-
-**Enforcement:**
-- Service methods: `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
-- React hooks: `usePointsForProfile`, `usePointsForFeed`
-- Location: `src/app/hooks/usePointsForDisplay.ts`
+Always use the dedicated hooks and service methods for displaying points — never raw service calls. Wrong patterns cause N+1 queries and missing user positions. See [architecture.md](docs/technical/architecture.md#point-display-patterns).
 
 ---
 
@@ -499,76 +434,6 @@ Full structure: [README.md](README.md#project-structure)
 Feature specs: `features/p{N}_{name}.md` | Completed: `features/done/` | Skills: `.claude/commands/slava/`
 
 Full guide: [feature-specs.md](docs/technical/feature-specs.md#file-locations)
-
----
-
-### Creating Features, Bugs, Tasks
-
-**Two options:**
-
-1. **`/slava:build:quick-feature`** - Quick skeleton (30 seconds)
-   - Minimal template with empty placeholders
-   - For idea capture, simple features you'll fill in manually
-   - Prompts for: type, status
-
-2. **`/slava:build:create-prd`** - Comprehensive PRD (3-5 minutes)
-   - Agent generates all sections: business requirements, technical analysis, implementation plan, test coverage
-   - For features ready to implement
-   - Asks clarifying questions, explores codebase, creates E2E test templates
-
-**When to use which:**
-- Quick placeholder → `/quick-feature`
-- Ready to implement → `/create-prd`
-
-**Frontmatter format:** See [feature-specs.md](docs/technical/feature-specs.md) for complete specification.
-
-**Manual creation (if needed):**
-
-When creating ANY file in `features/` manually, ALWAYS include frontmatter:
-
-```yaml
----
-status: backlog | week | today | in-progress | blocked | done | draft | rejected
-type: story | bug | task | comment
-rank: number  # Auto-calculated by agents (max_rank + 1.0)
-workstream: C1 | C2 | R1 | E1 | X1 | foundation  # optional
-tags: []
-created_date: YYYY-MM-DD  # Set at creation; auto-populated from git history by fix-frontmatter if missing
----
-```
-
-**Rank assignment:**
-- Agents MUST calculate rank automatically: `max(existing_ranks) + 1.0`
-- First feature: use `rank: 1.0`
-- Do NOT prompt user for rank value
-- New features appear at bottom of backlog (expected behavior)
-- Users reorder via kanban drag-and-drop
-
-**Kanban visibility:** See [feature-specs.md](docs/technical/feature-specs.md#kanban-visibility-rules) for complete rules.
-
-**Type semantics:**
-- `story` — User-facing value ("As a user, I want X")
-- `task` — Technical work (refactoring, infrastructure, tools)
-- `bug` — Something broken that needs fixing
-- `comment` — Notes, decisions, documentation (not actionable work)
-
-**For bugs, add:**
-```yaml
-severity: low | medium | high | critical
-date_reported: YYYY-MM-DD
-date_resolved: YYYY-MM-DD         # when fixed
-root_cause: brief description     # after resolution
-```
-
-**File naming:** `features/p{N}_{slug}.md` (skill auto-generates P-number)
-
-**Duplicate P-number prevention:**
-- `./scripts/next-p-number.sh` is the canonical tool — scans `features/` including `done/`, excludes `uat/` (companion files keyed to existing P-numbers) and `archive/` (retired P-numbers not available for reuse)
-- Pre-commit hook checks for duplicates before allowing commits
-- Manual check: `./scripts/check-duplicate-p-numbers.sh`
-- See [duplicate-prevention.md](docs/technical/duplicate-prevention.md) for details
-
-Full format & lifecycle: [feature-specs.md](docs/technical/feature-specs.md)
 
 ---
 

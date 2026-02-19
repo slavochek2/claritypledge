@@ -1,21 +1,20 @@
 ---
-status: done
+status: all-done
 delivery_stage: implementation
 type: task
-rank: 2.0
+rank: 2
 workstream: C1
 tags:
   - unverified
   - error-handling
   - verification-gate
-created_date: 2026-02-18
+created_date: 2026-02-18T00:00:00.000Z
 uat_file: features/uat/p273.md
 test_files:
   - src/tests/useVerificationGate.test.ts
   - e2e/p273-verification-gate.spec.ts
   - e2e/p273-smoke.spec.ts
   - e2e/a11y/p273-accessibility.spec.ts
-completed_at: '2026-02-19'
 ---
 
 # P273: Verification gate — consistent blocked-action UX for unverified users
