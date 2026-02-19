@@ -245,8 +245,16 @@ export async function setTestSession(page: Page, email: string) {
     expires_at: Math.floor(Date.now() / 1000) + 3600,
     expires_in: 3600,
     token_type: 'bearer',
-    user: null, // Will be populated by Supabase
+    // Include the user object so the Supabase client has it synchronously on init.
+    // Without this, the client would need an extra async API call to fetch the user,
+    // creating a race where userId is undefined when components mount (e.g. story picker).
+    user: data.user,
   });
+
+  // Restore supabaseAdmin to service_role mode — signInWithPassword above modified its
+  // in-memory session, which would cause subsequent admin queries to run as the user (not
+  // service_role). Signing out resets the client back to using the service_role API key.
+  await supabaseAdmin.auth.signOut();
 
   // Inject session BEFORE every navigation so the Supabase client finds it
   // synchronously on init — eliminates the loading-state race with auth gates.

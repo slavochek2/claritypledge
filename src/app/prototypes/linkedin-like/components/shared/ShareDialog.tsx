@@ -182,10 +182,10 @@ export function ShareButton({ type, id, className, title, description }: ShareBu
   const getShareUrl = () => {
     const base = window.location.origin;
     const path = type === 'story'
-      ? `/prototype/story/${id}`
+      ? `/story/${id}`
       : type === 'point'
-        ? `/prototype/point/${id}`
-        : `/prototype/linkedin-like/profile/${id}`;
+        ? `/point/${id}`
+        : `/p/${id}`;
     return `${base}${path}`;
   };
 

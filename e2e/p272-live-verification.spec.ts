@@ -144,7 +144,7 @@ test.describe('P272: Story Selection and Verification in /live', () => {
     let storyId: string | null = null;
 
     try {
-      creatorUser = await createTestUser({ name: 'P272 Creator' });
+      creatorUser = await createTestUser({ name: 'P272Creator' });
       joinerUser = await createTestUser({ name: 'P272Joiner' });
 
       // Creator needs at least one story for the picker to appear
@@ -195,7 +195,7 @@ test.describe('P272: Story Selection and Verification in /live', () => {
 
     try {
       const uniqueFragment = `ClarityMethod${Date.now()}`;
-      creatorUser = await createTestUser({ name: 'P272 Creator' });
+      creatorUser = await createTestUser({ name: 'P272Creator' });
       joinerUser = await createTestUser({ name: 'P272Joiner' });
 
       const story = await createTestStory(creatorUser.user.id, {
@@ -265,7 +265,7 @@ test.describe('P272: Story Selection and Verification in /live', () => {
 
     try {
       const uniqueFragment = `ClearTest${Date.now()}`;
-      creatorUser = await createTestUser({ name: 'P272 Creator' });
+      creatorUser = await createTestUser({ name: 'P272Creator' });
       joinerUser = await createTestUser({ name: 'P272Joiner' });
 
       const story = await createTestStory(creatorUser.user.id, {
@@ -341,7 +341,7 @@ test.describe('P272: Story Selection and Verification in /live', () => {
 
     try {
       const uniqueFragment = `RatingPhase${Date.now()}`;
-      creatorUser = await createTestUser({ name: 'P272 Creator' });
+      creatorUser = await createTestUser({ name: 'P272Creator' });
       joinerUser = await createTestUser({ name: 'P272Joiner' });
 
       const story = await createTestStory(creatorUser.user.id, {
@@ -410,7 +410,7 @@ test.describe('P272: Story Selection and Verification in /live', () => {
 
     try {
       const uniqueFragment = `VerifyAt10${Date.now()}`;
-      creatorUser = await createTestUser({ name: 'P272 Creator' });
+      creatorUser = await createTestUser({ name: 'P272Creator' });
       joinerUser = await createTestUser({ name: 'P272Joiner' });
 
       const story = await createTestStory(creatorUser.user.id, {
