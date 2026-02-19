@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 priority: p1
 completed_at: '2026-02-05'

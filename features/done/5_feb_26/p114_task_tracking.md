@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: task
 completed_at: '2026-02-05'
 prepped_date: '2026-02-05'

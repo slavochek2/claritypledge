@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 sort_order: 1000001
 completed_at: '2026-02-04'

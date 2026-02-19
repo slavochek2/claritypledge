@@ -503,11 +503,14 @@ test.describe('P272: Story Selection and Verification in /live', () => {
       roomCode = await setupTwoPartySession(speakerPage, listenerPage, creatorUser.email, joinerUser);
 
       // Both should see action buttons (standard live view, no story picker)
+      // Note: component renders getFirstName(partnerName) which takes first word only
+      const joinerFirstName = joinerUser.name.split(' ')[0];
+      const creatorFirstName = creatorUser.name.split(' ')[0];
       await expect(
-        speakerPage.getByRole('button', { name: `Does ${joinerUser.name} understand you?` })
+        speakerPage.getByRole('button', { name: `Does ${joinerFirstName} understand you?` })
       ).toBeVisible({ timeout: 15000 });
       await expect(
-        listenerPage.getByRole('button', { name: `Does ${creatorUser.name} understand you?` })
+        listenerPage.getByRole('button', { name: `Does ${creatorFirstName} understand you?` })
       ).toBeVisible({ timeout: 15000 });
 
       // No story card should be visible (no story selected)

@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 tags: []
 rank: 125440.0

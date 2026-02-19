@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 tags: []
 rank: 125456.0
@@ -10,7 +10,7 @@ completed_at: '2026-02-09'
 # P116: Story & Point Detail Pages — Match Prototype Design
 
 ---
-status: done
+status: all-done
 completed_at: '2026-02-05'
 prepped_date: 2026-02-04
 reviews:

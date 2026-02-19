@@ -129,6 +129,11 @@ export async function createTestUser(options: {
       is_verified: true,
     }, { onConflict: 'id' });
 
+  // Restore supabaseAdmin to service_role mode — signInWithPassword above modified its
+  // in-memory session, which would cause subsequent admin inserts to run as the user (not
+  // service_role). Signing out resets the client back to using the service_role API key.
+  await supabaseAdmin.auth.signOut();
+
   if (profileError) {
     console.error('[TEST HELPER] Failed to create profile:', profileError);
     throw profileError;

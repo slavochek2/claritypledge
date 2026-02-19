@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 completed_at: '2026-02-05'
 reviews:

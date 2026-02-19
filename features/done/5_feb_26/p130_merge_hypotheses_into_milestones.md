@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: comment
 priority: p1
 milestone: C1

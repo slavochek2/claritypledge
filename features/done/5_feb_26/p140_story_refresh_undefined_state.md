@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 severity: high
 date_reported: '2026-02-09'

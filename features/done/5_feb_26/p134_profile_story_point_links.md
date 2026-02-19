@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 1
 workstream: foundation

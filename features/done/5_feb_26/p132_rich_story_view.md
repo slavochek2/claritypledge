@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 completed_at: '2026-02-09'
 type: task
 priority: p1

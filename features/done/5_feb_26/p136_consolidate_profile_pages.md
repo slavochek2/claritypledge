@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 tags:
   - profile

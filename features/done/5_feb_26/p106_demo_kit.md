@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 priority: p0
 milestone: C2

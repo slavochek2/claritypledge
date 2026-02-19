@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 workstream: C1
 blocked_by:

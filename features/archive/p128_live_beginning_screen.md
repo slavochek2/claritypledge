@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: story
 workstream: C1
 prepped_date: '2026-02-06'

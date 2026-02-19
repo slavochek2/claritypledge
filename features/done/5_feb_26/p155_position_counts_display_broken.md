@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 rank: 125234.0
 workstream: C1

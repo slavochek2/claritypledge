@@ -1,5 +1,5 @@
 ---
-status: today
+status: done
 type: task
 rank: 2
 workstream: foundation
@@ -10,6 +10,7 @@ tags:
   - integration-tests
 delivery_stage: arch-review
 created_date: 2026-02-18T00:00:00.000Z
+completed_at: '2026-02-19'
 ---
 
 # P270: Integration Test Coverage for DB Migrations

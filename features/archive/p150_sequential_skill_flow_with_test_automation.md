@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: task
 rank: 13
 workstream: foundation

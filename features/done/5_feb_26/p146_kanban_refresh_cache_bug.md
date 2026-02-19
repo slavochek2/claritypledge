@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 severity: medium
 date_reported: 2026-02-15

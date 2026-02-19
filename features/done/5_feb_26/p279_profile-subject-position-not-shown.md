@@ -12,7 +12,6 @@ severity: high
 date_reported: 2026-02-18T00:00:00.000Z
 delivery_stage: implementation
 created_date: 2026-02-18T00:00:00.000Z
-completed_at: '2026-02-18'
 ---
 
 # P279: Profile Subject's Position on Points Never Shown to Visitors

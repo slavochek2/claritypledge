@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 completed_at: '2026-02-16'
 type: task
 rank: 147.0
