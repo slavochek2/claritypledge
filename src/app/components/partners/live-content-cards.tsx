@@ -9,7 +9,7 @@ import { useState, useMemo } from 'react';
 import { Search, CheckCircle2, BookOpen, MessageSquare, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { StoryWithAuthor, StoryWithPoints, PointWithCreator } from '@/app/types';
+import type { StoryWithAuthor, StoryWithPoints, PointWithCreator, SessionHistoryItem } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { analytics } from '@/lib/mixpanel';
 import { getFirstName, RatingButtons } from './shared';
@@ -377,17 +377,13 @@ export function ContentPicker({
 // SESSION HISTORY LIST
 // ============================================================================
 
-interface SessionHistoryItem {
-  title: string;
-  type: 'story' | 'point' | 'free';
-}
-
 interface SessionHistoryListProps {
   history: SessionHistoryItem[];
   className?: string;
+  onItemClick?: (index: number) => void;
 }
 
-export function SessionHistoryList({ history, className = '' }: SessionHistoryListProps) {
+export function SessionHistoryList({ history, className = '', onItemClick }: SessionHistoryListProps) {
   if (history.length === 0) return null;
 
   const iconForType = (type: SessionHistoryItem['type']) => {
@@ -403,14 +399,39 @@ export function SessionHistoryList({ history, className = '' }: SessionHistoryLi
       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
         This session
       </p>
-      <div className="space-y-2">
-        {history.map((item, i) => (
-          <div key={i} className="flex items-start gap-2 text-sm">
-            <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-            {iconForType(item.type)}
-            <span className="text-muted-foreground line-clamp-1">{item.title}</span>
-          </div>
-        ))}
+      <div className="space-y-1">
+        {history.map((item, i) => {
+          const isClickable = !item.skipped && item.checkerRating !== undefined && !!onItemClick;
+          const isSkipped = item.skipped;
+
+          if (isClickable) {
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onItemClick(i)}
+                aria-label={`View round summary: ${item.title}`}
+                className="group w-full flex items-center gap-2 text-sm min-h-[44px] px-1 rounded-md hover:bg-muted/50 active:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                {iconForType(item.type)}
+                <span className="text-muted-foreground line-clamp-1 flex-1 text-left">{item.title}</span>
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            );
+          }
+
+          return (
+            <div key={i} className="flex items-center gap-2 text-sm min-h-[44px] px-1 opacity-60">
+              <CheckCircle2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              {iconForType(item.type)}
+              <span className="text-muted-foreground line-clamp-1 flex-1">{item.title}</span>
+              {isSkipped && (
+                <span className="text-xs text-muted-foreground flex-shrink-0">Skipped</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

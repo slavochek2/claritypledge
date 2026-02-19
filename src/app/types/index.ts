@@ -494,6 +494,21 @@ export type ClarificationPhase =
   | 'speaker-clarifying'
   | 'listener-responding';
 
+/** P398: Enriched history entry for a completed or skipped round */
+export interface SessionHistoryItem {
+  title: string;
+  type: 'story' | 'point' | 'free';
+  // Journey data — undefined for skipped rounds
+  checkerRating?: number;
+  responderRating?: number;
+  explainBackRatings?: number[];
+  checkerName?: string;
+  partnerName?: string;
+  completedAt?: string;
+  skipped?: boolean;
+  isChecker?: boolean;
+}
+
 export interface LiveSessionState {
   // Current idea being discussed (legacy, may be removed)
   currentIdeaId?: string;
@@ -652,8 +667,8 @@ export interface LiveSessionState {
   // Title of selected content (for session history display)
   selectedContentTitle?: string;
 
-  // Session history: completed verifications in this session (checkmarks only, no scores)
-  sessionHistory?: Array<{ title: string; type: 'story' | 'point' | 'free' }>;
+  // Session history: completed verifications in this session
+  sessionHistory?: SessionHistoryItem[];
 
   // ============================================================================
   // P275: Live session point positions (stored here instead of point_positions table)
