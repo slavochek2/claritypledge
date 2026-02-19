@@ -32,12 +32,18 @@ interface LiveStoryCardExpandedProps {
   currentUserId?: string;
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   className?: string;
+  /** When set, overrides authorName in the position badge (used in host view to show partner's name) */
+  badgePersonName?: string;
+  /** Ear count for badgePersonName — shown in badge when host view is active */
+  badgePersonEarsCount?: number;
 }
 
 export function LiveStoryCardExpanded({
   story,
   onPositionSelect,
   className,
+  badgePersonName,
+  badgePersonEarsCount,
 }: LiveStoryCardExpandedProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -111,6 +117,8 @@ export function LiveStoryCardExpanded({
               authorHasPledged={story.authorHasPledged}
               authorEarsCount={story.authorEarsCount}
               onPositionSelect={onPositionSelect}
+              badgePersonName={badgePersonName}
+              badgePersonEarsCount={badgePersonEarsCount}
             />
           ) : (
             <ThreadLineGroup>
@@ -124,6 +132,8 @@ export function LiveStoryCardExpanded({
                     authorHasPledged={story.authorHasPledged}
                     authorEarsCount={story.authorEarsCount}
                     onPositionSelect={onPositionSelect}
+                    badgePersonName={badgePersonName}
+                    badgePersonEarsCount={badgePersonEarsCount}
                   />
                 </ThreadLineItem>
               ))}
@@ -143,6 +153,8 @@ function PointRow({
   authorHasPledged,
   authorEarsCount,
   onPositionSelect,
+  badgePersonName,
+  badgePersonEarsCount,
 }: {
   point: PointSummary;
   authorName: string;
@@ -151,6 +163,8 @@ function PointRow({
   authorHasPledged?: boolean;
   authorEarsCount?: number;
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  badgePersonName?: string;
+  badgePersonEarsCount?: number;
 }) {
   // Local state so button highlights immediately on click, independent of the
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
@@ -164,15 +178,22 @@ function PointRow({
 
   return (
     <div className="w-full text-left">
-      {/* Story author's stance on this point — matches profile QuotedPoint pattern */}
+      {/* Position badge above point — shows badge person's stance (author for partner view, partner for host view) */}
       {point.profileSubjectPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
-          <GravatarAvatar name={authorName} photoUrl={authorAvatarUrl} avatarColor={authorAvatarColor} isPledger={authorHasPledged ?? false} size="sm" className="!w-5 !h-5 !text-[10px]" />
-          <span className="font-medium">{authorName}</span>
-          {(authorEarsCount ?? 0) > 0 && (
+          <GravatarAvatar
+            name={badgePersonName ?? authorName}
+            photoUrl={badgePersonName ? undefined : authorAvatarUrl}
+            avatarColor={badgePersonName ? undefined : authorAvatarColor}
+            isPledger={badgePersonName ? false : (authorHasPledged ?? false)}
+            size="sm"
+            className="!w-5 !h-5 !text-[10px]"
+          />
+          <span className="font-medium">{badgePersonName ?? authorName}</span>
+          {(badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)) > 0 && (
             <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
               <Ear size={12} />
-              {authorEarsCount}
+              {badgePersonName ? badgePersonEarsCount : authorEarsCount}
             </span>
           )}
           <PositionBadge position={point.profileSubjectPosition} />

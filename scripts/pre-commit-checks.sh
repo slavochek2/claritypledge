@@ -97,7 +97,7 @@ else
     echo -e "${YELLOW}(gitleaks not installed, using basic grep scan)${NC}"
     STAGED_FILES=$(git diff --cached --name-only 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
     if [ -n "$STAGED_FILES" ]; then
-        SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -E '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
+        SECRETS_FOUND=$(echo "$STAGED_FILES" | xargs grep -l -iE '(sk_live|pk_live|SUPABASE_SERVICE|api[_-]?key|apikey|secret[_-]?key|password\s*=|token\s*=)[^a-zA-Z]' 2>/dev/null || true)
         if [ -n "$SECRETS_FOUND" ]; then
             echo -e "${RED}✗ Possible secrets found in:${NC}"
             echo "$SECRETS_FOUND"

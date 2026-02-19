@@ -4,11 +4,11 @@
  * This account is injected into Chrome tab 2 via javascript_tool so that
  * /verify can run two-party UAT scenarios without Playwright.
  *
- * Run: npx tsx scripts/setup-verify-listener.ts
- *
- * After running, add to .env.test.local:
+ * Before running, add to .env.test.local:
  *   TEST_LISTENER_EMAIL=e2e-verify-listener@gmail.com
- *   TEST_LISTENER_PASSWORD=ClarityVerify-L2026!
+ *   TEST_LISTENER_PASSWORD=<your-chosen-password>
+ *
+ * Run: npx tsx scripts/setup-verify-listener.ts
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -23,8 +23,16 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY!;
 
-const LISTENER_EMAIL = 'e2e-verify-listener@gmail.com';
-const LISTENER_PASSWORD = 'ClarityVerify-L2026!';
+const LISTENER_EMAIL = process.env.TEST_LISTENER_EMAIL;
+if (!LISTENER_EMAIL) {
+  throw new Error('TEST_LISTENER_EMAIL not set — add it to .env.test.local before running this script');
+}
+
+const LISTENER_PASSWORD = process.env.TEST_LISTENER_PASSWORD;
+if (!LISTENER_PASSWORD) {
+  throw new Error('TEST_LISTENER_PASSWORD not set — add it to .env.test.local before running this script');
+}
+
 const LISTENER_NAME = 'Test Listener';
 const LISTENER_SLUG = 'test-listener-verify';
 
@@ -107,10 +115,10 @@ async function run() {
   console.log(`✓ Profile created: ${LISTENER_SLUG}`);
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('Add these lines to .env.test.local:');
+  console.log('Listener account created successfully.');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(`TEST_LISTENER_EMAIL=${LISTENER_EMAIL}`);
-  console.log(`TEST_LISTENER_PASSWORD=${LISTENER_PASSWORD}`);
+  console.log(`  Email:    ${LISTENER_EMAIL}`);
+  console.log(`  Password: (from TEST_LISTENER_PASSWORD in .env.test.local)`);
 }
 
 run().catch(err => {

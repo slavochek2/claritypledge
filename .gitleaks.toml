@@ -54,3 +54,9 @@ useDefault = true
 # - Mixpanel token (analytics, client-side by design)
 # - Web3Forms access key (designed to be public, like Stripe publishable keys)
 # These are documented in CLAUDE.md under "Technical Debt / Intentional Decisions"
+
+[[rules]]
+  id = "hardcoded-password-assignment"
+  description = "Catches hardcoded password values in variable assignments (e.g. const PASSWORD = 'abc123')"
+  regex = '''(?i)(password|passwd|pwd)\s*=\s*['"][^'"]{8,}['"]'''
+  keywords = ["password", "passwd", "pwd"]

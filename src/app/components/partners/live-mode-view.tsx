@@ -15,7 +15,8 @@
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Link, useSearchParams } from 'react-router-dom';
 import { DoorOpen, ShieldOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +41,8 @@ import { playCelebrationSound } from '@/hooks/use-sound';
 import { SessionHistoryList, PointCardPreview } from './live-content-cards';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { PositionBadge } from '@/app/prototypes/linkedin-like/components/shared';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { analytics } from '@/lib/mixpanel';
@@ -88,14 +91,16 @@ interface PartnerLeftScreenProps {
   partnerName: string | null;
   sessionEnded: boolean; // true = creator ended session, false = joiner left
   onStartNew: () => void;
+  /** P396: True when user is an anonymous guest (not a verified account) */
+  isGuest?: boolean;
 }
 
 /**
  * Screen shown when the partner has left the meeting.
  * Displays different messaging based on whether the creator ended the session
- * or the joiner left.
+ * or the joiner left. Shows signup prompt for anonymous guests.
  */
-export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew }: PartnerLeftScreenProps) {
+export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew, isGuest }: PartnerLeftScreenProps) {
   // Different messaging based on what happened
   const title = sessionEnded
     ? 'Session ended'
@@ -108,7 +113,7 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew }: Par
     : 'The clarity check session has ended.';
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
+    <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px] max-w-sm mx-auto">
       <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
         <DoorOpen className="w-8 h-8 text-muted-foreground" />
       </div>
@@ -117,6 +122,30 @@ export function PartnerLeftScreen({ partnerName, sessionEnded, onStartNew }: Par
       <Button onClick={onStartNew} className="bg-blue-500 hover:bg-blue-600 text-white">
         Start New Session
       </Button>
+
+      {/* P396: Soft signup CTA for anonymous guests */}
+      {isGuest && (
+        <div className="mt-8 p-4 bg-muted rounded-lg text-left space-y-3 w-full">
+          <p className="text-sm font-medium">Save your calibration history</p>
+          <p className="text-xs text-muted-foreground">
+            Create a free account to track your calibration scores over time, see your progress, and share your results.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Link
+              to="/signup"
+              className="inline-flex items-center justify-center rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium h-9 px-4 transition-colors"
+            >
+              Create Free Account
+            </Link>
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Already have an account? Log in
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -176,6 +205,8 @@ interface LiveModeViewProps {
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   /** P160: When true, session is private — shows private band instead of recording band */
   isPrivate?: boolean;
+  /** Ear count for the partner (used to show their credibility badge in the host view) */
+  partnerEarsCount?: number;
 }
 
 export function LiveModeView({
@@ -209,6 +240,7 @@ export function LiveModeView({
   onClearStory,
   onPositionSelect,
   isPrivate = false,
+  partnerEarsCount = 0,
 }: LiveModeViewProps) {
 
   // Hide site-wide SimpleNavigation and remove its top padding when live session is active
@@ -231,13 +263,16 @@ export function LiveModeView({
   // Also merge livePositions so positions survive page refresh.
   // For the host (viewer = author):
   //   - Fall back to profileSubjectPosition so buttons stay highlighted even if snapshot is stale
-  //   - Clear profileSubjectPosition so the "author badge" above each point is hidden (redundant
-  //     when you are the author — your position is already shown in the button)
   // Each participant computes their own selectedStory, so this doesn't affect the partner's view.
   useEffect(() => {
     if (liveState.selectedStoryData) {
       const myPositions = liveState.livePositions?.[currentUserName] ?? {};
       const isAuthor = userId !== undefined && userId === liveState.selectedStoryData.authorId;
+      // partnerPositions: always read from liveState so both views are reactive.
+      // From each viewer's perspective, partnerName = the OTHER person, so:
+      //   host view (isAuthor=true):  partnerName = guest  → guest's live votes
+      //   partner view (isAuthor=false): partnerName = host → host's live votes
+      const partnerPositions = liveState.livePositions?.[partnerName] ?? {};
       const storyWithPositions = {
         ...liveState.selectedStoryData,
         points: liveState.selectedStoryData.points.map((p: { id: string; userPosition?: string | null; profileSubjectPosition?: string | null }) => ({
@@ -251,7 +286,11 @@ export function LiveModeView({
           userPosition: p.id in myPositions
             ? myPositions[p.id]
             : isAuthor ? (p.userPosition ?? p.profileSubjectPosition ?? null) : null,
-          profileSubjectPosition: isAuthor ? null : p.profileSubjectPosition,
+          // Show the other person's live position in the badge; fall back to DB snapshot for
+          // the partner view (host's DB position) when the host hasn't voted live yet.
+          profileSubjectPosition: p.id in partnerPositions
+            ? partnerPositions[p.id]
+            : (isAuthor ? null : p.profileSubjectPosition),
         })),
       };
       setSelectedStory(storyWithPositions as unknown as StoryWithPoints);
@@ -259,6 +298,48 @@ export function LiveModeView({
       setSelectedStory(null);
     }
   }, [liveState.selectedStoryData, liveState.livePositions, currentUserName, userId]);
+
+  // Show a toast when the other person changes their position on a point.
+  // Uses a ref to diff previous vs current partner positions — only fires for actual changes,
+  // never on initial mount. Fixed id='live-position' replaces itself on rapid re-voting.
+  const prevPartnerPositionsRef = useRef<Record<string, PositionType | null> | null>(null);
+  useEffect(() => {
+    const currentPositions = (liveState.livePositions?.[partnerName] ?? {}) as Record<string, PositionType | null>;
+
+    if (prevPartnerPositionsRef.current === null) {
+      // First run — initialise without toasting
+      prevPartnerPositionsRef.current = { ...currentPositions };
+      return;
+    }
+
+    const prev = prevPartnerPositionsRef.current;
+    const points = liveState.selectedStoryData?.points ?? [];
+    for (const pointId of Object.keys(currentPositions)) {
+      const next = currentPositions[pointId];
+      if (next && next !== prev[pointId]) {
+        const firstName = getFirstName(partnerName);
+        const statement = (points as { id: string; statement?: string }[]).find(p => p.id === pointId)?.statement ?? '';
+        const snippet = statement.length > 42 ? statement.slice(0, 42) + '…' : statement;
+        toast.custom(
+          () => (
+            <div className="bg-background border border-border rounded-lg shadow-md px-3 py-2 text-sm text-foreground">
+              <div className="flex items-center gap-2">
+                <GravatarAvatar name={firstName} size="sm" isPledger={false} className="!w-5 !h-5 !text-[10px]" />
+                <span className="font-medium">{firstName}</span>
+                <PositionBadge position={next} />
+              </div>
+              {snippet && (
+                <p className="mt-1 text-xs text-muted-foreground truncate">{snippet}</p>
+              )}
+            </div>
+          ),
+          { id: 'live-position', duration: 3000 },
+        );
+        break; // one toast per batch — don't stack
+      }
+    }
+    prevPartnerPositionsRef.current = { ...currentPositions };
+  }, [liveState.livePositions, partnerName]);
 
   // P128: Fetch selected point for display during verification
   useEffect(() => {
@@ -274,6 +355,11 @@ export function LiveModeView({
 
   // Track previous skip state to detect new skips
   const prevSkippedByRef = useRef<string | undefined>(undefined);
+  // Badge person name: host sees partner's name in badge; partner sees host's name (default)
+  const isAuthorOfSelected = userId !== undefined && selectedStory?.authorId === userId;
+  const badgePersonName = isAuthorOfSelected ? getFirstName(partnerName) : undefined;
+  const badgePersonEarsCount = isAuthorOfSelected ? partnerEarsCount : undefined;
+
   // State for skip notification dialog
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [skipDialogName, setSkipDialogName] = useState<string>('');
@@ -440,6 +526,8 @@ export function LiveModeView({
           selectedStory={selectedStory}
           onPositionSelect={onPositionSelect}
           isPrivate={isPrivate}
+          badgePersonName={badgePersonName}
+          badgePersonEarsCount={badgePersonEarsCount}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -469,6 +557,8 @@ export function LiveModeView({
           onExit={onExitMeeting}
           localFlowType={localFlowType}
           isPrivate={isPrivate}
+          badgePersonName={badgePersonName}
+          badgePersonEarsCount={badgePersonEarsCount}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -495,6 +585,8 @@ export function LiveModeView({
           selectedStory={selectedStory}
           onPositionSelect={onPositionSelect}
           isPrivate={isPrivate}
+          badgePersonName={badgePersonName}
+          badgePersonEarsCount={badgePersonEarsCount}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -517,6 +609,8 @@ export function LiveModeView({
           selectedPoint={selectedPoint}
           onPositionSelect={onPositionSelect}
           isPrivate={isPrivate}
+          badgePersonName={badgePersonName}
+          badgePersonEarsCount={badgePersonEarsCount}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -633,6 +727,8 @@ export function LiveModeView({
         selectedStory={selectedStory}
         onPositionSelect={onPositionSelect}
         isPrivate={isPrivate}
+        badgePersonName={badgePersonName}
+        badgePersonEarsCount={badgePersonEarsCount}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -673,6 +769,10 @@ interface IdleScreenProps {
   /** P275: Update a point position during the /live session */
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   isPrivate?: boolean;
+  /** Name to show in the position badge (partner's name for host view) */
+  badgePersonName?: string;
+  /** Ear count for the badge person — shown in the badge when host view is active */
+  badgePersonEarsCount?: number;
 }
 
 function IdleScreen({
@@ -693,6 +793,8 @@ function IdleScreen({
   selectedStory = null,
   onPositionSelect,
   isPrivate = false,
+  badgePersonName,
+  badgePersonEarsCount,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -839,6 +941,8 @@ function IdleScreen({
             story={selectedStory}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
 
@@ -988,6 +1092,10 @@ interface RatingScreenProps {
   selectedPoint?: PointWithCreator | null;
   /** P272: Handler for position selection on story points */
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  /** Name to show in the position badge (partner's name for host view) */
+  badgePersonName?: string;
+  /** Ear count for the badge person */
+  badgePersonEarsCount?: number;
 }
 
 function RatingScreen({
@@ -1001,6 +1109,8 @@ function RatingScreen({
   selectedStory,
   selectedPoint,
   onPositionSelect,
+  badgePersonName,
+  badgePersonEarsCount,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1056,6 +1166,8 @@ function RatingScreen({
             story={selectedStory}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
@@ -1105,6 +1217,10 @@ interface RatingScreenWithOptionalDrawerProps {
   isPrivate?: boolean;
   /** P272: Handler for position selection on story points */
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  /** Name to show in the position badge (partner's name for host view) */
+  badgePersonName?: string;
+  /** Ear count for the badge person */
+  badgePersonEarsCount?: number;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1120,6 +1236,8 @@ function RatingScreenWithOptionalDrawer({
   selectedPoint,
   isPrivate = false,
   onPositionSelect,
+  badgePersonName,
+  badgePersonEarsCount,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1185,6 +1303,8 @@ function RatingScreenWithOptionalDrawer({
             story={selectedStory}
             onPositionSelect={onPositionSelect}
             className="w-full max-w-sm mb-2"
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
