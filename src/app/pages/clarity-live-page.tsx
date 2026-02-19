@@ -55,6 +55,7 @@ import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
 import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microphone-permission-dialog';
 import { SessionEventsCollector } from '@/lib/session-events-collector';
+import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
 import { toast } from 'sonner';
 
 type ViewState = 'start' | 'waiting' | 'live';
@@ -134,6 +135,9 @@ export function ClarityLivePage() {
   // Live session state (synced via session.live_state)
   const [liveState, setLiveState] = useState<LiveSessionState>(DEFAULT_LIVE_STATE);
 
+  // P144: Partner's ear count for credibility badge in host view
+  const [partnerEarsCount, setPartnerEarsCount] = useState(0);
+
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
@@ -169,6 +173,18 @@ export function ClarityLivePage() {
       ? session.joinerName
       : session.creatorName
     : undefined;
+
+  // P144: Fetch partner's ear count for credibility badge in host view.
+  // Partner's profile ID is the one that belongs to the OTHER participant.
+  useEffect(() => {
+    const partnerProfileId = session
+      ? isCreator
+        ? session.joinerProfileId
+        : session.creatorProfileId
+      : null;
+    if (!partnerProfileId) return;
+    calibrationService.getEarsCount(partnerProfileId).then(setPartnerEarsCount);
+  }, [session?.joinerProfileId, session?.creatorProfileId, isCreator]);
 
   // P28.1: Audio recording and events collection for ML training
   // Uses chunked mode (30s uploads) for reliability - data is saved even if user closes browser
@@ -274,12 +290,17 @@ export function ClarityLivePage() {
   }, [partnerLeft, sessionEnded]);
 
   // P66.1: Auth gate - redirect guests without join code to signup
+  // Wait for session restoration before redirecting (prevents kicking out guests who refresh)
   useEffect(() => {
     if (isAuthLoading) return;
+    if (isRestoring) return; // Don't redirect while checking for saved session
     if (user) return;
     if (isJoinViaLink) return;
+    // Check for a stored session — guest may have refreshed mid-session
+    const storedCode = storage?.getItem(STORAGE_KEYS.SESSION_CODE);
+    if (storedCode) return; // Restoration will handle this
     navigate('/signup');
-  }, [isAuthLoading, user, isJoinViaLink, navigate]);
+  }, [isAuthLoading, isRestoring, user, isJoinViaLink, navigate]);
 
   // Pre-fill name from logged-in user (if authenticated and name is empty)
   useEffect(() => {
@@ -1567,10 +1588,10 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // P66: Create session handler - auth gate (only logged-in users can host)
+  // P66: Create session handler - auth gate (only verified users can host)
   const handleCreate = async () => {
-    // P66: Auth gate - redirect unauthenticated users to signup
-    if (!user) {
+    // P66/P396: Auth gate - only verified accounts can host sessions
+    if (!user?.isVerified) {
       navigate('/signup');
       return;
     }
@@ -1977,6 +1998,7 @@ export function ClarityLivePage() {
             partnerName={departedPartnerName}
             sessionEnded={sessionEnded}
             onStartNew={handleStartNewAfterPartnerLeft}
+            isGuest={!user?.isVerified}
           />
         </div>
       </div>
@@ -1996,10 +2018,16 @@ export function ClarityLivePage() {
 
   // START VIEW
   if (view === 'start') {
-    // B50: Join via link - single screen with name + email + terms (no dialog)
+    // B50/P396: Join via link - single screen with name + consent (no dialog)
     if (isJoinViaLink) {
       const joinTitle = hostName ? `Join ${hostName}'s Session` : 'Join Clarity Session';
-      const canJoinViaLink = !validateName(name) && !validateEmail(email);
+      const isVerifiedUser = !!user?.isVerified;
+      // P396: Verified users join by name only; guests need name + consent
+      const canJoinViaLink = isVerifiedUser
+        ? !validateName(name)
+        : !validateName(name) && !validateEmail(email);
+      // Redirect URL for login/signup flows — returns user to session after auth
+      const sessionRedirectUrl = `/live/${urlCode}`;
 
       return (
         <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
@@ -2055,10 +2083,69 @@ export function ClarityLivePage() {
                   </Button>
                 </div>
               </div>
-            ) : (
+            ) : isVerifiedUser ? (
+              /* P396: Verified user — join directly, no email needed */
               <div className="space-y-6">
                 <div className="space-y-2">
-                  {/* P50: Updated label per spec */}
+                  <Label htmlFor="name">Your name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                {error && <p className="text-sm text-red-600">{error}</p>}
+
+                <Button
+                  onClick={handleJoin}
+                  disabled={isLoading || consentLoading || !canJoinViaLink}
+                  className="w-full bg-blue-500 hover:bg-blue-600"
+                  size="lg"
+                >
+                  {isLoading || consentLoading ? 'Joining...' : 'Join Session'}
+                </Button>
+
+                <Link
+                  to="/live"
+                  className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+                >
+                  Back
+                </Link>
+              </div>
+            ) : (
+              /* Guest join form + login option for registered users */
+              <div className="space-y-6">
+                {/* P396: Login option for registered users who aren't logged in */}
+                <div className="space-y-3">
+                  <p className="text-sm text-center text-muted-foreground">Have an account? Join as yourself</p>
+                  <GoogleAuthButton
+                    context="live-join"
+                    source="login"
+                    redirect={sessionRedirectUrl}
+                  />
+                  <div className="text-center">
+                    <Link
+                      to={`/login?redirect=${encodeURIComponent(sessionRedirectUrl)}`}
+                      className="text-sm text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                    >
+                      Log in with email
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">or join as guest</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="name">What should we call you?</Label>
                   <Input
                     id="name"
@@ -2070,7 +2157,6 @@ export function ClarityLivePage() {
                 </div>
 
                 <div className="space-y-2">
-                  {/* P50: Updated label per spec */}
                   <Label htmlFor="email">Your email (for session link)</Label>
                   <Input
                     id="email"
@@ -2118,7 +2204,7 @@ export function ClarityLivePage() {
                   className="w-full bg-blue-500 hover:bg-blue-600"
                   size="lg"
                 >
-                  {isLoading || consentLoading ? 'Joining...' : 'Join Session'}
+                  {isLoading || consentLoading ? 'Joining...' : 'Join as Guest'}
                 </Button>
 
                 <Link
@@ -2684,6 +2770,7 @@ export function ClarityLivePage() {
           onPositionSelect={handlePositionSelectInLive}
           // P160: Private session mode indicator
           isPrivate={session.isPrivate ?? false}
+          partnerEarsCount={partnerEarsCount}
         />
 
         {/* Exit confirmation dialog */}

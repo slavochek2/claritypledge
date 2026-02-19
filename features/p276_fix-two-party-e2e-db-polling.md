@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: task
 rank: 1
 workstream: foundation
@@ -10,7 +10,6 @@ tags:
   - playwright
   - supabase
 created_date: 2026-02-18T00:00:00.000Z
-completed_at: '2026-02-19'
 ---
 
 # P276: Fix Two-Party Live Session E2E Tests — Replace Realtime Presence with DB Polling

@@ -1,13 +1,16 @@
 /**
  * @file useVerificationGate.test.ts
- * @description Unit tests for P273: useVerificationGate hook
+ * @description Unit tests for useVerificationGate hook (updated for P396)
  *
- * Tests the hook's core contract:
- * - checkVerified() returns true for verified users (no toast)
- * - checkVerified() returns false for unverified users (shows toast with action label)
- * - checkVerified() returns false when user is null
+ * P396 contract (two-state model):
+ * - checkVerified() returns true for any authenticated user (!!user — verified by definition)
+ * - checkVerified() returns false for unauthenticated user (user === null)
+ * - Toast message is "Sign in to {actionLabel}." (was "Verify your email to...")
  * - The action label appears in the toast message
  * - Multiple calls work independently (no stale closure)
+ *
+ * Removed: "unverified user" test block — unverified-profile state is eliminated by P396.
+ * In the two-state model, any authenticated user IS verified.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
@@ -35,10 +38,10 @@ describe('useVerificationGate', () => {
     vi.clearAllMocks();
   });
 
-  describe('checkVerified — verified user', () => {
+  describe('checkVerified — authenticated user', () => {
     it('returns true and shows no toast', () => {
       mockUseAuth.mockReturnValue({
-        user: { id: 'user-1', isVerified: true } as any,
+        user: { id: 'user-1' } as any, // any truthy user = authenticated = verified
         isLoading: false,
         sessionChecked: true,
       } as any);
@@ -55,10 +58,10 @@ describe('useVerificationGate', () => {
     });
   });
 
-  describe('checkVerified — unverified user', () => {
+  describe('checkVerified — unauthenticated user (null)', () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue({
-        user: { id: 'user-1', isVerified: false } as any,
+        user: null,
         isLoading: false,
         sessionChecked: true,
       } as any);
@@ -97,16 +100,14 @@ describe('useVerificationGate', () => {
       );
     });
 
-    it('uses the exact message format from the spec', () => {
+    it('uses the exact message format: "Sign in to {actionLabel}."', () => {
       const { result } = renderHook(() => useVerificationGate());
 
       act(() => {
         result.current.checkVerified('create a story');
       });
 
-      expect(toast.error).toHaveBeenCalledWith(
-        'Verify your email to create a story — check your inbox or resend below.'
-      );
+      expect(toast.error).toHaveBeenCalledWith('Sign in to create a story.');
     });
 
     it('works correctly for multiple calls with different action labels', () => {
@@ -126,26 +127,6 @@ describe('useVerificationGate', () => {
         2,
         expect.stringContaining('do action B')
       );
-    });
-  });
-
-  describe('checkVerified — unauthenticated user (null)', () => {
-    it('returns false and shows a toast', () => {
-      mockUseAuth.mockReturnValue({
-        user: null,
-        isLoading: false,
-        sessionChecked: true,
-      } as any);
-
-      const { result } = renderHook(() => useVerificationGate());
-      let allowed!: boolean;
-
-      act(() => {
-        allowed = result.current.checkVerified('set a position');
-      });
-
-      expect(allowed).toBe(false);
-      expect(toast.error).toHaveBeenCalledTimes(1);
     });
   });
 });

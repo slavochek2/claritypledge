@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { AuthProvider } from '@/auth';
 import { ClarityPledgersPage } from './clarity-pledgers-page';
 import type { Profile } from '@/app/data/api';
 import type { ReactNode } from 'react';
@@ -28,7 +29,9 @@ import { getVerifiedProfiles } from '@/app/data/api';
 // Wrapper to provide router and tooltip context
 const wrapper = ({ children }: { children: ReactNode }) => (
   <MemoryRouter>
-    <TooltipProvider>{children}</TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>{children}</TooltipProvider>
+    </AuthProvider>
   </MemoryRouter>
 );
 

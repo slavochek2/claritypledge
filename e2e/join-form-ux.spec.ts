@@ -7,6 +7,8 @@
  * 2. WHY they need to provide info (to join the meeting)
  *
  * The title should be prominent INSIDE the form area, not duplicated in header.
+ *
+ * P396: Guest join form is name-only — email field must be absent.
  */
 import { test, expect } from '@playwright/test';
 
@@ -62,5 +64,17 @@ test.describe('Join Form UX - Context Clarity', () => {
 
     // Header should just have "Clarity Pledge" (logo text), not the join title
     expect(headerText).not.toMatch(/Join.*Session/i);
+  });
+
+  // P396: guest join is name-only — email field must NOT appear
+  test('guest join form shows name input only — no email field (P396)', async ({ page }) => {
+    await page.goto('/live/TEST123');
+
+    // Name input must be visible
+    await expect(page.locator('input[placeholder="Enter your name"]')).toBeVisible();
+
+    // Email input must NOT be present — P396 removes email collection from the guest flow
+    const emailInput = page.locator('input[type="email"], input[placeholder*="email" i]');
+    await expect(emailInput).not.toBeVisible();
   });
 });

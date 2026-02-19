@@ -30,6 +30,12 @@ test.describe('P66: Live Page Auth Gate', () => {
 
       // Should see the join form heading (even if session doesn't exist)
       await expect(page.getByRole('heading', { name: 'Join Clarity Session' })).toBeVisible();
+
+      // P396: guest join form is name-only — email field must NOT appear
+      await expect(page.locator('input[placeholder="Enter your name"]')).toBeVisible();
+      await expect(
+        page.locator('input[type="email"], input[placeholder*="email" i]')
+      ).not.toBeVisible();
     });
   });
 

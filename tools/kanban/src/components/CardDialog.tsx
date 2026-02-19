@@ -227,7 +227,7 @@ export function CardDialog({
 
   // Render single-select dropdown
   const renderSelectDropdown = (
-    field: 'status' | 'type' | 'size',
+    field: 'status' | 'type' | 'size' | 'delivery_stage',
     options: (string | null)[],
     currentValue: string | null | undefined
   ) => {

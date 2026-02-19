@@ -13,12 +13,15 @@ import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ClarityPledgeLanding } from '@/app/pages/clarity-pledge-landing';
+import { AuthProvider } from '@/auth';
 
 describe('Landing Page - No Double Scrollbar', () => {
   it('root div should not use overflow-x-hidden (causes overflow-y: auto)', () => {
     const { container } = render(
       <BrowserRouter>
-        <ClarityPledgeLanding />
+        <AuthProvider>
+          <ClarityPledgeLanding />
+        </AuthProvider>
       </BrowserRouter>
     );
 
@@ -43,7 +46,9 @@ describe('Landing Page - No Double Scrollbar', () => {
   it('should not use overflow-x-hidden alone on any container', () => {
     const { container } = render(
       <BrowserRouter>
-        <ClarityPledgeLanding />
+        <AuthProvider>
+          <ClarityPledgeLanding />
+        </AuthProvider>
       </BrowserRouter>
     );
 
@@ -65,7 +70,9 @@ describe('Landing Page - No Double Scrollbar', () => {
   it('root div should use inline style with overflow-x: clip for horizontal clipping', () => {
     const { container } = render(
       <BrowserRouter>
-        <ClarityPledgeLanding />
+        <AuthProvider>
+          <ClarityPledgeLanding />
+        </AuthProvider>
       </BrowserRouter>
     );
 
