@@ -5,20 +5,22 @@ rank: 125000.5
 workstream: C1
 severity: high
 date_reported: 2026-02-17T00:00:00.000Z
-date_resolved: 2026-02-18
-completed_at: "2026-02-18"
+date_resolved: 2026-02-18T00:00:00.000Z
 root_cause: >
-  Surface A: getPointWithCounts() never loaded userPosition on mount — needed getPointWithUserPosition(id, userId).
-  Surface B: getStoriesByAuthorWithPoints() didn't accept userId, so positionCounts/userPosition were never fetched.
-  QuotedPointCard used useState(prop) which doesn't reinitialize on prop changes — needed useEffect sync.
-  PositionButton was missing aria-pressed attribute entirely.
+  Surface A: getPointWithCounts() never loaded userPosition on mount — needed
+  getPointWithUserPosition(id, userId). Surface B:
+  getStoriesByAuthorWithPoints() didn't accept userId, so
+  positionCounts/userPosition were never fetched. QuotedPointCard used
+  useState(prop) which doesn't reinitialize on prop changes — needed useEffect
+  sync. PositionButton was missing aria-pressed attribute entirely.
 resolution: >
-  Added getPointWithUserPosition call to point-detail-page.tsx when user is logged in.
-  Extended PointSummary type with positionCounts and userPosition fields.
-  Updated getStoriesByAuthorWithPoints signature to accept optional userId; batch-fetches counts and positions.
-  Added useEffect sync for userPosition in QuotedPointCard.
-  Added aria-pressed to PositionButton inner button.
-  Regression test: e2e/p268-position-display-integrity.spec.ts (5 tests, A1/A2/A3 Surface A, B1/B2 Surface B).
+  Added getPointWithUserPosition call to point-detail-page.tsx when user is
+  logged in. Extended PointSummary type with positionCounts and userPosition
+  fields. Updated getStoriesByAuthorWithPoints signature to accept optional
+  userId; batch-fetches counts and positions. Added useEffect sync for
+  userPosition in QuotedPointCard. Added aria-pressed to PositionButton inner
+  button. Regression test: e2e/p268-position-display-integrity.spec.ts (5 tests,
+  A1/A2/A3 Surface A, B1/B2 Surface B).
 tags:
   - positions
   - counts
@@ -26,7 +28,8 @@ tags:
   - story-expand
   - point-detail
   - persistence
-created_date: 2026-02-17
+created_date: 2026-02-17T00:00:00.000Z
+completed_at: '2026-02-18'
 ---
 
 # BUG P268: Position Display Incomplete — Detail Page + Stories Expanded

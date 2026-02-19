@@ -1,10 +1,9 @@
 ---
-status: done
+status: all-done
 type: comment
 tags: []
-rank: 125405.0
-created_date: 2026-01-11
-completed_at: '2026-02-17'
+rank: 125405
+created_date: 2026-01-11T00:00:00.000Z
 ---
 
 > **Archived 2026-01-18:** Key concepts extracted to:

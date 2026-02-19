@@ -15,6 +15,7 @@ test_files:
   - e2e/p273-verification-gate.spec.ts
   - e2e/p273-smoke.spec.ts
   - e2e/a11y/p273-accessibility.spec.ts
+completed_at: '2026-02-19'
 ---
 
 # P273: Verification gate — consistent blocked-action UX for unverified users

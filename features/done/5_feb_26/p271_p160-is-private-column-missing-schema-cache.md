@@ -1,13 +1,18 @@
 ---
 status: done
 type: bug
-rank: 271.0
+rank: 271
 workstream: foundation
 severity: high
-date_reported: 2026-02-17
-tags: [p160, migration, schema-cache, is_private, clarity_sessions]
-completed_at: "2026-02-18"
-created_date: 2026-02-18
+date_reported: 2026-02-17T00:00:00.000Z
+tags:
+  - p160
+  - migration
+  - schema-cache
+  - is_private
+  - clarity_sessions
+created_date: 2026-02-18T00:00:00.000Z
+completed_at: '2026-02-18'
 ---
 
 # BUG P271: P160 — `is_private` column missing from schema cache on `/live`
