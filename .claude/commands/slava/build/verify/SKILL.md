@@ -71,6 +71,16 @@ Scenarios:
   ...
 ```
 
+**Resume detection:** Parse the Test Execution Log table in the UAT file. Rows with ✅, ❌, or ⏭️ are already complete — exclude them from the plan. Announce:
+```
+Resume detected: {N}/{total} already tested. Running remaining: {scenario-ids}.
+```
+If all scenarios are already tested, skip to Step 8 and produce the final report from the scorecard.
+
+**Two-party detection:** Scan UAT scenarios for `**Requires:** two-party`. If any unfinished scenario is tagged, set `TWO_PARTY_NEEDED: true` in the plan. The boot macro (Section 5a-TWO-PARTY) will run automatically before the first tagged scenario — not once per scenario.
+
+Fallback (no UAT file or tag not present): detect two-party need from spec text containing "listener", "two participants", or "/live session".
+
 Announce the plan. If > 8 scenarios, ask: "That's {N} scenarios. Run all, or pick specific ones? (all / 1,3,5 / etc.)"
 
 ---
@@ -143,56 +153,98 @@ Wait for confirmation before continuing.
 
 ---
 
-#### 5a-TWO-PARTY: Two-Party Session Setup
+#### 5a-TWO-PARTY: Two-Party Session Boot Macro
 
-Use this when a scenario requires two participants, such as UAT-2.x (story sync), UAT-4.x
-(round completion), UAT-5.x (verification write).
+Run this macro once, automatically, before the first scenario tagged `**Requires:** two-party`.
+Do not re-run between subsequent two-party scenarios — the session persists across them.
 
-**Key constraint:** Chrome uses a single profile with shared `localStorage`. All same-origin
-tabs share the Supabase auth token. You cannot have two different auth identities in two tabs
-simultaneously. What you CAN do depends on the scenario type:
+**How it works:** `localhost:5001` and `127.0.0.1:5001` are different browser origins with
+**separate localStorage**. Vite `host: true` serves both. Creator stays on `localhost`,
+listener logs into `127.0.0.1` as the permanent test account. Result: two independent
+Supabase auth sessions — no token injection needed.
 
-| What to test | Approach |
-|---|---|
-| Story/state sync (does tab 2 see what tab 1 did?) | Two-tab Chrome — works ✅ |
-| Role-specific UI (picker only on creator, not listener) | Playwright E2E only ❌ |
-| Verification write (speaker_rating=10 → DB record) | Playwright E2E only ❌ |
+> **Credentials:** Read `TEST_LISTENER_EMAIL` and `TEST_LISTENER_PASSWORD` from `.env.test.local`.
+> Never hardcode credentials in this file. Account created by `scripts/setup-verify-listener.ts`.
 
-**Protocol for sync verification (Chrome two-tab):**
+**Boot sequence (5 steps — execute in order):**
 
-1. **Creator (tab 1):** Create session, extract room code from the share URL:
+**Step B1 — Check listener tab:**
+Use `mcp__claude-in-chrome__tabs_context_mcp` to list open tabs. Look for a tab at `127.0.0.1:5001`.
+If found, run the auth check:
+```javascript
+const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+const session = key ? JSON.parse(localStorage.getItem(key) || 'null') : null;
+console.log('Listener auth:', session?.user?.email ?? 'not logged in');
 ```
-// From the "Invite Your Partner" waiting room, read the share link text:
-mcp__claude-in-chrome__javascript_tool(script="
-  const text = document.querySelector('input[readonly]')?.value || '';
-  const code = text.split('/live/')[1];
-  console.log('Room code:', code);
-")
+If listener is already logged in on that tab → skip to Step B3.
+If not found or not logged in → continue to Step B2.
+
+**Step B2 — Log listener in:**
+Open a new Chrome tab. Navigate to `http://127.0.0.1:5001`.
+The app may redirect to `/auth` or show a login button on `/`. Use React Fill Macro (see Step 5c)
+to fill the email and password fields with `TEST_LISTENER_EMAIL` / `TEST_LISTENER_PASSWORD`.
+Submit. Confirm the listener is now authenticated (check localStorage or page content).
+On failure: stop and report "Boot failed at Step B2 — listener login failed."
+
+**Step B3 — Creator creates session:**
+Switch to creator tab (`localhost:5001`). Navigate to `http://localhost:5001/live`.
+Click "New meeting" (or equivalent CTA). Extract the room code:
+```javascript
+const code = document.querySelector('input[readonly]')?.value?.split('/live/')[1]
+  || window.location.pathname.split('/live/')[1];
+console.log('Room code:', code);
 ```
+On failure: stop and report "Boot failed at Step B3 — could not extract room code."
 
-2. **Open tab 2 and join as guest:** Navigate to session URL, fill name as "Tab 2 Observer",
-   any email, check consent, click Join:
+**Step B4 — Listener joins:**
+Switch to listener tab. Navigate to `http://127.0.0.1:5001/live/{CODE}`.
+The join form appears. Fill with React Fill Macro — do NOT use `mcp__claude-in-chrome__fill`:
+```javascript
+const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+
+const nameInput = document.querySelector('input[placeholder*="name" i]');
+if (nameInput) {
+  nativeInputValueSetter.call(nameInput, 'Test Listener');
+  nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+  nameInput.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+const emailInput = document.querySelector('input[type="email"]');
+if (emailInput && !emailInput.value) {
+  nativeInputValueSetter.call(emailInput, 'test@test.com');
+  emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+  emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+const nativeCheckedSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'checked').set;
+const checkbox = document.querySelector('input[type="checkbox"]');
+if (checkbox) {
+  nativeCheckedSetter.call(checkbox, true);
+  checkbox.dispatchEvent(new Event('click', { bubbles: true }));
+}
 ```
-// Use a second existing tab or create one:
-mcp__claude-in-chrome__navigate(tab_id=tab2Id, url="http://localhost:5001/live/{ROOM_CODE}")
-// Fill form: name = "Tab 2 Observer", email = any, check consent, click Join Session
-// Tab 2 joins as a guest with the given name (profile_id will be the authenticated user's)
+Then click the Join button.
+On failure: stop and report "Boot failed at Step B4 — join form fill or join click failed."
+
+**Step B5 — Confirm both in IdleScreen:**
+Take screenshots of both tabs. Confirm both show the IdleScreen (action buttons visible, no rating drawer).
+Announce:
 ```
+TWO-PARTY SESSION READY
+  Room code: {CODE}
+  Creator tab: http://localhost:5001/live/{CODE} — IdleScreen ✅
+  Listener tab: http://127.0.0.1:5001/live/{CODE} — IdleScreen ✅
+```
+On failure: stop and report "Boot failed at Step B5 — one or both tabs not at IdleScreen."
 
-3. **Tab 2 is now in IdleScreen.** Both tabs are in the session, driven by the same DB state.
-   Tab 2 shows creator's UI (story picker, both buttons) — not a real listener view.
-   But DB-driven sync (story card, live_state) propagates correctly to both tabs.
+**What this enables vs old single-origin two-tab approach:**
 
-4. **For story sync (UAT-2.1/2.2):** Select a story in tab 1, wait 2s, screenshot tab 2.
-   The story card WILL appear on tab 2 via Realtime/polling. ✅
-
-5. **For role-specific UI (UAT-2.3, picker only on creator):** Cannot verify in Chrome.
-   Use Playwright: `npm run test:e2e -- e2e/p272-live-verification.spec.ts`
-
-**Permanent listener account** (for Playwright or future multi-profile setup):
-- Email: `e2e-verify-listener@gmail.com` / Password: `ClarityVerify-L2026!`
-- In `.env.test.local` as `TEST_LISTENER_EMAIL` / `TEST_LISTENER_PASSWORD`
-- Created by `scripts/setup-verify-listener.ts`
+| What to test | Old two-tab (same origin) | Boot macro (localhost/127.0.0.1) |
+|---|---|---|
+| Story/state sync | ✅ | ✅ |
+| Role-specific UI (picker only on creator) | ❌ both show creator UI | ✅ |
+| Verification write (speaker_rating=10) | ❌ same profile_id | ✅ |
+| Listener identity in DB | ❌ same profile | ✅ different profile |
 
 #### 5b. Navigate to the Right Page
 
@@ -209,6 +261,18 @@ mcp__claude-in-chrome__wait_for(selector="[data-loaded]", timeout=3000)
 
 #### 5c. Interact as the User Would
 
+> ⚠️ **React Form Fill Warning:** `mcp__claude-in-chrome__fill` silently corrupts text in React-controlled inputs — the failure only surfaces downstream (e.g., join attempt fails). **Use the React Fill Macro below for ALL inputs in this app.** Only use `mcp__claude-in-chrome__fill` for non-React pages (e.g., the browser's own auth dialogs).
+
+**React Fill Macro** (use for every `<input>` and `<textarea>` in the app):
+```javascript
+// React Fill Macro — use instead of mcp__claude-in-chrome__fill
+const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+const el = document.querySelector('{selector}');  // e.g., 'input[placeholder*="story" i]'
+nativeInputValueSetter.call(el, '{value}');
+el.dispatchEvent(new Event('input', { bubbles: true }));
+el.dispatchEvent(new Event('change', { bubbles: true }));
+```
+
 Perform the action described in the scenario — click buttons, fill forms, submit. Act like a real user, not a developer:
 
 - Fill fields with **realistic content** (not "test", not "aaa") — use plausible values:
@@ -217,9 +281,10 @@ Perform the action described in the scenario — click buttons, fill forms, subm
 - Click the expected CTA (Save, Submit, Agree, etc.)
 
 Use these tools as needed:
-- `mcp__claude-in-chrome__fill` — fill inputs
+- `mcp__claude-in-chrome__javascript_tool` — fill inputs (React Fill Macro above)
 - `mcp__claude-in-chrome__click` — click buttons
 - `mcp__claude-in-chrome__find` — find elements by text or selector
+- `mcp__claude-in-chrome__fill` — non-React pages only
 
 #### 5d. Capture & Assess
 
@@ -256,6 +321,24 @@ Mark ❌ (not ⚠️) if:
 - Console errors appeared during the interaction
 
 Mark ⚠️ (partial) only if the core behavior works but something minor is off (e.g., slightly wrong color, small layout quirk).
+
+> **Triage Rule:** On ❌ or ⚠️, write the result to the scorecard (Step 5f below) with Expected vs Actual, then immediately continue to the next scenario. Do NOT open source files. Do NOT investigate why. Do NOT suggest or attempt a fix. Root cause analysis is `/fix`'s job.
+
+---
+
+#### 5f. Write to Scorecard Immediately
+
+After every scenario result — pass, fail, or skip — immediately update the UAT scorecard file.
+Do not accumulate results in memory. A context reset should lose at most one result.
+
+If `features/uat/p{N}.md` exists, find the `| UAT-{id} | ⬜ |` row and replace it:
+```markdown
+| UAT-2.1 | ✅ | Toast text matched exactly |
+| UAT-3.1 | ❌ | Expected: "X" — Got: "Y" |
+| UAT-5.2 | ⏭️ | Skipped — requires dedicated round setup |
+```
+
+Use the Edit tool to write the result. Do not defer to Step 7.
 
 ---
 
@@ -297,17 +380,15 @@ Issues: {list if any}
 
 ---
 
-### Step 7: Update UAT Scorecard
+### Step 7: Verify Scorecard Completeness
 
-If `features/uat/p{N}.md` exists, update the Test Execution Log:
+Results should already be written after each scenario (Step 5f). This step is a completeness check only.
 
-```markdown
-| UAT-2.1 | ✅ | Toast: "Verify your email to create a story — check your inbox or resend below." |
-| UAT-2.2 | ✅ | Story created, redirected to /story/abc123 |
-| UAT-3.1 | ❌ | Old message still appears: "Please verify your email to record positions" |
-```
+If `features/uat/p{N}.md` exists, scan the Test Execution Log for any remaining `⬜` rows.
+For each `⬜` row that was in scope for this session but has no result: fill it in now.
+If a scenario was not attempted (e.g., skipped by user choice): mark it ⏭️ with a reason.
 
-Replace the `⬜` entries for each scenario you tested.
+After this step, no `⬜` should remain for scenarios that were in the verification plan.
 
 ---
 
@@ -390,8 +471,8 @@ Fix UAT-3.1 failure, then re-run `/verify p{N}` to confirm.
 
 If ❌ verdict:
 1. **List failures clearly** — exact scenario, what was expected, what happened
-2. **Suggest the fix** — "UAT-3.1 failed: looks like `story-detail-page.tsx` still uses the old one-off check. The hook migration may be incomplete."
-3. **Tell user next step** — "Fix the issue, commit, then run `/verify` again."
+2. **Tell user to investigate** — "Run `/fix` to investigate and resolve these failures."
+3. **Tell user next step** — "Fix the issues, commit, then run `/verify` again."
 
 If ⚠️ verdict (visual issues only):
 1. List them as non-blocking
