@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import {
   PositionButtons,
   PositionBadge,
@@ -11,6 +12,20 @@ import {
   ThreadLineItem,
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
+
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 const ZERO_COUNTS: SevenPointCounts = {
   strongly_agree: 0,
@@ -66,15 +81,21 @@ export function LiveStoryCardExpanded({
             className="flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
               <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
-              {(story.authorEarsCount ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-0.5 text-gray-500 text-xs">
-                  <Ear size={12} />
-                  {story.authorEarsCount}
-                </span>
-              )}
+              <span className="inline-flex items-center gap-0.5 text-gray-500 text-xs">
+                <Ear size={12} />
+                {story.authorEarsCount ?? 0}
+              </span>
             </div>
+            {(story.authorRole || story.createdAt) && (
+              <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                <span>
+                  {story.authorRole ? `${story.authorRole} · ` : ''}{story.createdAt ? formatTimeAgo(story.createdAt) : ''}
+                </span>
+                {story.visibility && <VisibilityBadge visibility={story.visibility} />}
+              </p>
+            )}
             <p className="text-sm text-gray-900 leading-snug">{preview}</p>
           </div>
         </div>

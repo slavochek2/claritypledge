@@ -10,7 +10,7 @@ tags:
   - calibration
 created_date: 2026-02-19T00:00:00.000Z
 reviews:
-  ux: pending
+  ux: review
   architect: null
 ---
 
@@ -201,3 +201,195 @@ Reset `selectedHistoryIndex` to `null` when a new round starts (e.g. when `ratin
 - `src/app/pages/clarity-live-page.tsx` — `handleCelebrationComplete` (capture journey fields), `handleSkip` (capture skipped flag), state wiring for selected history index
 - `src/app/components/partners/live-mode-view.tsx` — export `JourneyToUnderstanding` if co-locating the summary component elsewhere; OR add `RoundSummaryScreen` here
 - New component file (if not co-located): `src/app/components/partners/round-summary-screen.tsx`
+
+---
+
+## UX Requirements
+
+### User Flows
+
+#### Happy Path — View a Completed Round
+
+1. Both participants click "Continue" on the celebration screen. The round is added to the "THIS SESSION" list on the idle screen.
+2. The new history entry shows a right-chevron icon, signalling it is tappable.
+3. The user taps the history entry.
+4. The idle screen content is replaced inline by the Round Summary Screen — the header and overall session frame remain unchanged; only the scrollable body content swaps.
+5. The user reads the summary (title, partner name, timestamp, Journey to Understanding).
+6. The user taps "Back". The idle screen content is restored exactly as it was before the tap. Session state is unchanged.
+
+#### Skipped Round
+
+1. A round is skipped. The history entry appears in "THIS SESSION" with no chevron icon and a visual treatment indicating it is not interactive (muted text, no hover affordance).
+2. The skipped entry is not tappable. No summary opens. No error occurs.
+
+Decision rationale: showing a "Skipped" stub summary adds complexity for minimal coaching value. Skipped rounds are visually identified by the absence of a chevron; facilitators already understand what a skip means.
+
+#### Active Round Starts While Summary Is Open
+
+1. The user is viewing a round summary.
+2. Their partner triggers a new round (rating phase moves away from idle).
+3. The summary closes automatically. The user is returned to the active-round UI immediately, as if they had pressed Back first. No data is lost; session state is unaffected.
+
+#### Back Navigation — Keyboard and Touch
+
+- Tapping "Back" button returns to idle content.
+- Pressing the Escape key also returns to idle content (desktop).
+- No browser back/forward navigation is involved; this is an in-page content swap, not a route change.
+
+---
+
+### Screen Designs
+
+#### A. Enhanced History List Item (idle screen)
+
+**Current layout:** `[checkmark icon] [content-type icon] [title text]`
+
+**Enhanced layout — completed round (clickable):**
+
+```
+[checkmark icon] [content-type icon] [title text ............] [chevron-right icon]
+```
+
+- The entire row is a tappable button with a clear affordance (cursor pointer, hover state).
+- The chevron is a right-pointing icon (16×16), color `text-muted-foreground`, right-aligned with `ml-auto` or `flex justify-between`.
+- Title text truncates with `line-clamp-1` as today, so it never wraps and the chevron always stays on the same line.
+- Minimum tap target: 44px height.
+
+**Enhanced layout — skipped round (non-clickable):**
+
+```
+[checkmark icon] [content-type icon] [title text] [Skipped label]
+```
+
+- No chevron. No button wrapper.
+- Title text and icons use reduced opacity (e.g. `opacity-60`) or a muted color to communicate the entry is inert.
+- A small "Skipped" label in `text-xs text-muted-foreground` appears at the right end of the row as a passive indicator.
+
+**Visual states for clickable rows:**
+
+| State | Treatment |
+|-------|-----------|
+| Default | Background transparent; icons and text in their standard muted colors |
+| Hover (desktop) | Subtle background highlight: `hover:bg-muted/50`; chevron shifts slightly right via `group-hover:translate-x-0.5` |
+| Pressed / active | `active:bg-muted`; slight opacity reduction |
+| Focus (keyboard) | Standard focus ring (`focus-visible:ring-2 focus-visible:ring-ring`) |
+
+---
+
+#### B. Round Summary Screen
+
+The idle screen body content is replaced with the Round Summary Screen. The `LiveHeader` (partner name + exit button) and the `RecordingIndicator` bar remain visible above. The summary is scrollable if it is taller than the viewport.
+
+**Header area:**
+
+- Title: story or point title in `text-base font-semibold text-foreground`. Truncates to two lines (`line-clamp-2`).
+- Subtitle line: `[partner name] · Round completed [time]` — formatted as a relative or absolute short time (e.g. "2:34 PM"), in `text-sm text-muted-foreground`.
+- Layout: left-aligned, matching the existing `CONTENT_LAYOUT` padding (`max-w-sm mx-auto w-full`).
+
+**Body:**
+
+- The `JourneyToUnderstanding` component fills the body, using the ratings stored in the history item.
+- `isChecker` is derived from whether the current user was the checker in that round (use `checkerName` stored on the history item matched against the current user's name).
+- `displayPartnerName` and `checkerName` come from the history item.
+- No `hideUntilBothSubmitted` — both ratings are already final and fully revealed in the summary.
+- The component renders identically to how it appears on the celebration screen (variant `'default'`, full mode with round numbers where applicable).
+
+**Footer:**
+
+- A single "Back" button, `variant="outline"`, full width (`w-full max-w-sm`), at the bottom of the scroll area.
+- On short screens where the journey data fits without scrolling, the button sits directly below the journey card with standard spacing (`mt-4` or equivalent).
+- On longer screens the button scrolls into view naturally (no sticky footer needed — the layout already uses `overflow-y-auto`).
+
+**Overall layout (inline content swap):**
+
+```
+[ LiveHeader — partner name + exit ] ← unchanged
+[ RecordingIndicator banner         ] ← unchanged
+┌─────────────────────────────────────┐
+│  [Story/point title              ]  │
+│  [Partner · 2:34 PM              ]  │
+│                                     │  ← scrollable body
+│  [JourneyToUnderstanding card    ]  │
+│                                     │
+│  [Back                           ]  │
+└─────────────────────────────────────┘
+```
+
+---
+
+### Edge Cases
+
+#### No Journey Data on a Completed Round
+
+Should not occur in normal operation (journey data is captured at round completion). If it does occur (e.g., data corruption or a very old in-memory entry from before this feature shipped), the history row renders without a chevron (treated as non-clickable). This is the safest fallback — the entry remains visible and informational, but no broken summary screen is shown.
+
+#### Skipped Round Tap Attempt
+
+Skipped rows have no button wrapper and no keyboard role. They cannot receive click or keyboard activation. No action fires if somehow reached.
+
+#### Summary Open During Active Round Start
+
+When `ratingPhase` transitions away from `'idle'`, the selected history index is reset to `null`. This closes the summary and restores the idle content, which is then immediately replaced by the active-round UI. The transition is seamless from the user's perspective.
+
+#### Single Explain-Back Round vs. Multiple Rounds
+
+`JourneyToUnderstanding` already handles both cases. When there are no explain-back rounds, the component shows only the initial ratings (round 0) without round-number labels. When there are one or more explain-back rounds, round numbers appear. The summary screen inherits this behaviour without any special casing.
+
+#### Very Long Title
+
+The title in the summary header truncates at two lines (`line-clamp-2`). The full title is not expanded in the summary — the truncation is acceptable because the user already knows what round they selected.
+
+#### History List with Many Entries
+
+The history list is inside a scrollable container (`overflow-y-auto`). As entries accumulate, the user scrolls to reach older ones. The summary screen is accessed from any entry regardless of scroll position; returning via Back restores the previous scroll position.
+
+---
+
+### Accessibility
+
+**Tappable history rows:**
+
+- Each clickable row is a `<button>` element (not a `div` with `role="button"`), ensuring native keyboard accessibility (Enter and Space activate it).
+- Accessible name: `"View round summary: [title]"` — set via `aria-label` so screen readers announce the full action, not just the visible truncated text.
+- Skipped rows are plain non-interactive elements with no button role; screen readers read them as static text.
+
+**Summary screen — focus management:**
+
+- When the summary screen opens, focus moves programmatically to the summary heading (the story/point title). This signals the context change to keyboard and screen reader users without requiring a new page load.
+- When the summary screen closes (Back button or Escape), focus returns to the history row that was tapped.
+
+**Back button and Escape:**
+
+- The Back button has a visible label ("Back") and is focusable in the natural tab order.
+- Pressing Escape anywhere within the summary content also triggers the back action. This is a standard pattern for inline overlay-like views.
+
+**JourneyToUnderstanding ratings in the summary:**
+
+- The component already renders rating values as visible numbers. In the summary context, where `hideUntilBothSubmitted` is `false` and all ratings are final, there are no "Pending…" states to announce.
+- Rating rows use `<p>` elements with label text. Screen readers will read them as "[label]: [number]" which is meaningful without additional ARIA.
+
+**Color and contrast:**
+
+- Muted/skipped entry treatment uses reduced opacity. Ensure the resulting contrast ratio for skipped title text meets WCAG AA (4.5:1) against the card background.
+
+---
+
+### Responsive Design
+
+**Mobile (320px – 767px):**
+
+- The summary screen replaces the idle body content at full width within the existing `max-w-sm` container (320px effective width).
+- The `JourneyToUnderstanding` card is already sized to `w-full` within that container and scrolls normally.
+- All tap targets (history rows, Back button) are at least 44px tall to meet mobile touch guidelines.
+- The bottom padding of the scroll area (already `pb-6` in `CONTENT_LAYOUT`) ensures the Back button is not obscured by system UI on mobile browsers.
+
+**Tablet / Desktop (768px and above):**
+
+- The session UI renders within a centered `max-w-lg` column. The summary content inherits this constraint naturally.
+- The `max-w-sm` inner width on the `JourneyToUnderstanding` card and Back button prevents the layout from stretching too wide on large viewports — consistent with all other idle-screen cards.
+- No separate sheet or side-panel treatment is needed. The inline swap pattern works identically at all breakpoints.
+
+**Hover state (pointer devices):**
+
+- Chevron icons and row hover backgrounds are visible only on devices with a hover capability (`@media (hover: hover)`), preventing the "sticky hover" issue on touch devices.
+- The Back button shows a standard outline button hover style consistent with the existing `variant="outline"` usage across the session UI.

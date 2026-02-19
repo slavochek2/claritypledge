@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles } from 'lucide-react';
+import { Share2, Check, Keyboard, Mic, ShieldOff, Sparkles, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,8 +32,6 @@ import {
   uploadEventsSnapshot,
   MAX_NAME_LENGTH,
   type ClaritySession,
-  // P37.2a: Consent mechanism
-  getOrCreateGuestUser,
   recordTermsAcceptance,
   recordSessionConsent,
   needsTermsAcceptance,
@@ -117,8 +115,7 @@ export function ClarityLivePage() {
   const isFromEvent = returnTo?.startsWith('/events/');
 
   // Get logged-in user's name (if authenticated)
-  // P50: Add refreshProfile to update AuthContext after guest profile creation
-  const { user, isLoading: isAuthLoading, refreshProfile } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   // Session state
   const [view, setView] = useState<ViewState>('start');
@@ -146,12 +143,9 @@ export function ClarityLivePage() {
   const [consentLoading, setConsentLoading] = useState(false);
   // Store pending join info for after consent or mic retry
   const pendingJoinRef = useRef<{ code: string; userId?: string; joinName?: string } | null>(null);
-  // B50: Inline email field for join/create flows (no dialog)
-  const [email, setEmail] = useState('');
-  // B50: Verified user edge case - show inline message instead of dialog
-  const [verifiedEmailError, setVerifiedEmailError] = useState<string | null>(null);
-  // P50: Consent checkbox state for non-logged-in users
-  const [consentChecked, setConsentChecked] = useState(false);
+
+  // P396: Prevents auto-join effect from firing more than once
+  const autoJoinFiredRef = useRef(false);
 
   // P160: Private session mode (recording toggle — creator only, locked after session created)
   const [isPrivate, setIsPrivate] = useState(false);
@@ -1419,43 +1413,6 @@ export function ClarityLivePage() {
   // ============================================================================
 
   /**
-   * B50: Called when guest submits inline form (name + email entered).
-   * Creates/gets guest user and records consent before joining.
-   * No dialog - handles verified user edge case inline.
-   */
-  const handleGuestJoin = async (guestName: string, guestEmail: string, code: string) => {
-    setConsentLoading(true);
-    setVerifiedEmailError(null);
-    setError(null);
-
-    try {
-      const result = await getOrCreateGuestUser(guestEmail, guestName);
-
-      if (result.requiresLogin) {
-        // B50: Email belongs to verified user - show inline error instead of dialog
-        setVerifiedEmailError(guestEmail);
-        return;
-      }
-
-      // P50: Refresh AuthContext so menu shows correct items for new guest profile
-      await refreshProfile();
-
-      // Record consent
-      await recordTermsAcceptance(result.userId);
-      await recordSessionConsent(code, result.userId);
-
-      // Now do the actual join with the guest name
-      await completeJoin(code, guestName);
-
-    } catch (err) {
-      console.error('Guest join failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to join. Please try again.');
-    } finally {
-      setConsentLoading(false);
-    }
-  };
-
-  /**
    * Called when logged-in user accepts updated terms.
    */
   const handleTermsAccept = async () => {
@@ -1548,22 +1505,6 @@ export function ClarityLivePage() {
     }
   };
 
-  /**
-   * B50: Handle "Send Login Link" for verified user edge case.
-   */
-  const handleSendLoginLink = () => {
-    // Redirect to login page - could enhance with magic link later
-    navigate('/login');
-  };
-
-  /**
-   * B50: Handle "Use Different Email" for verified user edge case.
-   */
-  const handleUseDifferentEmail = () => {
-    setVerifiedEmailError(null);
-    setEmail('');
-  };
-
   // MEDIUM: Name validation helper
   const validateName = (inputName: string): string | null => {
     const trimmed = inputName.trim();
@@ -1576,24 +1517,10 @@ export function ClarityLivePage() {
     return null;
   };
 
-  // Email validation helper (matches pledge form validation)
-  const validateEmail = (inputEmail: string): string | null => {
-    const trimmed = inputEmail.trim();
-    if (!trimmed) {
-      return 'Please enter your email address';
-    }
-    // Same regex as use-pledge-form.ts for consistency
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) {
-      return 'Please enter a valid email address';
-    }
-    return null;
-  };
-
   // P66: Create session handler - auth gate (only verified users can host)
   const handleCreate = async () => {
-    // P66/P396: Auth gate - only verified accounts can host sessions
-    if (!user?.isVerified) {
+    // P66/P396: Auth gate - only authenticated (verified) users can host sessions
+    if (!user) {
       navigate('/signup');
       return;
     }
@@ -1687,7 +1614,6 @@ export function ClarityLivePage() {
     });
 
     setError(null);
-    setVerifiedEmailError(null);
 
     // Store the code for after consent flow completes
     pendingJoinRef.current = { code: normalizedCode };
@@ -1707,21 +1633,48 @@ export function ClarityLivePage() {
         }
       }
     } else {
-      // B50: Guest - validate inline form (name + email required)
+      // P396: Guest — name-only validation, no email collected, no profile created
       const nameError = validateName(name);
       if (nameError) {
         setError(nameError);
         return;
       }
-      const emailError = validateEmail(email);
-      if (emailError) {
-        setError(emailError);
-        return;
-      }
-      // Proceed with guest join (inline, no dialog)
-      await handleGuestJoin(name.trim(), email.trim(), normalizedCode);
+      await completeJoin(normalizedCode, name.trim());
     }
   };
+
+  // P396: Keep ref pointing to latest handleJoin — avoids stale closure in auto-join effect
+  const handleJoinRef = useRef<() => void>(() => {});
+  handleJoinRef.current = handleJoin;
+
+  // P396: Auto-join verified users arriving via invite link — no form needed
+  useEffect(() => {
+    if (!isJoinViaLink || !urlCode) return;
+    if (isAuthLoading || isRestoring) return;
+    if (!user?.isVerified) return;
+    if (view !== 'start') return;
+    if (autoJoinFiredRef.current) return;
+
+    autoJoinFiredRef.current = true;
+
+    (async () => {
+      setIsLoading(true);
+      const code = urlCode.toUpperCase();
+      try {
+        // Host detection: creator clicking own invite link → send them to their /live page
+        const sessionInfo = await getClaritySession(code);
+        if (sessionInfo?.creatorProfileId === user.id) {
+          navigate('/live');
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        // Session lookup failed — proceed; handleJoin will surface any join error
+      }
+      setIsLoading(false);
+      handleJoinRef.current();
+    })();
+  }, [isJoinViaLink, urlCode, isAuthLoading, isRestoring, user?.isVerified, user?.id, view]);
 
   // Cancel waiting and go back to start
   const handleCancelWaiting = () => {
@@ -2000,7 +1953,7 @@ export function ClarityLivePage() {
             partnerName={departedPartnerName}
             sessionEnded={sessionEnded}
             onStartNew={handleStartNewAfterPartnerLeft}
-            isGuest={!user?.isVerified}
+            isGuest={!user}
           />
         </div>
       </div>
@@ -2020,14 +1973,11 @@ export function ClarityLivePage() {
 
   // START VIEW
   if (view === 'start') {
-    // B50/P396: Join via link - single screen with name + consent (no dialog)
+    // P396: Join via link — two-state model (authenticated / anonymous guest)
     if (isJoinViaLink) {
       const joinTitle = hostName ? `Join ${hostName}'s Session` : 'Join Clarity Session';
-      const isVerifiedUser = !!user?.isVerified;
-      // P396: Verified users join by name only; guests need name + consent
-      const canJoinViaLink = isVerifiedUser
-        ? !validateName(name)
-        : !validateName(name) && !validateEmail(email);
+      // P396: name-only requirement (no email)
+      const canJoinViaLink = !validateName(name);
       // Redirect URL for login/signup flows — returns user to session after auth
       const sessionRedirectUrl = `/live/${urlCode}`;
 
@@ -2060,67 +2010,41 @@ export function ClarityLivePage() {
               </div>
             )}
 
-            {/* B50: Verified user edge case - inline message */}
-            {verifiedEmailError ? (
-              <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
-                <div className="space-y-2">
-                  <h3 className="font-medium text-blue-900">This email has an account</h3>
-                  <p className="text-sm text-blue-700">
-                    <strong>{verifiedEmailError}</strong> is registered. Log in to continue.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleUseDifferentEmail}
-                    className="flex-1"
-                  >
-                    Use Different Email
-                  </Button>
-                  <Button
-                    onClick={handleSendLoginLink}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600"
-                  >
-                    Log In
-                  </Button>
-                </div>
-              </div>
-            ) : isVerifiedUser ? (
-              /* P396: Verified user — join directly, no email needed */
+            {user ? (
+              /* P396: Authenticated user — auto-joins on page load.
+                 Spinner during auto-join; fallback button only if join fails. */
               <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Your name</Label>
-                  <Input
-                    id="name"
-                    placeholder="Enter your name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    autoFocus
-                  />
-                </div>
+                {isLoading || consentLoading ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    Joining session...
+                  </div>
+                ) : (
+                  <>
+                    {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
-                {error && <p className="text-sm text-red-600">{error}</p>}
+                    <Button
+                      onClick={handleJoin}
+                      disabled={isLoading || consentLoading}
+                      className="w-full bg-blue-500 hover:bg-blue-600"
+                      size="lg"
+                    >
+                      Join Session
+                    </Button>
 
-                <Button
-                  onClick={handleJoin}
-                  disabled={isLoading || consentLoading || !canJoinViaLink}
-                  className="w-full bg-blue-500 hover:bg-blue-600"
-                  size="lg"
-                >
-                  {isLoading || consentLoading ? 'Joining...' : 'Join Session'}
-                </Button>
-
-                <Link
-                  to="/live"
-                  className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
-                >
-                  Back
-                </Link>
+                    <Link
+                      to="/live"
+                      className="inline-flex items-center justify-center text-sm text-muted-foreground hover:text-foreground transition-colors w-full"
+                    >
+                      Back
+                    </Link>
+                  </>
+                )}
               </div>
             ) : (
-              /* Guest join form + login option for registered users */
+              /* P396: Guest join form — name only, no email collected */
               <div className="space-y-6">
-                {/* P396: Login option for registered users who aren't logged in */}
+                {/* Login option for registered users who aren't logged in */}
                 <div className="space-y-3">
                   <GoogleAuthButton
                     context="live-join"
@@ -2157,51 +2081,11 @@ export function ClarityLivePage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Your email (for session link)</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-
                 {error && <p className="text-sm text-red-600">{error}</p>}
-
-                {/* P50: Consent checkbox (replaces passive notice) */}
-                {/* P160: Label changes based on session recording state */}
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="consent-join"
-                    checked={consentChecked}
-                    onChange={(e) => setConsentChecked(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <label htmlFor="consent-join" className="text-sm text-muted-foreground leading-relaxed">
-                    {joinSessionIsPrivate ? (
-                      <>
-                        I accept the{' '}
-                        <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
-                        and{' '}
-                        <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
-                      </>
-                    ) : (
-                      <>
-                        I agree this session is recorded for AI Insights, and I accept the{' '}
-                        <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
-                        and{' '}
-                        <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
-                      </>
-                    )}
-                  </label>
-                </div>
 
                 <Button
                   onClick={handleJoin}
-                  disabled={isLoading || consentLoading || !canJoinViaLink || !consentChecked}
+                  disabled={isLoading || consentLoading || !canJoinViaLink}
                   className="w-full bg-blue-500 hover:bg-blue-600"
                   size="lg"
                 >
@@ -2265,9 +2149,8 @@ export function ClarityLivePage() {
       );
     }
 
-    // B50: Check if guest can create/join (needs both name and email)
-    // P50: Also requires consent checkbox for non-logged-in users
-    const guestCanProceed = isLoggedIn || (!validateName(name) && !validateEmail(email) && consentChecked);
+    // P396: Check if guest can proceed — name-only requirement
+    const guestCanProceed = isLoggedIn || !validateName(name);
 
     return (
       <div className="flex flex-col min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
@@ -2283,66 +2166,24 @@ export function ClarityLivePage() {
               </p>
             </div>
 
-            {/* B50: Verified user edge case - inline message */}
-            {verifiedEmailError ? (
-              <div className="space-y-4 p-4 border border-blue-200 bg-blue-50 rounded-lg max-w-md mx-auto">
-                <div className="space-y-2">
-                  <h3 className="font-medium text-blue-900">This email has an account</h3>
-                  <p className="text-sm text-blue-700">
-                    <strong>{verifiedEmailError}</strong> is registered. Log in to continue.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleUseDifferentEmail}
-                    className="flex-1"
-                  >
-                    Use Different Email
-                  </Button>
-                  <Button
-                    onClick={handleSendLoginLink}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600"
-                  >
-                    Log In
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
                 {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 
                 {/* Form controls - centered container, left-aligned contents */}
                 <div className="flex justify-center">
                   <div className="flex flex-col gap-4">
-                    {/* B50: Guest: name + email inputs - above buttons */}
+                    {/* P396: Guest: name-only input - above buttons */}
                     {!isLoggedIn && (
-                      <>
-                        <div className="flex flex-col gap-1.5">
-                          {/* P50: Updated label per spec */}
-                          <Label htmlFor="name" className="text-sm font-medium">What should we call you?</Label>
-                          <Input
-                            id="name"
-                            placeholder="Enter your name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            autoFocus
-                            className="w-[280px] rounded-full h-11 text-sm"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          {/* P50: Updated label per spec */}
-                          <Label htmlFor="email" className="text-sm font-medium">Your email (for session link)</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="your@email.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-[280px] rounded-full h-11 text-sm"
-                          />
-                        </div>
-                      </>
+                      <div className="flex flex-col gap-1.5">
+                        <Label htmlFor="name" className="text-sm font-medium">What should we call you?</Label>
+                        <Input
+                          id="name"
+                          placeholder="Enter your name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          autoFocus
+                          className="w-[280px] rounded-full h-11 text-sm"
+                        />
+                      </div>
                     )}
 
                     {/* P160: Recording toggle — creator-only control, shown before session is created */}
@@ -2351,10 +2192,7 @@ export function ClarityLivePage() {
                         role="switch"
                         aria-checked={!isPrivate}
                         aria-label={isPrivate ? 'Private session — recording disabled' : 'Record session for AI Insights'}
-                        onClick={() => {
-                          setIsPrivate((prev) => !prev);
-                          setConsentChecked(false); // User must re-agree when label changes
-                        }}
+                        onClick={() => setIsPrivate((prev) => !prev)}
                         className={`flex items-center gap-3 w-full min-h-[44px] px-3 py-2 rounded-lg border text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
                           isPrivate
                             ? 'bg-muted border-border'
@@ -2384,36 +2222,6 @@ export function ClarityLivePage() {
                       </span>
                     </div>
 
-                    {/* P50/P63: Consent checkbox - always visible for non-logged-in users */}
-                    {!isLoggedIn && (
-                      <div className="flex items-start gap-3 w-[280px]">
-                        <input
-                          type="checkbox"
-                          id="consent-start"
-                          checked={consentChecked}
-                          onChange={(e) => setConsentChecked(e.target.checked)}
-                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <label htmlFor="consent-start" className="text-xs text-muted-foreground leading-relaxed">
-                          {isPrivate ? (
-                            <>
-                              I accept the{' '}
-                              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
-                              and{' '}
-                              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
-                            </>
-                          ) : (
-                            <>
-                              I agree this session is recorded for AI Insights, and I accept the{' '}
-                              <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Terms</a>{' '}
-                              and{' '}
-                              <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Privacy Policy</a>.
-                            </>
-                          )}
-                        </label>
-                      </div>
-                    )}
-
                     {/* P25: Google Meet style - stacked on mobile, inline on desktop */}
                     <div className="flex flex-col md:flex-row md:items-center items-start gap-3">
                       {/* New meeting button - compact (not full width) */}
@@ -2432,7 +2240,6 @@ export function ClarityLivePage() {
                         const hasInput = roomCode.trim().length > 0;
                         const extractedCode = hasInput ? extractCodeFromInput(roomCode) : null;
                         const isValidInput = !!extractedCode;
-                        // B50: Now also requires email for guests
                         const canJoin = guestCanProceed && isValidInput;
 
                         // Determine error message for inline display
@@ -2444,8 +2251,7 @@ export function ClarityLivePage() {
                             inputError = 'Code must be 6 characters';
                           }
                         } else if (hasInput && isValidInput && !guestCanProceed) {
-                          // P50: Show appropriate error message based on what's missing
-                          inputError = isLoggedIn ? '' : (validateName(name) || validateEmail(email)) ? 'Enter name and email first' : 'Accept terms to continue';
+                          inputError = isLoggedIn ? '' : 'Enter your name first';
                         }
 
                         return (
@@ -2518,8 +2324,6 @@ export function ClarityLivePage() {
                     </p>
                   </div>
                 )}
-              </>
-            )}
           </div>
 
           {/* Terms update dialog (for logged-in users only) */}

@@ -629,7 +629,7 @@ export interface LiveSessionState {
   // StoryWithAuthor is automatically required here — prevents silent drift.
   selectedStoryData?: Pick<StoryWithAuthor,
     'authorName' | 'authorSlug' | 'authorAvatarColor' | 'authorAvatarUrl' |
-    'authorEarsCount' | 'authorHasPledged'
+    'authorRole' | 'authorEarsCount' | 'authorHasPledged' | 'visibility'
   > & {
     id: string;
     authorId?: string;
@@ -875,6 +875,7 @@ export interface StoryWithAuthor extends Story {
   authorSlug: string;
   authorAvatarColor?: string;
   authorAvatarUrl?: string;
+  authorRole?: string;
   authorEarsCount?: number; // P132: Credibility badge display
   authorHasPledged?: boolean;
 }

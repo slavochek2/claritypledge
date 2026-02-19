@@ -36,6 +36,7 @@ interface DbStoryWithAuthor {
     id: string;
     name: string | null;
     slug: string | null;
+    role: string | null;
     avatar_color: string | null;
     avatar_url: string | null;
     ears_count: number | null;
@@ -81,6 +82,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     // Author info from joined profile
     authorName: row.author?.name ?? 'Unknown',
     authorSlug: row.author?.slug ?? '',
+    authorRole: row.author?.role ?? undefined,
     authorAvatarColor: row.author?.avatar_color ?? '#3B82F6',
     authorAvatarUrl: row.author?.avatar_url ?? undefined,
     authorEarsCount: row.author?.ears_count ?? 0,
@@ -178,6 +180,7 @@ export const realStoriesService: StoriesService = {
           id,
           name,
           slug,
+          role,
           avatar_color,
           avatar_url,
           ears_count,
@@ -275,6 +278,7 @@ export const realStoriesService: StoriesService = {
           id,
           name,
           slug,
+          role,
           avatar_color,
           avatar_url,
           ears_count,
@@ -381,6 +385,7 @@ export const realStoriesService: StoriesService = {
           id,
           name,
           slug,
+          role,
           avatar_color,
           avatar_url,
           ears_count,
