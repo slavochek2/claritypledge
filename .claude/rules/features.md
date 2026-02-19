@@ -22,8 +22,9 @@ tags: []              # REQUIRED: can be empty array
 `backlog` → `week` → `today` → `in-progress` → `blocked` → `done` → `all-done`
 
 - When `status: done` → move file to `features/done/`, add `completed_at`
-- When `status: all-done` → file lives in `features/` root (not in `done/`), no `completed_at` required. This is a manually pinned archive state.
+- When `status: all-done` → move file to `features/done/` (same as `done`), `completed_at` not required. Use for permanently closed features that should remain visually prominent on the kanban.
 - When rejected → move to `features/archive/`, set `status: rejected`
+- UAT file (`features/uat/pN.md`) → always moves with its spec into `features/done/{sprint}/uat/`
 
 ## Manual Status Lock (`locked_at`)
 

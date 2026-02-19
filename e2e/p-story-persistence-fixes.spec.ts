@@ -211,8 +211,11 @@ test.describe('Story Persistence Fixes — Regression', () => {
       await expect(speakerPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
       await expect(listenerPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
 
-      // Both click Continue — triggers handleCelebrationComplete which must clear selectedStoryData
+      // Speaker clicks Continue first — writes celebrationAcknowledgedBy: [speakerName] to DB.
+      // Wait 2s before listener clicks so the app's 1s polling cycle picks up the speaker's
+      // acknowledgment. Without this gap, both parties may write [selfName] only (race condition).
       await speakerPage.getByRole('button', { name: /Continue/i }).click();
+      await new Promise(r => setTimeout(r, 2500));
       await listenerPage.getByRole('button', { name: /Continue/i }).click();
 
       // Wait for DB to confirm story fields are cleared (selectedStoryId + selectedStoryData gone)

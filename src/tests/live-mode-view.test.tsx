@@ -546,9 +546,10 @@ describe('LiveModeView', () => {
       const stateWithHistory: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         sessionHistory: [
-          { title: 'The importance of feedback', type: 'story' },
-          { title: 'Clear communication matters', type: 'point' },
-          { title: 'Free conversation', type: 'free' },
+          // Enriched entries (P398 shape) — backward compat check
+          { title: 'The importance of feedback', type: 'story', checkerRating: 8, responderRating: 7, explainBackRatings: [], checkerName: 'alice', partnerName: 'bob', completedAt: '2026-02-19T10:00:00.000Z', isChecker: true },
+          { title: 'Clear communication matters', type: 'point', checkerRating: 6, responderRating: 9, explainBackRatings: [], checkerName: 'bob', partnerName: 'alice', completedAt: '2026-02-19T10:05:00.000Z', isChecker: false },
+          { title: 'Free conversation', type: 'free', skipped: true },
         ],
       };
 
@@ -585,6 +586,155 @@ describe('LiveModeView', () => {
     it('initializes sessionHistory as empty array in DEFAULT_LIVE_STATE', () => {
       // Verify that DEFAULT_LIVE_STATE has sessionHistory initialized
       expect(DEFAULT_LIVE_STATE.sessionHistory).toEqual([]);
+    });
+  });
+
+  describe.skip('P398: Clickable Session History — skip until P398 implemented', () => {
+    const completedEntry = {
+      title: 'The bridge story',
+      type: 'story' as const,
+      checkerRating: 8,
+      responderRating: 7,
+      explainBackRatings: [],
+      checkerName: 'alice',
+      partnerName: 'bob',
+      completedAt: '2026-02-19T10:00:00.000Z',
+      isChecker: true,
+    };
+
+    it('completed round entry renders as a button with aria-label "View round summary: [title]"', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [completedEntry],
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" partnerName="bob" liveState={state} />
+      );
+
+      expect(
+        screen.getByRole('button', { name: /View round summary: The bridge story/i })
+      ).toBeInTheDocument();
+    });
+
+    it('skipped round entry is not interactive and shows "Skipped" label', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [{ title: 'The trust conversation', type: 'story', skipped: true }],
+      };
+
+      renderWithRouter(<LiveModeView {...defaultProps} liveState={state} />);
+
+      expect(screen.getByText('The trust conversation')).toBeInTheDocument();
+      expect(screen.getByText('Skipped')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /View round summary: The trust conversation/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('entry without journey data renders as non-interactive (graceful fallback for legacy entries)', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [{ title: 'Old entry without journey data', type: 'point' }],
+      };
+
+      renderWithRouter(<LiveModeView {...defaultProps} liveState={state} />);
+
+      expect(screen.getByText('Old entry without journey data')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /View round summary/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('clicking a completed history entry opens the summary screen (Back button appears, action buttons disappear)', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [completedEntry],
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" partnerName="bob" liveState={state} />
+      );
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /View round summary: The bridge story/i })
+      );
+
+      // Summary screen is shown — Back button present
+      expect(screen.getByRole('button', { name: /^Back$/i })).toBeInTheDocument();
+      // Idle action buttons are replaced
+      expect(screen.queryByTestId('start-check')).not.toBeInTheDocument();
+    });
+
+    it('Back button in summary screen returns to idle content', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [completedEntry],
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" partnerName="bob" liveState={state} />
+      );
+
+      // Open summary
+      fireEvent.click(
+        screen.getByRole('button', { name: /View round summary: The bridge story/i })
+      );
+      expect(screen.getByRole('button', { name: /^Back$/i })).toBeInTheDocument();
+
+      // Click Back
+      fireEvent.click(screen.getByRole('button', { name: /^Back$/i }));
+
+      // Idle content restored
+      expect(screen.getByTestId('start-check')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Back$/i })).not.toBeInTheDocument();
+    });
+
+    it('summary auto-closes when ratingPhase transitions away from idle', () => {
+      const idleState: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        sessionHistory: [completedEntry],
+      };
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <LiveModeView
+            {...defaultProps}
+            currentUserName="alice"
+            partnerName="bob"
+            liveState={idleState}
+          />
+        </MemoryRouter>
+      );
+
+      // Open summary
+      fireEvent.click(
+        screen.getByRole('button', { name: /View round summary: The bridge story/i })
+      );
+      expect(screen.getByRole('button', { name: /^Back$/i })).toBeInTheDocument();
+
+      // Partner starts a new round — ratingPhase leaves 'idle'
+      const activeRoundState: LiveSessionState = {
+        ...idleState,
+        ratingPhase: 'rating',
+        checkerName: 'bob',
+        checkerSubmitted: false,
+        responderSubmitted: false,
+      };
+
+      rerender(
+        <MemoryRouter>
+          <LiveModeView
+            {...defaultProps}
+            currentUserName="alice"
+            partnerName="bob"
+            liveState={activeRoundState}
+          />
+        </MemoryRouter>
+      );
+
+      // Summary is closed — Back button gone
+      expect(screen.queryByRole('button', { name: /^Back$/i })).not.toBeInTheDocument();
     });
   });
 });

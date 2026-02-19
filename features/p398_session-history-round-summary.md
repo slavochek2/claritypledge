@@ -12,6 +12,12 @@ created_date: 2026-02-19T00:00:00.000Z
 reviews:
   ux: review
   architect: approved
+uat_file: features/uat/p398.md
+test_files:
+  - src/tests/live-mode-view.test.tsx
+  - e2e/p398-session-history-summary.spec.ts
+  - e2e/p398-smoke.spec.ts
+  - e2e/a11y/p398-accessibility.spec.ts
 ---
 
 # P398: Clickable Session Round History with Summary Screen
@@ -641,3 +647,58 @@ interface RoundSummaryScreenProps {
 6. **Phase 6 — Wire state in `IdleScreen`**: `selectedHistoryIndex` state, auto-reset effect, conditional render, pass `onItemClick`. Run `npm test` + `npm run build`.
 7. **Phase 7 — Update and add tests**: update fixtures, add 5 new tests. Run full test suite.
 8. **Phase 8 — E2E verification**: run `/verify` — complete a round, tap history entry, verify summary shows correct ratings, Back restores idle, Escape closes, skipped rows have no affordance, keyboard flow works.
+
+---
+
+## Test Coverage Strategy
+
+**What's Tested:**
+
+- ✅ `SessionHistoryList` — completed entry renders as `<button>` with correct `aria-label` (unit)
+- ✅ `SessionHistoryList` — skipped entry renders as non-interactive div with "Skipped" label (unit)
+- ✅ `SessionHistoryList` — legacy entry (no `checkerRating`) renders non-interactive / graceful fallback (unit)
+- ✅ `IdleScreen` — clicking a history entry opens the summary screen / Back button appears (unit)
+- ✅ `IdleScreen` — Back button restores idle content (unit)
+- ✅ `IdleScreen` — summary auto-closes when `ratingPhase` leaves `'idle'` (unit via `rerender`)
+- ✅ Happy path — complete round → history button appears → click → summary shows title + Back → Back restores idle (E2E)
+- ✅ Auto-close — partner starts new round while summary is open → summary closes (E2E)
+- ✅ Skip flow — skipped round has no button/chevron (E2E)
+- ✅ Semantic HTML — history row is `<button>` with `aria-label="View round summary: [title]"` (a11y)
+- ✅ Skipped row — NOT a button (a11y)
+- ✅ Escape key — closes summary screen (a11y)
+- ✅ Keyboard activation — Tab + Enter opens summary (a11y)
+- ✅ No console errors on /live page load (smoke)
+
+**What's NOT Tested (rationale):**
+
+- ❌ Focus restoration to originating row after Back (complex to verify in Playwright; covered by UAT-4.2 manual check)
+- ❌ Cross-session history persistence — explicitly out of scope per spec; behavior is "page reload clears history"
+- ❌ JourneyToUnderstanding internals in summary — component is tested independently; P398 tests only verify it is rendered and Back works
+- ❌ No integration test — P398 adds no DB migration; data flows through existing `live_state` JSONB column
+
+**Test Pyramid:**
+
+```
+       /\
+      /  \   3 E2E (two-party round completion)
+     /    \
+    /------\
+   /  4 A11y \  (accessibility in real browser)
+  /____________\
+ /   6 Unit     \  (component behavior via @testing-library)
+/________________\
+```
+
+**Files generated:**
+
+| File | Type | Tests |
+|------|------|-------|
+| `src/tests/live-mode-view.test.tsx` | Unit (updated) | +6 tests in P398 block |
+| `e2e/p398-session-history-summary.spec.ts` | E2E | 3 tests |
+| `e2e/p398-smoke.spec.ts` | Smoke | 2 tests |
+| `e2e/a11y/p398-accessibility.spec.ts` | Accessibility | 4 tests |
+| `features/uat/p398.md` | UAT | 14 scenarios |
+
+**Total automated tests:** 15
+**UAT scenarios:** 14
+**Estimated run time:** Unit ~2s · Smoke ~10s · E2E ~90s · A11y ~90s

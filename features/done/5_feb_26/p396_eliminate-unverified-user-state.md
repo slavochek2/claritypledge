@@ -1,5 +1,6 @@
 ---
 status: done
+completed_at: "2026-02-19"
 type: task
 rank: 0.5
 tags:
@@ -474,7 +475,7 @@ None. `getOrCreateGuestUser` is deleted in-place within `api.ts`.
   6. Add constraint: `ALTER TABLE clarity_sessions ADD CONSTRAINT joiner_name_length CHECK (length(joiner_name) <= 100)`
   7. Run `./scripts/migrate.sh`
 - **Verify:** `e2e/integration/p396-host-rls-migration.spec.ts` passes (all 5 tests)
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: Simplify guest join flow in clarity-live-page.tsx + delete getOrCreateGuestUser
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify), `src/app/data/api.ts` (modify)
@@ -492,7 +493,7 @@ None. `getOrCreateGuestUser` is deleted in-place within `api.ts`.
   8. Main start view JSX: remove email `<Input>` and consent checkbox from guest block; update `guestCanProceed` to drop email requirement
   9. Change `isGuest={!user?.isVerified}` → `isGuest={!user}` at `PartnerLeftScreen` call site
 - **Verify:** `npm run build` succeeds (no TS errors), `e2e/p396-smoke.spec.ts` passes, `e2e/join-form-ux.spec.ts` passes, `e2e/live-page-auth-gate.spec.ts` passes
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: Simplify useVerificationGate hook
 - **Files:** `src/app/hooks/useVerificationGate.ts` (modify)
@@ -503,7 +504,7 @@ None. `getOrCreateGuestUser` is deleted in-place within `api.ts`.
   1. Change `if (user?.isVerified) return true;` → `if (!!user) return true;`
   2. Change toast message: `"Verify your email to ${actionLabel} — check your inbox or resend below."` → `"Sign in to ${actionLabel}."`
 - **Verify:** `npm test -- useVerificationGate` passes (6 tests, no unverified-user cases), `e2e/p273-verification-gate.spec.ts` passes
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: Full regression
 - **Files:** None (test-run only)
@@ -517,6 +518,6 @@ None. `getOrCreateGuestUser` is deleted in-place within `api.ts`.
   4. DB check: `SELECT count(*) FROM profiles WHERE is_verified = false` (should not increase after exercising join flow)
   5. Run `./scripts/pre-commit-checks.sh`
 - **Verify:** All tests green, pre-commit passes
-- [ ] Complete
+- [x] Complete
 
 **Total tasks:** 4 | **Can parallelize:** Task 1 + Task 3 (no shared dependencies) | **Must be sequential:** Task 1 → Task 2 → Task 4; Task 3 → Task 4

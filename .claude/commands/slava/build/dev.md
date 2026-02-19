@@ -600,9 +600,9 @@ After successful commit, close the feature:
    Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
 3. Move files:
    ```bash
-   mkdir -p features/done/{folder}
+   mkdir -p features/done/{folder}/uat
    git mv features/{spec} features/done/{folder}/
-   git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
+   git mv features/uat/p{N}.md features/done/{folder}/uat/ 2>/dev/null
    ```
 4. Commit: `chore: close P{N} — {title}`
 5. Ask: "Capture learnings with /kdd? (y/n)"

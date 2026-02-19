@@ -28,7 +28,30 @@ Runs `scripts/fix-frontmatter.sh` against all `features/` files (including `done
    ./scripts/fix-frontmatter.sh
    ```
 
-2. Bust the kanban cache so cards appear immediately:
+2. **Move misplaced files** — scan `features/*.md` (root-level only) and relocate any that belong elsewhere:
+
+   - `status: done` or `status: all-done` → move to latest `features/done/*/` subfolder + move UAT:
+     ```bash
+     DEST=$(ls -d features/done/*/ 2>/dev/null | sort -V | tail -1)
+     mkdir -p "$DEST/uat"
+     for f in features/p*.md; do
+       status=$(grep "^status:" "$f" | head -1 | awk '{print $2}')
+       if [[ "$status" == "done" || "$status" == "all-done" ]]; then
+         pnum=$(basename "$f" | grep -oE '^p[0-9]+')
+         git mv "$f" "$DEST"
+         [[ -f "features/uat/${pnum}.md" ]] && git mv "features/uat/${pnum}.md" "$DEST/uat/"
+       fi
+     done
+     ```
+   - `status: rejected` → move to `features/archive/`:
+     ```bash
+     for f in features/p*.md; do
+       status=$(grep "^status:" "$f" | head -1 | awk '{print $2}')
+       [[ "$status" == "rejected" ]] && git mv "$f" features/archive/
+     done
+     ```
+
+3. Bust the kanban cache so cards appear immediately:
    ```bash
    curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null 2>&1 && echo "✓ Kanban cache refreshed" || echo "(Kanban not running — open it and use the ↻ button to refresh)"
    ```
