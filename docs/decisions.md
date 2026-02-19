@@ -14,6 +14,27 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-19: /verify skill — two-party setup, resumability, triage mode (P397)
+
+**Context:** `/verify` runs live UAT in Chrome. Two-party scenarios (any `/live` feature with a listener) required ~15 min of manual browser setup per session. Context resets wiped all in-progress results. When scenarios failed, the skill investigated root causes instead of moving on — turning UAT sessions into debugging sessions.
+
+**Decision:** Six targeted edits to SKILL.md (no scripts, no new infrastructure):
+
+1. **Resume detection (Step 2):** Parse the Test Execution Log table. Skip rows already marked ✅/❌/⏭️. If all done, jump to report. Max context loss on reset = 1 test.
+2. **Two-party detection (Step 2):** Scan UAT scenarios for `**Requires:** two-party` tag. Set boot flag once; run boot macro before the first tagged scenario.
+3. **Two-party boot macro (5a-TWO-PARTY):** Converted from prose documentation to an executable 5-step numbered procedure. Steps B1–B5: check listener tab → log in → creator creates session → listener joins → confirm IdleScreen on both. Failure at any step stops and reports exactly which step failed. Credentials reference `TEST_LISTENER_EMAIL`/`TEST_LISTENER_PASSWORD` from `.env.test.local` — no inline values.
+4. **React Fill Macro as default (Step 5c):** `mcp__claude-in-chrome__fill` silently corrupts React-controlled inputs (failure surfaces only downstream, wasting the entire session setup). React Fill Macro using `nativeInputValueSetter` + dispatching both `input` and `change` events is now the documented default for all app inputs.
+5. **Per-scenario scorecard write (Step 5f):** Write UAT result to the file after every scenario. Don't batch at Step 7. Step 7 is now a completeness check only.
+6. **Triage Rule (after Step 5e):** On ❌/⚠️ — write result + expected/actual, move immediately to next scenario. Do NOT open source files. Do NOT investigate. Root cause is `/fix`'s job.
+
+**Alternatives rejected:** Playwright-based two-party automation — heavier, separate from the visual UAT flow. Hardcoded credentials in SKILL.md — public repo, unacceptable.
+
+**Consequences:** Two-party setup: ~15 min → under 2 min. Full 18-scenario session target: under 20 min. Scorecard is always current; sessions are resumable after context reset. Failures no longer derail the session. The `**Requires:** two-party` tag is the stable interface for future features — any feature UAT file can opt in.
+
+**References:** [.claude/commands/slava/build/verify/SKILL.md](.claude/commands/slava/build/verify/SKILL.md) | [features/uat/p272.md](features/uat/p272.md)
+
+---
+
 ## 2026-02-19: Kanban status reversion — root cause confirmed, fix applied
 
 **Context:** Cards manually moved to `all-done` via CardDialog status selector repeatedly reverted back to `done`. Happened twice across many cards.
