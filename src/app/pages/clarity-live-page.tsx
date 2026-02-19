@@ -2014,14 +2014,14 @@ export function ClarityLivePage() {
               /* P396: Authenticated user — auto-joins on page load.
                  Spinner during auto-join; fallback button only if join fails. */
               <div className="space-y-6">
-                {isLoading || consentLoading ? (
+                {isLoading || consentLoading || !error ? (
                   <div className="flex items-center justify-center py-8 text-muted-foreground">
                     <Loader2 className="w-5 h-5 animate-spin mr-2" />
                     Joining session...
                   </div>
                 ) : (
                   <>
-                    {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+                    <p className="text-sm text-red-600 text-center">{error}</p>
 
                     <Button
                       onClick={handleJoin}
