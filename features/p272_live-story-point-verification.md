@@ -22,6 +22,7 @@ test_files:
   - e2e/p272-live-verification.spec.ts
   - e2e/p272-smoke.spec.ts
   - e2e/a11y/p272-accessibility.spec.ts
+completed_at: '2026-02-19'
 ---
 
 # P272: Verification of Stories and Points in /live
