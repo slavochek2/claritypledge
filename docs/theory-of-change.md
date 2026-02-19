@@ -10,7 +10,7 @@
 > By making understanding verifiable at the individual level and visible at the network level, we convert humanity's fractured private realities into a shared common reality — not by forcing agreement, but by making disagreement informed.
 
 **For problem/solution context:** See [lean-canvas.md](lean-canvas.md)
-**For what we're testing:** See [tracks/](tracks/) (work streams), [hypotheses/](hypotheses/) (testable beliefs), [experiments/](experiments/) (testing protocols)
+**For what we're testing:** See [hypotheses.md](hypotheses.md) · [milestones/](milestones/)
 **For epistemological foundation:** See [philosophy.md](philosophy.md)
 
 ---
@@ -96,57 +96,17 @@ This section maps the logical chain from problem to impact, showing how our acti
 
 ## Strategic Assumptions
 
-These are foundational assumptions that hold across all tracks. If these fail, the entire theory of change collapses.
+These foundational assumptions underpin the entire theory of change. If they fail, the causal chain collapses.
 
-**Assumption 1: Calibration training works**
-- **Evidence:** Meta-analysis shows effect sizes g=0.46-0.72 (Yang et al. 2023, N=15,889)
-- **Implication:** People can learn to know when they don't understand
-- **Risk:** Workplace context differs from academic studies
-- **Validation:** Run workshops, measure calibration improvement over time
+**Core assumptions:** Calibration training works (g=0.46–0.72) · Explain-back protocol is teachable · People value being understood (r=.39) · Protocol-led growth is viable · AI alignment market exists for Stories.
 
-**Assumption 2: Explain-back protocol is teachable**
-- **Evidence:** Healthcare teach-back reduces readmissions by 45-60% (systematic review, RCTs)
-- **Implication:** Protocol can spread via coaches teaching clients
-- **Risk:** Healthcare (life/death stakes) ≠ workplace (lower stakes)
-- **Validation:** Workshop retention, coaches report client adoption
-
-**Assumption 3: People value being understood**
-- **Evidence:** Feeling heard → 40% engagement increase (Gallup 2024); r=.39 for perceived listening → work outcomes (Kluger et al. 2023, N=400K)
-- **Implication:** Users will invest time in verification if it makes them feel understood
-- **Risk:** Rational vs emotional: People SAY they value understanding, but will they DO the work?
-- **Validation:** /live usage retention, qualitative feedback
-
-**Assumption 4: Protocol-led growth is viable**
-- **Evidence:** Healthcare analogy (teach-back spreads free, hospitals pay for measurement); No direct precedent in SaaS
-- **Implication:** Protocol spreads without product; product captures value from protocol users who want measurement
-- **Risk:** If protocol is valuable without product, why pay for tool?
-- **Validation:** Workshop participants ask "how do I measure this?" → convert to product users
-
-**Assumption 5: AI alignment market exists**
-- **Evidence:** AI labs explicitly seek calibrated training data (personal AI alignment problem, see philosophy.md)
-- **Implication:** Stories (verified understanding corpus) are valuable to AI researchers
-- **Risk:** Timing — is the market ready now, or 2+ years out?
-- **Validation:** Essay reach in AI safety communities, inbound from labs
-
-**Note on hypothesis-specific assumptions:** These are STRATEGIC assumptions. Hypothesis-specific assumptions (e.g., "Stories solve cold start problem") live in `/docs/hypotheses/`. Experimental assumptions (e.g., "20 users sufficient to spot signal") live in `/docs/experiments/`.
+See [hypotheses.md → Validated](hypotheses.md#validated) for research evidence on confirmed assumptions, and [hypotheses.md → Active](hypotheses.md#active-currently-testing) for what's still being tested.
 
 ---
 
 ## Strategic Evidence
 
-This section contains research evidence supporting the core theory of change. Hypothesis-specific evidence (e.g., "Stories solve cold start problem") lives in `/docs/hypotheses/`, not here.
-
-**What belongs here:**
-- Research validating calibration works (Yang et al., Thiede et al.)
-- Evidence that listening matters (Kluger et al., Gallup)
-- Proof that teach-back/explain-back works (healthcare RCTs)
-- Market data (miscommunication cost, AI alignment need)
-
-**What does NOT belong here:**
-- Evidence for specific hypotheses (e.g., "essays reach rationalists") → `/docs/hypotheses/h-recognition-via-essays.md`
-- Experimental results (e.g., "20-user pilot showed 50% story creation") → `/docs/experiments/e-story-creation-pilot.md`
-
-See **Evidence Base** section below for full research citations and ROI framework.
+Research backing the core theory of change. For hypothesis-specific evidence and validation status, see [hypotheses.md](hypotheses.md).
 
 ---
 
@@ -509,7 +469,7 @@ LAYER 4: TOPOLOGY MAP
 
 The theory of change is built on research-backed facts and validated assumptions. This is **strategic evidence** supporting core assumptions.
 
-**For hypothesis-specific evidence:** See `/docs/hypotheses/` (e.g., evidence that "Stories solve cold start" lives in `h-stories-solve-cold-start.md`, not here)
+**For hypothesis-specific evidence:** See `/docs/hypotheses.md` (all active bets) or the relevant workstream file in `/docs/milestones/`
 
 ### The Problem (Pain)
 
@@ -568,22 +528,9 @@ Minimum ROI:                  2x
 
 ### Validated Learnings
 
-**H1: /live reduces Understanding Gap** ✅
+**H1: /live reduces Understanding Gap** ✅ — See [hypotheses.md → Validated](hypotheses.md#validated) for full evidence.
 
-When two people use the explain-back protocol, the gap between "how well I think I communicated" and "how well I actually communicated" decreases. Users report feeling more understood after /live than before.
-
-**Critical learning (2026-01-27):** H1 validated means the tool WORKS in-session. But "works" ≠ "sticky." Users praise /live, report liking it, but don't return. They ask "on what? when?" The tool lacks a trigger. This led to the Stories hypothesis (C1).
-
-**H-Foundation: Calibration Drives Outcomes** ✅
-
-Meta-analysis findings (2026-01-28):
-- r=.39 for perceived listening → work outcomes (N=400K observations)
-- Strongest links: sales (r=.38-.50), wellbeing (r=.28 burnout reduction)
-- Weakest link: innovation (speculative)
-- Healthcare teach-back: 60% readmission reduction (experimental)
-- Caveat: 75% of research is self-report; correlational not causal
-
-**Implication:** Proceed with confidence. Don't oversell causal claims. Measurement itself is our moat — no one else measures actual understanding.
+**Critical learning:** H1 validated means the tool WORKS in-session. But "works" ≠ "sticky." Users praise /live and feel understood, but don't return unprompted. They ask "on what? when?" — the tool lacks a trigger. This is what led to the Stories hypothesis (C1).
 
 **Full research:** [p272_calibration_outcomes_research.md](../features/done/p272_calibration_outcomes_research.md) | [p110_results.md](../features/research/p110_results.md)
 
@@ -592,13 +539,11 @@ Meta-analysis findings (2026-01-28):
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments
-- [tracks/](tracks/) — Work streams (what we're building)
-- [hypotheses/](hypotheses/) — Testable beliefs (what we're testing)
-- [experiments/](experiments/) — Testing protocols (how we validate)
-- [outcomes/](outcomes/) — Measurable goals (what success looks like)
-- [milestones/](milestones/) — Observable achievements (when things happened)
+- [hypotheses.md](hypotheses.md) — All bets: active, blocked, validated, parked
+- [milestones/](milestones/) — What we're building and how we're testing each hypothesis
+- [decisions.md](decisions.md) — Strategic decisions shaping the approach
 - [philosophy.md](philosophy.md) — Epistemological foundation (Asymmetric Conversion)
-- [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article with tactical frameworks (Three Asymmetries, Implementation Levels, Celebration Engine)
+- [The Clarity Tax Manifesto](../src/app/content/full-article.md) — Public-facing article
 - [Tournament Theory](visions/v2_tournament_theory.md) — Scaling protocol, √N mathematics
 
 ---

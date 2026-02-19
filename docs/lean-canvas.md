@@ -346,10 +346,9 @@ These are gates to unlock next level of ambition, not reasons to quit. If a chec
 
 ## Validation Status
 
-**See [tracks/](tracks/)** — what we're building, testing, and when we stop.
-**See [hypotheses/](hypotheses/)** — what we believe and why.
-**See [experiments/](experiments/)** — how we test hypotheses.
-**See [outcomes/](outcomes/)** — what we measure.
+**See [milestones/](milestones/)** — active workstreams (what we're building and testing).
+**See [hypotheses.md](hypotheses.md)** — what we believe and why.
+**See [workstreams/](workstreams/)** — future tracks.
 
 **See [theory-of-change.md](theory-of-change.md) Evidence Base** — validated learnings and research evidence.
 
@@ -405,10 +404,9 @@ If current approach doesn't validate, these are pivot options to consider:
 
 ## Related Documents
 
-- [tracks/](tracks/) — Work streams (what we're building)
-- [hypotheses/](hypotheses/) — Testable beliefs (what we're testing)
-- [experiments/](experiments/) — Testing protocols (how we validate)
-- [outcomes/](outcomes/) — Measurable goals (what success looks like)
+- [milestones/](milestones/) — Active workstreams (what we're building)
+- [workstreams/](workstreams/) — Future tracks
+- [hypotheses.md](hypotheses.md) — Testable beliefs (what we're testing)
 - [theory-of-change.md](theory-of-change.md) — How change spreads (cascade, √N) + Evidence Base
 - [p105_sales_playbook.md](../features/p105_sales_playbook.md) — GTM tactics and pitches
 - [philosophy.md](philosophy.md) — WHY this works (epistemology)

@@ -26,9 +26,9 @@ answers: []
 
 **What we're building:** Network analytics, common knowledge metrics, growth tracking
 
-**What we're testing:** [H-Sqrt-N-Growth: Protocol spreads via √N](../hypotheses/h-sqrt-n-growth.md) *(to be created)*
+**What we're testing:** H-Sqrt-N-Growth: Protocol spreads via √N
 
-**What we're measuring:** [O-Common-Knowledge: Phase transition observable](../outcomes/o-common-knowledge.md) *(to be created)*
+**What we're measuring:** O-Common-Knowledge: Phase transition observable
 
 **Requires:** Scale (10K+ users), coaches teaching protocol
 
@@ -47,7 +47,7 @@ answers: []
 
 ## Related Documents
 
-**Track category:** [Exploratory Track](exploratory-track.md)
+**Track category:** Exploratory Track
 
 **Depends on:** Protocol-led growth validated, coaches teaching protocol
 

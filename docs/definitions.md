@@ -520,20 +520,19 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 - Workstreams **build** Features (from `/features/`)
 
 **File locations:**
-- Workstreams: `/docs/workstreams/` (e.g., `c1-stories-live-events.md`)
-- Hypotheses: `/docs/hypotheses/` (e.g., `h-stories-solve-cold-start.md`)
-- Experiments: `/docs/experiments/` (e.g., `e-story-creation-pilot.md`)
-- Key Results: `/docs/key-results/` (e.g., `kr-story-usage.md`)
-- Milestones: `/docs/milestones/` (e.g., `2026-02-10-first-essay-published.md`)
+- Active workstreams: `/docs/milestones/` (c1, c2, r1, etc.)
+- Future tracks: `/docs/workstreams/` (e1, x1, etc.)
+- Hypotheses: `/docs/hypotheses.md` (all active bets in one file)
+- Experiments + Key Results: tracked inline within each workstream file
+- Achievements: `/docs/achievements/` (date-stamped events)
 
 ---
 
 ## Related Documents
 
 - [lean-canvas.md](lean-canvas.md) — Business model and customer segments
-- [workstreams/](workstreams/) — Work streams testing hypotheses, building features
-- [hypotheses/](hypotheses/) — Testable beliefs being validated
-- [experiments/](experiments/) — How we test hypotheses
-- [key-results/](key-results/) — Measurable goals being tracked
-- [milestones/](milestones/) — Observable achievements (dated events with status)
+- [milestones/](milestones/) — Active workstreams (c1, c2, r1, etc.)
+- [workstreams/](workstreams/) — Future tracks (e1, x1, etc.)
+- [hypotheses.md](hypotheses.md) — All active bets and their status
+- [achievements/](achievements/) — Date-stamped achievements
 - [philosophy.md](philosophy.md) — Epistemological foundations

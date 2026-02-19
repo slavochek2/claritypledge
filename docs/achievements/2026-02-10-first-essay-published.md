@@ -23,7 +23,7 @@ related_key_results: [kr-essay-reach]
 
 **Related documents:**
 - Workstream: [r1-essay-writing.md](../workstreams/r1-essay-writing.md)
-- Hypothesis: [h-recognition-via-essays.md](../hypotheses/h-recognition-via-essays.md) (when created)
-- Key Result: [kr-essay-reach.md](../key-results/kr-essay-reach.md) (when created)
+- Hypothesis: H-Recognition-Via-Essays — see [hypotheses.md](../hypotheses.md)
+- Key Result: ≥50 readers in first week — achieved
 
 **Next milestone:** First workshop delivered (C2 workstream)

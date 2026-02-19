@@ -282,7 +282,20 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 
 ## Skills — Local Only
 
-**All skills live in `.claude/commands/`** — visible in IDE, version controlled with project. Check `.claude/commands/slava/` first for custom workflows.
+**All skills live in `.claude/commands/slava/`** — visible in IDE, version controlled with project.
+
+**Namespace taxonomy — always pick a namespace before creating a skill:**
+
+| Namespace | Invocation | What goes here |
+|-----------|-----------|----------------|
+| `build/` | `slava:build:*` | Anything in the feature dev lifecycle: create-prd, ux, architect, generate-tests, dev, fix, verify, done, ship, review-all |
+| `maintain/` | `slava:maintain:*` | Ongoing repo health: kdd, cleanup, fix-kanban, weekly, claude-md |
+| `content/` | `slava:content:*` | Content creation: blog, sifter points, stories |
+| `think/` | `slava:think:*` | Thinking frameworks: lean, innovate, route |
+| `util/` | `slava:util:*` | One-off utilities: shorten-url, find-skill, clipboard |
+| `archive/` | `slava:archive:*` | Deprecated skills kept for reference |
+
+**Rule:** Never create a skill directly under `slava/` without a namespace. If no namespace fits, propose a new one and add it to this table.
 
 **Approval required** before creating, modifying, or deleting skills, or installing plugins/MCP servers. **Always ask first:** "I'd like to create [X] for [reason]. OK?"
 
@@ -290,10 +303,14 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 
 **For new features (after 2026-02-13):**
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /dev
+/create-prd → /ux (if UI) → /architect → /generate-tests → /dev → /verify → /done
 ```
 
 Each layer has a review gate - user approves before proceeding to next layer.
+
+**Post-work:** `/verify → /done`. That's the standard path.
+- `/kdd` optional if there are notable learnings.
+- `/review-all` and `/ship` exist for high-stakes situations (big merges, security changes) — not standard flow.
 
 **Deprecated:** `/prep-spec` (old 3-agent parallel review) - Kept for backward compatibility only. Features started before 2026-02-13 can continue using it, but new features should use the sequential flow above.
 

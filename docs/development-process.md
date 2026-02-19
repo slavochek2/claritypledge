@@ -684,27 +684,29 @@ Bug reported
 
 ### Post-Work Skills (After Implementation)
 
-After `/dev` completes, there are additional steps for finishing and knowledge capture:
-
-**Post-implementation workflow:**
+After `/dev` completes:
 
 ```
-/dev completes
-│
-├─ UI files modified?
-│   → /dev suggests: "Run /design-audit before marking done? (y/n)"
-│   → If yes: Run /design-audit to verify UI compliance
-│
-└─ All verified
-    → Run /done to mark feature complete
-    → (Optional) Run /kdd to capture knowledge in strategic docs
-    → (Optional) Run /ship for deployment workflow
+/verify → /done
 ```
 
-**Post-work skills:**
-- `/done` - Mark feature complete, update status, move to done/ folder
-- `/kdd` - Capture knowledge in strategic docs (decisions.md, milestones/, technical docs)
-- `/ship` - Deployment workflow (if applicable)
+That's it. Two steps, always the same.
+
+- `/verify` — opens the running app in Chrome, walks through UAT scenarios, checks each acceptance criterion, judges visual quality. Returns ✅ ship it / ❌ fix it.
+- `/done` — closes the spec (updates frontmatter, moves to `features/done/`)
+- `/kdd` — optional: capture notable learnings in strategic docs
+
+**When tests fail `/verify`:** fix the code, commit, re-run `/verify`.
+
+---
+
+**Specialist tools (not standard flow):**
+
+These exist but aren't in the default path. Invoke them when you have a specific reason:
+
+- `/review-all` — parallel code + design + UX static review. Useful before a big merge, security-sensitive changes, or when an agent wrote code you didn't closely supervise.
+- `/design-audit` — focused design system compliance check. Subset of `/review-all`.
+- `/ship` — meta-pipeline: `/review-all` + auto-fix HIGH issues + quality gate + `/done`. One command when you want thoroughness over speed.
 
 ---
 
@@ -715,7 +717,7 @@ These skills can be used at any point during development when you need them:
 | Skill | When to Use | What It Does |
 |-------|-------------|--------------|
 | `/simplify` | Facing complex decision with many options | Decision-by-decision analysis and recommendations |
-| `/design-audit` | After UI changes, before shipping | Check UI compliance (buttons, colors, accessibility, consistency) |
+| `/review-all` | Big merges, security changes, unsupervised agent output | Parallel code + design + UX static review. You decide what to fix. |
 
 **Usage pattern:**
 - These don't block the main flow
@@ -750,12 +752,13 @@ These skills can be used at any point during development when you need them:
                         ↓
 ┌─────────────────────────────────────────────────────┐
 │ POST-WORK                                           │
-│ /design-audit (if UI touched) → /done → /kdd       │
+│ /verify → /done                                     │
+│ (optional) /kdd                                     │
 └─────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────┐
 │ PARALLEL (use anytime when needed)                  │
-│ /simplify | /design-audit                           │
+│ /simplify | /review-all                             │
 └─────────────────────────────────────────────────────┘
 ```
 

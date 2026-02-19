@@ -27,10 +27,10 @@ answers: [oq-3]
 **What we're building:** Points creation, AI Sifter (P98 revisited)
 
 **What we're testing:**
-- [H-Points-Improve-Clarity: Structured claims improve verification](../hypotheses/h-points-improve-clarity.md) *(to be created)*
-- [H-AI-Sifter: AI-assisted creation lowers friction](../hypotheses/h-ai-sifter.md) *(to be created)*
+- H-Points-Improve-Clarity: Structured claims improve verification
+- H-AI-Sifter: AI-assisted creation lowers friction
 
-**What we're measuring:** [O-Point-Adoption: % preferring Points over holistic](../outcomes/o-point-adoption.md) *(to be created)*
+**What we're measuring:** O-Point-Adoption: % preferring Points over holistic
 
 **Done when:** Workshop participants use Points; AI creation lowers friction
 
@@ -49,7 +49,7 @@ If tool builds culture and culture self-sustains, tool becomes unnecessary. This
 
 ## Related Documents
 
-**Track category:** [Enhancement Track](enhancement-track.md)
+**Track category:** Enhancement Track
 
 **Depends on:** C1 validated (Stories + holistic verification works first)
 

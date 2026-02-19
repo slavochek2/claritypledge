@@ -1,0 +1,200 @@
+# Hypotheses
+
+Our active bets, in priority order. This is the map of what we still need to prove.
+
+**Currently testing** → **Blocked** → **Validated** → **Killed/Parked**
+
+---
+
+## Active (Currently Testing)
+
+### H-Stories-ColdStart: Stories solve /live's cold start problem
+**Bet:** When users create and share stories, they have a concrete "what" to verify understanding against, making /live feel purposeful and triggering higher adoption and retention.
+**Testing via:** C1 (Stories + Live + Events) — 20-user pilot Feb–Mar 2026. Target ≥50% story creation rate, ≥30% verification rate.
+**Kill if:** <20% story creation after 4 weeks OR stories don't improve /live usage frequency.
+**Notes:** User feedback consistently asks "on what? when?" This tests whether narrative context solves that trigger gap.
+
+---
+
+### H-CoFounders-WillPay: Co-founder pairs pay for preventive calibration sessions
+**Bet:** Functioning-but-misaligned co-founder pairs will pay €300–500 per session for structured calibration to prevent alignment drift before it becomes crisis.
+**Testing via:** C2 (First Founder Sessions) — 3–5 paid sessions, track follow-up booking rate. Target ≥50% conversion to follow-ups.
+**Kill if:** <2 founder pairs across 3 sessions OR zero follow-up bookings.
+**Notes:** High-stakes dyad with recurring calibration needs. Validates positioning as preventive (not therapeutic) and WTP for personalized facilitation.
+
+---
+
+### H-Retainers-Sticky: Founder pairs retain monthly €800–1,500 calibration retainers
+**Bet:** Co-founder pairs who experience value in C2 sessions will subscribe to ongoing monthly retainers for continuous alignment calibration as they make decisions.
+**Testing via:** C3 (Paid Founder Retainers) — launch retainer offers to C2 participants, measure month-2 retention. Target 10+ pairs, >60% month-2 retention, €10k MRR.
+**Kill if:** <5 retainer signups OR <40% month-2 retention.
+**Notes:** Monthly cadence mirrors how co-founder tensions compound over time. Retainers create predictable MRR vs event-based revenue.
+
+---
+
+### H-Community-Retention: Founder community adds moat and drives retention above 1:1 retainer baseline
+**Bet:** Adding a peer community layer (€200–300/month add-on) to individual retainers increases stickiness through group calibration, peer validation, and referral effects.
+**Testing via:** C4 (Founder Community) — monthly cohort calls for C3 retainer customers. Target 10+ members, >60% month-2 retention, visible peer calibration.
+**Kill if:** <5 community members OR <40% month-2 retention.
+**Notes:** Shifts from isolation (1:1) to network (group). Switching cost increases when peers are involved.
+
+---
+
+### H-Essays-BuildRecognition: Evidence-based essays position us as calibration experts in aligned communities
+**Bet:** Essays grounded in real founder session data, framed as "calibration infrastructure for personal AI," can reach AI safety/rationalist communities and build recognition as "the calibration expert."
+**Testing via:** R1 (Essay Writing) — publish 3+ essays May–Aug 2026. Target ≥50 readers per essay, ≥5 meaningful discussions, ≥1 inbound "you're the expert" mention.
+**Kill if:** <50 readers per essay after 3 months OR zero engagement.
+**Notes:** Starts Month 5 AFTER C2/C3 generate real founder data. "We ran 10+ sessions and measured X" is 2x more credible than theory-first positioning.
+
+---
+
+### H-CalibrationTrainable: Calibration accuracy is trainable and measurably improves through /live feedback loops
+**Bet:** Users practicing the explain-back protocol through /live will reduce their understanding gaps over repeated sessions, improving calibration accuracy (confidence matching reality).
+**Testing via:** C1–C3 sessions — track Understanding Gap reduction across sessions for the same user pairs.
+**Kill if:** No measurable gap reduction across repeated sessions OR users report no improvement in "knowing what they know."
+**Notes:** Foundational assumption. Research evidence supports this (meta-analysis g=0.46–0.72), but workplace context differs from academia.
+
+---
+
+### H-ProtocolSpreadsWithoutTool: The explain-back protocol spreads free; the tool captures value from users who want measurement
+**Bet:** The explain-back protocol is valuable enough to spread without our product. Product success comes from protocol users asking "How can I measure this?" — creating the funnel.
+**Testing via:** C2 workshops + coach feedback. Observe: Do coaches adopt protocol independently? Do participants ask about measurement?
+**Kill if:** Coaches don't teach protocol to clients OR participants don't ask about measurement tools after experiencing the protocol.
+**Notes:** This is Protocol-Led Growth. Healthcare parallel: teach-back spreads free, hospitals pay for electronic health records.
+
+---
+
+## Blocked (Waiting on Something Else)
+
+### H-SpecsReachResearchers: Technical specifications reach AI safety researchers and trigger adoption discussions
+**Bet:** Specs (technical deep dives on calibration infrastructure) published on LessWrong/Alignment Forum can reach AI labs and spark discussions about using verified Stories as training data.
+**Blocked by:** H-Essays-BuildRecognition — need baseline recognition before specs land.
+**Unblocked when:** R1 achieves ≥50 readers and ≥5 discussions on first essay.
+**Kill if:** Specs referenced in zero alignment discussions after 3 months.
+
+---
+
+### H-StoriesAITrainingData: AI labs will use verified Stories corpus as training data for agent alignment
+**Bet:** Our Stories dataset (verified understanding pairs) becomes valuable to AI labs training personal agents on aligned instruction-following.
+**Blocked by:** H-Essays-BuildRecognition AND C1/C3 story corpus growth — need both credibility AND sufficient Stories data.
+**Unblocked when:** Recognition threshold crossed + 100+ verified stories collected.
+**Notes:** Long-term bet. Timing uncertain — is the AI training data market ready now or 12+ months out?
+
+---
+
+### H-AlignedFundersInbound: Recognition generates inbound interest from aligned funders (Lightcone, Protocol Labs, SFF)
+**Bet:** Recognition as "the calibration expert" + credible essays on AI alignment will generate inbound inquiries from aligned funders.
+**Blocked by:** H-Essays-BuildRecognition — need public visibility first.
+**Unblocked when:** Essays reach 200+ readers and generate meaningful discussions.
+**Notes:** Not a revenue hypothesis — an opportunity unlock.
+
+---
+
+## Validated
+
+### H-Foundation-ListeningMatters: Perceived listening correlates strongly with work outcomes
+**Bet:** Listening is not a soft skill — it's a hard business driver.
+**Evidence:** Kluger et al. 2023 meta-analysis (N=400K): r=.39 overall, r=.47 in sales, r=.28 burnout reduction. Healthcare teach-back: 45–60% readmission reduction (RCTs).
+
+---
+
+### H-Foundation-CalibrationDeficitReal: People can't accurately assess what they know (metacognitive accuracy r=.24)
+**Bet:** Baseline metacognitive accuracy is r=.24 — predictions barely match reality. This is the misalignment we're trying to surface and fix.
+**Evidence:** Yang et al. 2023 meta-analysis (N=15,889). 75% of self-report research relies on miscalibrated self-assessment.
+
+---
+
+### H-Foundation-UnderstandingGapMeasurable: The gap between "how well I think I understood" and "how well I actually understood" is measurable and reducing it improves communication
+**Bet:** /live verification (explain-back + rating gap) produces measurable Understanding Gap. Users feel more understood after /live than before.
+**Evidence:** P96 validation sessions — consistent user feedback: "This feels like being actually heard."
+**Notes:** Mechanism validated. But "works in-session" ≠ "sticky." That's why Stories was born.
+
+---
+
+### H-Foundation-GapInvisible: The Understanding Gap is invisible; people walk away with miscalibrated confidence
+**Bet:** Without verification, people are confident they understood when they didn't. The gap is the real problem, not the gap-closure mechanism.
+**Evidence:** Illusion of transparency (speakers overestimate clarity) + illusion of knowing (listeners overestimate comprehension). Documented in psychology literature.
+
+---
+
+## Parked / Future
+
+### H-AgentCoordination: Agents will use calibration infrastructure to verify each other's understanding
+**Bet:** As AI agents proliferate, agents will need to verify they understood each other's instructions. Agent-to-agent calibration becomes infrastructure.
+**Why parked:** Zero human retention yet. Agents solve problems differently (no ego, can share state directly). Ecosystem unstable.
+**Revisit when:** Human retention >30% month-2, Stories + AI verification built, agent ecosystem stabilizes.
+
+---
+
+### H-InvestorDueDiligence: Investors pay for calibration sessions during founder due diligence
+**Bet:** VCs will pay for a /live session with a founder they're considering backing, to verify communication clarity before writing a check.
+**Why parked:** Coaching track not validated yet. VC sales cycle is slow (3–6 months) — premature before coaching traction.
+**Revisit when:** C2 hit (10+ paid sessions), C3 hit (5+ retainer pairs with month-2 retention).
+
+---
+
+### H-SalesTeamAdoption: Sales teams adopting explain-back will improve conversion and customer retention
+**Bet:** Explain-back protocol + /live verification improves listening skills, leading to higher sales conversion and customer retention.
+**Why parked:** Requires different go-to-market (HR/L&D channels vs. founder networks). Deferring until coaching track validates the core mechanism.
+
+---
+
+### H-TeamCommunication: Teams practicing explain-back in standups and retros will reduce miscommunication costs
+**Bet:** Group communication (not just co-founder dyads) benefits from verification. Standups, retros, decision meetings all suffer from "we talked but didn't align."
+**Why parked:** Group dynamics requires different facilitation and larger cohorts. Current focus: 1:1 dyads with high intrinsic motivation.
+**Revisit when:** 1:1 coaching proves out. Facilitation ladder: 1:1 → broadcast → chain → topology.
+
+---
+
+### H-ProtocolReachesScale: The √N mathematics hold — verification propagates globally through coach-led adoption
+**Bet:** Protocol-led growth follows the √N rule: only ~89K verified connections needed for everyone on Earth to be 1–2 steps from verification.
+**Why parked:** Endgame vision. Requires massive protocol adoption. Current focus: 0–6 month validation.
+**Revisit when:** Month 12+, after critical mass.
+
+---
+
+### H-ToleranceAmplifies: Topology visibility shifts status norms — "verified understander" becomes higher status than "loud asserter"
+**Bet:** When disagreement groups see who understands whom, status shifts. Informed disagreement becomes status-positive vs. unexamined assertion.
+**Why parked:** Requires scale (LEVEL 4: topology visibility). Can't test until many users verify each other.
+**Revisit when:** Months 12+.
+
+---
+
+## Killed / Abandoned
+
+*(None yet. No hypotheses have been definitively killed as of Feb 2026.)*
+
+---
+
+## Dependency Map
+
+```
+COACHING TRACK (C) — Months 1-6, PRIMARY
+├─ H-CalibrationTrainable (foundational — test in C1–C3)
+├─ H-ProtocolSpreadsWithoutTool (test in C2)
+├─ H-Stories-ColdStart (C1) → unlocks C2
+├─ H-CoFounders-WillPay (C2) → unlocks C3
+├─ H-Retainers-Sticky (C3) → unlocks C4
+└─ H-Community-Retention (C4)
+
+RECOGNITION TRACK (R) — Months 5-12, SECONDARY
+├─ H-Essays-BuildRecognition (R1, after C2/C3 generate data)
+├─ H-SpecsReachResearchers (blocked by R1 success)
+├─ H-StoriesAITrainingData (blocked by R1 + story corpus)
+└─ H-AlignedFundersInbound (blocked by essay credibility)
+
+FUTURE SCALE — Months 12+
+├─ H-AgentCoordination (parked)
+├─ H-ToleranceAmplifies (parked)
+└─ H-ProtocolReachesScale (parked)
+```
+
+---
+
+## Related Docs
+
+- [lean-canvas.md](lean-canvas.md) — Problem, solution, customer segments, business model
+- [theory-of-change.md](theory-of-change.md) — Causal chain; validated assumptions and research evidence base
+- [milestones/](milestones/) — C1–C4 and R1 contain hypothesis-specific testing protocols and kill criteria
+- [decisions.md](decisions.md) — Strategic decisions shaping hypothesis priority
+- [future-directions.md](future-directions.md) — FD-1, FD-2 (parked hypotheses with revisit conditions)

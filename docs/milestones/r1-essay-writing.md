@@ -26,26 +26,9 @@ summary: "Essays positioning calibration as 'AI infrastructure' reach aligned co
 
 ## Hypothesis
 
-Evidence-based essays positioning calibration as "infrastructure for personal AI" can reach AI safety/rationalist communities and build recognition as "the calibration expert." See sequencing note above for why data-first essays outperform theory-first. Essays should cite specific patterns from C2/C3 sessions.
+See [H-Essays-BuildRecognition](../hypotheses.md#h-essays-buildrecognition-evidence-based-essays-position-us-as-calibration-experts-in-aligned-communities) in hypotheses.md. Evidence-based essays grounded in real C2/C3 founder session data reach AI safety/rationalist communities and build recognition as "the calibration expert."
 
-**The opportunity:** AI labs need calibrated training data. Rationalist communities care about epistemic hygiene. Essays connecting these dots — and backed by real session data from 10+ founder pairs — position founder uniquely.
-
-**Why essays work:**
-- LessWrong/EA Forum/Alignment Forum are idea-distribution channels (10K+ aligned readers)
-- Rationalists value technical depth + clear thinking
-- "Calibration infrastructure for AI" frames Stories as strategic, not tactical
-- One high-signal post can unlock recognition threshold
-
-**Critical assumptions:**
-1. AI alignment researchers care about calibrated training data (not just behavioral data)
-2. Rationalist communities will engage with calibration framing
-3. Essays can build recognition faster than workshops alone
-4. Recognition leads to inbound from aligned funders
-
-**Evidence:**
-- Market validation: AI labs explicitly seek alignment solutions
-- Content gap: No one else framing calibration as AI infrastructure
-- Founder fit: Technical depth + epistemic clarity matches audience
+**Success:** ≥50 readers/essay, ≥5 discussions, ≥1 inbound "you're the expert" mention. **Kill if:** <50 readers after 3 months.
 
 ---
 

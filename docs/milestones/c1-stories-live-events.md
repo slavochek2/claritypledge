@@ -26,28 +26,9 @@ answers: [oq-6, oq-7]
 
 ## Hypothesis
 
-Stories provide the "what" that /live needs. "Verify understanding of THIS story" is a clearer purpose than "verify understanding of... something."
+See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-solve-lives-cold-start-problem) in hypotheses.md. Stories give /live a concrete "verify understanding of THIS" purpose, solving the cold start trigger problem ("on what? when?").
 
-**The problem:** /live works (users report feeling understood) but users ask "on what? when?" — no trigger for spontaneous use.
-
-**Why stories solve this:**
-- Stories are concrete (not abstract "let's verify something")
-- Stories create natural triggers ("I have a story to share")
-- Stories provide context (verification feels purposeful)
-
-**User feedback that led to this:**
-- "I like /live but don't know when to use it" (P96 validation)
-- "On what?" (repeated question during /live demos)
-
-**Critical assumptions:**
-1. People have stories they want to share (not just professional updates)
-2. Story creation is low-friction enough (won't block usage)
-3. Verification on stories feels more purposeful than abstract topics
-4. Story authors value knowing who understood (retention loop)
-
-**Evidence:**
-- Narrative psychology: Stories are how humans make sense of experience (Jerome Bruner)
-- Social proof: Medium, Substack built on "everyone has a story worth sharing"
+**Success:** ≥50% story creation rate, ≥30% verification rate. **Kill if:** <20% creation after 4 weeks.
 
 ---
 

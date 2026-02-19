@@ -26,9 +26,9 @@ answers: []
 
 **What we're building:** Group verification, topology visualization, spokescouncil infrastructure
 
-**What we're testing:** [H-Group-Dynamics: Topology reveals patterns](../hypotheses/h-group-dynamics.md) *(to be created)*
+**What we're testing:** H-Group-Dynamics: Topology reveals patterns
 
-**What we're measuring:** [O-Network-Density: Verification coverage](../outcomes/o-network-density.md) *(to be created)*
+**What we're measuring:** O-Network-Density: Verification coverage
 
 **Requires:** Scale (1K+ users), group facilitation patterns validated
 
@@ -46,7 +46,7 @@ answers: []
 
 ## Related Documents
 
-**Track category:** [Exploratory Track](exploratory-track.md)
+**Track category:** Exploratory Track
 
 **Depends on:** Scale, group facilitation validated
 

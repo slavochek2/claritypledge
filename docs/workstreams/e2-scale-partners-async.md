@@ -26,9 +26,9 @@ answers: []
 
 **What we're building:** Async verification (/chat), Slack integration, partner pilots
 
-**What we're testing:** [H-Async-Scales-Access: Async maintains fidelity](../hypotheses/h-async-scales-access.md) *(to be created)*
+**What we're testing:** H-Async-Scales-Access: Async maintains fidelity
 
-**What we're measuring:** [O-Partner-Usage: Partner adoption rates](../outcomes/o-partner-usage.md) *(to be created)*
+**What we're measuring:** O-Partner-Usage: Partner adoption rates
 
 **Done when:** 3+ partners piloting, async verification retention ≥50%
 
@@ -42,7 +42,7 @@ Real-time /live requires synchronous scheduling. Async verification (text-based 
 
 ## Related Documents
 
-**Track category:** [Enhancement Track](enhancement-track.md)
+**Track category:** Enhancement Track
 
 **Depends on:** C1 validated (real-time verification works first)
 

@@ -25,9 +25,8 @@ summary: "Positioned as 'the calibration expert' with inbound recognition from a
 - Enables pivot to AI training data market
 
 **Related documents:**
-- Workstream: [r1-essay-writing.md](../workstreams/r1-essay-writing.md)
-- Workstream: [r2-spec-publishing.md](../workstreams/r2-spec-publishing.md)
-- Key Result: [kr-recognition-threshold.md](../key-results/kr-recognition-threshold.md) (to be created)
+- Workstream: [r1-essay-writing.md](../milestones/r1-essay-writing.md)
+- Key Result: tracked inline in r1-essay-writing.md (recognition threshold: inbound from aligned org)
 
 **Previous milestone:** First essay published (2026-02-10)
 **Next milestone:** First inbound inquiry from aligned org
