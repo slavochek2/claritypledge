@@ -2120,7 +2120,6 @@ export function ClarityLivePage() {
               <div className="space-y-6">
                 {/* P396: Login option for registered users who aren't logged in */}
                 <div className="space-y-3">
-                  <p className="text-sm text-center text-muted-foreground">Have an account? Join as yourself</p>
                   <GoogleAuthButton
                     context="live-join"
                     source="login"
