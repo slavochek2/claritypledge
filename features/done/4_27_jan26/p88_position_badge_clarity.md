@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125454.0
 created_date: 2026-01-22
+completed_at: '2026-02-09'
 ---
 
 # P88: Position Badge Clarity — Remove Redundant Badges from Story Cards

@@ -36,7 +36,7 @@ interface ColumnConfig {
   title: string
   color: string
   defaultHidden?: boolean
-  filter?: 'today' | 'before-today'
+  filter?: 'last-3-days' | 'older-than-3-days'
 }
 
 const COLUMNS: ColumnConfig[] = [
@@ -45,7 +45,7 @@ const COLUMNS: ColumnConfig[] = [
   { id: 'today', title: 'Today', color: '#22c55e' },
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
-  { id: 'done', title: 'Done Today', color: '#22c55e', filter: 'today' },
+  { id: 'done', title: 'Done', color: '#22c55e', filter: 'last-3-days' },
   { id: 'rejected', title: 'Rejected', color: '#6b7280', defaultHidden: true },
 ]
 
@@ -54,10 +54,10 @@ const ALL_DONE_COLUMN: ColumnConfig = {
   title: 'All Done',
   color: '#22c55e',
   defaultHidden: true,
-  filter: 'before-today',
+  filter: 'older-than-3-days',
 }
 
-const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'rejected'])
+const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'all-done', 'rejected'])
 
 type ViewMode = 'active' | 'backlog' | 'all-done'
 const VIEW_MODE_KEY = 'kanban-view-mode'
@@ -467,15 +467,20 @@ export default function App() {
 
   const getColumnFeatures = (column: ColumnConfig): Feature[] => {
     const today = new Date().toISOString().split('T')[0]
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     return features
       .filter((f) => {
-        if (f.status !== column.id) return false
+        // All Done column shows: 'done' items older than 3 days + explicit 'all-done' items always
+        const matchesColumn = column.filter === 'older-than-3-days'
+          ? f.status === 'done' || f.status === 'all-done'
+          : f.status === column.id
+        if (!matchesColumn) return false
         // Search filter
         if (searchQuery && !f.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
         // Type filter applies to all columns including Done
         if (typeFilter !== 'all' && f.type !== typeFilter) return false
-        if (column.filter === 'today') return f.completed_at === today
-        if (column.filter === 'before-today') return !f.completed_at || f.completed_at < today
+        if (column.filter === 'last-3-days') return !!f.completed_at && f.completed_at >= threeDaysAgo && f.completed_at <= today
+        if (column.filter === 'older-than-3-days') return f.status === 'all-done' || !f.completed_at || f.completed_at < threeDaysAgo
         return true
       })
       .sort((a, b) => {

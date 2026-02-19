@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125403.0
 created_date: 2025-12-27
+completed_at: '2026-02-09'
 ---
 
 # P22.1: Simplified Live Protocol

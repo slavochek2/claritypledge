@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125421.0
 created_date: 2025-11-30
+completed_at: '2026-02-09'
 ---
 
 # Phase 2: Isolate Auth

@@ -14,6 +14,7 @@ reviews:
   alignment: passed-with-notes
 rank: 7
 created_date: 2026-02-07
+completed_at: '2026-02-18'
 ---
 
 # P131: Manual Points Creation + Story Linking

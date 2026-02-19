@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 2.0
 workstream: C1
@@ -8,6 +8,12 @@ tags:
   - error-handling
   - verification-gate
 created_date: 2026-02-18
+uat_file: features/uat/p273.md
+test_files:
+  - src/tests/useVerificationGate.test.ts
+  - e2e/p273-verification-gate.spec.ts
+  - e2e/p273-smoke.spec.ts
+  - e2e/a11y/p273-accessibility.spec.ts
 ---
 
 # P273: Verification gate — consistent blocked-action UX for unverified users
@@ -70,3 +76,43 @@ The `action` label is used in the message: "Verify your email to [action]." One 
 **Take the pledge:** the `/sign-pledge` page is intentionally public — it's the conversion funnel. An unverified guest taking the pledge is the desired outcome. What needs thought is: what message do they see after submitting if they already have an unverified profile? That's a separate UX question.
 
 **Start /live session:** hosts must be verified (decision from 2026-01-17). The gate is already enforced at the route level. Worth auditing that it's actually working, but not part of this ticket.
+
+---
+
+## Test Coverage Strategy
+
+**What's Tested:**
+- ✅ Hook logic — `checkVerified()` returns correct boolean and fires toast with right message (unit)
+- ✅ Create story gate — unverified user sees hook toast, not "Save failed" (E2E)
+- ✅ Create story happy path — verified user creates story without interruption (E2E)
+- ✅ Set position gate — unverified user sees consistent hook toast, not old one-off message (E2E)
+- ✅ Set position happy path — verified user can set position normally (E2E)
+- ✅ Pages load without JS errors (smoke)
+- ✅ Gate toast is present and in accessible DOM region (a11y)
+
+**What's NOT Tested (rationale):**
+- ❌ Take-pledge gate — out of scope per spec (UX decision pending)
+- ❌ /live route gate — already enforced at route level, separate concern
+- ❌ Internal hook state/re-renders — hook is stateless, nothing to track
+- ❌ Toast dismiss/interaction — Sonner's internal behaviour, not our code
+
+**Test Pyramid:**
+```
+       /\
+      /  \   4 E2E tests (2 create-story + 2 set-position)
+     /----\
+    /  2   \  2 smoke tests
+   /--------\
+  /  7 unit  \  7 unit tests (hook contract)
+ /____________\
+  + 2 a11y tests
+```
+
+**Files generated:**
+- `src/tests/useVerificationGate.test.ts` — 7 unit tests
+- `e2e/p273-verification-gate.spec.ts` — 4 E2E tests
+- `e2e/p273-smoke.spec.ts` — 2 smoke tests
+- `e2e/a11y/p273-accessibility.spec.ts` — 2 accessibility tests
+- `features/uat/p273.md` — 11 UAT scenarios
+
+**Total:** 15 automated tests + 11 UAT scenarios

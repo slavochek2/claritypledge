@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125441.0
 created_date: 2026-01-09
+completed_at: '2026-02-09'
 ---
 
 # P51: Post-/live Email & AI Coaching CTA

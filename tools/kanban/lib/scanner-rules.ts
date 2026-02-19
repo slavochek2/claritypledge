@@ -21,6 +21,7 @@ export const VALID_STATUS: readonly Status[] = [
   'in-progress',
   'blocked',
   'done',
+  'all-done',
   'draft',
   'rejected',
 ] as const;

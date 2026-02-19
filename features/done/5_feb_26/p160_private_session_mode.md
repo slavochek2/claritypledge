@@ -1,6 +1,6 @@
 ---
 status: done
-completed_at: '2026-02-17'
+completed_at: '2026-02-09'
 type: story
 rank: 125001
 workstream: C2

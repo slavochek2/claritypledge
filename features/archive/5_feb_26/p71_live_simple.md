@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125410.0
 created_date: 2026-01-20
+completed_at: '2026-02-09'
 ---
 
 # P71: Simplify /live — Remove Redundant Taps

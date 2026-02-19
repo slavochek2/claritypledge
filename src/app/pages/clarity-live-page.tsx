@@ -44,9 +44,12 @@ import { useAuth } from '@/auth';
 import {
   type LiveSessionState,
   type PositionType,
+  type StoryWithPoints,
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
+import { calibrationService } from '@/app/data/calibration-service';
+import { supabase } from '@/lib/supabase';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission';
@@ -251,6 +254,8 @@ export function ClarityLivePage() {
   const sessionEndedRef = useRef(false);
   // Ref to track if I am leaving (prevents detecting my own departure as partner leaving)
   const iAmLeavingRef = useRef(false);
+  // P272: Guard against duplicate story verification inserts on re-renders
+  const verificationFiredRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     hasJoinerRef.current = !!session?.joinerName;
@@ -764,7 +769,7 @@ export function ClarityLivePage() {
   }, [name, partnerName, session?.code]);
 
   // P128: Handle story selection from content picker
-  const handleSelectStory = useCallback((storyId: string, title: string) => {
+  const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
     if (!name || !partnerName) return;
 
     // Guard: if a check is already in progress, don't start
@@ -778,17 +783,45 @@ export function ClarityLivePage() {
       story_id: storyId,
     });
 
-    // Set selected content in shared state (partner will see it)
+    // Set selected content in shared state (partner will see it via selectedStoryData)
     updateLiveState({
       selectedStoryId: storyId,
       selectedPointId: undefined,
       selectedContentTitle: title,
+      selectedStoryData: storyData ? {
+        id: storyData.id,
+        content: storyData.content,
+        points: storyData.points.map(p => ({
+          id: p.id,
+          statement: p.statement,
+          context: p.context,
+          tags: p.tags,
+          positionCounts: p.positionCounts,
+          userPosition: p.userPosition,
+          profileSubjectPosition: p.profileSubjectPosition,
+        })),
+        authorName: storyData.authorName,
+        authorSlug: storyData.authorSlug,
+        authorAvatarColor: storyData.authorAvatarColor,
+        authorAvatarUrl: storyData.authorAvatarUrl,
+        authorEarsCount: storyData.authorEarsCount,
+        createdAt: storyData.createdAt,
+      } : undefined,
     });
-
-    // Picking a story = "does partner understand YOUR story" (check flow)
-    setLocalFlowType('check');
-    setIsLocallyRating(true);
+    // NOTE: Do NOT call setLocalFlowType or setIsLocallyRating here.
+    // Story selection now shows the story card in idle state.
+    // Round starts when either participant taps an action button.
   }, [name, partnerName, session?.code, updateLiveState]);
+
+  // P272: Clear selected story (both participants return to no-story idle state)
+  const handleClearStory = useCallback(() => {
+    updateLiveState({
+      selectedStoryId: undefined,
+      selectedPointId: undefined,
+      selectedContentTitle: undefined,
+      selectedStoryData: undefined,
+    });
+  }, [updateLiveState]);
 
   // P128: Handle point selection from content picker
   const handleSelectPoint = useCallback((pointId: string, title: string) => {
@@ -847,6 +880,73 @@ export function ClarityLivePage() {
     },
     [name, updateLiveState, user?.id]
   );
+
+  // P272: Write story verification record when speaker rates 10 (perfect understanding)
+  // Fire-and-forget with error guard — round completes regardless
+  const writeStoryVerification = useCallback(async ({
+    storyId,
+    sessionId,
+    checkerName,
+    checkerRating,
+    responderRating,
+  }: {
+    storyId: string;
+    sessionId: string | undefined;
+    checkerName: string;
+    checkerRating: number;
+    responderRating: number;
+  }) => {
+    const roundKey = `${storyId}_${sessionId}_${checkerName}`;
+    if (verificationFiredRef.current.has(roundKey)) return;
+    verificationFiredRef.current.add(roundKey);
+
+    if (!user?.id || !session) return;
+
+    try {
+      const speakerId = session.creatorName === checkerName
+        ? session.creatorProfileId
+        : session.joinerProfileId;
+      const listenerId = session.creatorName === checkerName
+        ? session.joinerProfileId
+        : session.creatorProfileId;
+
+      if (!speakerId || !listenerId) {
+        console.error('[P272] Cannot write verification: missing profile IDs');
+        return;
+      }
+
+      const { data: versionRow } = await supabase
+        .from('story_versions')
+        .select('id')
+        .eq('story_id', storyId)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!versionRow) {
+        console.error('[P272] No version found for story', storyId);
+        return;
+      }
+
+      await calibrationService.recordVerification({
+        storyId,
+        versionId: versionRow.id,
+        sessionId,
+        speakerId,
+        listenerId,
+        speakerRating: checkerRating,
+        listenerRating: responderRating,
+      });
+
+      analytics.track('live_story_verified', {
+        session_code: session.code,
+        story_id: storyId,
+      });
+    } catch (err) {
+      console.error('[P272] writeStoryVerification failed:', err);
+      // Non-blocking — round completes regardless
+    }
+  }, [user?.id, session, calibrationService]);
 
   // V7: Handle rating submission
   // "Did you get it?" flow: First person to submit becomes the checker
@@ -922,6 +1022,18 @@ export function ClarityLivePage() {
           // Track understanding revealed with gap data
           const checkerRatingValue = isChecker ? rating : currentState.checkerRating;
           const responderRatingValue = isChecker ? currentState.responderRating : rating;
+
+          // P272: Write story verification record at speaker_rating = 10
+          const currentStoryId = currentState.selectedStoryId;
+          if (checkerRatingValue === 10 && currentStoryId) {
+            void writeStoryVerification({
+              storyId: currentStoryId,
+              sessionId: session?.id,
+              checkerName: currentState.checkerName ?? name,
+              checkerRating: checkerRatingValue,
+              responderRating: responderRatingValue ?? 0,
+            });
+          }
           const gap = (responderRatingValue ?? 0) - (checkerRatingValue ?? 0);
 
           const isPerfect = checkerRatingValue === 10 && responderRatingValue === 10;
@@ -951,7 +1063,7 @@ export function ClarityLivePage() {
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code, trackLiveEvent]
+    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeStoryVerification]
   );
 
   // V7: Handle skip (resets to idle state for next check)
@@ -1005,6 +1117,8 @@ export function ClarityLivePage() {
       selectedContentTitle: undefined,
       sessionHistory: historyEntry ? [...prevHistory, historyEntry] : prevHistory,
     });
+    // P272: Clear verification guard so new rounds can fire verification
+    verificationFiredRef.current.clear();
   }, [name, updateLiveState, session?.code, trackLiveEvent]);
 
   // Handle celebration complete - user clicked "Continue" on perfect rating celebration
@@ -1062,6 +1176,8 @@ export function ClarityLivePage() {
         selectedContentTitle: undefined,
         sessionHistory: [...prevHistory, historyEntry],
       });
+      // P272: Clear verification guard for next round
+      verificationFiredRef.current.clear();
     } else {
       // Just add this user to acknowledged list - waiting for partner
       updateLiveState({
@@ -2576,6 +2692,7 @@ export function ClarityLivePage() {
           userId={user?.id}
           onSelectStory={handleSelectStory}
           onSelectPoint={handleSelectPoint}
+          onClearStory={handleClearStory}
           // P275: Position selection during live — stores in live_state, not point_positions
           onPositionSelect={handlePositionSelectInLive}
           // P160: Private session mode indicator

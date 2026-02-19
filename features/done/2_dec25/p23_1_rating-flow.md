@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125424.0
 created_date: 2025-12-27
+completed_at: '2026-02-09'
 ---
 
 # P23_1: Rating Flow Implementation

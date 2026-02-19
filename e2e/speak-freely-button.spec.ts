@@ -24,7 +24,7 @@
 
 import { test, expect } from '@playwright/test';
 import { deleteClaritySession, createTestUser, setTestSession, deleteTestUser } from './helpers/test-user';
-import { waitForDBPresence, mockMicPermission } from './helpers/test-realtime';
+import { waitForDBPresence, waitForDBStateKey, mockMicPermission } from './helpers/test-realtime';
 
 test.describe('Speak Freely Button - Negotiation Flow', () => {
   test.describe.configure({ timeout: 90000 });
@@ -625,6 +625,9 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       // Listener clicks "Speak freely"
       await speakFreelyButton.click();
+      // Wait for DB to confirm roleSwitchNegotiation written before asserting speaker UI.
+      // Speaker polls every ~1 s — without this, the 10 s assertion can race the poll.
+      await waitForDBStateKey('clarity_sessions', 'state', 'roleSwitchNegotiation', 'pending', 'code', roomCode!);
 
       // Speaker should see dialog (polling-driven, needs extra time)
       await expect(speakerPage.getByText('Allow Leo to skip active listening?')).toBeVisible({ timeout: 10000 });
@@ -729,6 +732,8 @@ test.describe('Speak Freely Button - Negotiation Flow', () => {
 
       // Listener clicks "Speak freely" to start negotiation
       await listenerPage.getByRole('button', { name: /Speak freely/i }).click();
+      // Wait for DB to confirm roleSwitchNegotiation written before asserting speaker UI.
+      await waitForDBStateKey('clarity_sessions', 'state', 'roleSwitchNegotiation', 'pending', 'code', roomCode!);
 
       // Speaker sees negotiation dialog
       await expect(speakerPage.getByText(`Allow ${listenerName} to skip active listening?`)).toBeVisible({ timeout: 10000 });

@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125418.0
 created_date: 2026-01-07
+completed_at: '2026-02-09'
 ---
 
 # P24: Next.js Migration (v2 - Fix-First Strategy)

@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125419.0
 created_date: 2025-12-27
+completed_at: '2026-02-09'
 ---
 
 # P24: Migrate from Vite to Next.js for SEO

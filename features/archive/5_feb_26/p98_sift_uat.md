@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125417.0
 created_date: 2026-01-27
+completed_at: '2026-02-09'
 ---
 
 # P98 Sift UAT - Manual Testing Checklist

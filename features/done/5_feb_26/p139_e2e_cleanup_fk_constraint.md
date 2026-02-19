@@ -5,6 +5,7 @@ rank: 62500
 workstream: foundation
 tags: []
 created_date: 2026-02-12
+completed_at: '2026-02-18'
 ---
 
 # P139: E2E Test Cleanup Fails - FK Constraint on point_position_history

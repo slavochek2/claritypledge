@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125406.0
 created_date: 2026-01-14
+completed_at: '2026-02-09'
 ---
 
 # P56.1: Event as Collective Sensemaking Container

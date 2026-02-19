@@ -1,5 +1,5 @@
 // Status columns for Notion-style kanban
-export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done' | 'draft' | 'rejected'
+export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done' | 'all-done' | 'draft' | 'rejected'
 
 // Feature type badge (first-class badge)
 export type FeatureType = 'bug' | 'task' | 'story' | 'comment'

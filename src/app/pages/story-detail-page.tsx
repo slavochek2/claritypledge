@@ -19,6 +19,7 @@ import { ArrowLeft, LockIcon, Pin, X, Loader2, Plus } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
+import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -442,6 +443,7 @@ export function StoryDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: authLoading } = useAuth();
+  const { checkVerified } = useVerificationGate();
 
   const justCreated = !!(location.state as { justCreated?: boolean } | null)?.justCreated;
 
@@ -571,11 +573,8 @@ export function StoryDetailPage() {
       return;
     }
 
-    // P132: Check if user is verified (RLS requires is_verified = true for INSERT on point_positions)
-    if (!user.isVerified) {
-      toast.error('Please verify your email to record positions');
-      return;
-    }
+    // P132/P273: Check if user is verified (RLS requires is_verified = true for INSERT on point_positions)
+    if (!checkVerified('set a position on this point')) return;
 
     // Optimistic update
     setUserPositions(prev => {
@@ -632,7 +631,7 @@ export function StoryDetailPage() {
 
       toast.error('Failed to save position. Please try again.');
     }
-  }, [user?.id, user?.isVerified, story?.id, navigate, location.pathname]);
+  }, [user?.id, checkVerified, story?.id, navigate, location.pathname]);
 
   // Loading skeleton
   if (loading) {

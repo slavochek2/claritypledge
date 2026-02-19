@@ -20,6 +20,7 @@ decisions:
 rank: 9
 tags: []
 created_date: 2026-02-06
+completed_at: '2026-02-09'
 ---
 # P124: Event Rooms — Tap to Step Aside
 

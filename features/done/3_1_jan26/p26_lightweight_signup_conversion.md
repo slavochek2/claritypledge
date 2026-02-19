@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125427.0
 created_date: 2026-01-02
+completed_at: '2026-02-09'
 ---
 
 # P26: Lightweight Signup & Guest Conversion Flow

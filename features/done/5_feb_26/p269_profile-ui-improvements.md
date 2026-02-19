@@ -14,6 +14,7 @@ reviews:
   ux: null
   architect: null
 created_date: 2026-02-17T00:00:00.000Z
+completed_at: '2026-02-18'
 ---
 
 # P269: Profile Page UI Improvements — Promote LinkedIn Prototype Patterns

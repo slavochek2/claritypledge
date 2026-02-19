@@ -97,8 +97,8 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName
 
 const DrawerContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => {
+  React.HTMLAttributes<HTMLDivElement> & { overlayClassName?: string }
+>(({ className, children, overlayClassName, ...props }, ref) => {
   const { open, onOpenChange, isMobile, dismissible } = React.useContext(DrawerContext)
 
   // Mobile: render a simple fixed-position div with portal
@@ -109,7 +109,7 @@ const DrawerContent = React.forwardRef<
       <>
         {/* Overlay - only dismissible if dismissible prop is true */}
         <div
-          className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"
+          className={overlayClassName ?? "fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"}
           onClick={dismissible ? () => onOpenChange(false) : undefined}
         />
         {/* Drawer content */}

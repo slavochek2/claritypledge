@@ -4,6 +4,7 @@ type: bug
 tags: []
 rank: 125423.0
 created_date: 2025-12-01
+completed_at: '2026-02-09'
 ---
 
 # Plan: Fix Menu Blinking & Refactor Navigation

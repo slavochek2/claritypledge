@@ -5,6 +5,7 @@ rank: 145.0
 date_completed: 2026-02-16
 tags: [architecture, position-loading, refactoring, data-consistency]
 created_date: 2026-02-16
+completed_at: '2026-02-18'
 ---
 
 # P151: System-Wide Position Loading Architecture Audit

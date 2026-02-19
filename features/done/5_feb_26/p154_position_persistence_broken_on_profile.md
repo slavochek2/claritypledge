@@ -7,6 +7,7 @@ severity: high
 date_reported: 2026-02-16
 created_date: 2026-02-16
 tags: [positions, persistence, profile-page, p389-followup]
+completed_at: '2026-02-18'
 ---
 
 # BUG P154: Position Buttons Not Persisting on Profile Page

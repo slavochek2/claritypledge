@@ -12,6 +12,7 @@ Auto-fixes (no judgment needed):
   - missing tags → tags: []
   - missing rank → max_rank + 1.0
   - missing created_date → from git log
+  - missing completed_at on done items → most recent git date (or today)
   - duplicate P-numbers → lower-priority file renamed + all references updated
 
 Reports only (needs manual fix):
@@ -22,6 +23,7 @@ Reports only (needs manual fix):
 import sys
 import re
 import subprocess
+import datetime
 from pathlib import Path
 
 
@@ -77,6 +79,19 @@ def get_git_date(file_path):
         )
         dates = [d.strip() for d in result.stdout.strip().split('\n') if d.strip()]
         return dates[-1] if dates else None
+    except Exception:
+        return None
+
+
+def get_git_recent_date(file_path):
+    """Get the most recent git commit date for a file (used for completed_at)."""
+    try:
+        result = subprocess.run(
+            ['git', 'log', '--format=%as', '-1', '--', str(file_path)],
+            capture_output=True, text=True
+        )
+        date = result.stdout.strip()
+        return date if date else None
     except Exception:
         return None
 
@@ -238,6 +253,14 @@ def fix_file(file_path, next_rank):
         if date:
             new_lines.append(f'created_date: {date}')
             changes.append(f'added created_date: {date}')
+
+    # Fix: missing completed_at on done items
+    if not has_field(new_lines, 'completed_at'):
+        status_line = next((l for l in new_lines if re.match(r'^status:', l)), None)
+        if status_line and status_line.split(':', 1)[1].strip() == 'done':
+            date = get_git_recent_date(file_path) or datetime.date.today().isoformat()
+            new_lines.append(f"completed_at: '{date}'")
+            changes.append(f'added completed_at: {date}')
 
     # Report: missing type
     if not has_field(new_lines, 'type'):

@@ -105,6 +105,64 @@ export async function waitForDBPresence(
 }
 
 /**
+ * Polls a Supabase JSONB column until a specific key has an expected value.
+ *
+ * Use this for state columns (JSONB) where a different Playwright browser
+ * context wrote a nested key. After the DB confirms the key, the page under
+ * test will receive it on its next DB poll (~1 s).
+ *
+ * @param table       - Table name (e.g. 'clarity_sessions')
+ * @param stateColumn - JSONB column name (e.g. 'state')
+ * @param key         - Key within the JSONB object (e.g. 'roleSwitchNegotiation')
+ * @param value       - Expected value for that key (e.g. 'pending')
+ * @param matchColumn - Column to filter on (e.g. 'code')
+ * @param matchValue  - Value to filter by (e.g. 'ABC123')
+ * @param timeoutMs   - Max wait time in ms (default 10000)
+ *
+ * @throws Error if the key does not match within timeoutMs
+ *
+ * @example
+ * await listenerPage.getByRole('button', { name: /Speak freely/i }).click();
+ * await waitForDBStateKey('clarity_sessions', 'state', 'roleSwitchNegotiation', 'pending', 'code', roomCode);
+ * await expect(speakerPage.getByText('Allow Bob to skip active listening?')).toBeVisible({ timeout: 10000 });
+ */
+export async function waitForDBStateKey(
+  table: string,
+  stateColumn: string,
+  key: string,
+  value: unknown,
+  matchColumn: string,
+  matchValue: string,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<void> {
+  console.log(`[test-realtime] Waiting for ${table}.${stateColumn}.${key} = '${String(value)}' where ${matchColumn} = '${matchValue}'`);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select(stateColumn)
+      .eq(matchColumn, matchValue)
+      .single();
+
+    if (!error && data) {
+      const stateVal = (data as Record<string, unknown>)[stateColumn];
+      if (stateVal && typeof stateVal === 'object' && (stateVal as Record<string, unknown>)[key] === value) {
+        console.log(`[test-realtime] Found ${table}.${stateColumn}.${key} = '${String(value)}' ✓`);
+        return;
+      }
+    }
+
+    await new Promise(resolve => setTimeout(resolve, DEFAULT_POLL_INTERVAL_MS));
+  }
+
+  throw new Error(
+    `[waitForDBStateKey] Timed out after ${timeoutMs}ms waiting for ` +
+    `${table}.${stateColumn}.${key} = '${String(value)}' where ${matchColumn} = '${matchValue}'`
+  );
+}
+
+/**
  * Polls a Supabase table until a column becomes non-null/non-empty.
  *
  * Variant of waitForDBPresence for cases where you only need to confirm

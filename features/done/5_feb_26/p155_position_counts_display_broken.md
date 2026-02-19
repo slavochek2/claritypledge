@@ -11,6 +11,7 @@ root_cause: "Three defects in profile-page-v2.tsx: (1) AdaptedPoint discarded po
 resolution: "Fixed in src/app/pages/profile-page-v2.tsx: (1) preserved positionCounts through both adapter paths and replaced getPointPositionCounts callback with toSevenPointCounts(p.positionCounts); (2) restored linkedStories from realPoints state lookup in refetch adapter, simplified key to point.id; (3) added currentUserId and onPointPositionSelect as explicit props to StoryCardFull; (4) added currentUser?.id to useEffect dependency array. Regression tests added to e2e/p154-position-persistence-profile.spec.ts."
 tags: [positions, counts, profile-page, story-expand, rendering]
 delivery_stage: done
+completed_at: '2026-02-18'
 ---
 
 # BUG P155: Position Counts Show 0, Story Expand Crashes on Profile Page

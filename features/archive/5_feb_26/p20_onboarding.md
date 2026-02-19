@@ -4,6 +4,7 @@ type: comment
 tags: []
 rank: 125402.0
 created_date: 2025-12-15
+completed_at: '2026-02-09'
 ---
 
 Onboarding Comprehension Check

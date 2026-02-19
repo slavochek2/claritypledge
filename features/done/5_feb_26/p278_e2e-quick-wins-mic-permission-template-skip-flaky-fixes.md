@@ -6,6 +6,7 @@ rank: 278.0
 workstream: foundation
 tags: [e2e, playwright, testing, infrastructure, flaky-tests]
 created_date: 2026-02-18
+completed_at: '2026-02-18'
 ---
 
 # P278: E2E Quick Wins — Mic Permission + Template Skip + Flaky Fixes

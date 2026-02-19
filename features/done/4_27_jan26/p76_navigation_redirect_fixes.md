@@ -4,6 +4,7 @@ type: bug
 tags: []
 rank: 125450.0
 created_date: 2026-01-19
+completed_at: '2026-02-09'
 ---
 
 # Tech-Spec: Navigation & Post-Auth Redirect Fixes

@@ -21,6 +21,7 @@ decisions:
 rank: 11
 tags: []
 created_date: 2026-02-06
+completed_at: '2026-02-09'
 ---
 # P128: /live Beginning Screen — Pick Story, Point, or Free Live
 

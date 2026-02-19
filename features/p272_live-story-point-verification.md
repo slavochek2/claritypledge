@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: story
 rank: 1
 workstream: C1
@@ -10,7 +10,7 @@ tags:
   - verification
   - calibration
 prepped_date: '2026-02-18'
-delivery_stage: decompose-review
+delivery_stage: implementation
 reviews:
   ux: null
   architect: null
@@ -1039,7 +1039,7 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
 - **Tests:** `e2e/integration/p272-accuracy-achieved-migration.spec.ts`
 - **Depends on:** None
 - **Verify:** Migration applies cleanly; `accuracy_achieved` is `true` only when `speaker_rating = 10` (not ≥ 8); INSERT policy rejects rows where `auth.uid()` ∉ {`speaker_id`, `listener_id`}
-- [ ] Complete
+- [x] Complete
 
 ### Task 2: StorySearchPicker component
 - **Files:** `src/app/components/partners/story-search-picker.tsx` (create)
@@ -1047,7 +1047,7 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
 - **Tests:** `e2e/a11y/p272-accessibility.spec.ts`, `e2e/p272-smoke.spec.ts`
 - **Depends on:** None
 - **Verify:** Empty on mount (no results shown until typing); filters on every keystroke; max 6 visible rows before scroll; no-results line appears; tapping a row collapses picker and calls `onSelectStory(storyId, title)`; `aria-label="Search your stories"` on input; each result row is a `<button>` with full accessible name
-- [ ] Complete
+- [x] Complete
 
 ### Task 3: LiveStoryCardExpanded component
 - **Files:** `src/app/components/partners/live-story-card-expanded.tsx` (create)
@@ -1055,14 +1055,14 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
 - **Tests:** `e2e/a11y/p272-accessibility.spec.ts`
 - **Depends on:** None
 - **Verify:** Collapsed by default; expand toggle sets `aria-expanded`; no share icon, no external-link icon; linked points render with 7-point `PositionButtons` from `@/app/prototypes/linkedin-like/components/shared`; empty points show "No points linked to this story."; `data-testid="live-story-card-expanded"` present; `onPositionSelect` fires on position button click
-- [ ] Complete
+- [x] Complete
 
 ### Task 4: Drawer overlay fix
 - **Files:** `src/components/ui/drawer.tsx` (modify)
 - **Spec refs:** "Technical Analysis > Current Code State > DrawerOverlay (lines ~681-683)", "Technical Analysis > Implementation Approach > Files to Modify > #1 > RatingScreen (lines ~856-857)", "UX Design > 2b. Screen Wireframes > State 5 (lines ~457-483)"
 - **Depends on:** None
 - **Verify:** `overlayClassName?: string` prop added to `DrawerContent`; passing `overlayClassName="bg-transparent"` produces a transparent scrim; default behavior (dark overlay) unchanged when prop is omitted
-- [ ] Complete
+- [x] Complete
 
 ### Task 5: Decouple story selection from round start + write selectedStoryData to live_state
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify), `src/app/data/api.ts` (modify if `creatorProfileId`/`joinerProfileId` missing)
@@ -1074,7 +1074,7 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
   - `handleSelectStory` writes both `selectedStoryId` AND `selectedStoryData: { id, title, content, points }` to `live_state` — listener reads from session state, bypassing `stories` RLS
   - `handleClearStory` writes `{ selectedStoryId: undefined, selectedPointId: undefined, selectedContentTitle: undefined, selectedStoryData: undefined }` to `live_state`
   - `ClaritySession` TypeScript type in `api.ts` includes `creatorProfileId?: string` and `joinerProfileId?: string`; `getClaritySession` SELECT query returns these columns
-- [ ] Complete
+- [x] Complete
 
 ### Task 6: Wire IdleScreen — picker, story card, Speak freely
 - **Files:** `src/app/components/partners/live-mode-view.tsx` (modify)
@@ -1088,7 +1088,7 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
   - "Speak freely" ghost button rendered below `ActionArea` when `liveState.selectedStoryId && ratingPhase === 'idle'`; calls `onClearStory?.()`
   - Picker hidden when story is selected; card reads from `liveState.selectedStoryData` (not a separate fetch)
   - Sessions with no story selected behave as current speak freely flow (regression)
-- [ ] Complete
+- [x] Complete
 
 ### Task 7: Persist story card through rating, gap reveal, and results screens
 - **Files:** `src/app/components/partners/live-mode-view.tsx` (modify)
@@ -1101,7 +1101,7 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
   - `UnderstandingScreen` accepts `selectedStory?`; renders `<LiveStoryCardExpanded>` above `<JourneyToUnderstanding>` in all sub-phases (gap reveal, explain-back, success)
   - Story card expand toggle works during rating phase
   - Sealed-bid behavior unchanged (neither participant sees the other's rating before both submit)
-- [ ] Complete
+- [x] Complete
 
 ### Task 8: writeStoryVerification insert hook
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify)
@@ -1116,7 +1116,7 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
   - Error is caught and logged; round completes regardless (non-blocking)
   - `verificationFiredRef.current.clear()` called at round reset (in `handleCelebrationComplete` and `handleSkip`)
   - `analytics.track('live_story_verified', ...)` fires on success
-- [ ] Complete
+- [x] Complete
 
 ### Task 9: Wire onPositionSelect through props
 - **Files:** `src/app/pages/clarity-live-page.tsx` (modify), `src/app/components/partners/live-mode-view.tsx` (modify)
@@ -1127,6 +1127,6 @@ Post-pilot: replace with a session-participation RLS policy that grants SELECT o
   - `handlePositionSelectInLive(pointId, position)` added to `clarity-live-page.tsx`; calls `pointsService.updatePosition` fire-and-forget
   - `onPositionSelect` threaded from `LiveModeViewProps` down to `LiveStoryCardExpanded` in all render sites (IdleScreen, RatingScreen, UnderstandingScreen)
   - Tapping a position button in the expanded story card saves the position without navigating away
-- [ ] Complete
+- [x] Complete
 
 **Total tasks:** 9 | **Can parallelize:** Tasks 1, 2, 3, 4, 5 (no shared dependencies — run all five in parallel) | **Must be sequential:** Tasks 2 + 3 + 5 → Task 6 → Task 7; Tasks 1 + 5 → Task 8; Task 6 → Task 9

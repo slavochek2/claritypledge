@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { toast } from 'sonner';
+import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { Loader2Icon, GlobeIcon, LockIcon, UsersIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +36,7 @@ const VISIBILITY_OPTIONS: {
 export function CreateStoryPage() {
   const navigate = useNavigate();
   const { user, session, isLoading: authLoading } = useAuth();
+  const { checkVerified } = useVerificationGate();
 
   // Form state
   const [content, setContent] = useState('');
@@ -97,6 +99,7 @@ export function CreateStoryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate() || !user?.id) return;
+    if (!checkVerified('create a story')) return;
 
     setIsSaving(true);
 

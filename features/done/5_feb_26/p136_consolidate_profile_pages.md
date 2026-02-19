@@ -9,6 +9,7 @@ blocks:
   - 134
 rank: 4
 created_date: 2026-02-09
+completed_at: '2026-02-18'
 ---
 
 # P136: Consolidate Profile Page Files & Fix Linked Stories/Points

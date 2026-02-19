@@ -1,5 +1,6 @@
 ---
 status: done
+completed_at: '2026-02-19'
 delivery_stage: implementation
 type: bug
 rank: 1

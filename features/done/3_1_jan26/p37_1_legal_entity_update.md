@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125433.0
 created_date: 2026-01-06
+completed_at: '2026-02-09'
 ---
 
 # P37.1: Legal Entity Update (TechSalesBox OÜ)

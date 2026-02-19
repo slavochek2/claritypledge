@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125428.0
 created_date: 2026-01-04
+completed_at: '2026-02-09'
 ---
 
 # P28.1: Audio + Event Data Capture for ML Validation

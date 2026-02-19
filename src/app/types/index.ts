@@ -624,6 +624,27 @@ export interface LiveSessionState {
   // Selected story for content-attached verification
   selectedStoryId?: string;
 
+  // Selected story data (full content pushed by speaker so listener can read without RLS)
+  selectedStoryData?: {
+    id: string;
+    content: string;
+    points: Array<{
+      id: string;
+      statement: string;
+      context?: string;
+      tags: string[];
+      positionCounts?: Record<string, number>;
+      userPosition?: string | null;
+      profileSubjectPosition?: string | null;
+    }>;
+    authorName: string;
+    authorSlug: string;
+    authorAvatarColor?: string;
+    authorAvatarUrl?: string;
+    authorEarsCount?: number;
+    createdAt?: string;
+  };
+
   // Selected point for content-attached verification
   selectedPointId?: string;
 

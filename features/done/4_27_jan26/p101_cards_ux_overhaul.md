@@ -4,6 +4,7 @@ type: story
 tags: []
 rank: 125444.0
 created_date: 2026-01-25
+completed_at: '2026-02-09'
 ---
 
 # P101: Cards UX Overhaul

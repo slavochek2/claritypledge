@@ -12,7 +12,7 @@ interface CardDialogProps {
 }
 
 // Options for single-select fields
-const STATUS_OPTIONS: Status[] = ['backlog', 'week', 'today', 'in-progress', 'blocked', 'done']
+const STATUS_OPTIONS: Status[] = ['draft', 'backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'all-done', 'rejected']
 const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story']
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 const DELIVERY_STAGE_OPTIONS: (DeliveryStage | null)[] = [
@@ -40,6 +40,9 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   'in-progress': { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
   blocked: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   done: { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
+  'all-done': { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
+  draft: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
+  rejected: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   // Type
   bug: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
   task: { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },

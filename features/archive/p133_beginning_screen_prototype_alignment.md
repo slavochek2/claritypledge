@@ -22,6 +22,7 @@ decisions:
 rank: 8
 tags: []
 created_date: 2026-02-12
+completed_at: '2026-02-09'
 ---
 # P133: /live Beginning Screen — Match Prototype Polish
 
