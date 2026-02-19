@@ -553,6 +553,7 @@ export function LiveModeView({
           selectedStory={selectedStory}
           selectedPoint={selectedPoint}
           onPositionSelect={onPositionSelect}
+          onClearStory={onClearStory}
           onSkip={() => handleRequestSkip('decline')}
           onExit={onExitMeeting}
           localFlowType={localFlowType}
@@ -608,6 +609,7 @@ export function LiveModeView({
           selectedStory={selectedStory}
           selectedPoint={selectedPoint}
           onPositionSelect={onPositionSelect}
+          onClearStory={onClearStory}
           isPrivate={isPrivate}
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
@@ -672,6 +674,7 @@ export function LiveModeView({
           isPrivate={isPrivate}
           selectedStory={selectedStory}
           onPositionSelect={onPositionSelect}
+          onClearStory={onClearStory}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -707,6 +710,7 @@ export function LiveModeView({
           isPrivate={isPrivate}
           selectedStory={selectedStory}
           onPositionSelect={onPositionSelect}
+          onClearStory={onClearStory}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -953,26 +957,31 @@ function IdleScreen({
         <ActionArea
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
-          <Button
-            size="lg"
-            className="bg-blue-500 hover:bg-blue-600 w-full"
-            onClick={handleStartCheckWithTracking}
-            disabled={showRatingDrawer || waitingForPartnerToContinue}
-            data-testid="start-check"
-          >
-            Does <span className="font-bold">{displayPartnerName}</span> understand you?
-          </Button>
+          {/* P400 Bug 4: conditionally render (not just disable) so buttons are hidden when drawer is open */}
+          {!showRatingDrawer && (
+            <Button
+              size="lg"
+              className="bg-blue-500 hover:bg-blue-600 w-full"
+              onClick={handleStartCheckWithTracking}
+              disabled={waitingForPartnerToContinue}
+              data-testid="start-check"
+            >
+              Does <span className="font-bold">{displayPartnerName}</span> understand you?
+            </Button>
+          )}
 
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full"
-            onClick={handleStartProveWithTracking}
-            disabled={showRatingDrawer || waitingForPartnerToContinue}
-            data-testid="start-prove"
-          >
-            Do you understand <span className="font-bold">{displayPartnerName}</span>?
-          </Button>
+          {!showRatingDrawer && (
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full"
+              onClick={handleStartProveWithTracking}
+              disabled={waitingForPartnerToContinue}
+              data-testid="start-prove"
+            >
+              Do you understand <span className="font-bold">{displayPartnerName}</span>?
+            </Button>
+          )}
 
           {/* Waiting for partner to continue indicator */}
           {waitingForPartnerToContinue && (
@@ -990,7 +999,8 @@ function IdleScreen({
         )}
 
         {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
-        {liveState.selectedStoryId && !showRatingDrawer && !waitingForPartnerToContinue && (
+        {/* P400: removed !showRatingDrawer gate — Speak Freely must show whenever story card is visible */}
+        {liveState.selectedStoryId && !waitingForPartnerToContinue && (
           <button
             onClick={onClearStory}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
@@ -1112,6 +1122,8 @@ interface RatingScreenProps {
   badgePersonName?: string;
   /** Ear count for the badge person */
   badgePersonEarsCount?: number;
+  /** P400: Clear selected story — Speak Freely must be present whenever story card is visible */
+  onClearStory?: () => void;
 }
 
 function RatingScreen({
@@ -1127,6 +1139,7 @@ function RatingScreen({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  onClearStory,
 }: RatingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1186,6 +1199,16 @@ function RatingScreen({
             badgePersonEarsCount={badgePersonEarsCount}
           />
         )}
+        {/* P400: Speak Freely must be present whenever story card is visible */}
+        {selectedStory && onClearStory && (
+          <button
+            onClick={onClearStory}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+            type="button"
+          >
+            Speak freely
+          </button>
+        )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
 
@@ -1237,6 +1260,8 @@ interface RatingScreenWithOptionalDrawerProps {
   badgePersonName?: string;
   /** Ear count for the badge person */
   badgePersonEarsCount?: number;
+  /** P400: Clear selected story — Speak Freely must be present whenever story card is visible */
+  onClearStory?: () => void;
 }
 
 function RatingScreenWithOptionalDrawer({
@@ -1254,6 +1279,7 @@ function RatingScreenWithOptionalDrawer({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  onClearStory,
 }: RatingScreenWithOptionalDrawerProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : displayPartnerName;
@@ -1322,6 +1348,16 @@ function RatingScreenWithOptionalDrawer({
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
           />
+        )}
+        {/* P400: Speak Freely must be present whenever story card is visible */}
+        {selectedStory && onClearStory && (
+          <button
+            onClick={onClearStory}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+            type="button"
+          >
+            Speak freely
+          </button>
         )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
       </div>
@@ -1865,6 +1901,8 @@ interface UnderstandingScreenProps {
   selectedStory?: StoryWithPoints | null;
   /** P272: Handler for position selection on story points */
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  /** P400: Clear selected story — Speak Freely must be present in waiting phase when story is visible */
+  onClearStory?: () => void;
 }
 
 function UnderstandingScreen({
@@ -1891,6 +1929,7 @@ function UnderstandingScreen({
   isPrivate = false,
   selectedStory,
   onPositionSelect,
+  onClearStory,
 }: UnderstandingScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -1995,14 +2034,7 @@ function UnderstandingScreen({
           <div className="flex flex-col h-full">
             <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
             <div className={CONTENT_LAYOUT}>
-              {/* P272: Story card visible throughout round */}
-              {selectedStory && (
-                <LiveStoryCardExpanded
-                  story={selectedStory}
-                  onPositionSelect={onPositionSelect}
-                  className="w-full max-w-sm mb-2"
-                />
-              )}
+              {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
               <JourneyToUnderstanding
                 checkerRating={checkerRating}
                 responderRating={responderRating}
@@ -2013,6 +2045,14 @@ function UnderstandingScreen({
                 proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
                 className="w-full max-w-sm"
               />
+              {/* P272: Story card visible throughout round */}
+              {selectedStory && (
+                <LiveStoryCardExpanded
+                  story={selectedStory}
+                  onPositionSelect={onPositionSelect}
+                  className="w-full max-w-sm mb-2"
+                />
+              )}
               <ActionArea
                 icon="👂"
                 title={`Hear what's missing for a perfect 10`}
@@ -2067,14 +2107,7 @@ function UnderstandingScreen({
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
           <div className={CONTENT_LAYOUT}>
-            {/* P272: Story card visible throughout round */}
-            {selectedStory && (
-              <LiveStoryCardExpanded
-                story={selectedStory}
-                onPositionSelect={onPositionSelect}
-                className="w-full max-w-sm mb-2"
-              />
-            )}
+            {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
             <JourneyToUnderstanding
               checkerRating={checkerRating}
               responderRating={responderRating}
@@ -2085,6 +2118,14 @@ function UnderstandingScreen({
               proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
               className="w-full max-w-sm"
             />
+            {/* P272: Story card visible throughout round */}
+            {selectedStory && (
+              <LiveStoryCardExpanded
+                story={selectedStory}
+                onPositionSelect={onPositionSelect}
+                className="w-full max-w-sm mb-2"
+              />
+            )}
           </div>
 
           {/* Rating drawer - always open by design for focused rating UX.
@@ -2154,14 +2195,7 @@ function UnderstandingScreen({
         <div className="flex flex-col h-full">
           <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
           <div className={CONTENT_LAYOUT}>
-            {/* P272: Story card visible throughout round */}
-            {selectedStory && (
-              <LiveStoryCardExpanded
-                story={selectedStory}
-                onPositionSelect={onPositionSelect}
-                className="w-full max-w-sm mb-2"
-              />
-            )}
+            {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
             <JourneyToUnderstanding
               checkerRating={checkerRating}
               responderRating={responderRating}
@@ -2172,6 +2206,14 @@ function UnderstandingScreen({
               proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
               className="w-full max-w-sm"
             />
+            {/* P272: Story card visible throughout round */}
+            {selectedStory && (
+              <LiveStoryCardExpanded
+                story={selectedStory}
+                onPositionSelect={onPositionSelect}
+                className="w-full max-w-sm mb-2"
+              />
+            )}
             <ActionArea>
               {listenerWaitingForNegotiation ? (
                 // Listener clicked "Speak freely" and is waiting for speaker's decision
@@ -2218,14 +2260,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
+          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2236,6 +2271,14 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <ActionArea
             icon="🎤"
             title={listenerWaitingForNegotiation ? undefined : <>Explain back what you heard<br />OR ask a clarifying question</>}
@@ -2298,15 +2341,8 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
           {/* Hide ratings until both submit to prevent bias */}
+          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2318,6 +2354,24 @@ function UnderstandingScreen({
             className="w-full max-w-sm"
             hideUntilBothSubmitted={true}
           />
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
+          {/* P400: Speak Freely must be present in waiting phase when story card is visible */}
+          {selectedStory && onClearStory && (
+            <button
+              onClick={onClearStory}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+              type="button"
+            >
+              Speak freely
+            </button>
+          )}
 
           {/* Waiting indicator below the card */}
           <ActionArea>
@@ -2359,14 +2413,6 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P272: Story card visible throughout round, hidden once user continues */}
-          {selectedStory && !userHasAcknowledged && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
           {/* Celebration header */}
           <div className="text-center space-y-2">
             <div className="text-4xl">🎉</div>
@@ -2378,6 +2424,7 @@ function UnderstandingScreen({
               <p className="text-sm text-blue-600 font-medium">{underconfidenceMessage}</p>
             )}
           </div>
+          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2389,6 +2436,14 @@ function UnderstandingScreen({
             variant="success"
             className="w-full max-w-sm"
           />
+          {/* P272: Story card visible throughout round, hidden once user continues */}
+          {selectedStory && !userHasAcknowledged && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <ActionArea>
             <Button
               size="lg"
@@ -2427,14 +2482,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
+          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2445,6 +2493,14 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <div className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 w-full max-w-sm">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="bg-blue-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">{gapBadgeText}</span>
@@ -2557,14 +2613,7 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
-            <LiveStoryCardExpanded
-              story={selectedStory}
-              onPositionSelect={onPositionSelect}
-              className="w-full max-w-sm mb-2"
-            />
-          )}
+          {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
@@ -2575,6 +2624,14 @@ function UnderstandingScreen({
             proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
             className="w-full max-w-sm"
           />
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <div className="border border-input bg-muted/50 rounded-lg px-4 py-3 w-full max-w-sm">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="bg-green-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Perfectly calibrated</span>
@@ -2803,14 +2860,7 @@ function UnderstandingScreen({
     <div className="flex flex-col h-full">
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
       <div className={CONTENT_LAYOUT}>
-        {/* P272: Story card visible throughout all UnderstandingScreen phases */}
-        {selectedStory && (
-          <LiveStoryCardExpanded
-            story={selectedStory}
-            onPositionSelect={onPositionSelect}
-            className="w-full max-w-sm mb-2"
-          />
-        )}
+        {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
         <JourneyToUnderstanding
           checkerRating={checkerRating}
           responderRating={responderRating}
@@ -2821,6 +2871,14 @@ function UnderstandingScreen({
           proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
           className="w-full max-w-sm"
         />
+        {/* P272: Story card visible throughout all UnderstandingScreen phases */}
+        {selectedStory && (
+          <LiveStoryCardExpanded
+            story={selectedStory}
+            onPositionSelect={onPositionSelect}
+            className="w-full max-w-sm mb-2"
+          />
+        )}
         <ActionArea
           title={isChecker && clarificationPhase === 'speaker-deciding' && hasExplainBackHappened
             ? `What is missing to a perfect 10?`

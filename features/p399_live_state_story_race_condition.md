@@ -1,12 +1,16 @@
 ---
-status: week
+status: today
 type: bug
-rank: 125458.0
+rank: 1
 severity: high
 workstream: live
 date_reported: '2026-02-19'
 created_date: '2026-02-19'
-tags: [live-session, story, real-time, race-condition]
+tags:
+  - live-session
+  - story
+  - real-time
+  - race-condition
 ---
 
 # P399: Story disappears mid-round due to live_state full-overwrite race condition

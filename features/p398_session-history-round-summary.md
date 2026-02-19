@@ -11,7 +11,7 @@ tags:
 created_date: 2026-02-19T00:00:00.000Z
 reviews:
   ux: review
-  architect: null
+  architect: approved
 ---
 
 # P398: Clickable Session Round History with Summary Screen
@@ -416,3 +416,228 @@ The history list is inside a scrollable container (`overflow-y-auto`). As entrie
 
 - Chevron icons and row hover backgrounds are visible only on devices with a hover capability (`@media (hover: hover)`), preventing the "sticky hover" issue on touch devices.
 - The Back button shows a standard outline button hover style consistent with the existing `variant="outline"` usage across the session UI.
+
+---
+
+## Technical
+
+### Technical Analysis
+
+#### Current Code State
+
+**`SessionHistoryItem` — dual definition problem**
+
+The type currently exists in two places with conflicting ownership:
+
+1. `src/app/types/index.ts` line 656 — inline anonymous type inside `LiveSessionState.sessionHistory`:
+   ```ts
+   sessionHistory?: Array<{ title: string; type: 'story' | 'point' | 'free' }>;
+   ```
+2. `src/app/components/partners/live-content-cards.tsx` — local named interface `SessionHistoryItem` with identical shape, used only by `SessionHistoryList`.
+
+These are structurally identical today but are not linked by TypeScript. The promotion to a shared named type in `src/app/types/index.ts` resolves this.
+
+**`SessionHistoryList` component — `live-content-cards.tsx`**
+
+- Props: `history: SessionHistoryItem[]`, `className?: string`
+- Renders a `<div>` with a "THIS SESSION" label and a list of plain `<div>` rows (not buttons)
+- Each row: `CheckCircle2` icon + content-type icon + title span
+- No click handler, no chevron, no interactive affordance
+- Imported in `live-mode-view.tsx` and used in `IdleScreen`
+
+**`IdleScreen` component — `live-mode-view.tsx`**
+
+- Receives `liveState: LiveSessionState`
+- Renders `SessionHistoryList` when `sessionHistory.length > 0`
+- Has no `selectedHistoryIndex` state or summary-view rendering
+- `LiveHeader` sits *outside* the scrollable body `<div className={layoutClass} overflow-y-auto>` — confirms the inline swap pattern keeps the header visible unchanged
+
+**`JourneyToUnderstanding` component — `live-mode-view.tsx`**
+
+- Currently a **non-exported** function: `function JourneyToUnderstanding(`
+- Props include: `checkerRating?`, `responderRating?`, `explainBackRatings: number[]`, `isChecker: boolean`, `displayPartnerName: string`, `checkerName: string` (required, not optional), `hideUntilBothSubmitted?`, `variant?`
+- Used 10+ times within `live-mode-view.tsx` but never imported elsewhere
+- The celebration phase is a conditional branch inside `UnderstandingScreen`, not a separate component — the summary screen will replicate that branch's JSX pattern, not reuse `UnderstandingScreen`
+
+**History capture in `clarity-live-page.tsx`**
+
+Two callbacks build `historyEntry` objects:
+- `handleCelebrationComplete` — natural completion path; has full access to `currentState.checkerRating`, `responderRating`, `explainBackRatings`, `checkerName`, and `partnerName` from closure scope
+- `handleSkip` — skip path; currently sets only `{ title, type }` without `skipped: true`
+
+**`live_state` DB persistence note**
+
+`sessionHistory` is written into the `live_state` JSONB column on `clarity_sessions` on every `updateLiveState` call. The spec describes history as "in-memory", but the enriched fields (including ratings and names) will be persisted to the DB for the session's lifetime. This is not a new vulnerability but is a documentation inaccuracy — see Security Review.
+
+**Existing tests**
+
+`src/tests/live-mode-view.test.tsx` tests `SessionHistoryList` with the current `{ title, type }` shape — these will need updating when the type is enriched.
+
+#### Dependencies
+
+- `live-mode-view.tsx` imports `SessionHistoryList` from `live-content-cards.tsx`
+- `JourneyToUnderstanding` is used only within `live-mode-view.tsx` (not yet exported)
+- `clarity-live-page.tsx` delegates all idle-screen rendering to `LiveModeView`
+- `CONTENT_LAYOUT` constant in `live-mode-view.tsx` is not currently exported
+
+---
+
+### Architecture Decisions
+
+**Decision 1: Where to define `SessionHistoryItem`**
+
+Chosen: Promote to `src/app/types/index.ts` as a named exported interface; replace the inline anonymous type in `LiveSessionState.sessionHistory`; delete the local duplicate in `live-content-cards.tsx`.
+
+Rationale: Both `clarity-live-page.tsx` (which writes entries) and `live-content-cards.tsx` (which reads entries) need the type. `src/app/types/index.ts` is the canonical shared types file — it already houses `LiveSessionState`. Co-locating the type with the state that owns it prevents drift.
+
+Trade-off: One additional export from `types/index.ts`. The local `SessionHistoryItem` in `live-content-cards.tsx` must be deleted to avoid shadowing — a two-file change for a type promotion, but straightforward.
+
+Alternative rejected: Keep type in `live-content-cards.tsx` and import from there into `clarity-live-page.tsx`. Violates the dependency direction — pages should not import types from component files; both should import from `types/index.ts`.
+
+---
+
+**Decision 2: Where to place `RoundSummaryScreen`**
+
+Chosen: New file `src/app/components/partners/round-summary-screen.tsx`. Export `JourneyToUnderstanding` and `JourneyToUnderstandingProps` from `live-mode-view.tsx` (add `export` keyword to the function and interface declarations).
+
+Rationale: `RoundSummaryScreen` is a distinct rendering concern — it consumes a `SessionHistoryItem` and renders a static (non-live) journey view. Co-locating it in `live-mode-view.tsx` (already 2800+ lines) makes that file harder to navigate. Exporting `JourneyToUnderstanding` is a one-word change and enables clean cross-file reuse.
+
+Trade-off: Exporting `JourneyToUnderstanding` makes it part of the public API of `live-mode-view.tsx`. It is a display-only component with no side effects, so this is safe.
+
+Alternative rejected: Co-locating `RoundSummaryScreen` inside `live-mode-view.tsx`. The file is too long already; the spec itself calls out a separate file as the preferred location.
+
+---
+
+**Decision 3: Where to manage `selectedHistoryIndex` state**
+
+Chosen: Local `useState` in `IdleScreen` (inside `live-mode-view.tsx`), not in `clarity-live-page.tsx`.
+
+Rationale: `selectedHistoryIndex` is purely a display concern — it controls which view the idle screen shows. It does not need to be part of `LiveSessionState` (not synced to partner, not persisted). Keeping state in the component that uses it avoids prop-drilling through `clarity-live-page.tsx` → `LiveModeView` → `IdleScreen`. The auto-reset when `ratingPhase` leaves `'idle'` is handled via a `useEffect` inside `IdleScreen` watching `liveState.ratingPhase`.
+
+Trade-off: `clarity-live-page.tsx` cannot observe the selected history index. This is acceptable — the page has no reason to know which summary is open.
+
+Alternative rejected: State in `clarity-live-page.tsx` with prop-drilling through `LiveModeView` → `IdleScreen`. Creates unnecessary prop surface for a concern the page does not need to own. The spec's Implementation Guide Step 5 suggests this location but the codebase pattern argues against it.
+
+---
+
+**Decision 4: `RoundSummaryScreen` rendering — inline swap vs overlay**
+
+Chosen: Inline content swap within `IdleScreen`'s scrollable body. When `selectedHistoryIndex !== null`, the scrollable `<div>` renders `<RoundSummaryScreen>` instead of the normal idle content.
+
+Rationale: The spec explicitly says "The inline view replacement is simpler — no sheet infrastructure needed. Prefer it." `LiveHeader` sits outside the scrollable content div; the swap is a conditional render inside that div. No new layout primitives needed.
+
+Trade-off: No browser back gesture support (intentional per spec — this is an in-page content swap, not a route change).
+
+Alternative rejected: Bottom sheet using the existing `Drawer` component (already imported in `live-mode-view.tsx`). Adds modal overlay complexity for what is essentially a content view, not a confirmation dialog.
+
+---
+
+**Decision 5: Store `isChecker` in `SessionHistoryItem`**
+
+Chosen: Add `isChecker?: boolean` to `SessionHistoryItem`, derived at capture time as `currentState.checkerName === name`.
+
+Rationale: `JourneyToUnderstanding` requires `isChecker` to render the correct perspective labels. By the time the user opens the summary, `checkerName` in `liveState` has been cleared (reset to `undefined` when the round completes). The user's role at round completion time is a property of that history entry, not of the current session state.
+
+Trade-off: One additional field in `SessionHistoryItem`. Small cost for correct summary rendering.
+
+Alternative rejected: Derive `isChecker` at summary-view time from `liveState.checkerName === name`. Wrong — `checkerName` is cleared after round completion.
+
+---
+
+### Security Review
+
+**RLS Policies:**
+- ✅ No new database tables introduced by P398. Session history lives in `live_state` (JSONB) on `clarity_sessions`, already governed by existing RLS policies.
+- ⚠️ **Documentation inaccuracy:** The spec describes history as "in-memory only (no DB writes)" — this is incorrect. `sessionHistory` is serialised into `live_state` on every `updateLiveState` call. After P398, enriched fields (`checkerRating`, `responderRating`, `explainBackRatings`, `checkerName`, `partnerName`) will persist to the DB for the session's lifetime. Not a new vulnerability, but teams relying on the "in-memory" assumption for data-minimisation decisions should be aware.
+- ⚠️ **Pre-existing (not new in P398):** The existing UPDATE policy only checks `creator_profile_id IS NOT NULL`, meaning both host and anonymous guest can overwrite the entire `live_state` blob including `sessionHistory`. P398 does not change this exposure.
+
+**Authentication:**
+- ✅ No new API calls, routes, or authentication flows.
+- ✅ The round summary screen is gated behind local React state (`selectedHistoryIndex !== null`) — not accessible via URL or API. No auth bypass risk.
+- ✅ Exporting `JourneyToUnderstanding` as a rendering component introduces no auth concerns.
+
+**Input Validation:**
+- ✅ All enriched fields sourced from `confirmedLiveStateRef.current` (server-confirmed state): numeric ratings are integers; `checkerName`/`partnerName` are display names already stored in DB with length constraints; `completedAt` is `new Date().toISOString()` used for display only.
+- ✅ All values rendered in React JSX as text content with automatic HTML escaping. No XSS risk in the rendering path.
+- ✅ Names rendered as JSX children in template literals (React children, not raw HTML injection).
+
+**Data Protection:**
+- ✅ Both participants already see each other's ratings on the celebration screen — the summary screen re-displays data both users have already seen. No new information asymmetry.
+- ✅ `selectedHistoryIndex` is per-session component instance local state. No cross-session leakage path.
+- ✅ `partnerName` and `checkerName` are already visible to both parties throughout the session; storing them in history does not expose them to new audiences.
+- ✅ No raw HTML rendering (unsafe HTML injection) found anywhere in the rendering path for history items or `JourneyToUnderstanding`.
+
+**Action item:** Update the spec's "Data Model Change" section to remove the claim that history is in-memory only — or add a clarifying note that "in-memory" refers to cross-session non-persistence, not absence of DB writes within a session.
+
+---
+
+### Implementation Approach
+
+#### Files to Create
+
+**`src/app/components/partners/round-summary-screen.tsx`**
+
+New component. Responsibilities:
+- Receives a `SessionHistoryItem` (enriched) and an `onBack: () => void` callback
+- Renders journey header + exported `JourneyToUnderstanding` + full-width `variant="outline"` Back button
+- Handles Escape key via `useEffect` → `document.addEventListener('keydown', ...)`
+- Focus management: `useRef` on the title heading, `focus()` on mount; restore focus to the triggering button on unmount
+
+Interface:
+```ts
+interface RoundSummaryScreenProps {
+  item: SessionHistoryItem;
+  onBack: () => void;
+}
+```
+
+#### Files to Modify
+
+**`src/app/types/index.ts`**
+1. Add exported `SessionHistoryItem` interface (before `LiveSessionState`):
+   ```ts
+   export interface SessionHistoryItem {
+     title: string;
+     type: 'story' | 'point' | 'free';
+     checkerRating?: number;
+     responderRating?: number;
+     explainBackRatings?: number[];
+     checkerName?: string;
+     partnerName?: string;
+     completedAt?: string;
+     skipped?: boolean;
+     isChecker?: boolean;
+   }
+   ```
+2. Update `LiveSessionState.sessionHistory` from inline anonymous type to `SessionHistoryItem[]`
+
+**`src/app/components/partners/live-content-cards.tsx`**
+1. Delete local `SessionHistoryItem` interface
+2. Add import: `import type { SessionHistoryItem } from '@/app/types'`
+3. Add `onItemClick?: (index: number) => void` to `SessionHistoryListProps`
+4. Add `ChevronRight` to lucide imports
+5. Convert rows: clickable rows (`!item.skipped && item.checkerRating !== undefined && !!onItemClick`) → `<button>` with `aria-label="View round summary: {title}"`, `min-h-[44px]`, hover/focus states, chevron with `group-hover:translate-x-0.5`; skipped/no-data rows → `<div>` with `opacity-60`, "Skipped" label
+
+**`src/app/pages/clarity-live-page.tsx`**
+1. `handleCelebrationComplete` — enrich `historyEntry` with: `checkerRating`, `responderRating`, `explainBackRatings: [...(currentState.explainBackRatings ?? [])]`, `checkerName`, `partnerName`, `completedAt: new Date().toISOString()`, `isChecker: currentState.checkerName === name`
+2. `handleSkip` — add `skipped: true` to the history entry
+
+**`src/app/components/partners/live-mode-view.tsx`**
+1. Add `export` to `function JourneyToUnderstanding(` and `interface JourneyToUnderstandingProps`
+2. Export `CONTENT_LAYOUT` constant (and `ActionArea` if used by `RoundSummaryScreen`)
+3. In `IdleScreen`: add `const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null)`, `useEffect` auto-reset on `liveState.ratingPhase !== 'idle'`, import `RoundSummaryScreen`, conditional early return when `selectedHistoryIndex !== null`, pass `onItemClick` to `SessionHistoryList`
+
+**`src/tests/live-mode-view.test.tsx`**
+- Update history fixtures to enriched `SessionHistoryItem` shape
+- Add tests: clickable entry opens summary, Back button restores idle, `ratingPhase !== 'idle'` auto-closes, skipped entry has no chevron, entry without `checkerRating` has no chevron
+
+#### Build Sequence
+
+1. **Phase 1 — Type promotion** (no behavior change): promote `SessionHistoryItem` to `types/index.ts`, update `LiveSessionState.sessionHistory`, delete local duplicate. Run `npm run build`.
+2. **Phase 2 — Capture enriched data** (no UI change): enrich `historyEntry` in `handleCelebrationComplete`; add `skipped: true` in `handleSkip`. Run `npm test`.
+3. **Phase 3 — Export `JourneyToUnderstanding`**: add `export` keyword, export `CONTENT_LAYOUT`/`ActionArea` as needed. Run `npm run build`.
+4. **Phase 4 — Create `RoundSummaryScreen`**: implement rendering, Escape handler, focus management. Run `npm run build`.
+5. **Phase 5 — Make history rows clickable**: add `onItemClick` prop, button/div conditional rendering, chevron. Run `npm run build` + `npm test`.
+6. **Phase 6 — Wire state in `IdleScreen`**: `selectedHistoryIndex` state, auto-reset effect, conditional render, pass `onItemClick`. Run `npm test` + `npm run build`.
+7. **Phase 7 — Update and add tests**: update fixtures, add 5 new tests. Run full test suite.
+8. **Phase 8 — E2E verification**: run `/verify` — complete a round, tap history entry, verify summary shows correct ratings, Back restores idle, Escape closes, skipped rows have no affordance, keyboard flow works.

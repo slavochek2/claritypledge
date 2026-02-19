@@ -651,8 +651,13 @@ export function ClarityLivePage() {
         const checksCountDrift = serverState.checksCount !== localState.checksCount;
         const clarificationPhaseDrift = serverState.clarificationPhase !== localState.clarificationPhase;
         const roleSwitchNegotiationDrift = serverState.roleSwitchNegotiation?.state !== localState.roleSwitchNegotiation?.state;
+        // Bug 5: story selection fields were missing from drift check — partner's screen
+        // never updated when Realtime WebSocket dropped (common on mobile).
+        const selectedStoryIdDrift = serverState.selectedStoryId !== localState.selectedStoryId;
+        const selectedStoryDataDrift = !!serverState.selectedStoryData !== !!localState.selectedStoryData;
+        const selectedContentTitleDrift = serverState.selectedContentTitle !== localState.selectedContentTitle;
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift;
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)
@@ -1191,6 +1196,7 @@ export function ClarityLivePage() {
         clarificationPhase: undefined,
         // P128: Clear content selection and update history
         selectedStoryId: undefined,
+        selectedStoryData: undefined, // Bug 1: must clear data too — UI gate checks this field
         selectedPointId: undefined,
         selectedContentTitle: undefined,
         sessionHistory: [...prevHistory, historyEntry],
