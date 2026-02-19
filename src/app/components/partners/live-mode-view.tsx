@@ -244,9 +244,13 @@ export function LiveModeView({
           ...p,
           // p.id in myPositions distinguishes "explicitly set to null (removed)" from "not set"
           // ?? would silently fall through null to the DB position, ignoring the removal
+          // p.userPosition in selectedStoryData is always the HOST's DB position (fetched via
+          // getStoriesByAuthorWithPoints(userId, userId)). Only use it for the host themselves
+          // (isAuthor = true, since all picker stories are authored by the host). For the guest
+          // (isAuthor = false), default to null so they start with an unset state.
           userPosition: p.id in myPositions
             ? myPositions[p.id]
-            : p.userPosition ?? (isAuthor ? p.profileSubjectPosition : null) ?? null,
+            : isAuthor ? (p.userPosition ?? p.profileSubjectPosition ?? null) : null,
           profileSubjectPosition: isAuthor ? null : p.profileSubjectPosition,
         })),
       };
