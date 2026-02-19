@@ -12,6 +12,7 @@ FEATURES_DIR="$(cd "$(dirname "$0")/.." && pwd)/features"
 highest=$(find "$FEATURES_DIR" -name "p*.md" \
   | grep -v "/uat/" \
   | grep -v "/archive/" \
+  | grep -v "_uat\.md" \
   | grep -oE '/p[0-9]+' \
   | grep -oE '[0-9]+' \
   | sort -n \
