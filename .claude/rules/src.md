@@ -32,6 +32,31 @@ const witnesses = await getWitnesses(profile.id);
 const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 ```
 
+## Avatar Usage (GravatarAvatar)
+
+`GravatarAvatar` requires two props — always pass both:
+
+```tsx
+// Correct
+<GravatarAvatar
+  name={person.name}
+  photoUrl={person.avatarUrl ?? undefined}   // show Google photo when available
+  avatarColor={person.avatarColor}
+  isPledger={person.hasPledged ?? false}     // shows blue ring for pledgers
+/>
+
+// Wrong — missing photoUrl (shows initials instead of Google photo)
+<GravatarAvatar name={person.name} isPledger={false} />
+
+// Wrong — isPledger omitted (TypeScript error, pledge ring never shown)
+<GravatarAvatar name={person.name} photoUrl={person.avatarUrl} />
+```
+
+**Rules:**
+- `photoUrl` — pass from data when available (`string | null | undefined` → coerce with `?? undefined`)
+- `isPledger` — **required**, never omit. Use `?? false` when source field is `boolean | undefined`
+- Prefer the `PersonAvatar` wrapper (takes `PersonRef`) when the data matches — it handles both correctly
+
 ## Code Style
 
 - React 19 patterns — hooks declared at top of component

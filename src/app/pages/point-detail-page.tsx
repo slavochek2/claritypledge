@@ -372,6 +372,7 @@ function PositionHolderCard({
         photoUrl={holder.userAvatarUrl}
         avatarColor={holder.userAvatarColor}
         size="sm"
+        isPledger={false}
         className="!w-5 !h-5 !text-[10px]"
       />
 

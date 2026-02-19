@@ -790,6 +790,7 @@ export function ClarityLivePage() {
       selectedContentTitle: title,
       selectedStoryData: storyData ? {
         id: storyData.id,
+        authorId: storyData.authorId,
         content: storyData.content,
         points: storyData.points.map(p => ({
           id: p.id,
@@ -805,6 +806,7 @@ export function ClarityLivePage() {
         authorAvatarColor: storyData.authorAvatarColor,
         authorAvatarUrl: storyData.authorAvatarUrl,
         authorEarsCount: storyData.authorEarsCount,
+        authorHasPledged: storyData.authorHasPledged,
         createdAt: storyData.createdAt,
       } : undefined,
     });

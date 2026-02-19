@@ -39,6 +39,7 @@ interface DbStoryWithAuthor {
     avatar_color: string | null;
     avatar_url: string | null;
     ears_count: number | null;
+    has_pledged: boolean | null;
   } | null;
 }
 
@@ -179,7 +180,8 @@ export const realStoriesService: StoriesService = {
           slug,
           avatar_color,
           avatar_url,
-          ears_count
+          ears_count,
+          has_pledged
         )
       `)
       .eq('id', storyId)
@@ -275,7 +277,8 @@ export const realStoriesService: StoriesService = {
           slug,
           avatar_color,
           avatar_url,
-          ears_count
+          ears_count,
+          has_pledged
         )
       `)
       .eq('author_id', authorId)
@@ -379,7 +382,9 @@ export const realStoriesService: StoriesService = {
           name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          ears_count,
+          has_pledged
         )
       `)
       .order('created_at', { ascending: false })

@@ -624,9 +624,15 @@ export interface LiveSessionState {
   // Selected story for content-attached verification
   selectedStoryId?: string;
 
-  // Selected story data (full content pushed by speaker so listener can read without RLS)
-  selectedStoryData?: {
+  // Selected story data (full content pushed by speaker so listener can read without RLS).
+  // Uses Pick<StoryWithAuthor, author fields> so any new author display field added to
+  // StoryWithAuthor is automatically required here — prevents silent drift.
+  selectedStoryData?: Pick<StoryWithAuthor,
+    'authorName' | 'authorSlug' | 'authorAvatarColor' | 'authorAvatarUrl' |
+    'authorEarsCount' | 'authorHasPledged'
+  > & {
     id: string;
+    authorId?: string;
     content: string;
     points: Array<{
       id: string;
@@ -637,11 +643,6 @@ export interface LiveSessionState {
       userPosition?: string | null;
       profileSubjectPosition?: string | null;
     }>;
-    authorName: string;
-    authorSlug: string;
-    authorAvatarColor?: string;
-    authorAvatarUrl?: string;
-    authorEarsCount?: number;
     createdAt?: string;
   };
 

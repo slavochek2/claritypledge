@@ -219,6 +219,7 @@ export function ProfileCertificate({
                 size="md"
                 avatarColor={avatarColor}
                 photoUrl={photoUrl}
+                isPledger={true}
               />
               <div>
                 <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-foreground leading-tight">

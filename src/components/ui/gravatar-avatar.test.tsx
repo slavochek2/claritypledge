@@ -34,8 +34,8 @@ describe("GravatarAvatar", () => {
       expect(avatar.className).not.toContain("ring-blue-500");
     });
 
-    it("has no ring when isPledger is omitted", () => {
-      const { container } = render(<GravatarAvatar name="Test User" />);
+    it("has no ring when isPledger is false", () => {
+      const { container } = render(<GravatarAvatar name="Test User" isPledger={false} />);
       const avatar = getAvatarDiv(container);
 
       expect(avatar.className).not.toContain("ring-blue-500");
@@ -45,7 +45,7 @@ describe("GravatarAvatar", () => {
   // UAT-1.3: showPledgeBadge renders checkmark with accessibility
   describe("showPledgeBadge prop", () => {
     it("renders checkmark badge with accessibility when showPledgeBadge is true", () => {
-      render(<GravatarAvatar name="Test User" showPledgeBadge={true} />);
+      render(<GravatarAvatar name="Test User" isPledger={false} showPledgeBadge={true} />);
 
       const badge = screen.getByLabelText("Verified pledger");
       expect(badge).toBeInTheDocument();
@@ -54,14 +54,14 @@ describe("GravatarAvatar", () => {
 
     // UAT-1.6: Badge hidden by default
     it("does not render badge when showPledgeBadge is false", () => {
-      render(<GravatarAvatar name="Test User" showPledgeBadge={false} />);
+      render(<GravatarAvatar name="Test User" isPledger={false} showPledgeBadge={false} />);
 
       const badge = screen.queryByLabelText("Verified pledger");
       expect(badge).not.toBeInTheDocument();
     });
 
     it("does not render badge when showPledgeBadge is omitted", () => {
-      render(<GravatarAvatar name="Test User" />);
+      render(<GravatarAvatar name="Test User" isPledger={false} />);
 
       const badge = screen.queryByLabelText("Verified pledger");
       expect(badge).not.toBeInTheDocument();
@@ -105,7 +105,7 @@ describe("GravatarAvatar", () => {
   // Basic functionality tests (existing behavior)
   describe("basic functionality", () => {
     it("renders initials when no photoUrl provided", () => {
-      render(<GravatarAvatar name="John Doe" />);
+      render(<GravatarAvatar name="John Doe" isPledger={false} />);
       expect(screen.getByText("JD")).toBeInTheDocument();
     });
 
@@ -113,6 +113,7 @@ describe("GravatarAvatar", () => {
       render(
         <GravatarAvatar
           name="John Doe"
+          isPledger={false}
           photoUrl="https://example.com/avatar.jpg"
         />
       );

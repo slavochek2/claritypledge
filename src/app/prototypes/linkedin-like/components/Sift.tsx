@@ -325,7 +325,7 @@ export function Sift() {
           <div className="max-w-2xl mx-auto px-4 py-6">
             {/* User's input */}
             <div className="flex gap-3 mb-6">
-              <GravatarAvatar name={MOCK_USER.name} size="sm" />
+              <GravatarAvatar name={MOCK_USER.name} size="sm" isPledger={false} />
               <div className="flex-1 bg-white rounded-lg p-4 border border-gray-200">
                 <p className="text-gray-900">{state.userInput}</p>
               </div>

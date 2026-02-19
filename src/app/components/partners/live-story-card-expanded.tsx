@@ -108,6 +108,7 @@ export function LiveStoryCardExpanded({
               authorName={story.authorName}
               authorAvatarUrl={story.authorAvatarUrl}
               authorAvatarColor={story.authorAvatarColor}
+              authorHasPledged={story.authorHasPledged}
               authorEarsCount={story.authorEarsCount}
               onPositionSelect={onPositionSelect}
             />
@@ -120,6 +121,7 @@ export function LiveStoryCardExpanded({
                     authorName={story.authorName}
                     authorAvatarUrl={story.authorAvatarUrl}
                     authorAvatarColor={story.authorAvatarColor}
+                    authorHasPledged={story.authorHasPledged}
                     authorEarsCount={story.authorEarsCount}
                     onPositionSelect={onPositionSelect}
                   />
@@ -138,6 +140,7 @@ function PointRow({
   authorName,
   authorAvatarUrl,
   authorAvatarColor,
+  authorHasPledged,
   authorEarsCount,
   onPositionSelect,
 }: {
@@ -145,6 +148,7 @@ function PointRow({
   authorName: string;
   authorAvatarUrl?: string;
   authorAvatarColor?: string;
+  authorHasPledged?: boolean;
   authorEarsCount?: number;
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
 }) {
@@ -163,7 +167,7 @@ function PointRow({
       {/* Story author's stance on this point — matches profile QuotedPoint pattern */}
       {point.profileSubjectPosition && (
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
-          <GravatarAvatar name={authorName} photoUrl={authorAvatarUrl} avatarColor={authorAvatarColor} size="sm" className="!w-5 !h-5 !text-[10px]" />
+          <GravatarAvatar name={authorName} photoUrl={authorAvatarUrl} avatarColor={authorAvatarColor} isPledger={authorHasPledged ?? false} size="sm" className="!w-5 !h-5 !text-[10px]" />
           <span className="font-medium">{authorName}</span>
           {(authorEarsCount ?? 0) > 0 && (
             <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">

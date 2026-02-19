@@ -122,7 +122,7 @@ export function StoryCardWithLinks({
           <GravatarAvatar
             name={author.name}
             size="sm"
-            isPledger={author.hasPledged}
+            isPledger={author.hasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{author.name}</span>
@@ -185,7 +185,7 @@ export function StoryCardWithLinks({
             <GravatarAvatar
               name={author.name}
               size="sm"
-              isPledger={author.hasPledged}
+              isPledger={author.hasPledged ?? false}
             />
           </button>
 

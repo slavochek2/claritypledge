@@ -228,22 +228,33 @@ export function LiveModeView({
   const [selectedPoint, setSelectedPoint] = useState<PointWithCreator | null>(null);
 
   // P272: Read selectedStory directly from liveState.selectedStoryData (no async fetch needed)
-  // Also merge livePositions so positions survive page refresh
+  // Also merge livePositions so positions survive page refresh.
+  // For the host (viewer = author):
+  //   - Fall back to profileSubjectPosition so buttons stay highlighted even if snapshot is stale
+  //   - Clear profileSubjectPosition so the "author badge" above each point is hidden (redundant
+  //     when you are the author — your position is already shown in the button)
+  // Each participant computes their own selectedStory, so this doesn't affect the partner's view.
   useEffect(() => {
     if (liveState.selectedStoryData) {
       const myPositions = liveState.livePositions?.[currentUserName] ?? {};
+      const isAuthor = userId !== undefined && userId === liveState.selectedStoryData.authorId;
       const storyWithPositions = {
         ...liveState.selectedStoryData,
-        points: liveState.selectedStoryData.points.map((p: { id: string; userPosition?: string | null }) => ({
+        points: liveState.selectedStoryData.points.map((p: { id: string; userPosition?: string | null; profileSubjectPosition?: string | null }) => ({
           ...p,
-          userPosition: myPositions[p.id] ?? p.userPosition ?? null,
+          // p.id in myPositions distinguishes "explicitly set to null (removed)" from "not set"
+          // ?? would silently fall through null to the DB position, ignoring the removal
+          userPosition: p.id in myPositions
+            ? myPositions[p.id]
+            : p.userPosition ?? (isAuthor ? p.profileSubjectPosition : null) ?? null,
+          profileSubjectPosition: isAuthor ? null : p.profileSubjectPosition,
         })),
       };
       setSelectedStory(storyWithPositions as unknown as StoryWithPoints);
     } else {
       setSelectedStory(null);
     }
-  }, [liveState.selectedStoryData, liveState.livePositions, currentUserName]);
+  }, [liveState.selectedStoryData, liveState.livePositions, currentUserName, userId]);
 
   // P128: Fetch selected point for display during verification
   useEffect(() => {

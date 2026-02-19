@@ -200,7 +200,7 @@ export function PointCardWithLinks({
                 name={profileOwner.name}
                 photoUrl={profileOwner.avatarUrl}
                 size="sm"
-                isPledger={profileOwner.hasPledged}
+                isPledger={profileOwner.hasPledged ?? false}
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className="font-medium">{profileOwner.name}</span>
@@ -514,7 +514,7 @@ function QuotedStory({
               name={author.name}
               photoUrl={author.avatarUrl}
               size="sm"
-              isPledger={author.hasPledged}
+              isPledger={author.hasPledged ?? false}
               className="!w-6 !h-6 !text-[11px]"
             />
           </span>

@@ -43,9 +43,9 @@ export function PersonRow({
         <GravatarAvatar
           name={name}
           avatarColor={avatarColor}
-          photoUrl={avatarUrl}
+          photoUrl={avatarUrl ?? undefined}
           size="sm"
-          isPledger={isPledger}
+          isPledger={isPledger ?? false}
         />
       </Link>
       <div className="flex-1 min-w-0 flex items-center gap-1.5">
