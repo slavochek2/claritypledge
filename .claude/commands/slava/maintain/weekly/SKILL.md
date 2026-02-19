@@ -26,7 +26,7 @@ Report any missing files.
 ```bash
 wc -l CLAUDE.md
 ```
-Flag if over 200 lines. If over 200, note which sections look like candidates for `.claude/rules/` (path-specific) or trimming.
+Flag if over 300 lines. If over 300, note which sections look like candidates for `.claude/rules/` (path-specific) or trimming.
 
 **Check `.claude/rules/` files exist and have valid frontmatter:**
 ```bash
