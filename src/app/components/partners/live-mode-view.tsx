@@ -634,6 +634,10 @@ export function LiveModeView({
             onRatingSubmit={onRatingSubmit}
             onSkip={() => handleRequestSkip('decline')}
             onExit={onExitMeeting}
+            selectedStory={selectedStory}
+            onPositionSelect={onPositionSelect}
+            badgePersonName={badgePersonName}
+            badgePersonEarsCount={badgePersonEarsCount}
                       />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -1049,6 +1053,10 @@ interface ResponderWaitingWithDrawerProps {
   onRatingSubmit: (rating: number) => void;
   onSkip: () => void;
   onExit: () => void;
+  selectedStory?: StoryWithPoints | null;
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  badgePersonName?: string;
+  badgePersonEarsCount?: number;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1059,6 +1067,10 @@ function ResponderWaitingWithDrawer({
   onRatingSubmit,
   onSkip,
   onExit,
+  selectedStory,
+  onPositionSelect,
+  badgePersonName,
+  badgePersonEarsCount,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1070,6 +1082,10 @@ function ResponderWaitingWithDrawer({
       onRatingSubmit={onRatingSubmit}
       onSkip={onSkip}
       onExit={onExit}
+      selectedStory={selectedStory}
+      onPositionSelect={onPositionSelect}
+      badgePersonName={badgePersonName}
+      badgePersonEarsCount={badgePersonEarsCount}
           />
   );
 }
@@ -2282,6 +2298,14 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           {/* Hide ratings until both submit to prevent bias */}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
@@ -2335,8 +2359,8 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
-          {/* P272: Story card visible throughout round */}
-          {selectedStory && (
+          {/* P272: Story card visible throughout round, hidden once user continues */}
+          {selectedStory && !userHasAcknowledged && (
             <LiveStoryCardExpanded
               story={selectedStory}
               onPositionSelect={onPositionSelect}
@@ -2533,6 +2557,14 @@ function UnderstandingScreen({
       <div className="flex flex-col h-full">
         <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
         <div className={CONTENT_LAYOUT}>
+          {/* P272: Story card visible throughout round */}
+          {selectedStory && (
+            <LiveStoryCardExpanded
+              story={selectedStory}
+              onPositionSelect={onPositionSelect}
+              className="w-full max-w-sm mb-2"
+            />
+          )}
           <JourneyToUnderstanding
             checkerRating={checkerRating}
             responderRating={responderRating}
