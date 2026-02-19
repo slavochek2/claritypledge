@@ -13,8 +13,8 @@ export function useVerificationGate() {
   const { user } = useAuth();
 
   const checkVerified = useCallback((actionLabel: string): boolean => {
-    if (user?.isVerified) return true;
-    toast.error(`Verify your email to ${actionLabel} — check your inbox or resend below.`);
+    if (user) return true;
+    toast.error(`Sign in to ${actionLabel}.`);
     return false;
   }, [user]);
 
