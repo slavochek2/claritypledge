@@ -57,13 +57,12 @@ test.describe('Join Form UX - Context Clarity', () => {
 
     await expect(page.locator('input[placeholder="Enter your name"]')).toBeVisible();
 
-    // The header banner should NOT have a duplicate "Join...Meeting" title
-    // Header is the first child of main, contains logo and menu
-    const headerBanner = page.locator('main > div > div').first();
-    const headerText = await headerBanner.textContent();
+    // The navigation bar should NOT have a duplicate "Join...Session" title
+    const navBar = page.locator('[data-nav="main"]');
+    const navText = await navBar.textContent();
 
-    // Header should just have "Clarity Pledge" (logo text), not the join title
-    expect(headerText).not.toMatch(/Join.*Session/i);
+    // Nav should NOT contain the form heading
+    expect(navText).not.toMatch(/Join.*Session/i);
   });
 
   // P396: guest join is name-only — email field must NOT appear

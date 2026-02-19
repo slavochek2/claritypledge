@@ -56,10 +56,10 @@ export function CreateStoryPage() {
     }
   }, [authLoading, session, user]);
 
-  // Auth redirect
+  // Auth redirect — P396: unauthenticated users go to signup (not login)
   useEffect(() => {
     if (!authLoading && !session) {
-      navigate('/login?redirect=/create');
+      navigate('/signup');
     }
   }, [authLoading, session, navigate]);
 

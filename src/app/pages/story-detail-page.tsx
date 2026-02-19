@@ -567,13 +567,7 @@ export function StoryDetailPage() {
 
   // P132: Position recording handler
   const handlePositionClick = useCallback(async (pointId: string, position: PositionType) => {
-    if (!user?.id) {
-      // Redirect to login with return path
-      navigate('/login?redirect=' + encodeURIComponent(location.pathname));
-      return;
-    }
-
-    // P132/P273: Check if user is verified (RLS requires is_verified = true for INSERT on point_positions)
+    // P396: checkVerified handles both unauthenticated (toast) and authenticated paths
     if (!checkVerified('set a position on this point')) return;
 
     // Optimistic update

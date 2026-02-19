@@ -211,12 +211,10 @@ function PointRow({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{badgePersonName ?? authorName}</span>
-          {(badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)) > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
-              <Ear size={12} />
-              {badgePersonName ? badgePersonEarsCount : authorEarsCount}
-            </span>
-          )}
+          <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
+            <Ear size={12} />
+            {badgePersonName ? (badgePersonEarsCount ?? 0) : (authorEarsCount ?? 0)}
+          </span>
           <PositionBadge position={point.profileSubjectPosition} />
         </div>
       )}
