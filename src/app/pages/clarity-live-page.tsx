@@ -2014,30 +2014,19 @@ export function ClarityLivePage() {
               )}
             </div>
 
-            {/* P160: Session recording status badge for joiner */}
-            <div
-              aria-live="polite"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg border mb-6 ${
-                joinSessionIsPrivate
-                  ? 'bg-muted border-border'
-                  : 'bg-blue-50 border-blue-200'
-              }`}
-            >
-              {joinSessionIsPrivate ? (
-                <>
-                  <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Private session</div>
-                    <div className="text-xs text-muted-foreground">Not recorded</div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <div className="text-sm text-blue-700">This session will be recorded for AI Insights</div>
-                </>
-              )}
-            </div>
+            {/* P160: Private-only badge for joiner — only shown when host disabled recording */}
+            {joinSessionIsPrivate && (
+              <div
+                aria-live="polite"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border mb-6 bg-muted border-border"
+              >
+                <ShieldOff className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Private session</div>
+                  <div className="text-xs text-muted-foreground">Not recorded</div>
+                </div>
+              </div>
+            )}
 
             {/* B50: Verified user edge case - inline message */}
             {verifiedEmailError ? (
@@ -2429,7 +2418,6 @@ export function ClarityLivePage() {
                 {isLoggedIn && (
                   <div className="text-center pt-4">
                     <p className="text-sm text-muted-foreground">
-                      This session is recorded for AI Insights.{' '}
                       By starting or joining, you agree to our{' '}
                       <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                         Terms
@@ -2586,10 +2574,7 @@ export function ClarityLivePage() {
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-blue-700">Recording enabled</div>
-                    <div className="text-xs text-blue-600">Session recorded for AI Insights</div>
-                  </div>
+                  <div className="text-sm text-blue-700">Session recorded for AI Insights</div>
                 </>
               )}
             </div>
