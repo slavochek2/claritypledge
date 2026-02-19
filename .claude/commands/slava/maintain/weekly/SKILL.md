@@ -22,6 +22,17 @@ grep -oE '\[.*?\]\((src/[^)]+|docs/[^)]+|features/[^)]+|e2e/[^)]+)\)' CLAUDE.md 
 
 Report any missing files.
 
+**Check CLAUDE.md line count:**
+```bash
+wc -l CLAUDE.md
+```
+Flag if over 200 lines. If over 200, note which sections look like candidates for `.claude/rules/` (path-specific) or trimming.
+
+**Check `.claude/rules/` files exist and have valid frontmatter:**
+```bash
+ls .claude/rules/*.md 2>/dev/null || echo "No rules files found"
+```
+
 **Check for stale technical docs (>30 days):**
 ```bash
 find docs/technical -name "*.md" -mtime +30 -exec ls -la {} \;
@@ -73,6 +84,8 @@ Confirm: "Weekly review complete. Next reminder in 7 days."
 
 ### Context Health
 ✅ CLAUDE.md references valid (or list missing)
+✅ CLAUDE.md line count: X lines (flag if >200)
+✅ .claude/rules/ files present (or list missing)
 ⚠️ Stale docs: X files (or ✅ all current)
 
 ### Sentry

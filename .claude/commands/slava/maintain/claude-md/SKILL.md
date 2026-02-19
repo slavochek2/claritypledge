@@ -34,14 +34,23 @@ From CLAUDE.md philosophy:
 
 **Threshold:** If <80% of task types need it → NOT universal → put in domain-specific doc.
 
-### 2. Principle vs Detail
+### 2. Routing — Where Does It Belong?
 
 | Type | Belongs in |
 |------|------------|
-| **Principle** | CLAUDE.md |
-| **Pattern** | docs/technical/*.md |
-| **Decision** | docs/decisions.md |
-| **Concept** | docs/definitions.md |
+| **Principle** (every session) | CLAUDE.md |
+| **Directive** (file-specific rule) | `.claude/rules/*.md` with `paths:` frontmatter |
+| **Pattern** (how to implement) | `docs/technical/*.md` |
+| **Decision** (why we chose X) | `docs/decisions.md` |
+| **Concept** (what something means) | `docs/definitions.md` |
+
+**The `.claude/rules/` test:** If the rule only matters when Claude is editing a specific type of file (e.g., `supabase/`, `features/`, `src/`, `e2e/`), it belongs in a rules file — not CLAUDE.md. Rules files load automatically via path matching, preserving CLAUDE.md instruction budget.
+
+**Existing rules files:**
+- `.claude/rules/features.md` → `features/**/*.md` (frontmatter, status, P-numbers)
+- `.claude/rules/database.md` → `supabase/**/*` (migrations, RLS, schema decisions)
+- `.claude/rules/src.md` → `src/**/*.{ts,tsx}` (design system, point display, code style)
+- `.claude/rules/tests.md` → `e2e/**/*.ts`, `src/**/*.test.*` (test integrity)
 
 ### 3. Redundancy Check
 No duplication. Extend existing content or link to it.
@@ -75,14 +84,25 @@ For the proposed change: "{USER_INPUT}"
    - Testing: ?
    - Code review: ?
 
-2. **Classification** - Is it a:
-   - Principle (how to think)
-   - Pattern (how to implement)
-   - Decision (what we chose)
-   - Concept (what something means)
+2. **Classification + Routing** - Where does it belong?
+
+   | Type | Destination |
+   |------|-------------|
+   | Principle (every session, universal) | `CLAUDE.md` |
+   | Directive (only when editing specific file types) | `.claude/rules/X.md` with `paths:` frontmatter |
+   | Pattern (how to implement something) | `docs/technical/X.md` |
+   | Decision (why we chose X over Y) | `docs/decisions.md` |
+   | Concept (what something means) | `docs/definitions.md` |
+
+   **`.claude/rules/` test:** If the rule only matters when Claude is touching a specific directory or file type, it goes in a rules file — NOT CLAUDE.md. Existing rules files:
+   - `.claude/rules/features.md` → `features/**/*.md`
+   - `.claude/rules/database.md` → `supabase/**/*`
+   - `.claude/rules/src.md` → `src/**/*.{ts,tsx}`
+   - `.claude/rules/tests.md` → `e2e/**/*.ts`, `src/**/*.test.*`
 
 3. **Redundancy** - Search for similar content:
    - In CLAUDE.md
+   - In `.claude/rules/` (path-specific rules)
    - In docs/technical/
    - In docs/decisions.md, definitions.md
 
@@ -108,7 +128,7 @@ For the proposed change: "{USER_INPUT}"
 
 **[ADD / REDIRECT / SKIP]**
 
-**Where:** [CLAUDE.md / docs/technical/X.md / docs/Y.md]
+**Where:** [CLAUDE.md / `.claude/rules/X.md` (with paths:) / docs/technical/X.md / docs/Y.md]
 
 **How:** [specific section, phrasing suggestion]
 

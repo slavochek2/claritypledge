@@ -216,6 +216,8 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 **Quick rules:** Prompt for commits after logical units of work, run `./scripts/pre-commit-checks.sh` before committing.
 
+**Process/port cleanup:** Use `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"` (pattern matching can kill Docker Desktop and other unrelated processes).
+
 ---
 
 ### Risky Operations — Worktree Protection
@@ -255,6 +257,8 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 **Skill namespaces:** `build/` (dev lifecycle) · `maintain/` (repo health) · `content/` · `think/` · `util/` · `archive/` (houses deprecated skills). Never create a skill without a namespace — if none fits, propose a new one first.
 
 **Approval required** before creating, modifying, or deleting skills, or installing plugins/MCP servers. **Always ask first:** "I'd like to create [X] for [reason]. OK?"
+
+**Before editing `CLAUDE.md` or `.claude/rules/*.md`:** Run `/claude-md "description of what you want to add"` first. It validates whether the change belongs there, where it should actually go, and how to phrase it. Never edit these files directly without running the gate first.
 
 ### Sequential Flow — Current Standard
 
@@ -349,8 +353,6 @@ git rm --cached <file>       # Untrack (if already tracked)
 ---
 
 ## Code & Architecture
-
-### Code & Architecture
 
 See [architecture.md](docs/technical/architecture.md) for patterns.
 
