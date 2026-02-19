@@ -131,6 +131,40 @@ Stats include: `earsCount`, `listenerCalibrationAvg`, `listenerSelfRatingAvg`, `
 | `point_position_history` | Public | System (trigger) | — | — |
 | `story_verifications` | Public | Authenticated | — | — |
 
+### Point Display Patterns
+
+**Always use hooks and named service methods — never raw service calls.** Wrong patterns cause N+1 queries and missing user positions (TypeScript won't catch it).
+
+**For profile pages** (points created by user):
+```typescript
+// ✅ CORRECT: Efficient batch loading
+const { points, loading, error } = usePointsForProfile(profileId);
+
+// ❌ WRONG: Manual loading creates N+1 queries
+const points = await pointsService.getPointsByValidator(profileId);
+```
+
+**For feed pages:**
+```typescript
+// ✅ CORRECT
+const { points } = usePointsForFeed(20, page * 20);
+
+// ❌ WRONG: Missing user positions
+const points = await pointsService.getPointsFeed(20, page * 20);
+```
+
+**For detail pages** (single point):
+```typescript
+// ✅ CORRECT
+const point = await pointsService.getPointWithUserPosition(pointId, user?.id);
+
+// ❌ WRONG: Missing user position
+const point = await pointsService.getPoint(pointId);
+```
+
+**Hooks:** `usePointsForProfile`, `usePointsForFeed` — `src/app/hooks/usePointsForDisplay.ts`
+**Service methods:** `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
+
 ### Profile Display — Dual Position Fields
 
 When rendering a profile page visited by someone other than the owner, `getPointsForProfileDisplay(validatorId, viewerUserId)` populates two position fields on each point:
