@@ -656,8 +656,11 @@ export function ClarityLivePage() {
         const selectedStoryIdDrift = serverState.selectedStoryId !== localState.selectedStoryId;
         const selectedStoryDataDrift = !!serverState.selectedStoryData !== !!localState.selectedStoryData;
         const selectedContentTitleDrift = serverState.selectedContentTitle !== localState.selectedContentTitle;
+        // celebrationAcknowledgedBy must be in drift check so both parties can coordinate
+        // the two-party Continue when Realtime is unavailable (mobile WebSocket dropout).
+        const celebrationAcknowledgedByDrift = (serverState.celebrationAcknowledgedBy?.length ?? 0) !== (localState.celebrationAcknowledgedBy?.length ?? 0);
 
-        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift;
+        const serverHasUpdate = phaseDrift || checkerNameDrift || checkerDrift || checkerRatingDrift || responderDrift || responderRatingDrift || explainBackDoneDrift || checksCountDrift || clarificationPhaseDrift || roleSwitchNegotiationDrift || selectedStoryIdDrift || selectedStoryDataDrift || selectedContentTitleDrift || celebrationAcknowledgedByDrift;
 
         if (serverHasUpdate) {
           // Track in Mixpanel (non-blocking - don't let analytics errors break the app)

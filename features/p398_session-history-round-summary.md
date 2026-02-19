@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 10
 workstream: C1
