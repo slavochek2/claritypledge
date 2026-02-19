@@ -245,7 +245,46 @@ else
 fi
 echo ""
 
-# 13. Root file pollution check (prevent agent-generated temp files)
+# 13b. UAT scorecard gate — warn if feature moved to done/ with ALL scenarios untested
+echo ">>> Checking UAT coverage for features moving to done/..."
+STAGED_DONE_FILES=$(git diff --cached --name-only 2>/dev/null | grep -E '^features/done/' | grep -oE '[^/]+\.md$' | grep -E '^p[0-9]+' || true)
+UAT_WARNING_COUNT=0
+
+if [ -n "$STAGED_DONE_FILES" ]; then
+    while IFS= read -r done_basename; do
+        # Extract P-number (e.g. p144, p272) from filename like p144_name.md
+        P_NUM=$(echo "$done_basename" | grep -oE '^p[0-9]+')
+        if [ -z "$P_NUM" ]; then
+            continue
+        fi
+
+        UAT_FILE="features/uat/${P_NUM}.md"
+        if [ -f "$UAT_FILE" ]; then
+            UNTESTED=$(grep -cF '⬜' "$UAT_FILE" 2>/dev/null || echo 0)
+            TESTED=$(grep -cF '✅' "$UAT_FILE" 2>/dev/null || echo 0)
+            if [ "$TESTED" -eq 0 ] && [ "$UNTESTED" -gt 0 ]; then
+                echo -e "${YELLOW}⚠ UAT for ${P_NUM} has ${UNTESTED} untested scenario(s) (all ⬜). Run manual acceptance tests before marking done. See ${UAT_FILE}${NC}"
+                UAT_WARNING_COUNT=$((UAT_WARNING_COUNT + 1))
+            fi
+        else
+            echo -e "${YELLOW}⚠ No UAT file found for ${P_NUM} (looked for ${UAT_FILE}). Consider running /generate-uat before marking done.${NC}"
+            UAT_WARNING_COUNT=$((UAT_WARNING_COUNT + 1))
+        fi
+    done <<< "$STAGED_DONE_FILES"
+fi
+
+if [ "$UAT_WARNING_COUNT" -eq 0 ]; then
+    if [ -n "$STAGED_DONE_FILES" ]; then
+        echo -e "${GREEN}✓ UAT coverage OK for all features moving to done/${NC}"
+    else
+        echo -e "${GREEN}✓ No features moving to done/ in this commit${NC}"
+    fi
+else
+    WARNINGS=$((WARNINGS + UAT_WARNING_COUNT))
+fi
+echo ""
+
+# 14. Root file pollution check (prevent agent-generated temp files)
 echo ">>> Checking for temporary files in project root..."
 ROOT_TEMP_FILES=$(ls -1 /*.md /*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
 
@@ -288,6 +327,52 @@ if [ -n "$STAGED_MIGRATIONS" ]; then
     echo -e "${YELLOW}  2. Integration test added? (e2e/integration/p{N}-db-schema.spec.ts)${NC}"
     echo -e "${YELLOW}  See docs/technical/e2e-testing-guide.md for the integration test template.${NC}"
     WARNINGS=$((WARNINGS + 1))
+
+    # P270 enforcement: check that each staged migration has a corresponding integration test.
+    # WARNING only (not hard error) — many existing migrations predate this rule.
+    MISSING_TESTS=0
+    while IFS= read -r mig; do
+        # Extract basename without path and extension for matching
+        mig_base=$(basename "$mig" .sql)
+
+        # Extract P-number if present: matches p123 or p_123 patterns (case-insensitive)
+        p_num=$(echo "$mig_base" | grep -oiE 'p_?[0-9]+' | head -1 | tr '[:upper:]' '[:lower:]' | tr -d '_')
+
+        test_found=0
+
+        if [ -n "$p_num" ]; then
+            # Check for any integration test matching pNNN (e.g. p272-anything.spec.ts)
+            if ls e2e/integration/${p_num}*.spec.ts 2>/dev/null | grep -q .; then
+                test_found=1
+            fi
+        fi
+
+        # If no P-number match (or no P-number), also check for any integration test
+        # that references the migration base name (covers non-P-numbered migrations)
+        if [ "$test_found" -eq 0 ]; then
+            if grep -rl "$mig_base" e2e/integration/ 2>/dev/null | grep -q .; then
+                test_found=1
+            fi
+        fi
+
+        if [ "$test_found" -eq 0 ]; then
+            MISSING_TESTS=$((MISSING_TESTS + 1))
+            if [ -n "$p_num" ]; then
+                suggested="e2e/integration/${p_num}-db-schema.spec.ts"
+            else
+                suggested="e2e/integration/${mig_base}.spec.ts"
+            fi
+            echo -e "${YELLOW}  ⚠ No integration test found for: $mig${NC}"
+            echo -e "${YELLOW}    → Create: $suggested${NC}"
+            echo -e "${YELLOW}    → Template: e2e/integration/migration-template.spec.ts${NC}"
+        fi
+    done <<< "$STAGED_MIGRATIONS"
+
+    if [ "$MISSING_TESTS" -gt 0 ]; then
+        echo -e "${YELLOW}  P270 rule: every migration MUST have an integration test.${NC}"
+        echo -e "${YELLOW}  See docs/technical/e2e-testing-guide.md#integration-tests-p270--db-migration-layer${NC}"
+        # Already counted in WARNINGS above; no additional increment needed
+    fi
 else
     echo -e "${GREEN}✓ No new migrations staged${NC}"
 fi
