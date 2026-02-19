@@ -162,8 +162,10 @@ export function ShareDialog({
 interface ShareButtonProps {
   /** Type of content being shared */
   type: 'story' | 'point' | 'profile';
-  /** ID used to build the URL */
+  /** ID used to build the URL (ignored when url is provided) */
   id: string;
+  /** Override the computed URL (use when default routes don't apply, e.g. prototype pages) */
+  url?: string;
   /** Button className override */
   className?: string;
   /** Optional title for native share */
@@ -176,10 +178,11 @@ interface ShareButtonProps {
  * ShareButton - Button that opens ShareDialog
  * Drop-in replacement for ShareDropdown
  */
-export function ShareButton({ type, id, className, title, description }: ShareButtonProps) {
+export function ShareButton({ type, id, url, className, title, description }: ShareButtonProps) {
   const [open, setOpen] = useState(false);
 
   const getShareUrl = () => {
+    if (url) return url;
     const base = window.location.origin;
     const path = type === 'story'
       ? `/story/${id}`

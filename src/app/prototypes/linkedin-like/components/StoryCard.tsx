@@ -223,6 +223,7 @@ export function StoryCard({
                 <ShareButton
                   type="story"
                   id={story.id}
+                  url={`${window.location.origin}${routes.story(story.id)}`}
                   title={`${author?.name}'s story`}
                   description={story.text.slice(0, 100)}
                 />

@@ -222,6 +222,7 @@ export function PointCard({
                     <ShareButton
                       type="point"
                       id={point.id}
+                      url={`${window.location.origin}${routes.point(point.id)}`}
                       description={point.text.slice(0, 100)}
                     />
                     {!isDetailView && !disableNavigation && (
@@ -314,6 +315,7 @@ export function PointCard({
               <ShareButton
                 type="point"
                 id={point.id}
+                url={`${window.location.origin}${routes.point(point.id)}`}
                 description={point.text.slice(0, 100)}
               />
               {/* External link - only in feed (redundant in detail view) */}
