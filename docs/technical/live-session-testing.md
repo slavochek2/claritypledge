@@ -152,24 +152,38 @@ await deleteClaritySession(sessionCode);
 
 ## Manual Testing with Browser Tools
 
-### Using Docker MCP Browser Tools
+### Using Claude in Chrome — Two-Party via Token Injection (Preferred for /verify)
 
-```typescript
-// Open two tabs
-await mcp__MCP_DOCKER__browser_tabs({ action: 'new' });
-await mcp__MCP_DOCKER__browser_navigate({ url: 'http://localhost:5001/live' });
+Claude in Chrome (`mcp__claude-in-chrome__*`) shares a single Chrome profile, so both tabs
+share the same `localStorage`. Supabase stores auth tokens in localStorage. This prevents
+two different authenticated users in two tabs — **unless you inject the second user's token**.
 
-// Tab 1: Creator
-await mcp__MCP_DOCKER__browser_type({ ref: 'name-input', text: 'Alice' });
-// ... fill form, click create
+**Solution:** Call the Supabase REST API from inside tab 2 to sign in as a permanent test
+listener account, then inject the token into tab 2's localStorage before navigation.
 
-// Get room code from UI
+**Permanent listener account:** `e2e-verify-listener@gmail.com`
+- Created by: `scripts/setup-verify-listener.ts`
+- Credentials stored in: `.env.test.local` (`TEST_LISTENER_EMAIL`, `TEST_LISTENER_PASSWORD`)
 
-// Tab 2: Joiner
-await mcp__MCP_DOCKER__browser_tabs({ action: 'select', index: 1 });
-await mcp__MCP_DOCKER__browser_navigate({ url: 'http://localhost:5001/live/ROOMCODE' });
-// ... fill form, click join
-```
+**Full protocol:** See `/verify` SKILL.md → Step 5a-TWO-PARTY.
+
+**What was confirmed to work (tested session 8ZXFND):**
+- Story sync (UAT-2.1): Selecting a story in tab 1 appeared in tab 2 within ~2s ✅
+- Guest join via form works: name/email form, fills with any identity for the join record
+
+**What does NOT work with this approach:**
+- Role-specific UI: both tabs show creator UI (story picker visible on both) because auth is shared
+- Identity-based verification writes: `profile_id` in session is the same user for both tabs
+
+**Key insight:** All same-origin Chrome tabs share `localStorage`, including the Supabase
+auth token. Injecting the listener's token in tab 2 triggers a `storage` event in tab 1,
+which causes the Supabase client in tab 1 to update its in-memory auth state to the listener.
+
+**Mitigation:** After injecting in tab 2, immediately snapshot and re-inject the creator's
+token back into tab 1 (via `javascript_tool` + `location.reload()`). The `/live` page uses
+`sessionStorage` (per-tab) for session persistence (session code, isCreator), so tab 1
+correctly restores to the creator's view after reload even though localStorage was briefly
+overwritten.
 
 ### Using Chrome DevTools MCP
 

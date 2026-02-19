@@ -118,8 +118,9 @@ export function StoryCardDetail({
         <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
           <GravatarAvatar
             name={story.authorName}
+            photoUrl={story.authorAvatarUrl}
             size="sm"
-            isPledger={false}
+            isPledger={story.authorHasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{story.authorName}</span>
@@ -199,7 +200,7 @@ export function StoryCardDetail({
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
           >
-            <GravatarAvatar name={story.authorName} size="sm" isPledger={false} />
+            <GravatarAvatar name={story.authorName} photoUrl={story.authorAvatarUrl} size="sm" isPledger={story.authorHasPledged ?? false} />
           </button>
 
           {/* Content column - aligned under avatar */}
@@ -327,6 +328,7 @@ export function StoryCardDetail({
                     <QuotedPoint
                       point={pointsToShow[0]}
                       authorName={story.authorName}
+                      authorAvatarUrl={story.authorAvatarUrl}
                       authorEarCount={story.authorEarsCount}
                       positionCounts={positionCounts}
                       userPositions={userPositions}
@@ -348,6 +350,7 @@ export function StoryCardDetail({
                           <QuotedPoint
                             point={point}
                             authorName={story.authorName}
+                            authorAvatarUrl={story.authorAvatarUrl}
                             authorEarCount={story.authorEarsCount}
                             positionCounts={positionCounts}
                             userPositions={userPositions}
@@ -391,6 +394,7 @@ export function StoryCardDetail({
 function QuotedPoint({
   point,
   authorName,
+  authorAvatarUrl,
   authorEarCount,
   positionCounts,
   userPositions,
@@ -400,6 +404,7 @@ function QuotedPoint({
 }: {
   point: PointSummary;
   authorName: string;
+  authorAvatarUrl?: string;
   authorEarCount?: number;
   positionCounts: Map<string, Record<PositionType, number>>;
   userPositions: Map<string, PointPosition>;
@@ -476,6 +481,7 @@ function QuotedPoint({
         <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
           <GravatarAvatar
             name={authorName}
+            photoUrl={authorAvatarUrl}
             size="sm"
             isPledger={false}
             className="!w-5 !h-5 !text-[10px]"

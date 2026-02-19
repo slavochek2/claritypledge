@@ -83,6 +83,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     authorAvatarColor: row.author?.avatar_color ?? '#3B82F6',
     authorAvatarUrl: row.author?.avatar_url ?? undefined,
     authorEarsCount: row.author?.ears_count ?? 0,
+    authorHasPledged: row.author?.has_pledged ?? false,
   };
 }
 

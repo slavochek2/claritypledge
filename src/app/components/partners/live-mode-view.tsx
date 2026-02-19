@@ -228,14 +228,22 @@ export function LiveModeView({
   const [selectedPoint, setSelectedPoint] = useState<PointWithCreator | null>(null);
 
   // P272: Read selectedStory directly from liveState.selectedStoryData (no async fetch needed)
+  // Also merge livePositions so positions survive page refresh
   useEffect(() => {
     if (liveState.selectedStoryData) {
-      // Cast is safe: selectedStoryData has all fields used by LiveStoryCardExpanded
-      setSelectedStory(liveState.selectedStoryData as unknown as StoryWithPoints);
+      const myPositions = liveState.livePositions?.[currentUserName] ?? {};
+      const storyWithPositions = {
+        ...liveState.selectedStoryData,
+        points: liveState.selectedStoryData.points.map((p: { id: string; userPosition?: string | null }) => ({
+          ...p,
+          userPosition: myPositions[p.id] ?? p.userPosition ?? null,
+        })),
+      };
+      setSelectedStory(storyWithPositions as unknown as StoryWithPoints);
     } else {
       setSelectedStory(null);
     }
-  }, [liveState.selectedStoryData]);
+  }, [liveState.selectedStoryData, liveState.livePositions, currentUserName]);
 
   // P128: Fetch selected point for display during verification
   useEffect(() => {
@@ -694,7 +702,7 @@ function IdleScreen({
     const fetchContent = async () => {
       try {
         const [fetchedStories, fetchedPoints] = await Promise.all([
-          storiesService.getStoriesByAuthorWithPoints(userId),
+          storiesService.getStoriesByAuthorWithPoints(userId, userId),
           pointsService.getPointsForProfileDisplay(userId, userId),
         ]);
         if (!cancelled) {
@@ -820,9 +828,6 @@ function IdleScreen({
         )}
 
         <ActionArea
-          title={hasScrollableContent
-            ? `You're live with ${displayPartnerName}`
-            : undefined}
           className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
         >
           <Button
@@ -882,7 +887,8 @@ function IdleScreen({
       {/* Only render when showRatingDrawer is true AND onRatingSubmit is provided */}
       {showRatingDrawer && onRatingSubmit && (
         <Drawer open={true} onOpenChange={(open) => { if (!open) onSkip(); }}>
-          <DrawerContent>
+          {/* overlayClassName="bg-transparent" keeps story card visible behind drawer. */}
+          <DrawerContent overlayClassName="bg-transparent">
             <DrawerHeader className="text-center pb-2">
               <DrawerDescription className="text-sm text-muted-foreground">
                 {isProverInitiated

@@ -147,6 +147,8 @@ interface PositionButtonGroupProps {
   count: number;
   onPositionClick: (position: PositionType) => void;
   compact?: boolean;
+  /** Omit sm:min-w-[90px] so buttons fit in narrow containers (e.g. live story card) */
+  narrow?: boolean;
 }
 
 // Tooltip text - shows "You [position]" if selected, or default action
@@ -246,6 +248,7 @@ function PositionSegment({
   count,
   onPositionClick,
   compact = false,
+  narrow = false,
   isFirst = false,
   isLast = false,
 }: PositionButtonGroupProps & { isFirst?: boolean; isLast?: boolean }) {
@@ -268,7 +271,7 @@ function PositionSegment({
   // Border-l shown for all non-first segments (consistent regardless of active state)
   // Rounded corners on first/last segments (since parent removed overflow-hidden to prevent chevron clipping)
   const segmentClass = `
-    min-h-[32px] sm:min-h-[44px] flex flex-1 sm:flex-initial sm:min-w-[90px] items-center justify-center text-[11px] sm:text-xs font-medium transition-colors whitespace-nowrap
+    min-h-[32px] sm:min-h-[44px] flex flex-1 sm:flex-initial ${narrow ? '' : 'sm:min-w-[90px]'} items-center justify-center text-[11px] sm:text-xs font-medium transition-colors whitespace-nowrap
     ${isActive ? config.activeClass : config.inactiveClass}
     ${!isFirst ? 'border-l border-gray-200' : ''}
     ${isFirst ? 'rounded-l-lg' : ''}
@@ -369,9 +372,11 @@ interface PositionButtonsProps {
   onPositionClick: (position: PositionType) => void;
   /** Compact mode for embedded use (e.g., QuotedPoint) */
   compact?: boolean;
+  /** Narrow mode: omits sm:min-w-[90px] so buttons fit in tight containers */
+  narrow?: boolean;
 }
 
-export function PositionButtons({ userPosition, counts, onPositionClick, compact = false }: PositionButtonsProps) {
+export function PositionButtons({ userPosition, counts, onPositionClick, compact = false, narrow = false }: PositionButtonsProps) {
   // Segmented control: full-width on mobile, content-sized on desktop
   // Note: removed overflow-hidden to prevent dropdown chevrons from being clipped on narrow viewports
   return (
@@ -384,6 +389,7 @@ export function PositionButtons({ userPosition, counts, onPositionClick, compact
           count={getGroupCount(counts, group)}
           onPositionClick={onPositionClick}
           compact={compact}
+          narrow={narrow}
           isFirst={index === 0}
           isLast={index === BUTTON_ORDER.length - 1}
         />

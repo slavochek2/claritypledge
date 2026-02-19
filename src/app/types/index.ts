@@ -875,6 +875,7 @@ export interface StoryWithAuthor extends Story {
   authorAvatarColor?: string;
   authorAvatarUrl?: string;
   authorEarsCount?: number; // P132: Credibility badge display
+  authorHasPledged?: boolean;
 }
 
 /** Story with linked points */

@@ -126,8 +126,9 @@ Before each scenario that needs a specific user state, check if the current sess
 ```
 mcp__claude-in-chrome__javascript_tool(script="
   // Check current auth state
-  const session = JSON.parse(localStorage.getItem('supabase-auth-token') || 'null');
-  console.log('Current user:', session?.user?.email, 'verified:', session?.user?.user_metadata?.isVerified);
+  const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+  const session = key ? JSON.parse(localStorage.getItem(key) || 'null') : null;
+  console.log('Current user:', session?.user?.email);
 ")
 ```
 
@@ -139,6 +140,59 @@ Done? (press enter)
 ```
 
 Wait for confirmation before continuing.
+
+---
+
+#### 5a-TWO-PARTY: Two-Party Session Setup
+
+Use this when a scenario requires two participants, such as UAT-2.x (story sync), UAT-4.x
+(round completion), UAT-5.x (verification write).
+
+**Key constraint:** Chrome uses a single profile with shared `localStorage`. All same-origin
+tabs share the Supabase auth token. You cannot have two different auth identities in two tabs
+simultaneously. What you CAN do depends on the scenario type:
+
+| What to test | Approach |
+|---|---|
+| Story/state sync (does tab 2 see what tab 1 did?) | Two-tab Chrome — works ✅ |
+| Role-specific UI (picker only on creator, not listener) | Playwright E2E only ❌ |
+| Verification write (speaker_rating=10 → DB record) | Playwright E2E only ❌ |
+
+**Protocol for sync verification (Chrome two-tab):**
+
+1. **Creator (tab 1):** Create session, extract room code from the share URL:
+```
+// From the "Invite Your Partner" waiting room, read the share link text:
+mcp__claude-in-chrome__javascript_tool(script="
+  const text = document.querySelector('input[readonly]')?.value || '';
+  const code = text.split('/live/')[1];
+  console.log('Room code:', code);
+")
+```
+
+2. **Open tab 2 and join as guest:** Navigate to session URL, fill name as "Tab 2 Observer",
+   any email, check consent, click Join:
+```
+// Use a second existing tab or create one:
+mcp__claude-in-chrome__navigate(tab_id=tab2Id, url="http://localhost:5001/live/{ROOM_CODE}")
+// Fill form: name = "Tab 2 Observer", email = any, check consent, click Join Session
+// Tab 2 joins as a guest with the given name (profile_id will be the authenticated user's)
+```
+
+3. **Tab 2 is now in IdleScreen.** Both tabs are in the session, driven by the same DB state.
+   Tab 2 shows creator's UI (story picker, both buttons) — not a real listener view.
+   But DB-driven sync (story card, live_state) propagates correctly to both tabs.
+
+4. **For story sync (UAT-2.1/2.2):** Select a story in tab 1, wait 2s, screenshot tab 2.
+   The story card WILL appear on tab 2 via Realtime/polling. ✅
+
+5. **For role-specific UI (UAT-2.3, picker only on creator):** Cannot verify in Chrome.
+   Use Playwright: `npm run test:e2e -- e2e/p272-live-verification.spec.ts`
+
+**Permanent listener account** (for Playwright or future multi-profile setup):
+- Email: `e2e-verify-listener@gmail.com` / Password: `ClarityVerify-L2026!`
+- In `.env.test.local` as `TEST_LISTENER_EMAIL` / `TEST_LISTENER_PASSWORD`
+- Created by `scripts/setup-verify-listener.ts`
 
 #### 5b. Navigate to the Right Page
 

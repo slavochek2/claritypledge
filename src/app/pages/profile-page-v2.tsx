@@ -55,6 +55,8 @@ interface ProfileOwner {
   name: string;
   role?: string | null;
   hasPledged: boolean;
+  avatarUrl?: string | null;
+  avatarColor?: string;
 }
 
 // P134: Type definitions for adapted prototype format (module-level for shared use)
@@ -612,6 +614,8 @@ export function ProfilePageV2() {
               <div className="flex-shrink-0">
                 <GravatarAvatar
                   name={profile.name}
+                  photoUrl={profile.avatarUrl ?? undefined}
+                  avatarColor={profile.avatarColor}
                   size="lg"
                   isPledger={profile.hasPledged}
                 />
@@ -756,6 +760,8 @@ export function ProfilePageV2() {
                       name: profile.name,
                       role: profile.role,
                       hasPledged: profile.hasPledged,
+                      avatarUrl: profile.avatarUrl,
+                      avatarColor: profile.avatarColor,
                     }}
                     credibilityStats={credibilityStats}
                     currentUserId={currentUser?.id}
@@ -778,6 +784,7 @@ export function ProfilePageV2() {
                       id: profile.id,
                       name: profile.name,
                       hasPledged: profile.hasPledged,
+                      avatarUrl: profile.avatarUrl,
                       ear: credibilityStats.ear,
                       position: point.positions?.[profile.id]?.position || null,
                     }}
@@ -792,6 +799,7 @@ export function ProfilePageV2() {
                           name: profile.name,
                           role: profile.role,
                           hasPledged: profile.hasPledged,
+                          avatarUrl: profile.avatarUrl,
                           ear: credibilityStats.ear,
                         };
                       }
@@ -873,6 +881,8 @@ function StoryCardFull({
           >
             <GravatarAvatar
               name={author.name}
+              photoUrl={author.avatarUrl ?? undefined}
+              avatarColor={author.avatarColor}
               size="sm"
               isPledger={author.hasPledged}
             />
@@ -970,6 +980,8 @@ function StoryCardFull({
               point={point}
               authorId={author.id}
               authorName={author.name}
+              authorAvatarUrl={author.avatarUrl ?? undefined}
+              authorAvatarColor={author.avatarColor}
               authorEarCount={credibilityStats.ear}
               authorHasPledged={author.hasPledged}
               currentUserId={currentUserId}
@@ -998,6 +1010,8 @@ interface QuotedPointCardProps {
   point: PointSummary;
   authorId: string;
   authorName: string;
+  authorAvatarUrl?: string;
+  authorAvatarColor?: string;
   authorEarCount?: number;
   authorHasPledged: boolean;
   currentUserId?: string;
@@ -1008,6 +1022,8 @@ function QuotedPointCard({
   point,
   authorId,
   authorName,
+  authorAvatarUrl,
+  authorAvatarColor,
   authorEarCount,
   authorHasPledged,
   currentUserId,
@@ -1059,6 +1075,8 @@ function QuotedPointCard({
         <div className="flex items-center gap-1.5 mb-2 text-sm text-foreground">
           <GravatarAvatar
             name={authorName}
+            photoUrl={authorAvatarUrl}
+            avatarColor={authorAvatarColor}
             size="sm"
             isPledger={authorHasPledged}
             className="!w-5 !h-5 !text-[10px]"

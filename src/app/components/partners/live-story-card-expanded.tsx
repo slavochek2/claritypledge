@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import type { StoryWithPoints, PositionType } from '@/app/types';
-import { PositionButtons } from '@/app/prototypes/linkedin-like/components/shared/PositionButton';
-import type { SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared/PositionButton';
+import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
+import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import {
+  PositionButtons,
+  PositionBadge,
+  ThreadLineGroup,
+  ThreadLineItem,
+  type SevenPointCounts,
+} from '@/app/prototypes/linkedin-like/components/shared';
 
 const ZERO_COUNTS: SevenPointCounts = {
   strongly_agree: 0,
@@ -18,10 +24,7 @@ const ZERO_COUNTS: SevenPointCounts = {
 
 function toSevenPointCounts(positionCounts?: Record<string, number>): SevenPointCounts {
   if (!positionCounts) return ZERO_COUNTS;
-  return {
-    ...ZERO_COUNTS,
-    ...positionCounts,
-  } as SevenPointCounts;
+  return { ...ZERO_COUNTS, ...positionCounts } as SevenPointCounts;
 }
 
 interface LiveStoryCardExpandedProps {
@@ -38,77 +41,156 @@ export function LiveStoryCardExpanded({
 }: LiveStoryCardExpandedProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const avatarLetter = story.authorName ? story.authorName[0].toUpperCase() : '?';
-  const avatarBg = story.authorAvatarColor ?? '#6366f1';
-  const preview = story.content.length > 80 ? story.content.slice(0, 80) + '…' : story.content;
+  const preview = story.content.length > 120 ? story.content.slice(0, 120) + '…' : story.content;
 
   return (
     <div
       data-testid="live-story-card-expanded"
-      className={`rounded-lg border border-gray-200 bg-white p-3 ${className ?? ''}`}
+      className={`rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm overflow-hidden ${className ?? ''}`}
     >
-      {/* Header row: avatar + preview + toggle */}
-      <div className="flex items-start gap-2">
-        {/* Author avatar */}
-        <div
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-          style={{ backgroundColor: avatarBg }}
-          aria-hidden="true"
-        >
-          {avatarLetter}
+      {/* Main content */}
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          <GravatarAvatar
+            name={story.authorName}
+            photoUrl={story.authorAvatarUrl}
+            avatarColor={story.authorAvatarColor}
+            size="sm"
+            isPledger={story.authorHasPledged ?? false}
+            className="flex-shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="font-semibold text-gray-900 text-sm">{story.authorName}</span>
+              {(story.authorEarsCount ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-0.5 text-gray-500 text-xs">
+                  <Ear size={12} />
+                  {story.authorEarsCount}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-900 leading-snug">{preview}</p>
+          </div>
         </div>
-
-        {/* Story preview */}
-        <p className="flex-1 text-sm text-gray-700 leading-snug">
-          {isExpanded ? story.content : preview}
-        </p>
-
-        {/* Expand / collapse toggle */}
-        <button
-          type="button"
-          onClick={() => setIsExpanded((prev) => !prev)}
-          aria-expanded={isExpanded}
-          aria-label={isExpanded ? 'Collapse linked points' : 'Expand linked points'}
-          className="ml-1 flex-shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          {isExpanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
       </div>
 
-      {/* Expanded content */}
-      {isExpanded && (
-        <div className="mt-3 space-y-4">
-          {/* Full story text (scrollable) */}
-          <div className="max-h-[200px] overflow-y-auto rounded bg-gray-50 p-2 text-sm text-gray-700 leading-relaxed">
-            {story.content}
-          </div>
-
-          {/* Linked points */}
-          <div className="space-y-3">
-            {story.points.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No points linked to this story.</p>
-            ) : (
-              story.points.map((point) => (
-                <div key={point.id} className="space-y-2">
-                  <p className="text-sm font-medium text-gray-800">{point.statement}</p>
-                  <PositionButtons
-                    userPosition={point.userPosition ?? null}
-                    counts={toSevenPointCounts(point.positionCounts)}
-                    onPositionClick={(position: PositionType) => {
-                      onPositionSelect?.(point.id, position);
-                    }}
-                    compact
-                  />
-                </div>
-              ))
-            )}
-          </div>
+      {/* Footer — "N points by Name" expand trigger */}
+      {story.points.length > 0 && (
+        <div
+          className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>
+              {story.points.length} {story.points.length === 1 ? 'point' : 'points'} by{' '}
+              {story.authorName}
+            </span>
+          </button>
         </div>
       )}
+
+      {/* Expanded points.
+          Single point: pl-[40px] gives visible "shift" matching profile, and leaves
+          exactly 308px for the position buttons (306px needed).
+          Multiple points: px-3 because ThreadLine indentation (~28px extra left) would
+          push buttons over budget; ThreadLines themselves provide visual hierarchy. */}
+      {isExpanded && story.points.length > 0 && (
+        <div className={story.points.length === 1 ? 'pl-[40px] pr-3 pb-3' : 'px-3 pb-3'}>
+          {story.points.length === 1 ? (
+            <PointRow
+              point={story.points[0]}
+              authorName={story.authorName}
+              authorAvatarUrl={story.authorAvatarUrl}
+              authorAvatarColor={story.authorAvatarColor}
+              authorEarsCount={story.authorEarsCount}
+              onPositionSelect={onPositionSelect}
+            />
+          ) : (
+            <ThreadLineGroup>
+              {story.points.map((point, index) => (
+                <ThreadLineItem key={point.id} isLast={index === story.points.length - 1}>
+                  <PointRow
+                    point={point}
+                    authorName={story.authorName}
+                    authorAvatarUrl={story.authorAvatarUrl}
+                    authorAvatarColor={story.authorAvatarColor}
+                    authorEarsCount={story.authorEarsCount}
+                    onPositionSelect={onPositionSelect}
+                  />
+                </ThreadLineItem>
+              ))}
+            </ThreadLineGroup>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PointRow({
+  point,
+  authorName,
+  authorAvatarUrl,
+  authorAvatarColor,
+  authorEarsCount,
+  onPositionSelect,
+}: {
+  point: PointSummary;
+  authorName: string;
+  authorAvatarUrl?: string;
+  authorAvatarColor?: string;
+  authorEarsCount?: number;
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+}) {
+  // Local state so button highlights immediately on click, independent of the
+  // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
+  const [userPosition, setUserPosition] = useState<PositionType | null>(point.userPosition ?? null);
+
+  const handlePositionClick = (position: PositionType) => {
+    const next = userPosition === position ? null : position; // toggle same position off
+    setUserPosition(next);
+    onPositionSelect?.(point.id, next);
+  };
+
+  return (
+    <div className="w-full text-left">
+      {/* Story author's stance on this point — matches profile QuotedPoint pattern */}
+      {point.profileSubjectPosition && (
+        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-gray-700">
+          <GravatarAvatar name={authorName} photoUrl={authorAvatarUrl} avatarColor={authorAvatarColor} size="sm" className="!w-5 !h-5 !text-[10px]" />
+          <span className="font-medium">{authorName}</span>
+          {(authorEarsCount ?? 0) > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
+              <Ear size={12} />
+              {authorEarsCount}
+            </span>
+          )}
+          <PositionBadge position={point.profileSubjectPosition} />
+        </div>
+      )}
+
+      {/* Quoted point box — buttons on own row so they get full box width */}
+      <div className="p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-2">
+        <div className="flex items-start gap-2">
+          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600 mt-0.5">
+            <Pin size={12} className="rotate-45" />
+          </div>
+          <p className="text-sm text-gray-800 flex-1">{point.statement}</p>
+        </div>
+        <PositionButtons
+          userPosition={userPosition}
+          counts={toSevenPointCounts(point.positionCounts)}
+          onPositionClick={handlePositionClick}
+          compact
+          narrow
+        />
+      </div>
     </div>
   );
 }

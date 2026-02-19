@@ -11,8 +11,9 @@ interface GravatarAvatarProps {
   className?: string;
   /** Direct photo URL (e.g., from Google OAuth) */
   photoUrl?: string;
-  /** Shows static blue ring around avatar (Instagram/Telegram-style with white gap) */
-  isPledger?: boolean;
+  /** Shows static blue ring around avatar (Instagram/Telegram-style with white gap).
+   * REQUIRED — pass false explicitly for non-pledgers. Never omit. */
+  isPledger: boolean;
   /** Shows checkmark badge at bottom-right */
   showPledgeBadge?: boolean;
 }
@@ -49,7 +50,7 @@ export function GravatarAvatar({
   avatarColor = "#0044CC",
   className = "",
   photoUrl,
-  isPledger = false,
+  isPledger,
   showPledgeBadge = false,
 }: GravatarAvatarProps) {
   const [imageError, setImageError] = useState(false);

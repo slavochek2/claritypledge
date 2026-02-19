@@ -134,7 +134,7 @@ const DrawerContent = React.forwardRef<
   // Desktop: use Vaul's DrawerContent
   return (
     <DrawerPortal>
-      <DrawerOverlay />
+      <DrawerOverlay className={overlayClassName} />
       <DrawerPrimitive.Content
         ref={ref as React.Ref<HTMLDivElement>}
         className={cn(

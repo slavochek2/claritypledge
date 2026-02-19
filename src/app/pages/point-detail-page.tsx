@@ -369,6 +369,8 @@ function PositionHolderCard({
       {/* Avatar */}
       <GravatarAvatar
         name={holder.userName}
+        photoUrl={holder.userAvatarUrl}
+        avatarColor={holder.userAvatarColor}
         size="sm"
         className="!w-5 !h-5 !text-[10px]"
       />

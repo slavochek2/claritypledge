@@ -28,6 +28,7 @@ export interface StoryAuthor {
   role?: string;
   hasPledged?: boolean;
   ear?: number;
+  avatarUrl?: string;
 }
 
 /** Profile owner information for point context */
@@ -37,6 +38,7 @@ export interface PointProfileOwner {
   hasPledged?: boolean;
   ear?: number;
   position?: PositionType;
+  avatarUrl?: string;
 }
 
 interface PointCardWithLinksProps {
@@ -196,6 +198,7 @@ export function PointCardWithLinks({
             <div className="flex items-center gap-1.5 mb-2 text-sm text-gray-700">
               <GravatarAvatar
                 name={profileOwner.name}
+                photoUrl={profileOwner.avatarUrl}
                 size="sm"
                 isPledger={profileOwner.hasPledged}
                 className="!w-5 !h-5 !text-[10px]"
@@ -509,6 +512,7 @@ function QuotedStory({
           >
             <GravatarAvatar
               name={author.name}
+              photoUrl={author.avatarUrl}
               size="sm"
               isPledger={author.hasPledged}
               className="!w-6 !h-6 !text-[11px]"
