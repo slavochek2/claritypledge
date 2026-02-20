@@ -124,7 +124,7 @@ export function StoryCardDetail({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{story.authorName}</span>
-          {story.authorEarsCount && story.authorEarsCount > 0 && (
+          {(story.authorEarsCount ?? 0) > 0 && (
             <MobileTooltip
               content={`${story.authorName.split(' ')[0]} understood ${story.authorEarsCount} ${story.authorEarsCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
             >
@@ -218,7 +218,7 @@ export function StoryCardDetail({
                   {story.authorName}
                 </button>
                 {/* Credibility stats */}
-                {story.authorEarsCount && story.authorEarsCount > 0 && (
+                {(story.authorEarsCount ?? 0) > 0 && (
                   <MobileTooltip
                     content={`${story.authorName.split(' ')[0]} understood ${story.authorEarsCount} ${story.authorEarsCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
                   >
@@ -487,7 +487,7 @@ function QuotedPoint({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{authorName}</span>
-          {authorEarCount && authorEarCount > 0 && (
+          {(authorEarCount ?? 0) > 0 && (
             <MobileTooltip
               content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
             >

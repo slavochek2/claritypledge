@@ -62,7 +62,7 @@ function AddPointForm({
 }: {
   storyId: string;
   currentUserId: string;
-  onPointAdded: (point: PointSummary) => void;
+  onPointAdded: (point: PointSummary, position?: PositionType) => void;
   autoFocus?: boolean;
   onCancel?: () => void;
   showCancel?: boolean;
@@ -108,7 +108,7 @@ function AddPointForm({
         await pointsService.setPosition(orphanPoint.id, currentUserId, selectedPosition);
       }
 
-      onPointAdded(summary);
+      onPointAdded(summary, selectedPosition ?? undefined);
       setOrphanPoint(null);
       setStatement('');
       setSelectedPosition(null);
@@ -164,7 +164,7 @@ function AddPointForm({
         }
       }
 
-      onPointAdded(summary);
+      onPointAdded(summary, selectedPosition ?? undefined);
       setStatement('');
       setSelectedPosition(null);
       setIsAdding(false);
@@ -316,7 +316,7 @@ function KeyPointsSection({
   currentUserId: string;
   pointCount: number;
   justCreated: boolean;
-  onPointAdded: (point: PointSummary) => void;
+  onPointAdded: (point: PointSummary, position?: PositionType) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
 
@@ -354,8 +354,8 @@ function KeyPointsSection({
         <AddPointForm
           storyId={storyId}
           currentUserId={currentUserId}
-          onPointAdded={(point) => {
-            onPointAdded(point);
+          onPointAdded={(point, position) => {
+            onPointAdded(point, position);
             // Keep form open for sequential adds
           }}
           autoFocus={autoExpand}
@@ -494,14 +494,30 @@ export function StoryDetailPage() {
     setRetryKey(k => k + 1);
   }, []);
 
-  const handlePointAdded = useCallback((point: PointSummary) => {
+  const handlePointAdded = useCallback((point: PointSummary, position?: PositionType) => {
     setStory(prev => {
       if (!prev) return prev;
       // Avoid duplicates (e.g., from undo re-link)
       if (prev.points.some(p => p.id === point.id)) return prev;
       return { ...prev, points: [...prev.points, point] };
     });
-  }, []);
+    if (position && user?.id) {
+      const entry: PointPosition = {
+        id: '',
+        pointId: point.id,
+        userId: user.id,
+        position,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setUserPositions(prev => new Map([...prev, [point.id, entry]]));
+      setStoryAuthorPositions(prev => new Map([...prev, [point.id, entry]]));
+      setPositionCounts(prev => {
+        const current = prev.get(point.id) ?? { agree: 0, disagree: 0, unsure: 0 } as Record<PositionType, number>;
+        return new Map([...prev, [point.id, { ...current, [position]: (current[position] ?? 0) + 1 }]]);
+      });
+    }
+  }, [user?.id]);
 
   // P132: Position recording handler
   const handlePositionClick = useCallback(async (pointId: string, position: PositionType) => {

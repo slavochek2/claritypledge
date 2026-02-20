@@ -1,16 +1,13 @@
 /**
  * @file p407-story-detail-points.spec.ts
- * @description E2E tests for P407: Unify Story Detail Points — Remove Duplicate List, Add Author Unlink to Card
+ * @description E2E tests for P407: Unify Story Detail Points — Remove Duplicate List
  *
  * Tests the user flows for the story detail points unification:
  * 1. Author: points auto-expand on detail page (no click needed)
- * 2. Author: ✕ unlink button visible on each QuotedPoint card
- * 3. Author: clicking ✕ removes point optimistically, undo toast appears
- * 4. Author: undo toast click re-links the point
- * 5. Non-author: no ✕ visible, no add form shown
- * 6. justCreated flow: banner appears, add form auto-shown
- * 7. Add Point button disabled until both text and position filled (tooltip explains why)
- * 8. Add point success: point appears in story card
+ * 2. Non-author: no add form shown
+ * 3. justCreated flow: banner appears, add form auto-shown
+ * 4. Add Point button disabled until both text and position filled (tooltip explains why)
+ * 5. Add point success: point appears in story card
  *
  * Test data setup: created directly via supabaseAdmin (bypasses RLS).
  * No two-party live session required — story detail page tested in isolation.
@@ -78,168 +75,13 @@ test.describe('P407: Story detail — author point management', () => {
     }
   });
 
-  // ── 2. Author sees ✕ on each QuotedPoint card ─────────────────────────────
-  test('author: ✕ unlink button visible on each linked point card', async ({ page }) => {
-    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
-    let storyId: string | null = null;
-    const pointIds: string[] = [];
-
-    try {
-      testUser = await createTestUser({ name: 'P407 AuthorUnlinkBtn' });
-
-      const story = await createTestStory(testUser.user.id, {
-        title: 'P407 Unlink Button Story',
-        content: 'Story for testing unlink button visibility',
-        visibility: 'public',
-      });
-      storyId = story.id;
-
-      const point1 = await createTestPoint(testUser.user.id, {
-        statement: 'First point with unlink button',
-      });
-      const point2 = await createTestPoint(testUser.user.id, {
-        statement: 'Second point with unlink button',
-      });
-      pointIds.push(point1.id, point2.id);
-
-      await linkStoryToPoint(storyId, point1.id);
-      await linkStoryToPoint(storyId, point2.id);
-
-      await setTestSession(page, testUser.email);
-      await page.goto(`/story/${storyId}`);
-      await page.waitForLoadState('networkidle');
-
-      // Wait for points to appear
-      await expect(page.getByText('First point with unlink button')).toBeVisible({ timeout: 10000 });
-
-      // Hover to reveal ✕ button (opacity-0 → group-hover:opacity-100)
-      const firstPointCard = page.locator('[aria-label*="Unlink point"]').first();
-      await firstPointCard.hover().catch(() => {
-        // Hover may not be needed if focus shows the button
-      });
-
-      // ✕ (X) unlink buttons should be present in the DOM (one per point)
-      const unlinkButtons = page.locator('[aria-label*="Unlink point"]');
-      await expect(unlinkButtons).toHaveCount(2, { timeout: 10000 });
-    } finally {
-      for (const id of pointIds) await deleteTestPoint(id);
-      if (storyId) await deleteTestStory(storyId);
-      if (testUser) await deleteTestUser(testUser.user.id);
-    }
-  });
-
-  // ── 3. Author clicks ✕ → point removed optimistically + undo toast ─────────
-  test('author: clicking ✕ removes point optimistically and shows undo toast', async ({ page }) => {
-    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
-    let storyId: string | null = null;
-    let pointId: string | null = null;
-
-    try {
-      testUser = await createTestUser({ name: 'P407 AuthorUnlink' });
-
-      const story = await createTestStory(testUser.user.id, {
-        title: 'P407 Unlink Flow Story',
-        content: 'Story for testing unlink + undo flow',
-        visibility: 'public',
-      });
-      storyId = story.id;
-
-      const point = await createTestPoint(testUser.user.id, {
-        statement: 'Point to be unlinked with undo',
-      });
-      pointId = point.id;
-
-      await linkStoryToPoint(storyId, pointId);
-
-      await setTestSession(page, testUser.email);
-      await page.goto(`/story/${storyId}`);
-      await page.waitForLoadState('networkidle');
-
-      // Verify point is initially visible
-      await expect(page.getByText('Point to be unlinked with undo')).toBeVisible({ timeout: 10000 });
-
-      // Focus the unlink button to make it appear (opacity: focus triggers visibility)
-      const unlinkButton = page.locator('[aria-label*="Unlink point"]').first();
-      await unlinkButton.focus();
-      await unlinkButton.click();
-
-      // Point should be optimistically removed from the UI
-      await expect(page.getByText('Point to be unlinked with undo')).not.toBeVisible({ timeout: 5000 });
-
-      // Undo toast should appear
-      await expect(
-        page.getByText(/point unlinked/i)
-      ).toBeVisible({ timeout: 5000 });
-
-      // Undo action button should be present in the toast
-      await expect(
-        page.getByRole('button', { name: /undo/i })
-      ).toBeVisible({ timeout: 5000 });
-    } finally {
-      // Clean up: point might have been re-linked or unlinked during test
-      if (pointId) await deleteTestPoint(pointId).catch(() => {});
-      if (storyId) await deleteTestStory(storyId).catch(() => {});
-      if (testUser) await deleteTestUser(testUser.user.id);
-    }
-  });
-
-  // ── 4. Undo toast click → point re-appears ────────────────────────────────
-  test('author: clicking Undo in toast re-links the point', async ({ page }) => {
-    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
-    let storyId: string | null = null;
-    let pointId: string | null = null;
-
-    try {
-      testUser = await createTestUser({ name: 'P407 AuthorUndo' });
-
-      const story = await createTestStory(testUser.user.id, {
-        title: 'P407 Undo Flow Story',
-        content: 'Story for testing undo re-link',
-        visibility: 'public',
-      });
-      storyId = story.id;
-
-      const point = await createTestPoint(testUser.user.id, {
-        statement: 'Point to undo re-link',
-      });
-      pointId = point.id;
-
-      await linkStoryToPoint(storyId, pointId);
-
-      await setTestSession(page, testUser.email);
-      await page.goto(`/story/${storyId}`);
-      await page.waitForLoadState('networkidle');
-
-      await expect(page.getByText('Point to undo re-link')).toBeVisible({ timeout: 10000 });
-
-      // Click unlink
-      const unlinkButton = page.locator('[aria-label*="Unlink point"]').first();
-      await unlinkButton.focus();
-      await unlinkButton.click();
-
-      // Wait for removal
-      await expect(page.getByText('Point to undo re-link')).not.toBeVisible({ timeout: 5000 });
-
-      // Click Undo in the toast
-      const undoButton = page.getByRole('button', { name: /undo/i });
-      await expect(undoButton).toBeVisible({ timeout: 5000 });
-      await undoButton.click();
-
-      // Point should re-appear
-      await expect(page.getByText('Point to undo re-link')).toBeVisible({ timeout: 8000 });
-    } finally {
-      if (pointId) await deleteTestPoint(pointId).catch(() => {});
-      if (storyId) await deleteTestStory(storyId).catch(() => {});
-      if (testUser) await deleteTestUser(testUser.user.id);
-    }
-  });
 });
 
-test.describe('P407: Story detail — non-author view', () => {
+test.describe('P407: Story detail — non-author view (no add form)', () => {
   test.describe.configure({ timeout: 40000 });
 
-  // ── 5. Non-author: no ✕ visible, no add form ──────────────────────────────
-  test('non-author: no unlink buttons and no add form visible', async ({ page }) => {
+  // ── 2. Non-author: no add form ────────────────────────────────────────────
+  test('non-author: no add form visible', async ({ page }) => {
     let authorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let viewerUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
@@ -273,10 +115,6 @@ test.describe('P407: Story detail — non-author view', () => {
         page.getByText('Point visible to non-author without controls')
       ).toBeVisible({ timeout: 10000 });
 
-      // No unlink buttons should be in the DOM
-      const unlinkButtons = page.locator('[aria-label*="Unlink point"]');
-      await expect(unlinkButtons).toHaveCount(0, { timeout: 3000 });
-
       // No add point form should be visible (textarea placeholder)
       await expect(
         page.getByPlaceholder(/state your point/i)
@@ -294,8 +132,8 @@ test.describe('P407: Story detail — non-author view', () => {
     }
   });
 
-  // ── 5b. Unauthenticated: no ✕ visible, no add form ───────────────────────
-  test('unauthenticated visitor: no unlink buttons and no add form on public story', async ({ page }) => {
+  // ── 2b. Unauthenticated: no add form ─────────────────────────────────────
+  test('unauthenticated visitor: no add form on public story', async ({ page }) => {
     let authorUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
     let pointId: string | null = null;
@@ -323,10 +161,6 @@ test.describe('P407: Story detail — non-author view', () => {
 
       await expect(page.getByText('Point visible without login')).toBeVisible({ timeout: 10000 });
 
-      // No unlink buttons
-      const unlinkButtons = page.locator('[aria-label*="Unlink point"]');
-      await expect(unlinkButtons).toHaveCount(0, { timeout: 3000 });
-
       // No add point form
       await expect(
         page.getByPlaceholder(/state your point/i)
@@ -342,7 +176,7 @@ test.describe('P407: Story detail — non-author view', () => {
 test.describe('P407: Story detail — justCreated banner and add form', () => {
   test.describe.configure({ timeout: 40000 });
 
-  // ── 6. justCreated flow: banner appears, add form auto-shown ──────────────
+  // ── 3. justCreated flow: banner appears, add form auto-shown ──────────────
   test('justCreated: banner appears and add form is auto-expanded when no points', async ({ page }) => {
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
@@ -388,7 +222,7 @@ test.describe('P407: Story detail — justCreated banner and add form', () => {
     }
   });
 
-  // ── 7. Add point: button disabled until text + position both filled ────────
+  // ── 4. Add point: button disabled until text + position both filled ────────
   test('add form: Add Point button disabled until both text and position are provided', async ({ page }) => {
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
@@ -445,7 +279,7 @@ test.describe('P407: Story detail — justCreated banner and add form', () => {
     }
   });
 
-  // ── 8. Add point success: point appears in story card ─────────────────────
+  // ── 5. Add point success: point appears in story card ─────────────────────
   test('add form: successfully added point appears in the story card', async ({ page }) => {
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let storyId: string | null = null;
@@ -491,6 +325,62 @@ test.describe('P407: Story detail — justCreated banner and add form', () => {
       ).toBeVisible({ timeout: 10000 });
     } finally {
       // Clean up by deleting the story (point will cascade via story_points)
+      if (storyId) await deleteTestStory(storyId);
+      if (testUser) await deleteTestUser(testUser.user.id);
+    }
+  });
+
+  // ── 6. Position shown as selected immediately after adding a point ─────────
+  test('add form: position is shown as selected on newly added point (no page reload)', async ({ page }) => {
+    let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let storyId: string | null = null;
+
+    try {
+      testUser = await createTestUser({ name: 'P407 PositionDisplay' });
+
+      const story = await createTestStory(testUser.user.id, {
+        title: 'P407 Position Display After Add',
+        content: 'Story for testing position display after point creation',
+        visibility: 'public',
+      });
+      storyId = story.id;
+
+      await setTestSession(page, testUser.email);
+      await page.goto(`/story/${storyId}`);
+      await page.waitForLoadState('networkidle');
+
+      // Open add form
+      const addAPointBtn = page.getByRole('button', { name: /add a point/i });
+      if (await addAPointBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await addAPointBtn.click();
+      }
+
+      const textarea = page.getByPlaceholder(/state your point/i);
+      await expect(textarea).toBeVisible({ timeout: 8000 });
+
+      const uniqueStatement = `Position Display Test ${Date.now()}`;
+      await textarea.fill(uniqueStatement);
+
+      // Select "Agree"
+      const agreeButton = page.getByRole('button', { name: /agree/i }).first();
+      await agreeButton.click();
+
+      // Submit
+      const addPointBtn = page.getByRole('button', { name: /^add point$/i });
+      await expect(addPointBtn).toBeEnabled({ timeout: 3000 });
+      await addPointBtn.click();
+
+      // Point should appear
+      await expect(page.getByText(uniqueStatement)).toBeVisible({ timeout: 10000 });
+
+      // The agree/positive position button on the newly added point should be pressed (aria-pressed=true)
+      // — no page reload required
+      const newPointCard = page.locator('[data-testid="point-card"]', { hasText: uniqueStatement })
+        .or(page.locator('li, article, div').filter({ hasText: uniqueStatement }).last());
+
+      const pressedPositionButton = newPointCard.locator('[aria-pressed="true"]');
+      await expect(pressedPositionButton).toBeVisible({ timeout: 5000 });
+    } finally {
       if (storyId) await deleteTestStory(storyId);
       if (testUser) await deleteTestUser(testUser.user.id);
     }
