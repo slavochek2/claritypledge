@@ -197,6 +197,41 @@ Schema: `supabase/migrations/20260204_stories_points_calibration.sql`
 
 ---
 
+## TypeScript: Shared Type Shapes Across Interfaces
+
+When two interfaces need to share the same field shape and one is defined before the other, extract a named type alias above both:
+
+```typescript
+// ✅ Extract to named alias BEFORE both interfaces
+export type LiveStoryData = Pick<StoryWithAuthor, 'authorName' | ...> & { ... };
+
+// Then reference it in both:
+export interface SessionHistoryItem { storyData?: LiveStoryData; }
+export interface LiveSessionState { selectedStoryData?: LiveStoryData; }
+```
+
+**Why:** `SessionHistoryItem` can't reference `NonNullable<LiveSessionState['selectedStoryData']>` if `LiveSessionState` is defined after it. The named alias solves ordering without duplication.
+
+---
+
+## React: `useMemo` + `?? []` Fallback Trap
+
+Never use `?? []` directly as a `useMemo` dependency — it creates a new array reference every render:
+
+```typescript
+// ❌ Triggers lint warning — new [] on every render breaks memoization
+const items = liveState.foo ?? [];
+const result = useMemo(() => compute(items), [items]);
+
+// ✅ Stabilize the fallback in its own useMemo first
+const items = useMemo(() => liveState.foo ?? [], [liveState.foo]);
+const result = useMemo(() => compute(items), [items]);
+```
+
+**Rule:** Anything computed with `??`, `||`, or object spread at the top level of a component needs its own `useMemo` before being used as a dependency.
+
+---
+
 ## Common Gotchas
 
 1. **Profile lookup**: Routes use `slug` (e.g., `/p/john-doe`), not UUID. Use `getProfileBySlug()` for routes, `getProfile(id)` when you have UUID.
