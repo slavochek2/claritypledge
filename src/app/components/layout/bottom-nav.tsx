@@ -90,7 +90,8 @@ export function BottomNav() {
             </>
           );
 
-          if (isLive) {
+          // Guard: intercept nav away from live session, but not the /live item itself
+          if (isLive && item.to !== '/live') {
             return (
               <button
                 key={item.label}

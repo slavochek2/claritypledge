@@ -5,6 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { ClarityLandingLayout } from "@/app/layouts/clarity-landing-layout";
 import { AuthCallbackPage, AuthProvider } from "@/auth";
 import { ScrollToTop } from "@/app/components/scroll-to-top";
+import { LiveSessionProvider } from "@/app/contexts/live-session-context";
 
 // Critical path pages - loaded synchronously for fast initial render
 import { ClarityPledgeLanding } from "@/app/pages/clarity-pledge-landing";
@@ -142,6 +143,7 @@ export default function ClarityPledgeApp() {
     <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog>
     <Router>
       <ScrollToTop />
+      <LiveSessionProvider>
       <AuthProvider>
       <Routes>
         <Route
@@ -442,6 +444,7 @@ export default function ClarityPledgeApp() {
         <Route path="/events/*" element={<ClarityLandingLayout><LazyRoute><EventsPrototype /></LazyRoute></ClarityLandingLayout>} />
       </Routes>
       </AuthProvider>
+      </LiveSessionProvider>
     </Router>
     </Sentry.ErrorBoundary>
     </HelmetProvider>

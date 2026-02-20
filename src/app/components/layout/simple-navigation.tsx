@@ -20,6 +20,7 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { NavigationMenuItems } from "./navigation-menu-items";
+import { useLiveSession } from "@/app/contexts/live-session-context";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -41,6 +42,7 @@ export function SimpleNavigation() {
     slug,
     signOut,
   } = useNavAuthState();
+  const { isLive, setPendingNavTo } = useLiveSession();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -101,6 +103,7 @@ export function SimpleNavigation() {
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
+                  onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/events'); } : undefined}
                 >
                   <CalendarIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">My Events</span>
@@ -113,6 +116,7 @@ export function SimpleNavigation() {
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
                   }`}
+                  onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo(slug ? `/p/${slug}` : '/me'); } : undefined}
                 >
                   <UserIcon className="w-5 h-5" />
                   <span className="text-xs mt-1 font-medium">My Profile</span>
