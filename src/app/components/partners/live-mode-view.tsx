@@ -933,8 +933,8 @@ function IdleScreen({
     liveState.explainBackRatings.length > 0
   );
 
-  // Use top-aligned layout when there's content to scroll, drawer is open, or prior data
-  const hasScrollableContent = hasContent || sessionHistory.length > 0;
+  // Use top-aligned layout only when visible card content is on screen (not just because stories exist in library)
+  const hasScrollableContent = !!liveState.selectedStoryId || sessionHistory.length > 0;
   const layoutClass = showRatingDrawer || hasRatingData || hasScrollableContent
     ? CONTENT_LAYOUT
     : CONTENT_LAYOUT_CENTERED;
