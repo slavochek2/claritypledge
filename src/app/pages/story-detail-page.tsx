@@ -234,30 +234,35 @@ function AddPointForm({
           </Button>
         </div>
       )}
-      <Textarea
-        ref={textareaRef}
-        value={statement}
-        onChange={handleChange}
-        placeholder="State your point..."
-        disabled={isAdding || !!orphanPoint}
-        className="min-h-[80px] resize-y"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) {
-            handleAdd();
-          }
-        }}
-      />
-      {orphanPoint && (
-        <p className="text-sm text-amber-600">
-          Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
-        </p>
-      )}
-      <PositionButtons
-        userPosition={selectedPosition}
-        counts={EMPTY_COUNTS}
-        onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
-        compact
-      />
+      <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/20">
+        <Textarea
+          ref={textareaRef}
+          value={statement}
+          onChange={handleChange}
+          placeholder="State your point..."
+          disabled={isAdding || !!orphanPoint}
+          className="min-h-[80px] resize-y border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) {
+              handleAdd();
+            }
+          }}
+        />
+        {orphanPoint && (
+          <p className="text-sm text-amber-600">
+            Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
+          </p>
+        )}
+        <div>
+          <p className="text-xs text-muted-foreground mb-1.5">Your position:</p>
+          <PositionButtons
+            userPosition={selectedPosition}
+            counts={EMPTY_COUNTS}
+            onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
+            compact
+          />
+        </div>
+      </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button
@@ -391,20 +396,6 @@ function KeyPointsSection({
         Key Points{points.length > 0 ? ` (${points.length})` : ''}
       </h3>
 
-      {/* Educational empty state (justCreated only) */}
-      {autoExpand && (
-        <div className="mb-4 space-y-2">
-          <p className="text-sm text-muted-foreground">
-            What claims does your story make?
-          </p>
-          <p className="text-sm text-muted-foreground">
-            A Point is a statement others can agree or disagree with — the core of what you believe.
-          </p>
-          <p className="text-sm text-muted-foreground italic">
-            e.g. &ldquo;Remote teams need trust more than tools&rdquo;
-          </p>
-        </div>
-      )}
 
       {/* Point list */}
       {points.length > 0 && (
