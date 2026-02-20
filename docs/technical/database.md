@@ -51,6 +51,25 @@ Both maintained by database triggers. Calibration averages computed on-read via 
 |--------|------|-------------|
 | creator_profile_id | uuid | FK to profiles (set when authenticated user creates) |
 | joiner_profile_id | uuid | FK to profiles (set when authenticated user joins) |
+| live_state | jsonb | Shared real-time session state (see below) |
+
+#### live_state mutation contract (P399)
+
+`live_state` is a JSON blob written by both participants concurrently. **Never do a full read-modify-write from local state.** Two write modes are enforced in `updateLiveState()`:
+
+| Mode | When | DB call |
+|------|------|---------|
+| **Partial merge** | Updates don't include story/content fields | `patch_live_state(id, updates)` — `jsonb \|\|` merge; preserves all other fields |
+| **Full overwrite** | Updates intentionally set or clear story fields | `updateClaritySessionLiveState(id, fullState)` — replaces entire column |
+
+**`patch_live_state` RPC** (`supabase/migrations/20260220130000_patch_live_state_rpc.sql`):
+```sql
+UPDATE clarity_sessions
+SET live_state = COALESCE(live_state, '{}') || p_patch
+WHERE id = p_session_id;
+```
+
+**Why this matters:** `confirmedLiveStateRef.current` (the local "last confirmed" ref) can be stale if a subscription event was skipped while a write was in-flight. A full overwrite from a stale ref silently clears fields written by the partner. The partial merge makes stale-ref writes safe by default.
 
 ### Stories, Points & Calibration Tables (P117)
 

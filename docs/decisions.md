@@ -14,6 +14,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-20: Partial DB merge for live_state to prevent race-condition overwrites (P399)
+
+**Context:** `updateLiveState()` in `clarity-live-page.tsx` did a full read-modify-write of the `live_state` JSON column: it read `confirmedLiveStateRef.current`, merged updates into it, and wrote the entire blob back. Because `confirmedLiveStateRef` can be stale (subscription skipped while in-flight, or partner selection not yet arrived), any partial write — a rating, `celebrationAcknowledgedBy` — from the participant with a stale ref would silently overwrite the partner's `selectedStoryData` → story disappeared mid-round for both participants.
+
+**Decision:** Added `patch_live_state(p_session_id, p_patch)` Postgres RPC (`jsonb || merge`). `updateLiveState` now routes:
+- **Partial merge** when updates don't include story/content fields → DB preserves whatever fields weren't in the update
+- **Full overwrite** when updates intentionally set or clear story fields (story selection, "Speak Freely", round reset)
+
+**Alternatives rejected:**
+- *Fetch-then-write*: add a DB read before every write to get fresh state. Correct but adds a round-trip, and still has a narrow race window between read and write.
+- *Never skip subscription events*: remove the in-flight guard. Would re-introduce the "flashing button" regression (old state delivered before DB save completes).
+- *Surgical call-site fix (Option 1)*: explicitly preserve story fields in every `updateLiveState` call. Fragile — requires touching every call site and fails if the ref itself is stale.
+
+**Consequences:** The write path for `live_state` now has two modes. Any new `updateLiveState` caller that doesn't include story fields in its `updates` object automatically uses partial merge — safe by default. Callers that intentionally clear story fields must include those keys in `updates` (which they already do).
+
+**References:** [clarity-live-page.tsx:701](../src/app/pages/clarity-live-page.tsx) · [api.ts: patchClaritySessionLiveState](../src/app/data/api.ts) · [migration: 20260220130000_patch_live_state_rpc.sql](../supabase/migrations/20260220130000_patch_live_state_rpc.sql)
+
+---
+
 ## 2026-02-19: /verify skill — two-party setup, resumability, triage mode (P397)
 
 **Context:** `/verify` runs live UAT in Chrome. Two-party scenarios (any `/live` feature with a listener) required ~15 min of manual browser setup per session. Context resets wiped all in-progress results. When scenarios failed, the skill investigated root causes instead of moving on — turning UAT sessions into debugging sessions.
