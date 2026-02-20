@@ -21,6 +21,7 @@ import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -404,6 +405,30 @@ export function StoryDetailPage() {
   // Positions of the story author on their own points (for display badges, independent of viewer)
   const [storyAuthorPositions, setStoryAuthorPositions] = useState<Map<string, PointPosition>>(new Map());
 
+  // P132: Guard for position removal — shows confirmation dialog with linked-story count
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: user?.id ?? '',
+    onAfterRemove: useCallback(async (pointId: string) => {
+      setUserPositions(prev => {
+        const updated = new Map(prev);
+        updated.delete(pointId);
+        return updated;
+      });
+      // If viewer is author, storyAuthorPositions mirrors userPositions
+      setStoryAuthorPositions(prev => {
+        const updated = new Map(prev);
+        updated.delete(pointId);
+        return updated;
+      });
+      try {
+        const counts = await pointsService.getPositionCountsForPoints([pointId]);
+        setPositionCounts(prev => new Map([...prev, ...counts]));
+      } catch (err) {
+        console.error('Failed to refresh position counts after removal:', err);
+      }
+    }, []),
+  });
+
   useEffect(() => {
     async function loadStory() {
       if (!id) {
@@ -527,32 +552,29 @@ export function StoryDetailPage() {
 
     const isTogglingOff = userPositions.get(pointId)?.position === position;
 
-    // Optimistic update
+    if (isTogglingOff) {
+      // Guard shows confirmation dialog — actual removal + state refresh handled in onAfterRemove
+      await guardedRemovePosition(pointId);
+      return;
+    }
+
+    // Optimistic update for setting a new position
     setUserPositions(prev => {
       const updated = new Map(prev);
       const current = updated.get(pointId);
-
-      if (isTogglingOff) {
-        updated.delete(pointId);
-      } else {
-        updated.set(pointId, {
-          id: current?.id || '',
-          pointId,
-          userId: user.id,
-          position,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-      }
+      updated.set(pointId, {
+        id: current?.id || '',
+        pointId,
+        userId: user.id,
+        position,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
       return updated;
     });
 
     try {
-      if (isTogglingOff) {
-        await pointsService.removePosition(pointId, user.id);
-      } else {
-        await pointsService.setPosition(pointId, user.id, position);
-      }
+      await pointsService.setPosition(pointId, user.id, position);
 
       // Refresh position counts
       const counts = await pointsService.getPositionCountsForPoints([pointId]);
@@ -567,14 +589,12 @@ export function StoryDetailPage() {
       console.error('Failed to save position:', error);
 
       // Revert optimistic update by re-fetching the correct state
-      // (moved outside state setter to avoid race condition)
       if (user?.id) {
         try {
           const positions = await pointsService.getMyPositionsForPoints([pointId], user.id);
           setUserPositions(prev => new Map([...prev, ...positions]));
         } catch (fetchError) {
           console.error('Failed to revert position:', fetchError);
-          // If re-fetch also fails, just clear this point's position
           setUserPositions(prev => {
             const updated = new Map(prev);
             updated.delete(pointId);
@@ -585,7 +605,7 @@ export function StoryDetailPage() {
 
       toast.error('Failed to save position. Please try again.');
     }
-  }, [user?.id, checkVerified, story?.id, userPositions, navigate, location.pathname]);
+  }, [user?.id, checkVerified, story?.id, userPositions, guardedRemovePosition]);
 
   // Loading skeleton
   if (loading) {
@@ -655,6 +675,8 @@ export function StoryDetailPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
+      <RemovePositionDialog {...dialogProps} />
+
       {/* Back button */}
       <BackButton onClick={handleBack} />
 
