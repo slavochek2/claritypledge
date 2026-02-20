@@ -15,7 +15,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, LockIcon, Pin, X, Loader2, Plus, Search, Link2, Unlink } from 'lucide-react';
+import { ArrowLeft, LockIcon, Pin, X, Loader2, Plus } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -25,7 +25,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
-import { supabase } from '@/lib/supabase';
 import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
 import type { StoryWithPoints, PointSummary, PointPosition, PositionType } from '@/app/types';
 
@@ -85,18 +84,21 @@ function PointCard({
 
 function AddPointForm({
   storyId,
+  currentUserId,
   onPointAdded,
   autoFocus,
   onCancel,
   showCancel,
 }: {
   storyId: string;
+  currentUserId: string;
   onPointAdded: (point: PointSummary) => void;
   autoFocus?: boolean;
   onCancel?: () => void;
   showCancel?: boolean;
 }) {
   const [statement, setStatement] = useState('');
+  const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [orphanPoint, setOrphanPoint] = useState<{ id: string; statement: string; context?: string; tags: string[] } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -132,9 +134,14 @@ function AddPointForm({
         tags: orphanPoint.tags,
       };
 
+      if (selectedPosition) {
+        await pointsService.setPosition(orphanPoint.id, currentUserId, selectedPosition);
+      }
+
       onPointAdded(summary);
       setOrphanPoint(null);
       setStatement('');
+      setSelectedPosition(null);
       setIsAdding(false);
 
       analytics.track('point_created', {
@@ -180,8 +187,13 @@ function AddPointForm({
         tags: point.tags,
       };
 
+      if (selectedPosition) {
+        await pointsService.setPosition(point.id, currentUserId, selectedPosition);
+      }
+
       onPointAdded(summary);
       setStatement('');
+      setSelectedPosition(null);
       setIsAdding(false);
 
       analytics.track('point_created', {
@@ -198,7 +210,7 @@ function AddPointForm({
     }
   };
 
-  const canSubmit = statement.trim().length > 0 && !isAdding;
+  const canSubmit = statement.trim().length > 0 && !!selectedPosition && !isAdding;
 
   return (
     <div className="space-y-2">
@@ -240,6 +252,12 @@ function AddPointForm({
           Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
         </p>
       )}
+      <PositionButtons
+        userPosition={selectedPosition}
+        counts={EMPTY_COUNTS}
+        onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
+        compact
+      />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button
@@ -277,15 +295,6 @@ function AddPointForm({
   );
 }
 
-// ---------------------------------------------------------------------------
-// P401: Linked Points Editor — lets story author search & link existing points
-// ---------------------------------------------------------------------------
-
-interface PointSearchResult {
-  id: string;
-  statement: string;
-}
-
 const EMPTY_COUNTS: SevenPointCounts = {
   strongly_agree: 0,
   agree: 0,
@@ -296,257 +305,13 @@ const EMPTY_COUNTS: SevenPointCounts = {
   strongly_disagree: 0,
 };
 
-function LinkedPointsEditor({
-  storyId,
-  authorId,
-  currentUserId,
-  existingPoints,
-  onPointLinked,
-  onPointUnlinked,
-}: {
-  storyId: string;
-  authorId: string;
-  currentUserId: string;
-  existingPoints: PointSummary[];
-  onPointLinked: (point: PointSummary) => void;
-  onPointUnlinked: (pointId: string) => void;
-}) {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<PointSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedPoint, setSelectedPoint] = useState<PointSearchResult | null>(null);
-  const [selectedPosition, setSelectedPosition] = useState<PositionType | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Don't show already-linked points in results
-  const existingPointIds = new Set(existingPoints.map(p => p.id));
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults([]);
-      return;
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const { data, error } = await supabase
-          .from('points')
-          .select('id, statement')
-          .ilike('statement', `%${trimmed}%`)
-          .limit(10);
-
-        if (!error && data) {
-          setResults((data as PointSearchResult[]).filter(p => !existingPointIds.has(p.id)));
-        }
-      } catch {
-        // Ignore search errors
-      } finally {
-        setIsSearching(false);
-      }
-    }, 350);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, existingPointIds]);
-
-  const handleSelectPoint = async (point: PointSearchResult) => {
-    setSelectedPoint(point);
-    setQuery('');
-    setResults([]);
-
-    // Pre-fill position if user already has one on this point
-    try {
-      const existing = await pointsService.getMyPosition(point.id, currentUserId);
-      setSelectedPosition(existing?.position ?? null);
-    } catch {
-      setSelectedPosition(null);
-    }
-  };
-
-  const handleSaveLink = async () => {
-    if (!selectedPoint || !selectedPosition) return;
-    setIsSaving(true);
-
-    try {
-      // 1. Link point to story
-      const linked = await storiesService.linkPointToStory(storyId, selectedPoint.id);
-      if (!linked) {
-        toast.error('Failed to link point. Please try again.');
-        setIsSaving(false);
-        return;
-      }
-
-      // 2. Set position (required for P401 integrity: story-point link requires a position)
-      await pointsService.setPosition(selectedPoint.id, currentUserId, selectedPosition);
-
-      onPointLinked({
-        id: selectedPoint.id,
-        statement: selectedPoint.statement,
-        tags: [],
-      });
-
-      analytics.track('point_linked_to_story', {
-        story_id: storyId,
-        point_id: selectedPoint.id,
-        position: selectedPosition,
-      });
-
-      setSelectedPoint(null);
-      setSelectedPosition(null);
-      toast.success('Point linked');
-    } catch {
-      toast.error('Failed to link point. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleUnlink = async (point: PointSummary) => {
-    onPointUnlinked(point.id);
-
-    try {
-      const success = await storiesService.unlinkPointFromStory(storyId, point.id);
-      if (!success) {
-        onPointLinked(point);
-        toast.error('Failed to unlink point.');
-        return;
-      }
-      toast('Point unlinked');
-    } catch {
-      onPointLinked(point);
-      toast.error('Failed to unlink point.');
-    }
-  };
-
-  // Only visible to story author
-  if (authorId !== currentUserId) return null;
-
-  return (
-    <div className="mt-6">
-      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-        <Link2 size={14} />
-        Link to an Existing Point
-      </h3>
-
-      {/* Currently linked points (with unlink) */}
-      {existingPoints.length > 0 && (
-        <div className="space-y-2 mb-4">
-          {existingPoints.map(point => (
-            <div key={point.id} className="flex items-start gap-2 group">
-              <Pin size={14} className="text-blue-600 mt-1 shrink-0" />
-              <p className="text-sm text-foreground flex-1 leading-snug">{point.statement}</p>
-              <button
-                type="button"
-                onClick={() => handleUnlink(point)}
-                className="shrink-0 w-[36px] h-[36px] flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                aria-label={`Unlink: ${point.statement.slice(0, 30)}`}
-              >
-                <Unlink size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Point picker — shown when no point is selected */}
-      {!selectedPoint && (
-        <div className="space-y-2">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search for a point to link..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            {isSearching && (
-              <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground animate-spin" />
-            )}
-          </div>
-          {results.length > 0 && (
-            <div className="border border-border rounded-md divide-y divide-border bg-card">
-              {results.map(point => (
-                <button
-                  key={point.id}
-                  type="button"
-                  onClick={() => handleSelectPoint(point)}
-                  className="w-full text-left px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors first:rounded-t-md last:rounded-b-md"
-                >
-                  {point.statement}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Position selector — shown after a point is selected */}
-      {selectedPoint && (
-        <div className="border border-border rounded-md p-3 space-y-3 bg-muted/40">
-          <div className="flex items-start gap-2">
-            <Pin size={14} className="text-blue-600 mt-0.5 shrink-0" />
-            <p className="text-sm text-foreground flex-1">{selectedPoint.statement}</p>
-            <button
-              type="button"
-              onClick={() => { setSelectedPoint(null); setSelectedPosition(null); }}
-              className="shrink-0 text-muted-foreground hover:text-foreground"
-              aria-label="Cancel selection"
-            >
-              <X size={14} />
-            </button>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Select your position to complete the link:</p>
-            <PositionButtons
-              userPosition={selectedPosition}
-              counts={EMPTY_COUNTS}
-              onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
-              compact
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              onClick={handleSaveLink}
-              disabled={!selectedPosition || isSaving}
-              className="bg-blue-500 hover:bg-blue-600 text-white min-h-[36px] text-sm"
-            >
-              {isSaving ? (
-                <><Loader2 size={14} className="animate-spin" /> Linking...</>
-              ) : (
-                <><Plus size={14} /> Link Point</>
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => { setSelectedPoint(null); setSelectedPosition(null); }}
-              className="min-h-[36px] text-sm"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Key Points section
 // ---------------------------------------------------------------------------
 
 function KeyPointsSection({
   storyId,
+  currentUserId,
   points,
   isAuthor,
   justCreated,
@@ -555,6 +320,7 @@ function KeyPointsSection({
   onPointUnlinked,
 }: {
   storyId: string;
+  currentUserId: string;
   points: PointSummary[];
   isAuthor: boolean;
   justCreated: boolean;
@@ -675,6 +441,7 @@ function KeyPointsSection({
       {isAuthor && (autoExpand || showForm) && (
         <AddPointForm
           storyId={storyId}
+          currentUserId={currentUserId}
           onPointAdded={(point) => {
             onPointAdded(point);
             // Keep form open for sequential adds
@@ -980,23 +747,12 @@ export function StoryDetailPage() {
       {isAuthor && (
         <KeyPointsSection
           storyId={story.id}
+          currentUserId={user?.id ?? ''}
           points={story.points}
           isAuthor={isAuthor}
           justCreated={justCreated}
           isAuthenticated={!!user}
           onPointAdded={handlePointAdded}
-          onPointUnlinked={handlePointUnlinked}
-        />
-      )}
-
-      {/* P401: Author-only link-to-existing-point section */}
-      {isAuthor && user?.id && (
-        <LinkedPointsEditor
-          storyId={story.id}
-          authorId={story.authorId}
-          currentUserId={user.id}
-          existingPoints={story.points}
-          onPointLinked={handlePointAdded}
           onPointUnlinked={handlePointUnlinked}
         />
       )}
