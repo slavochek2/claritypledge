@@ -56,6 +56,7 @@ import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microp
 import { SessionEventsCollector } from '@/lib/session-events-collector';
 import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
 import { toast } from 'sonner';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -896,16 +897,50 @@ export function ClarityLivePage() {
     setIsLocallyRating(true);
   }, [name, partnerName, session?.code, updateLiveState]);
 
+  // Guard for removing positions in /live — shows profile-removal warning and syncs to point_positions.
+  const { dialogProps: liveRemoveDialogProps, guardedRemovePosition: liveGuardedRemovePosition } =
+    useRemovePositionGuard({
+      userId: user?.id ?? '',
+      onAfterRemove: useCallback((pointId: string) => {
+        if (!name) return;
+        const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
+        const myPositions = currentPositions[name] ?? {};
+        updateLiveState({
+          livePositions: {
+            ...currentPositions,
+            [name]: { ...myPositions, [pointId]: null },
+          },
+        });
+      }, [name, updateLiveState]),
+    });
+
   // P275: Handle point position selection during a /live session.
-  // Stores positions in live_state.livePositions instead of point_positions table.
-  // Unverified guests (is_verified=false) cannot write to point_positions (RLS blocks it),
-  // so live positions are stored here and synced in real-time via live_state.
+  // Adding: writes to live_state + persists to point_positions for verified users.
+  // Removing: shows confirmation dialog (warns about profile removal) then syncs both.
+  // Unverified guests (is_verified=false) skip DB sync — RLS blocks it, expected per P275.
   const handlePositionSelectInLive = useCallback(
     (pointId: string, position: PositionType | null) => {
       if (!name) return;
 
-      // Write to live_state for real-time sync — works for all participants
-      // including unverified guests (no verification requirement on live_state updates).
+      if (position === null) {
+        if (user?.id) {
+          // Verified user: show confirmation dialog; guard handles DB removal + live_state update
+          liveGuardedRemovePosition(pointId);
+        } else {
+          // Unverified guest: no profile, remove from live_state directly
+          const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
+          const myPositions = currentPositions[name] ?? {};
+          updateLiveState({
+            livePositions: {
+              ...currentPositions,
+              [name]: { ...myPositions, [pointId]: null },
+            },
+          });
+        }
+        return;
+      }
+
+      // Setting a position — write to live_state for real-time sync (works for all participants)
       const currentPositions = confirmedLiveStateRef.current.livePositions ?? {};
       const myPositions = currentPositions[name] ?? {};
       updateLiveState({
@@ -917,14 +952,13 @@ export function ClarityLivePage() {
 
       // Best-effort persistence to point_positions for verified users.
       // Unverified guests: RLS will silently reject this — expected per P275.
-      // Failure is not surfaced to the user.
-      if (user?.id && position !== null) {
+      if (user?.id) {
         pointsService.setPosition(pointId, user.id, position).catch(() => {
           // Silently ignored: expected failure for is_verified=false users
         });
       }
     },
-    [name, updateLiveState, user?.id]
+    [name, updateLiveState, user?.id, liveGuardedRemovePosition]
   );
 
   // P272: Write story verification record when speaker rates 10 (perfect understanding)
@@ -1852,7 +1886,6 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
-    // Navigate to clean URL (replace to avoid back button returning to meeting)
     navigate('/live', { replace: true });
   }, [session, liveState.checksCount, isCreator, navigate, stopAndUploadRecording]);
 
@@ -2617,6 +2650,9 @@ export function ClarityLivePage() {
           isPrivate={session.isPrivate ?? false}
           partnerEarsCount={partnerEarsCount}
         />
+
+        {/* Remove position confirmation dialog */}
+        <RemovePositionDialog {...liveRemoveDialogProps} />
 
         {/* Exit confirmation dialog */}
         <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>

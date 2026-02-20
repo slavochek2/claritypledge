@@ -46,10 +46,16 @@ export function RemovePositionDialog({
       <DialogContent hideCloseButton>
         <DialogHeader>
           <DialogTitle>Remove position?</DialogTitle>
-          <DialogDescription>
-            Removing your position will also unlink{' '}
-            <strong>{linkedStoryCount} {storyWord}</strong> from this point.
-            This action is recorded in history.
+          <DialogDescription asChild>
+            <div className="space-y-1">
+              <p>Removing your position will remove this point from your profile.</p>
+              {linkedStoryCount > 0 && (
+                <p>
+                  It will also unlink{' '}
+                  <strong>{linkedStoryCount} {storyWord}</strong> from this point.
+                </p>
+              )}
+            </div>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -103,7 +109,7 @@ export function useRemovePositionGuard({
       : 0;
 
     if (count > 0) {
-      // Show dialog — user must confirm
+      // Show dialog — user must confirm before unlinking stories
       setLinkedCount(count);
       setPendingPointId(pointId);
       setDialogOpen(true);
