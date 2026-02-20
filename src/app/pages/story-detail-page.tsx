@@ -15,7 +15,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, LockIcon, Pin, X, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, LockIcon, Loader2, Plus } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -45,37 +45,6 @@ function BackButton({ onClick }: { onClick: () => void }) {
       <ArrowLeft size={16} />
       Back
     </Button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Point display card (read-only + optional unlink)
-// ---------------------------------------------------------------------------
-
-function PointCard({
-  point,
-  canUnlink,
-  onUnlink,
-}: {
-  point: PointSummary;
-  canUnlink: boolean;
-  onUnlink?: (point: PointSummary) => void;
-}) {
-  return (
-    <div className="flex items-start gap-3 border-l-4 border-l-slate-400 pl-3 py-2 group">
-      <Pin size={16} className="text-blue-600 mt-0.5 shrink-0" />
-      <p className="text-sm text-foreground flex-1">{point.statement}</p>
-      {canUnlink && onUnlink && (
-        <button
-          type="button"
-          onClick={() => onUnlink(point)}
-          className="shrink-0 w-[44px] h-[44px] -m-2 flex items-center justify-center text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-          aria-label={`Unlink point: ${point.statement.slice(0, 30)}`}
-        >
-          <X size={16} />
-        </button>
-      )}
-    </div>
   );
 }
 
@@ -189,7 +158,10 @@ function AddPointForm({
       };
 
       if (selectedPosition) {
-        await pointsService.setPosition(point.id, currentUserId, selectedPosition);
+        const positioned = await pointsService.setPosition(point.id, currentUserId, selectedPosition);
+        if (!positioned) {
+          toast.error('Point added but position could not be saved.');
+        }
       }
 
       onPointAdded(summary);
@@ -262,7 +234,7 @@ function AddPointForm({
             compact
           />
           <span className="text-xs text-muted-foreground">
-            {statement.length > POINT_CHAR_SOFT
+            {statement.length >= POINT_CHAR_SOFT
               ? <span>Under 140 is punchiest · {statement.length}/{POINT_CHAR_MAX}</span>
               : statement.length > 0
                 ? `${statement.length}/${POINT_CHAR_MAX}`
@@ -336,102 +308,32 @@ const EMPTY_COUNTS: SevenPointCounts = {
 function KeyPointsSection({
   storyId,
   currentUserId,
-  points,
-  isAuthor,
+  pointCount,
   justCreated,
-  isAuthenticated,
   onPointAdded,
-  onPointUnlinked,
 }: {
   storyId: string;
   currentUserId: string;
-  points: PointSummary[];
-  isAuthor: boolean;
+  pointCount: number;
   justCreated: boolean;
-  isAuthenticated: boolean;
   onPointAdded: (point: PointSummary) => void;
-  onPointUnlinked: (pointId: string) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [_unlinkingPointId, setUnlinkingPointId] = useState<string | null>(null);
 
-  // Auto-expand form on justCreated with 0 points (only if authenticated)
-  const autoExpand = justCreated && isAuthor && isAuthenticated && points.length === 0;
-
-  // Non-author with 0 points — hide entire section
-  if (!isAuthor && points.length === 0) {
-    return null;
-  }
-
-  // Author view but not authenticated — hide entire section (shouldn't happen, but defensive)
-  if (isAuthor && !isAuthenticated) {
-    return null;
-  }
-
-  const handleUnlink = async (point: PointSummary) => {
-    // Optimistic removal
-    onPointUnlinked(point.id);
-    setUnlinkingPointId(point.id);
-
-    try {
-      // Actually unlink on the backend (await before showing undo)
-      const success = await storiesService.unlinkPointFromStory(storyId, point.id);
-
-      if (!success) {
-        // Unlink failed — re-add point to UI
-        onPointAdded(point);
-        setUnlinkingPointId(null);
-        toast.error('Failed to unlink point.');
-        return;
-      }
-
-      // Success — show undo toast
-      setUnlinkingPointId(null);
-      toast('Point unlinked', {
-        action: {
-          label: 'Undo',
-          onClick: async () => {
-            const relinked = await storiesService.linkPointToStory(storyId, point.id);
-            if (relinked) {
-              onPointAdded(point);
-            } else {
-              toast.error('Failed to undo. Please re-add the point manually.');
-            }
-          },
-        },
-        duration: 5000,
-      });
-    } catch {
-      // Network error — re-add point
-      onPointAdded(point);
-      setUnlinkingPointId(null);
-      toast.error('Failed to unlink point.');
-    }
-  };
+  // Auto-expand form on justCreated with 0 points
+  const autoExpand = justCreated && pointCount === 0;
 
   return (
     <div className="mt-6">
-      <h3 className="text-sm font-semibold text-foreground mb-3">
-        Key Points{points.length > 0 ? ` (${points.length})` : ''}
-      </h3>
-
-
-      {/* Point list */}
-      {points.length > 0 && (
-        <div className="space-y-2 mb-4">
-          {points.map((point) => (
-            <PointCard
-              key={point.id}
-              point={point}
-              canUnlink={isAuthor}
-              onUnlink={handleUnlink}
-            />
-          ))}
+      {/* justCreated banner */}
+      {justCreated && pointCount === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+          Story saved. Now add key points — claims others can agree or disagree with.
         </div>
       )}
 
       {/* Author: empty state (non-justCreated) */}
-      {isAuthor && points.length === 0 && !autoExpand && !showForm && (
+      {pointCount === 0 && !autoExpand && !showForm && (
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center mb-4">
           <p className="text-sm text-muted-foreground mb-3">
             No points yet. Points are claims others can agree or disagree with.
@@ -448,7 +350,7 @@ function KeyPointsSection({
       )}
 
       {/* Author: form (auto-expanded on justCreated, or toggled) */}
-      {isAuthor && (autoExpand || showForm) && (
+      {(autoExpand || showForm) && (
         <AddPointForm
           storyId={storyId}
           currentUserId={currentUserId}
@@ -463,7 +365,7 @@ function KeyPointsSection({
       )}
 
       {/* Author: expand button (when there are already points and form is hidden) */}
-      {isAuthor && points.length > 0 && !showForm && !autoExpand && (
+      {pointCount > 0 && !showForm && !autoExpand && (
         <Button
           variant="outline"
           className="min-h-[44px] w-full"
@@ -601,25 +503,20 @@ export function StoryDetailPage() {
     });
   }, []);
 
-  const handlePointUnlinked = useCallback((pointId: string) => {
-    setStory(prev => {
-      if (!prev) return prev;
-      return { ...prev, points: prev.points.filter(p => p.id !== pointId) };
-    });
-  }, []);
-
   // P132: Position recording handler
   const handlePositionClick = useCallback(async (pointId: string, position: PositionType) => {
     // P396: checkVerified handles both unauthenticated (toast) and authenticated paths
     if (!checkVerified('set a position on this point')) return;
+    if (!user?.id) return;
+
+    const isTogglingOff = userPositions.get(pointId)?.position === position;
 
     // Optimistic update
     setUserPositions(prev => {
       const updated = new Map(prev);
       const current = updated.get(pointId);
 
-      // Toggle: if same position, remove it; otherwise set new position
-      if (current?.position === position) {
+      if (isTogglingOff) {
         updated.delete(pointId);
       } else {
         updated.set(pointId, {
@@ -635,7 +532,11 @@ export function StoryDetailPage() {
     });
 
     try {
-      await pointsService.setPosition(pointId, user.id, position);
+      if (isTogglingOff) {
+        await pointsService.removePosition(pointId, user.id);
+      } else {
+        await pointsService.setPosition(pointId, user.id, position);
+      }
 
       // Refresh position counts
       const counts = await pointsService.getPositionCountsForPoints([pointId]);
@@ -668,7 +569,7 @@ export function StoryDetailPage() {
 
       toast.error('Failed to save position. Please try again.');
     }
-  }, [user?.id, checkVerified, story?.id, navigate, location.pathname]);
+  }, [user?.id, checkVerified, story?.id, userPositions, navigate, location.pathname]);
 
   // Loading skeleton
   if (loading) {
@@ -753,17 +654,14 @@ export function StoryDetailPage() {
         context="story-detail"
       />
 
-      {/* P131: Author-only points management section (below rich view) */}
+      {/* P131: Author-only add-point form (below rich view) */}
       {isAuthor && (
         <KeyPointsSection
           storyId={story.id}
           currentUserId={user?.id ?? ''}
-          points={story.points}
-          isAuthor={isAuthor}
+          pointCount={story.points.length}
           justCreated={justCreated}
-          isAuthenticated={!!user}
           onPointAdded={handlePointAdded}
-          onPointUnlinked={handlePointUnlinked}
         />
       )}
     </div>

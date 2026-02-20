@@ -250,15 +250,18 @@ export function LiveModeView({
   // session ends or the user navigates away.
   useLayoutEffect(() => {
     const nav = document.querySelector<HTMLElement>('[data-nav="main"]');
-    const bottomNav = document.querySelector<HTMLElement>('[data-nav="bottom"]');
     const main = nav?.closest('.min-h-screen')?.querySelector('main');
     if (nav) nav.style.display = 'none';
-    if (bottomNav) bottomNav.style.display = 'none';
-    if (main) main.style.paddingTop = '0';
+    if (main) {
+      main.style.paddingTop = '0';
+      main.style.paddingBottom = '0';
+    }
     return () => {
       if (nav) nav.style.display = '';
-      if (bottomNav) bottomNav.style.display = '';
-      if (main) main.style.paddingTop = '';
+      if (main) {
+        main.style.paddingTop = '';
+        main.style.paddingBottom = '';
+      }
     };
   }, []);
 

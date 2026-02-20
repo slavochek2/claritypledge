@@ -454,7 +454,7 @@ export const realStoriesService: StoriesService = {
       });
 
     if (error) {
-      // 23505 = unique violation (already linked)
+      if (error.code === '23505') return true; // already linked — idempotent success
       log('ERROR: linkPointToStory error:', error);
       return false;
     }

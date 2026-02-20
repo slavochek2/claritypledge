@@ -348,12 +348,12 @@ describe('realStoriesService', () => {
       expect(result).toBe(true);
     });
 
-    it('returns false on duplicate link', async () => {
+    it('returns true on duplicate link (23505 idempotent success)', async () => {
       mockInsert.mockResolvedValue({ error: { code: '23505' } });
 
       const result = await realStoriesService.linkPointToStory('story-1', 'point-1');
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
     });
   });
 

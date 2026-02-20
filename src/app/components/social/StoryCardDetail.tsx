@@ -6,7 +6,7 @@
  * Visual: Blue left border, author avatar, linked Points shown below with thread lines.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
@@ -425,50 +425,50 @@ function QuotedPoint({
     strongly_disagree: 0,
   };
 
-  // Track initial position from server
-  const [initialPosition] = useState<PositionType | null>(
-    userPosition?.position || null
-  );
-  const [currentPosition, setCurrentPosition] = useState<PositionType | null>(
-    userPosition?.position || null
-  );
+  // Optimistic override — cleared once parent confirms the update
+  const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
+  const serverPosition = userPosition?.position ?? null;
+  const effectivePosition = localPosition ?? serverPosition;
 
-  // Compute adjusted counts based on user's current position vs initial
+  // Clear local override once parent propagates the new server position
+  useEffect(() => {
+    if (localPosition !== null && localPosition === serverPosition) {
+      setLocalPosition(null);
+    } else if (localPosition === null && serverPosition === null) {
+      // toggled off and server confirmed
+    } else if (localPosition !== null && serverPosition !== localPosition) {
+      // still in-flight — keep local override
+    }
+  }, [serverPosition, localPosition]);
+
+  // Compute adjusted counts based on effective position vs server position
   const counts = useMemo((): SevenPointCounts => {
-    const adjusted: SevenPointCounts = {
-      strongly_agree: 0,
-      agree: baseCounts.agree,
-      somewhat_agree: 0,
-      unsure: baseCounts.unsure,
-      somewhat_disagree: 0,
-      disagree: baseCounts.disagree,
-      strongly_disagree: 0,
-    };
+    const adjusted: SevenPointCounts = { ...baseCounts };
 
     const getGroup = (pos: PositionType | null): PositionButtonGroup | null => {
       if (!pos) return null;
       return getPositionGroup(pos);
     };
 
-    const initialGroup = getGroup(initialPosition);
-    const currentGroup = getGroup(currentPosition);
+    const serverGroup = getGroup(serverPosition);
+    const effectiveGroup = getGroup(effectivePosition);
 
-    if (initialGroup !== currentGroup) {
-      if (initialGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
-      else if (initialGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
-      else if (initialGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
+    if (serverGroup !== effectiveGroup) {
+      if (serverGroup === 'agree') adjusted.agree = Math.max(0, adjusted.agree - 1);
+      else if (serverGroup === 'disagree') adjusted.disagree = Math.max(0, adjusted.disagree - 1);
+      else if (serverGroup === 'unsure') adjusted.unsure = Math.max(0, adjusted.unsure - 1);
 
-      if (currentGroup === 'agree') adjusted.agree++;
-      else if (currentGroup === 'disagree') adjusted.disagree++;
-      else if (currentGroup === 'unsure') adjusted.unsure++;
+      if (effectiveGroup === 'agree') adjusted.agree++;
+      else if (effectiveGroup === 'disagree') adjusted.disagree++;
+      else if (effectiveGroup === 'unsure') adjusted.unsure++;
     }
 
     return adjusted;
-  }, [baseCounts, initialPosition, currentPosition]);
+  }, [baseCounts, serverPosition, effectivePosition]);
 
   const handlePositionClick = async (position: PositionType) => {
-    const newPosition = currentPosition === position ? null : position;
-    setCurrentPosition(newPosition);
+    const newPosition = effectivePosition === position ? null : position;
+    setLocalPosition(newPosition);
     if (onPositionClick) {
       await onPositionClick(point.id, position);
     }
@@ -531,7 +531,7 @@ function QuotedPoint({
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
               <PositionButtons
-                userPosition={currentPosition}
+                userPosition={effectivePosition}
                 counts={counts}
                 onPositionClick={handlePositionClick}
                 compact

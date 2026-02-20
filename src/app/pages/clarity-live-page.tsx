@@ -416,8 +416,13 @@ export function ClarityLivePage() {
 
             // Determine view based on session state
             // B48: Use pendingLiveTransition to trigger mic permission gate
-            if (restoredSession.joinerName) {
+            const restoredLiveState = restoredSession.liveState as Record<string, unknown> | null;
+            const sessionAlreadyEnded = restoredLiveState?.sessionEnded === true;
+            if (restoredSession.joinerName && !sessionAlreadyEnded) {
               setPendingLiveTransition(true);
+            } else if (restoredSession.joinerName && sessionAlreadyEnded) {
+              // Session ended — don't restore into live view, start fresh
+              clearStoredSession();
             } else if (savedIsCreator === 'true') {
               setView('waiting');
             } else {
