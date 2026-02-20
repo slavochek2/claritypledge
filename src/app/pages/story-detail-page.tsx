@@ -23,6 +23,7 @@ import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
@@ -264,37 +265,54 @@ function AddPointForm({
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            onClick={handleAdd}
-            disabled={!canSubmit || !!orphanPoint}
-            className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-          >
-            {isAdding ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus size={16} />
-                Add Point
-              </>
-            )}
-          </Button>
-          {showCancel && onCancel && (
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-        </div>
         <span className="text-xs text-muted-foreground">
           {statement.length >= POINT_CHAR_SOFT && statement.length <= 200 && (
             <span className="mr-2">Under 140 is punchiest</span>
           )}
           {statement.length}/{POINT_CHAR_MAX}
         </span>
+        <div className="flex items-center gap-2">
+          {showCancel && onCancel && (
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    type="button"
+                    onClick={handleAdd}
+                    disabled={!canSubmit || !!orphanPoint}
+                    className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                  >
+                    {isAdding ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={16} />
+                        Add Point
+                      </>
+                    )}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {(!statement.trim() || !selectedPosition) && (
+                <TooltipContent side="top">
+                  {!statement.trim() && !selectedPosition
+                    ? 'Write a point and pick your position first'
+                    : !selectedPosition
+                      ? 'Pick your position first'
+                      : 'Write your point first'}
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
     </div>
   );
