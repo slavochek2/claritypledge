@@ -4,9 +4,9 @@
  * Used in Dashboard (people from events) and EventDetail (participants list).
  */
 import { Link } from "react-router-dom";
-import { CheckCircle2, Ear } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
-import { MobileTooltip } from "@/app/prototypes/linkedin-like/components/shared";
+import { EarBadge } from "@/components/ui/ear-badge";
 
 export interface PersonRowProps {
   profileId: string;
@@ -32,11 +32,6 @@ export function PersonRow({
   earCount = 0,
   action = "none",
 }: PersonRowProps) {
-  const firstName = name.split(' ')[0];
-  const earTooltip = earCount === 0
-    ? `${firstName} hasn't had any stories confirmed understood yet`
-    : `${firstName} understood ${earCount} ${earCount === 1 ? 'story' : 'stories'} as confirmed by their owners`;
-
   return (
     <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors">
       <Link to={`/p/${slug}`}>
@@ -55,12 +50,7 @@ export function PersonRow({
         >
           {name}
         </Link>
-        <MobileTooltip content={earTooltip}>
-          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground flex-shrink-0">
-            <Ear size={12} />
-            {earCount}
-          </span>
-        </MobileTooltip>
+        <EarBadge count={earCount} name={name} className="flex-shrink-0" />
       </div>
       {action === "going" && (
         <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-50 text-green-700 border border-green-200">

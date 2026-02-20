@@ -6,7 +6,8 @@
 
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Ear, Pin } from 'lucide-react';
+import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
+import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
@@ -126,18 +127,7 @@ export function StoryCardWithLinks({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{author.name}</span>
-          {author.ear && author.ear > 0 && (
-            <MobileTooltip
-              content={`${author.name.split(' ')[0]} understood ${author.ear} ${
-                author.ear === 1 ? 'story' : 'stories'
-              } as confirmed by their owners`}
-            >
-              <span className="inline-flex items-center gap-0.5 text-gray-600">
-                <Ear size={12} />
-                {author.ear}
-              </span>
-            </MobileTooltip>
-          )}
+          <EarBadge count={author.ear ?? 0} name={author.name} />
           <PositionBadge position={profileSubjectPosition} />
         </div>
 
@@ -203,18 +193,7 @@ export function StoryCardWithLinks({
                 >
                   {author.name}
                 </button>
-                {author.ear && author.ear > 0 && (
-                  <MobileTooltip
-                    content={`${author.name.split(' ')[0]} understood ${author.ear} ${
-                      author.ear === 1 ? 'story' : 'stories'
-                    } as confirmed by their owners`}
-                  >
-                    <span className="inline-flex items-center gap-0.5 text-gray-600 text-xs">
-                      <Ear size={12} />
-                      {author.ear}
-                    </span>
-                  </MobileTooltip>
-                )}
+                <EarBadge count={author.ear ?? 0} name={author.name} />
               </div>
               <p className="text-xs text-gray-500 flex items-center gap-1">
                 <span>
@@ -326,6 +305,7 @@ export function StoryCardWithLinks({
                       authorName={author.name}
                       authorId={story.authorId}
                       authorEarCount={author.ear}
+                      authorHasPledged={author.hasPledged}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onPointClick) {
@@ -397,6 +377,7 @@ function QuotedPoint({
   authorName,
   authorId,
   authorEarCount,
+  authorHasPledged,
   onClick,
   getPointPositionCounts,
   currentUserId,
@@ -405,6 +386,7 @@ function QuotedPoint({
   authorName: string;
   authorId: string;
   authorEarCount?: number;
+  authorHasPledged?: boolean;
   onClick: (e: React.MouseEvent) => void;
   getPointPositionCounts?: (point: Point) => SevenPointCounts;
   currentUserId?: string;
@@ -477,22 +459,11 @@ function QuotedPoint({
           <GravatarAvatar
             name={authorName}
             size="sm"
-            isPledger={false}
+            isPledger={authorHasPledged ?? false}
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{authorName}</span>
-          {authorEarCount && authorEarCount > 0 && (
-            <MobileTooltip
-              content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${
-                authorEarCount === 1 ? 'story' : 'stories'
-              } as confirmed by their owners`}
-            >
-              <span className="inline-flex items-center gap-0.5 text-gray-600">
-                <Ear size={14} />
-                {authorEarCount}
-              </span>
-            </MobileTooltip>
-          )}
+          <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />
           <PositionBadge position={profileSubjectPosition} />
         </div>
       )}

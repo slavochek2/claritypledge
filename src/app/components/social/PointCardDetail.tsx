@@ -8,7 +8,8 @@
 
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, Ear, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { EarBadge } from '@/components/ui/ear-badge';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   PointHeader,
@@ -186,16 +187,7 @@ export function PointCardDetail({
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className="font-medium">{profileOwner.name}</span>
-              {profileOwnerCredibility && profileOwnerCredibility.ear > 0 && (
-                <MobileTooltip
-                  content={`${profileOwner.name.split(' ')[0]} understood ${profileOwnerCredibility.ear} ${profileOwnerCredibility.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-                    <Ear size={14} />
-                    {profileOwnerCredibility.ear}
-                  </span>
-                </MobileTooltip>
-              )}
+              <EarBadge count={profileOwnerCredibility?.ear ?? 0} name={profileOwner.name} size={14} />
               <PositionBadge position={profileOwnerPosition as PositionType} />
             </div>
 
@@ -504,16 +496,7 @@ function QuotedStory({
           </span>
         )}
         {/* Ear indicator - understanding credibility */}
-        {author && credibilityStats.ear > 0 && (
-          <MobileTooltip
-            content={`${author.name.split(' ')[0]} understood ${credibilityStats.ear} ${credibilityStats.ear === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-          >
-            <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-              <Ear size={12} />
-              {credibilityStats.ear}
-            </span>
-          </MobileTooltip>
-        )}
+        {author && <EarBadge count={credibilityStats.ear} name={author.name} />}
       </div>
       {/* Story text */}
       <p className="text-sm text-gray-800 line-clamp-2">{story.text}</p>

@@ -6,7 +6,8 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pin, Ear, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { Pin, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+import { EarBadge } from '@/components/ui/ear-badge';
 import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared/MobileTooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
@@ -204,18 +205,7 @@ export function PointCardWithLinks({
                 className="!w-5 !h-5 !text-[10px]"
               />
               <span className="font-medium">{profileOwner.name}</span>
-              {profileOwner.ear !== undefined && (
-                <MobileTooltip
-                  content={profileOwner.ear === 0 ? `${profileOwner.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${profileOwner.name.split(' ')[0]} understood ${profileOwner.ear} ${
-                    profileOwner.ear === 1 ? 'story' : 'stories'
-                  } as confirmed by their owners`}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-gray-600">
-                    <Ear size={14} />
-                    {profileOwner.ear}
-                  </span>
-                </MobileTooltip>
-              )}
+              <EarBadge count={profileOwner.ear ?? 0} name={profileOwner.name} size={14} />
               <PositionBadge position={profileOwner.position} />
             </div>
 
@@ -538,18 +528,7 @@ function QuotedStory({
             {author.name}
           </span>
           {/* Ear indicator - understanding credibility */}
-          {author.ear !== undefined && (
-            <MobileTooltip
-              content={author.ear === 0 ? `${author.name.split(' ')[0]} hasn't had any stories confirmed understood yet` : `${author.name.split(' ')[0]} understood ${author.ear} ${
-                author.ear === 1 ? 'story' : 'stories'
-              } as confirmed by their owners`}
-            >
-              <span className="inline-flex items-center gap-0.5 text-xs text-gray-600">
-                <Ear size={12} />
-                {author.ear}
-              </span>
-            </MobileTooltip>
-          )}
+          <EarBadge count={author.ear ?? 0} name={author.name} />
         </div>
       )}
       {/* Story text */}
