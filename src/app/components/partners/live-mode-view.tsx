@@ -14,7 +14,7 @@
  * - JourneyToUnderstanding: Shows rating history across rounds
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
 import { DoorOpen, ShieldOff, Sparkles } from 'lucide-react';
@@ -244,8 +244,11 @@ export function LiveModeView({
   partnerEarsCount = 0,
 }: LiveModeViewProps) {
 
-  // Hide site-wide navigation when live session is active
-  useEffect(() => {
+  // Hide site-wide navigation when live session is active.
+  // useLayoutEffect (not useEffect) so the cleanup fires synchronously before
+  // the browser paints — prevents a one-frame flash of missing nav when the
+  // session ends or the user navigates away.
+  useLayoutEffect(() => {
     const nav = document.querySelector<HTMLElement>('[data-nav="main"]');
     const bottomNav = document.querySelector<HTMLElement>('[data-nav="bottom"]');
     const main = nav?.closest('.min-h-screen')?.querySelector('main');
