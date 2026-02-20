@@ -12,9 +12,9 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
-  Ear,
   Pin,
 } from 'lucide-react';
+import { EarBadge } from '@/components/ui/ear-badge';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   PositionButtons,
@@ -133,16 +133,7 @@ export function StoryCardDetail({
             className="!w-5 !h-5 !text-[10px]"
           />
           <span className="font-medium">{story.authorName}</span>
-          {(story.authorEarsCount ?? 0) > 0 && (
-            <MobileTooltip
-              content={`${story.authorName.split(' ')[0]} understood ${story.authorEarsCount} ${story.authorEarsCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-            >
-              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-                <Ear size={12} />
-                {story.authorEarsCount}
-              </span>
-            </MobileTooltip>
-          )}
+          <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
           <PositionBadge position={authorPosition} />
         </div>
 
@@ -227,16 +218,7 @@ export function StoryCardDetail({
                   {story.authorName}
                 </button>
                 {/* Credibility stats */}
-                {(story.authorEarsCount ?? 0) > 0 && (
-                  <MobileTooltip
-                    content={`${story.authorName.split(' ')[0]} understood ${story.authorEarsCount} ${story.authorEarsCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-                  >
-                    <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-                      <Ear size={12} />
-                      <span>{story.authorEarsCount}</span>
-                    </span>
-                  </MobileTooltip>
-                )}
+                <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
               <p className="text-xs text-muted-foreground">
                 {formatTimeAgo(story.createdAt)}
@@ -504,16 +486,7 @@ function QuotedPoint({
           className="!w-5 !h-5 !text-[10px]"
         />
         <span className="font-medium">{authorName}</span>
-        {(authorEarCount ?? 0) > 0 && (
-          <MobileTooltip
-            content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-          >
-            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-              <Ear size={14} />
-              {authorEarCount}
-            </span>
-          </MobileTooltip>
-        )}
+        <EarBadge count={authorEarCount ?? 0} name={authorName} size={14} />
         {ownerPosition && <PositionBadge position={ownerPosition.position} />}
       </div>
 
@@ -618,12 +591,7 @@ function LinkedStoryCard({
           className="!w-5 !h-5 !text-[10px]"
         />
         <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
-        {(story.authorEarsCount ?? 0) > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-            <Ear size={11} />
-            {story.authorEarsCount}
-          </span>
-        )}
+        <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} size={11} />
       </div>
       <p className="text-sm text-foreground line-clamp-2">{story.content}</p>
     </div>
