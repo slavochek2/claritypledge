@@ -761,10 +761,12 @@ export function ClarityLivePage() {
       flow_type: 'check',
     });
 
-    // Just show rating screen locally - don't touch shared state
+    // P398: Signal partner to close history view immediately (before submission)
+    updateLiveState({ ratingInitiatedBy: name });
+
     setLocalFlowType('check');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code]);
+  }, [name, partnerName, session?.code, updateLiveState]);
 
   // P23.3: Handle "Did I get it?" button tap - listener-initiated understanding check
   // In this flow, the listener (prover) rates their confidence first
@@ -785,11 +787,12 @@ export function ClarityLivePage() {
       flow_type: 'prove',
     });
 
-    // Just show rating screen locally - don't touch shared state until submit
-    // This mirrors handleStartCheck behavior for consistent sealed-bid pattern
+    // P398: Signal partner to close history view immediately (before submission)
+    updateLiveState({ ratingInitiatedBy: name });
+
     setLocalFlowType('prove');
     setIsLocallyRating(true);
-  }, [name, partnerName, session?.code]);
+  }, [name, partnerName, session?.code, updateLiveState]);
 
   // P128: Handle story selection from content picker
   const handleSelectStory = useCallback((storyId: string, title: string, storyData?: StoryWithPoints) => {
@@ -1120,6 +1123,7 @@ export function ClarityLivePage() {
     // Set skippedBy so partner sees toast notification
     updateLiveState({
       ratingPhase: 'idle',
+      ratingInitiatedBy: undefined,
       skippedBy: name,
       // Clear checker/responder
       checkerName: undefined,
@@ -1187,6 +1191,7 @@ export function ClarityLivePage() {
       // Both done - reset to idle state for a fresh start
       updateLiveState({
         ratingPhase: 'idle',
+        ratingInitiatedBy: undefined,
         // Don't set skippedBy - this is a natural completion, not a skip
         // Clear checker/responder
         checkerName: undefined,

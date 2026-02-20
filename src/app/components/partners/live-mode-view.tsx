@@ -829,12 +829,14 @@ function IdleScreen({
   // P398: Selected history index for inline summary view
   const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
 
-  // P398: Auto-close summary when a new round starts (ratingPhase leaves 'idle')
+  // P398: Auto-close summary when a new round starts.
+  // Fires when partner clicks "Does X understand you?" (ratingInitiatedBy set)
+  // or when ratingPhase leaves 'idle' (partner submitted).
   useEffect(() => {
-    if (liveState.ratingPhase !== 'idle') {
+    if (liveState.ratingPhase !== 'idle' || liveState.ratingInitiatedBy) {
       setSelectedHistoryIndex(null);
     }
-  }, [liveState.ratingPhase]);
+  }, [liveState.ratingPhase, liveState.ratingInitiatedBy]);
 
   // P398: Build story snapshot for the selected history entry, merging live positions
   const sessionHistory = useMemo(() => liveState.sessionHistory ?? [], [liveState.sessionHistory]);

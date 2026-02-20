@@ -679,6 +679,11 @@ export interface LiveSessionState {
   // Session history: completed verifications in this session
   sessionHistory?: SessionHistoryItem[];
 
+  // P398: Set when a user clicks "Does X understand you?" or "Do I understand X?"
+  // Signals partner to close history view immediately (before submission).
+  // Cleared when the round resets to idle.
+  ratingInitiatedBy?: string;
+
   // ============================================================================
   // P275: Live session point positions (stored here instead of point_positions table)
   // Unverified guests cannot write to point_positions (RLS: is_verified=true required).

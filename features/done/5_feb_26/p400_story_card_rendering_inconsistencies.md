@@ -1,15 +1,34 @@
 ---
-status: done
+status: all-done
 type: bug
-rank: 125459.0
+rank: 125459
 severity: medium
 workstream: live
 date_reported: '2026-02-19'
 created_date: '2026-02-19'
-completed_at: '2026-02-19'
-tags: [live-session, story-card, layout, speak-freely]
-root_cause: Three independent JSX-level issues in live-mode-view.tsx — (1) systematic copy-paste ordering error placed <LiveStoryCardExpanded> before <JourneyToUnderstanding> in all 9 UnderstandingScreen sub-phases; (2) action buttons in IdleScreen used disabled={showRatingDrawer} instead of conditional render, keeping them in the DOM when the drawer was open; (3) Speak Freely button was gated with !showRatingDrawer in IdleScreen and entirely absent from RatingScreen, RatingScreenWithOptionalDrawer, and UnderstandingScreen phase=waiting.
-resolution: "Fix 1: Swapped JSX order in all 9 UnderstandingScreen sub-phases to put JourneyToUnderstanding before LiveStoryCardExpanded. Fix 2: Changed disabled buttons to {!showRatingDrawer && <Button>} conditional renders; removed !showRatingDrawer gate from Speak Freely in IdleScreen. Fix 3: Added onClearStory prop to RatingScreen, RatingScreenWithOptionalDrawer, and UnderstandingScreen; added Speak Freely button after story card in RatingScreen, RatingScreenWithOptionalDrawer, and UnderstandingScreen phase=waiting."
+tags:
+  - live-session
+  - story-card
+  - layout
+  - speak-freely
+root_cause: >-
+  Three independent JSX-level issues in live-mode-view.tsx — (1) systematic
+  copy-paste ordering error placed <LiveStoryCardExpanded> before
+  <JourneyToUnderstanding> in all 9 UnderstandingScreen sub-phases; (2) action
+  buttons in IdleScreen used disabled={showRatingDrawer} instead of conditional
+  render, keeping them in the DOM when the drawer was open; (3) Speak Freely
+  button was gated with !showRatingDrawer in IdleScreen and entirely absent from
+  RatingScreen, RatingScreenWithOptionalDrawer, and UnderstandingScreen
+  phase=waiting.
+resolution: >-
+  Fix 1: Swapped JSX order in all 9 UnderstandingScreen sub-phases to put
+  JourneyToUnderstanding before LiveStoryCardExpanded. Fix 2: Changed disabled
+  buttons to {!showRatingDrawer && <Button>} conditional renders; removed
+  !showRatingDrawer gate from Speak Freely in IdleScreen. Fix 3: Added
+  onClearStory prop to RatingScreen, RatingScreenWithOptionalDrawer, and
+  UnderstandingScreen; added Speak Freely button after story card in
+  RatingScreen, RatingScreenWithOptionalDrawer, and UnderstandingScreen
+  phase=waiting.
 ---
 
 # P400: Story card rendering inconsistencies — wrong position, buttons overlap, Speak Freely missing

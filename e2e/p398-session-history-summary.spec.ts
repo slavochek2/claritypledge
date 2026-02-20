@@ -91,7 +91,8 @@ async function completeTwoPartyRound(
   responderPage: Parameters<typeof mockMicPermission>[0],
   joinerName: string,
   checkerRating = 8,
-  responderRating = 7
+  responderRating = 7,
+  options: { roomCode?: string; checkerName?: string } = {}
 ): Promise<void> {
   // Checker starts the round
   await checkerPage.getByRole('button', { name: new RegExp(`Does ${joinerName} understand you`, 'i') }).click();
@@ -109,10 +110,29 @@ async function completeTwoPartyRound(
   // Both click Continue on the revealed/celebration screen
   await expect(checkerPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
   await expect(responderPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
-  // Checker clicks first; stagger by 1.5s to avoid celebrationAcknowledgedBy race condition
-  // in isolated browser contexts (no Realtime between them — both would read stale [] simultaneously)
+
+  // Brief settling delay: the celebration screen entrance animation may temporarily apply
+  // pointer-events: none to the container, causing clicks to go to the element below.
+  // Waiting ~300ms ensures the animation is complete and the button is truly interactive.
+  await checkerPage.waitForTimeout(500);
+
+  // Checker clicks Continue first.
+  // updateClaritySessionLiveState does a full live_state replace (last-write-wins), so we must
+  // confirm the checker's DB write is durable before the responder clicks — otherwise both read
+  // celebrationAcknowledgedBy=[], each write only themselves, and bothAcknowledged never fires.
   await checkerPage.getByRole('button', { name: /Continue/i }).click();
-  await checkerPage.waitForTimeout(1500);
+
+  if (options.roomCode && options.checkerName) {
+    // Poll DB until checker's name appears in celebrationAcknowledgedBy
+    await waitForCelebrationAck(options.roomCode, options.checkerName);
+    // Extra propagation delay: responder's app polls every 1s, and may not have picked up the
+    // checker's ack yet even though it's in DB. Wait 1.5s so the polling cycle fires.
+    await responderPage.waitForTimeout(1500);
+  } else {
+    // Fallback: blind delay (less reliable — prefer passing roomCode+checkerName)
+    await checkerPage.waitForTimeout(3000);
+  }
+
   await responderPage.getByRole('button', { name: /Continue/i }).click();
 
   // Wait for return to idle — action buttons reappear on checker's screen
@@ -144,6 +164,34 @@ async function waitForHistoryLength(
     await new Promise(r => setTimeout(r, 500));
   }
   throw new Error(`[waitForHistoryLength] Timed out waiting for ${count} history entries`);
+}
+
+/**
+ * Polls DB until celebrationAcknowledgedBy includes the given userName.
+ * Required because updateClaritySessionLiveState does a full live_state replace —
+ * if the responder clicks Continue before this write lands, they overwrite the
+ * checker's entry and bothAcknowledged never fires.
+ */
+async function waitForCelebrationAck(
+  roomCode: string,
+  userName: string,
+  timeoutMs = 10000
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const { data } = await supabaseAdmin
+      .from('clarity_sessions')
+      .select('live_state')
+      .eq('code', roomCode)
+      .single();
+    const ack = (data?.live_state as Record<string, unknown> | null)?.celebrationAcknowledgedBy as string[] | undefined;
+    if (Array.isArray(ack) && ack.includes(userName)) {
+      console.log(`[p398] celebrationAcknowledgedBy includes ${userName} ✓`);
+      return;
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  throw new Error(`[waitForCelebrationAck] Timed out: ${userName} not in celebrationAcknowledgedBy`);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -199,7 +247,10 @@ test.describe('P398: Session History Summary', () => {
 
       // Complete the round — checker=10 triggers celebration ("Continue" button path)
       // story_verifications written but cascade-deleted via deleteTestUser in cleanup
-      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 10, 7);
+      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 10, 7, {
+        roomCode: roomCode!,
+        checkerName: creatorUser.name,
+      });
 
       // DB confirms sessionHistory has 1 entry with journey data
       await waitForHistoryLength(roomCode!, 1);
@@ -280,7 +331,10 @@ test.describe('P398: Session History Summary', () => {
 
       // Complete round 1 (creator as checker)
       // checker=10 → celebration path with Continue button
-      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 10, 7);
+      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 10, 7, {
+        roomCode: roomCode!,
+        checkerName: creatorUser.name,
+      });
       await waitForHistoryLength(roomCode!, 1);
 
       // Creator opens the summary

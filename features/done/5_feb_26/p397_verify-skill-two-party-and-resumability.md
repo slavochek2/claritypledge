@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: "2026-02-19"
+status: all-done
 type: task
 rank: 1
 tags:
