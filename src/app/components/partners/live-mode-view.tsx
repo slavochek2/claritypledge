@@ -837,7 +837,7 @@ function IdleScreen({
   }, [liveState.ratingPhase]);
 
   // P398: Build story snapshot for the selected history entry, merging live positions
-  const sessionHistory = liveState.sessionHistory ?? [];
+  const sessionHistory = useMemo(() => liveState.sessionHistory ?? [], [liveState.sessionHistory]);
   const summaryStory = useMemo<StoryWithPoints | null>(() => {
     if (selectedHistoryIndex === null) return null;
     const item = sessionHistory[selectedHistoryIndex];
