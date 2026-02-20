@@ -6,15 +6,18 @@
 import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { JourneyToUnderstanding } from './live-mode-view';
-import type { SessionHistoryItem } from '@/app/types';
+import { LiveStoryCardExpanded } from './live-story-card-expanded';
+import type { SessionHistoryItem, StoryWithPoints, PositionType } from '@/app/types';
 import { getFirstName } from './shared';
 
 interface RoundSummaryScreenProps {
   item: SessionHistoryItem;
   onBack: () => void;
+  story?: StoryWithPoints | null;
+  onPositionSelect?: (pointId: string, position: PositionType | null) => void;
 }
 
-export function RoundSummaryScreen({ item, onBack }: RoundSummaryScreenProps) {
+export function RoundSummaryScreen({ item, onBack, story, onPositionSelect }: RoundSummaryScreenProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
 
   // Focus heading on mount for screen reader announcement
@@ -36,13 +39,24 @@ export function RoundSummaryScreen({ item, onBack }: RoundSummaryScreenProps) {
 
   return (
     <div className="w-full max-w-sm space-y-4">
-      <h2
-        ref={titleRef}
-        tabIndex={-1}
-        className="text-base font-semibold text-foreground line-clamp-2 outline-none"
-      >
-        {item.title}
-      </h2>
+      {!story && (
+        <h2
+          ref={titleRef}
+          tabIndex={-1}
+          className="text-base font-semibold text-foreground line-clamp-2 outline-none"
+        >
+          {item.title}
+        </h2>
+      )}
+
+      {story && (
+        <LiveStoryCardExpanded
+          story={story}
+          onPositionSelect={onPositionSelect}
+          defaultExpanded={false}
+          className="w-full"
+        />
+      )}
 
       <JourneyToUnderstanding
         checkerRating={item.checkerRating}

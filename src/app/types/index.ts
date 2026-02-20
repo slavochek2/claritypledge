@@ -494,6 +494,30 @@ export type ClarificationPhase =
   | 'speaker-clarifying'
   | 'listener-responding';
 
+/**
+ * P272/P398: Snapshot of story data shared across the live session.
+ * Extracted to a named type so SessionHistoryItem and LiveSessionState.selectedStoryData
+ * can reference the same shape without circular ordering issues.
+ */
+export type LiveStoryData = Pick<StoryWithAuthor,
+  'authorName' | 'authorSlug' | 'authorAvatarColor' | 'authorAvatarUrl' |
+  'authorRole' | 'authorEarsCount' | 'authorHasPledged' | 'visibility'
+> & {
+  id: string;
+  authorId?: string;
+  content: string;
+  points: Array<{
+    id: string;
+    statement: string;
+    context?: string;
+    tags: string[];
+    positionCounts?: Record<string, number>;
+    userPosition?: string | null;
+    profileSubjectPosition?: string | null;
+  }>;
+  createdAt?: string;
+};
+
 /** P398: Enriched history entry for a completed or skipped round */
 export interface SessionHistoryItem {
   title: string;
@@ -507,6 +531,8 @@ export interface SessionHistoryItem {
   completedAt?: string;
   skipped?: boolean;
   isChecker?: boolean;
+  /** P398: Story snapshot for story-type rounds — rendered in round summary screen */
+  storyData?: LiveStoryData;
 }
 
 export interface LiveSessionState {
@@ -640,26 +666,9 @@ export interface LiveSessionState {
   selectedStoryId?: string;
 
   // Selected story data (full content pushed by speaker so listener can read without RLS).
-  // Uses Pick<StoryWithAuthor, author fields> so any new author display field added to
-  // StoryWithAuthor is automatically required here — prevents silent drift.
-  selectedStoryData?: Pick<StoryWithAuthor,
-    'authorName' | 'authorSlug' | 'authorAvatarColor' | 'authorAvatarUrl' |
-    'authorRole' | 'authorEarsCount' | 'authorHasPledged' | 'visibility'
-  > & {
-    id: string;
-    authorId?: string;
-    content: string;
-    points: Array<{
-      id: string;
-      statement: string;
-      context?: string;
-      tags: string[];
-      positionCounts?: Record<string, number>;
-      userPosition?: string | null;
-      profileSubjectPosition?: string | null;
-    }>;
-    createdAt?: string;
-  };
+  // LiveStoryData picks all StoryWithAuthor display fields so any new field added there
+  // is automatically required here — prevents silent drift.
+  selectedStoryData?: LiveStoryData;
 
   // Selected point for content-attached verification
   selectedPointId?: string;

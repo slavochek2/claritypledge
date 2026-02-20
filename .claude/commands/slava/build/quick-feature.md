@@ -58,8 +58,8 @@ Ask the user these questions (use `AskUserQuestion` tool):
   - Week - Planned for this week (Recommended for new items)
   - Today - Working on today
 
-**Question 3: Milestone?**
-- Header: "Milestone"
+**Question 3: Workstream?**
+- Header: "Workstream"
 - Options:
   - C1, C2, C3... - Coaching track
   - R1, R2... - Recognition track
@@ -240,8 +240,8 @@ After creating the file, tell the user:
 ## Error Handling
 
 **If P-number detection fails:**
-- Default to next sequential number based on date (e.g., `p999_temp_{timestamp}`)
-- Warn user to manually verify number
+- Halt and warn the user — do NOT guess or use a fallback number
+- Ask user to run `./scripts/next-p-number.sh` manually and provide the result
 
 **If user provides incomplete info:**
 - Use sensible defaults:

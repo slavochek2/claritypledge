@@ -48,11 +48,21 @@ async function setupTwoPartySession(
   expect(roomCode).toHaveLength(6);
 
   await joinerPage.goto(`/live/${roomCode}`);
-  await joinerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-  await joinerPage.getByRole('checkbox').check();
-  await joinerPage.getByRole('button', { name: 'Join Session' }).click();
 
-  // Handle "Updated Terms" dialog for new test users
+  // P396: authenticated test users auto-join without the email form.
+  // Try to find the email input with a short timeout; fill it only if it appears.
+  const emailInput = joinerPage.getByPlaceholder('your@email.com');
+  const formVisible = await emailInput
+    .waitFor({ state: 'visible', timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  if (formVisible) {
+    await emailInput.fill(joinerUser.email);
+    await joinerPage.getByRole('checkbox').check();
+    await joinerPage.getByRole('button', { name: 'Join Session' }).click();
+  }
+
+  // Handle "Updated Terms" dialog — can appear for both authenticated and anonymous users
   try {
     await joinerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
     await joinerPage.getByRole('button', { name: 'Continue' }).click();
@@ -86,21 +96,23 @@ async function completeTwoPartyRound(
   // Checker starts the round
   await checkerPage.getByRole('button', { name: new RegExp(`Does ${joinerName} understand you`, 'i') }).click();
 
-  // Wait for rating UI on both screens
+  // Wait for checker's rating UI, then checker submits
   await expect(checkerPage.getByRole('button', { name: /Submit/i })).toBeVisible({ timeout: 15000 });
-  await expect(responderPage.getByRole('button', { name: /Submit/i })).toBeVisible({ timeout: 20000 });
-
-  // Both submit ratings
   await checkerPage.locator('button').filter({ hasText: new RegExp(`^${checkerRating}$`) }).click();
   await checkerPage.getByRole('button', { name: /Submit/i }).click();
 
+  // Responder's drawer appears only after checker submits — wait for it, then responder submits
+  await expect(responderPage.getByRole('button', { name: /Submit/i })).toBeVisible({ timeout: 20000 });
   await responderPage.locator('button').filter({ hasText: new RegExp(`^${responderRating}$`) }).click();
   await responderPage.getByRole('button', { name: /Submit/i }).click();
 
   // Both click Continue on the revealed/celebration screen
   await expect(checkerPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
   await expect(responderPage.getByRole('button', { name: /Continue/i })).toBeVisible({ timeout: 15000 });
+  // Checker clicks first; stagger by 1.5s to avoid celebrationAcknowledgedBy race condition
+  // in isolated browser contexts (no Realtime between them — both would read stale [] simultaneously)
   await checkerPage.getByRole('button', { name: /Continue/i }).click();
+  await checkerPage.waitForTimeout(1500);
   await responderPage.getByRole('button', { name: /Continue/i }).click();
 
   // Wait for return to idle — action buttons reappear on checker's screen
@@ -185,8 +197,9 @@ test.describe('P398: Session History Summary', () => {
       await expect(storyResult).toBeVisible({ timeout: 5000 });
       await storyResult.click();
 
-      // Complete the round — creator is checker (checker=8, responder=7; non-10 avoids verification write)
-      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 8, 7);
+      // Complete the round — checker=10 triggers celebration ("Continue" button path)
+      // story_verifications written but cascade-deleted via deleteTestUser in cleanup
+      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 10, 7);
 
       // DB confirms sessionHistory has 1 entry with journey data
       await waitForHistoryLength(roomCode!, 1);
@@ -266,7 +279,8 @@ test.describe('P398: Session History Summary', () => {
       ).toBeVisible({ timeout: 15000 });
 
       // Complete round 1 (creator as checker)
-      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 8, 7);
+      // checker=10 → celebration path with Continue button
+      await completeTwoPartyRound(creatorPage, joinerPage, joinerUser.name, 10, 7);
       await waitForHistoryLength(roomCode!, 1);
 
       // Creator opens the summary
@@ -318,22 +332,17 @@ test.describe('P398: Session History Summary', () => {
         creatorPage.getByRole('button', { name: new RegExp(`Does ${joinerUser.name} understand you`, 'i') })
       ).toBeVisible({ timeout: 15000 });
 
-      // Creator starts the round
+      // Creator starts the round and submits a rating
       await creatorPage.getByRole('button', { name: new RegExp(`Does ${joinerUser.name} understand you`, 'i') }).click();
+      await expect(creatorPage.getByRole('button', { name: /Submit/i })).toBeVisible({ timeout: 10000 });
+      await creatorPage.locator('button').filter({ hasText: /^8$/ }).click();
+      await creatorPage.getByRole('button', { name: /Submit/i }).click();
 
-      // Skip the round — this appears during the rating phase
-      const skipButton = creatorPage.getByRole('button', { name: /Skip/i });
-      await expect(skipButton).toBeVisible({ timeout: 10000 });
-      await skipButton.click();
-
-      // Confirm skip if prompted
-      try {
-        const confirmSkip = creatorPage.getByRole('button', { name: /Confirm|Yes.*skip/i });
-        await confirmSkip.waitFor({ state: 'visible', timeout: 2000 });
-        await confirmSkip.click();
-      } catch {
-        // No confirmation needed
-      }
+      // Creator is now in the "waiting" phase — "Cancel" button goes back to idle
+      // via onBackToIdle → handleSkip, creating a skipped history entry
+      const cancelButton = creatorPage.getByRole('button', { name: /^Cancel$/i });
+      await expect(cancelButton).toBeVisible({ timeout: 15000 });
+      await cancelButton.click();
 
       // Wait for return to idle with skipped entry in history
       await waitForHistoryLength(roomCode!, 1);

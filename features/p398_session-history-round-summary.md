@@ -1,8 +1,7 @@
 ---
-status: done
-completed_at: "2026-02-19"
+status: in-progress
 type: story
-rank: 10
+rank: 0.5
 workstream: C1
 tags:
   - live

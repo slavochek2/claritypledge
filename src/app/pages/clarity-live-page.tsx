@@ -1179,7 +1179,7 @@ export function ClarityLivePage() {
         isChecker: currentState.checkerName === name,
       };
       const historyEntry = currentState.selectedStoryId
-        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData }
+        ? { title: contentTitle || 'Story verification', type: 'story' as const, ...journeyData, storyData: currentState.selectedStoryData }
         : currentState.selectedPointId
           ? { title: contentTitle || 'Point verification', type: 'point' as const, ...journeyData }
           : { title: 'Free conversation', type: 'free' as const, ...journeyData };
