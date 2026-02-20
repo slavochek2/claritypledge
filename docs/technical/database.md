@@ -287,4 +287,6 @@ const witnesses = await getWitnesses(profile.id);
 ```bash
 ./scripts/migrate.sh
 ```
-This extracts the DB password from `.env.local` and pushes the migration automatically. **Rule:** one file per day, or use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations. See [cli-tools.md](cli-tools.md) for details.
+Primary path: `supabase db push`. Automatic fallback: Supabase Management API (used when the CLI fails due to branch divergence from main — common when the shared test DB has migrations from other branches that aren't in the current branch's file list). The fallback reads the PAT from the macOS keychain and applies unapplied migrations directly. **Always works.**
+
+**Rule:** one file per day, or use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations. All migration SQL must be idempotent (`CREATE OR REPLACE`, `IF NOT EXISTS`, `ON CONFLICT DO NOTHING`) — the fallback path re-applies any migration not tracked in `supabase_migrations.schema_migrations`. See [cli-tools.md](cli-tools.md) for details.
