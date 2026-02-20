@@ -7,6 +7,7 @@ import { ClarityFooter } from "@/app/components/layout/clarity-footer";
 import { OfflineBanner } from "@/app/components/offline-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { LiveSessionProvider } from "@/app/contexts/live-session-context";
 
 interface ClarityLandingLayoutProps {
   children: ReactNode;
@@ -26,18 +27,20 @@ export function ClarityLandingLayout({ children }: ClarityLandingLayoutProps) {
   const needsBottomPadding = showUserMenu;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <OfflineBanner />
-      {!hasOwnNavigation && (
-        <SimpleNavigation />
-      )}
-      <main className={`flex-1 ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
-        {children}
-      </main>
-      {isLandingPage ? <ClarityFooter /> : <LegalFooter />}
-      {/* P113: Mobile bottom nav for logged-in users */}
-      <BottomNav />
-      <Toaster />
-    </div>
+    <LiveSessionProvider>
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <OfflineBanner />
+        {!hasOwnNavigation && (
+          <SimpleNavigation />
+        )}
+        <main className={`flex-1 ${needsTopPadding ? "pt-16 lg:pt-20" : ""} ${needsBottomPadding ? "pb-20 lg:pb-0" : ""}`}>
+          {children}
+        </main>
+        {isLandingPage ? <ClarityFooter /> : <LegalFooter />}
+        {/* P113: Mobile bottom nav for logged-in users */}
+        <BottomNav />
+        <Toaster />
+      </div>
+    </LiveSessionProvider>
   );
 }

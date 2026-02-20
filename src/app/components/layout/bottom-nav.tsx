@@ -8,6 +8,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { CalendarIcon, UserIcon, MicIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
+import { useLiveSession } from "@/app/contexts/live-session-context";
 
 interface NavItem {
   icon: typeof CalendarIcon;
@@ -20,6 +21,7 @@ interface NavItem {
 export function BottomNav() {
   const location = useLocation();
   const { showUserMenu, slug } = useNavAuthState();
+  const { isLive, setPendingNavTo } = useLiveSession();
 
   // Only show for logged-in users
   if (!showUserMenu) {
@@ -76,19 +78,39 @@ export function BottomNav() {
             );
           }
 
-          return (
-            <Link
-              key={item.label}
-              to={item.to!}
-              className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
-                active ? "text-primary" : "text-foreground/60 hover:text-foreground"
-              }`}
-              aria-current={active ? "page" : undefined}
-            >
+          const itemClass = `flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
+            active ? "text-primary" : "text-foreground/60 hover:text-foreground"
+          }`;
+          const itemInner = (
+            <>
               <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active ? "bg-primary/15" : ""}`}>
                 <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
               </span>
               <span className={`text-xs transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
+            </>
+          );
+
+          if (isLive) {
+            return (
+              <button
+                key={item.label}
+                onClick={() => setPendingNavTo(item.to!)}
+                className={itemClass}
+                aria-current={active ? "page" : undefined}
+              >
+                {itemInner}
+              </button>
+            );
+          }
+
+          return (
+            <Link
+              key={item.label}
+              to={item.to!}
+              className={itemClass}
+              aria-current={active ? "page" : undefined}
+            >
+              {itemInner}
             </Link>
           );
         })}

@@ -57,6 +57,7 @@ import { SessionEventsCollector } from '@/lib/session-events-collector';
 import { GoogleAuthButton } from '@/app/components/auth/google-auth-button';
 import { toast } from 'sonner';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import { useLiveSession } from '@/app/contexts/live-session-context';
 
 type ViewState = 'start' | 'waiting' | 'live';
 
@@ -110,6 +111,7 @@ export function ClarityLivePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isJoinViaLink = !!urlCode;
+  const { setIsLive, pendingNavTo, setPendingNavTo } = useLiveSession();
 
   // P124: Get event context from URL params
   const returnTo = searchParams.get('returnTo');
@@ -139,6 +141,20 @@ export function ClarityLivePage() {
 
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  // Sync live state to context so BottomNav can intercept nav during live sessions
+  useEffect(() => {
+    const isInLive = view === 'live' && !!session;
+    setIsLive(isInLive);
+    return () => { setIsLive(false); };
+  }, [view, session, setIsLive]);
+
+  // When BottomNav sets a pending destination, show exit confirmation
+  useEffect(() => {
+    if (pendingNavTo) {
+      setShowExitConfirm(true);
+    }
+  }, [pendingNavTo]);
 
   // P37.2a: Consent flow state
   const [showTermsUpdateDialog, setShowTermsUpdateDialog] = useState(false);
@@ -1891,8 +1907,14 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
-    navigate('/live', { replace: true });
-  }, [session, liveState.checksCount, isCreator, navigate, stopAndUploadRecording]);
+    if (pendingNavTo) {
+      const destination = pendingNavTo;
+      setPendingNavTo(null);
+      navigate(destination, { replace: true });
+    } else {
+      navigate('/live', { replace: true });
+    }
+  }, [session, liveState.checksCount, isCreator, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo]);
 
   // Handle starting a new session after partner left
   const handleStartNewAfterPartnerLeft = useCallback(async () => {
@@ -2660,7 +2682,7 @@ export function ClarityLivePage() {
         <RemovePositionDialog {...liveRemoveDialogProps} />
 
         {/* Exit confirmation dialog */}
-        <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <Dialog open={showExitConfirm} onOpenChange={(open) => { setShowExitConfirm(open); if (!open) setPendingNavTo(null); }}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>Leave session?</DialogTitle>
@@ -2669,7 +2691,7 @@ export function ClarityLivePage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex-row gap-2 sm:justify-end">
-              <Button variant="outline" onClick={() => setShowExitConfirm(false)}>
+              <Button variant="outline" onClick={() => { setShowExitConfirm(false); setPendingNavTo(null); }}>
                 Cancel
               </Button>
               <Button variant="destructive" onClick={confirmExitMeeting}>

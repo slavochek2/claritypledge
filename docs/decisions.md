@@ -14,6 +14,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-20: StoryCardDetail is single source of truth for linked point display (P407)
+
+**Context:** Story detail page showed linked points twice: once inside `StoryCardDetail` (collapsible with full `QuotedPoint` cards), and again in `KeyPointsSection` (a flat list with unlink buttons). Both rendered the same `story.points` array. The `KeyPointsSection` list was built separately and never updated to use the richer `QuotedPoint` component.
+
+**Decision:** Remove the point list from `KeyPointsSection` entirely. `KeyPointsSection` becomes the add-form only (textarea + position picker + Add Point button + `justCreated` banner). `StoryCardDetail` is the single display surface for linked points — it auto-expands on `isDetailView={true}` and provides position buttons.
+
+**Alternatives rejected:** Keeping `KeyPointsSection` list and removing `StoryCardDetail`'s collapsible — would lose position buttons and the richer `QuotedPoint` UI. Adding unlink (✕) buttons to `QuotedPoint` inside `StoryCardDetail` — mixing display and edit concerns in a shared component.
+
+**Consequences:** Any future edit controls on linked points (unlink, reorder) belong in `StoryCardDetail`, not in a separate list. `KeyPointsSection` props no longer include `points[]` — only `pointCount` for deciding whether to show the empty state vs. "Add a Point" button.
+
+**References:** [P407 spec](../features/done/20_feb_26/p407_story-detail-points-unification.md)
+
+---
+
 ## 2026-02-20: Agent-automated migrations via Management API PAT fallback
 
 **Context:** Agents running `scripts/migrate.sh` couldn't apply migrations when the Supabase CLI primary path failed (pooler SASL auth from localhost is a known constraint). The Management API fallback already existed in the script, but it read the PAT exclusively from the macOS keychain — which agent sessions can't access. The only path forward was a human manually running `supabase login` or manually applying SQL.

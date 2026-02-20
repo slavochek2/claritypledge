@@ -165,6 +165,33 @@ const point = await pointsService.getPoint(pointId);
 **Hooks:** `usePointsForProfile`, `usePointsForFeed` — `src/app/hooks/usePointsForDisplay.ts`
 **Service methods:** `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
 
+### Optimistic Position State in QuotedPoint
+
+`QuotedPoint` (inside `StoryCardDetail.tsx`) uses `localPosition`/`effectivePosition` to stay responsive during async round-trips without going stale on parent re-renders:
+
+```typescript
+// ✅ CORRECT: localPosition layer + derived effectivePosition
+const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
+const serverPosition = userPosition?.position ?? null;
+const effectivePosition = localPosition ?? serverPosition;
+
+// Clear local override once parent confirms
+useEffect(() => {
+  if (localPosition !== null && localPosition === serverPosition) {
+    setLocalPosition(null);
+  }
+}, [serverPosition, localPosition]);
+```
+
+**Why not `useState(userPosition?.position)`?**
+`useState` initializer runs once at mount. If parent fetches new positions after mount (e.g., on navigation or re-render), `currentPosition` stays frozen at the mount value. The `localPosition ?? serverPosition` pattern is always in sync with parent while still allowing optimistic overrides.
+
+**Toggle-off**: `handlePositionClick` must call `pointsService.removePosition` (not `setPosition`) when the selected position matches the current one. Detect before the try block:
+```typescript
+const isTogglingOff = userPositions.get(pointId)?.position === position;
+// branch inside try: isTogglingOff ? removePosition : setPosition
+```
+
 ### Profile Display — Dual Position Fields
 
 When rendering a profile page visited by someone other than the owner, `getPointsForProfileDisplay(validatorId, viewerUserId)` populates two position fields on each point:
@@ -175,6 +202,20 @@ When rendering a profile page visited by someone other than the owner, `getPoint
 | `point.profileSubjectPosition` | Profile owner's own position | Display badge (what the owner believes) |
 
 Self-view: when `viewerUserId === validatorId`, both fields resolve from the same batch. The batch loading strategy is encapsulated in the service method — callers don't need to manage it.
+
+### Idempotent DB Inserts — Treat 23505 as Success
+
+When an INSERT has a unique constraint (e.g., `story_points (story_id, point_id)`), a `23505` unique violation means the row already exists — the desired state is already true. Return `true`, not `false`:
+
+```typescript
+if (error) {
+  if (error.code === '23505') return true; // already linked — idempotent success
+  log('ERROR:', error);
+  return false;
+}
+```
+
+**Why**: callers of `linkPointToStory` use the return value to decide whether to show an orphan error flow. A unique violation isn't an error — it's idempotent success. Returning `false` incorrectly triggers fallback UX.
 
 ### Migration
 
