@@ -285,7 +285,9 @@ export function LiveModeView({
       const partnerPositions = liveState.livePositions?.[partnerName] ?? {};
       const storyWithPositions = {
         ...liveState.selectedStoryData,
-        points: liveState.selectedStoryData.points.map((p: { id: string; userPosition?: string | null; profileSubjectPosition?: string | null }) => ({
+        points: liveState.selectedStoryData.points
+          .filter((p: { id: string }) => !(p.id in myPositions && myPositions[p.id] === null))
+          .map((p: { id: string; userPosition?: string | null; profileSubjectPosition?: string | null }) => ({
           ...p,
           // p.id in myPositions distinguishes "explicitly set to null (removed)" from "not set"
           // ?? would silently fall through null to the DB position, ignoring the removal

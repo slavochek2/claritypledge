@@ -589,6 +589,114 @@ describe('LiveModeView', () => {
     });
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // P408: Removed positions hide the point from the story card in /live
+  // ─────────────────────────────────────────────────────────────────────────
+
+  describe('P408: Removed position hides point in selected story', () => {
+    const mockStoryData = {
+      id: 'story-1',
+      authorId: 'author-1',
+      authorName: 'Alice Author',
+      authorSlug: 'alice-author',
+      authorAvatarColor: null,
+      authorAvatarUrl: null,
+      authorRole: null,
+      authorEarsCount: 0,
+      authorHasPledged: false,
+      visibility: 'public' as const,
+      content: 'Remote work changes team communication dynamics.',
+      createdAt: '2026-01-01T00:00:00Z',
+      points: [
+        {
+          id: 'point-1',
+          statement: 'Remote work helps productivity',
+          tags: [],
+          userPosition: null,
+          profileSubjectPosition: null,
+          positionCounts: {},
+        },
+      ],
+    };
+
+    it('shows point when user has never interacted with it (not in livePositions)', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        selectedStoryData: mockStoryData,
+        livePositions: {},
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+      );
+
+      // Footer expand button must be present (story has 1 point)
+      expect(screen.getByText(/1 point by/i)).toBeInTheDocument();
+
+      // Expand and check point text
+      fireEvent.click(screen.getByRole('button', { name: /1 point by/i }));
+      expect(screen.getByText('Remote work helps productivity')).toBeInTheDocument();
+    });
+
+    it('shows point when user has voted on it (non-null position in livePositions)', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        selectedStoryData: mockStoryData,
+        livePositions: { alice: { 'point-1': 'agree' } },
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+      );
+
+      expect(screen.getByText(/1 point by/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /1 point by/i }));
+      expect(screen.getByText('Remote work helps productivity')).toBeInTheDocument();
+    });
+
+    it('hides point after user explicitly removes position (null in livePositions)', () => {
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        selectedStoryData: mockStoryData,
+        livePositions: { alice: { 'point-1': null } },
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+      );
+
+      // No points remain → expand button is gone → point text not visible
+      expect(screen.queryByText(/1 point by/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Remote work helps productivity')).not.toBeInTheDocument();
+    });
+
+    it('only hides the removed point, not unrelated points', () => {
+      const twoPointStory = {
+        ...mockStoryData,
+        points: [
+          { id: 'point-1', statement: 'Remote work helps productivity', tags: [], userPosition: null, profileSubjectPosition: null, positionCounts: {} },
+          { id: 'point-2', statement: 'Async tools reduce meeting fatigue', tags: [], userPosition: null, profileSubjectPosition: null, positionCounts: {} },
+        ],
+      };
+
+      const state: LiveSessionState = {
+        ...DEFAULT_LIVE_STATE,
+        selectedStoryData: twoPointStory,
+        livePositions: { alice: { 'point-1': null } }, // only point-1 removed
+      };
+
+      renderWithRouter(
+        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+      );
+
+      // 1 point remains
+      expect(screen.getByText(/1 point by/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /1 point by/i }));
+      expect(screen.queryByText('Remote work helps productivity')).not.toBeInTheDocument();
+      expect(screen.getByText('Async tools reduce meeting fatigue')).toBeInTheDocument();
+    });
+  });
+
   describe('P398: Clickable Session History', () => {
     const completedEntry = {
       title: 'The bridge story',
