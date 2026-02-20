@@ -149,14 +149,6 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByText('Log In')).toBeInTheDocument();
     });
 
-    it('shows Home link when not in active session', async () => {
-      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
-      await openMenu();
-
-      expect(screen.getByTestId('home-link')).toBeInTheDocument();
-      expect(screen.getByText('Home')).toBeInTheDocument();
-    });
-
     it('does NOT show Sign Out option', async () => {
       renderWithRouter(<LiveSessionBanner />);
       await openMenu();
@@ -191,13 +183,6 @@ describe('LiveSessionBanner', () => {
       const settingsLink = screen.getByTestId('settings');
       expect(settingsLink).toBeInTheDocument();
       expect(settingsLink).toHaveAttribute('href', '/settings');
-    });
-
-    it('shows Home link when not in active session', async () => {
-      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
-      await openMenu();
-
-      expect(screen.getByTestId('home-link')).toBeInTheDocument();
     });
 
     it('does NOT show Log In option', async () => {
@@ -255,12 +240,11 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
-    it('still shows Sound toggle and Home when not in active session', async () => {
+    it('still shows Sound toggle when not in active session', async () => {
       renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
-      expect(screen.getByTestId('home-link')).toBeInTheDocument();
     });
   });
 
@@ -290,12 +274,11 @@ describe('LiveSessionBanner', () => {
       expect(screen.queryByTestId('sign-out')).not.toBeInTheDocument();
     });
 
-    it('still shows Sound toggle and Home when not in active session', async () => {
+    it('still shows Sound toggle when not in active session', async () => {
       renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
       await openMenu();
 
       expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
-      expect(screen.getByTestId('home-link')).toBeInTheDocument();
     });
   });
 
@@ -303,46 +286,41 @@ describe('LiveSessionBanner', () => {
   // Leave Session - conditional on isLiveMeeting and onExit
   // ============================================================================
   describe('Leave Session option', () => {
-    it('shows Leave Session when isLiveMeeting=true and onExit provided', async () => {
+    it('shows Leave button when isLiveMeeting=true and onExit provided', () => {
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} onExit={onExit} />);
-      await openMenu();
 
       expect(screen.getByTestId('leave-meeting')).toBeInTheDocument();
-      expect(screen.getByText('Leave Session')).toBeInTheDocument();
+      expect(screen.getByText('Leave')).toBeInTheDocument();
     });
 
-    it('calls onExit when Leave Session clicked', async () => {
+    it('calls onExit when Leave button clicked', async () => {
       const user = userEvent.setup();
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} onExit={onExit} />);
-      await openMenu();
 
       await user.click(screen.getByTestId('leave-meeting'));
       expect(onExit).toHaveBeenCalledTimes(1);
     });
 
-    it('does NOT show Leave Session when isLiveMeeting=false', async () => {
+    it('does NOT show Leave button when isLiveMeeting=false', () => {
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner isLiveMeeting={false} onExit={onExit} />);
-      await openMenu();
 
       expect(screen.queryByTestId('leave-meeting')).not.toBeInTheDocument();
     });
 
-    it('does NOT show Leave Session when onExit not provided', async () => {
+    it('does NOT show Leave button when onExit not provided', () => {
       renderWithRouter(<LiveSessionBanner isLiveMeeting={true} />);
-      await openMenu();
 
       expect(screen.queryByTestId('leave-meeting')).not.toBeInTheDocument();
     });
 
-    it('defaults isLiveMeeting to true', async () => {
+    it('defaults isLiveMeeting to true', () => {
       const onExit = vi.fn();
       renderWithRouter(<LiveSessionBanner onExit={onExit} />);
-      await openMenu();
 
-      // Should show Leave Session by default when onExit provided
+      // Should show Leave button by default when onExit provided
       expect(screen.getByTestId('leave-meeting')).toBeInTheDocument();
     });
   });
@@ -395,11 +373,11 @@ describe('LiveSessionBanner', () => {
       expect(screen.getByTestId('sign-out')).toBeInTheDocument();
     });
 
-    it('still shows Home link for live-only users when not in active session', async () => {
-      renderWithRouter(<LiveSessionBanner isLiveMeeting={false} />);
-      await openMenu();
+    it('shows Leave button when onExit provided', () => {
+      const onExit = vi.fn();
+      renderWithRouter(<LiveSessionBanner onExit={onExit} />);
 
-      expect(screen.getByTestId('home-link')).toBeInTheDocument();
+      expect(screen.getByTestId('leave-meeting')).toBeInTheDocument();
     });
   });
 

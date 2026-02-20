@@ -411,10 +411,9 @@ describe('KISS Navigation', () => {
         expect(screen.getByTestId('sound-toggle')).toBeInTheDocument();
       });
 
-      it('shows Home link when not in active session', async () => {
+      it('does not show Leave button when isLiveMeeting=false', () => {
         render(<BrowserRouter><LiveSessionBanner isLiveMeeting={false} /></BrowserRouter>);
-        await openLiveBannerMenu();
-        expect(screen.getByTestId('home-link')).toBeInTheDocument();
+        expect(screen.queryByTestId('leave-meeting')).not.toBeInTheDocument();
       });
     });
 

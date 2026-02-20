@@ -11,7 +11,7 @@
  * V18: P67 - Avatar replaces hamburger for verified users (re-adds conditional trigger)
  */
 import { Link, useNavigate } from 'react-router-dom';
-import { MenuIcon, Volume2, VolumeX, LogOut, Home } from 'lucide-react';
+import { MenuIcon, Volume2, VolumeX, LogOut } from 'lucide-react';
 import { useSoundEnabled } from '@/hooks/use-sound';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
 import { analytics } from '@/lib/mixpanel';
@@ -21,7 +21,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-items';
@@ -52,8 +51,28 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
             <ClarityLogo size="sm" />
           </Link>
 
-          {/* Right: Menu dropdown - P67: Avatar for verified users, hamburger for everyone else */}
-          {/* P52: Aligned styling with SimpleNavigation for consistent positioning */}
+          {/* Right: Leave Session button + menu */}
+          <div className="flex items-center gap-2">
+          {/* Leave Session — primary session action, always visible */}
+          {isLiveMeeting && onExit && (
+            <button
+              onClick={() => {
+                const isValidReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//');
+                if (isValidReturnTo) {
+                  navigate(returnTo);
+                } else {
+                  onExit();
+                }
+              }}
+              className="flex items-center gap-1.5 text-sm font-medium text-destructive hover:text-destructive/80 border border-destructive/30 hover:border-destructive/60 rounded-md px-3 h-9 transition-colors"
+              data-testid="leave-meeting"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>{returnTo ? 'Back to event' : 'Leave'}</span>
+            </button>
+          )}
+
+          {/* Menu dropdown - P67: Avatar for verified users, hamburger for everyone else */}
           <DropdownMenu modal={false} onOpenChange={(open) => {
             if (open) {
               analytics.track('nav_menu_opened', {
@@ -95,38 +114,6 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
             Sound: {soundEnabled ? 'On' : 'Off'}
           </DropdownMenuItem>
 
-          {/* === MEETING ACTIONS === */}
-          {isLiveMeeting && onExit && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  // Validate returnTo to prevent open redirect attacks
-                  const isValidReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//');
-                  if (isValidReturnTo) {
-                    navigate(returnTo);
-                  } else {
-                    onExit();
-                  }
-                }}
-                className="text-destructive focus:text-destructive"
-                data-testid="leave-meeting"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                {returnTo ? 'Back to event' : 'Leave Session'}
-              </DropdownMenuItem>
-            </>
-          )}
-
-          {/* === NAVIGATION === */}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild data-testid="home-link">
-            <Link to="/">
-              <Home className="h-4 w-4 mr-2" />
-              Home
-            </Link>
-          </DropdownMenuItem>
-
           {/* === AUTH MENU ITEMS - P50 Phase 2: Use shared component === */}
           <NavigationMenuItems
             onSignOut={async () => {
@@ -134,9 +121,11 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
               navigate('/');
             }}
             includeTestIds={true}
+            inActiveSession={isLiveMeeting}
           />
         </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
       </div>
     </div>

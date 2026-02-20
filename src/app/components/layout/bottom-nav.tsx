@@ -39,7 +39,7 @@ export function BottomNav() {
     },
     {
       icon: MicIcon,
-      label: "Start a Session",
+      label: "Clarity Session",
       to: "/live",
     },
   ];
