@@ -154,7 +154,7 @@ export function CreateStoryPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Create a Story</h1>
         <p className="text-muted-foreground mt-2">
-          Share a perspective others can verify their understanding of
+          Write a perspective. Others verify what they understood.
         </p>
       </div>
 
@@ -163,7 +163,7 @@ export function CreateStoryPage() {
         {/* Story Content */}
         <div>
           <label htmlFor="story-content" className="block text-sm font-medium mb-2">
-            Your story <span className="text-red-500">*</span>
+            Your story
           </label>
           <Textarea
             ref={textareaRef}
@@ -178,12 +178,11 @@ export function CreateStoryPage() {
           />
           <div className="flex justify-between items-center mt-1">
             <span id="content-hint" className="text-xs text-muted-foreground">
-              {content.length >= CHAR_SOFT_MARKER
-                ? `${CHAR_SOFT_MARKER} chars is the sweet spot for verification — longer is fine`
+              {content.length > 0
+                ? content.length < CHAR_SOFT_MARKER
+                  ? `${content.length} characters · aim for under ${CHAR_SOFT_MARKER} for best results`
+                  : `${content.length} characters · longer is fine`
                 : '\u00A0'}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {content.length}/{CHAR_SOFT_MARKER}
             </span>
           </div>
           {errors.content && (
@@ -235,7 +234,7 @@ export function CreateStoryPage() {
                 Saving...
               </>
             ) : (
-              'Save Story'
+              'Publish Story'
             )}
           </Button>
         </div>

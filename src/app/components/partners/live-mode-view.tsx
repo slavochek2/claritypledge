@@ -244,14 +244,17 @@ export function LiveModeView({
   partnerEarsCount = 0,
 }: LiveModeViewProps) {
 
-  // Hide site-wide SimpleNavigation and remove its top padding when live session is active
+  // Hide site-wide navigation when live session is active
   useEffect(() => {
     const nav = document.querySelector<HTMLElement>('[data-nav="main"]');
+    const bottomNav = document.querySelector<HTMLElement>('[data-nav="bottom"]');
     const main = nav?.closest('.min-h-screen')?.querySelector('main');
     if (nav) nav.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
     if (main) main.style.paddingTop = '0';
     return () => {
       if (nav) nav.style.display = '';
+      if (bottomNav) bottomNav.style.display = '';
       if (main) main.style.paddingTop = '';
     };
   }, []);

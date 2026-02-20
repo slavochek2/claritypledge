@@ -1,156 +1,140 @@
 ---
 status: week
 type: story
-rank: 406.0
-tags: [live, events, ux, session-start]
-created_date: 2026-02-20
-delivery_stage: prd-review
+rank: 4.5
+tags:
+  - live
+  - events
+  - session-start
+created_date: 2026-02-20T00:00:00.000Z
+delivery_stage: prd-approved
 reviews:
   ux: null
   architect: null
   tea: null
 ---
 
-# P406: Event-Native Live Session Start (No QR/Link Required)
+# P406: Practice Rooms — Event-Native Session Start
 
 ## Problem Statement
 
-**Current state:** When two people at an event want to start a /live clarity session together, one person creates a session and must share a link or QR code out-of-band — via text, copy-paste, or physical scan. This is true even when both people are already on the event page and the system knows exactly who's attending.
+**Current state:** Starting a /live session requires one person to share a link or QR code out-of-band — copy/paste, scan, or text. Even at an event where all participants are known and logged in, there is no way to discover or join someone's open session from the event page.
 
 **Pain points:**
-- In a room full of known participants, you still need to copy a URL and somehow deliver it to another person
-- QR scanning requires phones at the right angle, good lighting, correct app open
-- Link sharing breaks the in-room social flow ("hold on, let me text you the link")
-- The waiting screen (QR + share link) is designed for strangers — not for an event where both parties are already identified
-- Coaches running group events lose credibility fumbling through link-sharing mechanics in front of clients
+- Two people at the same event still need to exchange a link to start a session
+- The waiting screen (QR + link) is designed for strangers — not for a room of known participants
+- Coaches facilitating group events lose the room fumbling through link-sharing mechanics
+- No visibility into who's waiting to practice at any given moment
 
 **Who's affected:**
-- Event attendees who want to pair up for a live session during the event
-- Event hosts/coaches facilitating group clarity practice
-- New users at events (high friction → drop-off before ever experiencing the session)
+- Event participants who want to pair up without exchanging links
+- Coaches/hosts facilitating group clarity practice at events
 
 ---
 
 ## Intention (Why This Matters)
 
-**Strategic importance:** Events are the highest-leverage distribution channel for Clarity Pledge. A coach runs an event, gets 10 people in a room, and wants them to pair up and experience /live. If pairing takes 2 minutes of logistics per pair, the coach loses the room. If it's one tap, every session starts on time.
+**Strategic importance:** Events are the highest-leverage distribution channel for Clarity Pledge. A coach gets 10 people in a room and wants them to pair up for /live sessions. If pairing requires link exchange, the coach loses momentum. If it's one tap from the event page, every session starts immediately.
 
-This is specifically blocking the C2 coach market: coaches won't bring clients into a product that creates social friction in front of those clients.
+**Why now:** Event infrastructure is built (participant lists, RSVP, event detail page). The /live page already tracks sessions. The missing piece is surfacing open sessions on the event page so participants can discover and join each other without any out-of-band step.
 
-**Why now:** The event infrastructure is built (participant lists, RSVP, event detail page). The /live page already knows about events (`isFromEvent`, `returnTo`). The missing piece is closing the loop: letting the event page be the rendezvous point instead of an external link exchange.
+**Impact if not solved:** Coaches avoid using /live in facilitated settings. Event-to-session conversion stays low. The product's most powerful social proof moment is undermined by logistics.
 
-**Impact if not solved:**
-- Coaches avoid using /live in facilitated group settings
-- Event-to-session conversion stays low
-- The product's most powerful social proof moment (watching someone pair up and do a live session in real time) is undermined by logistics
+---
+
+## The Model
+
+A **Practice Rooms** section lives on the event page, below the Participants list. Always visible — no host setup, no event state required.
+
+- **Open a room** → navigates to normal `/live` waiting screen (QR + link unchanged)
+- **Others on the event page** see your open room → tap [Join →] → joins the session directly
+- **QR and link still work** as fallback for anyone not on the event page
+- **Zero changes to `/live`** — this is purely additive
 
 ---
 
 ## Business Requirements
 
 **Must-haves:**
-- From the event detail page, a participant can initiate a /live session directly with another named participant — no link or QR required
-- The invited participant sees the incoming request on the event page itself (no push notification, no email — the event page is the signal)
-- The invitee can accept (join immediately) or decline
-- If the invitee accepts, they land directly in the /live session — no intermediate steps
-- Pending invites expire automatically if not accepted (no abandoned sessions floating indefinitely)
-- A participant who is already in a session appears as unavailable (can't be double-invited)
+- Practice Rooms section visible on every event page, below Participants
+- Section shows all currently waiting sessions for this event
+- Anyone can open a room (navigates to normal /live waiting screen)
+- Anyone can join an open room directly from the event page
+- In-session rooms (2 people) visible but not joinable
+- No host action required — section works from the moment the event exists
+
+**States:**
+- No open rooms → empty state + [+ Open a room]
+- Someone waiting → their name + [Join →]
+- Two people in session → names + locked indicator
+- You have an open room → "You · waiting..." + [Leave]
 
 **Success conditions:**
-- Two people at the same event can go from "let's try this" to active /live session in under 10 seconds, touching only the event page
-- No out-of-band communication needed at any point in the flow
+- Two people at the same event can go from intent to active /live session without exchanging anything out-of-band
+- QR/link fallback still works for participants not on the event page
 
 **Constraints:**
-- Must not require push notification infrastructure (no OS-level permissions)
-- Must work within the existing DB polling pattern (no new realtime channel required)
-- Must degrade gracefully: if partner is not on the event page, fall back to the existing link/QR flow (don't break existing behaviour)
-- Must respect existing consent and privacy model (no forced session starts)
+- Zero changes to /live page
+- No push notification infrastructure required
+- Must use existing session polling pattern
 
 ---
 
 ## User Stories
 
-**As an event participant initiating a session:**
-- I want to tap a "Practice" button next to a specific person's name on the event page, so I can invite them to a /live session without sharing a link
-- I want to see when someone I invited has accepted or declined, so I know whether to wait or try someone else
-- I want pending invites to automatically cancel if ignored, so I'm not left waiting indefinitely
+**As an event participant wanting to practice:**
+- I want to open a room from the event page, so I can signal I'm ready without sending anyone a link
+- I want to see who's waiting to practice, so I can join them in one tap
+- I want to use the normal QR/link if my partner isn't on the event page, so I'm never stuck
 
-**As an event participant receiving an invitation:**
-- I want to see a clear incoming invite banner on the event page ("X wants to practice with you"), so I don't miss it
-- I want to tap [Join] and land directly in the /live session, so I don't need to navigate anywhere else
-- I want to be able to decline an invite, so I'm not forced into a session I'm not ready for
+**As an event participant receiving visibility:**
+- I want to see open rooms on the event page, so I know who's available to practice right now
+- I want joining to take me directly to the session, so there's no extra navigation
 
-**As an event host/coach:**
-- I want participants to pair up in seconds from the event page, so the facilitated practice flow isn't interrupted by logistics
-- I want unavailable participants (already in session) to appear as such, so I can direct the pairing process without confusion
-
-**As a participant not currently on the event page:**
-- I want the system to fall back to the standard link/QR flow if my partner isn't on the event page, so sessions can still start even without both parties present in the app
+**As a coach/host:**
+- I want participants to pair up from the event page without my involvement, so facilitated practice flows without interruption
 
 ---
 
 ## Jobs to Be Done
 
-**When I'm at a clarity event and someone says "want to practice?":**
-- I want to initiate a session directly from the app, so I can start immediately without breaking the social moment to exchange links (motivation: preserve social flow)
+**When I'm at an event and want to start a session:**
+- I want to signal readiness from the event page, so others can find and join me without needing a link (motivation: remove logistics from social moment)
 
-**When I'm facilitating a group event and asking pairs to start sessions:**
-- I want pairing to happen in one tap per pair, so the whole room is in sessions within 60 seconds (motivation: professional facilitation credibility)
+**When I see someone waiting on the event page:**
+- I want to join them in one tap, so the session starts immediately (motivation: zero friction)
 
-**When I receive an incoming practice request at an event:**
-- I want to see it clearly without leaving the event page, so I can accept without losing context (motivation: minimal disruption)
-
-**When my invited partner isn't looking at their phone:**
-- I want the invite to wait patiently for a moment and then auto-cancel, so I know when to try someone else (motivation: no awkward hanging invitations)
+**When my partner isn't looking at the event page:**
+- I want QR/link to still work, so I'm never blocked (motivation: no dead ends)
 
 ---
 
 ## Outcomes (Success Metrics)
 
-**Conversion:**
-- Increase event-page-to-live-session conversion rate (baseline: unknown, target: >50% of pairing attempts result in a session within 60s)
-- Reduce median time from "tap Practice" to active /live session (target: <15 seconds when both parties are on event page)
-
-**Facilitation quality:**
-- Coaches can pair up a room of 10 in under 2 minutes (vs. current estimated 10+ min with link sharing)
-
-**Drop-off:**
-- Reduce abandonment at the waiting/sharing screen for event-originated sessions (baseline: unknown, target: <10% abandonment when invite model is used)
-
-**Adoption:**
-- % of event-originated sessions that use the invite model vs. link/QR fallback (target: >70% after feature is visible to participants)
+- Reduce median time from "want to practice" to active session at events (target: <10s when both on event page)
+- Increase event-page-to-session conversion rate
+- % of event-originated sessions using room join vs link/QR (target: >60% when both parties are on event page)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] Participant sees a "Practice" action on each other participant's row in EventDetail
-- [ ] Tapping "Practice" creates a /live session and shows a "Waiting for [Name]..." state on the event page (no redirect to /live waiting screen)
-- [ ] The invited participant sees an incoming invite banner on their event page: "[Name] wants to practice with you" + [Join] and [Decline] buttons
-- [ ] Tapping [Join] navigates invitee directly to the /live session (already active)
-- [ ] Tapping [Decline] dismisses the banner and cancels the pending session; inviter is notified inline (e.g., "[Name] declined")
-- [ ] Pending invites expire after ~60 seconds if not accepted; inviter sees timeout message
-- [ ] A participant already in a session appears as "In a session" on the event page (Practice button disabled or hidden)
-- [ ] If invitee is not currently on the event page, the system falls back to the existing link/QR waiting screen — no broken state
-- [ ] The flow requires no OS-level push notification permissions
-- [ ] The flow works on mobile and desktop browsers
-
----
-
-## Open Questions
-
-1. **Presence detection:** How do we know if a participant is currently on the event page? Options: lightweight heartbeat ping to DB, or optimistic (show "Practice" for all, let invite polling detect acceptance). Lean toward optimistic — fewer moving parts.
-
-2. **Multiple pending invites:** What if Alice sends invites to both Bob and Carol simultaneously? Should simultaneous outbound invites be allowed? Simplest: one pending outbound invite at a time per user per event.
-
-3. **Invite visibility scope:** Should the inviter's "Waiting for [Name]..." state appear on the event page inline, or does it navigate to a minimal overlay/modal? Inline is lower friction.
-
-4. **Fallback trigger:** How does the system know the invitee is "not on the event page"? If invite isn't accepted in 60s, we consider them absent → show link/QR fallback at that point.
+- [ ] Practice Rooms section appears on event page below Participants
+- [ ] Section visible regardless of event date or host action
+- [ ] [+ Open a room] navigates to /live waiting screen with `returnTo=/events/[slug]`
+- [ ] Waiting sessions for this event appear with participant name + [Join →]
+- [ ] [Join →] navigates directly to /live/[code] join flow
+- [ ] In-session rooms (2 people) show as locked — not joinable
+- [ ] Section polls and updates without page refresh
+- [ ] Empty state shown when no open rooms exist
+- [ ] [Leave] removes your open room from the list
+- [ ] QR/link on /live waiting screen still works as fallback
+- [ ] Zero changes to /live page behaviour
 
 ---
 
 ## Next Steps
 
-1. Run `/ux features/p406_event-native-session-start.md` — design the invite flow, participant list states, banner UX, fallback behaviour
-2. Run `/architect features/p406_event-native-session-start.md` — design DB schema for pending invites, polling approach, expiry mechanism
-3. Run `/generate-tests` → `/dev` to implement
+1. Run `/ux features/p406_event-native-session-start.md` — design the Practice Rooms section, all states, mobile + desktop
+2. Run `/architect features/p406_event-native-session-start.md` — session-event linking, polling query, DB changes if any
+3. Run `/generate-tests` → `/dev`

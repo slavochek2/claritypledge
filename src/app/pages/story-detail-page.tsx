@@ -254,23 +254,24 @@ function AddPointForm({
             Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
           </p>
         )}
-        <div>
-          <p className="text-xs text-muted-foreground mb-1.5">Your position:</p>
+        <div className="flex items-center justify-between">
           <PositionButtons
             userPosition={selectedPosition}
             counts={EMPTY_COUNTS}
             onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
             compact
           />
+          <span className="text-xs text-muted-foreground">
+            {statement.length > POINT_CHAR_SOFT
+              ? <span>Under 140 is punchiest · {statement.length}/{POINT_CHAR_MAX}</span>
+              : statement.length > 0
+                ? `${statement.length}/${POINT_CHAR_MAX}`
+                : null}
+          </span>
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {statement.length >= POINT_CHAR_SOFT && statement.length <= 200 && (
-            <span className="mr-2">Under 140 is punchiest</span>
-          )}
-          {statement.length}/{POINT_CHAR_MAX}
-        </span>
+        <span />
         <div className="flex items-center gap-2">
           {showCancel && onCancel && (
             <Button type="button" variant="ghost" onClick={onCancel}>

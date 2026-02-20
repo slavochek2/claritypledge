@@ -10,6 +10,13 @@ reviews:
   ux: null
   architect: null
   alignment: null
+uat_file: features/uat/p405.md
+test_files:
+  - src/tests/sessions-service.test.ts
+  - e2e/integration/p405-sessions-data.spec.ts
+  - e2e/p405-my-sessions.spec.ts
+  - e2e/a11y/p405-accessibility.spec.ts
+  - e2e/p405-smoke.spec.ts
 ---
 
 # P405: My Sessions — Session History in Global Nav
@@ -776,3 +783,46 @@ Currently rendered at line 1068–1074 of `live-mode-view.tsx`. Rendered inside 
 7. **Remove SessionHistoryList from `/live`** — Delete the render block and associated state from `live-mode-view.tsx`. Verify the `/live` idle screen renders correctly without history. Verify `hasScrollableContent` layout logic behaves correctly.
 
 8. **E2E + visual QA** — Run `npm run test:e2e` for regression on nav and live flow. Run `/verify` for visual QA on mobile bottom nav and My Sessions page.
+
+---
+
+## Test Coverage Strategy
+
+**What's Tested:**
+
+- ✅ **Service mapper + filter logic (unit)** — `mapSessionFromDb()` partner name resolution (creator vs joiner perspective), zero-round filtering, null `live_state` handling, completed-only round count
+- ✅ **Query scoping (integration)** — `clarity_sessions` query correctly scopes by `creator_profile_id OR joiner_profile_id`, both participants see shared session, unrelated user excluded, reverse-chronological ordering
+- ✅ **User flows (E2E)** — `/sessions` page loads, empty state, auth guard redirect, session detail opens on row click, Sessions tab in mobile nav, Sessions tab hidden during active session, "THIS SESSION" block removed from `/live`
+- ✅ **Accessibility (a11y)** — `<main aria-label>`, `<ul><li>` structure, session row aria-labels, keyboard activation (Enter/Space), Escape closes detail, focus restoration to triggering row, bottom nav tab label
+- ✅ **Smoke** — `/sessions` loads without JS errors, unauthenticated redirect, mobile Sessions tab visible, desktop My Sessions link visible
+
+**What's NOT Tested (rationale):**
+
+- ❌ **RLS enforcement** — `clarity_sessions` SELECT policy is `USING (true)` (open). Application-level query filter is tested; DB-level enforcement is a security debt item noted in the spec, not introduced by P405.
+- ❌ **Session detail round ratings (unit)** — Round data is read directly from `live_state.sessionHistory` JSONB; no transformation logic beyond display. Covered by E2E detail drawer test.
+- ❌ **Date grouping UI** — Grouping logic is presentational (group by day). Tested via UAT visual check; not worth a separate automated test for MVP.
+- ❌ **Skeleton animation** — CSS `animate-pulse` is a visual-only concern; no logic to test.
+- ❌ **Drawer swipe-to-close** — Touch event simulation is unreliable in Playwright headless; covered by UAT-4.4 (manual).
+- ❌ **`useIsInActiveSession` hook (unit)** — The hook wraps `sessionStorage` read/write. Simple enough that integration via E2E test (UAT-5.1) provides better coverage than a mocked unit test.
+
+**Test Pyramid:**
+```
+       /\
+      /  \   10 E2E tests
+     /____\
+    / 6 INT  \
+   /__________\
+  / 11 UNIT   \
+ /______________\
+```
+
+**Files Generated:**
+- `src/tests/sessions-service.test.ts` (11 unit tests)
+- `e2e/integration/p405-sessions-data.spec.ts` (6 integration tests)
+- `e2e/p405-my-sessions.spec.ts` (10 E2E tests)
+- `e2e/a11y/p405-accessibility.spec.ts` (6 accessibility tests)
+- `e2e/p405-smoke.spec.ts` (5 smoke tests)
+- `features/uat/p405.md` (9 UAT scenario groups, ~25 scenarios)
+
+**Total:** 38 automated tests + ~25 UAT scenarios
+**Estimated run time:** ~3-4 minutes (E2E tests are the bottleneck; unit tests ~1s)

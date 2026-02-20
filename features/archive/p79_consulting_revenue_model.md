@@ -2,9 +2,9 @@
 status: week
 type: story
 workstream: C2
-rank: 3
+rank: 7
 tags: []
-created_date: 2026-01-20
+created_date: 2026-01-20T00:00:00.000Z
 ---
 # P79: Consulting & Revenue Model
 
