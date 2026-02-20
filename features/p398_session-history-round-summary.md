@@ -1,7 +1,7 @@
 ---
 status: in-progress
 type: story
-rank: 0.5
+rank: 1
 workstream: C1
 tags:
   - live

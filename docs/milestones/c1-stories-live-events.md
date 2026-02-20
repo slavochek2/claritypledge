@@ -81,7 +81,7 @@ See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-solve-liv
 
 Track current position:
 
-1. [ ] Finish P272 (story verification in /live)
+1. [x] Finish P272 (story verification in /live)
 2. [ ] Push to production
 3. [ ] Create own stories (active listening) — test the loop yourself
 4. [ ] 1-on-1 free sessions (invite 20 warm contacts)
