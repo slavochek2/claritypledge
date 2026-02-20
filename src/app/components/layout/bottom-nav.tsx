@@ -81,15 +81,18 @@ export function BottomNav() {
             <Link
               key={item.label}
               to={item.to!}
-              className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
+              className={`relative flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
                 active
                   ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-foreground/60 hover:text-foreground"
               }`}
               aria-current={active ? "page" : undefined}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs">{item.label}</span>
+              {active && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
+              )}
+              <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
+              <span className={`text-xs transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
             </Link>
           );
         })}
