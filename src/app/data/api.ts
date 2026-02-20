@@ -952,6 +952,38 @@ export async function updateClaritySessionLiveState(
 }
 
 /**
+ * P399: Atomically merges partial updates into the live_state JSON column.
+ *
+ * Uses the patch_live_state Postgres function (jsonb || merge) so only the
+ * provided keys are written. All other live_state fields — including
+ * selectedStoryData set by the partner — are preserved even when the caller's
+ * local confirmedLiveStateRef is stale.
+ *
+ * Use this for writes that do NOT intentionally set or clear story/content
+ * fields (e.g. ratings, celebrationAcknowledgedBy).
+ *
+ * @param sessionId - The session UUID
+ * @param patch - The fields to merge (undefined values are serialized away and therefore ignored)
+ */
+export async function patchClaritySessionLiveState(
+  sessionId: string,
+  patch: Record<string, unknown>
+): Promise<void> {
+  console.log('[Live API] Patching live state for session:', sessionId, patch);
+
+  const { error } = await supabase.rpc('patch_live_state', {
+    p_session_id: sessionId,
+    p_patch: patch,
+  });
+
+  if (error) {
+    console.error('[Live API] Error patching live state:', error.message, error.code, error.details);
+    throw new Error(error.message);
+  }
+  console.log('[Live API] Live state patched successfully');
+}
+
+/**
  * Updates the demo status of a session.
  * @param sessionId - The session UUID
  * @param demoStatus - New demo status

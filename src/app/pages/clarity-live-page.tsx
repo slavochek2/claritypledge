@@ -25,6 +25,7 @@ import {
   getClaritySession,
   subscribeToClaritySession,
   updateClaritySessionLiveState,
+  patchClaritySessionLiveState,
   clearSessionJoiner,
   endClaritySession,
   uploadSessionRecording,
@@ -712,7 +713,22 @@ export function ClarityLivePage() {
       updateInFlightRef.current = true; // Prevent poll from overwriting
 
       try {
-        await updateClaritySessionLiveState(session.id, newState);
+        // P399: Use partial DB merge when the write doesn't touch story/content fields
+        // AND a story is currently active. The merge preserves selectedStoryData written
+        // by the partner when our confirmedLiveStateRef is stale.
+        //
+        // When no story is active, a full overwrite is safe — there is nothing to protect.
+        // This also serves as a fallback until the patch_live_state migration is applied.
+        const touchesStory =
+          'selectedStoryId' in updates ||
+          'selectedStoryData' in updates ||
+          'selectedContentTitle' in updates;
+        const storyIsActive = Boolean(stateBeforeUpdate.selectedStoryId);
+        if (touchesStory || !storyIsActive) {
+          await updateClaritySessionLiveState(session.id, newState);
+        } else {
+          await patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
+        }
         // Update confirmed state on success
         confirmedLiveStateRef.current = newState;
       } catch (err) {

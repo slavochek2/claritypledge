@@ -1,11 +1,14 @@
 ---
-status: today
+status: done
 type: bug
-rank: 1
+rank: 0.5
 severity: high
 workstream: live
 date_reported: '2026-02-19'
 created_date: '2026-02-19'
+completed_at: '2026-02-20'
+root_cause: updateLiveState() full-overwrites live_state from confirmedLiveStateRef.current which can be stale — missing selectedStoryData written by partner — causing any partial write (rating, celebrationAcknowledgedBy) to wipe the story globally
+resolution: Added patch_live_state Postgres RPC (jsonb || merge). updateLiveState now uses partial merge when updates don't touch story/content fields; full overwrite only when story fields are intentionally set or cleared.
 tags:
   - live-session
   - story
