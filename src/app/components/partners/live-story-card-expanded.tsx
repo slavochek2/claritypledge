@@ -51,6 +51,8 @@ interface LiveStoryCardExpandedProps {
   badgePersonName?: string;
   /** Ear count for badgePersonName — shown in badge when host view is active */
   badgePersonEarsCount?: number;
+  /** When true, points are expanded on first render — used for partner view so they can vote immediately */
+  defaultExpanded?: boolean;
 }
 
 export function LiveStoryCardExpanded({
@@ -59,8 +61,9 @@ export function LiveStoryCardExpanded({
   className,
   badgePersonName,
   badgePersonEarsCount,
+  defaultExpanded = false,
 }: LiveStoryCardExpandedProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const preview = story.content.length > 120 ? story.content.slice(0, 120) + '…' : story.content;
 

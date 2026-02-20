@@ -14,7 +14,7 @@
  * - JourneyToUnderstanding: Shows rating history across rounds
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
 import { DoorOpen, ShieldOff, Sparkles } from 'lucide-react';
@@ -530,6 +530,7 @@ export function LiveModeView({
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
+          currentUserName={currentUserName}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -591,6 +592,7 @@ export function LiveModeView({
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
           isStoryOwner={isAuthorOfSelected}
+          currentUserName={currentUserName}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -644,6 +646,7 @@ export function LiveModeView({
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
             isStoryOwner={isAuthorOfSelected}
+            currentUserName={currentUserName}
                       />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -742,6 +745,7 @@ export function LiveModeView({
         badgePersonName={badgePersonName}
         badgePersonEarsCount={badgePersonEarsCount}
         isStoryOwner={isAuthorOfSelected}
+        currentUserName={currentUserName}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -788,6 +792,8 @@ interface IdleScreenProps {
   badgePersonEarsCount?: number;
   /** When true, current user owns the selected story — show only the check button and keep card collapsed */
   isStoryOwner?: boolean;
+  /** Current user's name — used to merge live positions into history story snapshots */
+  currentUserName: string;
 }
 
 function IdleScreen({
@@ -811,6 +817,7 @@ function IdleScreen({
   badgePersonName,
   badgePersonEarsCount,
   isStoryOwner = false,
+  currentUserName,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -828,6 +835,22 @@ function IdleScreen({
       setSelectedHistoryIndex(null);
     }
   }, [liveState.ratingPhase]);
+
+  // P398: Build story snapshot for the selected history entry, merging live positions
+  const sessionHistory = liveState.sessionHistory ?? [];
+  const summaryStory = useMemo<StoryWithPoints | null>(() => {
+    if (selectedHistoryIndex === null) return null;
+    const item = sessionHistory[selectedHistoryIndex];
+    if (!item?.storyData) return null;
+    const myPositions = liveState.livePositions?.[currentUserName] ?? {};
+    return {
+      ...item.storyData,
+      points: item.storyData.points.map(p => ({
+        ...p,
+        userPosition: (myPositions[p.id] ?? p.userPosition ?? null) as PositionType | null,
+      })),
+    } as unknown as StoryWithPoints;
+  }, [selectedHistoryIndex, sessionHistory, liveState.livePositions, currentUserName]);
 
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
@@ -889,8 +912,6 @@ function IdleScreen({
     };
   }, [hasContent, contentInteracted, userId, stories.length, points.length]);
 
-  const sessionHistory = liveState.sessionHistory ?? [];
-
   // Check if we have any rating data to show (from a previous round)
   // But hide it if explicitly requested (e.g., returning from celebration)
   const hasRatingData = !hideHistory && (
@@ -951,6 +972,8 @@ function IdleScreen({
           <RoundSummaryScreen
             item={sessionHistory[selectedHistoryIndex]}
             onBack={() => setSelectedHistoryIndex(null)}
+            story={summaryStory}
+            onPositionSelect={onPositionSelect}
           />
         ) : (
           <>
@@ -1104,6 +1127,7 @@ interface ResponderWaitingWithDrawerProps {
   badgePersonName?: string;
   badgePersonEarsCount?: number;
   isStoryOwner?: boolean;
+  currentUserName: string;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1119,6 +1143,7 @@ function ResponderWaitingWithDrawer({
   badgePersonName,
   badgePersonEarsCount,
   isStoryOwner,
+  currentUserName,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1135,6 +1160,7 @@ function ResponderWaitingWithDrawer({
       badgePersonName={badgePersonName}
       badgePersonEarsCount={badgePersonEarsCount}
       isStoryOwner={isStoryOwner}
+      currentUserName={currentUserName}
           />
   );
 }
