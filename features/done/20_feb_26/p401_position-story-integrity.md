@@ -1,5 +1,6 @@
 ---
-status: week
+status: done
+completed_at: "2026-02-20"
 type: story
 rank: 400
 workstream: C1
