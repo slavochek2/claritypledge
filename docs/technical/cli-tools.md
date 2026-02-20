@@ -20,8 +20,11 @@ Command-line tools installed alongside MCPs for scripting, CI/CD, and automation
 
 **Migration workflow (use this):**
 ```bash
-# Push new migrations — run after creating any .sql file in supabase/migrations/
+# Push new migrations to test DB — run after creating any .sql file in supabase/migrations/
 ./scripts/migrate.sh
+
+# Push same migrations to prod DB (after validating on test)
+./scripts/migrate.sh --env prod
 
 # Check status only
 npx supabase migration list -p "$DB_PASSWORD"
@@ -31,9 +34,23 @@ npx supabase gen types typescript --project-id gfjctyxqlwexxwsmkakq > src/app/ty
 ```
 
 **`scripts/migrate.sh` does:**
-1. Extracts DB password from `SUPABASE_DB_URL` in `.env.local`
-2. Runs `supabase migration list` (shows current state)
-3. Runs `supabase db push` (applies new migrations only)
+1. Extracts DB password and project ref from env file (`.env.local` by default, `.env.prod` with `--env prod`)
+2. Resolves Supabase PAT: macOS keychain first, then `SUPABASE_ACCESS_TOKEN` in the env file (agent-friendly fallback)
+3. Runs `supabase migration list` (shows current state — non-fatal if pooler fails)
+4. Runs `supabase db push` (primary path)
+5. **Management API fallback**: if `db push` fails (pooler auth, history mismatch), falls back to `POST /v1/projects/{ref}/database/query` per migration file, skipping already-applied versions. Also records each applied version into `supabase_migrations.schema_migrations` so future CLI runs stay in sync.
+
+**Test → Prod promotion:**
+```bash
+# 1. Create and validate migration on test (default)
+./scripts/migrate.sh
+
+# 2. Run regression/E2E tests against test DB
+
+# 3. Promote to prod
+./scripts/migrate.sh --env prod
+```
+`.env.prod` must exist (see `.env.prod.example` in project root). It needs `VITE_SUPABASE_URL`, `SUPABASE_DB_URL`, and `SUPABASE_ACCESS_TOKEN` for the prod project.
 
 **Migration file naming rule — CRITICAL:**
 Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple files sharing the same date permanently block `db push`. **One migration file per day.** If you need multiple same-day migrations, use `YYYYMMDDHHMMSS` timestamps (14 digits) to ensure uniqueness.
@@ -41,8 +58,9 @@ Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple fi
 **Known state:**
 - Project linked via `supabase link --project-ref gfjctyxqlwexxwsmkakq`
 - DB password in `SUPABASE_DB_URL` in `.env.local` (format: `postgresql://user:PASSWORD@host/db`)
-- `supabase --db-url` / `migration up` commands do NOT work — pooler returns "Tenant or user not found" for direct pg connections
+- `supabase --db-url` / `migration up` commands do NOT work — pooler returns "Tenant or user not found" for direct pg connections from localhost (known Supabase constraint)
 - Free tier: project auto-pauses after inactivity → unpause in Dashboard before running migrate.sh
+- `SUPABASE_ACCESS_TOKEN` in `.env.local` is the agent-friendly PAT — add yours from the Supabase Dashboard if agents need to apply migrations autonomously
 
 **Limitations:**
 - Requires Docker for `db dump` / `db diff` operations

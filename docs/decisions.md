@@ -14,6 +14,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-20: Agent-automated migrations via Management API PAT fallback
+
+**Context:** Agents running `scripts/migrate.sh` couldn't apply migrations when the Supabase CLI primary path failed (pooler SASL auth from localhost is a known constraint). The Management API fallback already existed in the script, but it read the PAT exclusively from the macOS keychain — which agent sessions can't access. The only path forward was a human manually running `supabase login` or manually applying SQL.
+
+**Decision:** Three-part fix to make the full migration cycle autonomous:
+1. **PAT fallback in `migrate.sh`**: after the keychain lookup, fall back to `SUPABASE_ACCESS_TOKEN` from the env file. Agents add this token to `.env.local` once; keychain wins when humans run the script, env file wins when agents do.
+2. **`schema_migrations` INSERT in `apply_via_api`**: after each successful Management API SQL apply, INSERT the version into `supabase_migrations.schema_migrations ON CONFLICT DO NOTHING`. This keeps CLI migration history in sync so future `db push` runs don't re-apply or error on already-applied files.
+3. **`--env prod` flag**: `./scripts/migrate.sh --env prod` reads `.env.prod` instead of `.env.local`, giving a simple test→prod promotion path. `.env.prod.example` documents the required fields. `.env.prod` is gitignored.
+
+**Alternatives rejected:** Storing the PAT in a shared secrets manager — over-engineering for a two-person project. Adding a separate `promote-to-prod.sh` — the env flag is simpler and self-documenting. CI/CD pipeline for migrations — added complexity, pooler auth issues would still block it from localhost runners.
+
+**Consequences:** Agents can now create and apply migrations to test end-to-end without human touch. Promoting to prod is a one-liner. The PAT must be present in `.env.local` (`SUPABASE_ACCESS_TOKEN`) for agents; human runs are unchanged (keychain takes priority). See `.env.prod.example` for the prod credentials template.
+
+**References:** [scripts/migrate.sh](../../scripts/migrate.sh) · [.env.prod.example](../../.env.prod.example) · [cli-tools.md](cli-tools.md)
+
+---
+
 ## 2026-02-20: Partial DB merge for live_state to prevent race-condition overwrites (P399)
 
 **Context:** `updateLiveState()` in `clarity-live-page.tsx` did a full read-modify-write of the `live_state` JSON column: it read `confirmedLiveStateRef.current`, merged updates into it, and wrote the entire blob back. Because `confirmedLiveStateRef` can be stale (subscription skipped while in-flight, or partner selection not yet arrived), any partial write — a rating, `celebrationAcknowledgedBy` — from the participant with a stale ref would silently overwrite the partner's `selectedStoryData` → story disappeared mid-round for both participants.
