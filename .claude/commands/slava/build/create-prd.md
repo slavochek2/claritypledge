@@ -435,6 +435,9 @@ Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, typ
 After creating/updating the spec file, set delivery_stage to indicate completion:
 - Use Edit tool to update frontmatter: `delivery_stage: prd-review`
 - This signals PRD is ready for user review
+
+**IMPORTANT - Kanban Visibility:**
+After creating the file, tell the user: "Hit the Refresh button in the kanban to see the new card (or visit http://localhost:9050 and click Refresh)."
 ```
 
 ---

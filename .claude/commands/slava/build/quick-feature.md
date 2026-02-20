@@ -299,6 +299,7 @@ Creates: features/p140_refactor_authentication.md
 - **Frontmatter format:** Must use YAML with `---` delimiters
 - **Status values:** Use lowercase: `week` not `Week`
 - **Dates:** Always `YYYY-MM-DD` format
+- **Kanban visibility:** After creating the file, tell user to hit the Refresh button in the kanban UI to see the new card (`http://localhost:9050` → Refresh)
 
 ---
 

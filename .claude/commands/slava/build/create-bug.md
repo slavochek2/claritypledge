@@ -400,4 +400,6 @@ Critical constraints:
 - DO ask about severity if genuinely unclear — that's the only acceptable blocking question.
 
 Self-review gates MUST all pass before writing the file.
+
+After writing the file, tell the user: "Hit the Refresh button in the kanban to see the new card (http://localhost:9050 → Refresh)."
 ```
