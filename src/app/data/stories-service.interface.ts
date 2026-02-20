@@ -66,6 +66,16 @@ export interface StoriesService {
    */
   getStoriesFeed(limit: number, offset: number): Promise<StoryWithAuthor[]>;
 
+  /**
+   * Get public stories that contain any of the given points.
+   * Returns a Map<pointId, StoryWithAuthor[]>.
+   * @param excludeStoryId - Omit this story from results (e.g., the currently-viewed story)
+   */
+  getStoriesForPoints(
+    pointIds: string[],
+    excludeStoryId?: string
+  ): Promise<Map<string, StoryWithAuthor[]>>;
+
   // ============================================================================
   // UPDATE
   // ============================================================================

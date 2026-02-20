@@ -26,6 +26,12 @@ import {
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
+
+/** Minimal story shape needed to display a linked story card inside QuotedPoint */
+type LinkedStory = Pick<
+  StoryWithAuthor,
+  'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged'
+>;
 import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
 import { getPositionGroup } from '@/app/prototypes/shared/types';
 
@@ -59,6 +65,8 @@ interface StoryCardDetailProps {
     point?: (id: string) => string;
     profile?: (id: string) => string;
   };
+  /** Other stories that contain each linked point. Map<pointId, stories[]> */
+  linkedStoriesForPoints?: Map<string, LinkedStory[]>;
 }
 
 /**
@@ -79,6 +87,7 @@ export function StoryCardDetail({
   onVerify,
   authorPosition,
   routes = {},
+  linkedStoriesForPoints,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -338,6 +347,8 @@ export function StoryCardDetail({
                         e.stopPropagation();
                         navigate(pointRoute(pointsToShow[0].id));
                       }}
+                      linkedStories={linkedStoriesForPoints?.get(pointsToShow[0].id) ?? []}
+                      onStoryClick={storyId => navigate(storyRoute(storyId))}
                     />
                   ) : (
                     // 2+ points - show thread lines
@@ -360,6 +371,8 @@ export function StoryCardDetail({
                               e.stopPropagation();
                               navigate(pointRoute(point.id));
                             }}
+                            linkedStories={linkedStoriesForPoints?.get(point.id) ?? []}
+                            onStoryClick={storyId => navigate(storyRoute(storyId))}
                           />
                         </ThreadLineItem>
                       ))}
@@ -401,6 +414,8 @@ function QuotedPoint({
   profileOwnerPositions,
   onPositionClick,
   onClick,
+  linkedStories = [],
+  onStoryClick,
 }: {
   point: PointSummary;
   authorName: string;
@@ -411,7 +426,10 @@ function QuotedPoint({
   profileOwnerPositions?: Map<string, PointPosition>;
   onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   onClick: (e: React.MouseEvent) => void;
+  linkedStories?: LinkedStory[];
+  onStoryClick?: (storyId: string) => void;
 }) {
+  const [storiesExpanded, setStoriesExpanded] = useState(false);
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
   const ownerPosition = profileOwnerPositions?.get(point.id);
@@ -476,30 +494,28 @@ function QuotedPoint({
 
   return (
     <div className="w-full text-left">
-      {/* Position label OUTSIDE the quoted box - Avatar → Name → Ear → Badge */}
-      {ownerPosition && (
-        <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
-          <GravatarAvatar
-            name={authorName}
-            photoUrl={authorAvatarUrl}
-            size="sm"
-            isPledger={false}
-            className="!w-5 !h-5 !text-[10px]"
-          />
-          <span className="font-medium">{authorName}</span>
-          {(authorEarCount ?? 0) > 0 && (
-            <MobileTooltip
-              content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
-            >
-              <span className="inline-flex items-center gap-0.5 text-muted-foreground">
-                <Ear size={14} />
-                {authorEarCount}
-              </span>
-            </MobileTooltip>
-          )}
-          <PositionBadge position={ownerPosition.position} />
-        </div>
-      )}
+      {/* Author header - always shown (position badge only when author has taken a position) */}
+      <div className="flex items-center gap-1.5 mb-1.5 text-sm text-foreground">
+        <GravatarAvatar
+          name={authorName}
+          photoUrl={authorAvatarUrl}
+          size="sm"
+          isPledger={false}
+          className="!w-5 !h-5 !text-[10px]"
+        />
+        <span className="font-medium">{authorName}</span>
+        {(authorEarCount ?? 0) > 0 && (
+          <MobileTooltip
+            content={`${authorName.split(' ')[0]} understood ${authorEarCount} ${authorEarCount === 1 ? 'story' : 'stories'} as confirmed by their owners`}
+          >
+            <span className="inline-flex items-center gap-0.5 text-muted-foreground">
+              <Ear size={14} />
+              {authorEarCount}
+            </span>
+          </MobileTooltip>
+        )}
+        {ownerPosition && <PositionBadge position={ownerPosition.position} />}
+      </div>
 
       {/* Quoted Point box */}
       {/* Note: removed overflow-hidden to prevent dropdown chevrons from being clipped */}
@@ -540,6 +556,76 @@ function QuotedPoint({
           </div>
         </div>
       </div>
+
+      {/* Linked stories - other stories this point also appears in */}
+      {linkedStories.length > 0 && (
+        <div className="mt-1.5" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => setStoriesExpanded(v => !v)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-600 transition-colors pl-1"
+          >
+            {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span>
+              {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
+            </span>
+          </button>
+          {storiesExpanded && (
+            <div className="mt-2 space-y-2">
+              {linkedStories.slice(0, 3).map(story => (
+                <LinkedStoryCard
+                  key={story.id}
+                  story={story}
+                  onClick={() => onStoryClick?.(story.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Compact story card shown inside a QuotedPoint's linked-stories section.
+ */
+function LinkedStoryCard({
+  story,
+  onClick,
+}: {
+  story: LinkedStory;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className="w-full text-left p-3 rounded-lg border border-border bg-card hover:bg-accent hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      <div className="flex items-center gap-1.5 mb-1">
+        <GravatarAvatar
+          name={story.authorName}
+          photoUrl={story.authorAvatarUrl}
+          size="sm"
+          isPledger={story.authorHasPledged ?? false}
+          className="!w-5 !h-5 !text-[10px]"
+        />
+        <span className="text-xs font-medium text-muted-foreground">{story.authorName}</span>
+        {(story.authorEarsCount ?? 0) > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+            <Ear size={11} />
+            {story.authorEarsCount}
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-foreground line-clamp-2">{story.content}</p>
     </div>
   );
 }

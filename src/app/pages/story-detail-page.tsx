@@ -28,7 +28,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
-import type { StoryWithPoints, PointSummary, PointPosition, PositionType } from '@/app/types';
+import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -404,6 +404,8 @@ export function StoryDetailPage() {
   const [userPositions, setUserPositions] = useState<Map<string, PointPosition>>(new Map());
   // Positions of the story author on their own points (for display badges, independent of viewer)
   const [storyAuthorPositions, setStoryAuthorPositions] = useState<Map<string, PointPosition>>(new Map());
+  // Other stories each linked point appears in (for linked-stories section in QuotedPoint)
+  const [linkedStoriesForPoints, setLinkedStoriesForPoints] = useState<Map<string, StoryWithAuthor[]>>(new Map());
 
   // P132: Guard for position removal — shows confirmation dialog with linked-story count
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -473,24 +475,27 @@ export function StoryDetailPage() {
           });
         }
 
-        // P132: Fetch position data for linked points
+        // P132: Fetch position data and linked stories for linked points
         if (data.points.length > 0) {
           try {
             const pointIds = data.points.map(p => p.id);
             const viewerIsAuthor = user?.id === data.authorId;
 
-            // Batch fetch position data
-            const [counts, positions, authorPositions] = await Promise.all([
+            // Batch fetch position data + other stories for each point
+            const [counts, positions, authorPositions, linkedStories] = await Promise.all([
               pointsService.getPositionCountsForPoints(pointIds),
               user?.id ? pointsService.getMyPositionsForPoints(pointIds, user.id) : Promise.resolve(new Map()),
               // Always fetch story author's positions for display badges (independent of viewer)
               pointsService.getMyPositionsForPoints(pointIds, data.authorId),
+              // Fetch other public stories these points appear in (exclude current story)
+              storiesService.getStoriesForPoints(pointIds, data.id),
             ]);
 
             setPositionCounts(counts);
             setUserPositions(positions);
             // If viewer is the author, reuse viewer positions to avoid redundant state
             setStoryAuthorPositions(viewerIsAuthor ? positions : authorPositions);
+            setLinkedStoriesForPoints(linkedStories);
           } catch (err) {
             console.error('Error loading position data:', err);
             // Non-fatal - show story without position data
@@ -690,6 +695,7 @@ export function StoryDetailPage() {
         onPositionClick={handlePositionClick}
         isDetailView={true}
         context="story-detail"
+        linkedStoriesForPoints={linkedStoriesForPoints}
       />
 
       {/* P131: Author-only add-point form (below rich view) */}

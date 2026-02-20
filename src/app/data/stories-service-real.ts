@@ -65,6 +65,13 @@ interface DbStoryPointWithPoint {
   } | null;
 }
 
+// Database row type for story_points with joined story (for getStoriesForPoints)
+interface DbStoryPointWithStory {
+  point_id: string;
+  story_id: string;
+  story: DbStoryWithAuthor | null;
+}
+
 /**
  * Transform database row to Story type
  */
@@ -497,5 +504,64 @@ export const realStoriesService: StoriesService = {
     }
 
     return true;
+  },
+
+  async getStoriesForPoints(
+    pointIds: string[],
+    excludeStoryId?: string
+  ): Promise<Map<string, StoryWithAuthor[]>> {
+    log(' getStoriesForPoints:', { pointIds, excludeStoryId });
+
+    if (pointIds.length === 0) return new Map();
+
+    let query = supabase
+      .from('story_points')
+      .select(`
+        point_id,
+        story_id,
+        story:stories!story_points_story_id_fkey (
+          id,
+          author_id,
+          content,
+          visibility,
+          current_version,
+          understood_count,
+          created_at,
+          updated_at,
+          tags,
+          author:profiles!stories_author_id_fkey (
+            id,
+            name,
+            slug,
+            role,
+            avatar_color,
+            avatar_url,
+            ears_count,
+            has_pledged
+          )
+        )
+      `)
+      .in('point_id', pointIds);
+
+    if (excludeStoryId) {
+      query = query.neq('story_id', excludeStoryId);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
+      log('ERROR: getStoriesForPoints error:', error);
+      return new Map();
+    }
+
+    const result = new Map<string, StoryWithAuthor[]>();
+    for (const row of data as unknown as DbStoryPointWithStory[]) {
+      const storyRow = row.story;
+      if (!storyRow || storyRow.visibility !== 'public') continue;
+      const story = mapStoryFromDb(storyRow);
+      const existing = result.get(row.point_id) ?? [];
+      result.set(row.point_id, [...existing, story]);
+    }
+    return result;
   },
 };

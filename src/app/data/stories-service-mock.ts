@@ -215,6 +215,13 @@ export const mockStoriesService: StoriesService = {
     // Mock always succeeds
     return true;
   },
+
+  async getStoriesForPoints(
+    _pointIds: string[],
+    _excludeStoryId?: string
+  ): Promise<Map<string, StoryWithAuthor[]>> {
+    return new Map();
+  },
 };
 
 // Legacy exports for backward compatibility during migration
