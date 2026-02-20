@@ -202,6 +202,13 @@ export interface PointsService {
    * Creates history entry with null position via trigger.
    */
   removePosition(pointId: string, userId: string): Promise<boolean>;
+
+  /**
+   * P401: Count stories authored by userId that are linked to pointId.
+   * Used before removePosition to decide whether to show warning dialog.
+   * Returns count (0 = no warning needed).
+   */
+  checkLinkedStories(pointId: string, userId: string): Promise<number>;
 }
 
 export interface CreatePointInput {

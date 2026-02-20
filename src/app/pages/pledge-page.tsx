@@ -11,7 +11,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { getProfile, getProfileBySlug, addWitness, type Profile } from "@/app/data/api";
-import { ProfileVisitorView } from "@/app/components/profile/profile-visitor-view";
+import { ProfileVisitorView } from "@/app/components/profile/pledge-certificate-view";
 import { SEO } from "@/app/components/seo";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";

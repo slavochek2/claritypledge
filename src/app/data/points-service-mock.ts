@@ -359,6 +359,10 @@ export const mockPointsService: PointsService = {
     // Mock always succeeds
     return true;
   },
+
+  async checkLinkedStories(_pointId: string, _userId: string): Promise<number> {
+    return 0;
+  },
 };
 
 // Legacy exports for backward compatibility during migration

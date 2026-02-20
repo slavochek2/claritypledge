@@ -3,17 +3,13 @@
  * @description Unit tests for P401: useRemovePositionGuard hook and checkLinkedStories
  *
  * P401 contract:
- * - `checkLinkedStories(pointId, userId)` queries story_points JOIN stories
- *   WHERE stories.author_id = userId AND story_points.point_id = pointId.
+ * - `checkLinkedStories(pointId, userId)` queries stories (by author_id) then story_points.
  *   Returns count of linked stories.
- * - `useRemovePositionGuard` wraps `removePosition` with a pre-flight check.
+ * - `useRemovePositionGuard` wraps `pointsService.removePosition` with a pre-flight check.
  *   - count === 0 → calls removePosition directly, no dialog
  *   - count > 0 → opens warning dialog listing count of affected stories
  * - Cancel in dialog → removePosition NOT called, dialog closes
  * - Confirm in dialog → removePosition called, dialog closes
- *
- * Supabase mock pattern: same chain-based mock used throughout this codebase
- * (see points-service-real.test.ts for precedent).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
@@ -22,9 +18,6 @@ import { renderHook, act } from '@testing-library/react';
 // Supabase client mock — chain-based (matches existing test convention)
 // ---------------------------------------------------------------------------
 
-const _mockEq = vi.fn();
-const _mockSelect = vi.fn();
-const _mockDelete = vi.fn();
 const mockFrom = vi.fn();
 
 vi.mock('@/lib/supabase', () => ({
@@ -37,58 +30,50 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Auth context mock
-// ---------------------------------------------------------------------------
-
-vi.mock('@/auth/AuthContext', () => ({
-  useAuth: vi.fn(),
-}));
-
-import { useAuth } from '@/auth/AuthContext';
-
-const mockUseAuth = vi.mocked(useAuth);
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Builds the Supabase chainable mock for:
- *   supabase.from(table).select(cols).eq(col, val).eq(col, val)
- * resolving to { data: rows, error: null }.
- */
-function mockSelectChain(rows: unknown[]) {
-  const eqInner = vi.fn().mockResolvedValue({ data: rows, error: null });
-  const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
-  const select = vi.fn().mockReturnValue({ eq: eqOuter });
-  mockFrom.mockReturnValue({ select });
-  return { select, eqOuter, eqInner };
-}
-
-/**
- * Builds the Supabase chainable mock for a DELETE:
- *   supabase.from(table).delete().eq(col, val).eq(col, val)
- * resolving to { error: null }.
- */
-function mockDeleteChain(error: unknown = null) {
-  const eqInner = vi.fn().mockResolvedValue({ error });
-  const eqOuter = vi.fn().mockReturnValue({ eq: eqInner });
-  const del = vi.fn().mockReturnValue({ eq: eqOuter });
-  mockFrom.mockReturnValue({ delete: del });
-  return { delete: del, eqOuter, eqInner };
-}
-
-// ---------------------------------------------------------------------------
 // checkLinkedStories — direct service method tests
 // ---------------------------------------------------------------------------
 
-describe.skip('checkLinkedStories', () => {
+describe('checkLinkedStories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns 0 when no stories are linked to the point for this user', async () => {
-    mockSelectChain([]);
+  /**
+   * `checkLinkedStories` makes two queries:
+   *  1. stories.select('id').eq('author_id', userId) → storyIds
+   *  2. story_points.select(count).eq('point_id', pointId).in('story_id', ids) → count
+   *
+   * We use mockReturnValueOnce to handle each call in sequence.
+   */
+  function mockTwoQueryChain(storyRows: { id: string }[], linkedCount: number) {
+    // First call: stories query
+    const eqStories = vi.fn().mockResolvedValue({ data: storyRows, error: null });
+    const selectStories = vi.fn().mockReturnValue({ eq: eqStories });
+
+    // Second call: story_points count query
+    const inStoryPoints = vi.fn().mockResolvedValue({ count: linkedCount, error: null });
+    const eqStoryPoints = vi.fn().mockReturnValue({ in: inStoryPoints });
+    const selectStoryPoints = vi.fn().mockReturnValue({ eq: eqStoryPoints });
+
+    mockFrom
+      .mockReturnValueOnce({ select: selectStories })
+      .mockReturnValueOnce({ select: selectStoryPoints });
+  }
+
+  it('returns 0 when the user has no stories at all', async () => {
+    // stories returns empty → short-circuits, returns 0 without querying story_points
+    const eqStories = vi.fn().mockResolvedValue({ data: [], error: null });
+    const selectStories = vi.fn().mockReturnValue({ eq: eqStories });
+    mockFrom.mockReturnValueOnce({ select: selectStories });
+
+    const { realPointsService } = await import('@/app/data/points-service-real');
+    const count = await realPointsService.checkLinkedStories('point-1', 'user-1');
+
+    expect(count).toBe(0);
+  });
+
+  it('returns 0 when user has stories but none linked to this point', async () => {
+    mockTwoQueryChain([{ id: 'story-a' }], 0);
 
     const { realPointsService } = await import('@/app/data/points-service-real');
     const count = await realPointsService.checkLinkedStories('point-1', 'user-1');
@@ -97,11 +82,10 @@ describe.skip('checkLinkedStories', () => {
   });
 
   it('returns correct count when stories are linked', async () => {
-    mockSelectChain([
-      { story_id: 'story-1', point_id: 'point-1' },
-      { story_id: 'story-2', point_id: 'point-1' },
-      { story_id: 'story-3', point_id: 'point-1' },
-    ]);
+    mockTwoQueryChain(
+      [{ id: 'story-1' }, { id: 'story-2' }, { id: 'story-3' }],
+      3,
+    );
 
     const { realPointsService } = await import('@/app/data/points-service-real');
     const count = await realPointsService.checkLinkedStories('point-1', 'user-1');
@@ -110,7 +94,7 @@ describe.skip('checkLinkedStories', () => {
   });
 
   it('returns 1 when exactly one story is linked', async () => {
-    mockSelectChain([{ story_id: 'story-1', point_id: 'point-1' }]);
+    mockTwoQueryChain([{ id: 'story-1' }], 1);
 
     const { realPointsService } = await import('@/app/data/points-service-real');
     const count = await realPointsService.checkLinkedStories('point-1', 'user-1');
@@ -118,30 +102,38 @@ describe.skip('checkLinkedStories', () => {
     expect(count).toBe(1);
   });
 
-  it('queries the story_points table (not some other table)', async () => {
-    mockSelectChain([]);
+  it('queries the stories table first, then story_points', async () => {
+    mockTwoQueryChain([{ id: 'story-abc' }], 0);
 
     const { realPointsService } = await import('@/app/data/points-service-real');
     await realPointsService.checkLinkedStories('point-abc', 'user-xyz');
 
-    // The first call to supabase.from() must target story_points
-    expect(mockFrom).toHaveBeenCalledWith('story_points');
+    expect(mockFrom).toHaveBeenNthCalledWith(1, 'stories');
+    expect(mockFrom).toHaveBeenNthCalledWith(2, 'story_points');
   });
 });
 
 // ---------------------------------------------------------------------------
 // useRemovePositionGuard — hook tests
+//
+// The hook uses `pointsService` (the global singleton) directly.
+// We mock the entire module so we control checkLinkedStories and removePosition.
 // ---------------------------------------------------------------------------
 
-describe.skip('useRemovePositionGuard', () => {
+const mockCheckLinkedStories = vi.fn();
+const mockRemovePosition = vi.fn();
+
+vi.mock('@/app/data/points-service', () => ({
+  pointsService: {
+    checkLinkedStories: (...args: unknown[]) => mockCheckLinkedStories(...args),
+    removePosition: (...args: unknown[]) => mockRemovePosition(...args),
+  },
+}));
+
+describe('useRemovePositionGuard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockUseAuth.mockReturnValue({
-      user: { id: 'user-1' } as ReturnType<typeof useAuth>['user'],
-      isLoading: false,
-      sessionChecked: true,
-    } as ReturnType<typeof useAuth>);
+    mockRemovePosition.mockResolvedValue(undefined);
   });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -150,46 +142,60 @@ describe.skip('useRemovePositionGuard', () => {
 
   describe('when no stories are linked (count === 0)', () => {
     it('calls removePosition directly without opening dialog', async () => {
-      // checkLinkedStories returns empty — no stories linked
-      mockSelectChain([]);
-
-      // removePosition (DELETE) succeeds
-      mockDeleteChain(null);
+      mockCheckLinkedStories.mockResolvedValue(0);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
-      const mockRemovePosition = vi.fn().mockResolvedValue(true);
+      const onAfterRemove = vi.fn();
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: mockRemovePosition })
+        useRemovePositionGuard({ userId: 'user-1', onAfterRemove })
       );
 
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
 
       expect(mockRemovePosition).toHaveBeenCalledWith('point-1', 'user-1');
-      expect(result.current.isDialogOpen).toBe(false);
+      expect(result.current.dialogProps.open).toBe(false);
     });
 
     it('does NOT open the dialog when count is 0', async () => {
-      mockSelectChain([]);
+      mockCheckLinkedStories.mockResolvedValue(0);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
-      const mockRemovePosition = vi.fn().mockResolvedValue(true);
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: mockRemovePosition })
+        useRemovePositionGuard({ userId: 'user-1' })
       );
 
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
 
-      expect(result.current.isDialogOpen).toBe(false);
+      expect(result.current.dialogProps.open).toBe(false);
+    });
+
+    it('calls onAfterRemove after direct removal', async () => {
+      mockCheckLinkedStories.mockResolvedValue(0);
+
+      const { useRemovePositionGuard } = await import(
+        '@/app/components/shared/remove-position-dialog'
+      );
+
+      const onAfterRemove = vi.fn();
+      const { result } = renderHook(() =>
+        useRemovePositionGuard({ userId: 'user-1', onAfterRemove })
+      );
+
+      await act(async () => {
+        await result.current.guardedRemovePosition('point-1');
+      });
+
+      expect(onAfterRemove).toHaveBeenCalledWith('point-1');
     });
   });
 
@@ -199,47 +205,40 @@ describe.skip('useRemovePositionGuard', () => {
 
   describe('when stories are linked (count > 0)', () => {
     it('opens the warning dialog and does NOT call removePosition immediately', async () => {
-      mockSelectChain([
-        { story_id: 'story-1', point_id: 'point-1' },
-        { story_id: 'story-2', point_id: 'point-1' },
-      ]);
+      mockCheckLinkedStories.mockResolvedValue(2);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
-      const mockRemovePosition = vi.fn().mockResolvedValue(true);
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: mockRemovePosition })
+        useRemovePositionGuard({ userId: 'user-1' })
       );
 
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
 
-      expect(result.current.isDialogOpen).toBe(true);
+      expect(result.current.dialogProps.open).toBe(true);
       expect(mockRemovePosition).not.toHaveBeenCalled();
     });
 
-    it('exposes the linked story count in dialog state', async () => {
-      mockSelectChain([
-        { story_id: 'story-1', point_id: 'point-1' },
-        { story_id: 'story-2', point_id: 'point-1' },
-      ]);
+    it('exposes the linked story count in dialogProps', async () => {
+      mockCheckLinkedStories.mockResolvedValue(2);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: vi.fn() })
+        useRemovePositionGuard({ userId: 'user-1' })
       );
 
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
 
-      expect(result.current.linkedStoryCount).toBe(2);
+      expect(result.current.dialogProps.linkedStoryCount).toBe(2);
     });
   });
 
@@ -249,29 +248,28 @@ describe.skip('useRemovePositionGuard', () => {
 
   describe('cancel in dialog', () => {
     it('closes the dialog without calling removePosition', async () => {
-      mockSelectChain([{ story_id: 'story-1', point_id: 'point-1' }]);
+      mockCheckLinkedStories.mockResolvedValue(1);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
-      const mockRemovePosition = vi.fn();
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: mockRemovePosition })
+        useRemovePositionGuard({ userId: 'user-1' })
       );
 
       // Open dialog
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
-      expect(result.current.isDialogOpen).toBe(true);
+      expect(result.current.dialogProps.open).toBe(true);
 
       // Cancel
       act(() => {
-        result.current.handleCancel();
+        result.current.dialogProps.onCancel();
       });
 
-      expect(result.current.isDialogOpen).toBe(false);
+      expect(result.current.dialogProps.open).toBe(false);
       expect(mockRemovePosition).not.toHaveBeenCalled();
     });
   });
@@ -282,53 +280,73 @@ describe.skip('useRemovePositionGuard', () => {
 
   describe('confirm in dialog', () => {
     it('calls removePosition with the correct arguments and closes the dialog', async () => {
-      mockSelectChain([{ story_id: 'story-1', point_id: 'point-1' }]);
+      mockCheckLinkedStories.mockResolvedValue(1);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
-      const mockRemovePosition = vi.fn().mockResolvedValue(true);
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: mockRemovePosition })
+        useRemovePositionGuard({ userId: 'user-1' })
       );
 
       // Open dialog
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
-      expect(result.current.isDialogOpen).toBe(true);
 
       // Confirm
       await act(async () => {
-        await result.current.handleConfirm();
+        await result.current.dialogProps.onConfirm();
       });
 
       expect(mockRemovePosition).toHaveBeenCalledWith('point-1', 'user-1');
-      expect(result.current.isDialogOpen).toBe(false);
+      expect(result.current.dialogProps.open).toBe(false);
     });
 
     it('calls removePosition exactly once on confirm', async () => {
-      mockSelectChain([{ story_id: 'story-1', point_id: 'point-1' }]);
+      mockCheckLinkedStories.mockResolvedValue(1);
 
       const { useRemovePositionGuard } = await import(
         '@/app/components/shared/remove-position-dialog'
       );
 
-      const mockRemovePosition = vi.fn().mockResolvedValue(true);
       const { result } = renderHook(() =>
-        useRemovePositionGuard({ removePosition: mockRemovePosition })
+        useRemovePositionGuard({ userId: 'user-1' })
       );
 
       await act(async () => {
-        await result.current.guardedRemovePosition('point-1', 'user-1');
+        await result.current.guardedRemovePosition('point-1');
       });
 
       await act(async () => {
-        await result.current.handleConfirm();
+        await result.current.dialogProps.onConfirm();
       });
 
       expect(mockRemovePosition).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onAfterRemove after confirm', async () => {
+      mockCheckLinkedStories.mockResolvedValue(1);
+
+      const { useRemovePositionGuard } = await import(
+        '@/app/components/shared/remove-position-dialog'
+      );
+
+      const onAfterRemove = vi.fn();
+      const { result } = renderHook(() =>
+        useRemovePositionGuard({ userId: 'user-1', onAfterRemove })
+      );
+
+      await act(async () => {
+        await result.current.guardedRemovePosition('point-1');
+      });
+
+      await act(async () => {
+        await result.current.dialogProps.onConfirm();
+      });
+
+      expect(onAfterRemove).toHaveBeenCalledWith('point-1');
     });
   });
 });

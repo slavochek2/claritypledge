@@ -1,3 +1,4 @@
+// Component for: /p/:slug/pledge (pledge certificate page, NOT the main profile)
 import { useState } from "react";
 import { type Profile } from "@/app/data/api";
 import { ProfileCertificate } from "@/app/components/profile/profile-certificate";

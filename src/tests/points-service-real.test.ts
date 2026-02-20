@@ -382,4 +382,446 @@ describe('realPointsService', () => {
       expect(result).toBe(false);
     });
   });
+
+  // ===========================================================================
+  // P402: Points tab wrong query — getPointsForProfileDisplay & getPointsWithUserPositions
+  // ===========================================================================
+
+  describe('getPointsForProfileDisplay — P402 correctness', () => {
+    /**
+     * Core invariant: the profile Points tab must show points the user has POSITIONS on,
+     * not points they CREATED. Before P402 fix, getPointsForProfileDisplay called
+     * getPointsByValidator (first_validator_id filter) instead of querying point_positions.
+     */
+
+    it('returns points where user HAS a position, not just points they created', async () => {
+      const CREATOR_ID = 'creator-user';
+      const POSITIONER_ID = 'positioner-user';
+
+      // point_positions: positioner has a position on point-99 (created by someone else)
+      const mockPositionRows = [{ point_id: 'point-99' }];
+
+      // points: the actual point row (created by creator-user)
+      const mockPointRows = [
+        {
+          id: 'point-99',
+          statement: 'Point created by someone else',
+          context: null,
+          first_validator_id: CREATOR_ID,
+          created_at: '2026-02-01T00:00:00Z',
+          updated_at: '2026-02-01T00:00:00Z',
+          tags: [],
+          creator: {
+            id: CREATOR_ID,
+            name: 'Creator',
+            slug: 'creator',
+            avatar_color: '#3B82F6',
+            avatar_url: null,
+          },
+        },
+      ];
+
+      // Call 1: point_positions WHERE user_id = positioner
+      mockSelect
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({ data: mockPositionRows, error: null }),
+        })
+        // Call 2: points IN (point-ids) with creator join
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+          }),
+        })
+        // Call 3: getPositionCountsForPoints — point_positions WHERE point_id IN (...)
+        .mockReturnValueOnce({
+          in: vi.fn().mockResolvedValue({ data: [{ point_id: 'point-99', position: 'agree' }], error: null }),
+        })
+        // Call 4: getMyPositionsForPoints for viewer/subject — same point_positions query
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'pos-1',
+                  point_id: 'point-99',
+                  user_id: POSITIONER_ID,
+                  position: 'agree',
+                  reasoning: null,
+                  created_at: '2026-02-01T00:00:00Z',
+                  updated_at: '2026-02-01T00:00:00Z',
+                },
+              ],
+              error: null,
+            }),
+          }),
+        });
+
+      const result = await realPointsService.getPointsForProfileDisplay(POSITIONER_ID);
+
+      // The point created by CREATOR_ID must appear in POSITIONER_ID's tab
+      // because POSITIONER_ID holds a position on it
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('point-99');
+      expect(result[0].statement).toBe('Point created by someone else');
+      // firstValidatorId is the creator — NOT the positioner
+      expect(result[0].firstValidatorId).toBe(CREATOR_ID);
+    });
+
+    it('returns empty when user has no positions even if they created points', async () => {
+      const USER_ID = 'creator-only-user';
+
+      // point_positions: no rows — user has no positions
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      });
+
+      const result = await realPointsService.getPointsForProfileDisplay(USER_ID);
+
+      // Must return empty — user created points but has no positions on any
+      expect(result).toEqual([]);
+      // Only one query should be made (the point_positions check — early return)
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it('populates profileSubjectPosition from the profile owner\'s position', async () => {
+      const SUBJECT_ID = 'profile-subject';
+      const VIEWER_ID = 'another-viewer';
+
+      const mockPositionRows = [{ point_id: 'point-A' }];
+      const mockPointRows = [
+        {
+          id: 'point-A',
+          statement: 'Subject took a position on this',
+          context: null,
+          first_validator_id: 'some-creator',
+          created_at: '2026-02-01T00:00:00Z',
+          updated_at: '2026-02-01T00:00:00Z',
+          tags: [],
+          creator: {
+            id: 'some-creator',
+            name: 'Some Creator',
+            slug: 'some-creator',
+            avatar_color: '#3B82F6',
+            avatar_url: null,
+          },
+        },
+      ];
+
+      // Call 1: point_positions for subject
+      mockSelect
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({ data: mockPositionRows, error: null }),
+        })
+        // Call 2: points fetch
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+          }),
+        })
+        // Call 3: getPositionCountsForPoints
+        .mockReturnValueOnce({
+          in: vi.fn().mockResolvedValue({
+            data: [{ point_id: 'point-A', position: 'disagree' }],
+            error: null,
+          }),
+        })
+        // Call 4: getMyPositionsForPoints for viewer (viewerIsSubject=false)
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        })
+        // Call 5: getMyPositionsForPoints for subject (always fetch)
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'pos-subject',
+                  point_id: 'point-A',
+                  user_id: SUBJECT_ID,
+                  position: 'disagree',
+                  reasoning: null,
+                  created_at: '2026-02-01T00:00:00Z',
+                  updated_at: '2026-02-01T00:00:00Z',
+                },
+              ],
+              error: null,
+            }),
+          }),
+        });
+
+      const result = await realPointsService.getPointsForProfileDisplay(SUBJECT_ID, VIEWER_ID);
+
+      expect(result).toHaveLength(1);
+      // profileSubjectPosition must reflect the profile owner's actual position
+      expect(result[0].profileSubjectPosition).toBeDefined();
+      expect(result[0].profileSubjectPosition?.position).toBe('disagree');
+      // Viewer has no position — userPosition should be undefined
+      expect(result[0].userPosition).toBeUndefined();
+    });
+
+    it('sets userPosition = profileSubjectPosition when viewer is the profile subject (self-view)', async () => {
+      const USER_ID = 'self-viewing-user';
+
+      const mockPositionRows = [{ point_id: 'point-B' }];
+      const mockPointRows = [
+        {
+          id: 'point-B',
+          statement: 'My position on this',
+          context: null,
+          first_validator_id: 'other-creator',
+          created_at: '2026-02-01T00:00:00Z',
+          updated_at: '2026-02-01T00:00:00Z',
+          tags: [],
+          creator: {
+            id: 'other-creator',
+            name: 'Other Creator',
+            slug: 'other-creator',
+            avatar_color: '#10B981',
+            avatar_url: null,
+          },
+        },
+      ];
+
+      const myPositionData = [
+        {
+          id: 'pos-self',
+          point_id: 'point-B',
+          user_id: USER_ID,
+          position: 'strongly_agree',
+          reasoning: 'Very confident',
+          created_at: '2026-02-01T00:00:00Z',
+          updated_at: '2026-02-01T00:00:00Z',
+        },
+      ];
+
+      // Call 1: point_positions for user
+      mockSelect
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({ data: mockPositionRows, error: null }),
+        })
+        // Call 2: points fetch
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: mockPointRows, error: null }),
+          }),
+        })
+        // Call 3: getPositionCountsForPoints
+        .mockReturnValueOnce({
+          in: vi.fn().mockResolvedValue({
+            data: [{ point_id: 'point-B', position: 'strongly_agree' }],
+            error: null,
+          }),
+        })
+        // Call 4: getMyPositionsForPoints for subject (viewerIsSubject=true, no viewer query)
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: myPositionData, error: null }),
+          }),
+        });
+
+      // Self-view: viewerUserId === validatorId
+      const result = await realPointsService.getPointsForProfileDisplay(USER_ID, USER_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].profileSubjectPosition?.position).toBe('strongly_agree');
+      // Self-view: userPosition should equal profileSubjectPosition
+      expect(result[0].userPosition?.position).toBe('strongly_agree');
+      expect(result[0].userPosition?.id).toBe('pos-self');
+    });
+  });
+
+  describe('getPointsWithUserPositions — P402 batch query correctness', () => {
+    /**
+     * Before P402, getPointsWithUserPositions used Promise.all(pointIds.map(...))
+     * — one DB round-trip per point (N+1). The fix replaces this with batch queries
+     * (same pattern as getPositionCountsForPoints). These tests verify correct results
+     * regardless of implementation, and confirm no N+1 by checking mockFrom call count.
+     */
+
+    it('returns points created by others that user has positioned on', async () => {
+      const USER_ID = 'user-with-positions';
+
+      // point_positions: user positioned on two points they didn't create
+      mockSelect
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({
+            data: [{ point_id: 'point-X' }, { point_id: 'point-Y' }],
+            error: null,
+          }),
+        })
+        // points fetch for those IDs
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'point-X',
+                  statement: 'Another user created this X',
+                  context: null,
+                  first_validator_id: 'other-user-1',
+                  created_at: '2026-02-01T00:00:00Z',
+                  updated_at: '2026-02-01T00:00:00Z',
+                  tags: [],
+                  creator: {
+                    id: 'other-user-1',
+                    name: 'Other User 1',
+                    slug: 'other-user-1',
+                    avatar_color: '#3B82F6',
+                    avatar_url: null,
+                  },
+                },
+                {
+                  id: 'point-Y',
+                  statement: 'Another user created this Y',
+                  context: null,
+                  first_validator_id: 'other-user-2',
+                  created_at: '2026-02-01T00:00:00Z',
+                  updated_at: '2026-02-01T00:00:00Z',
+                  tags: [],
+                  creator: {
+                    id: 'other-user-2',
+                    name: 'Other User 2',
+                    slug: 'other-user-2',
+                    avatar_color: '#10B981',
+                    avatar_url: null,
+                  },
+                },
+              ],
+              error: null,
+            }),
+          }),
+        })
+        // getPositionCountsForPoints — all positions for these points
+        .mockReturnValueOnce({
+          in: vi.fn().mockResolvedValue({
+            data: [
+              { point_id: 'point-X', position: 'agree' },
+              { point_id: 'point-X', position: 'agree' },
+              { point_id: 'point-Y', position: 'disagree' },
+            ],
+            error: null,
+          }),
+        })
+        // getMyPositionsForPoints — user's own positions
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'pos-X',
+                  point_id: 'point-X',
+                  user_id: USER_ID,
+                  position: 'agree',
+                  reasoning: null,
+                  created_at: '2026-02-01T00:00:00Z',
+                  updated_at: '2026-02-01T00:00:00Z',
+                },
+                {
+                  id: 'pos-Y',
+                  point_id: 'point-Y',
+                  user_id: USER_ID,
+                  position: 'disagree',
+                  reasoning: null,
+                  created_at: '2026-02-01T00:00:00Z',
+                  updated_at: '2026-02-01T00:00:00Z',
+                },
+              ],
+              error: null,
+            }),
+          }),
+        });
+
+      const result = await realPointsService.getPointsWithUserPositions(USER_ID);
+
+      expect(result).toHaveLength(2);
+      const pointX = result.find(p => p.id === 'point-X');
+      const pointY = result.find(p => p.id === 'point-Y');
+
+      expect(pointX).toBeDefined();
+      expect(pointX?.statement).toBe('Another user created this X');
+      expect(pointX?.userPosition?.position).toBe('agree');
+      expect(pointX?.positionCounts.agree).toBe(2);
+
+      expect(pointY).toBeDefined();
+      expect(pointY?.statement).toBe('Another user created this Y');
+      expect(pointY?.userPosition?.position).toBe('disagree');
+      expect(pointY?.positionCounts.disagree).toBe(1);
+    });
+
+    it('returns empty array when user has no positions', async () => {
+      const USER_ID = 'user-no-positions';
+
+      // point_positions: no rows
+      mockSelect.mockReturnValueOnce({
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      });
+
+      const result = await realPointsService.getPointsWithUserPositions(USER_ID);
+
+      expect(result).toEqual([]);
+      // Only 1 query should run — no further queries after early return
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+    });
+
+    it('uses batch queries — mockFrom is not called more than 4 times for N points', async () => {
+      /**
+       * N+1 detection: with batch queries, total DB round-trips is fixed at 4 regardless
+       * of how many points the user has positions on:
+       *   1. point_positions WHERE user_id = X  (get pointIds)
+       *   2. points WHERE id IN (pointIds)        (fetch point rows)
+       *   3. point_positions WHERE point_id IN (...) (counts)
+       *   4. point_positions WHERE point_id IN (...) AND user_id = X  (user positions)
+       *
+       * Before fix: count would be 1 + N×3 (one getPointWithUserPosition per point).
+       * After fix: always 4 queries, regardless of N.
+       */
+      const USER_ID = 'batch-test-user';
+
+      // Simulate 5 positions — N+1 would call mockFrom 1 + 5×3 = 16 times
+      const positionRows = Array.from({ length: 5 }, (_, i) => ({ point_id: `point-${i}` }));
+      const pointRows = positionRows.map((p, i) => ({
+        id: p.point_id,
+        statement: `Point ${i}`,
+        context: null,
+        first_validator_id: 'other-creator',
+        created_at: '2026-02-01T00:00:00Z',
+        updated_at: '2026-02-01T00:00:00Z',
+        tags: [],
+        creator: {
+          id: 'other-creator',
+          name: 'Creator',
+          slug: 'creator',
+          avatar_color: '#3B82F6',
+          avatar_url: null,
+        },
+      }));
+
+      mockSelect
+        .mockReturnValueOnce({
+          eq: vi.fn().mockResolvedValue({ data: positionRows, error: null }),
+        })
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: pointRows, error: null }),
+          }),
+        })
+        .mockReturnValueOnce({
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        })
+        .mockReturnValueOnce({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        });
+
+      await realPointsService.getPointsWithUserPositions(USER_ID);
+
+      // With batch queries: mockFrom called at most 4 times (one per query)
+      // With N+1 (old code): mockFrom would be called 1 + 5×3 = 16 times
+      expect(mockFrom).toHaveBeenCalledTimes(4);
+    });
+  });
+
 });

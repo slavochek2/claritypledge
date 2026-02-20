@@ -113,6 +113,7 @@ function formatTimeAgo(dateStr: string): string {
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
 import { calibrationService } from "@/app/data/calibration-service";
+import { RemovePositionDialog, useRemovePositionGuard } from "@/app/components/shared/remove-position-dialog";
 import type { StoryWithPoints, PointWithUserPosition, PointSummary, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
@@ -341,6 +342,37 @@ export function ProfilePageV2() {
     navigate('/create');
   }, [navigate]);
 
+  // P401: Guard position removal with linked-stories warning dialog
+  const { dialogProps: removePositionDialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: currentUser?.id ?? '',
+    onAfterRemove: async () => {
+      // After confirmed removal, refetch points to get updated counts
+      if (!profile || !currentUser?.id) return;
+      const updatedPoints = await pointsService.getPointsForProfileDisplay(profile.id, currentUser.id);
+      const existingPoints = realPoints as unknown as AdaptedPoint[];
+      const adaptedPoints = updatedPoints.map(point => {
+        const positions: Record<string, { position: string; timestamp: string }> = {};
+        if (point.userPosition && currentUser?.id) {
+          positions[currentUser.id] = { position: point.userPosition.position, timestamp: point.userPosition.createdAt };
+        }
+        if (point.profileSubjectPosition) {
+          positions[profile.id] = { position: point.profileSubjectPosition.position, timestamp: point.profileSubjectPosition.createdAt };
+        }
+        const existing = existingPoints.find(rp => rp.id === point.id);
+        return {
+          id: point.id,
+          text: point.statement,
+          createdAt: point.createdAt || new Date().toISOString(),
+          positions,
+          positionCounts: point.positionCounts ?? {},
+          linkedStoryIds: existing?.linkedStoryIds ?? [],
+          linkedStories: existing?.linkedStories ?? [],
+        };
+      });
+      setRealPoints(adaptedPoints as unknown as PointWithUserPosition[]);
+    },
+  });
+
   // Handle resend verification email
   const handleResendEmail = async () => {
     if (!profile?.email) return;
@@ -374,7 +406,9 @@ export function ProfilePageV2() {
       // Persist to database
       let result;
       if (position === null) {
-        result = await pointsService.removePosition(pointId, currentUser.id);
+        // P401: Use guarded removal — shows dialog if linked stories exist
+        await guardedRemovePosition(pointId);
+        return;
       } else {
         result = await pointsService.setPosition(pointId, currentUser.id, position);
       }
@@ -821,6 +855,9 @@ export function ProfilePageV2() {
           title={`${profile.name}'s Clarity Profile`}
           description={`Check out ${profile.name}'s profile on Clarity Pledge`}
         />
+
+        {/* P401: Remove position warning dialog */}
+        <RemovePositionDialog {...removePositionDialogProps} />
       </div>
     </>
   );

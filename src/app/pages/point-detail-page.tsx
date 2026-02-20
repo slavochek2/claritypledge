@@ -23,6 +23,7 @@ import {
   type PositionFilter,
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
 function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
@@ -48,6 +49,21 @@ export function PointDetailPage() {
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+
+  // P401: Guard position removal with linked-stories warning dialog
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: user?.id ?? '',
+    onAfterRemove: async (pointId) => {
+      // After confirmed removal, reload to get updated counts
+      const updatedPoint = user?.id
+        ? await pointsService.getPointWithUserPosition(pointId, user.id)
+        : await pointsService.getPointWithCounts(pointId);
+      if (updatedPoint) {
+        setPoint(updatedPoint);
+        setUserPosition(null);
+      }
+    },
+  });
 
   useEffect(() => {
     async function loadData() {
@@ -134,12 +150,14 @@ export function PointDetailPage() {
 
     // Persist to database
     try {
-      let result;
       if (newPosition === null) {
-        result = await pointsService.removePosition(id, user.id);
-        console.log('[DEBUG] removePosition result:', result);
+        // P401: Use guarded removal — shows dialog if linked stories exist
+        // Revert optimistic update first (the guard will handle the actual removal + reload)
+        setUserPosition(userPosition);
+        await guardedRemovePosition(id);
+        return;
       } else {
-        result = await pointsService.setPosition(id, user.id, newPosition);
+        const result = await pointsService.setPosition(id, user.id, newPosition);
         console.log('[DEBUG] setPosition result:', result);
       }
 
@@ -247,6 +265,9 @@ export function PointDetailPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
+      {/* P401: Remove position warning dialog */}
+      <RemovePositionDialog {...dialogProps} />
+
       {/* Back button */}
       <button
         onClick={handleBack}

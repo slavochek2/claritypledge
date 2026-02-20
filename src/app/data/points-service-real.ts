@@ -471,26 +471,54 @@ export const realPointsService: PointsService = {
   },
 
   async getPointsWithUserPositions(userId: string): Promise<PointWithUserPosition[]> {
-    log(' getPointsWithUserPositions:', userId);
+    log('⚡ getPointsWithUserPositions:', userId);
 
-    // Get all positions for this user
-    const { data: positions, error: posError } = await supabase
+    // 1. Get all point_ids this user has positions on
+    const { data: positionRows, error: posError } = await supabase
       .from('point_positions')
       .select('point_id')
       .eq('user_id', userId);
 
-    if (posError || !positions || positions.length === 0) {
+    if (posError || !positionRows || positionRows.length === 0) return [];
+
+    const pointIds = positionRows.map(p => p.point_id);
+
+    // 2. Fetch the point rows with creator profiles (single query, IN clause)
+    const { data: pointRows, error: pointsError } = await supabase
+      .from('points')
+      .select(`
+        *,
+        creator:profiles!points_first_validator_id_fkey (
+          id, name, slug, avatar_color, avatar_url
+        )
+      `)
+      .in('id', pointIds)
+      .order('created_at', { ascending: false });
+
+    if (pointsError || !pointRows) {
+      log('ERROR: getPointsWithUserPositions points fetch error:', pointsError);
       return [];
     }
 
-    const pointIds = positions.map((p) => p.point_id);
+    const points = (pointRows as DbPointWithCreator[]).map(mapPointFromDb);
 
-    // Get those points with counts
-    const points = await Promise.all(
-      pointIds.map((id) => this.getPointWithUserPosition(id, userId))
-    );
+    // 3. Batch fetch position counts and user's own positions (2 queries for N points)
+    const [countsMap, userPositionsMap] = await Promise.all([
+      this.getPositionCountsForPoints(pointIds),
+      this.getMyPositionsForPoints(pointIds, userId),
+    ]);
 
-    return points.filter((p): p is PointWithUserPosition => p !== null);
+    // 4. Assemble PointWithUserPosition[]
+    return points.map(point => {
+      const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
+      const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
+      return {
+        ...point,
+        positionCounts,
+        totalPositions,
+        userPosition: userPositionsMap.get(point.id),
+      };
+    });
   },
 
   /**
@@ -588,8 +616,9 @@ export const realPointsService: PointsService = {
   // ============================================================================
 
   /**
-   * P151: Get points created by a user, ready for profile display
-   * Encapsulates efficient batch loading pattern
+   * P402: Get points a user has positions on, ready for profile display.
+   * Fixes P402 bug: was querying by points *created*, now queries by positions *held*.
+   * Encapsulates efficient batch loading pattern (4–5 queries regardless of N).
    */
   async getPointsForProfileDisplay(
     validatorId: string,
@@ -597,37 +626,60 @@ export const realPointsService: PointsService = {
   ): Promise<PointWithUserPosition[]> {
     log('⚡ getPointsForProfileDisplay:', { validatorId, viewerUserId });
 
-    // Get points created by this user
-    const points = await this.getPointsByValidator(validatorId);
-    if (points.length === 0) return [];
+    // FIX: query by positions held, not points created
+    const { data: positionRows, error: posError } = await supabase
+      .from('point_positions')
+      .select('point_id')
+      .eq('user_id', validatorId);
 
-    const pointIds = points.map(p => p.id);
+    if (posError || !positionRows || positionRows.length === 0) return [];
 
-    // Self-view optimization: viewer and subject are the same person
+    const pointIds = positionRows.map(p => p.point_id);
+
+    // Fetch point rows with creator profiles
+    const { data: pointRows, error: pointsError } = await supabase
+      .from('points')
+      .select(`
+        *,
+        creator:profiles!points_first_validator_id_fkey (
+          id, name, slug, avatar_color, avatar_url
+        )
+      `)
+      .in('id', pointIds)
+      .order('created_at', { ascending: false });
+
+    if (pointsError || !pointRows) {
+      log('ERROR: getPointsForProfileDisplay points fetch error:', pointsError);
+      return [];
+    }
+
+    const points = (pointRows as DbPointWithCreator[]).map(mapPointFromDb);
+
     const viewerIsSubject = viewerUserId === validatorId;
 
-    // Batch fetch counts + viewer positions + subject positions (2-3 queries for N points)
-    const [countsMap, positionsMap, subjectPositionsMap] = await Promise.all([
+    // Batch fetch: counts + viewer positions + subject positions (2-3 queries)
+    const [countsMap, viewerPositionsMap, subjectPositionsMap] = await Promise.all([
       this.getPositionCountsForPoints(pointIds),
       !viewerIsSubject && viewerUserId
         ? this.getMyPositionsForPoints(pointIds, viewerUserId)
         : Promise.resolve(new Map<string, PointPosition>()),
-      this.getMyPositionsForPoints(pointIds, validatorId),
+      this.getMyPositionsForPoints(pointIds, validatorId),   // always fetch subject
     ]);
 
-    // Combine into PointWithUserPosition[]
     return points.map(point => {
       const positionCounts = countsMap.get(point.id) || emptyPositionCounts();
-      const totalPositions = Object.values(positionCounts).reduce((sum, count) => sum + count, 0);
+      const totalPositions = Object.values(positionCounts).reduce((sum, n) => sum + n, 0);
       const profileSubjectPosition = subjectPositionsMap.get(point.id);
-      const userPosition = viewerIsSubject ? profileSubjectPosition : positionsMap.get(point.id);
+      const userPosition = viewerIsSubject
+        ? profileSubjectPosition
+        : viewerPositionsMap.get(point.id);
 
       return {
         ...point,
         positionCounts,
         totalPositions,
         userPosition,
-        profileSubjectPosition,
+        profileSubjectPosition,   // always the profile owner's position
       };
     });
   },
@@ -712,5 +764,37 @@ export const realPointsService: PointsService = {
     }
 
     return true;
+  },
+
+  /**
+   * P401: Count stories authored by userId that are linked to pointId.
+   * Two-query approach (Supabase JS client doesn't support subqueries).
+   */
+  async checkLinkedStories(pointId: string, userId: string): Promise<number> {
+    log(' checkLinkedStories:', { pointId, userId });
+
+    // 1. Get story IDs authored by userId
+    const { data: storyIds } = await supabase
+      .from('stories')
+      .select('id')
+      .eq('author_id', userId);
+
+    if (!storyIds || storyIds.length === 0) return 0;
+
+    const ids = storyIds.map(s => s.id);
+
+    // 2. Count story_points matching pointId + those story IDs
+    const { count: linkedCount, error: countError } = await supabase
+      .from('story_points')
+      .select('story_id', { count: 'exact', head: true })
+      .eq('point_id', pointId)
+      .in('story_id', ids);
+
+    if (countError) {
+      log('ERROR: checkLinkedStories error:', countError);
+      return 0;
+    }
+
+    return linkedCount ?? 0;
   },
 };
