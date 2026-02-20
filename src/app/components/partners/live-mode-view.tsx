@@ -995,8 +995,7 @@ function IdleScreen({
             )}
 
             {/* P272: Story card shown when story is selected.
-                Partner view: auto-expanded so they can read points and vote immediately.
-                Owner view: collapsed — they know their own story. */}
+                Both views start collapsed — partner can expand to read points and vote. */}
             {selectedStory && (
               <LiveStoryCardExpanded
                 story={selectedStory}
@@ -1004,7 +1003,7 @@ function IdleScreen({
                 className="w-full max-w-sm mb-2"
                 badgePersonName={badgePersonName}
                 badgePersonEarsCount={badgePersonEarsCount}
-                defaultExpanded={!isStoryOwner}
+                defaultExpanded={false}
               />
             )}
 
