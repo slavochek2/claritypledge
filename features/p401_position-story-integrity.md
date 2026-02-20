@@ -1,11 +1,11 @@
 ---
-status: done
-completed_at: "2026-02-20"
+status: all-done
 type: story
 rank: 400
 workstream: C1
-created_date: 2026-02-20
+created_date: 2026-02-20T00:00:00.000Z
 tags: []
+locked_at: '2026-02-20T12:09:29.889Z'
 ---
 
 # P401: Position-Story Integrity

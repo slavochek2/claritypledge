@@ -137,11 +137,11 @@ describe('useRemovePositionGuard', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────────────
-  // count === 0 → direct removal, no dialog
+  // count === 0 → dialog still opens (profile message shown, no story count)
   // ─────────────────────────────────────────────────────────────────────────
 
   describe('when no stories are linked (count === 0)', () => {
-    it('calls removePosition directly without opening dialog', async () => {
+    it('opens the dialog without calling removePosition immediately', async () => {
       mockCheckLinkedStories.mockResolvedValue(0);
 
       const { useRemovePositionGuard } = await import(
@@ -157,11 +157,11 @@ describe('useRemovePositionGuard', () => {
         await result.current.guardedRemovePosition('point-1');
       });
 
-      expect(mockRemovePosition).toHaveBeenCalledWith('point-1', 'user-1');
-      expect(result.current.dialogProps.open).toBe(false);
+      expect(result.current.dialogProps.open).toBe(true);
+      expect(mockRemovePosition).not.toHaveBeenCalled();
     });
 
-    it('does NOT open the dialog when count is 0', async () => {
+    it('opens the dialog with linkedStoryCount === 0 when count is 0', async () => {
       mockCheckLinkedStories.mockResolvedValue(0);
 
       const { useRemovePositionGuard } = await import(
@@ -176,10 +176,11 @@ describe('useRemovePositionGuard', () => {
         await result.current.guardedRemovePosition('point-1');
       });
 
-      expect(result.current.dialogProps.open).toBe(false);
+      expect(result.current.dialogProps.open).toBe(true);
+      expect(result.current.dialogProps.linkedStoryCount).toBe(0);
     });
 
-    it('calls onAfterRemove after direct removal', async () => {
+    it('calls onAfterRemove after confirm when count is 0', async () => {
       mockCheckLinkedStories.mockResolvedValue(0);
 
       const { useRemovePositionGuard } = await import(
@@ -195,6 +196,11 @@ describe('useRemovePositionGuard', () => {
         await result.current.guardedRemovePosition('point-1');
       });
 
+      await act(async () => {
+        await result.current.dialogProps.onConfirm();
+      });
+
+      expect(mockRemovePosition).toHaveBeenCalledWith('point-1', 'user-1');
       expect(onAfterRemove).toHaveBeenCalledWith('point-1');
     });
   });

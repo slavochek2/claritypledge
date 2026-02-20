@@ -370,6 +370,10 @@ export function ProfilePageV2() {
         };
       });
       setRealPoints(adaptedPoints as unknown as PointWithUserPosition[]);
+
+      // Also refetch stories so QuotedPointCard.userPosition syncs via its useEffect
+      const updatedStories = await storiesService.getStoriesByAuthorWithPoints(profile.id, currentUser.id);
+      setRealStories(updatedStories);
     },
   });
 
@@ -1101,7 +1105,10 @@ function QuotedPointCard({
 
   const handlePositionClick = (position: Position) => {
     const newPosition = userPosition === position ? null : position;
-    setUserPosition(newPosition);
+    // Only optimistically update for selection; removal waits for dialog confirm
+    if (newPosition !== null) {
+      setUserPosition(newPosition);
+    }
     onPositionSelect?.(newPosition);
   };
 

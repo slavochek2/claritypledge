@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -194,9 +194,17 @@ function PointRow({
   // frozen selectedStoryData snapshot. Echoes to onPositionSelect for liveState sync.
   const [userPosition, setUserPosition] = useState<PositionType | null>(point.userPosition ?? null);
 
+  // Sync from prop when liveState updates (e.g. after confirm removes position via guard dialog)
+  useEffect(() => {
+    setUserPosition(point.userPosition ?? null);
+  }, [point.userPosition]);
+
   const handlePositionClick = (position: PositionType) => {
     const next = userPosition === position ? null : position; // toggle same position off
-    setUserPosition(next);
+    // Only optimistically update for selection; removal waits for dialog confirm
+    if (next !== null) {
+      setUserPosition(next);
+    }
     onPositionSelect?.(point.id, next);
   };
 

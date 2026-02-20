@@ -1,13 +1,13 @@
 ---
-status: done
-completed_at: "2026-02-20"
+status: all-done
 type: bug
 rank: 402
 workstream: C1
 severity: high
-date_reported: 2026-02-20
-created_date: 2026-02-20
+date_reported: 2026-02-20T00:00:00.000Z
+created_date: 2026-02-20T00:00:00.000Z
 tags: []
+locked_at: '2026-02-20T12:09:25.516Z'
 ---
 
 # BUG: Profile Points Tab Shows Wrong Points

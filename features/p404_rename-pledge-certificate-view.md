@@ -1,11 +1,11 @@
 ---
-status: done
-completed_at: "2026-02-20"
+status: all-done
 type: task
 rank: 404
 workstream: foundation
-created_date: 2026-02-20
+created_date: 2026-02-20T00:00:00.000Z
 tags: []
+locked_at: '2026-02-20T12:09:21.325Z'
 ---
 
 # TASK: Rename profile-visitor-view.tsx to pledge-certificate-view.tsx

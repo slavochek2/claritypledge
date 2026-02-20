@@ -1,11 +1,11 @@
 ---
-status: done
-completed_at: "2026-02-20"
+status: all-done
 type: task
 rank: 403
 workstream: C1
-created_date: 2026-02-20
+created_date: 2026-02-20T00:00:00.000Z
 tags: []
+locked_at: '2026-02-20T12:09:17.132Z'
 ---
 
 # TASK: DB Migrations — Position Cascade Trigger + Story Point History

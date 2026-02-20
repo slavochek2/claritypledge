@@ -108,17 +108,11 @@ export function useRemovePositionGuard({
       ? await (pointsService as typeof pointsService & { checkLinkedStories: (pointId: string, userId: string) => Promise<number> }).checkLinkedStories(pointId, userId)
       : 0;
 
-    if (count > 0) {
-      // Show dialog — user must confirm before unlinking stories
-      setLinkedCount(count);
-      setPendingPointId(pointId);
-      setDialogOpen(true);
-    } else {
-      // No linked stories — remove directly
-      await pointsService.removePosition(pointId, userId);
-      onAfterRemove?.(pointId);
-    }
-  }, [userId, onAfterRemove]);
+    // Always show dialog — profile warning shown for all cases, story count shown conditionally
+    setLinkedCount(count);
+    setPendingPointId(pointId);
+    setDialogOpen(true);
+  }, [userId]);
 
   const handleConfirm = useCallback(async () => {
     if (!pendingPointId) return;

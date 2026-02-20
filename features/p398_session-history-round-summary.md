@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: "2026-02-20"
+status: all-done
 type: story
 rank: 1
 workstream: C1
@@ -20,6 +19,7 @@ test_files:
   - e2e/p398-smoke.spec.ts
   - e2e/a11y/p398-accessibility.spec.ts
 delivery_stage: tests-generated
+locked_at: '2026-02-20T12:09:34.247Z'
 ---
 
 # P398: Clickable Session Round History with Summary Screen
