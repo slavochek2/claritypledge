@@ -529,6 +529,7 @@ export function LiveModeView({
           isPrivate={isPrivate}
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
+          isStoryOwner={isAuthorOfSelected}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -589,6 +590,7 @@ export function LiveModeView({
           isPrivate={isPrivate}
           badgePersonName={badgePersonName}
           badgePersonEarsCount={badgePersonEarsCount}
+          isStoryOwner={isAuthorOfSelected}
                   />
         {skipNotificationDialog}
         {confirmSkipDialog}
@@ -641,6 +643,7 @@ export function LiveModeView({
             onPositionSelect={onPositionSelect}
             badgePersonName={badgePersonName}
             badgePersonEarsCount={badgePersonEarsCount}
+            isStoryOwner={isAuthorOfSelected}
                       />
           {skipNotificationDialog}
           {confirmSkipDialog}
@@ -738,6 +741,7 @@ export function LiveModeView({
         isPrivate={isPrivate}
         badgePersonName={badgePersonName}
         badgePersonEarsCount={badgePersonEarsCount}
+        isStoryOwner={isAuthorOfSelected}
               />
       {skipNotificationDialog}
       {confirmSkipDialog}
@@ -782,6 +786,8 @@ interface IdleScreenProps {
   badgePersonName?: string;
   /** Ear count for the badge person — shown in the badge when host view is active */
   badgePersonEarsCount?: number;
+  /** When true, current user owns the selected story — show only the check button and keep card collapsed */
+  isStoryOwner?: boolean;
 }
 
 function IdleScreen({
@@ -804,6 +810,7 @@ function IdleScreen({
   isPrivate = false,
   badgePersonName,
   badgePersonEarsCount,
+  isStoryOwner = false,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -962,7 +969,9 @@ function IdleScreen({
               />
             )}
 
-            {/* P272: Story card shown when story is selected */}
+            {/* P272: Story card shown when story is selected.
+                Partner view: auto-expanded so they can read points and vote immediately.
+                Owner view: collapsed — they know their own story. */}
             {selectedStory && (
               <LiveStoryCardExpanded
                 story={selectedStory}
@@ -970,14 +979,15 @@ function IdleScreen({
                 className="w-full max-w-sm mb-2"
                 badgePersonName={badgePersonName}
                 badgePersonEarsCount={badgePersonEarsCount}
+                defaultExpanded={!isStoryOwner}
               />
             )}
 
             <ActionArea
               className={showRatingDrawer || hasRatingData ? '' : '!pt-0'}
             >
-              {/* P400 Bug 4: conditionally render (not just disable) so buttons are hidden when drawer is open */}
-              {!showRatingDrawer && (
+              {/* Check button: always shown in free session; owner-only when story is selected */}
+              {!showRatingDrawer && (!selectedStory || isStoryOwner) && (
                 <Button
                   size="lg"
                   className="bg-blue-500 hover:bg-blue-600 w-full"
@@ -989,7 +999,8 @@ function IdleScreen({
                 </Button>
               )}
 
-              {!showRatingDrawer && (
+              {/* Prove button: only shown in free session (no story selected) */}
+              {!showRatingDrawer && !selectedStory && (
                 <Button
                   variant="outline"
                   size="lg"
@@ -1092,6 +1103,7 @@ interface ResponderWaitingWithDrawerProps {
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
   badgePersonName?: string;
   badgePersonEarsCount?: number;
+  isStoryOwner?: boolean;
 }
 
 function ResponderWaitingWithDrawer({
@@ -1106,6 +1118,7 @@ function ResponderWaitingWithDrawer({
   onPositionSelect,
   badgePersonName,
   badgePersonEarsCount,
+  isStoryOwner,
 }: ResponderWaitingWithDrawerProps) {
   return (
     <IdleScreen
@@ -1121,6 +1134,7 @@ function ResponderWaitingWithDrawer({
       onPositionSelect={onPositionSelect}
       badgePersonName={badgePersonName}
       badgePersonEarsCount={badgePersonEarsCount}
+      isStoryOwner={isStoryOwner}
           />
   );
 }
@@ -1988,6 +2002,15 @@ function UnderstandingScreen({
   const acknowledged = liveState.celebrationAcknowledgedBy || [];
   const userHasAcknowledged = acknowledged.includes(currentUserName);
 
+  // Local flag: hide story immediately on click, before server state propagates
+  const [clickedContinue, setClickedContinue] = useState(false);
+  useEffect(() => {
+    if (!liveState.celebrationAcknowledgedBy?.length) {
+      setClickedContinue(false);
+    }
+  }, [liveState.celebrationAcknowledgedBy]);
+  const continueAcknowledged = userHasAcknowledged || clickedContinue;
+
   // Determine which phase we're in
   // IMPORTANT: ratingPhase === 'results' takes priority when explicitly set (after explain-back rating)
   let phase: UnderstandingPhase;
@@ -2462,7 +2485,7 @@ function UnderstandingScreen({
             className="w-full max-w-sm"
           />
           {/* P272: Story card visible throughout round, hidden once user continues */}
-          {selectedStory && !userHasAcknowledged && (
+          {selectedStory && !continueAcknowledged && (
             <LiveStoryCardExpanded
               story={selectedStory}
               onPositionSelect={onPositionSelect}
@@ -2473,12 +2496,12 @@ function UnderstandingScreen({
             <Button
               size="lg"
               className="bg-blue-500 hover:bg-blue-600 w-full"
-              onClick={onCelebrationContinue}
-              disabled={userHasAcknowledged}
+              onClick={() => { setClickedContinue(true); onCelebrationContinue(); }}
+              disabled={continueAcknowledged}
             >
               Continue
             </Button>
-            {userHasAcknowledged && (
+            {continueAcknowledged && (
               <WaitingIndicator message={`Waiting for ${displayPartnerName} to continue...`} />
             )}
           </ActionArea>
