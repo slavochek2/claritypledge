@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 rank: 1
 severity: high
@@ -12,8 +12,7 @@ tags:
   - dialog
   - live
   - profile
-locked_at: '2026-02-20T13:01:33.795Z'
-completed_at: '2026-02-20'
+locked_at: '2026-02-21T09:01:13.189Z'
 ---
 
 # P408: Cancelling remove-position dialog still visually removes the position

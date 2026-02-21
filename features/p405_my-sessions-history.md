@@ -1,9 +1,14 @@
 ---
-status: week
+status: in-progress
 type: story
-rank: 6.0
+rank: 0.5
 milestone: C1
-tags: [navigation, sessions, history, mobile, ux]
+tags:
+  - navigation
+  - sessions
+  - history
+  - mobile
+  - ux
 prepped_date: '2026-02-20'
 delivery_stage: arch-review
 reviews:
@@ -17,6 +22,8 @@ test_files:
   - e2e/p405-my-sessions.spec.ts
   - e2e/a11y/p405-accessibility.spec.ts
   - e2e/p405-smoke.spec.ts
+locked_at: '2026-02-21T09:02:06.960Z'
+created_date: 2026-02-20
 ---
 
 # P405: My Sessions — Session History in Global Nav

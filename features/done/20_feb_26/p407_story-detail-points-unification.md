@@ -1,6 +1,5 @@
 ---
-status: done
-completed_at: '2026-02-20'
+status: all-done
 type: story
 rank: 2
 workstream: foundation
@@ -10,7 +9,7 @@ uat_file: features/uat/p407.md
 test_files:
   - e2e/p407-story-detail-points.spec.ts
   - e2e/p407-smoke.spec.ts
-locked_at: '2026-02-20T12:33:08.050Z'
+locked_at: '2026-02-21T09:01:48.116Z'
 ---
 
 # P407: Unify Story Detail Points — Remove Duplicate List
