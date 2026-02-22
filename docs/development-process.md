@@ -686,9 +686,18 @@ Bug reported
 
 `/dev` and `/fix` auto-close the feature on success — spec moves to `features/done/`, `status: done` and `completed_at` are set.
 
-**Optional:** Run `/verify` for live browser UAT + visual quality check when you care about look/feel. Returns ✅ / ❌. Can be run on specs already in `features/done/`.
+**Optional post-work:**
+- `/review-all` — code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or code you didn't closely supervise.
+- `/verify` — live browser UAT + visual QA. Run when you care about look/feel. Returns ✅ / ❌. Can be run on specs already in `features/done/`.
+- `/kdd` — capture notable learnings in strategic docs.
 
-- `/kdd` — optional: capture notable learnings in strategic docs
+**When to use what:**
+
+| Situation | Run |
+|-----------|-----|
+| Simple UI tweak | `/verify` only |
+| Non-trivial feature (multi-file, auth) | `/review-all` then `/verify` |
+| Pure backend | `/review-all` only |
 
 ---
 
@@ -697,9 +706,8 @@ Bug reported
 These exist but aren't in the default path. Invoke them when you have a specific reason:
 
 - `/refactor` — post-implementation code cleanup (rename, deduplicate, restructure). Run after `/dev` closes the feature, only when code quality warrants it.
-- `/review-all` — parallel code + design + UX static review. Useful before a big merge, security-sensitive changes, or when an agent wrote code you didn't closely supervise.
+- `/review-all` — parallel code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or unsupervised agent output.
 - `/design-audit` — focused design system compliance check. Subset of `/review-all`.
-- `/ship` — meta-pipeline: `/review-all` + auto-fix HIGH issues + quality gate + closure. One command when you want thoroughness over speed.
 
 ---
 
@@ -710,7 +718,7 @@ These skills can be used at any point during development when you need them:
 | Skill | When to Use | What It Does |
 |-------|-------------|--------------|
 | `/simplify` | Facing complex decision with many options | Decision-by-decision analysis and recommendations |
-| `/review-all` | Big merges, security changes, unsupervised agent output | Parallel code + design + UX static review. You decide what to fix. |
+| `/review-all` | Any non-trivial feature: multi-file, auth/RLS, agent-written code | Static code + design + UX review (no browser). You decide what to fix. |
 
 **Usage pattern:**
 - These don't block the main flow
@@ -746,13 +754,14 @@ These skills can be used at any point during development when you need them:
 ┌─────────────────────────────────────────────────────┐
 │ POST-WORK                                           │
 │ (auto) /dev or /fix closes feature on success       │
+│ (optional) /review-all — code+design+UX static      │
 │ (optional) /verify — live UAT + visual QA           │
 │ (optional) /kdd                                     │
 └─────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────┐
 │ PARALLEL (use anytime when needed)                  │
-│ /simplify | /review-all                             │
+│ /simplify                                           │
 └─────────────────────────────────────────────────────┘
 ```
 

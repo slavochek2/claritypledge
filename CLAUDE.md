@@ -272,7 +272,7 @@ Each layer has a review gate. `/dev` and `/fix` auto-close the feature on succes
 
 **Optional post-work:** `/verify` — live browser UAT + visual QA. Run when you care about look/feel.
 - `/kdd` — capture notable learnings.
-- `/review-all` and `/ship` — high-stakes situations (big merges, security changes).
+- `/review-all` — code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or code you didn't closely supervise.
 
 **Deprecated:** `/prep-spec`, `/done` — kept in archive for backward compatibility only.
 

@@ -19,14 +19,14 @@ No parameters needed. The skill:
 
 1. **Identify scope** — What changed? (git diff)
 2. **Auto-find specs** — Match branch name/commits to `features/p*.md`
-3. **Phase 1 (parallel):** Spawn 3 review agents:
+3. **Spawn 3 review agents in parallel:**
    - Design Audit (visual consistency, buttons, states)
    - Code Review (architecture, patterns, security)
-   - UX Review (user impact, missing states, errors)
-4. **Phase 2 (sequential):** Spawn Visual Verification agent:
-   - Browser testing with Chrome DevTools MCP (runs alone to avoid MCP contention)
-5. **Consolidate findings** into prioritized report
-6. **Present to user** — you decide what to fix
+   - UX Review (user impact, missing states, errors — static only, no browser)
+4. **Consolidate findings** into prioritized report
+5. **Present to user** — you decide what to fix
+
+> **No browser.** For live UAT and visual QA, run `/verify` after this.
 
 ## What This Skill Does NOT Do
 
@@ -112,23 +112,13 @@ Which option?
 
 ### Step 2: Spawn Review Agents (Two Phases)
 
-**Phase 1 (Parallel):** Launch Design Audit + Code Review + UX Review in a SINGLE message using the Task tool.
-
-**Execution pattern:** Use the Task tool with `subagent_type: general-purpose` for each agent. Send all three Task tool calls in ONE message to run them in parallel. Example:
+**Launch all 3 agents in a SINGLE message** using the Task tool to run them in parallel:
 
 ```
 Task(description="Design audit", subagent_type="general-purpose", prompt="...")
 Task(description="Code review", subagent_type="general-purpose", prompt="...")
 Task(description="UX review", subagent_type="general-purpose", prompt="...")
 ```
-
-**Phase 2 (Sequential):** After Phase 1 completes, launch Visual Verification alone:
-
-```
-Task(description="Visual verification", subagent_type="general-purpose", prompt="...")
-```
-
-**Why sequential?** Browser automation tools (Chrome DevTools MCP, Playwright) support single-session only. Running visual verification after other reviews prevents MCP resource contention.
 
 **Timeout handling:** If any agent takes >3 minutes, proceed with partial results. Note which review was skipped in the final report.
 
@@ -216,86 +206,6 @@ prompt: |
   Severity: HIGH (blocks users) / MEDIUM (confusing) / LOW (minor friction)
 ```
 
-**Agent 4: Visual Verification**
-```
-subagent_type: general-purpose
-prompt: |
-  You are the Visual Verification agent. Your job is to ACTUALLY TEST the app
-  in a browser using Chrome DevTools MCP tools.
-
-  Changed files: [FILE_LIST]
-  Spec context: [SPEC_SUMMARY]
-  Acceptance criteria: [ACCEPTANCE_CRITERIA from spec]
-
-  ## Pre-flight Checks
-
-  1. **Load MCP tools first** (required - these are deferred tools):
-     ```
-     ToolSearch(query="chrome-devtools")
-     ```
-     This loads: navigate_page, take_screenshot, click, list_pages
-
-  2. **Verify dev server is running:**
-     ```bash
-     curl -s http://localhost:5001 > /dev/null && echo "Server running" || echo "NOT RUNNING"
-     ```
-     If not running, start it: `npm run dev` (run in background)
-
-  ## Your Tools
-  Use Chrome DevTools MCP (preferred):
-  - mcp__chrome-devtools__navigate_page
-  - mcp__chrome-devtools__take_screenshot
-  - mcp__chrome-devtools__click
-  - mcp__chrome-devtools__list_pages
-
-  Fallback to Playwright MCP if Chrome DevTools unavailable:
-  ```
-  ToolSearch(query="playwright")
-  ```
-
-  ## Steps
-
-  1. **Navigate to changed pages**
-     Based on changed files, infer appropriate test URLs:
-     - profile-page-v2.tsx → /p/{any-existing-slug} (check database or use mock)
-     - pledge-page.tsx → /sign-pledge
-     - bottom-nav.tsx → any page (it's global)
-
-  3. **Verify acceptance criteria**
-     For each criterion in the spec:
-     - Navigate to the relevant state
-     - Take a screenshot
-     - Verify it matches expected behavior
-
-  4. **Test edge cases**
-     - Direct link navigation (paste URL directly)
-     - Back button behavior
-     - Mobile viewport (resize to 375px width)
-     - Empty states
-     - Error states (if testable)
-
-  5. **Run related E2E tests** (if they exist)
-     ```bash
-     npm run test:e2e -- --grep "navigation"
-     npm run test:e2e -- --grep "profile"
-     ```
-
-  Output format:
-  ### Visual Verification Results
-
-  | Test | Status | Screenshot | Notes |
-  |------|--------|------------|-------|
-  | Profile page loads | ✅ | [screenshot_1] | |
-  | Back button works | ❌ | [screenshot_2] | Goes to wrong page |
-  | Mobile nav visible | ✅ | [screenshot_3] | |
-
-  **E2E Test Results:**
-  - navigation.spec.ts: ✅ 5/5 passed
-  - profile.spec.ts: ⚠️ 4/5 passed (1 skipped)
-
-  Severity: HIGH (broken functionality) / MEDIUM (visual issue) / LOW (minor)
-```
-
 ### Step 3: Consolidate Findings
 
 After all agents complete, merge their findings:
@@ -308,10 +218,8 @@ After all agents complete, merge their findings:
 | Design   | 3      | 1    | 2      | 0   |
 | Code     | 5      | 2    | 1      | 2   |
 | UX       | 2      | 0    | 1      | 1   |
-| Visual   | 2      | 1    | 1      | 0   |
-| **Total**| **12** | **4**| **5**  | **3**|
+| **Total**| **10** | **3**| **4**  | **3**|
 
-**E2E Tests:** ✅ 9/10 passed (1 skipped)
 **Acceptance Criteria:** 6/7 verified
 
 ---
@@ -346,21 +254,6 @@ After all agents complete, merge their findings:
 
 10. **[UX]** "Start Clarity Session" button could have tooltip explaining what a session is.
 
----
-
-### Visual Verification Results
-
-| Test | Status | Notes |
-|------|--------|-------|
-| Profile page loads | ✅ | |
-| Back button returns to /events | ✅ | Fixed from previous |
-| Bottom nav highlights active page | ❌ | No visual highlight |
-| Mobile viewport (375px) | ✅ | |
-| Direct link to /p/slava | ✅ | |
-
-**E2E Tests:** `npm run test:e2e -- --grep "navigation"`
-- ✅ 4/4 passed
-
 **Acceptance Criteria from p114:**
 - [x] Back button navigates to /events
 - [x] Bottom nav visible on mobile
@@ -370,7 +263,7 @@ After all agents complete, merge their findings:
 ### Step 4: Ask User
 
 ```
-Found 10 issues across 3 review categories.
+Found 10 issues across 3 review categories (code, design, UX).
 
 What would you like to do?
 
@@ -421,7 +314,7 @@ Remaining issues (not fixed):
 ## Notes
 
 - **Reviews are opinions, not facts.** Some findings may be intentional design decisions. You decide what matters.
-- **Parallel = fast.** All four reviews run simultaneously.
+- **Parallel = fast.** All three reviews run simultaneously.
 - **No auto-fix by default.** The skill presents findings; you choose what to address.
 - **Re-run after fixes.** If you fix issues, consider running `/review-all` again to verify.
 - **Partial results OK.** If one agent times out or fails, the skill reports partial results and notes which review was skipped.
@@ -433,4 +326,4 @@ Remaining issues (not fixed):
 - `/slava:ux` — UX review perspective (standalone)
 - `/bmad:bmm:workflows:code-review` — Adversarial code review (standalone)
 - `/finishing-a-development-branch` — VCS workflow (merge/PR)
-- `/slava:ship` — Full pipeline (review → fix → commit → close) if you want to ship after reviewing
+- `/slava:verify` — Live browser UAT + visual QA (run after `/review-all` for UI features)

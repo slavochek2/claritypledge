@@ -30,9 +30,9 @@ export function BottomNav() {
 
   const navItems: NavItem[] = [
     {
-      icon: CalendarIcon,
-      label: "My Events",
-      to: "/events",
+      icon: MicIcon,
+      label: "Start a Session",
+      to: "/live",
     },
     {
       icon: HistoryIcon,
@@ -40,14 +40,14 @@ export function BottomNav() {
       to: "/sessions",
     },
     {
+      icon: CalendarIcon,
+      label: "My Events",
+      to: "/events",
+    },
+    {
       icon: UserIcon,
       label: "My Profile",
       to: slug ? `/p/${slug}` : "/me",
-    },
-    {
-      icon: MicIcon,
-      label: "Clarity Session",
-      to: "/live",
     },
   ];
 

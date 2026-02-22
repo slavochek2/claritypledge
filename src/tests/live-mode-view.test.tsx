@@ -643,8 +643,9 @@ describe('LiveModeView', () => {
         livePositions: { alice: { 'point-1': null } },
       };
 
+      // P412: hide-on-null only applies to the story author (userId matches authorId)
       renderWithRouter(
-        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+        <LiveModeView {...defaultProps} currentUserName="alice" userId="author-1" liveState={state} />
       );
 
       // No points remain → expand button is gone → point text not visible
@@ -667,8 +668,9 @@ describe('LiveModeView', () => {
         livePositions: { alice: { 'point-1': null } }, // only point-1 removed
       };
 
+      // P412: hide-on-null only applies to the story author (userId matches authorId)
       renderWithRouter(
-        <LiveModeView {...defaultProps} currentUserName="alice" liveState={state} />
+        <LiveModeView {...defaultProps} currentUserName="alice" userId="author-1" liveState={state} />
       );
 
       // 1 point remains

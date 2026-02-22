@@ -1,34 +1,60 @@
 /**
  * @file round-summary-screen.tsx
- * @description P398: Inline round summary view — replaces idle screen body content.
- * Renders the journey data for a completed session round using JourneyToUnderstanding.
+ * @description P398: Round summary view — renders journey data for a completed session round.
+ * Used in /live (inline, standalone) and /sessions (full-page stack, hideBack=true).
  */
 import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { JourneyToUnderstanding } from './live-mode-view';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
-import type { SessionHistoryItem, StoryWithPoints, PositionType } from '@/app/types';
+import type { SessionHistoryItem, LiveStoryData, StoryWithPoints, PointSummary, PositionType } from '@/app/types';
 import { getFirstName } from './shared';
 
 interface RoundSummaryScreenProps {
   item: SessionHistoryItem;
   onBack: () => void;
-  story?: StoryWithPoints | null;
+  storyData?: LiveStoryData;
   onPositionSelect?: (pointId: string, position: PositionType | null) => void;
+  /** When true, page chrome (title + back) is handled by the parent — hide both here */
+  hideBack?: boolean;
 }
 
-export function RoundSummaryScreen({ item, onBack, story, onPositionSelect }: RoundSummaryScreenProps) {
+/** Adapts LiveStoryData snapshot to StoryWithPoints for LiveStoryCardExpanded */
+function toStoryWithPoints(data: LiveStoryData): StoryWithPoints {
+  return {
+    id: data.id,
+    authorId: data.authorId ?? '',
+    content: data.content,
+    visibility: data.visibility,
+    currentVersion: 1,
+    understoodCount: 0,
+    createdAt: data.createdAt ?? '',
+    updatedAt: data.createdAt ?? '',
+    tags: [],
+    authorName: data.authorName,
+    authorSlug: data.authorSlug,
+    authorAvatarColor: data.authorAvatarColor,
+    authorAvatarUrl: data.authorAvatarUrl,
+    authorRole: data.authorRole,
+    authorEarsCount: data.authorEarsCount,
+    authorHasPledged: data.authorHasPledged,
+    points: data.points as PointSummary[],
+  };
+}
+
+export function RoundSummaryScreen({ item, onBack, storyData, onPositionSelect, hideBack = false }: RoundSummaryScreenProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  // Focus heading on mount for screen reader announcement
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
 
-  // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onBack();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onBack();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -36,10 +62,12 @@ export function RoundSummaryScreen({ item, onBack, story, onPositionSelect }: Ro
 
   const checkerName = item.checkerName ? getFirstName(item.checkerName) : '';
   const partnerDisplayName = item.partnerName ? getFirstName(item.partnerName) : '';
+  const story = storyData ? toStoryWithPoints(storyData) : null;
 
   return (
     <div className="w-full max-w-sm space-y-4">
-      {!story && (
+      {/* Title: only when no story card and not in page-chrome context */}
+      {!story && !hideBack && (
         <h2
           ref={titleRef}
           tabIndex={-1}
@@ -69,13 +97,11 @@ export function RoundSummaryScreen({ item, onBack, story, onPositionSelect }: Ro
         className="w-full"
       />
 
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={onBack}
-      >
-        Back
-      </Button>
+      {!hideBack && (
+        <Button variant="outline" className="w-full" onClick={onBack}>
+          Back
+        </Button>
+      )}
     </div>
   );
 }

@@ -100,19 +100,6 @@ export function SimpleNavigation() {
             {showUserMenu ? (
               /* Logged-in: Icon nav with labels (LinkedIn-style) */
               <>
-                {/* My Events */}
-                <Link
-                  to="/events"
-                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-                    location.pathname === "/events" || location.pathname.startsWith("/events/")
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                  }`}
-                  onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/events'); } : undefined}
-                >
-                  <CalendarIcon className="w-5 h-5" />
-                  <span className="text-xs mt-1 font-medium">My Events</span>
-                </Link>
                 {/* My Sessions — P405: hidden during active session */}
                 {!isLive && (
                   <Link
@@ -127,6 +114,19 @@ export function SimpleNavigation() {
                     <span className="text-xs mt-1 font-medium">Session History</span>
                   </Link>
                 )}
+                {/* My Events */}
+                <Link
+                  to="/events"
+                  className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
+                    location.pathname === "/events" || location.pathname.startsWith("/events/")
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                  onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/events'); } : undefined}
+                >
+                  <CalendarIcon className="w-5 h-5" />
+                  <span className="text-xs mt-1 font-medium">My Events</span>
+                </Link>
                 {/* My Profile */}
                 <Link
                   to={slug ? `/p/${slug}` : "/me"}
