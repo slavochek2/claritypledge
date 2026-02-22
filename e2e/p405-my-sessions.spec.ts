@@ -153,13 +153,14 @@ test.describe('P405: My Sessions — /sessions page', () => {
 
       // Empty state should be shown
       await expect(
-        page.getByText(/no sessions yet|start your first session/i)
+        page.getByRole('heading', { name: /no sessions yet/i })
       ).toBeVisible({ timeout: 10000 });
 
       // CTA button to start a session should be present
       await expect(
         page.getByRole('link', { name: /start a clarity session/i })
           .or(page.getByRole('button', { name: /start a clarity session/i }))
+          .first()
       ).toBeVisible({ timeout: 10000 });
     } finally {
       for (const id of sessionIds) await deleteTestSession(id);
@@ -199,6 +200,7 @@ test.describe('P405: My Sessions — /sessions page', () => {
       await expect(
         page.getByText(/the clarity framework/i)
           .or(page.getByText(/rounds? completed/i))
+          .first()
       ).toBeVisible({ timeout: 10000 });
     } finally {
       for (const id of sessionIds) await deleteTestSession(id);
