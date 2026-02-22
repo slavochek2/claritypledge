@@ -74,7 +74,7 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
               data-testid="leave-meeting"
             >
               <LogOut className="h-4 w-4" />
-              <span>{returnTo ? 'Back to event' : 'Leave'}</span>
+              <span>Leave</span>
             </button>
           )}
 
