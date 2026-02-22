@@ -1759,10 +1759,25 @@ export function ClarityLivePage() {
       setIsLoading(true);
       const code = urlCode.toUpperCase();
       try {
-        // Host detection: creator clicking own invite link → send them to their /live page
+        // Host detection: creator arriving at their own session link (e.g. via Practice Rooms)
+        // → restore them directly into the waiting room instead of the entry form
         const sessionInfo = await getClaritySession(code);
         if (sessionInfo?.creatorProfileId === user.id) {
-          navigate('/live');
+          const creatorName = user.name || '';
+          iAmLeavingRef.current = false;
+          partnerLeftRef.current = false;
+          sessionEndedRef.current = false;
+          hasJoinerRef.current = false;
+          lastJoinerNameRef.current = null;
+          setSession(sessionInfo);
+          setName(creatorName);
+          setIsCreator(true);
+          saveSessionToStorage(code, creatorName, true);
+          if (sessionInfo.joinerName) {
+            setPendingLiveTransition(true);
+          } else {
+            setView('waiting');
+          }
           setIsLoading(false);
           return;
         }
