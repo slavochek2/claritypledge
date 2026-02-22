@@ -2,8 +2,9 @@
 id: p411
 title: 'Position breakdown: show linked stories per holder'
 type: story
-status: today
-delivery_stage: arch-approved
+status: done
+completed_at: '2026-02-22'
+delivery_stage: done
 uat_file: features/uat/p411.md
 test_files:
   - e2e/p411-position-breakdown-stories.spec.ts
