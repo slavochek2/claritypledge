@@ -1,5 +1,5 @@
 import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
-import type { EventWithHost, EventAttendee } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 
 // Debug logging - only in development
@@ -243,15 +243,15 @@ export const realEventsService: EventsService = {
   async isUserRsvpd(eventId: string, profileId: string): Promise<boolean> {
     log(' isUserRsvpd:', { eventId, profileId });
 
+    // maybeSingle() returns null (not 406) when 0 rows — avoids console noise
     const { data, error } = await supabase
       .from('event_rsvps')
       .select('id')
       .eq('event_id', eventId)
       .eq('profile_id', profileId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      // PGRST116 = not found, which is expected when not RSVP'd
       return false;
     }
 
@@ -669,6 +669,113 @@ export const realEventsService: EventsService = {
     }
 
     return (data as DbEventWithHost[]).map(mapEventFromDb);
+  },
+
+  // P406: Practice Rooms
+
+  async getPracticeRooms(eventId: string): Promise<EventPracticeRoom[]> {
+    log(' getPracticeRooms:', eventId);
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('event_practice_rooms')
+      .select(`
+        *,
+        creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url),
+        session:clarity_sessions!event_practice_rooms_session_id_fkey(code)
+      `)
+      .eq('event_id', eventId)
+      .in('status', ['waiting', 'active'])
+      .gt('expires_at', now)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      log('ERROR: getPracticeRooms error:', error);
+      return [];
+    }
+
+    return (data ?? []).map((row: Record<string, unknown>) => {
+      const creator = row.creator as { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null;
+      const session = row.session as { code: string } | null;
+      return {
+        id: row.id as string,
+        eventId: row.event_id as string,
+        creatorId: row.creator_id as string,
+        sessionId: row.session_id as string | null,
+        sessionCode: session?.code ?? null,
+        status: row.status as 'waiting' | 'active' | 'closed',
+        createdAt: row.created_at as string,
+        expiresAt: row.expires_at as string,
+        creatorName: creator?.name ?? 'Unknown',
+        creatorSlug: creator?.slug ?? '',
+        creatorAvatarColor: creator?.avatar_color ?? '#3B82F6',
+        creatorAvatarUrl: creator?.avatar_url ?? null,
+      };
+    });
+  },
+
+  async openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom> {
+    log(' openPracticeRoom:', { eventId, creatorId, sessionId });
+
+    // Close any existing waiting room for this creator+event first
+    await supabase
+      .from('event_practice_rooms')
+      .update({ status: 'closed' })
+      .eq('event_id', eventId)
+      .eq('creator_id', creatorId)
+      .eq('status', 'waiting');
+
+    const { data, error } = await supabase
+      .from('event_practice_rooms')
+      .insert({
+        event_id: eventId,
+        creator_id: creatorId,
+        session_id: sessionId,
+        status: 'waiting',
+      })
+      .select(`
+        *,
+        creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url),
+        session:clarity_sessions!event_practice_rooms_session_id_fkey(code)
+      `)
+      .single();
+
+    if (error || !data) {
+      log('ERROR: openPracticeRoom error:', error);
+      throw new Error(`Failed to open practice room: ${error?.message}`);
+    }
+
+    const creator = (data as Record<string, unknown>).creator as { name: string | null; slug: string | null; avatar_color: string | null; avatar_url: string | null } | null;
+    const session = (data as Record<string, unknown>).session as { code: string } | null;
+    const row = data as Record<string, unknown>;
+    return {
+      id: row.id as string,
+      eventId: row.event_id as string,
+      creatorId: row.creator_id as string,
+      sessionId: row.session_id as string | null,
+      sessionCode: session?.code ?? null,
+      status: row.status as 'waiting' | 'active' | 'closed',
+      createdAt: row.created_at as string,
+      expiresAt: row.expires_at as string,
+      creatorName: creator?.name ?? 'Unknown',
+      creatorSlug: creator?.slug ?? '',
+      creatorAvatarColor: creator?.avatar_color ?? '#3B82F6',
+      creatorAvatarUrl: creator?.avatar_url ?? null,
+    };
+  },
+
+  async closePracticeRoom(roomId: string): Promise<void> {
+    log(' closePracticeRoom:', roomId);
+
+    const { error } = await supabase
+      .from('event_practice_rooms')
+      .update({ status: 'closed' })
+      .eq('id', roomId);
+
+    if (error) {
+      log('ERROR: closePracticeRoom error:', error);
+      throw new Error(`Failed to close practice room: ${error.message}`);
+    }
   },
 
   async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {

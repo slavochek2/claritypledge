@@ -1,7 +1,7 @@
 ---
-status: week
+status: in-progress
 type: story
-rank: 4.5
+rank: 1
 tags:
   - live
   - events
@@ -9,14 +9,15 @@ tags:
 created_date: 2026-02-20T00:00:00.000Z
 delivery_stage: ready
 reviews:
-  ux: "2026-02-20"
-  architect: "2026-02-20"
+  ux: '2026-02-20'
+  architect: '2026-02-20'
   tea: null
 uat_file: features/uat/p406.md
 test_files:
   - e2e/integration/p406-practice-rooms-migration.spec.ts
   - e2e/p406-practice-rooms.spec.ts
   - e2e/p406-smoke.spec.ts
+locked_at: '2026-02-21T09:01:56.939Z'
 ---
 
 # P406: Practice Rooms — Event-Native Session Start

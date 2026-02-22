@@ -1,5 +1,5 @@
 import type { EventsService, CreateEventInput } from './events-service.interface';
-import type { EventWithHost, EventAttendee } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
 // Mock data archived after P61.1 production backend implementation
 import {
   getUpcomingEvents as mockGetUpcoming,
@@ -246,6 +246,34 @@ export const mockEventsService: EventsService = {
       .filter(e => e.hostId === profileId)
       .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
       .map(toEventWithHost);
+  },
+
+  // P406: Practice Rooms (mock — returns empty, mutations are no-ops)
+
+  async getPracticeRooms(_eventId: string): Promise<EventPracticeRoom[]> {
+    return [];
+  },
+
+  async openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom> {
+    const now = new Date().toISOString();
+    return {
+      id: `mock-room-${Date.now()}`,
+      eventId,
+      creatorId,
+      sessionId,
+      sessionCode: null,
+      status: 'waiting',
+      createdAt: now,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      creatorName: 'Mock User',
+      creatorSlug: '',
+      creatorAvatarColor: '#3B82F6',
+      creatorAvatarUrl: null,
+    };
+  },
+
+  async closePracticeRoom(_roomId: string): Promise<void> {
+    // no-op in mock
   },
 
   async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {

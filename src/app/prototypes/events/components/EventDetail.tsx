@@ -23,6 +23,7 @@ import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { PersonRow } from '@/app/components/shared/PersonRow';
 import { PersonAvatar } from '@/components/ui/person-avatar';
+import { PracticeRooms } from './PracticeRooms';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -474,6 +475,14 @@ export function EventDetail() {
                 ))}
               </div>
             </div>
+
+            {/* P406: Practice Rooms */}
+            <PracticeRooms
+              eventId={event.id}
+              eventSlug={event.slug}
+              currentUserId={user?.id ?? null}
+              currentUserName={user?.name ?? null}
+            />
           </div>
         </div>
       </div>

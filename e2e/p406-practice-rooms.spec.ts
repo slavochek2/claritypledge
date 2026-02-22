@@ -157,7 +157,8 @@ test.describe('P406: Practice Rooms — rooms list (waiting state)', () => {
     try {
       creator = await createTestUser({ name: 'P406 RoomCreator' });
       viewer = await createTestUser({ name: 'P406 RoomViewer' });
-      event = await createTestEvent(creator.user.id, undefined, {
+      // Use viewer as host so creator name only appears in Practice Rooms, not in organizer card
+      event = await createTestEvent(viewer.user.id, undefined, {
         title: 'P406 Waiting Rooms Event',
       });
 
@@ -199,13 +200,16 @@ test.describe('P406: Practice Rooms — rooms list (waiting state)', () => {
   test('[Join →] navigates to /live/[code] join flow', async ({ page }) => {
     let viewer: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let creator: Awaited<ReturnType<typeof createTestUser>> | null = null;
+    let host: Awaited<ReturnType<typeof createTestUser>> | null = null;
     let event: TestEvent | null = null;
     let claritySessionId: string | undefined;
 
     try {
       creator = await createTestUser({ name: 'P406 JoinCreator' });
       viewer = await createTestUser({ name: 'P406 JoinViewer' });
-      event = await createTestEvent(creator.user.id, undefined, {
+      // Use a neutral host so "join" doesn't appear in the organizer card link
+      host = await createTestUser({ name: 'P406 EventHost' });
+      event = await createTestEvent(host.user.id, undefined, {
         title: 'P406 Join Flow Event',
       });
 
@@ -254,6 +258,7 @@ test.describe('P406: Practice Rooms — rooms list (waiting state)', () => {
       if (event) await deleteTestEvent(event.id);
       if (creator) await deleteTestUser(creator.user.id);
       if (viewer) await deleteTestUser(viewer.user.id);
+      if (host) await deleteTestUser(host.user.id);
     }
   });
 });

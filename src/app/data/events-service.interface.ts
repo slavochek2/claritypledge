@@ -1,4 +1,4 @@
-import type { EventWithHost, EventAttendee } from '@/app/types';
+import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
 
 export interface EventsService {
   // Queries
@@ -23,6 +23,11 @@ export interface EventsService {
   cancelEvent(eventId: string): Promise<boolean>;
   rsvpToEvent(eventId: string, profileId: string): Promise<boolean>;
   cancelRsvp(eventId: string, profileId: string): Promise<boolean>;
+
+  // P406: Practice Rooms
+  getPracticeRooms(eventId: string): Promise<EventPracticeRoom[]>;
+  openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom>;
+  closePracticeRoom(roomId: string): Promise<void>;
 
 }
 
