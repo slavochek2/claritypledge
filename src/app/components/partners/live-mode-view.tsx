@@ -38,7 +38,8 @@ import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoint
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
-import { PointCardPreview } from './live-content-cards';
+import { SessionHistoryList, PointCardPreview } from './live-content-cards';
+import { RoundSummaryScreen } from './round-summary-screen';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -836,6 +837,16 @@ function IdleScreen({
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
 
+  // P398: Selected history index for inline round summary
+  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
+
+  // P398: Auto-close summary when a new round starts
+  useEffect(() => {
+    if (liveState.ratingPhase !== 'idle') {
+      setSelectedHistoryIndex(null);
+    }
+  }, [liveState.ratingPhase]);
+
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
   const [points, setPoints] = useState<PointWithUserPosition[]>([]);
@@ -953,6 +964,13 @@ function IdleScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={`${layoutClass} overflow-y-auto`}>
+        {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
+          <RoundSummaryScreen
+            item={sessionHistory[selectedHistoryIndex]}
+            storyData={sessionHistory[selectedHistoryIndex].storyData}
+            onBack={() => setSelectedHistoryIndex(null)}
+          />
+        ) : (
           <>
             {/* Show journey card if there's rating history or drawer is open */}
             {(hasRatingData || showRatingDrawer) && (
@@ -1039,7 +1057,15 @@ function IdleScreen({
               </button>
             )}
 
+            {/* P398: Session history — clickable rows for completed rounds */}
+            {sessionHistory.length > 0 && (
+              <SessionHistoryList
+                history={sessionHistory}
+                onItemClick={showRatingDrawer ? undefined : (i) => setSelectedHistoryIndex(i)}
+              />
+            )}
           </>
+        )}
       </div>
 
       {/* Responder notification drawer - slides up from bottom */}

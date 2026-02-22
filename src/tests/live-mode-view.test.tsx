@@ -541,8 +541,8 @@ describe('LiveModeView', () => {
     });
   });
 
-  describe('P128/P405: Session History removed from /live idle screen', () => {
-    it('does NOT render session history on /live idle screen (P405 moves history to /sessions)', () => {
+  describe('P128: Session History on /live idle screen', () => {
+    it('renders session history on /live idle screen', () => {
       const stateWithHistory: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         sessionHistory: [
@@ -558,10 +558,10 @@ describe('LiveModeView', () => {
         />
       );
 
-      // P405: session history block is gone from /live
-      expect(screen.queryByText('THIS SESSION')).not.toBeInTheDocument();
-      expect(screen.queryByText('The importance of feedback')).not.toBeInTheDocument();
-      expect(screen.queryByText('Clear communication matters')).not.toBeInTheDocument();
+      // History is visible on /live
+      expect(screen.getByText('This session')).toBeInTheDocument();
+      expect(screen.getByText('The importance of feedback')).toBeInTheDocument();
+      expect(screen.getByText('Clear communication matters')).toBeInTheDocument();
       // Primary action still visible
       expect(screen.getByTestId('start-check')).toBeInTheDocument();
     });
@@ -679,8 +679,8 @@ describe('LiveModeView', () => {
     });
   });
 
-  describe('P398/P405: Clickable session history removed from /live', () => {
-    it('no "View round summary" buttons or Back button present on /live idle screen', () => {
+  describe('P398: Clickable session history on /live', () => {
+    it('"View round summary" button present for completed rounds on /live idle screen', () => {
       const state: LiveSessionState = {
         ...DEFAULT_LIVE_STATE,
         sessionHistory: [
@@ -692,9 +692,8 @@ describe('LiveModeView', () => {
         <LiveModeView {...defaultProps} currentUserName="alice" partnerName="bob" liveState={state} />
       );
 
-      // P405: history moved to /sessions page — no round summary buttons on /live
-      expect(screen.queryByRole('button', { name: /View round summary/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /^Back$/i })).not.toBeInTheDocument();
+      // Clickable history entry with chevron present on /live
+      expect(screen.getByRole('button', { name: /View round summary: The bridge story/i })).toBeInTheDocument();
       // Primary action still visible
       expect(screen.getByTestId('start-check')).toBeInTheDocument();
     });
