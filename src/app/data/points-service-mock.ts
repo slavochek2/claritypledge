@@ -77,6 +77,8 @@ const mockPositions: PointPositionWithUser[] = [
     userName: 'Sarah Chen',
     userSlug: 'sarah-chen',
     userAvatarColor: '#3B82F6',
+    earCount: 0,
+    userHasPledged: false,
   },
   {
     id: 'pos-2',
@@ -89,6 +91,8 @@ const mockPositions: PointPositionWithUser[] = [
     userName: 'Alex Rivera',
     userSlug: 'alex-rivera',
     userAvatarColor: '#F59E0B',
+    earCount: 0,
+    userHasPledged: false,
   },
   {
     id: 'pos-3',
@@ -100,6 +104,8 @@ const mockPositions: PointPositionWithUser[] = [
     userName: 'Marcus Johnson',
     userSlug: 'marcus-johnson',
     userAvatarColor: '#10B981',
+    earCount: 0,
+    userHasPledged: false,
   },
 ];
 

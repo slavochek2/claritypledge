@@ -94,6 +94,31 @@ Check Docker Desktop → MCP Toolkit → server settings if tools fail.
 
 ---
 
+## Global MCP Servers (in `~/.claude.json`)
+
+These are configured globally for all projects, not via Docker MCP Toolkit.
+
+### Google Workspace — slava@inguro.com
+
+Work account. Full Google Workspace access (Gmail, Drive, Docs, Calendar, Sheets, etc.).
+
+- **Config key:** `slava-inguro-workspace`
+- **Package:** `workspace-mcp` (via `uvx`)
+- **Auth:** OAuth (credentials stored in `~/.google_workspace_mcp/`)
+
+### Personal Gmail — slavochek@googlemail.com
+
+Personal Gmail access via IMAP.
+
+- **Config key:** `slavochek-gmail`
+- **Package:** `gmail-mcp-imap` (via `npx`)
+- **Auth:** App Password (stored in `~/.claude.json` env vars — never commit)
+- **Why IMAP not OAuth:** Avoids Google Cloud project setup and zero conflict risk with workspace-mcp
+
+> **If App Password expires or needs rotation:** Google Account → Security → App Passwords → regenerate, then update `GMAIL_APP_PASSWORD` in `~/.claude.json`.
+
+---
+
 ## Project-Specific MCP Servers
 
 These servers are configured **per-project** in `.mcp.json` (not Docker MCP):

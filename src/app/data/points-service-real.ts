@@ -64,6 +64,8 @@ interface DbPositionWithUser {
     slug: string | null;
     avatar_color: string | null;
     avatar_url: string | null;
+    ears_count: number | null;
+    has_pledged: boolean | null;
   } | null;
 }
 
@@ -137,6 +139,8 @@ function mapPositionWithUserFromDb(row: DbPositionWithUser): PointPositionWithUs
     userSlug: row.user?.slug ?? '',
     userAvatarColor: row.user?.avatar_color ?? '#3B82F6',
     userAvatarUrl: row.user?.avatar_url ?? undefined,
+    earCount: row.user?.ears_count ?? 0,
+    userHasPledged: row.user?.has_pledged ?? false,
   };
 }
 
@@ -429,7 +433,9 @@ export const realPointsService: PointsService = {
           name,
           slug,
           avatar_color,
-          avatar_url
+          avatar_url,
+          ears_count,
+          has_pledged
         )
       `
       )

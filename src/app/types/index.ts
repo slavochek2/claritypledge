@@ -840,6 +840,24 @@ export interface DbEventRsvp {
   rsvped_at: string;
 }
 
+// P406: Practice Rooms — open-room model for event-native session start
+export interface EventPracticeRoom {
+  id: string;
+  eventId: string;
+  creatorId: string;
+  sessionId: string | null;
+  /** Fetched via JOIN to clarity_sessions */
+  sessionCode: string | null;
+  status: 'waiting' | 'active' | 'closed';
+  createdAt: string;
+  expiresAt: string;
+  /** Joined from profiles */
+  creatorName: string;
+  creatorSlug: string;
+  creatorAvatarColor: string;
+  creatorAvatarUrl: string | null;
+}
+
 // ============================================================================
 // STORIES, POINTS, AND CALIBRATION TYPES (P117)
 // ============================================================================
@@ -1040,6 +1058,8 @@ export interface PointPositionWithUser extends PointPosition {
   userSlug: string;
   userAvatarColor?: string;
   userAvatarUrl?: string;
+  earCount: number;
+  userHasPledged: boolean;
 }
 
 export interface DbPointPosition {

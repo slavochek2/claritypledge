@@ -14,7 +14,7 @@
  * - JourneyToUnderstanding: Shows rating history across rounds
  * - UnderstandingScreen: Unified component for waiting, gap-revealed, explain-back, results, and celebration phases
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Link, useSearchParams } from 'react-router-dom';
 import { DoorOpen, ShieldOff, Sparkles } from 'lucide-react';
@@ -38,8 +38,7 @@ import { type LiveSessionState, type GapType, type FlowType, type StoryWithPoint
 import { LiveSessionBanner } from './live-session-banner';
 import { getFirstName, RatingButtons } from './shared';
 import { playCelebrationSound } from '@/hooks/use-sound';
-import { SessionHistoryList, PointCardPreview } from './live-content-cards';
-import { RoundSummaryScreen } from './round-summary-screen';
+import { PointCardPreview } from './live-content-cards';
 import { StorySearchPicker } from './story-search-picker';
 import { LiveStoryCardExpanded } from './live-story-card-expanded';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -828,7 +827,7 @@ function IdleScreen({
   badgePersonName,
   badgePersonEarsCount,
   isStoryOwner = false,
-  currentUserName,
+  _currentUserName,
 }: IdleScreenProps) {
   const displayPartnerName = getFirstName(partnerName);
   const checkerName = liveState.checkerName ? getFirstName(liveState.checkerName) : '';
@@ -836,34 +835,6 @@ function IdleScreen({
 
   // P23.3: Detect "Did I get it?" flow for drawer messaging
   const isProverInitiated = liveState.proverName !== undefined;
-
-  // P398: Selected history index for inline summary view
-  const [selectedHistoryIndex, setSelectedHistoryIndex] = useState<number | null>(null);
-
-  // P398: Auto-close summary when a new round starts.
-  // Fires when partner clicks "Does X understand you?" (ratingInitiatedBy set)
-  // or when ratingPhase leaves 'idle' (partner submitted).
-  useEffect(() => {
-    if (liveState.ratingPhase !== 'idle' || liveState.ratingInitiatedBy) {
-      setSelectedHistoryIndex(null);
-    }
-  }, [liveState.ratingPhase, liveState.ratingInitiatedBy]);
-
-  // P398: Build story snapshot for the selected history entry, merging live positions
-  const sessionHistory = useMemo(() => liveState.sessionHistory ?? [], [liveState.sessionHistory]);
-  const summaryStory = useMemo<StoryWithPoints | null>(() => {
-    if (selectedHistoryIndex === null) return null;
-    const item = sessionHistory[selectedHistoryIndex];
-    if (!item?.storyData) return null;
-    const myPositions = liveState.livePositions?.[currentUserName] ?? {};
-    return {
-      ...item.storyData,
-      points: item.storyData.points.map(p => ({
-        ...p,
-        userPosition: (myPositions[p.id] ?? p.userPosition ?? null) as PositionType | null,
-      })),
-    } as unknown as StoryWithPoints;
-  }, [selectedHistoryIndex, sessionHistory, liveState.livePositions, currentUserName]);
 
   // P128: Fetch user's stories and points (only if authenticated)
   const [stories, setStories] = useState<StoryWithPoints[]>([]);
@@ -933,8 +904,8 @@ function IdleScreen({
     liveState.explainBackRatings.length > 0
   );
 
-  // Use top-aligned layout only when visible card content is on screen (not just because stories exist in library)
-  const hasScrollableContent = !!liveState.selectedStoryId || sessionHistory.length > 0;
+  // Use top-aligned layout only when a story/point card is visible on screen
+  const hasScrollableContent = !!liveState.selectedStoryId;
   const layoutClass = showRatingDrawer || hasRatingData || hasScrollableContent
     ? CONTENT_LAYOUT
     : CONTENT_LAYOUT_CENTERED;
@@ -980,15 +951,6 @@ function IdleScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={`${layoutClass} overflow-y-auto`}>
-        {/* P398: Show round summary screen inline when a history entry is selected */}
-        {selectedHistoryIndex !== null && sessionHistory[selectedHistoryIndex] ? (
-          <RoundSummaryScreen
-            item={sessionHistory[selectedHistoryIndex]}
-            onBack={() => setSelectedHistoryIndex(null)}
-            story={summaryStory}
-            onPositionSelect={onPositionSelect}
-          />
-        ) : (
           <>
             {/* Show journey card if there's rating history or drawer is open */}
             {(hasRatingData || showRatingDrawer) && (
@@ -1075,16 +1037,7 @@ function IdleScreen({
               </button>
             )}
 
-            {/* P128: Session history */}
-            {sessionHistory.length > 0 && (
-              <SessionHistoryList
-                history={sessionHistory}
-                className="mt-4"
-                onItemClick={(i) => setSelectedHistoryIndex(i)}
-              />
-            )}
           </>
-        )}
       </div>
 
       {/* Responder notification drawer - slides up from bottom */}

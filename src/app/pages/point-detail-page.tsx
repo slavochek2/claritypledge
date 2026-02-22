@@ -12,8 +12,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
-import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType } from '@/app/types';
+import { storiesService } from '@/app/data/stories-service';
+import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor } from '@/app/types';
 import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
+import type { Story } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   PositionBadge,
@@ -24,6 +26,8 @@ import {
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
+import { EarBadge } from '@/components/ui/ear-badge';
+import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
 function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
@@ -49,6 +53,7 @@ export function PointDetailPage() {
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
 
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -74,11 +79,12 @@ export function PointDetailPage() {
       }
 
       try {
-        const [pointData, positionData] = await Promise.all([
+        const [pointData, positionData, storiesData] = await Promise.all([
           user?.id
             ? pointsService.getPointWithUserPosition(id, user.id)
             : pointsService.getPointWithCounts(id),
           pointsService.getPositionsForPoint(id),
+          storiesService.getStoriesForPoints([id]).catch(() => new Map<string, StoryWithAuthor[]>()),
         ]);
 
         if (!pointData) {
@@ -89,6 +95,7 @@ export function PointDetailPage() {
 
         setPoint(pointData);
         setPositions(positionData);
+        setLinkedStories(storiesData);
         if (user?.id && (pointData as PointWithUserPosition).userPosition) {
           setUserPosition((pointData as PointWithUserPosition).userPosition!.position);
         }
@@ -102,6 +109,21 @@ export function PointDetailPage() {
 
     loadData();
   }, [id, user?.id, retryKey]);
+
+  // Derive Map<userId, StoryWithAuthor> from the batch-fetched stories for this point.
+  // Only public stories are included (getStoriesForPoints already filters, double-guarded here).
+  const storyByAuthorId = useMemo(() => {
+    const stories = linkedStories.get(id ?? '') ?? [];
+    const map = new Map<string, StoryWithAuthor>();
+    for (const story of stories) {
+      if (story.visibility !== 'public') continue;
+      // Take only the first story per author (array is ordered desc by created_at)
+      if (!map.has(story.authorId)) {
+        map.set(story.authorId, story);
+      }
+    }
+    return map;
+  }, [linkedStories, id]);
 
   // Group positions by stance
   const positionGroups = useMemo(() => {
@@ -190,6 +212,7 @@ export function PointDetailPage() {
     setLoading(true);
     setPoint(null);
     setPositions([]);
+    setLinkedStories(new Map());
     setRetryKey(k => k + 1);
   }, []);
 
@@ -342,13 +365,43 @@ export function PointDetailPage() {
 
             return (
               <div key={positionGroup} className="space-y-3">
-                {holdersInGroup.map(holder => (
-                  <PositionHolderCard
-                    key={holder.id}
-                    holder={holder}
-                    onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
-                  />
-                ))}
+                {holdersInGroup.map(holder => {
+                  const linkedStory = storyByAuthorId.get(holder.userId);
+                  if (linkedStory) {
+                    const protoStory: Story = {
+                      id: linkedStory.id,
+                      authorId: linkedStory.authorId,
+                      text: linkedStory.content,
+                      createdAt: linkedStory.createdAt,
+                      visibility: linkedStory.visibility,
+                      linkedPointIds: [],
+                      verificationCount: linkedStory.understoodCount,
+                    };
+                    const storyAuthor: StoryAuthor = {
+                      id: linkedStory.authorId,
+                      name: linkedStory.authorName,
+                      role: linkedStory.authorRole,
+                      hasPledged: linkedStory.authorHasPledged,
+                      ear: linkedStory.authorEarsCount ?? 0,
+                    };
+                    return (
+                      <StoryCardWithLinks
+                        key={holder.id}
+                        story={protoStory}
+                        author={storyAuthor}
+                        context="point-detail"
+                        profileSubjectPosition={holder.position}
+                      />
+                    );
+                  }
+                  return (
+                    <PositionHolderCard
+                      key={holder.id}
+                      holder={holder}
+                      onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
+                    />
+                  );
+                })}
               </div>
             );
           })}
@@ -365,7 +418,7 @@ export function PointDetailPage() {
 }
 
 /**
- * Card showing a position holder with their stance
+ * Compact row for a position holder who has no linked story.
  */
 function PositionHolderCard({
   holder,
@@ -378,6 +431,7 @@ function PositionHolderCard({
     <div
       role="button"
       tabIndex={0}
+      aria-label={`${holder.userName}'s profile`}
       onClick={onProfileClick}
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -393,19 +447,16 @@ function PositionHolderCard({
         photoUrl={holder.userAvatarUrl}
         avatarColor={holder.userAvatarColor}
         size="sm"
-        isPledger={false}
+        isPledger={holder.userHasPledged}
         className="!w-5 !h-5 !text-[10px]"
       />
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
-          <PositionBadge position={holder.position} />
-        </div>
-        {holder.reasoning && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{holder.reasoning}</p>
-        )}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <span className="font-medium text-foreground text-sm truncate">{holder.userName}</span>
+        <EarBadge count={holder.earCount} name={holder.userName} />
+        <PositionBadge position={holder.position} />
+        <span className="ml-auto text-xs text-muted-foreground italic shrink-0">No story yet</span>
       </div>
     </div>
   );
