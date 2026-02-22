@@ -40,10 +40,20 @@ async function setupTwoPartySession(
   expect(roomCode).toHaveLength(6);
 
   await reviewerPage.goto(`/live/${roomCode}`);
-  await reviewerPage.getByPlaceholder('your@email.com').fill(joinerUser.email);
-  await reviewerPage.getByRole('checkbox').check();
-  await reviewerPage.getByRole('button', { name: 'Join Session' }).click();
+  // Authenticated test users auto-join without the email form.
+  // Try to find the email input with a short timeout; fill it only if it appears.
+  const emailInput = reviewerPage.getByPlaceholder('your@email.com');
+  const formVisible = await emailInput
+    .waitFor({ state: 'visible', timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  if (formVisible) {
+    await emailInput.fill(joinerUser.email);
+    await reviewerPage.getByRole('checkbox').check();
+    await reviewerPage.getByRole('button', { name: 'Join Session' }).click();
+  }
 
+  // Handle "Updated Terms" dialog — appears for both authenticated and anonymous users
   try {
     await reviewerPage.getByRole('button', { name: 'Continue' }).waitFor({ state: 'visible', timeout: 3000 });
     await reviewerPage.getByRole('button', { name: 'Continue' }).click();
