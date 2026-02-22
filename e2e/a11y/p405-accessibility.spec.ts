@@ -69,7 +69,7 @@ async function deleteTestSession(id: string) {
 test.describe('P405 Accessibility — /sessions page structure', () => {
   test.describe.configure({ timeout: 30000 });
 
-  test('page <main> has aria-label="My Sessions"', async ({ page }) => {
+  test('page <main> has aria-label="Session History"', async ({ page }) => {
     let testUser: Awaited<ReturnType<typeof createTestUser>> | null = null;
 
     try {
@@ -79,8 +79,8 @@ test.describe('P405 Accessibility — /sessions page structure', () => {
       await page.goto('/sessions');
       await page.waitForLoadState('networkidle');
 
-      const main = page.locator('main[aria-label="My Sessions"]')
-        .or(page.getByRole('main', { name: /my sessions/i }));
+      const main = page.locator('main[aria-label="Session History"]')
+        .or(page.getByRole('main', { name: /session history/i }));
       await expect(main).toBeAttached({ timeout: 10000 });
     } finally {
       if (testUser) await deleteTestUser(testUser.user.id);

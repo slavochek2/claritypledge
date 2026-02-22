@@ -173,7 +173,7 @@ export function NavigationMenuItems({
                   onClick={handleItemClick}
                 >
                   <HistoryIcon className="w-4 h-4 inline mr-2" />
-                  My Sessions
+                  Session History
                 </Link>
                 <Link
                   to="/pledgers"
@@ -302,7 +302,7 @@ export function NavigationMenuItems({
               <DropdownMenuItem asChild>
                 <Link to="/sessions" className="cursor-pointer">
                   <HistoryIcon className="w-4 h-4 mr-2" />
-                  My Sessions
+                  Session History
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

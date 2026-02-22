@@ -120,7 +120,7 @@ test.describe('P405: My Sessions — /sessions page', () => {
       await expect(page).toHaveURL('/sessions');
 
       // Page heading should be visible
-      await expect(page.getByRole('heading', { name: /my sessions/i })).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('heading', { name: /session history/i })).toBeVisible({ timeout: 10000 });
 
       // Session row should appear with partner name and round count
       await expect(page.getByText(/P405 Partner/i)).toBeVisible({ timeout: 10000 });
@@ -368,7 +368,7 @@ test.describe('P405: Sessions tab suppressed during active live session', () => 
       // Verify Sessions tab is visible before entering active session
       await creatorPage.goto('/');
       await creatorPage.waitForLoadState('networkidle');
-      const sessionsTab = creatorPage.getByRole('link', { name: /sessions/i }).first();
+      const sessionsTab = creatorPage.getByRole('link', { name: /session history/i }).first();
       await expect(sessionsTab).toBeVisible({ timeout: 10000 });
 
       // Start a live session to enter active state
@@ -378,7 +378,7 @@ test.describe('P405: Sessions tab suppressed during active live session', () => 
       await expect(creatorPage.getByText('Invite Your Partner')).toBeVisible({ timeout: 10000 });
 
       // Now in active session (waiting state) — Sessions tab should be hidden
-      const hiddenTab = creatorPage.getByRole('link', { name: /^sessions$/i });
+      const hiddenTab = creatorPage.getByRole('link', { name: /session history/i });
       await expect(hiddenTab).not.toBeVisible({ timeout: 5000 });
     } finally {
       await creatorContext.close();

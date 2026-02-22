@@ -45,7 +45,7 @@ test.describe('P405 Smoke: My Sessions', () => {
 
       // My Sessions heading should be present
       await expect(
-        page.getByRole('heading', { name: /my sessions/i })
+        page.getByRole('heading', { name: /session history/i })
       ).toBeVisible({ timeout: 10000 });
 
       // No uncaught JS errors
@@ -105,8 +105,8 @@ test.describe('P405 Smoke: My Sessions', () => {
       await page.waitForLoadState('networkidle');
 
       // Sessions tab should be present in the mobile nav
-      const sessionsTab = page.getByRole('link', { name: /^sessions$/i })
-        .or(page.getByRole('link', { name: /my sessions/i }))
+      const sessionsTab = page.getByRole('link', { name: /session history/i })
+        .or(page.getByRole('link', { name: /session history/i }))
         .first();
       await expect(sessionsTab).toBeVisible({ timeout: 10000 });
     } finally {
@@ -128,7 +128,7 @@ test.describe('P405 Smoke: My Sessions', () => {
 
       // My Sessions should appear in desktop top nav icon links
       // OR in the avatar dropdown
-      const mySessionsInNav = page.getByRole('link', { name: /my sessions/i });
+      const mySessionsInNav = page.getByRole('link', { name: /session history/i });
       const isVisible = await mySessionsInNav.isVisible().catch(() => false);
 
       if (!isVisible) {
@@ -137,8 +137,8 @@ test.describe('P405 Smoke: My Sessions', () => {
         if (await avatarButton.isVisible({ timeout: 3000 }).catch(() => false)) {
           await avatarButton.click();
           await expect(
-            page.getByRole('menuitem', { name: /my sessions/i })
-              .or(page.getByRole('link', { name: /my sessions/i }))
+            page.getByRole('menuitem', { name: /session history/i })
+              .or(page.getByRole('link', { name: /session history/i }))
           ).toBeVisible({ timeout: 5000 });
         }
       } else {

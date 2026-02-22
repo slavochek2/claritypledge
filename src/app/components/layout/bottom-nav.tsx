@@ -37,7 +37,7 @@ export function BottomNav() {
     // P405: Sessions tab hidden during active live session
     ...(!isLive ? [{
       icon: HistoryIcon,
-      label: "Sessions",
+      label: "Session History",
       to: "/sessions",
     } as NavItem] : []),
     {

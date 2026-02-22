@@ -124,7 +124,7 @@ export function SimpleNavigation() {
                     }`}
                   >
                     <HistoryIcon className="w-5 h-5" />
-                    <span className="text-xs mt-1 font-medium">My Sessions</span>
+                    <span className="text-xs mt-1 font-medium">Session History</span>
                   </Link>
                 )}
                 {/* My Profile */}

@@ -143,11 +143,12 @@ export function ClarityLivePage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Sync live state to context so BottomNav can intercept nav during live sessions
+  // Not live if: still on start screen, or session has ended (partner left / creator left)
   useEffect(() => {
-    const isInLive = (view === 'live' || view === 'waiting') && !!session;
+    const isInLive = view !== 'start' && !sessionEnded && !partnerLeft;
     setIsLive(isInLive);
     return () => { setIsLive(false); };
-  }, [view, session, setIsLive]);
+  }, [view, sessionEnded, partnerLeft, setIsLive]);
 
   // When BottomNav sets a pending destination, show exit confirmation
   useEffect(() => {

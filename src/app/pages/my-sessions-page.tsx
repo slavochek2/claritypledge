@@ -56,10 +56,10 @@ export function MySessionsPage() {
 
   return (
     <main
-      aria-label="My Sessions"
+      aria-label="Session History"
       className="container mx-auto px-4 lg:px-8 pt-24 pb-24 max-w-2xl"
     >
-      <h1 className="text-2xl font-bold text-foreground mb-6">My Sessions</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">Session History</h1>
 
       <SessionList
         sessions={sessions}
