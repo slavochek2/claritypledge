@@ -276,6 +276,10 @@ export const mockEventsService: EventsService = {
     // no-op in mock
   },
 
+  async closePracticeRoomBySessionId(_sessionId: string): Promise<void> {
+    // no-op in mock
+  },
+
   async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {
     const now = new Date();
     // Upcoming events user is NOT already registered for

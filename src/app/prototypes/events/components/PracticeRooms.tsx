@@ -88,7 +88,7 @@ export function PracticeRooms({ eventId, eventSlug, currentUserId, currentUserNa
 
   function handleJoin(room: EventPracticeRoom) {
     if (!room.sessionCode) return;
-    navigate(`/live/${room.sessionCode}`);
+    navigate(`/live/${room.sessionCode}?returnTo=${encodeURIComponent(`/events/${eventSlug}`)}`);
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────

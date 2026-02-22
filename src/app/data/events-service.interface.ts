@@ -28,6 +28,7 @@ export interface EventsService {
   getPracticeRooms(eventId: string): Promise<EventPracticeRoom[]>;
   openPracticeRoom(eventId: string, creatorId: string, sessionId: string): Promise<EventPracticeRoom>;
   closePracticeRoom(roomId: string): Promise<void>;
+  closePracticeRoomBySessionId(sessionId: string): Promise<void>;
 
 }
 

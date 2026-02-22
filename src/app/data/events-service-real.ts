@@ -778,6 +778,21 @@ export const realEventsService: EventsService = {
     }
   },
 
+  async closePracticeRoomBySessionId(sessionId: string): Promise<void> {
+    log(' closePracticeRoomBySessionId:', sessionId);
+
+    const { error } = await supabase
+      .from('event_practice_rooms')
+      .update({ status: 'closed' })
+      .eq('session_id', sessionId)
+      .in('status', ['waiting', 'active']);
+
+    if (error) {
+      log('ERROR: closePracticeRoomBySessionId error:', error);
+      throw new Error(`Failed to close practice room: ${error.message}`);
+    }
+  },
+
   async getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]> {
     log(' getUpcomingPublicEvents:', { excludeProfileId, limit });
 

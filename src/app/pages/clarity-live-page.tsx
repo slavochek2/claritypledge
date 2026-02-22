@@ -47,6 +47,7 @@ import {
   DEFAULT_LIVE_STATE,
 } from '@/app/types';
 import { pointsService } from '@/app/data/points-service';
+import { eventsService } from '@/app/data/events-service';
 import { calibrationService } from '@/app/data/calibration-service';
 import { supabase } from '@/lib/supabase';
 import { LiveModeView, PartnerLeftScreen } from '@/app/components/partners/live-mode-view';
@@ -142,6 +143,10 @@ export function ClarityLivePage() {
   // Exit confirmation dialog state
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
+  // Partner departure state
+  const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
+  const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
+
   // Sync live state to context so BottomNav can intercept nav during live sessions
   // Not live if: still on start screen, or session has ended (partner left / creator left)
   useEffect(() => {
@@ -172,9 +177,6 @@ export function ClarityLivePage() {
   // P160: Recording state for join-via-link flow (fetched from session data)
   const [joinSessionIsPrivate, setJoinSessionIsPrivate] = useState(false);
 
-  // Partner departure state
-  const [partnerLeft, setPartnerLeft] = useState(false); // Joiner left (creator sees this)
-  const [sessionEnded, setSessionEnded] = useState(false); // Creator left (joiner sees this)
   const [departedPartnerName, setDepartedPartnerName] = useState<string | null>(null);
 
   // B48: Pending live transition state (for gated mic permission check)
@@ -1912,6 +1914,13 @@ export function ClarityLivePage() {
       }
     }
 
+    // P406: Close practice room if session came from an event
+    if (isFromEvent && session) {
+      eventsService.closePracticeRoomBySessionId(session.id).catch((err) => {
+        console.error('[Live] Failed to close practice room:', err);
+      });
+    }
+
     clearStoredSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
@@ -1931,9 +1940,9 @@ export function ClarityLivePage() {
       setPendingNavTo(null);
       navigate(destination, { replace: true });
     } else {
-      navigate('/live', { replace: true });
+      navigate(returnTo ?? '/live', { replace: true });
     }
-  }, [session, liveState.checksCount, isCreator, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo]);
+  }, [session, liveState.checksCount, isCreator, isFromEvent, returnTo, navigate, stopAndUploadRecording, pendingNavTo, setPendingNavTo]);
 
   // Handle starting a new session after partner left
   const handleStartNewAfterPartnerLeft = useCallback(async () => {
@@ -1943,6 +1952,13 @@ export function ClarityLivePage() {
     setPartnerLeft(false);
     setSessionEnded(false);
     setDepartedPartnerName(null);
+    // P406: Close practice room if session came from an event
+    if (isFromEvent && session) {
+      eventsService.closePracticeRoomBySessionId(session.id).catch((err) => {
+        console.error('[Live] Failed to close practice room:', err);
+      });
+    }
+
     clearStoredSession();
     setSession(null);
     setLiveState(DEFAULT_LIVE_STATE);
@@ -1955,9 +1971,8 @@ export function ClarityLivePage() {
     sessionEndedRef.current = false;
     hasJoinerRef.current = false;
     lastJoinerNameRef.current = null;
-    // Navigate to clean URL (replace to avoid back button returning to meeting)
-    navigate('/live', { replace: true });
-  }, [navigate, stopAndUploadRecording]);
+    navigate(returnTo ?? '/live', { replace: true });
+  }, [session, isFromEvent, returnTo, navigate, stopAndUploadRecording]);
 
   // P40: Handle mic permission dialog retry
   // If we have pending join info, complete the join after mic is granted
