@@ -750,7 +750,12 @@ export function ClarityLivePage() {
           'selectedStoryData' in updates ||
           'selectedContentTitle' in updates;
         const storyIsActive = Boolean(stateBeforeUpdate.selectedStoryId);
-        if (touchesStory || !storyIsActive) {
+        // If any update value is explicitly undefined (clearing a field), use full overwrite.
+        // The patch path (JSONB ||) silently ignores undefined values — they get stripped by
+        // JSON.stringify before reaching the DB, so the old value stays. Full overwrite
+        // properly clears them by rewriting the entire live_state column.
+        const hasExplicitClears = Object.values(updates).some(v => v === undefined);
+        if (touchesStory || !storyIsActive || hasExplicitClears) {
           await updateClaritySessionLiveState(session.id, newState);
         } else {
           await patchClaritySessionLiveState(session.id, updates as Record<string, unknown>);
