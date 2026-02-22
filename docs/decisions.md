@@ -14,6 +14,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-22: Navigation hierarchy — events-centric, explicit destinations over browser history
+
+**Context:** Back buttons used `document.referrer` to detect "came from within the app" and call `navigate(-1)`, falling back to `/` or `/events`. This is broken in SPAs — `document.referrer` reflects the original page load URL, not the previous React route. Users clicking Back from point/story detail were landing on the fallback (`/events` or `/`) even when navigating within the app.
+
+**Decision:** Explicit, hard-coded destinations per page based on the actual nav graph:
+- **Story detail → author's profile** (`/p/:authorSlug`) — stories always belong to someone
+- **Point detail → `navigate(-1)`** — points reachable from both story and profile; browser history handles both; fallback `/events`
+- **Profile → `/events`** — events is the home base (app is events-centric, not profile-centric)
+- **Pledge → `/p/:slug`** — always sub-page of its owner's profile
+
+**Alternatives rejected:** `document.referrer` check (unreliable in SPA); passing `?from=` URL params (overengineered for current nav graph); always `navigate(-1)` (correct for in-app but gives no fallback for direct links).
+
+**Consequences:** If the nav graph changes (e.g. points accessible from a new surface), revisit point detail's fallback. Profile's Back is unconditional — no history-aware behavior intentionally.
+
+---
+
 ## 2026-02-20: StoryCardDetail is single source of truth for linked point display (P407)
 
 **Context:** Story detail page showed linked points twice: once inside `StoryCardDetail` (collapsible with full `QuotedPoint` cards), and again in `KeyPointsSection` (a flat list with unlink buttons). Both rendered the same `story.points` array. The `KeyPointsSection` list was built separately and never updated to use the richer `QuotedPoint` component.
