@@ -991,22 +991,25 @@ export function ClarityLivePage() {
     [name, updateLiveState, user?.id, liveGuardedRemovePosition]
   );
 
-  // P272: Write story verification record when speaker rates 10 (perfect understanding)
-  // Fire-and-forget with error guard — round completes regardless
-  const writeStoryVerification = useCallback(async ({
+  // P413: Write calibration record on every completed paraphrase exchange.
+  // storyId is optional — loose exchanges without a formal story still count.
+  // Fire-and-forget with error guard — round completes regardless.
+  const writeVerification = useCallback(async ({
     storyId,
     sessionId,
     checkerName,
     checkerRating,
     responderRating,
+    exchangeIndex,
   }: {
-    storyId: string;
+    storyId?: string;
     sessionId: string | undefined;
     checkerName: string;
     checkerRating: number;
     responderRating: number;
+    exchangeIndex: number;
   }) => {
-    const roundKey = `${storyId}_${sessionId}_${checkerName}`;
+    const roundKey = `${sessionId}_${checkerName}_${exchangeIndex}`;
     if (verificationFiredRef.current.has(roundKey)) return;
     verificationFiredRef.current.add(roundKey);
 
@@ -1021,26 +1024,26 @@ export function ClarityLivePage() {
         : session.creatorProfileId;
 
       if (!speakerId || !listenerId) {
-        console.error('[P272] Cannot write verification: missing profile IDs');
+        console.error('[P413] Cannot write verification: missing profile IDs');
         return;
       }
 
-      const { data: versionRow } = await supabase
-        .from('story_versions')
-        .select('id')
-        .eq('story_id', storyId)
-        .order('version_number', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (!versionRow) {
-        console.error('[P272] No version found for story', storyId);
-        return;
+      // Look up story version only when a story is selected
+      let versionId: string | undefined;
+      if (storyId) {
+        const { data: versionRow } = await supabase
+          .from('story_versions')
+          .select('id')
+          .eq('story_id', storyId)
+          .order('version_number', { ascending: false })
+          .limit(1)
+          .single();
+        versionId = versionRow?.id;
       }
 
       await calibrationService.recordVerification({
         storyId,
-        versionId: versionRow.id,
+        versionId,
         sessionId,
         speakerId,
         listenerId,
@@ -1050,10 +1053,10 @@ export function ClarityLivePage() {
 
       analytics.track('live_story_verified', {
         session_code: session.code,
-        story_id: storyId,
+        story_id: storyId ?? null,
       });
     } catch (err) {
-      console.error('[P272] writeStoryVerification failed:', err);
+      console.error('[P413] writeVerification failed:', err);
       // Non-blocking — round completes regardless
     }
   }, [user?.id, session, calibrationService]);
@@ -1133,17 +1136,15 @@ export function ClarityLivePage() {
           const checkerRatingValue = isChecker ? rating : currentState.checkerRating;
           const responderRatingValue = isChecker ? currentState.responderRating : rating;
 
-          // P272: Write story verification record at speaker_rating = 10
-          const currentStoryId = currentState.selectedStoryId;
-          if (checkerRatingValue === 10 && currentStoryId) {
-            void writeStoryVerification({
-              storyId: currentStoryId,
-              sessionId: session?.id,
-              checkerName: currentState.checkerName ?? name,
-              checkerRating: checkerRatingValue,
-              responderRating: responderRatingValue ?? 0,
-            });
-          }
+          // P413: Write calibration record on every completed paraphrase exchange
+          void writeVerification({
+            storyId: currentState.selectedStoryId ?? undefined,
+            sessionId: session?.id,
+            checkerName: currentState.checkerName ?? name,
+            checkerRating: checkerRatingValue,
+            responderRating: responderRatingValue ?? 0,
+            exchangeIndex: currentState.checksCount,
+          });
           const gap = (responderRatingValue ?? 0) - (checkerRatingValue ?? 0);
 
           const isPerfect = checkerRatingValue === 10 && responderRatingValue === 10;
@@ -1173,7 +1174,7 @@ export function ClarityLivePage() {
 
       updateLiveState(updates);
     },
-    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeStoryVerification]
+    [name, partnerName, localFlowType, updateLiveState, session?.code, session?.id, trackLiveEvent, writeVerification]
   );
 
   // V7: Handle skip (resets to idle state for next check)

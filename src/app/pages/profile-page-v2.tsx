@@ -624,20 +624,7 @@ export function ProfilePageV2() {
         <div className="max-w-lg mx-auto px-4 mt-3">
           {/* Back button - P114: uses history if from same site, fallback to /events */}
           <button
-            onClick={() => {
-              const referrer = document.referrer;
-              let sameOrigin = false;
-              try {
-                sameOrigin = referrer ? new URL(referrer).origin === window.location.origin : false;
-              } catch {
-                // Invalid URL - treat as external
-              }
-              if (sameOrigin) {
-                navigate(-1);
-              } else {
-                navigate('/events');
-              }
-            }}
+            onClick={() => navigate('/events')}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft size={16} className="mr-1" />

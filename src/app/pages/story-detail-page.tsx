@@ -512,13 +512,12 @@ export function StoryDetailPage() {
   }, [id, retryKey, user?.id, authLoading]);
 
   const handleBack = useCallback(() => {
-    const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
-    if (isInternalReferrer) {
-      navigate(-1);
+    if (story?.authorSlug) {
+      navigate(`/p/${story.authorSlug}`);
     } else {
-      navigate('/');
+      navigate('/events');
     }
-  }, [navigate]);
+  }, [navigate, story?.authorSlug]);
 
   const handleRetry = useCallback(() => {
     setRetryKey(k => k + 1);

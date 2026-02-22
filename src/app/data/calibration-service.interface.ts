@@ -40,7 +40,8 @@ export interface CalibrationService {
 
   /**
    * Record a verification from a /live session
-   * This is called when a story is discussed and rated in a session.
+   * Called whenever both participants complete a paraphrase exchange (both submit ratings).
+   * storyId/versionId are optional — loose exchanges without a formal story are counted.
    * Triggers will update ears_count and verification_session_count.
    */
   recordVerification(input: RecordVerificationInput): Promise<StoryVerification | null>;
@@ -62,8 +63,8 @@ export interface CalibrationService {
 }
 
 export interface RecordVerificationInput {
-  storyId: string;
-  versionId: string;
+  storyId?: string;
+  versionId?: string;
   sessionId?: string;
   speakerId: string;
   listenerId: string;

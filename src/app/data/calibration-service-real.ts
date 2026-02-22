@@ -26,8 +26,8 @@ const log = (...args: unknown[]) =>
 // Database row type for verifications with joined profiles
 interface DbVerificationWithProfiles {
   id: string;
-  story_id: string;
-  version_id: string;
+  story_id: string | null;
+  version_id: string | null;
   session_id: string | null;
   speaker_id: string;
   listener_id: string;
@@ -50,8 +50,8 @@ interface DbVerificationWithProfiles {
  */
 function mapVerificationFromDb(row: {
   id: string;
-  story_id: string;
-  version_id: string;
+  story_id: string | null;
+  version_id: string | null;
   session_id: string | null;
   speaker_id: string;
   listener_id: string;
@@ -62,8 +62,8 @@ function mapVerificationFromDb(row: {
 }): StoryVerification {
   return {
     id: row.id,
-    storyId: row.story_id,
-    versionId: row.version_id,
+    storyId: row.story_id ?? undefined,
+    versionId: row.version_id ?? undefined,
     sessionId: row.session_id ?? undefined,
     speakerId: row.speaker_id,
     listenerId: row.listener_id,
@@ -234,8 +234,8 @@ export const realCalibrationService: CalibrationService = {
     const { data, error } = await supabase
       .from('story_verifications')
       .insert({
-        story_id: input.storyId,
-        version_id: input.versionId,
+        story_id: input.storyId ?? null,
+        version_id: input.versionId ?? null,
         session_id: input.sessionId ?? null,
         speaker_id: input.speakerId,
         listener_id: input.listenerId,

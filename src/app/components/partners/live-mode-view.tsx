@@ -904,8 +904,10 @@ function IdleScreen({
     liveState.explainBackRatings.length > 0
   );
 
+  const sessionHistory = liveState.sessionHistory ?? [];
+
   // Use top-aligned layout only when a story/point card is visible on screen
-  const hasScrollableContent = !!liveState.selectedStoryId;
+  const hasScrollableContent = !!liveState.selectedStoryId || sessionHistory.length > 0;
   const layoutClass = showRatingDrawer || hasRatingData || hasScrollableContent
     ? CONTENT_LAYOUT
     : CONTENT_LAYOUT_CENTERED;

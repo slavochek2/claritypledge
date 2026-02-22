@@ -1102,8 +1102,8 @@ export interface DbPointPositionHistory {
 
 export interface StoryVerification {
   id: string;
-  storyId: string;
-  versionId: string;
+  storyId?: string;
+  versionId?: string;
   sessionId?: string;
   speakerId: string;
   listenerId: string;
@@ -1123,8 +1123,8 @@ export interface StoryVerificationWithProfiles extends StoryVerification {
 
 export interface DbStoryVerification {
   id: string;
-  story_id: string;
-  version_id: string;
+  story_id?: string;
+  version_id?: string;
   session_id?: string;
   speaker_id: string;
   listener_id: string;

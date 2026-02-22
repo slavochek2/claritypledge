@@ -198,8 +198,7 @@ export function PointDetailPage() {
 
   // Helper to navigate back safely
   const handleBack = () => {
-    const isInternalReferrer = document.referrer && document.referrer.includes(window.location.host);
-    if (isInternalReferrer) {
+    if (window.history.length > 1) {
       navigate(-1);
     } else {
       navigate('/events');
