@@ -223,6 +223,51 @@ Schema: `supabase/migrations/20260204_stories_points_calibration.sql`
 
 ---
 
+### Position Breakdown — Linked Stories Pattern (P411)
+
+When rendering position holders on `/point/:id`, stories linked to a point are batch-fetched in parallel with positions, then resolved per-holder via a `Map`.
+
+**Data fetch (parallel):**
+```typescript
+const [point, positions, storiesByPoint] = await Promise.all([
+  pointsService.getPointWithUserPosition(id, user?.id),
+  pointsService.getPositionsForPoint(id),
+  storiesService.getStoriesForPoints([id]).catch(() => new Map()),
+]);
+```
+
+**`storyByAuthorId` derivation (useMemo):**
+```typescript
+const storyByAuthorId = useMemo(() => {
+  const map = new Map<string, StoryWithAuthor>();
+  const stories = linkedStories.get(pointId) ?? [];
+  for (const s of stories) {
+    if (s.visibility === 'public' && !map.has(s.authorId)) {
+      map.set(s.authorId, s);  // first public story per author wins
+    }
+  }
+  return map;
+}, [linkedStories, pointId]);
+```
+
+**Double visibility guard:**
+- `getStoriesForPoints` already filters by `visibility !== 'private'` via RLS + service query
+- App-layer guard (`s.visibility === 'public'`) is an explicit second check — intentional defense in depth, consistent with the established pattern
+
+**Render branch per holder:**
+```typescript
+const story = storyByAuthorId.get(holder.userId);
+if (story) {
+  // Full StoryCardWithLinks with context="point-detail"
+} else {
+  // Compact row: avatar + name + EarBadge + PositionBadge + "No story yet"
+}
+```
+
+**Why not fetch stories inside the position loop?** N+1 queries. The batch fetch via `getStoriesForPoints([pointId])` makes one DB call for all stories linked to the point.
+
+---
+
 ## Key Routes
 
 | Route | Purpose |
