@@ -359,6 +359,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 - ❌ Navigating to `/auth/callback?token=...` (tokens expire too fast)
 - ❌ Assuming page reload triggers auth detection
 - ❌ Using `@example.com` for test emails (Supabase rejects them)
+- ❌ Making the practice room creator also the event host — causes `getByText(name)` strict-mode violation (name appears in organizer card AND rooms list) and `getByRole('link', {name:/keyword/i}).first()` to match the organizer card link instead of the intended button (P406)
 
 ### Key Insights
 
@@ -367,6 +368,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 3. **Document failed attempts:** Saves future engineers from repeating mistakes
 4. **Partial success is still success:** 10 passing tests deliver real value
 5. **Infrastructure is reusable:** Framework is ready for future tests
+6. **Test data isolation matters:** When a test user plays multiple roles (e.g., creator = event host), their name or link can appear in unexpected UI sections. Playwright's `getByText` strict mode and `getByRole('link')` selectors will match all occurrences — use separate users for each role in a test scene.
 
 ### If Starting Over
 

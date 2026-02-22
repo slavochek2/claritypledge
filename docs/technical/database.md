@@ -71,6 +71,36 @@ WHERE id = p_session_id;
 
 **Why this matters:** `confirmedLiveStateRef.current` (the local "last confirmed" ref) can be stale if a subscription event was skipped while a write was in-flight. A full overwrite from a stale ref silently clears fields written by the partner. The partial merge makes stale-ref writes safe by default.
 
+### event_practice_rooms (P406 — Practice Rooms)
+
+Enables participants to signal session readiness on an event page without out-of-band link exchange.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| event_id | uuid | FK → events (CASCADE DELETE) |
+| creator_id | uuid | FK → profiles |
+| session_id | uuid | FK → clarity_sessions (SET NULL on delete) |
+| status | text | `waiting` \| `active` \| `closed` |
+| created_at | timestamptz | Row creation time |
+| expires_at | timestamptz | Default: `NOW() + 30 min`; rooms past this are excluded from polling |
+
+**Constraints:**
+- `idx_one_waiting_room_per_creator` — partial unique index on `(event_id, creator_id) WHERE status = 'waiting'`. One open room per person per event.
+
+**RLS:**
+- SELECT: public read (anyone can see open rooms)
+- INSERT: `auth.uid() = creator_id`
+- UPDATE: creator can update (close), joiner can set `status = 'active'`
+
+**Service query pattern:** `getPracticeRooms` uses PostgREST FK join syntax to pull creator profile and session code in one query:
+```
+event_practice_rooms
+  *, creator:profiles!event_practice_rooms_creator_id_fkey(name, slug, avatar_color, avatar_url),
+     session:clarity_sessions!event_practice_rooms_session_id_fkey(code)
+WHERE status IN ('waiting', 'active') AND expires_at > NOW()
+```
+
 ### Stories, Points & Calibration Tables (P117)
 
 Seven tables added by P117. Full schema details in [architecture.md](architecture.md#stories-points-and-calibration-api).
