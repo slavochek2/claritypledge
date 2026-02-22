@@ -397,7 +397,11 @@ After commit succeeds:
    git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
    ```
 4. Commit: `chore: close P{N} — {title}`
-5. Ask: "Capture learnings with /kdd? (y/n)"
+5. Refresh kanban:
+   ```bash
+   curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null
+   ```
+6. Ask: "Capture learnings with /kdd? (y/n)"
 
 ---
 

@@ -1,11 +1,11 @@
 ---
-status: in-progress
-type: feature
+status: done
+type: story
 rank: 0.25
 workstream: foundation
 created_date: 2026-02-20T00:00:00.000Z
 tags: []
-locked_at: '2026-02-21T09:07:19.219Z'
+completed_at: '2026-02-22'
 ---
 
 # P410: Live session nav guard — show Leave dialog on bottom/top nav clicks
