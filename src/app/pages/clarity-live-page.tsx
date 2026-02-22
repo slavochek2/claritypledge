@@ -144,7 +144,7 @@ export function ClarityLivePage() {
 
   // Sync live state to context so BottomNav can intercept nav during live sessions
   useEffect(() => {
-    const isInLive = view === 'live' && !!session;
+    const isInLive = (view === 'live' || view === 'waiting') && !!session;
     setIsLive(isInLive);
     return () => { setIsLive(false); };
   }, [view, session, setIsLive]);
@@ -166,7 +166,8 @@ export function ClarityLivePage() {
   const autoJoinFiredRef = useRef(false);
 
   // P160: Private session mode (recording toggle — creator only, locked after session created)
-  const [isPrivate, setIsPrivate] = useState(false);
+  // P406: Default to private (AI Insights off) when arriving from a practice room (?insights=off)
+  const [isPrivate, setIsPrivate] = useState(() => searchParams.get('insights') === 'off');
   // P160: Recording state for join-via-link flow (fetched from session data)
   const [joinSessionIsPrivate, setJoinSessionIsPrivate] = useState(false);
 
@@ -1742,11 +1743,13 @@ export function ClarityLivePage() {
   const handleJoinRef = useRef<() => void>(() => {});
   handleJoinRef.current = handleJoin;
 
-  // P396: Auto-join verified users arriving via invite link — no form needed
+  // P396: Auto-join authenticated users arriving via invite link — no form needed
+  // P406: Relaxed from isVerified to any authenticated user — practice room joiners are
+  // already trusted (they're on an event page) and shouldn't need to click Join manually.
   useEffect(() => {
     if (!isJoinViaLink || !urlCode) return;
     if (isAuthLoading || isRestoring) return;
-    if (!user?.isVerified) return;
+    if (!user) return;
     if (view !== 'start') return;
     if (autoJoinFiredRef.current) return;
 
@@ -1769,7 +1772,7 @@ export function ClarityLivePage() {
       setIsLoading(false);
       handleJoinRef.current();
     })();
-  }, [isJoinViaLink, urlCode, isAuthLoading, isRestoring, user?.isVerified, user?.id, view]);
+  }, [isJoinViaLink, urlCode, isAuthLoading, isRestoring, user?.id, view]);
 
   // Cancel waiting and go back to start
   const handleCancelWaiting = () => {

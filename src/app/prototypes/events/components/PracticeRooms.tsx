@@ -63,7 +63,7 @@ export function PracticeRooms({ eventId, eventSlug, currentUserId, currentUserNa
     try {
       const session = await createClaritySession(currentUserName, currentUserId);
       await eventsService.openPracticeRoom(eventId, currentUserId, session.id);
-      navigate(`/live/${session.code}?returnTo=${encodeURIComponent(`/events/${eventSlug}`)}`);
+      navigate(`/live/${session.code}?returnTo=${encodeURIComponent(`/events/${eventSlug}`)}&insights=off`);
     } catch (err) {
       console.error('[PracticeRooms] Failed to open room:', err);
       setIsOpening(false);
