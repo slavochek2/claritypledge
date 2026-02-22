@@ -201,6 +201,7 @@ describe('realEventsService', () => {
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({ data: { id: 'rsvp-1' }, error: null }),
+            maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'rsvp-1' }, error: null }),
           }),
         }),
       });
@@ -215,6 +216,7 @@ describe('realEventsService', () => {
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
           }),
         }),
       });
