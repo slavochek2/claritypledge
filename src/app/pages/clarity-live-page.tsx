@@ -150,7 +150,7 @@ export function ClarityLivePage() {
   // Sync live state to context so BottomNav can intercept nav during live sessions
   // Not live if: still on start screen, or session has ended (partner left / creator left)
   useEffect(() => {
-    const isInLive = view !== 'start' && !sessionEnded && !partnerLeft;
+    const isInLive = view === 'live' && !sessionEnded && !partnerLeft;
     setIsLive(isInLive);
     return () => { setIsLive(false); };
   }, [view, sessionEnded, partnerLeft, setIsLive]);

@@ -34,12 +34,11 @@ export function BottomNav() {
       label: "My Events",
       to: "/events",
     },
-    // P405: Sessions tab hidden during active live session
-    ...(!isLive ? [{
+    {
       icon: HistoryIcon,
       label: "Session History",
       to: "/sessions",
-    } as NavItem] : []),
+    },
     {
       icon: UserIcon,
       label: "My Profile",
