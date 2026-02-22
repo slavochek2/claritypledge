@@ -6,7 +6,7 @@
  * Uses design system tokens only.
  */
 import { Link, useLocation } from "react-router-dom";
-import { CalendarIcon, UserIcon, MicIcon } from "lucide-react";
+import { CalendarIcon, UserIcon, MicIcon, HistoryIcon } from "lucide-react";
 import { useNavAuthState } from "@/hooks/use-nav-auth-state";
 import { useLiveSession } from "@/app/contexts/live-session-context";
 
@@ -34,6 +34,12 @@ export function BottomNav() {
       label: "My Events",
       to: "/events",
     },
+    // P405: Sessions tab hidden during active live session
+    ...(!isLive ? [{
+      icon: HistoryIcon,
+      label: "Sessions",
+      to: "/sessions",
+    } as NavItem] : []),
     {
       icon: UserIcon,
       label: "My Profile",
@@ -50,6 +56,7 @@ export function BottomNav() {
     if (!to) return false;
     if (to === "/events") return location.pathname === "/events" || location.pathname.startsWith("/events/");
     if (to === "/live") return location.pathname === "/live" || location.pathname.startsWith("/live/");
+    if (to === "/sessions") return location.pathname === "/sessions";
     return location.pathname === to;
   };
 

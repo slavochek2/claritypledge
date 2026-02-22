@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { NavigationMenuItems } from '@/app/components/layout/navigation-menu-items';
+import { useLiveSession } from '@/app/contexts/live-session-context';
 
 interface LiveSessionBannerProps {
   partnerName?: string;
@@ -41,13 +42,18 @@ export function LiveSessionBanner({ partnerName: _partnerName, onExit, isLiveMee
   // P52: Use shared navigation auth state hook for consistency with SimpleNavigation
   // P67: user and showUserMenu needed for avatar display
   const { signOut, user, showUserMenu, hasPledged } = useNavAuthState();
+  const { setPendingNavTo } = useLiveSession();
 
   return (
     <div className="h-16 lg:h-20 bg-background">
       <div className="container mx-auto px-4 lg:px-8 h-full">
         <div className="relative flex items-center justify-between h-full">
           {/* Left: Logo - P52: Aligned styling with SimpleNavigation */}
-          <Link to="/" className="hover:opacity-80 transition-opacity">
+          <Link
+            to="/"
+            className="hover:opacity-80 transition-opacity"
+            onClick={isLiveMeeting ? (e) => { e.preventDefault(); setPendingNavTo('/'); } : undefined}
+          >
             <ClarityLogo size="sm" />
           </Link>
 

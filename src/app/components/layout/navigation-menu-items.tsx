@@ -30,8 +30,10 @@ import {
   InfoIcon,
   BookOpenIcon,
   CalendarIcon,
+  HistoryIcon,
 } from 'lucide-react';
 import { useNavAuthState } from '@/hooks/use-nav-auth-state';
+import { useLiveSession } from '@/app/contexts/live-session-context';
 
 interface NavigationMenuItemsProps {
   onSignOut: () => void;
@@ -59,6 +61,7 @@ export function NavigationMenuItems({
   inActiveSession = false,
 }: NavigationMenuItemsProps) {
   const { showUserMenu, showPublicCTAs } = useNavAuthState();
+  const { isLive, setPendingNavTo } = useLiveSession();
 
   const handleItemClick = () => {
     onItemClick?.();
@@ -165,6 +168,14 @@ export function NavigationMenuItems({
                   Events
                 </Link>
                 <Link
+                  to="/sessions"
+                  className={mobileLinkClass}
+                  onClick={handleItemClick}
+                >
+                  <HistoryIcon className="w-4 h-4 inline mr-2" />
+                  My Sessions
+                </Link>
+                <Link
                   to="/pledgers"
                   className={mobileLinkClass}
                   onClick={handleItemClick}
@@ -204,7 +215,7 @@ export function NavigationMenuItems({
             <Link
               to="/settings"
               className={mobileLinkClass}
-              onClick={handleItemClick}
+              onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/settings'); handleItemClick(); } : handleItemClick}
               data-testid={includeTestIds ? 'settings' : undefined}
             >
               <SettingsIcon className="w-4 h-4 inline mr-2" />
@@ -289,6 +300,12 @@ export function NavigationMenuItems({
           {!inActiveSession && (
             <>
               <DropdownMenuItem asChild>
+                <Link to="/sessions" className="cursor-pointer">
+                  <HistoryIcon className="w-4 h-4 mr-2" />
+                  My Sessions
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link to="/pledgers" className="cursor-pointer">
                   <AwardIcon className="w-4 h-4 mr-2" />
                   Pledgers
@@ -323,7 +340,11 @@ export function NavigationMenuItems({
 
           {/* Settings */}
           <DropdownMenuItem asChild data-testid={includeTestIds ? 'settings' : undefined}>
-            <Link to="/settings" className="cursor-pointer">
+            <Link
+              to="/settings"
+              className="cursor-pointer"
+              onClick={isLive ? (e) => { e.preventDefault(); setPendingNavTo('/settings'); } : undefined}
+            >
               <SettingsIcon className="w-4 h-4 mr-2" />
               Settings
             </Link>

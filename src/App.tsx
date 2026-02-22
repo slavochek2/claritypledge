@@ -29,6 +29,7 @@ const ClarityChatPage = lazy(() => import("@/app/pages/clarity-chat-page").then(
 const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
 const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
+const MySessionsPage = lazy(() => import("@/app/pages/my-sessions-page").then(m => ({ default: m.MySessionsPage })));
 const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m => ({ default: m.CollaboratePage })));
 const CreateStoryPage = lazy(() => import("@/app/pages/create-story-page").then(m => ({ default: m.CreateStoryPage })));
 const StoryDetailPage = lazy(() => import("@/app/pages/story-detail-page").then(m => ({ default: m.StoryDetailPage })));
@@ -194,6 +195,17 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <MePage />
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/sessions"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <MySessionsPage />
+              </LazyRoute>
             </ClarityLandingLayout>
           }
         />
