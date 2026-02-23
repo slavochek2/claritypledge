@@ -4,9 +4,8 @@ import { Plus, CalendarDays, Users } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
-import type { EventWithHost, EventAttendee } from '@/app/types';
+import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
-import { PersonRow } from '@/app/components/shared/PersonRow';
 
 type Tab = 'upcoming' | 'past';
 
@@ -19,8 +18,6 @@ export function EventsList() {
   const [pastEvents, setPastEvents] = useState<EventWithHost[]>([]);
   const [userRsvps, setUserRsvps] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [nextEvent, setNextEvent] = useState<EventWithHost | null>(null);
-  const [peopleFromNextEvent, setPeopleFromNextEvent] = useState<EventAttendee[]>([]);
 
   useEffect(() => {
     async function fetchEvents() {
@@ -33,20 +30,14 @@ export function EventsList() {
 
       if (user) {
         const allEvents = [...upcoming, ...past];
-        const [rsvpChecks, nextEventResult] = await Promise.all([
-          Promise.all(allEvents.map(event => eventsService.isUserRsvpd(event.id, user.id))),
-          eventsService.getUserNextEvent(user.id),
-        ]);
+        const rsvpChecks = await Promise.all(
+          allEvents.map(event => eventsService.isUserRsvpd(event.id, user.id))
+        );
         const rsvpSet = new Set<string>();
         allEvents.forEach((event, i) => {
           if (rsvpChecks[i]) rsvpSet.add(event.id);
         });
         setUserRsvps(rsvpSet);
-        setNextEvent(nextEventResult);
-        if (nextEventResult) {
-          const people = await eventsService.getPeopleFromEvent(nextEventResult.id, user.id);
-          setPeopleFromNextEvent(people);
-        }
       }
 
       setLoading(false);
@@ -61,36 +52,6 @@ export function EventsList() {
       {/* Header */}
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
         <h1 className="text-2xl font-bold mb-4">{isLoggedIn ? "My Events" : "Events"}</h1>
-
-        {/* Participants of next event — only for logged-in users with upcoming attendees */}
-        {isLoggedIn && nextEvent && peopleFromNextEvent.length > 0 && (
-          <div className="mb-5 p-4 rounded-lg border border-border bg-muted/30">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-              Participants of Your Next Event
-            </p>
-            <p className="text-sm text-muted-foreground mb-3">
-              {nextEvent.title} — {new Date(nextEvent.datetime).toLocaleString('en-US', {
-                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
-                timeZone: nextEvent.timezone,
-              })}
-            </p>
-            <div className="space-y-2">
-              {peopleFromNextEvent.map(person => (
-                <PersonRow
-                  key={person.profileId}
-                  profileId={person.profileId}
-                  slug={person.slug}
-                  name={person.name}
-                  avatarColor={person.avatarColor}
-                  avatarUrl={person.avatarUrl}
-                  isPledger={person.hasPledged}
-                  earCount={person.earCount}
-                  action="going"
-                />
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Tabs and Action Buttons Row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
