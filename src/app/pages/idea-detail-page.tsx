@@ -188,6 +188,7 @@ function CommentItem({
 
   return (
     <div
+      role="group"
       className="group py-3"
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}

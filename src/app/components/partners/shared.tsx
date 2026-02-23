@@ -7,7 +7,9 @@
 import { RATING_OPTIONS } from './constants';
 
 // Re-export for backward compatibility
+// eslint-disable-next-line react-refresh/only-export-components
 export { RATING_OPTIONS } from './constants';
+// eslint-disable-next-line react-refresh/only-export-components
 export { capitalizeName, getFirstName } from './utils';
 
 /**

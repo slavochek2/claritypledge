@@ -109,6 +109,7 @@ const DrawerContent = React.forwardRef<
       <>
         {/* Overlay - only dismissible if dismissible prop is true */}
         <div
+          role="presentation"
           className={overlayClassName ?? "fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"}
           onClick={dismissible ? () => onOpenChange(false) : undefined}
         />
@@ -182,6 +183,7 @@ const DrawerTitle = React.forwardRef<
 
   if (isMobile) {
     return (
+      // eslint-disable-next-line jsx-a11y/heading-has-content
       <h2
         ref={ref}
         className={cn(

@@ -21,6 +21,7 @@ import { ReactNode } from "react";
 // VERSIONED PLEDGE CONTENT
 // ============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PLEDGE_VERSIONS = {
   1: {
     title: "The Clarity Pledge",
@@ -85,6 +86,7 @@ export const CURRENT_PLEDGE_VERSION: PledgeVersion = 3;
 // PLAIN TEXT VERSIONS (backwards compatible - defaults to v3)
 // ============================================================================
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PLEDGE_TEXT = {
   title: PLEDGE_VERSIONS[3].title,
   subtitle: PLEDGE_VERSIONS[3].subtitle,

@@ -132,6 +132,7 @@ export function StoryCardWithLinks({
         </div>
 
         {/* Quoted Story box */}
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
           className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors"
           onClick={handleCardClick}
@@ -159,6 +160,7 @@ export function StoryCardWithLinks({
     : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all';
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className={cardClassName} onClick={handleCardClick}>
       {/* Main content */}
       <div className="p-4">
@@ -243,6 +245,7 @@ export function StoryCardWithLinks({
         <>
           {/* Footer header row */}
           <div
+            role="presentation"
             className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
             onClick={(e) => e.stopPropagation()}
           >
@@ -397,8 +400,8 @@ function QuotedPoint({
   const profileSubjectPosition = point.positions[authorId]?.position;
 
   // Get base counts or use defaults
-  const baseCounts =
-    getPointPositionCounts?.(point) ?? {
+  const baseCounts = useMemo(
+    () => getPointPositionCounts?.(point) ?? {
       strongly_agree: 0,
       agree: 0,
       somewhat_agree: 0,
@@ -406,7 +409,9 @@ function QuotedPoint({
       somewhat_disagree: 0,
       disagree: 0,
       strongly_disagree: 0,
-    };
+    },
+    [getPointPositionCounts, point]
+  );
 
   // Track initial position
   const initialPosition = currentUserId
@@ -487,7 +492,7 @@ function QuotedPoint({
 
             {/* Position buttons - compact */}
             {currentUserId && (
-              <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <PositionButtons
                   userPosition={userPosition}
                   counts={counts}

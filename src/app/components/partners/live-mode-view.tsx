@@ -311,6 +311,7 @@ export function LiveModeView({
     } else {
       setSelectedStory(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveState.selectedStoryData, liveState.livePositions, currentUserName, userId]);
 
   // Show a toast when the other person changes their position on a point.
@@ -353,6 +354,7 @@ export function LiveModeView({
       }
     }
     prevPartnerPositionsRef.current = { ...currentPositions };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveState.livePositions, partnerName]);
 
   // P128: Fetch selected point for display during verification

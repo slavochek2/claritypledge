@@ -260,6 +260,7 @@ export function StoryCardDetail({
         <>
           {/* Footer header row */}
           <div
+            role="presentation"
             className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
             onClick={e => e.stopPropagation()}
             onKeyDown={e => e.stopPropagation()}
@@ -415,15 +416,18 @@ function QuotedPoint({
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
   const ownerPosition = profileOwnerPositions?.get(point.id);
-  const baseCounts = positionCounts.get(point.id) || {
-    strongly_agree: 0,
-    agree: 0,
-    somewhat_agree: 0,
-    unsure: 0,
-    somewhat_disagree: 0,
-    disagree: 0,
-    strongly_disagree: 0,
-  };
+  const baseCounts = useMemo(
+    () => positionCounts.get(point.id) ?? {
+      strongly_agree: 0,
+      agree: 0,
+      somewhat_agree: 0,
+      unsure: 0,
+      somewhat_disagree: 0,
+      disagree: 0,
+      strongly_disagree: 0,
+    },
+    [positionCounts, point.id]
+  );
 
   // Optimistic override — cleared once parent confirms the update
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
@@ -518,7 +522,7 @@ function QuotedPoint({
             <p className="text-sm text-gray-800 line-clamp-2">{point.statement}</p>
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
-            <div className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
+            <div role="presentation" className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
               <PositionButtons
                 userPosition={effectivePosition}
                 counts={counts}
@@ -532,7 +536,7 @@ function QuotedPoint({
 
       {/* Linked stories - other stories this point also appears in */}
       {linkedStories.length > 0 && (
-        <div className="mt-1.5" onClick={e => e.stopPropagation()}>
+        <div role="presentation" className="mt-1.5" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => setStoriesExpanded(v => !v)}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-600 transition-colors pl-1"

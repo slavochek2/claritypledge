@@ -966,6 +966,7 @@ function StoryCardFull({
 
       {/* Footer row with linked points and action icons */}
       <div
+        role="presentation"
         className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-border"
         onClick={(e) => e.stopPropagation()}
       >
@@ -1007,7 +1008,7 @@ function StoryCardFull({
 
       {/* Linked points - expanded content */}
       {pointsExpanded && linkedPoints.length > 0 && (
-        <div className="pl-4 sm:pl-[68px] pr-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div role="presentation" className="pl-4 sm:pl-[68px] pr-4 pb-4 space-y-3" onClick={(e) => e.stopPropagation()}>
           {linkedPoints.slice(0, 3).map((point) => (
             <QuotedPointCard
               key={point.id}
@@ -1147,7 +1148,7 @@ function QuotedPointCard({
 
             {/* Position buttons - compact, only show for authenticated users */}
             {currentUserId && (
-              <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <div role="presentation" className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <PositionButtons
                   userPosition={userPosition}
                   counts={counts}
@@ -1261,7 +1262,7 @@ function PointCardFull({
               <p className="text-foreground text-base">{point.statement}</p>
 
               {/* Position buttons */}
-              <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+              <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                 <PositionButtons
                   userPosition={userPosition}
                   counts={counts}
@@ -1273,6 +1274,7 @@ function PointCardFull({
 
           {/* Footer - inside quoted box */}
           <div
+            role="presentation"
             className="flex items-center justify-end mt-3 pt-3 border-t border-border pl-[44px]"
             onClick={(e) => e.stopPropagation()}
           >

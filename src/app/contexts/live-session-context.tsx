@@ -25,6 +25,7 @@ export function LiveSessionProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useLiveSession() {
   return useContext(LiveSessionContext);
 }

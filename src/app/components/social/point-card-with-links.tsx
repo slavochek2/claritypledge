@@ -107,8 +107,8 @@ export function PointCardWithLinks({
   }, [point.positions, currentUserId, selectedPosition]);
 
   // Get base counts or use defaults
-  const baseCounts =
-    getPointPositionCounts?.(point) ?? {
+  const baseCounts = useMemo(
+    () => getPointPositionCounts?.(point) ?? {
       strongly_agree: 0,
       agree: 0,
       somewhat_agree: 0,
@@ -116,7 +116,9 @@ export function PointCardWithLinks({
       somewhat_disagree: 0,
       disagree: 0,
       strongly_disagree: 0,
-    };
+    },
+    [getPointPositionCounts, point]
+  );
 
   // In live session mode, show all linked stories (not filtered by owner)
   const allLinkedStories = linkedStories;
@@ -189,6 +191,7 @@ export function PointCardWithLinks({
     profileOwner && profileOwner.position;
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div className={cardClassName} onClick={handleCardClick}>
       {/* Main content */}
       <div className="p-4">
@@ -227,7 +230,7 @@ export function PointCardWithLinks({
 
                   {/* Position buttons */}
                   {!hideActions && currentUserId && (
-                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                    <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                       <PositionButtons
                         userPosition={userPosition}
                         counts={counts}
@@ -240,6 +243,7 @@ export function PointCardWithLinks({
 
               {/* Footer - inside quoted box, pl-[44px] aligns with content column (32px icon + 12px gap) */}
               <div
+                role="presentation"
                 className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 pl-[44px]"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -310,7 +314,7 @@ export function PointCardWithLinks({
 
               {/* Position buttons */}
               {!hideActions && currentUserId && (
-                <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                <div role="presentation" className="mt-3" onClick={(e) => e.stopPropagation()}>
                   <PositionButtons
                     userPosition={userPosition}
                     counts={counts}
@@ -326,6 +330,7 @@ export function PointCardWithLinks({
       {/* Footer row - only for feed view (non-quote pattern) or live session mode */}
       {(!showQuotePattern || liveSessionMode) && (
         <div
+          role="presentation"
           className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >
@@ -477,6 +482,7 @@ function QuotedStory({
   const author = getStoryAuthor?.(story.authorId);
 
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       onClick={onClick}
       className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer"

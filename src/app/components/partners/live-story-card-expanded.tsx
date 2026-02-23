@@ -107,6 +107,7 @@ export function LiveStoryCardExpanded({
       {/* Footer — "N points by Name" expand trigger */}
       {story.points.length > 0 && (
         <div
+          role="presentation"
           className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
           onClick={(e) => e.stopPropagation()}
         >

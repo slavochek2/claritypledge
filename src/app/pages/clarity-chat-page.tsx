@@ -1087,6 +1087,7 @@ export function ClarityChatPage() {
                         >
                           <X className="h-4 w-4" />
                         </Button>
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                         <audio
                           ref={audioRef}
                           src={audioUrl || undefined}

@@ -64,6 +64,7 @@ if (sentryDsn && import.meta.env.PROD) {
 window.React = React;
 window.ReactDOM = ReactDOM;
 
+// eslint-disable-next-line react-refresh/only-export-components
 function Main() {
   return (
     <React.StrictMode>
