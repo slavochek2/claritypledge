@@ -22,19 +22,6 @@ const html = `<style>
     text-align: center;
     padding: 64px 24px;
   }
-  .wp-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1d4ed8;
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 8px 20px;
-    border-radius: 100px;
-    margin-bottom: 40px;
-  }
   .wp-headline {
     font-size: clamp(4rem, 10vw, 7rem);
     font-weight: 700;
@@ -83,29 +70,13 @@ const html = `<style>
     text-underline-offset: 3px;
   }
   .wp-secondary a:hover { color: #2563eb !important; }
-  .wp-tertiary {
-    font-size: 1rem;
-    color: #9ca3af;
-    margin: 0;
-  }
-  .wp-tertiary a {
-    color: #9ca3af !important;
-    text-decoration: underline !important;
-    text-underline-offset: 3px;
-  }
-  .wp-tertiary a:hover { color: #6b7280 !important; }
 </style>
 
 <div class="wp-wrap">
-  <div class="wp-badge">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#3b82f6"/><path d="M5 8l2.5 2.5L11 5.5" stroke="#fff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Subscription confirmed
-  </div>
-  <h2 class="wp-headline">You&#x27;re in.<br><span class="accent">Now, make it real.</span></h2>
-  <p class="wp-subtext">Check your inbox &#x2014; a confirmation link is on its way.</p>
-  <a href="https://claritypledge.com/#manifesto" class="wp-btn-primary">Read the Clarity Manifesto</a>
+  <h2 class="wp-headline">Check your inbox.</h2>
+  <p class="wp-subtext">We sent you a confirmation link &#x2014; click it to activate your subscription.</p>
+  <a href="https://claritypledge.com/manifesto" class="wp-btn-primary">Read the Clarity Manifesto</a>
   <p class="wp-secondary">or <a href="https://claritypledge.com/live">Try a Clarity Session</a></p>
-  <p class="wp-tertiary">or <a href="https://claritypledge.com/sign-pledge">Take the Pledge</a></p>
 </div>`;
 
 // Get current updated_at first
