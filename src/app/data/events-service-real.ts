@@ -621,8 +621,6 @@ export const realEventsService: EventsService = {
   async getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]> {
     log(' getUserRegisteredEvents:', profileId);
 
-    const now = new Date().toISOString();
-
     // Get event IDs where user is RSVP'd
     const { data: rsvps, error: rsvpError } = await supabase
       .from('event_rsvps')
@@ -636,7 +634,8 @@ export const realEventsService: EventsService = {
 
     const eventIds = rsvps.map(r => r.event_id);
 
-    // Get upcoming events user is attending (not hosting)
+    // Return ALL events user is attending (not hosting) — past and upcoming.
+    // Callers filter by datetime to split upcoming vs past.
     const { data, error } = await supabase
       .from('events')
       .select(`
@@ -653,9 +652,7 @@ export const realEventsService: EventsService = {
       `)
       .in('id', eventIds)
       .neq('host_id', profileId)
-      .gte('datetime', now)
-      .eq('status', 'upcoming')
-      .order('datetime', { ascending: true });
+      .order('datetime', { ascending: false });
 
     if (error) {
       log('ERROR: getUserRegisteredEvents error:', error);

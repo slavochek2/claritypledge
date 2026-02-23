@@ -92,23 +92,26 @@ export function HomePage() {
     fetchDashboardData();
   }, [user?.id]);
 
-  // Merge and dedupe attending + hosting events, sorted by date
+  // Merge and dedupe attending + hosting events, split into upcoming vs past
   // Must be before early returns (React hooks rules)
-  const { yourUpcomingEvents, hostedEventIds } = useMemo(() => {
+  const { yourUpcomingEvents, yourPastEvents, hostedEventIds } = useMemo(() => {
     const hostedIds = new Set(hostedEvents.map(e => e.id));
-    // Get only upcoming hosted events (filter by datetime)
     const now = new Date();
+
     const upcomingHosted = hostedEvents.filter(e => new Date(e.datetime) >= now);
-    // Combine: hosted events + attending events (excluding ones user is also hosting)
-    const combined = [
-      ...upcomingHosted,
-      ...registeredEvents.filter(e => !hostedIds.has(e.id)),
-    ];
-    // Sort by date ascending
-    const sorted = combined.sort((a, b) =>
-      new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+    const pastHosted = hostedEvents.filter(e => new Date(e.datetime) < now);
+    const attendingOnly = registeredEvents.filter(e => !hostedIds.has(e.id));
+    const upcomingAttending = attendingOnly.filter(e => new Date(e.datetime) >= now);
+    const pastAttending = attendingOnly.filter(e => new Date(e.datetime) < now);
+
+    const upcoming = [...upcomingHosted, ...upcomingAttending].sort(
+      (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
     );
-    return { yourUpcomingEvents: sorted, hostedEventIds: hostedIds };
+    const past = [...pastHosted, ...pastAttending].sort(
+      (a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime()
+    );
+
+    return { yourUpcomingEvents: upcoming, yourPastEvents: past, hostedEventIds: hostedIds };
   }, [hostedEvents, registeredEvents]);
 
   // Show loading state while checking auth
@@ -291,6 +294,32 @@ export function HomePage() {
               ) : (
                 <div className="bg-muted/30 rounded-lg p-6 text-center">
                   <p className="text-muted-foreground">No upcoming events yet</p>
+                </div>
+              )}
+
+              {/* Past Events - Show up to 3 most recent */}
+              {yourPastEvents.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    PAST EVENTS
+                  </h3>
+                  <div className="space-y-2">
+                    {yourPastEvents.slice(0, 3).map(event => (
+                      <EventRowCompact
+                        key={event.id}
+                        event={event}
+                        role={hostedEventIds.has(event.id) ? "hosting" : "attending"}
+                      />
+                    ))}
+                    {yourPastEvents.length > 3 && (
+                      <Link
+                        to="/events/list"
+                        className="block text-center text-sm text-blue-500 hover:text-blue-600 mt-1"
+                      >
+                        See all past events &rarr;
+                      </Link>
+                    )}
+                  </div>
                 </div>
               )}
 
