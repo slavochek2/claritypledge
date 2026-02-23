@@ -174,6 +174,23 @@ Guest clicks the magic link in their email → `/auth/callback` → `AuthCallbac
 
 ---
 
+## Live Session Cleanup on Sign-Out
+
+`AuthContext.signOut()` cleans up an active live session before calling `supabase.auth.signOut()`.
+
+**How it works:**
+- Reads `clarity_live_session_id` and `clarity_live_is_creator` from `sessionStorage`
+- If session ID present: calls `patchClaritySessionLiveState(id, { sessionEnded, sessionEndedAt })` (creator) or `clearSessionJoiner(id)` (joiner)
+- Failure is caught and swallowed — sign-out proceeds regardless
+
+**Why single-call RPC (`patchClaritySessionLiveState`) not `endClaritySession`:**
+`endClaritySession` does SELECT + UPDATE (2 round-trips). `patchClaritySessionLiveState` uses the `patch_live_state` Supabase RPC which merges atomically server-side (1 round-trip). Preferred for latency-sensitive paths like logout.
+
+**Session ID persistence:**
+`clarity_live_session_id` is written to sessionStorage whenever `session.id` changes (inside the ref-sync useEffect in `clarity-live-page.tsx`). It is cleared by `clearStoredSession()` on normal session exit. This ensures AuthContext can always read the current session ID independently of React state.
+
+---
+
 ## Critical Warnings
 
 ### DO NOT move profile creation to hooks or context

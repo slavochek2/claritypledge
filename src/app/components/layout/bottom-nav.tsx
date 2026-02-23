@@ -75,7 +75,7 @@ export function BottomNav() {
               <button
                 key={item.label}
                 onClick={item.onClick}
-                className="flex flex-col items-center justify-center gap-1 px-4 py-2 text-muted-foreground opacity-50"
+                className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-muted-foreground opacity-50"
                 aria-label={`${item.label} (coming soon)`}
               >
                 <Icon className="w-5 h-5" />
@@ -84,15 +84,13 @@ export function BottomNav() {
             );
           }
 
-          const itemClass = `flex flex-col items-center justify-center gap-1 px-4 py-2 transition-colors ${
-            active ? "text-primary" : "text-foreground/60 hover:text-foreground"
+          const itemClass = `flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
+            active ? "text-primary" : "text-muted-foreground hover:text-foreground"
           }`;
           const itemInner = (
             <>
-              <span className={`flex items-center justify-center w-12 h-7 rounded-full transition-colors ${active ? "bg-primary/15" : ""}`}>
-                <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
-              </span>
-              <span className={`text-xs transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
+              <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
+              <span className={`text-xs leading-none transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
             </>
           );
 

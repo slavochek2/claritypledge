@@ -14,6 +14,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-23 [technical]: Live session cleanup on tab close and logout
+
+**Context:** Sessions only ended when users clicked "Leave." Tab close, browser close, logout, and network crash all left sessions open in the DB — partner stuck waiting indefinitely with no signal. Polling and realtime only detect changes; they can't detect client disappearance.
+**Decision:** Two lightweight client-side hooks, no server infrastructure: (1) `pagehide` handler in `clarity-live-page.tsx` — fires `patchClaritySessionLiveState` (creator) or `clearSessionJoiner` (joiner) on actual page unload. (2) `signOut()` in `AuthContext` reads sessionStorage and calls cleanup before signing out. Both are best-effort (errors swallowed, flow continues). Chosen over heartbeat+TTL (needs DB column + cron, adds infrastructure) and Supabase Presence (requires rearchitecting detection layer).
+**Alternatives rejected:** Heartbeat+TTL — solves crash/network-drop edge case but adds non-trivial infrastructure for a low-frequency problem. Supabase Presence — correct long-term answer but a refactor, not a fix. Do when session reliability becomes a real user complaint.
+**Consequences:** ~90% of real-world ungraceful exits now clean up (tab close, logout, navigation away). Silent crashes and network drops remain unhandled (no heartbeat). Key guards needed: (a) gate `pagehide` on `view === 'live'` only — waiting-room close must not signal `sessionEnded`; (b) check `e.persisted` to skip bfcache suspends; (c) add `pageshow` handler to reset `iAmLeavingRef` on bfcache restore.
+**References:** `src/app/pages/clarity-live-page.tsx`, `src/auth/AuthContext.tsx`
+
 ## 2026-02-23 [product]: Google OAuth = sign in OR sign up (Option B)
 
 **Context:** Unregistered users invited to events landed on `/login`, clicked "Continue with Google", and were redirected to `/signup?message=no-account` — dropping their RSVP intent. The old P64 guard treated `source=login` with no existing account as an error.

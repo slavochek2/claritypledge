@@ -10,6 +10,15 @@ Entries are appended by `/kdd` step 6. Status tracks whether the fix was applied
 
 <!-- New entries appended at top, newest first -->
 
+## 2026-02-23 — pagehide handler gotchas
+
+**Friction:** Initial `pagehide` implementation was missing two critical guards that the code review agent caught: (1) no bfcache check (`e.persisted`), causing cleanup to fire when browser suspends the page for back/forward navigation — then `iAmLeavingRef` stays true permanently after restore; (2) no view guard, so creator closing tab from the waiting room would signal `sessionEnded` on a session that hadn't started yet.
+**Root cause:** `pagehide` has two well-known edge cases (bfcache + component-vs-page unload distinction) that aren't obvious without prior use.
+**Before:** `pagehide` handler with no guards on `e.persisted` or current view.
+**After:** Always add three guards to any `pagehide` cleanup handler: (1) `if (e.persisted) return` — skip bfcache suspends; (2) gate on the view/state where cleanup is actually appropriate; (3) add a `pageshow` handler that resets any "leaving" flags when `e.persisted === true` (bfcache restore).
+**Action:** doc update (process-learnings only — too narrow for CLAUDE.md)
+**Status:** done
+
 ## 2026-02-23 — Google OAuth Option B
 
 **Friction:** Manual browser verification of Google OAuth flow was impossible — `mcp__claude-in-chrome__computer` failed ("Cannot access a chrome-extension:// URL") and `javascript_tool` failed ("Browser extension is not connected"). Had to delete test users via Supabase API so the user could self-test manually.
