@@ -3,8 +3,8 @@
 ## Context
 
 ### State
-- **Phase:** story
-- **Story:** in progress
+- **Phase:** points
+- **Story:** approved (10/10)
 - **Points:** pending
 
 ### Original Brain Dump (synthesized from docs + chats)
@@ -54,7 +54,13 @@ User correction: "I knew the difference existed. My story is not about knowing t
 
 ## Story
 
-[Will be added when approved]
+She's someone I've known for years. Someone who matters to me. We were on a call trying to work something out — and I paraphrased her position back to her. She said yes, that's right, you understood me.
+
+A few days later she said she didn't feel understood.
+
+My first thought: her memory was failing her. She'd forgotten. I had the confirmation — she'd said it herself.
+
+But then I recognized it. She'd confirmed one thing and was wishing for another. Same word: *understand*. Two completely different meanings. She confirmed I cognitively understood her — reproduced her position accurately. But she'd failed me on emotional understanding — feeling what she was feeling. Without that distinction named, it looks like she's lying. Or misremembering. She wasn't. She just had no language for the split. Neither did I — until that moment.
 
 ---
 

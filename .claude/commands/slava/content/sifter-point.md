@@ -49,6 +49,8 @@ Read: `content/sifter/sessions/{session-name}.md`
 
 **Use user's vocabulary.** Quote their words. No academic jargon.
 
+**Points are written in third person.** No "I", no "you" directed at a specific person. The subject should be a mechanism, pattern, or category of people — never the narrator. First-person makes a claim sound like a personal belief; third-person makes it a testable observation.
+
 ## Connected to Story (internal requirement)
 
 **These are internal checks — the user doesn't see them.**
