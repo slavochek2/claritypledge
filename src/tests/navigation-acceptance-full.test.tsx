@@ -110,11 +110,11 @@ describe('KISS Navigation', () => {
         expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
       });
 
-      it('shows visible nav links: Events, Blog', () => {
+      it('shows visible nav link: Events only (Blog moved to dropdown)', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        // Only Events + Blog are visible in nav bar; rest moved to dropdown menu
+        // Only Events is visible in nav bar; Blog + rest moved to dropdown menu
         expect(screen.getByRole('link', { name: 'Events' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Blog' })).not.toBeInTheDocument();
       });
 
       it('shows Pledgers, Manifesto, About in dropdown menu', async () => {

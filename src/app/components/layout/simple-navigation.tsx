@@ -151,7 +151,7 @@ export function SimpleNavigation() {
                 </Link>
               </>
             ) : (
-              /* Logged-out: Only Events + Blog visible; rest in hamburger dropdown */
+              /* Logged-out: Only Events visible; rest in hamburger dropdown */
               <>
                 <Link
                   to="/events"
@@ -159,12 +159,6 @@ export function SimpleNavigation() {
                 >
                   Events
                 </Link>
-                <a
-                  href="https://blog.claritypledge.com"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Blog
-                </a>
                 {/* Start a Clarity Session CTA */}
                 {/* Analytics: Keep 'try_meeting' event name for historical continuity (P66 decision) */}
                 <Link
