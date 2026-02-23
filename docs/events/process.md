@@ -72,8 +72,33 @@ A community event platform popular on Ko Phangan.
 
 ---
 
+### Facebook Groups ✓
+Promote as a Facebook Event in relevant local groups (expat, nomad, community, fitness).
+
+**Skill:** `/slava/events/promote-facebook`
+**Input:** event slug or "latest upcoming"
+**Time:** ~5 minutes
+**Account:** logged in via personal Facebook (Vyacheslav Ladischenski)
+
+**How it works:**
+- Searches Facebook for relevant local groups by location keywords
+- Fills the Create Event form in each eligible public group
+- Stops before submitting — user reviews and publishes each form manually
+- Lists private groups not yet joined for manual follow-up
+
+**Key conventions:**
+- Location: meeting point name + city (e.g. "Zoo Cafe, Ko Phangan")
+- One link only: claritypledge.com/events/[slug]
+- Time zone: GMT+7
+- Audience: "In person"
+
+**Known groups (Ko Phangan):**
+- Koh Phangan expats community — 8.4K members, public ✓
+- Digital Nomads Koh Phangan — search to confirm current status
+
+---
+
 ### Pending documentation
-- [ ] WhatsApp groups (Ko Phangan community)
 - [ ] Instagram
 - [ ] Direct invites
 

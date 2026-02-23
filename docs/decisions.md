@@ -14,6 +14,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-23 [process]: Sifter quality standards — collapse, hard-to-vary, polish pass
+
+**Context:** First full sifter session (understanding-not-agreement) revealed gaps in the point and story extraction process: points were redundant angles on the same claim, the story had a backwards sentence and a redundant line, and the style was inconsistent (dashes, long sentences).
+**Decision:** Four quality standards now enforced across sifter skills: (1) **Collapse pass** — before presenting points, ask "can these collapse into one harder claim?" Redundant angles are not variety. (2) **Hard-to-vary filter** — every word must be load-bearing; soft points that survive rewording are underspecified. (3) **Polish pass before saving** — story approval triggers a review gate (earn every sentence, check direction, remove redundancy) before writing to file; user sees polished version first. (4) **No dashes, short sentences** — em/en dashes break into separate sentences; if a sentence can be two, make it two.
+**Alternatives rejected:** None — these emerged from observing failure modes in a live session, not from theoretical options.
+**Consequences:** Story and point quality will be higher from first session. More back-and-forth at the extraction stage is acceptable if it produces tighter output. The user can still bypass ratings and state their own formulation directly.
+**References:** `.claude/commands/slava/content/sifter-point.md`, `.claude/commands/slava/content/sifter-story.md`
+
 ## 2026-02-23 [technical]: Live session cleanup on tab close and logout
 
 **Context:** Sessions only ended when users clicked "Leave." Tab close, browser close, logout, and network crash all left sessions open in the DB — partner stuck waiting indefinitely with no signal. Polling and realtime only detect changes; they can't detect client disappearance.

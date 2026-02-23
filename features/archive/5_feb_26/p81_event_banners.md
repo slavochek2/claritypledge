@@ -1,5 +1,5 @@
 ---
-status: all-done
+status: rejected
 type: comment
 tags: []
 rank: 125412.0

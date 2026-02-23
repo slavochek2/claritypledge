@@ -746,6 +746,35 @@ export async function deleteTestSifter(sifterId: string): Promise<void> {
 
 ---
 
+### Phase 6: Self-Review Generated Tests
+
+**After generating all files, review your own output before reporting to the user.**
+
+For each generated test file, verify:
+
+1. **Imports resolve** — all imported helpers/functions exist in the codebase (or will be created by `/dev` per the spec). Flag any that reference paths that won't exist.
+2. **No empty test bodies** — no `test('...', async () => {})` or `// TODO: implement` stubs without at least a structural skeleton.
+3. **Spec coverage** — each acceptance criterion in the spec maps to at least one test. List any uncovered criteria.
+4. **Cleanup order** — `afterEach` deletes child records before parent records (e.g., points before users, not the reverse).
+5. **Migration rule** — if spec has a DB migration, confirm `e2e/integration/p{N}-db-schema.spec.ts` was generated with the two-client pattern.
+
+**Fix mechanical issues inline** (wrong cleanup order, empty stubs, missing schema test) — correct without asking, note what was changed.
+**For ambiguous cases** (e.g., an acceptance criterion with no clear test mapping, an import that doesn't exist and won't be created by `/dev`) — note in the report under ⚠️ and flag for the user.
+
+**Report at the end:**
+```
+## Self-Review
+✅ All imports resolvable
+✅ No empty test bodies
+✅ All acceptance criteria covered
+✅ Cleanup order correct
+✅ Migration schema test generated (or N/A — no DB migration)
+⚠️ Fixed: [describe what was corrected, if anything]
+⚠️ Flagged: [describe ambiguous issues needing user attention, if any]
+```
+
+---
+
 ## Output Format
 
 **Return to user:**
@@ -903,7 +932,7 @@ test('export works', async ({ page }) => {
 
 ## IMPORTANT - Delivery Stage Tracking
 
-**AFTER generating all test files, update delivery stage in spec frontmatter:**
+**AFTER Phase 6 self-review, update delivery stage in spec frontmatter:**
 
 Use Edit tool to update the spec file's frontmatter:
 ```yaml

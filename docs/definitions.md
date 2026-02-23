@@ -103,6 +103,22 @@ Authors see verification results across all listeners:
 
 ---
 
+## Types of Understanding
+
+The word "understand" covers three incompatible requests. Without naming which one is meant, conversations fail silently.
+
+| Type | Definition | Verifiable? |
+|------|-----------|-------------|
+| **Cognitive understanding** | Knowing how someone arrived at their position — their reasoning, experiences, and feelings as data | Yes — ask them to confirm your paraphrase |
+| **Emotional understanding** | Feeling what someone feels. Resonance, not just knowledge | No — no procedure to confirm it |
+| **Agreement** | Accepting that someone is right | Yes — they either hold the same position or don't |
+
+**The false-unity word problem:** All three are called "understanding" in everyday speech. Satisfying one while missing another produces a silent failure — it looks like dishonesty or poor memory. It isn't. It's a word doing too much work.
+
+**Why this matters for the platform:** ClarityPledge verifies cognitive understanding (can you reproduce the story accurately?). It does not and cannot verify emotional understanding. Agreement is tracked separately via Points. Conflating them is the root cause of most "we talked but nothing changed" conversations.
+
+---
+
 ## Stories vs Points
 
 | Type | Nature | User Action | Verification |
