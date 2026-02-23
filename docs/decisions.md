@@ -14,6 +14,21 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-23 [technical]: Router registration is a required step — page files don't auto-register
+
+**Context:** `home-page.tsx` and `HomePage` component existed with full implementation (dashboard with events, people, quick actions), but navigating to `/home` rendered a blank page. React Router logged "No routes matched location '/home'". The file had been written but never added to `App.tsx`.
+
+**Decision:** New pages must be explicitly registered as `<Route>` entries in `src/App.tsx`. Building a page file is not enough. Checklist when a page seems to exist but shows blank:
+1. Check `App.tsx` for the route
+2. Check the import at top of `App.tsx`
+3. Check build hash in browser matches latest deployed build (stale cache can mask a working route)
+
+**Alternatives rejected:** Auto-discovery via file-system routing (would require Vite plugin and architectural change; not worth it at current scale).
+
+**Consequences:** Before declaring a page "done", verify it's navigable via its URL. The `/verify` skill catches this (blank page = functional fail), but the root cause is always App.tsx registration.
+
+**References:** [App.tsx](../src/App.tsx)
+
 ## 2026-02-23 [technical]: Event lifecycle — datetime is truth, status is a derived cache
 
 **Context:** `getPastEvents()` filtered on `status = 'completed'`, but no mechanism existed to transition events to that status (no UI, no trigger, no cron). Result: the Past tab was silently empty for every user since events launched. Discovered when a real hosted event (Clarity Dinner #1) disappeared after its datetime passed.
