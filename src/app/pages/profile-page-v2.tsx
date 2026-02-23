@@ -112,6 +112,7 @@ function formatTimeAgo(dateStr: string): string {
 }
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
+import { linkifyText } from "@/app/utils/linkify";
 import { calibrationService } from "@/app/data/calibration-service";
 import { RemovePositionDialog, useRemovePositionGuard } from "@/app/components/shared/remove-position-dialog";
 import type { StoryWithPoints, PointWithUserPosition, PointSummary, CalibrationResult } from "@/app/types";
@@ -673,6 +674,11 @@ export function ProfilePageV2() {
                 </div>
                 {profile.role && (
                   <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
+                )}
+                {profile.bio && (
+                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-1">
+                    {linkifyText(profile.bio)}
+                  </p>
                 )}
                 {profile.hasPledged ? (
                   <Link

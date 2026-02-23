@@ -98,6 +98,7 @@ export interface DbProfile {
   avatar_provider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledge_version?: number;
   has_pledged?: boolean; // P50: false for /live registrations, true for /sign-pledge
+  bio?: string | null; // P414: Short self-description, max 160 chars
 }
 
 /**
