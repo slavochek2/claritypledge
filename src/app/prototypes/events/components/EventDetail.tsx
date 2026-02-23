@@ -208,7 +208,7 @@ export function EventDetail() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
-          {isLoggedIn ? "Back to Dashboard" : "Back to Events"}
+          My Events
         </Link>
 
         <div className="flex flex-col lg:flex-row gap-6">
