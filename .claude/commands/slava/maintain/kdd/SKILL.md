@@ -97,7 +97,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **For decisions.md** (append at TOP, after header):
    ```markdown
-   ## YYYY-MM-DD: Decision Title
+   ## YYYY-MM-DD [tag]: Decision Title
 
    **Context:** Why this came up
    **Decision:** What we chose
@@ -105,6 +105,13 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    **Consequences:** What this means going forward
    **References:** [file.md](path/to/file.md)
    ```
+
+   **Tag is required.** Pick exactly one:
+   - `[product]` — strategy, positioning, business model, UX model, customer definition
+   - `[technical]` — schema, code patterns, data model, infrastructure, service design
+   - `[process]` — workflows, skills, dev tooling, testing, agent setup
+
+   **Quick classification:** if it affects how users experience the product → `[product]`. If it affects how the code is structured → `[technical]`. If it affects how the team/agents work → `[process]`.
 
    **For hypotheses.md:**
    - Change status emoji (⏳ → 🔄 → ✅)

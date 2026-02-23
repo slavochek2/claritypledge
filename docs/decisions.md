@@ -14,7 +14,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-22: Navigation hierarchy — events-centric, explicit destinations over browser history
+## 2026-02-23 [technical]: Event lifecycle — datetime is truth, status is a derived cache
+
+**Context:** `getPastEvents()` filtered on `status = 'completed'`, but no mechanism existed to transition events to that status (no UI, no trigger, no cron). Result: the Past tab was silently empty for every user since events launched. Discovered when a real hosted event (Clarity Dinner #1) disappeared after its datetime passed.
+
+**Decision:** Treat `datetime` (+ `duration_minutes`) as the authoritative source of truth for whether an event is past. `status` is a DB cache that should reflect reality but can't be trusted as a gate.
+- `getPastEvents()` now matches on `status = 'completed' OR (status = 'upcoming' AND datetime < now)` — defensive fallback so stale status never hides events again
+- `EventDetail.isPast` and `EventCard` "attended" label use `endDate < new Date()`, not `status`
+- A migration backfills any stuck `upcoming` events when the app deploys
+
+**Alternatives rejected:** Pure cron/trigger to auto-complete status (adds infra complexity; the query fix is simpler and more resilient). Status-only gate (requires guaranteed transition, which is fragile).
+
+**Consequences:** Any new query over the `events` table that filters by "is past" must use datetime, not status. Status remains useful for explicit cancellation and as a fast index hint, but never as a sole filter.
+
+## 2026-02-22 [technical]: Navigation hierarchy — events-centric, explicit destinations over browser history
 
 **Context:** Back buttons used `document.referrer` to detect "came from within the app" and call `navigate(-1)`, falling back to `/` or `/events`. This is broken in SPAs — `document.referrer` reflects the original page load URL, not the previous React route. Users clicking Back from point/story detail were landing on the fallback (`/events` or `/`) even when navigating within the app.
 
@@ -30,7 +43,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-20: StoryCardDetail is single source of truth for linked point display (P407)
+## 2026-02-20 [technical]: StoryCardDetail is single source of truth for linked point display (P407)
 
 **Context:** Story detail page showed linked points twice: once inside `StoryCardDetail` (collapsible with full `QuotedPoint` cards), and again in `KeyPointsSection` (a flat list with unlink buttons). Both rendered the same `story.points` array. The `KeyPointsSection` list was built separately and never updated to use the richer `QuotedPoint` component.
 
@@ -44,7 +57,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-20: Agent-automated migrations via Management API PAT fallback
+## 2026-02-20 [process]: Agent-automated migrations via Management API PAT fallback
 
 **Context:** Agents running `scripts/migrate.sh` couldn't apply migrations when the Supabase CLI primary path failed (pooler SASL auth from localhost is a known constraint). The Management API fallback already existed in the script, but it read the PAT exclusively from the macOS keychain — which agent sessions can't access. The only path forward was a human manually running `supabase login` or manually applying SQL.
 
@@ -61,7 +74,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-20: Partial DB merge for live_state to prevent race-condition overwrites (P399)
+## 2026-02-20 [technical]: Partial DB merge for live_state to prevent race-condition overwrites (P399)
 
 **Context:** `updateLiveState()` in `clarity-live-page.tsx` did a full read-modify-write of the `live_state` JSON column: it read `confirmedLiveStateRef.current`, merged updates into it, and wrote the entire blob back. Because `confirmedLiveStateRef` can be stale (subscription skipped while in-flight, or partner selection not yet arrived), any partial write — a rating, `celebrationAcknowledgedBy` — from the participant with a stale ref would silently overwrite the partner's `selectedStoryData` → story disappeared mid-round for both participants.
 
@@ -80,7 +93,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-19: /verify skill — two-party setup, resumability, triage mode (P397)
+## 2026-02-19 [process]: /verify skill — two-party setup, resumability, triage mode (P397)
 
 **Context:** `/verify` runs live UAT in Chrome. Two-party scenarios (any `/live` feature with a listener) required ~15 min of manual browser setup per session. Context resets wiped all in-progress results. When scenarios failed, the skill investigated root causes instead of moving on — turning UAT sessions into debugging sessions.
 
@@ -101,7 +114,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-19: Kanban status reversion — root cause confirmed, fix applied
+## 2026-02-19 [technical]: Kanban status reversion — root cause confirmed, fix applied
 
 **Context:** Cards manually moved to `all-done` via CardDialog status selector repeatedly reverted back to `done`. Happened twice across many cards.
 
@@ -118,7 +131,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Live session positions stored in live_state, not point_positions (P275)
+## 2026-02-18 [technical]: Live session positions stored in live_state, not point_positions (P275)
 
 **Context:** Unverified guests joining `/live` sessions were silently blocked from setting positions on points. `point_positions` INSERT policy requires `is_verified = true` — guests never complete verification and thus could never register positions during a session.
 
@@ -130,7 +143,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Supabase migration workflow — scripts/migrate.sh + one-file-per-day rule
+## 2026-02-18 [process]: Supabase migration workflow — scripts/migrate.sh + one-file-per-day rule
 
 **Context:** Supabase CLI (`db push`) was completely blocked by a history sync issue: multiple migration files shared the same 8-digit date prefix (e.g., five files on `20260206_*.sql`). The CLI tracks one history entry per date (primary key = 8-digit timestamp), so those extra files appeared as permanently "untracked" — `db push` refused every time with "Found local migration files to be inserted before last migration." Attempts to use `--include-all` were unsafe (non-idempotent SQL). Direct DB access (`pg`, `psql`) failed — pooler rejects connections with "Tenant or user not found".
 
@@ -148,7 +161,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: AI-agent delivery pipeline — spec-as-reference + /decompose for large features
+## 2026-02-18 [process]: AI-agent delivery pipeline — spec-as-reference + /decompose for large features
 
 **Context:** Complex features (8-12 files, 6-10 build steps) produce specs of 700+ lines after PRD + UX + Architecture + Tests layers are appended. When /dev loads the full spec to begin implementation, spec alone consumes 30-40% of the context window before any code is read. Features of this size cannot complete in a single context window, and mid-feature compaction corrupts the build state.
 
@@ -165,7 +178,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: E2E test suite — move from sequential (1 worker) to parallel (3 workers)
+## 2026-02-18 [process]: E2E test suite — move from sequential (1 worker) to parallel (3 workers)
 
 **Context:** P277. Test suite took 43+ minutes with `workers: 1`. Question: can we parallelize safely given shared Supabase test DB?
 
@@ -179,7 +192,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Story detail — author badge and viewer position are independent data
+## 2026-02-18 [technical]: Story detail — author badge and viewer position are independent data
 
 **Context:** On the story detail page, a point card shows the story author's stance badge (their position on their own point) and separately should show the viewing user's current position. These were conflated: the viewer's position was being displayed in the author badge slot.
 
@@ -191,7 +204,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Profile UI — always show ear badge and calibration bar (empty state over hidden)
+## 2026-02-18 [product]: Profile UI — always show ear badge and calibration bar (empty state over hidden)
 
 **Context:** P269 profile improvements. Ear badge (confirmed understanding count) and calibration bar were conditionally hidden when data was 0 / insufficient (< 5 sessions). Design question: show "🦻 0" and an empty calibration track, or hide them until data exists?
 
@@ -205,7 +218,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: E2E test infrastructure — known failure categories + remediation plan
+## 2026-02-18 [process]: E2E test infrastructure — known failure categories + remediation plan
 
 **Context:** Full E2E suite analysis: 118 pass / 79 fail / 43 min. All 79 failures are pre-existing (not regressions). Root causes identified and remediation specs created.
 
@@ -225,7 +238,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Unverified guest model — three rules, nothing else
+## 2026-02-18 [product]: Unverified guest model — three rules, nothing else
 
 **Context:** Unverified guests (people who join `/live` via invite without an account) accumulate in the DB with no verification path, no clear UX for blocked actions, and no defined lifecycle. We reviewed the full auth model, RLS policies, profile page behavior, and nav state to decide how much to change.
 
@@ -242,7 +255,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: /live point positions stored in clarity_live_turns, not point_positions
+## 2026-02-18 [technical]: /live point positions stored in clarity_live_turns, not point_positions
 
 **Context:** P272 requires either participant to update their position on linked points during a `/live` session. The listener is typically an unverified guest (`is_verified: false`). `point_positions` RLS blocks all writes from unverified users. If P272 writes to `point_positions`, the listener's position updates silently fail.
 
@@ -256,7 +269,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Auto-sweep done/ archive via pre-commit (no manual folder management)
+## 2026-02-18 [process]: Auto-sweep done/ archive via pre-commit (no manual folder management)
 
 **Context:** `features/done/` root was accumulating loose files whenever features were marked done via Kanban drag-to-done or direct `git mv` — both paths bypass the `/done` skill, which already places files into `{N}_{mon}_{yy}` dated subfolders. The kanban scanner explicitly skips those dated subfolders (they're archives by design, invisible to kanban). The user was manually creating new subfolders when the root got crowded.
 
@@ -270,7 +283,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Mandatory integration test layer for every DB migration (P270)
+## 2026-02-18 [process]: Mandatory integration test layer for every DB migration (P270)
 
 **Context:** P160 (Private Session Mode) shipped with the `is_private` column missing from the production schema cache. The bug reached the `/live` page because 44 automated tests (unit, E2E, smoke, a11y) all mocked the DB, and 22 UAT scenarios were never executed. No layer verified that the migration was actually applied.
 
@@ -284,7 +297,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: UAT gate in /done skill + two-client pattern for E2E profile updates
+## 2026-02-18 [process]: UAT gate in /done skill + two-client pattern for E2E profile updates
 
 **Context:** P160 UAT had 22 scenarios, all ⬜ (never executed), yet the feature was closed as done. Separately, `service_role` UPDATE on `profiles` proved unreliable in E2E helpers — PostgREST's `SET LOCAL ROLE` doesn't set the `current_setting('role')` GUC, so `auth.uid() = id` policies fail.
 
@@ -298,7 +311,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Migrate Supabase MCP from server-postgres to official HTTP transport
+## 2026-02-18 [process]: Migrate Supabase MCP from server-postgres to official HTTP transport
 
 **Context:** `mcp__supabase__query` started returning "Tenant or user not found" from the Supabase connection pooler. The old config used `@modelcontextprotocol/server-postgres` with a hardcoded postgres connection string (pooler port 6543). Supabase now offers an official MCP server at `https://mcp.supabase.com/mcp` that uses OAuth.
 
@@ -312,7 +325,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-18: Dual-track strategy revised — Coaching PRIMARY months 1-6, Recognition SECONDARY months 7-12
+## 2026-02-18 [product]: Dual-track strategy revised — Coaching PRIMARY months 1-6, Recognition SECONDARY months 7-12
 
 **Context:** Original dual-track (2026-02-11) positioned Recognition as PRIMARY and Coaching as SAFETY. Reality check: coaching validation is concrete and near-term; essays without real data are speculative; earning the right to write essays by having data first is more credible.
 
@@ -336,7 +349,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-17: P160 — Recording opt-out for privacy-sensitive sessions
+## 2026-02-17 [product]: P160 — Recording opt-out for privacy-sensitive sessions
 
 **Context:** Every `/live` session was recorded by default (audio → GCS → ML training pipeline). No opt-out existed. Friction points: users practicing with sensitive topics, new users before trust is established, coaches demoing to privacy-conscious clients.
 
@@ -357,7 +370,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-12: Milestone Restructure — M1-M12 → R/C/E/X Track System
+## 2026-02-12 [product]: Milestone Restructure — M1-M12 → R/C/E/X Track System
 
 **Context:** Milestone analysis revealed structural issues:
 - M1-M12 numbering implied linear sequence when actually 3 parallel tracks (Recognition PRIMARY, Coaching SAFETY, Exploratory FUTURE)
@@ -393,7 +406,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-12: Switched to taylorwilsdon/google_workspace_mcp for OAuth 2.1 security
+## 2026-02-12 [process]: Switched to taylorwilsdon/google_workspace_mcp for OAuth 2.1 security
 
 **Context:** Using @dguido/google-workspace-mcp (npm) for Google Drive/Docs integration. After MCP config debugging session revealed security concerns, evaluated alternatives. taylorwilsdon's package offers OAuth 2.1 (vs 2.0), 100+ tools (vs 4), and active maintenance (v1.6.0 Feb 9, 2026).
 
@@ -423,7 +436,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
-## 2026-02-11: Dual-track strategy — Recognition primary, coaching safety
+## 2026-02-11 [product]: Dual-track strategy — Recognition primary, coaching safety
 
 > **⚠️ SUPERSEDED by 2026-02-18 entry below.** This entry used "SAFETY TRACK" language for coaching and "PRIMARY" for recognition. The 2026-02-18 decision reversed this: Coaching is now PRIMARY (months 1-6), Recognition is SECONDARY (months 7-12). The reasoning below is preserved for historical context.
 
@@ -486,7 +499,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 
 ---
 
-## 2026-02-11: Kanban Tool - Single Source of Truth for Configuration
+## 2026-02-11 [process]: Kanban Tool - Single Source of Truth for Configuration
 
 **Context:** Kanban tooling had hardcoded port numbers (9050, 9051) in 5 different files. During development, port references drifted out of sync (5050 vs 9050), causing a bug where the shell function and script disagreed about which port to use. Two launch mechanisms (shell function + script) duplicated logic. Root cause: copy-paste development without configuration abstraction.
 
@@ -521,7 +534,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 
 ---
 
-## 2026-02-09: Tested and rejected Playwright CLI for browser automation
+## 2026-02-09 [process]: Tested and rejected Playwright CLI for browser automation
 
 **Context:** Investigated adding Microsoft's `@playwright/cli` as a fourth browser automation tool. Research suggested it would be more token-efficient (~10-50 tokens/cmd) than Chrome DevTools MCP (~100-500 tokens/cmd) for agent-driven automation.
 
@@ -547,7 +560,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 
 ---
 
-## 2026-02-09: Navigation simplification for /live sessions (P116, P128)
+## 2026-02-09 [technical]: Navigation simplification for /live sessions (P116, P128)
 
 **Context:** During P116 (story/point detail pages) and P128 (/live beginning screen), the navigation menu was streamlined to support focused /live sessions. Users in active sessions should see minimal UI to avoid distraction.
 
@@ -576,7 +589,7 @@ These are GATES for unlocking next level, not reasons to quit. If trajectory is 
 
 ---
 
-## 2026-02-07: Milestones replace hypotheses (P130)
+## 2026-02-07 [process]: Milestones replace hypotheses (P130)
 
 **Context:** Hypotheses and kanban lived in separate worlds. Features had statuses and priorities but no "why." Hypotheses had validation logic but no "what to build." The roadmap existed only in conversation.
 
@@ -704,7 +717,7 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 
 ---
 
-## 2026-02-05: CLAUDE.md governance — universal only, patterns to architecture.md
+## 2026-02-05 [process]: CLAUDE.md governance — universal only, patterns to architecture.md
 
 **Context:** During P118 review, discovered service layer pattern kept being rediscovered each session. Initial instinct was to add it to CLAUDE.md. Realized CLAUDE.md was growing without clear criteria for what belongs there.
 
@@ -727,7 +740,7 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 
 ---
 
-## 2026-02-04: Story versioning via versions table
+## 2026-02-04 [technical]: Story versioning via versions table
 
 **Context:** Designing stories/points backend (P117). Verifications need to reference the specific content that was verified, not the current (potentially edited) content.
 
@@ -747,7 +760,7 @@ Every claim must have inline links + full academic citations at bottom. No unsou
 
 ---
 
-## 2026-02-04: Calibration averages computed on-read, not stored
+## 2026-02-04 [technical]: Calibration averages computed on-read, not stored
 
 **Context:** P117 stories/points backend originally had `listener_calibration_avg` and `speaker_calibration_avg` columns on profiles, updated by triggers.
 
@@ -773,7 +786,7 @@ WHERE listener_id = $user_id
 
 ---
 
-## 2026-02-02: Stories-first model with holistic verification, points deferred
+## 2026-02-02 [product]: Stories-first model with holistic verification, points deferred
 
 **Context:** Deep exploration of v9 "AI Stories" vision through Lean Startup Coach lens. The core question: what's the actual value proposition and what's the minimum needed to test it?
 
@@ -816,7 +829,7 @@ WHERE listener_id = $user_id
 
 ---
 
-## 2026-02-03: Be your own coach first (supersedes coach partnership model)
+## 2026-02-03 [product]: Be your own coach first (supersedes coach partnership model)
 
 **Context:** Mentor conversation with Andy. Realized the "coaches as partners" model still had a dependency — convincing coaches to participate. Andy validated: be your own first user, learn what works, build case studies.
 
@@ -850,7 +863,7 @@ You (as coach/trainer) → Run events (donation-based) → Participants get valu
 
 ---
 
-## 2026-01-29: Coaches as partners, not customers (SUPERSEDED by 2026-02-03)
+## 2026-01-29 [product]: Coaches as partners, not customers (SUPERSEDED by 2026-02-03)
 
 **Context:** Evaluating coach hypothesis. Realized €100/month subscription from coaches proves nothing and is hard to sell. Need a model that validates while building relationships.
 
@@ -879,7 +892,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-29: Documentation organization — GTM in feature docs, pivots in lean-canvas
+## 2026-01-29 [process]: Documentation organization — GTM in feature docs, pivots in lean-canvas
 
 **Context:** Needed clarity on where different types of knowledge live. GTM tactics, sales playbooks, and pivot options were unclear.
 
@@ -901,7 +914,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-29: Problem reframe — measurement impossible, not training expensive
+## 2026-01-29 [product]: Problem reframe — measurement impossible, not training expensive
 
 **Context:** Clarifying what problem we solve for coaches. Initial framing was "calibration training is too expensive/slow." After reflection, realized this was imprecise.
 
@@ -931,7 +944,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-28: Monetization strategy — consulting as customer discovery
+## 2026-01-28 [product]: Monetization strategy — consulting as customer discovery
 
 **Context:** Need $5K/month eventually, but also need to validate coach hypothesis. Tension between "make money now" and "validate before building."
 
@@ -959,7 +972,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-28: Newsletter infrastructure — Ghost self-hosted + n8n
+## 2026-01-28 [process]: Newsletter infrastructure — Ghost self-hosted + n8n
 
 **Context:** Need newsletter for audience building and coach outreach. Wanted independence and automation potential.
 
@@ -981,7 +994,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-28: Pricing model — validate both, decide later
+## 2026-01-28 [product]: Pricing model — validate both, decide later
 
 **Context:** Should coaches pay ($75/month) or be free (growth engine) while teams pay ($500/month)?
 
@@ -1014,7 +1027,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-28: Demo Kit — /live needs prepared content
+## 2026-01-28 [product]: Demo Kit — /live needs prepared content
 
 **Context:** /live works for 1-on-1 when ideas are prepared. Doesn't work well for ad-hoc conversations.
 
@@ -1034,7 +1047,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-28: Research validates thesis, identifies market gap
+## 2026-01-28 [product]: Research validates thesis, identifies market gap
 
 **Context:** Before investing more time, we needed to validate the foundational assumption: does calibration (verified understanding) actually matter for business outcomes? And what's the competitive landscape?
 
@@ -1070,7 +1083,7 @@ Coach (partner) + You → Co-organize events → Participants get value →
 
 ---
 
-## 2026-01-28: Coaches as first paying customer hypothesis
+## 2026-01-28 [product]: Coaches as first paying customer hypothesis
 
 **Context:** Founder was paralyzed by uncertainty about revenue. Previous plan (free workshops → hope → business conversion) had too many uncertain steps. 
 
@@ -1119,7 +1132,7 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 
 ---
 
-## 2026-01-27: Product reframe — "Event" = any meeting with protocol commitment
+## 2026-01-27 [product]: Product reframe — "Event" = any meeting with protocol commitment
 
 **Context:** Following the Cold Start insight, explored what actually proves behavior change. Workshops alone don't prove anything — behavior change is proven by ongoing use. Realized "events" shouldn't mean "special workshops" but any meeting where people commit to using the protocol.
 
@@ -1147,7 +1160,7 @@ This is staged ambition, not selling out. The protocol is the same at all scales
 
 ---
 
-## 2026-01-27: Cold Start Problem — Trigger, Not Tool
+## 2026-01-27 [product]: Cold Start Problem — Trigger, Not Tool
 
 **Context:** Through iterative simplification of P98 (Sifter) and P97 (Profile), discovered that the core problem isn't the tool or content complexity — it's that /live has no trigger. Users like /live, praise it, but say "on what? when?" The tool works but sits unused.
 
@@ -1175,7 +1188,7 @@ Prior attempts:
 
 ---
 
-## 2026-01-26: Standalone skills as source of truth, prep-spec agents as pointers
+## 2026-01-26 [process]: Standalone skills as source of truth, prep-spec agents as pointers
 
 **Context:** `/prep-spec` had 12 agent prompt files in `agents/` directory. Two issues emerged:
 1. "Challenge" agents (Lean Startup Coach, Innovation) were opt-in and rarely ran — but their value is catching what you *don't* see
@@ -1212,7 +1225,7 @@ Prior attempts:
 
 ---
 
-## 2026-01-26: Unified /dev workflow replacing /loop, /quick-dev, /bmad:dev
+## 2026-01-26 [process]: Unified /dev workflow replacing /loop, /quick-dev, /bmad:dev
 
 **Context:** Three overlapping development commands existed:
 - `/loop` — 476 lines, comprehensive TDD + visual checks + debugging
@@ -1244,7 +1257,7 @@ Users didn't know which to use. Logic was scattered. Parallelization opportuniti
 
 ---
 
-## 2026-01-26: Thread lines for Point → Position → Story hierarchy
+## 2026-01-26 [technical]: Thread lines for Point → Position → Story hierarchy
 
 **Context:** P103 quote pattern shows `{Name} {verb}:` labels on nested Stories under Points, but the visual connection between Point at top and Stories below wasn't clear. Users couldn't immediately see "this Story supports that Point."
 
@@ -1280,7 +1293,7 @@ Point
 
 ---
 
-## 2026-01-26: /live verification — Story first, Points unlock after
+## 2026-01-26 [product]: /live verification — Story first, Points unlock after
 
 **Context:** Designing card-based verification in /live. Stories have linked Points. Question: how do they interact during verification?
 
@@ -1304,7 +1317,7 @@ Point
 
 ---
 
-## 2026-01-26: /live card selection — you only see your own cards
+## 2026-01-26 [technical]: /live card selection — you only see your own cards
 
 **Context:** In /live with cards, should you see your cards, their cards, or both?
 
@@ -1328,7 +1341,7 @@ Point
 
 ---
 
-## 2026-01-26: /live works without cards (cardless mode)
+## 2026-01-26 [product]: /live works without cards (cardless mode)
 
 **Context:** What if someone has no sifted Stories/Points yet? Can they still use /live?
 
@@ -1347,7 +1360,7 @@ Point
 
 ---
 
-## 2026-01-26: "Speak freely" as escape hatch at every step
+## 2026-01-26 [product]: "Speak freely" as escape hatch at every step
 
 **Context:** The card verification flow has multiple steps (explain-back, rating, position staking). What if someone wants to exit?
 
@@ -1366,7 +1379,7 @@ Point
 
 ---
 
-## 2026-01-26: Session history only (not full history) for MVP
+## 2026-01-26 [product]: Session history only (not full history) for MVP
 
 **Context:** Should /live show history of all past verifications, or just this session?
 
@@ -1385,7 +1398,7 @@ Point
 
 ---
 
-## 2026-01-26: Sifter-first model — sift before /live, not unified
+## 2026-01-26 [product]: Sifter-first model — sift before /live, not unified
 
 **Context:** Designing P98 Sifter Prototype. Three models emerged:
 - Model A: Two separate flows (/sift standalone, /live with partner)
@@ -1413,7 +1426,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-26: Existing profile content treated as "already sifted"
+## 2026-01-26 [product]: Existing profile content treated as "already sifted"
 
 **Context:** If user has Stories/Points on their profile, should they re-sift before inviting someone to verify?
 
@@ -1432,7 +1445,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-23: Story-Point display — cards show counts, detail pages show grouped content
+## 2026-01-23 [technical]: Story-Point display — cards show counts, detail pages show grouped content
 
 **Context:** Reviewing LinkedIn-like prototype UX. The 2026-01-22 decision said "show linked items inline, not counts" but applying this everywhere created visual overload. StoryCards showed full Point position breakdowns; PointCards showed all quoted Stories; Point detail pages showed Stories flat without position grouping.
 
@@ -1475,7 +1488,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-23: Event page — no tabs, outcomes focus, card selection inside /live
+## 2026-01-23 [product]: Event page — no tabs, outcomes focus, card selection inside /live
 
 **Context:** Designing event verification flow (P85) for physical events. Originally had Info/Feed tabs on event page. Realized "feed" was wrong mental model.
 
@@ -1502,7 +1515,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-23: H3 hypothesis — Social FOMO drives adoption (was H0b)
+## 2026-01-23 [product]: H3 hypothesis — Social FOMO drives adoption (was H0b)
 
 **Context:** Realized that showing calibration scores (ears 👂) on participant lists serves dual purpose: visibility (now H4) and social FOMO (new hypothesis, now H3).
 
@@ -1521,7 +1534,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-23: Build order — Verification flow before Sifter
+## 2026-01-23 [process]: Build order — Verification flow before Sifter
 
 **Context:** Was unclear whether to build Sifter (P58) or verification flow (P85) first. Both seemed necessary for H2 test.
 
@@ -1541,7 +1554,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-22: Calibration display — inline bar with 7-level brackets
+## 2026-01-22 [technical]: Calibration display — inline bar with 7-level brackets
 
 **Context:** Calibration was shown as a separate card (sidebar on desktop, below profile on mobile). Discussed making it part of the profile card, and needed to define meaningful labels for calibration gaps.
 
@@ -1581,7 +1594,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-22: Story-Point relationship is N:N (many-to-many)
+## 2026-01-22 [technical]: Story-Point relationship is N:N (many-to-many)
 
 **Context:** Designing data model for Stories and Points. Initially considered 1:N (each Point belongs to one Story). User raised: "What if multiple Stories reference the same Point?"
 
@@ -1607,7 +1620,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-22: Show linked items inline, not counts
+## 2026-01-22 [technical]: Show linked items inline, not counts
 
 **Context:** StoryCard showed a "🔗 1" badge for linked Points count, then displayed only 1 Point below. PointCard similarly showed a "📖 1" count then 1 Story. Users asked "why show a count when I could just see the actual items?"
 
@@ -1632,7 +1645,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-21: Feed shows Points with Stories from your network
+## 2026-01-21 [product]: Feed shows Points with Stories from your network
 
 **Context:** Points in the feed feel random. No indication WHY a Point is relevant to you. Discussed showing quoted Stories from people you know (same event attendees, future Clarity Partners).
 
@@ -1655,7 +1668,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-21: Story visibility model — Private / Shared / Public
+## 2026-01-21 [product]: Story visibility model — Private / Shared / Public
 
 **Context:** Designing P60 (Exploration UX) revealed unclear story visibility. Original spec said "private by default" but didn't define how stories become visible to others, especially within events.
 
@@ -1679,7 +1692,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-21: Verification only makes sense with story author
+## 2026-01-21 [product]: Verification only makes sense with story author
 
 **Context:** P60 exploration surfaced question: can I verify understanding of Sarah's story with Bob (not Sarah)?
 
@@ -1698,7 +1711,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-21: Global notification bell for verification requests
+## 2026-01-21 [technical]: Global notification bell for verification requests
 
 **Context:** How does a story author know someone wants to verify? Options: email, event-page-only badge, or global in-app notifications.
 
@@ -1718,7 +1731,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-21: Verification stays event-scoped for MVP
+## 2026-01-21 [product]: Verification stays event-scoped for MVP
 
 **Context:** P60 spec said "anyone can request verification from any public story" but this creates spam and requires network/connection features labeled "post-MVP."
 
@@ -1739,7 +1752,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-19: Avatar ring effect via background-padding, not Tailwind ring utilities
+## 2026-01-19 [technical]: Avatar ring effect via background-padding, not Tailwind ring utilities
 
 **Context:** P75 Compact Profile Card needed a blue ring around pledger avatars. During code review, discovered the initial implementation used `ring-blue-500` which only sets color without visible ring (requires `ring` or `ring-2` for thickness).
 
@@ -1758,7 +1771,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-19: Service abstraction pattern with feature flag for backend rollout
+## 2026-01-19 [technical]: Service abstraction pattern with feature flag for backend rollout
 
 **Context:** P61 Events feature needed to transition from mock data to real Supabase backend without breaking existing UI or requiring big-bang deployment.
 
@@ -1781,7 +1794,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-18: Position scale and calibration approach for Points
+## 2026-01-18 [product]: Position scale and calibration approach for Points
 
 **Context:** Needed to define how users track positions on Points and how the system identifies "good listeners" without gatekeeping.
 
@@ -1804,7 +1817,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-18: /kdd entries now reference source files
+## 2026-01-18 [process]: /kdd entries now reference source files
 
 **Context:** Decision log entries explain *what* was decided but don't point to *where* to learn more. Makes the log less navigable.
 
@@ -1818,7 +1831,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-18: Brand architecture — "ClarityPledge" stays as umbrella name
+## 2026-01-18 [product]: Brand architecture — "ClarityPledge" stays as umbrella name
 
 **Context:** The product expanded from "just a pledge" to a full Sensemaking Platform (see product pivot decision below — pledge alone had unclear growth path, events became the growth engine). Question arose: is "ClarityPledge" too specific for an expanding toolkit?
 
@@ -1841,7 +1854,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-17: Product pivot — Sensemaking Platform with Events as growth engine
+## 2026-01-17 [product]: Product pivot — Sensemaking Platform with Events as growth engine
 
 **Context:** The Clarity Pledge product (sign pledge → profile → endorsements) is live but has unclear growth path. Vision docs (v7, v0 theory of change, P58 Sifter) describe a larger Sensemaking Platform. We needed to decide: two products or one? What's the build sequence?
 
@@ -1875,7 +1888,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-17: P66 - Live meeting hosting requires authentication
+## 2026-01-17 [technical]: P66 - Live meeting hosting requires authentication
 
 **Context:** Anyone could start a Clarity Live meeting without an account. We wanted accountability and quality by requiring registration.
 
@@ -1897,7 +1910,7 @@ User journey: **Clarify → Share → Verify**
 
 ---
 
-## 2026-01-17: Knowledge-Driven Development (KDD) adoption
+## 2026-01-17 [process]: Knowledge-Driven Development (KDD) adoption
 
 **Context:** Documentation goes stale immediately. Feature docs are written once during planning but never updated after implementation. Trade-offs and "why" decisions are lost to git commit history where they're hard to find.
 
