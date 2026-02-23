@@ -86,3 +86,4 @@ TEST_*.md
 
 # Personal data
 private/personal/
+.private/

@@ -244,6 +244,20 @@ Feature spec rules (frontmatter, status values, P-number, lifecycle) auto-load w
 
 ---
 
+### Private vs Public Files
+
+This repo is public (AGPL-3.0). Use `.private/` (gitignored) for anything that shouldn't be public:
+
+- Service accounts, email addresses, operational infrastructure
+- Personal decisions, private business notes
+- Drafts not ready to share
+
+**Rule:** When creating docs about accounts, credentials, personal contacts, or internal tooling → use `.private/docs/` by default. When in doubt, ask.
+
+`.private/` mirrors the `docs/` structure. It has a double-safety `.gitignore` with `*`.
+
+---
+
 ### Open Source Safety (PII Protection)
 
 This repo is public. Before creating/updating files (especially `content/`, `docs/stories/`), check for: personal addresses/phones, private business details, location patterns. **When in doubt, ask:** "Is this safe to publish openly?"
