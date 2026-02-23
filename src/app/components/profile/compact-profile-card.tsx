@@ -11,6 +11,7 @@ import { Share2 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { toast } from "sonner";
 import type { Profile } from "@/app/types";
+import { linkifyText } from "@/app/utils/linkify";
 
 interface CompactProfileCardProps {
   profile: Profile;
@@ -56,6 +57,14 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
           {profile.role && (
             <p className="text-sm text-muted-foreground truncate">
               {profile.role}
+            </p>
+          )}
+          {profile.bio && (
+            <p
+              data-testid="profile-bio"
+              className="text-sm text-muted-foreground mt-1"
+            >
+              {linkifyText(profile.bio)}
             </p>
           )}
         </div>

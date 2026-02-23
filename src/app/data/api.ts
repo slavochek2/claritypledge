@@ -667,6 +667,7 @@ export async function updateProfile(
     linkedin_url?: string;
     reason?: string;
     has_pledged?: boolean; // P50: Support upgrading non-pledgers to pledgers
+    bio?: string; // P414: Short self-description, max 160 chars
   }
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase

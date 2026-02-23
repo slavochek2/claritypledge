@@ -48,6 +48,7 @@ export interface Profile {
   avatarProvider?: 'google' | 'generated' | 'gravatar'; // P63: Source of avatar
   pledgeVersion?: number; // 1 = v1, 2 = v2 ("without"), 3 = v3 ("withholding")
   hasPledged: boolean; // P50: false for /live registrations, true for /sign-pledge
+  bio?: string | null; // P414: Optional self-description, max 160 chars
 }
 
 /**
