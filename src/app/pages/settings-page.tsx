@@ -20,6 +20,7 @@ export function SettingsPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [bio, setBio] = useState("");
   const [reason, setReason] = useState("");
 
   // UI state
@@ -44,6 +45,7 @@ export function SettingsPage() {
       setName(user.name || "");
       setRole(user.role || "");
       setLinkedinUrl(user.linkedinUrl || "");
+      setBio(user.bio || "");
       setReason(user.reason || "");
     }
   }, [user]);
@@ -63,10 +65,11 @@ export function SettingsPage() {
       name !== (user.name || "") ||
       role !== (user.role || "") ||
       linkedinUrl !== (user.linkedinUrl || "") ||
+      bio !== (user.bio || "") ||
       reason !== (user.reason || "");
 
     setHasChanges(changed);
-  }, [name, role, linkedinUrl, reason, user]);
+  }, [name, role, linkedinUrl, bio, reason, user]);
 
   // Validation
   const validate = (): boolean => {
@@ -118,6 +121,7 @@ export function SettingsPage() {
       name: name.trim(),
       role: role.trim() || undefined,
       linkedin_url: linkedinUrl.trim() || undefined,
+      bio: bio.trim() || undefined,
       reason: reason.trim() || undefined,
     });
 
@@ -223,6 +227,33 @@ export function SettingsPage() {
             className="w-full px-4 py-3 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="e.g., Product Manager at Acme Inc"
           />
+        </div>
+
+        {/* Bio */}
+        <div>
+          <label htmlFor="bio" className="block text-sm font-medium mb-2">
+            Bio
+          </label>
+          <textarea
+            id="bio"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            maxLength={160}
+            rows={3}
+            className="w-full px-4 py-3 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none text-sm"
+            placeholder="A short description about you..."
+            aria-describedby="bio-counter"
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-xs text-muted-foreground">Links auto-detected and made clickable.</span>
+            <span
+              id="bio-counter"
+              aria-live="polite"
+              className={`text-xs ${bio.length >= 160 ? 'text-red-500' : 'text-muted-foreground'}`}
+            >
+              {bio.length}/160
+            </span>
+          </div>
         </div>
 
         {/* LinkedIn URL */}
