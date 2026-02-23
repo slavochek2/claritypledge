@@ -13,10 +13,13 @@ Read: `content/sifter/sessions/{session-name}.md`
 ## Process (invisible to user)
 
 1. Read story + context (brain dump, NVC extraction, user vocabulary, previous feedback if any)
-2. **Generate the "other's perspective"** — How would someone who disagrees with this Story tell their side?
-3. Extract 3 points from **deliberately different angles** — spread across the tensions in the story
-4. Self-refine internally until satisfied
-5. Present 3 at once
+2. **Clarify key terms** — identify any terms in the story that carry precise definitions. Use those definitions during extraction, not generic meanings.
+3. **Generate the "other's perspective"** — How would someone who disagrees with this Story tell their side?
+4. Extract candidate points from different angles
+5. **Collapse pass** — ask: "Can these be collapsed into one harder, tighter claim?" Separate angles are valid; redundant angles masquerading as variety are noise.
+6. **Hard-to-vary filter** — for each point, ask: "If I change any word, does the claim change?" Soft points that survive rewording are underspecified — sharpen or discard.
+7. Self-refine until satisfied
+8. Present 3 at once (or fewer if collapse reduced them)
 
 **No visible scoring, no variations shown, no critic dialogues.**
 
@@ -48,6 +51,8 @@ Read: `content/sifter/sessions/{session-name}.md`
 - Structural explanations ("This happens not because of character, but because of position")
 
 **Use user's vocabulary.** Quote their words. No academic jargon.
+
+**No dashes.** Break into separate sentences instead. Short sentences preferred — if a sentence can be two, make it two.
 
 **Points are written in third person.** No "I", no "you" directed at a specific person. The subject should be a mechanism, pattern, or category of people — never the narrator. First-person makes a claim sound like a personal belief; third-person makes it a testable observation.
 
@@ -129,6 +134,8 @@ Then: **"more"** or **"done"**
 | **"more"** | Generate 3 new points informed by their feedback (especially the "why" comments). Repeat. |
 
 **The "why" is the signal.** Use it to understand direction — what angle resonates, what's missing, what's off.
+
+**The user may bypass ratings entirely** and state their own formulation ("my point is actually..."). Welcome this — it's more useful than a numeric rating. Treat it as the new starting point and refine from there, don't restart from scratch.
 
 ## Iteration Loop
 

@@ -110,6 +110,20 @@ A valid point divides people into those who agree and those who disagree.
 
 ---
 
+## Core Vocabulary
+
+Terms that appear across sessions. Use these exact definitions — don't redefine per session.
+
+**Cognitive understanding** — knowing how someone arrived at their position. Includes their reasoning, experiences, and feelings as data. Testable: ask them to confirm your paraphrase.
+
+**Emotional understanding** — feeling what someone feels. Not requestable on command. No verification procedure. Either happens or it doesn't.
+
+**Agreement** — accepting that someone is right. Compatible with cognitive understanding. A person can reproduce your position accurately and still disagree with it.
+
+**"Understand" (as false-unity word)** — one word covering all three of the above. When someone says "you don't understand me," they could mean any of them. Without specifying which, neither party knows what's missing.
+
+---
+
 ## Scoring Criteria (0-100 each)
 
 All 4 criteria are equally weighted. Combined score = average of all 4.

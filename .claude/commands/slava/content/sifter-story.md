@@ -61,7 +61,7 @@ User feedback: "closer, but the frustration is about doing this alone, not about
 Shift: From blaming listeners → loneliness of being the only one who checks
 ```
 
-**On story approval:** Write final story to Story section.
+**On story approval:** Run a polish pass (invisible to user), then show the polished version with a brief note on what changed. User confirms → then write to Story section. Do not save before user sees the polished version.
 
 This creates persistent context that `/slava:sifter-point` reads and updates.
 
@@ -75,6 +75,8 @@ Synthesize into ONE cohesive **first-person narrative**:
 - Contains the NVC elements naturally woven in
 - First person voice, conversational tone
 - No swear words
+- No dashes (em dash, en dash) — break into separate sentences instead
+- Short sentences preferred — if a sentence can be two, make it two
 
 **Good example:**
 > I ask people "How well do you think you understood me?" They look confused. Then they say "Totally, I got it." But when I ask them to explain back, it falls apart. They never learned that communication has gaps. I'm tired of being the only one who checks.
@@ -114,14 +116,36 @@ D) Other — tell me what's off
 
 **Escape hatch:** After 3 attempts without reaching 10, offer: "We've been at this. Save at current rating, or keep refining?"
 
+## Polish Pass (on approval, invisible to user)
+
+Before saving, check every sentence against these criteria:
+
+1. **Does it earn its place?** If removing it loses nothing, cut it.
+2. **Is the direction correct?** Check subject/object — who did what to whom?
+3. **Is anything redundant?** Two sentences saying the same thing at different lengths → keep the shorter one.
+4. **Does every detail serve the arc?** Setup, turn, resolution — if a detail doesn't serve one of these, cut it.
+
+Then present the polished version to the user:
+
+```
+Here's the polished version before I save it:
+
+[Polished story]
+
+Changes: [brief list — e.g., "cut X (redundant with Y)", "rewrote Z (direction was backwards)"]
+
+Save this?
+```
+
+User confirms → save to session file and show completion output.
+
 ## Output on Completion
 
-When story reaches 10/10 (or user says "good enough"):
+When story is saved:
 
 ```
 ## Your Story
 [Final Story text]
-Rating: X/10
 
 ---
 Session: `content/sifter/sessions/{session-name}.md`

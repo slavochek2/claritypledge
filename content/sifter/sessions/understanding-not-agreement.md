@@ -54,16 +54,14 @@ User correction: "I knew the difference existed. My story is not about knowing t
 
 ## Story
 
-She's someone I've known for years. Someone who matters to me. We were on a call trying to work something out — and I paraphrased her position back to her. She said yes, that's right, you understood me.
+She's someone I've known for years. We were on a call trying to work something out. I paraphrased her position back to her. She said yes, that's right, you understood me.
 
-A few days later she said she didn't feel understood.
+A few days later, she said she didn't feel understood. My first thought: her memory was failing her. She'd forgotten. I had the confirmation. She'd said it herself.
 
-My first thought: her memory was failing her. She'd forgotten. I had the confirmation — she'd said it herself.
-
-But then I recognized it. She'd confirmed one thing and was wishing for another. Same word: *understand*. Two completely different meanings. She confirmed I cognitively understood her — reproduced her position accurately. But she'd failed me on emotional understanding — feeling what she was feeling. Without that distinction named, it looks like she's lying. Or misremembering. She wasn't. She just had no language for the split. Neither did I — until that moment.
+But then I recognized it. She'd confirmed one thing and was wishing for another. Same word: understand. Two completely different meanings. She confirmed I cognitively understood her. I reproduced her position accurately. But what she needed was emotional understanding. Feeling what she was feeling. Without that distinction named, it looks like she's lying. Or misremembering. She wasn't. She just had no language for the split. Neither did I. Not until that moment.
 
 ---
 
 ## Points
 
-[Will be added by sifter-point]
+1. "Understand" covers three different requests. Cognitive understanding: reproduce someone's position accurately. Emotional understanding: feel what they feel. Agreement: accept that they're right. Satisfying one while missing another doesn't signal dishonesty or poor memory. It signals a word doing too much work.
