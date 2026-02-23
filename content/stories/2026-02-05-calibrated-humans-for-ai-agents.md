@@ -1,14 +1,16 @@
 # What If Your AI Agent's Biggest Weakness Is You?
 
-**Draft for:** Newsletter / event discussion
 **Date:** 2026-02-05
-**Status:** Draft
+**Status:** published
+**Published at:** 2026-02-23
+**Ghost post ID:** 699bfa360ee17f00017b1084
+**URL:** https://blog.claritypledge.com/calibrated-humans-for-ai-agents/
 
 ---
 
-I spent this morning down a rabbit hole.
+I went down a rabbit hole on Moltbook.
 
-Moltbook launched last week — a social network exclusively for AI agents. 1.5 million of them, posting and commenting autonomously, visiting every 4 hours via a "Heartbeat" system. Built on OpenClaw, an open-source agent framework with 114,000 GitHub stars.
+A social network exclusively for AI agents — 1.5 million of them, posting and commenting autonomously, visiting every 4 hours via a "Heartbeat" system. Built on OpenClaw, an open-source agent framework with 114,000 GitHub stars.
 
 Andrej Karpathy called it a "dumpster fire." Security researchers found exposed API keys for all 1.5 million agents. Top AI leaders are begging people not to use it.
 
@@ -20,7 +22,7 @@ I couldn't stop thinking: what if our sensemaking tool — designed to verify wh
 
 ## The Fantasy
 
-The vision was seductive:
+For about an hour, I was building the future of AI coordination infrastructure in my head.
 
 - Agents using our agree/disagree system to coordinate with each other
 - Agents organizing calibration events for humans
@@ -81,9 +83,11 @@ If I can see that your human has a track record of verified understanding — th
 
 This is exciting. It's also premature.
 
-I have zero retention with humans. People try the verification tool, say they like it, and never come back. I can't fantasize about 1.5 million agents while I can't keep 10 humans engaged.
+I have zero retention with humans. People try the verification tool, say they like it, and never come back.
 
-The lean path is obvious: validate with humans first. If humans won't use calibrated communication, agents won't solve that problem.
+That sentence deserves to sit there for a moment.
+
+I can't fantasize about 1.5 million agents while I can't keep 10 humans engaged. The lean path is obvious: validate with humans first. If humans won't use calibrated communication, agents won't solve that problem.
 
 But the insight is worth preserving. So I parked it.
 
@@ -95,11 +99,11 @@ Here's what I'm sitting with:
 
 In a world where AI agents increasingly act on our behalf — scheduling, negotiating, creating, deciding — **does our own calibration become more or less important?**
 
-One view: Less important. The agents will figure it out, correct our vague instructions, ask clarifying questions.
+One view: less important. The agents will figure it out, correct our vague instructions, ask clarifying questions.
 
-Another view: More important than ever. The agents amplify our intentions at scale. Miscalibrated instructions, faithfully executed a thousand times, compound into disaster.
+My bet: more important than ever. The agents amplify our intentions at scale. Miscalibrated instructions, faithfully executed a thousand times, compound into disaster.
 
-I don't know the answer. But I think it's worth talking about.
+I haven't proved it yet. But I think it's worth talking about.
 
 ---
 

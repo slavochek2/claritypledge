@@ -30,15 +30,17 @@ published at blog.claritypledge.com
 
 ## Each Step in Plain English
 
-### 1. `/story` or `/sifter` — Capture
+### 1. `/story` — Capture
 
-**What:** Record the raw experience before it fades. No polish needed.
+**What:** Record a working session as a founder story/blog narrative. First draft, no polish needed.
 
 **Input:** Brain dump, conversation notes, something that just happened.
 
-**Output:** `content/stories/YYYY-MM-DD-slug.md` — unstructured, first-person, messy is fine.
+**Output:** `content/stories/YYYY-MM-DD-slug.md` — structured around the story arc (block → insight → shift), first-person.
 
 **When to use:** After an event, after a conversation that sparked something, after a rabbit hole like Moltbook.
+
+**Note:** `/sifter-story` is different — it's for creating content for the Clarity Pledge app (Sifter UX), saved to `content/sifter/sessions/`. Not part of this blog pipeline.
 
 ---
 
@@ -107,19 +109,18 @@ series_total: 7
 
 ---
 
-### 6. User Review (Ghost Admin) + Test Email
+### 6. User Review (Ghost Admin)
 
-**What:** Open the Ghost editor URL from the `/draft-blog` output. Check formatting, image, how it reads on mobile.
+**What:** Open the Ghost editor URL from the `/draft-blog` output. Check formatting, image, how it reads on mobile. Make edits directly in Ghost if needed.
 
-**Send test email before shipping:**
-1. In Ghost editor → click **Publish** (top right)
-2. In the publish sidebar → "Email newsletter" section
-3. Click **"Send test email"** → arrives in your inbox (staff users only, not subscribers)
-4. Check layout, links, image rendering in your real email client
+**Ghost v5.130 has no "Send test email" feature** — not in the UI, not via API. Options:
 
-Make edits directly in Ghost if needed. When happy: tell Claude "ship it."
+| Situation | Approach |
+|-----------|----------|
+| You're the only subscriber | Just publish — you receive the email, that's your test |
+| Multiple subscribers | Publish to "Free members" segment only (you're free), check, then re-send isn't possible so review carefully before shipping to all |
 
-**Note:** Ghost v5 has no test email API. The UI button is the only way.
+When happy: tell Claude "ship it."
 
 ---
 
@@ -209,9 +210,9 @@ Tags keep them visually distinct on the blog (`manifesto-series`).
 
 | Skill | Invoke | What |
 |-------|--------|------|
-| Capture story | `/slava:story` | Raw experience → `content/stories/` |
-| Sifter capture | `/slava:sifter-story` | Sifter session → `content/stories/` |
+| Capture blog story | `/slava:story` | Working session → `content/stories/` (blog pipeline) |
 | Interview | `/slava:interview` | Extract insight from raw story (optional) |
 | Shape for blog | `/slava:prepare-blog` | Raw story → polished draft in `content/blog/` |
-| Polish & preview | `/slava:draft-blog` | `content/blog/` → Ghost draft with image + SEO |
+| Polish & preview | `/slava:draft-blog` | Blog draft → Ghost draft with image + SEO |
 | Send to subscribers | `/slava:ship-blog` | Publish approved Ghost draft to newsletter |
+| Sifter UX content | `/slava:sifter-story` | App content → `content/sifter/sessions/` (NOT blog) |

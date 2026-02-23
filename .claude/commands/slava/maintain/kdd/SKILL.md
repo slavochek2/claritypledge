@@ -1,6 +1,6 @@
 ---
 name: kdd
-description: Record decisions to docs/decisions.md. Run manually after finishing features with interesting trade-offs, when making architectural choices worth remembering, or when confusion about past decisions signals one should have been recorded.
+description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and how the session went (process friction → process-learnings.md).
 ---
 
 # Knowledge-Driven Development (KDD)
@@ -143,34 +143,55 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    Scan the conversation for friction signals and turn them into actionable improvements.
 
-   **What to look for:**
-   - Dead ends or wrong assumptions that cost time
-   - Steps repeated 3+ times manually (skill candidate)
-   - Confusion about existing behavior / architecture (missing doc or rule)
-   - A question asked multiple times (signal: add to CLAUDE.md or technical docs)
-   - A mistake that a guardrail would have prevented
-   - A sequence of steps that should be automated (agent or script candidate)
+   **Three precise signals to look for (most diagnostic):**
+   - AI expressed uncertainty mid-task → the rule/context under-specifies something
+   - AI diagnosed its own error in-session → that diagnosis IS the improved instruction
+   - AI suggested a different approach mid-task → missing context in the original brief
 
-   **For each friction point, classify and act:**
+   **Additional signals:**
+   - Same manual step repeated 2+ times (skill candidate)
+   - Same mistake type appeared in 2+ recent sessions (encode it immediately — 2 is enough)
+   - A question that came up repeatedly (missing CLAUDE.md rule or doc section)
+   - A guardrail that would have prevented a mistake
+
+   **For each finding, classify and act:**
 
    | Signal | Action |
    |--------|--------|
-   | Repeated manual steps (3+) | Propose a new skill → user runs `/skill-creator` |
-   | Missing CLAUDE.md rule | Propose wording → user runs `/claude-md "..."` |
+   | Repeated manual steps (2+) | Propose a new skill → user runs `/skill-creator` |
+   | Missing CLAUDE.md rule | Rewrite the specific rule → user runs `/claude-md "..."` |
    | Architecture confusion | Update relevant `docs/technical/*.md` |
    | Process decision worth recording | Add to `decisions.md` with `[process]` tag |
-   | Agent pattern worth encoding | Propose as a skill or CLAUDE.md addition |
+   | Agent pattern worth encoding | Propose as skill or CLAUDE.md addition |
 
-   **Format for each finding:**
+   **Required format — before/after, not open-ended proposals:**
    ```
-   🔴 Friction: [what slowed things down]
-   Root cause: [why it happened]
-   Fix: [concrete action — skill name, rule text, doc section]
+   🔴 Friction: [what happened]
+   Root cause: [why]
+   Before: [the current rule/prompt/instruction that failed, or "none"]
+   After: [the rewritten version — a specific sentence, not a vague idea]
+   Action: skill | claude-md | doc update | decisions.md
    ```
+
+   **Optional: run `/insights` first** — Claude Code's built-in command surfaces conversation patterns before you do this manually. Run it in a fresh terminal, then use its output as additional input here.
 
    If no friction detected: "Clean session — no process improvements identified."
 
    **Don't manufacture findings.** Only report friction that actually occurred.
+
+   **Log all findings to `docs/process-learnings.md`** — append new entries at the top:
+
+   ```markdown
+   ## YYYY-MM-DD — [session/feature name]
+   **Friction:** [what happened]
+   **Root cause:** [why]
+   **Before:** [current rule/prompt/instruction, or "none"]
+   **After:** [rewritten version]
+   **Action:** skill | claude-md | doc update | decisions.md
+   **Status:** proposed
+   ```
+
+   Change `Status` to `done` once the fix is applied. `/weekly` reviews this log to surface chronic patterns.
 
 ## Rules
 

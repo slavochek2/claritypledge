@@ -144,6 +144,12 @@ purpose: image
 
 Use the returned `url` as `feature_image` on the post.
 
+**Attribution (required):** Set `feature_image_caption` on the Ghost post:
+```
+Photo by {photographer name} on Unsplash
+```
+Capture `photo.user.name` and `photo.user.links.html` at download time. Pass as `feature_image_caption` in the Ghost create/update API call.
+
 **If Unsplash fails or key is missing:** Create the post without a feature image, note it to user.
 
 ### Step 3: SEO Metadata
@@ -215,15 +221,13 @@ Then report:
 
 ── Pre-publish checklist ──────────────────────────────
   1. Open the editor link above and review visually
-  2. In Ghost editor: click Publish → check "Email newsletter"
-     → click "Send test email" → check your inbox
-  3. Verify links, image, and formatting look right
+  2. Check: image caption set, links work, formatting looks right
+  3. Ghost v5.130 has NO test email feature (UI or API)
+     → If you're the only subscriber: just publish — you get the email
+     → If multiple subscribers: review carefully in Preview first
   4. When ready: /slava:ship-blog
 ───────────────────────────────────────────────────────
 ```
-
-**"Send test email" in Ghost UI:**
-In the editor publish sidebar → "Email newsletter" section → there's a **"Send test email"** link that delivers to all staff users. This is the only way to preview the email before sending — Ghost v5 has no test email API.
 
 ## Ghost API Reference
 

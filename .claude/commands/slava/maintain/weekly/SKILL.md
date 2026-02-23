@@ -81,6 +81,24 @@ Query: unresolved errors from last 7 days
 
 ---
 
+### 2.5 Process Friction Review
+
+Read `docs/process-learnings.md`. Scan for entries with `Status: proposed`.
+
+For each unresolved entry:
+- If it's been proposed for 2+ weeks without action → flag it: "This fix has been sitting since [date]. Still worth doing?"
+- If 2+ entries share the same root cause → that's a chronic pattern, not a one-off
+
+Surface findings in the Evidence Picture (step 4) as:
+```
+PROCESS DEBT: [N proposed fixes — list them; or "none"]
+CHRONIC:      [patterns appearing 2+ times — or "none"]
+```
+
+This is a 2-minute scan. Don't expand it. Purpose is surfacing what /kdd sessions flagged but never acted on.
+
+---
+
 ### 3. Evidence Gathering (run in parallel)
 
 ```bash
@@ -117,13 +135,15 @@ git log --since="$SINCE" --oneline --no-merges | grep -iE "^[a-f0-9]+ fix" | \
 Present this before asking anything. For LAST WEEK: read the saved commitment verbatim, then ask: "Did you do this? Yes / partial / no — one word." Wait for the answer before proceeding.
 
 ```
-SHIPPED:    [N features — list titles]
-CREATED:    [N new specs — list titles]
-COMMITS:    [N total — split by type: feat/fix/chore/docs/refactor]
-STRATEGY:   [docs touched or "none"]
-SMELLS:     [areas fixed 2+ times — scope only, not count; or "none"]
-LAST WEEK:  [paste saved commitment] → [founder's yes/partial/no]
-USER CONVOS: [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
+SHIPPED:      [N features — list titles]
+CREATED:      [N new specs — list titles]
+COMMITS:      [N total — split by type: feat/fix/chore/docs/refactor]
+STRATEGY:     [docs touched or "none"]
+SMELLS:       [areas fixed 2+ times — scope only, not count; or "none"]
+LAST WEEK:    [paste saved commitment] → [founder's yes/partial/no]
+USER CONVOS:  [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
+PROCESS DEBT: [N proposed fixes from process-learnings.md — or "none"]
+CHRONIC:      [patterns appearing 2+ times — or "none"]
 ```
 
 Collect the user conversation answer before moving to questions. Zero = flag immediately in the evidence table.
@@ -250,6 +270,8 @@ EOF
 **Smells:** [repeated fixes or "none"]
 **User conversations:** [N — names if any, or "zero"]
 **Last week:** [commitment text] → [yes/partial/no]
+**Process debt:** [N proposed fixes or "none"]
+**Chronic patterns:** [or "none"]
 
 ### Evidence Signals
 [table of signals with interpretations]

@@ -56,11 +56,12 @@ Wait for explicit confirmation before publishing.
    ```
    Note: `newsletter` param must be the **slug** (`default-newsletter`), not the ID.
 
-3. **Verify delivery:**
+3. **Verify delivery** (wait ~15s after publish, then check):
    ```
-   GET /ghost/api/admin/emails/?filter=post_id:{id}
+   GET /ghost/api/admin/posts/{id}/?include=email
    ```
-   Check `status` field. Report to user.
+   Check `posts[0].email.status` — should be `submitted` (not `pending` or `failed`).
+   Note: `delivered_count` stays 0 without Mailgun webhooks — `submitted` means sent to Mailgun successfully.
 
 4. **Update frontmatter** in the source file (`content/stories/{slug}.md` or `content/blog/{slug}.md`):
    ```yaml

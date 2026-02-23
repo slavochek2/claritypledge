@@ -31,12 +31,12 @@ export function BottomNav() {
   const navItems: NavItem[] = [
     {
       icon: MicIcon,
-      label: "Start a Session",
+      label: "Start Session",
       to: "/live",
     },
     {
       icon: HistoryIcon,
-      label: "Session History",
+      label: "History",
       to: "/sessions",
     },
     {

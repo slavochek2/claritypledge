@@ -53,8 +53,26 @@ Longer format, structured agenda, specific learning outcome.
 3. Review the live event page
 4. Promote (see promotion channels below)
 
-## Promotion Channels *(to document)*
+## Promotion Channels
 
+### todo.today ✓
+A community event platform popular on Ko Phangan.
+
+**Skill:** `/slava/events/promote-todo-today`
+**Input:** event slug or "latest upcoming"
+**Time:** ~3 minutes
+**Account:** logged in via ops@claritypledge.com
+
+**Key conventions:**
+- Host name: Vyacheslav Ladischenski
+- Photo: Unsplash image relevant to event type
+- Description: no links except the claritypledge event page (registration + full info)
+- Always state: "Registration is required. Full details and sign-up: claritypledge.com/events/[slug]"
+- Exchange: Free · Walk-In: unchecked · Venue: select from Koh Phangan list
+
+---
+
+### Pending documentation
 - [ ] WhatsApp groups (Ko Phangan community)
 - [ ] Instagram
 - [ ] Direct invites

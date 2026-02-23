@@ -55,7 +55,7 @@ Ghost uses two separate email channels:
 | Setting | Value |
 |---------|-------|
 | Mailgun domain | `mg.claritypledge.com` |
-| Mailgun API key | Configured in Ghost Admin → Settings → Email newsletter |
+| Mailgun API key | Ghost Admin → Settings → Email newsletter → Mailgun → Edit. Also stored as `MAILGUN_API_KEY` in `.env.local` for reference. If newsletter emails fail with "An unexpected error occurred", the key is likely expired — rotate at app.mailgun.com → Sending → Domain mg.claritypledge.com → API Keys. |
 | Mailgun base URL | `https://api.eu.mailgun.net/v3` |
 | Accent color | `#3b82f6` (blue-500) |
 | Icon & logo | Clarity "C" mark (blue rounded rect) |

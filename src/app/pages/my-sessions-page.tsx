@@ -134,7 +134,15 @@ export function MySessionsPage() {
       className="container mx-auto px-4 lg:px-8 pt-24 pb-24 max-w-2xl"
     >
       <div className="flex items-center gap-2 mb-6">
-        {view.type !== 'list' && (
+        {view.type === 'list' ? (
+          <button
+            onClick={() => navigate('/events')}
+            className="p-1 -ml-1 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Back to Events"
+          >
+            <ChevronLeft className="w-5 h-5 text-foreground" />
+          </button>
+        ) : (
           <button
             onClick={goBack}
             className="p-1 -ml-1 rounded-md hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
