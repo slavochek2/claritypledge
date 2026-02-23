@@ -37,7 +37,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
       className="bg-card border rounded-lg shadow-sm p-6"
     >
       {/* Top row: Avatar + Name/Role + Share button */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         {/* P76: Use GravatarAvatar for consistent pledger distinction */}
         <div data-testid="avatar-container" className="flex-shrink-0">
           <GravatarAvatar
@@ -62,7 +62,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
           {profile.bio && (
             <p
               data-testid="profile-bio"
-              className="text-sm text-muted-foreground mt-1"
+              className="text-sm text-muted-foreground mt-1 break-words"
             >
               {linkifyText(profile.bio)}
             </p>

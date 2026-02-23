@@ -414,6 +414,7 @@ describe("SettingsPage", () => {
           role: mockProfile.role,
           linkedin_url: mockProfile.linkedinUrl,
           reason: mockProfile.reason,
+          bio: null,
         });
       });
     });

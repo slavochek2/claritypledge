@@ -676,7 +676,7 @@ export function ProfilePageV2() {
                   <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
                 )}
                 {profile.bio && (
-                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-1">
+                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-1 break-words">
                     {linkifyText(profile.bio)}
                   </p>
                 )}

@@ -13,6 +13,7 @@ export function linkifyText(text: string): ReactNode[] {
   // Allowlist pattern: https?:// URLs OR bare domain.tld patterns
   // Bare domains: word.tld optionally followed by path
   const URL_PATTERN = /(?:https?:\/\/[^\s]+|(?<!\w)[\w-]+\.(?:com|org|net|io|co|me|dev|app|ai|uk|de|fr|au|ca|edu|gov|info|biz|tv|fm|ly|gl|gg|pm|club)(?:\/[^\s]*)?)/gi;
+  const TRAILING_PUNCT = /[.,;:!?)]+$/;
 
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
@@ -22,8 +23,14 @@ export function linkifyText(text: string): ReactNode[] {
   URL_PATTERN.lastIndex = 0;
 
   while ((match = URL_PATTERN.exec(text)) !== null) {
-    const url = match[0];
+    let url = match[0];
     const start = match.index;
+
+    // Strip trailing punctuation (e.g. "example.com." → "example.com")
+    const trailingMatch = url.match(TRAILING_PUNCT);
+    if (trailingMatch) {
+      url = url.slice(0, url.length - trailingMatch[0].length);
+    }
 
     // Skip matches embedded in dangerous schemes (e.g. blob:https://...)
     // If the character immediately before the match is ':', the URL is part of

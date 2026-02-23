@@ -121,7 +121,7 @@ export function SettingsPage() {
       name: name.trim(),
       role: role.trim() || undefined,
       linkedin_url: linkedinUrl.trim() || undefined,
-      bio: bio.trim() || undefined,
+      bio: bio.trim() || null,
       reason: reason.trim() || undefined,
     });
 
