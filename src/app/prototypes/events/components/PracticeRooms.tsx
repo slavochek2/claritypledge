@@ -99,7 +99,7 @@ export function PracticeRooms({ eventId, eventSlug, currentUserId, currentUserNa
     <div className="bg-card rounded-xl border border-border shadow-sm p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-sm text-muted-foreground">Practice Rooms</h2>
+        <h2 className="font-semibold text-sm text-muted-foreground">Clarity Practice Rooms</h2>
         <button
           onClick={handleOpenRoom}
           disabled={openButtonDisabled}

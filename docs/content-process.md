@@ -107,11 +107,19 @@ series_total: 7
 
 ---
 
-### 6. User Review (Ghost Admin)
+### 6. User Review (Ghost Admin) + Test Email
 
-**What:** Open the Ghost draft URL. Check formatting, image, how it reads on mobile. Make edits directly in Ghost if needed.
+**What:** Open the Ghost editor URL from the `/draft-blog` output. Check formatting, image, how it reads on mobile.
 
-When happy: tell Claude "ship it."
+**Send test email before shipping:**
+1. In Ghost editor → click **Publish** (top right)
+2. In the publish sidebar → "Email newsletter" section
+3. Click **"Send test email"** → arrives in your inbox (staff users only, not subscribers)
+4. Check layout, links, image rendering in your real email client
+
+Make edits directly in Ghost if needed. When happy: tell Claude "ship it."
+
+**Note:** Ghost v5 has no test email API. The UI button is the only way.
 
 ---
 
@@ -129,6 +137,32 @@ When happy: tell Claude "ship it."
 
 ---
 
+### 8. Post-Publish (TODO — no skill yet)
+
+After `/ship-blog` succeeds:
+- [ ] Share on LinkedIn (build-in-public angle — what you built/learned)
+- [ ] Update `content/links.md` — add the new post's URL so future articles can cross-link to it
+- [ ] If it's a manifesto series post, update `content/blog/_series-manifesto.md` to mark it published
+- [ ] Check Mailgun logs in ~1 hour to confirm delivery
+
+---
+
+## Cross-Linking
+
+When writing a new post, `/draft-blog` automatically links first occurrences of known terms. The registry lives at `content/links.md`.
+
+**Format:**
+```markdown
+- [The Measurement Gap](https://blog.claritypledge.com/the-measurement-gap/) — post about calibration in feedback
+- [Clarity Tax](https://claritypledge.com/manifesto) — the core manifesto concept
+```
+
+**How it works:** `/draft-blog` reads `content/links.md` first, then the post's own `## Sources` section. Any term appearing in the body gets auto-linked on first mention.
+
+**Keep it small.** Add entries only for: (1) your own published posts, (2) core concepts readers would benefit from following, (3) recurring external references.
+
+---
+
 ## Content Locations
 
 | What | Where |
@@ -138,6 +172,7 @@ When happy: tell Claude "ship it."
 | Voice reference | `content/voice.md` |
 | Strategy reference | `content/strategy.md` |
 | Series epics | `content/blog/_series-{name}.md` |
+| Cross-link registry | `content/links.md` |
 | Ghost Admin | https://blog.claritypledge.com/ghost/ |
 | Public blog | https://blog.claritypledge.com |
 

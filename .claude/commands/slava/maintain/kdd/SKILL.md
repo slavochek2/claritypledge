@@ -139,6 +139,39 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
+6. **Meta-reflection** — review how the session went:
+
+   Scan the conversation for friction signals and turn them into actionable improvements.
+
+   **What to look for:**
+   - Dead ends or wrong assumptions that cost time
+   - Steps repeated 3+ times manually (skill candidate)
+   - Confusion about existing behavior / architecture (missing doc or rule)
+   - A question asked multiple times (signal: add to CLAUDE.md or technical docs)
+   - A mistake that a guardrail would have prevented
+   - A sequence of steps that should be automated (agent or script candidate)
+
+   **For each friction point, classify and act:**
+
+   | Signal | Action |
+   |--------|--------|
+   | Repeated manual steps (3+) | Propose a new skill → user runs `/skill-creator` |
+   | Missing CLAUDE.md rule | Propose wording → user runs `/claude-md "..."` |
+   | Architecture confusion | Update relevant `docs/technical/*.md` |
+   | Process decision worth recording | Add to `decisions.md` with `[process]` tag |
+   | Agent pattern worth encoding | Propose as a skill or CLAUDE.md addition |
+
+   **Format for each finding:**
+   ```
+   🔴 Friction: [what slowed things down]
+   Root cause: [why it happened]
+   Fix: [concrete action — skill name, rule text, doc section]
+   ```
+
+   If no friction detected: "Clean session — no process improvements identified."
+
+   **Don't manufacture findings.** Only report friction that actually occurred.
+
 ## Rules
 
 - **Be decisive** — analyze and propose, don't repeatedly ask

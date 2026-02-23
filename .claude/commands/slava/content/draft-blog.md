@@ -1,11 +1,11 @@
 # Draft Blog Post
 
-Convert an approved `content/blog/` post into a polished Ghost draft. Polish only — no publishing.
+Convert an approved post into a polished Ghost draft. Polish only — no publishing.
 
 ## Usage
 
 ```
-/slava:draft-blog                        # Pick latest content/blog/ post with status: review
+/slava:draft-blog                        # Pick latest post with status: review
 /slava:draft-blog <slug>                 # Target a specific post
 /slava:draft-blog --date 2026-02-05      # Backdate the post
 ```
@@ -13,16 +13,19 @@ Convert an approved `content/blog/` post into a polished Ghost draft. Polish onl
 ## What This Does
 
 1. **Convert** markdown → Ghost Lexical format (proper headings, lists, blockquotes, clickable links)
-2. **Feature image** — search Unsplash for a relevant photo, upload to Ghost
-3. **SEO metadata** — auto-populate `meta_description`, `custom_excerpt`, tags
-4. **Create/update** Ghost draft via Admin API
-5. **Return** preview URL for visual review in Ghost Admin
+2. **Inline links** — auto-link first mentions of terms from the post's `## Sources` section
+3. **Feature image** — search Unsplash for a relevant photo, upload to Ghost
+4. **SEO metadata** — auto-populate `meta_description`, `custom_excerpt`, tags
+5. **Create/update** Ghost draft via Admin API
+6. **Return** preview URL + pre-publish checklist
 
 Does NOT publish. Does NOT send emails.
 
 ## Before Starting
 
-Find the post in `content/blog/` with `status: review` (or `status: preparing` if user specified a slug directly).
+Search for the post with `status: review` (or `status: preparing` if user specified a slug directly):
+1. `content/stories/` — check first (newer dated posts)
+2. `content/blog/` — fallback (older posts)
 
 If no post is ready, tell the user: "No post ready to draft. Run `/slava:prepare-blog` first."
 
@@ -86,9 +89,40 @@ Read the post from `content/blog/{slug}.md`. Convert to Ghost Lexical JSON:
 }
 ```
 
+**Set slug from filename** — strip the date prefix if present:
+- `2026-02-05-calibrated-humans-for-ai-agents.md` → slug: `calibrated-humans-for-ai-agents`
+- `my-post.md` → slug: `my-post`
+Pass this as `slug` in the Ghost API call. Don't let Ghost auto-generate from the title (produces long ugly slugs).
+
 Strip frontmatter (`---` block) and the `# Title` line before converting — those go into Ghost fields, not body.
 
-### Step 2: Feature Image
+Also strip the `## Sources` / `## References` section from the body — handled separately in Step 2.
+
+### Step 2: Inline Links (Auto-link First Mentions)
+
+Build the link list from two sources, merged (deduped by term):
+1. **`content/links.md`** — canonical registry for internal links (other posts) and recurring external references. Check this file first.
+2. **Post's own `## Sources` / `## References` section** — post-specific links.
+
+For each entry, find the **first occurrence** of the display text in the Lexical body and wrap it in a link node.
+
+Rules:
+- First mention only — don't link every occurrence
+- Skip if the text is already inside a link node
+- Walk paragraphs, headings, list items (not code blocks)
+- Preserve existing text format (bold, italic)
+
+**Link injection algorithm** (for each unlinked source term):
+1. Walk all paragraph/heading/list children in order
+2. Find first `text` node containing the term
+3. Split: `[text before] + [link node] + [text after]`
+4. Recurse on the remainder for other terms
+
+This step runs **during** the Lexical conversion, not after. The `## Sources` section is parsed first, then used during the walk.
+
+**If no Sources section:** skip this step silently.
+
+### Step 3: Feature Image
 
 Search Unsplash for a photo matching the article topic. Use the Unsplash API:
 
@@ -164,20 +198,32 @@ POST /ghost/api/admin/posts/
 PUT /ghost/api/admin/posts/{id}/
 ```
 
-### Step 5: Report
+### Step 6: Report
+
+Update frontmatter in the source file (`content/stories/{slug}.md` or `content/blog/{slug}.md`): set `status: draft-ready`, add `ghost_post_id: {id}`.
+
+Then report:
 
 ```
 ✓ Ghost draft ready
-  Preview: https://blog.claritypledge.com/ghost/#/posts/{id}
-  Feature image: {unsplash photo credit}
+  Editor: https://blog.claritypledge.com/ghost/#/editor/post/{id}
+  Feature image: {unsplash photographer name on Unsplash}
   Tags: AI, Calibration, Communication
   Excerpt: "{first 100 chars}..."
   Published at: 2026-02-05
+  Inline links: {list of terms linked}
 
-To publish: /slava:ship-blog
+── Pre-publish checklist ──────────────────────────────
+  1. Open the editor link above and review visually
+  2. In Ghost editor: click Publish → check "Email newsletter"
+     → click "Send test email" → check your inbox
+  3. Verify links, image, and formatting look right
+  4. When ready: /slava:ship-blog
+───────────────────────────────────────────────────────
 ```
 
-Update frontmatter in `content/blog/{slug}.md`: set `status: draft-ready`, add `ghost_post_id: {id}`.
+**"Send test email" in Ghost UI:**
+In the editor publish sidebar → "Email newsletter" section → there's a **"Send test email"** link that delivers to all staff users. This is the only way to preview the email before sending — Ghost v5 has no test email API.
 
 ## Ghost API Reference
 

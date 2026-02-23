@@ -371,7 +371,11 @@ export function EventDetail() {
 
               {/* Description - Markdown rendered */}
               <div className="prose prose-sm max-w-none text-muted-foreground mb-6 pt-4 border-t border-border">
-                <ReactMarkdown>{event.description}</ReactMarkdown>
+                <ReactMarkdown components={{
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                  )
+                }}>{event.description}</ReactMarkdown>
               </div>
 
               {/* RSVP Section - Hidden for host and cancelled events */}

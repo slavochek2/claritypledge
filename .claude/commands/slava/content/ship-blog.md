@@ -13,7 +13,11 @@ Run `/slava:draft-blog` first to create and polish the Ghost draft. This skill j
 
 ## Before Running
 
-The post must already exist as a Ghost draft. Check `content/blog/` for a post with `status: draft-ready` and a `ghost_post_id` in frontmatter. If not found, tell the user to run `/slava:draft-blog` first.
+The post must already exist as a Ghost draft. Search for a post with `status: draft-ready` and a `ghost_post_id` in frontmatter:
+1. `content/stories/` — check first (newer dated posts)
+2. `content/blog/` — fallback (older posts)
+
+If not found, tell the user to run `/slava:draft-blog` first.
 
 ## Pre-flight Checks
 
@@ -58,7 +62,7 @@ Wait for explicit confirmation before publishing.
    ```
    Check `status` field. Report to user.
 
-4. **Update frontmatter** in `content/blog/{slug}.md`:
+4. **Update frontmatter** in the source file (`content/stories/{slug}.md` or `content/blog/{slug}.md`):
    ```yaml
    status: published
    published_at: {actual publish date}

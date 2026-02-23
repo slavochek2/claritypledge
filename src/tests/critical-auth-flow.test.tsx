@@ -397,8 +397,8 @@ describe('CRITICAL AUTH FLOW', () => {
       });
     });
 
-    it('P64: should redirect to signup when login attempt has no existing account', async () => {
-      // Setup: User tries to login but has no account
+    it('Option B: should create account when Google login attempt has no existing account', async () => {
+      // Google = sign in OR sign up — no redirect, just create the account
       const mockSession = {
         user: {
           id: 'new-user-id',
@@ -412,7 +412,7 @@ describe('CRITICAL AUTH FLOW', () => {
       mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
       mockGetProfile.mockResolvedValue(null); // No existing account
 
-      // No source parameter = login flow
+      // No source parameter = login flow (e.g. Google button on login page)
       render(
         <MemoryRouter initialEntries={['/auth/callback']}>
           <AuthProvider>
@@ -422,10 +422,14 @@ describe('CRITICAL AUTH FLOW', () => {
       );
 
       await waitFor(() => {
-        // Should NOT create profile
-        expect(mockUpsert).not.toHaveBeenCalled();
-        // Should redirect to signup with message
-        expect(mockNavigate).toHaveBeenCalledWith('/signup?message=no-account', { replace: true });
+        // Should create profile (not redirect away)
+        expect(mockUpsert).toHaveBeenCalled();
+        const upsertData = getUpsertData();
+        // New user via login page: not pledged (they haven't signed the pledge)
+        expect(upsertData.has_pledged).toBe(false);
+        expect(upsertData.is_verified).toBe(true);
+        // Should redirect to dashboard, not signup
+        expect(mockNavigate).toHaveBeenCalledWith('/events', { replace: true });
       });
     });
 

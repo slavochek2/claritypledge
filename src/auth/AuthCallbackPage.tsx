@@ -196,14 +196,9 @@ export function AuthCallbackPage() {
         }
       }
 
-      // P64: If this is a login attempt (no source or source=login) and no account exists,
-      // redirect to signup page instead of auto-creating account
-      if (isLoginSource && !existingProfile) {
-        console.log('🚫 Login attempt with no existing account - redirecting to signup');
-        analytics.track('login_no_account', { email: authUser.email });
-        navigate('/signup?message=no-account', { replace: true });
-        return;
-      }
+      // Option B: If login attempt has no account, create it (Google = sign in OR sign up).
+      // Magic link login still guards against this in LoginForm (checks email exists before sending link).
+      // No redirect needed — just fall through to profile creation below.
 
       // Generate slug at profile creation time to prevent race conditions.
       // If we generated in createProfile (before email verification), two users
@@ -238,7 +233,9 @@ export function AuthCallbackPage() {
       const isPledgeSource = source === 'pledge';
       const hasPledged = isPledgeSource
         ? true  // Pledging always sets has_pledged=true, even if they had an account with false
-        : (existingProfile?.hasPledged ?? (!isLiveRegistration && !isSignupRegistration));
+        // For new users: only pledge source sets has_pledged=true. Login/signup/live all default false.
+        // For existing users: preserve whatever they had.
+        : (existingProfile?.hasPledged ?? (!isLiveRegistration && !isSignupRegistration && !isLoginSource));
 
       // P63: Capture Google OAuth avatar if user authenticated via Google
       // Note: app_metadata.provider shows ORIGINAL signup method, not current login method
