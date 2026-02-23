@@ -59,14 +59,6 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
               {profile.role}
             </p>
           )}
-          {profile.bio && (
-            <p
-              data-testid="profile-bio"
-              className="text-sm text-muted-foreground mt-1 break-words"
-            >
-              {linkifyText(profile.bio)}
-            </p>
-          )}
         </div>
 
         {/* Share button */}
@@ -105,11 +97,23 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
               to={`/p/${profile.slug}/pledge`}
               className="text-blue-500 hover:text-blue-600 font-medium inline-flex items-center gap-1"
             >
-              View their pledge →
+              See my Clarity Pledge →
             </Link>
           )
         )}
       </div>
+
+      {/* Bio — below pledge, separated by divider */}
+      {profile.bio && (
+        <div className="mt-4 pt-4 border-t">
+          <p
+            data-testid="profile-bio"
+            className="text-sm text-muted-foreground break-words"
+          >
+            {linkifyText(profile.bio)}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
