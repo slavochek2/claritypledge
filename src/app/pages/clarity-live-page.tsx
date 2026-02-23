@@ -69,6 +69,7 @@ type ViewState = 'start' | 'waiting' | 'live';
 /** Session persistence keys (per-tab using sessionStorage instead of localStorage) */
 const STORAGE_KEYS = {
   SESSION_CODE: 'clarity_live_session_code',
+  SESSION_ID: 'clarity_live_session_id',
   USER_NAME: 'clarity_live_user_name',
   IS_CREATOR: 'clarity_live_is_creator',
 } as const;
@@ -297,6 +298,12 @@ export function ClarityLivePage() {
     }
     sessionCodeRef.current = session?.code ?? null;
     currentSessionIdRef.current = session?.id ?? null;
+    // Keep sessionStorage in sync so AuthContext can access it during logout
+    if (session?.id) {
+      storage?.setItem(STORAGE_KEYS.SESSION_ID, session.id);
+    } else {
+      storage?.removeItem(STORAGE_KEYS.SESSION_ID);
+    }
   }, [session?.joinerName, session?.code, session?.id]);
 
   // Keep departure refs in sync with state
@@ -304,6 +311,48 @@ export function ClarityLivePage() {
     partnerLeftRef.current = partnerLeft;
     sessionEndedRef.current = sessionEnded;
   }, [partnerLeft, sessionEnded]);
+
+  // Refs to track isCreator and view for use in pagehide handler (avoids stale closure)
+  const isCreatorRef = useRef(isCreator);
+  useEffect(() => {
+    isCreatorRef.current = isCreator;
+  }, [isCreator]);
+  const viewRef = useRef<ViewState>(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  // Fix A: Cleanup session on tab close / browser unload (pagehide is more reliable than beforeunload)
+  // Only fires when actually leaving (not on bfcache suspend) and only from live view.
+  useEffect(() => {
+    const handlePageHide = (e: PageTransitionEvent) => {
+      if (e.persisted) return; // bfcache — page will be restored, skip cleanup
+      const sessionId = currentSessionIdRef.current;
+      if (!sessionId || iAmLeavingRef.current) return;
+      if (viewRef.current !== 'live') return; // waiting room close doesn't signal sessionEnded
+      iAmLeavingRef.current = true;
+      if (isCreatorRef.current) {
+        patchClaritySessionLiveState(sessionId, {
+          sessionEnded: true,
+          sessionEndedAt: new Date().toISOString(),
+        }).catch(() => {});
+      } else {
+        clearSessionJoiner(sessionId).catch(() => {});
+      }
+    };
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        // Restored from bfcache — reset leaving flag so session resumes normally
+        iAmLeavingRef.current = false;
+      }
+    };
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
 
   // P66.1: Auth gate - redirect guests without join code to signup
   // Wait for session restoration before redirecting (prevents kicking out guests who refresh)
@@ -495,6 +544,7 @@ export function ClarityLivePage() {
   // Helper to clear stored session
   const clearStoredSession = () => {
     storage?.removeItem(STORAGE_KEYS.SESSION_CODE);
+    storage?.removeItem(STORAGE_KEYS.SESSION_ID);
     storage?.removeItem(STORAGE_KEYS.USER_NAME);
     storage?.removeItem(STORAGE_KEYS.IS_CREATOR);
   };

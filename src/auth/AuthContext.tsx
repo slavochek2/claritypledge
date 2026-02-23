@@ -13,7 +13,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getProfile, signOut as apiSignOut } from '@/app/data/api';
+import { getProfile, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
 import type { Profile } from '@/app/types';
 
@@ -153,6 +153,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
+    // Fix B: Clean up active live session before signing out
+    const sessionId = sessionStorage.getItem('clarity_live_session_id');
+    const isCreator = sessionStorage.getItem('clarity_live_is_creator') === 'true';
+    if (sessionId) {
+      try {
+        if (isCreator) {
+          await patchClaritySessionLiveState(sessionId, {
+            sessionEnded: true,
+            sessionEndedAt: new Date().toISOString(),
+          });
+        } else {
+          await clearSessionJoiner(sessionId);
+        }
+      } catch {
+        // Session cleanup is best-effort — proceed with sign-out regardless
+      }
+    }
     await apiSignOut();
     // Reset analytics to clear user identity (prevents events attributed to wrong user)
     analytics.reset();
