@@ -10,7 +10,7 @@ const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
   : 'https://api.mailgun.net/v3';
 
-const FROM = `Clarity Pledge <noreply@${MAILGUN_DOMAIN}>`;
+const FROM = `Clarity Pledge Events <events@${MAILGUN_DOMAIN}>`;
 
 // ── HTML email base template ──────────────────────────────────────────────────
 
@@ -102,6 +102,33 @@ function tallyUrl(eventId: string): string {
   return `https://tally.so/r/${TALLY_FORM_ID}?event_id=${eventId}`;
 }
 
+function eventPageUrl(slug: string): string {
+  return `https://claritypledge.com/events/${slug}`;
+}
+
+function formatICSDate(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
+
+function calendarLinks(event: EventRow): string {
+  const start = new Date(event.datetime);
+  const end = new Date(start.getTime() + (event.duration_minutes ?? 60) * 60 * 1000);
+  const startStr = formatICSDate(start);
+  const endStr = formatICSDate(end);
+  const loc = event.location ?? '';
+
+  const google = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${startStr}/${endStr}&location=${encodeURIComponent(loc)}`;
+  const outlook = `https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${encodeURIComponent(event.title)}&startdt=${start.toISOString()}&enddt=${end.toISOString()}&location=${encodeURIComponent(loc)}`;
+  const office365 = `https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${encodeURIComponent(event.title)}&startdt=${start.toISOString()}&enddt=${end.toISOString()}&location=${encodeURIComponent(loc)}`;
+
+  return `<p style="margin:16px 0 0;font-size:13px;color:#6b7280;">
+    Add to calendar:
+    <a href="${google}" style="color:#2563eb;">Google</a> ·
+    <a href="${outlook}" style="color:#2563eb;">Outlook</a> ·
+    <a href="${office365}" style="color:#2563eb;">Office 365</a>
+  </p>`;
+}
+
 // ── Email builders ────────────────────────────────────────────────────────────
 
 interface EventRow {
@@ -112,14 +139,18 @@ interface EventRow {
   timezone: string | null;
   location: string | null;
   description: string | null;
+  slug: string | null;
 }
 
 function buildConfirmation(event: EventRow): { subject: string; html: string; text: string } {
   const subject = `You're going to: ${event.title}`;
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">We're looking forward to seeing you.</p>
     ${eventCard(event)}
+    ${eventLink}
+    ${calendarLinks(event)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email and we'll get back to you.
     </p>
@@ -130,10 +161,13 @@ function buildConfirmation(event: EventRow): { subject: string; html: string; te
 
 function buildReminder(event: EventRow): { subject: string; html: string; text: string } {
   const subject = `Tomorrow: ${event.title}`;
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">See you tomorrow! 👋</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">Just a reminder about tomorrow's event.</p>
     ${eventCard(event)}
+    ${eventLink}
+    ${calendarLinks(event)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email.
     </p>
@@ -145,6 +179,7 @@ function buildReminder(event: EventRow): { subject: string; html: string; text: 
 function buildFeedback(event: EventRow): { subject: string; html: string; text: string } {
   const subject = `How was ${event.title}?`;
   const feedbackUrl = tallyUrl(event.id);
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Thanks for joining us!</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
@@ -152,6 +187,7 @@ function buildFeedback(event: EventRow): { subject: string; html: string; text: 
       It takes about 1 minute.
     </p>
     ${button('Share your feedback', feedbackUrl)}
+    ${eventLink}
     <p style="margin:24px 0 0;font-size:14px;color:#6b7280;">
       Your feedback helps us make future events even better. Thank you!
     </p>
@@ -162,12 +198,14 @@ function buildFeedback(event: EventRow): { subject: string; html: string; text: 
 
 function buildCancellation(event: EventRow): { subject: string; html: string; text: string } {
   const subject = `Event cancelled: ${event.title}`;
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event cancelled</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
       Unfortunately, <strong>${event.title}</strong> has been cancelled.
     </p>
     ${eventCard(event)}
+    ${eventLink}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       We're sorry for the inconvenience. Questions? Reply to this email.
     </p>
@@ -178,12 +216,14 @@ function buildCancellation(event: EventRow): { subject: string; html: string; te
 
 function buildUpdate(event: EventRow): { subject: string; html: string; text: string } {
   const subject = `Updated: ${event.title}`;
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event updated</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
       The details for <strong>${event.title}</strong> have changed. Here's what you need to know:
     </p>
     ${eventCard(event)}
+    ${eventLink}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email.
     </p>
@@ -250,7 +290,7 @@ async function handleRsvp(supabase: ReturnType<typeof createClient>, eventId: st
   // Fetch event
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
     .eq('id', eventId)
     .single();
 
@@ -311,7 +351,7 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
   // Fetch event
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
     .eq('id', eventId)
     .single();
 
@@ -346,7 +386,7 @@ async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: 
   // Fetch updated event
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
     .eq('id', eventId)
     .single();
 
@@ -421,11 +461,12 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
     }
 
-    // Create Supabase client with the caller's auth token
+    // Use service role for DB operations — bypasses RLS so we can read all
+    // attendee emails and update mailgun_message_ids across all RSVPs.
+    // Auth header is still validated to ensure caller is authenticated.
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
     const { action, eventId, userId } = await req.json() as {

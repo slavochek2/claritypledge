@@ -195,6 +195,8 @@ export function EventDetail() {
     if (newUrl) {
       await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
       setBannerUrl(newUrl);
+    } else {
+      toast.error("Couldn't find a new banner photo.");
     }
     setIsBannerLoading(false);
   };

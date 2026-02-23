@@ -41,23 +41,29 @@ test.describe('P416 Migration — events.banner_url column', () => {
       title: 'P416 Migration Test Event',
     });
 
-    // Get host JWT for RLS tests
-    const { data: hostSignIn, error: hostErr } = await supabaseAdmin.auth.signInWithPassword({
+    // Use temp clients to get JWTs without mutating supabaseAdmin's session
+    const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+
+    const hostClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: hostSignIn, error: hostErr } = await hostClient.auth.signInWithPassword({
       email: host.email,
       password: 'test-password-12345',
     });
     if (hostErr || !hostSignIn?.session) throw new Error(`P416: Failed to sign in host: ${hostErr?.message}`);
     hostToken = hostSignIn.session.access_token;
-    await supabaseAdmin.auth.signOut(); // restore to service_role before next sign-in
 
-    // Get non-host JWT
-    const { data: nonHostSignIn, error: nonHostErr } = await supabaseAdmin.auth.signInWithPassword({
+    const nonHostClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: nonHostSignIn, error: nonHostErr } = await nonHostClient.auth.signInWithPassword({
       email: nonHost.email,
       password: 'test-password-12345',
     });
     if (nonHostErr || !nonHostSignIn?.session) throw new Error(`P416: Failed to sign in nonHost: ${nonHostErr?.message}`);
     nonHostToken = nonHostSignIn.session.access_token;
-    await supabaseAdmin.auth.signOut(); // restore to service_role
   });
 
   test.afterAll(async () => {

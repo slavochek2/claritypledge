@@ -263,6 +263,7 @@ export const realEventsService: EventsService = {
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
       hasPledged: rsvp.profile?.has_pledged ?? false,
+      earCount: 0,
     }));
   },
 
@@ -340,15 +341,18 @@ export const realEventsService: EventsService = {
 
     const event = mapEventFromDb(created as DbEventWithHost);
 
-    // Fire-and-forget: auto-fetch banner from Unsplash (silent on failure)
+    // Auto-fetch banner from Unsplash (awaited so banner is set before navigation)
     const keywords = extractBannerKeywords(data.title);
     if (keywords) {
-      fetchUnsplashBanner(keywords).then((bannerUrl) => {
+      try {
+        const bannerUrl = await fetchUnsplashBanner(keywords);
         if (bannerUrl) {
-          supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
-          event.bannerUrl = bannerUrl;
+          const { error: updateError } = await supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
+          if (!updateError) event.bannerUrl = bannerUrl;
         }
-      }).catch(() => {/* silent */});
+      } catch {
+        // silent — banner failure is non-blocking
+      }
     }
 
     return event;
@@ -630,6 +634,7 @@ export const realEventsService: EventsService = {
       avatarColor: rsvp.profile?.avatar_color ?? '#3B82F6',
       avatarUrl: rsvp.profile?.avatar_url ?? undefined,
       hasPledged: rsvp.profile?.has_pledged ?? false,
+      earCount: 0,
     }));
 
     // Include host if they're not the excluded user
@@ -642,6 +647,7 @@ export const realEventsService: EventsService = {
         avatarColor: eventWithHost.host.avatar_color ?? '#3B82F6',
         avatarUrl: eventWithHost.host.avatar_url ?? undefined,
         hasPledged: eventWithHost.host.has_pledged ?? false,
+        earCount: 0,
       });
     }
 
