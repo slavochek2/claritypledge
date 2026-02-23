@@ -14,6 +14,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-23 [product]: Google OAuth = sign in OR sign up (Option B)
+
+**Context:** Unregistered users invited to events landed on `/login`, clicked "Continue with Google", and were redirected to `/signup?message=no-account` — dropping their RSVP intent. The old P64 guard treated `source=login` with no existing account as an error.
+**Decision:** Google auth creates an account if none exists, regardless of which page the user came from (`/login` or `/signup`). Magic link login stays strict — `LoginForm` still calls `checkEmailExists` before sending a link, so magic link remains login-only. New accounts created via login page get `has_pledged=false`.
+**Alternatives rejected:** Option A (just carry the redirect params through) — fixes the RSVP intent loss but doesn't fix the deeper UX problem where users don't know which page they belong on.
+**Consequences:** `/login` Google button is now effectively "sign in or sign up". Returning users: authenticated as before. New users: account created, redirected to `/events`. `source=login` no longer blocks profile creation in `AuthCallbackPage`.
+**References:** [authentication.md](docs/technical/authentication.md), `src/auth/AuthCallbackPage.tsx:199`
+
+## 2026-02-23 [process]: Content pipeline — two-folder structure and cross-link registry
+
+**Context:** First blog post published end-to-end, exposing gaps in the pipeline: skills looked in wrong folders, no cross-linking mechanism, /story vs /sifter-story were confused.
+**Decision:** `content/stories/` = raw blog narratives (output of `/story`). `content/blog/` = polished drafts (output of `/prepare-blog`). Both are blog pipeline. `content/sifter/sessions/` is completely separate (app content, not blog). `content/links.md` = canonical registry of terms to auto-link on first mention in every post.
+**Alternatives rejected:** Single content folder (loses the raw/polished distinction); manual inline links (error-prone, not discoverable).
+**Consequences:** `/draft-blog` searches `content/stories/` first, `content/blog/` second. After each post ships, add its URL to `content/links.md`. Skills (`draft-blog`, `ship-blog`) updated to reflect two-folder pattern.
+**References:** [content-process.md](docs/content-process.md), [links.md](content/links.md)
+
+## 2026-02-23 [technical]: Ghost newsletter email delivery verification pattern
+
+**Context:** Ghost `/ghost/api/admin/emails/` endpoint returns 501 NotImplementedError. After publishing with `?newsletter=default-newsletter&email_segment=all`, there was no obvious way to verify email was actually queued.
+**Decision:** Use `GET /ghost/api/admin/posts/{id}/?include=email` to check delivery. Wait ~15s after publish, then check `posts[0].email.status`. `submitted` = sent to Mailgun successfully. `pending` with error = Mailgun failure (usually invalid API key). `delivered_count` stays 0 without Mailgun webhooks — that's normal.
+**Alternatives rejected:** `/emails/` endpoint (501), `/posts/{id}/test/` endpoint (404 — Ghost v5.130 has no test email feature).
+**Consequences:** `/ship-blog` skill updated. If email shows `pending` + error, root cause is almost always the Mailgun API key — rotate at app.mailgun.com, update in Ghost Admin → Settings → Email newsletter → Mailgun.
+**References:** [ship-blog.md](.claude/commands/slava/content/ship-blog.md), [ghost-blog.md](docs/technical/ghost-blog.md)
+
 ## 2026-02-23 [technical]: Router registration is a required step — page files don't auto-register
 
 **Context:** `home-page.tsx` and `HomePage` component existed with full implementation (dashboard with events, people, quick actions), but navigating to `/home` rendered a blank page. React Router logged "No routes matched location '/home'". The file had been written but never added to `App.tsx`.

@@ -54,40 +54,70 @@ const { user, profile, loading } = useAuth();
 
 Location: [src/auth/AuthCallbackPage.tsx](../../src/auth/AuthCallbackPage.tsx)
 
-This is the **critical transaction handler** that runs after magic link verification.
+This is the **critical transaction handler** that runs after both magic link verification and Google OAuth.
 
 **Flow:**
-1. User clicks magic link → redirected to `/auth/callback`
-2. Extract hash from URL, exchange for session
-3. Check if profile exists for this user
-4. **New user (signup):** Create profile with form data from URL params
-5. **Existing user (login):** Redirect to their profile
-6. Handle errors gracefully
+1. User authenticates (magic link click or Google OAuth) → redirected to `/auth/callback`
+2. Wait for session to resolve
+3. Read `source` param from URL to determine context
+4. Fetch existing profile by auth user ID (and by email for `/live` migration)
+5. **Magic link login (`source=login`) + no profile:** error — but this path is pre-guarded in `LoginForm` via `checkEmailExists`, so it shouldn't reach here
+6. **Google OAuth (`source=login`) + no profile:** create account (Option B — Google = sign in or sign up)
+7. **New user (signup/pledge/Google):** generate slug, upsert profile
+8. **Existing user:** upsert with `is_verified=true`, preserve existing slug and pledge status
+9. Auto-RSVP if `action=rsvp` + `redirect=/events/X` params present
+10. Redirect to `redirect` param (validated) or `/events`
 
-**Profile Creation (signup only):**
-- Reads form data from URL params (name, email, role, etc.)
-- Generates unique slug from name (e.g., `john-doe`)
-- Creates profile via `upsert()` to handle edge cases
-- Redirects to new profile page
+**`source` parameter routing:**
+
+| `source` | Entry point | `has_pledged` for new users |
+|----------|------------|----------------------------|
+| `pledge` | `/sign-pledge` | `true` |
+| `signup` | `/signup` | `false` |
+| `login` | `/login` (Google) | `false` — creates account (Option B) |
+| `live` | `/live` | `false` |
+| _(none)_ | Legacy / returning | preserves existing, or `false` for new |
+
+**Profile Creation:**
+- Generates unique slug from name at creation time (prevents race conditions)
+- Upserts via `onConflict: 'id'` — handles both new and returning users safely
+- Retries up to 3 times on slug conflict, then falls back to timestamp suffix
 
 ---
 
-## Authentication Flow
+## Authentication Flows
 
+### Magic link (pledge / signup)
 ```
-1. User fills pledge form
+1. User fills pledge/signup form
    ↓
-2. createProfile() sends magic link (NO database write yet)
+2. signInWithEmail() sends magic link (NO database write yet)
    ↓
 3. User clicks email link
    ↓
-4. /auth/callback receives the request
+4. /auth/callback?source=pledge|signup
    ↓
-5. AuthCallbackPage exchanges hash for session
+5. AuthCallbackPage: profile exists? → upsert, redirect
+                     no profile? → create + upsert, redirect
+```
+
+### Google OAuth
+```
+1. User clicks "Continue with Google" on /login or /signup
    ↓
-6. Check: Does profile exist?
-   ├── YES → Redirect to /p/{slug} (login)
-   └── NO  → Create profile, then redirect (signup)
+2. signInWithGoogle(source) → redirect to Google
+   ↓
+3. Google redirects to /auth/callback?source=login|signup
+   ↓
+4. AuthCallbackPage: profile exists? → upsert (login)
+                     no profile? → create account (Option B), redirect
+```
+
+### Magic link login guard (login page only)
+```
+LoginForm: checkEmailExists(email)
+   ├── EXISTS → send magic link with source=login
+   └── NOT FOUND → show "No account found" error (never reaches /auth/callback)
 ```
 
 ---
