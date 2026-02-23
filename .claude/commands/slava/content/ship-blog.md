@@ -4,6 +4,8 @@ Publish an approved Ghost draft to all subscribers. One action — no conversion
 
 Run `/slava:draft-blog` first to create and polish the Ghost draft. This skill just sends it.
 
+After shipping, run `/slava:promote-blog` to distribute to LinkedIn (copy + image approval required).
+
 ## Usage
 
 ```
@@ -76,6 +78,8 @@ Wait for explicit confirmation before publishing.
   URL: https://blog.claritypledge.com/{slug}/
   Sent to: {N} subscribers
   Email status: {submitted/delivered/failed}
+
+Next: run /slava:promote-blog to post to LinkedIn
 ```
 
 ## Troubleshooting
@@ -101,4 +105,5 @@ const [id, secret] = key.split(':');
 ## Related
 
 - [draft-blog.md](draft-blog.md) — Previous step (create + polish Ghost draft)
+- [promote-blog.md](promote-blog.md) — Next step (LinkedIn distribution)
 - [ghost-blog.md](docs/technical/ghost-blog.md) — Infrastructure

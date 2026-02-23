@@ -14,6 +14,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-23 [process]: promote-blog approval via HTML page in browser
+
+**Context:** Initial promote-blog skill presented copy variants and image options as plain text in the Claude chat window. Hard to review image thumbnails and compare copy side-by-side in a terminal context.
+**Decision:** Generate a static HTML approval page at `/tmp/promote-blog-approval.html` and `open` it in the default browser. Page includes: post title + URL, 3 copy cards with full text, 3 image cards with `<img>` thumbnails (Unsplash `urls.regular?w=600`), photographer attribution, and a "[none]" text-only option. After opening, Claude asks for explicit "copy N + image X" confirmation before posting.
+**Alternatives rejected:** Plain text in chat — no image preview, hard to compare copy variants at a glance.
+**Consequences:** Approval step is now visual. The HTML file is ephemeral (`/tmp/`). Instruction banner must make clear both copy AND image are required (ambiguous "not what" reply cost us an image on the first real post).
+**References:** [promote-blog.md](.claude/commands/slava/content/promote-blog.md)
+
+## 2026-02-23 [process]: Blog distribution pipeline — ship-blog + promote-blog as separate skills
+
+**Context:** Initial plan was to embed a LinkedIn post step directly inside `ship-blog`. On reflection, publishing to Ghost+email and distributing to LinkedIn are distinct actions: different timing, different approval flow, and LinkedIn is just the first channel.
+**Decision:** Two skills. `ship-blog` = Ghost publish + email newsletter only. `promote-blog` = LinkedIn distribution via Postiz, with copy variants + Unsplash image selection + explicit user approval before posting. User decides when and whether to promote, separately from shipping.
+**Alternatives rejected:** Inline LinkedIn step in `ship-blog` — would force automatic posting without approval, can't skip or delay, breaks the principle of "one action per skill."
+**Consequences:** Content pipeline is now: `draft-blog` → `ship-blog` → (optionally) `promote-blog`. Each step is independent and reversible. Future channels (X, Instagram) can be added to `promote-blog` without touching `ship-blog`.
+**References:** [ship-blog.md](.claude/commands/slava/content/ship-blog.md), [promote-blog.md](.claude/commands/slava/content/promote-blog.md)
+
+## 2026-02-23 [technical]: Postiz API — session cookie auth, correct payload schema
+
+**Context:** Setting up Postiz API calls for `promote-blog`. LinkedIn OAuth scope errors required patching Postiz container, and the API payload format was undocumented.
+**Decision:** Three findings from live testing: (1) **Auth**: Postiz public API Bearer token returns 401 from CLI — use `POST /api/auth/login` with `{email, password, provider:"LOCAL"}` to get a session cookie, then use `-b cookie.txt` for subsequent calls. (2) **Payload schema**: `POST /api/posts` requires `{type:"schedule", date, shortLink:false, tags:[], posts:[{integration:{id}, value:[{content, image:[]}]}]}` — not the simpler `{type:"social", channels:[...], content}` shown in the UI docs. (3) **LinkedIn scope patch**: Postiz v2.19.0 requests `w_organization_social` (unavailable as self-service) for both personal and company LinkedIn channels. Fix: `sed -i` org scopes out of compiled JS in the running container. Survives `docker compose restart` but not `docker compose up -d` (container recreate).
+**Alternatives rejected:** Bearer token auth — shows in UI as "Public API" token but returns 401 from external curl requests. Cookie session is the working path.
+**Consequences:** `promote-blog` skill uses login→cookie→post→delete-cookie flow. After any Postiz container update, re-apply LinkedIn scope patch (see postiz.md). LinkedIn channel ID: `cmlzashw80001t86nxnlk6pi2`.
+**References:** [postiz.md](docs/technical/postiz.md), [promote-blog.md](.claude/commands/slava/content/promote-blog.md)
+
 ## 2026-02-23 [process]: Sifter quality standards — collapse, hard-to-vary, polish pass
 
 **Context:** First full sifter session (understanding-not-agreement) revealed gaps in the point and story extraction process: points were redundant angles on the same claim, the story had a backwards sentence and a redundant line, and the style was inconsistent (dashes, long sentences).
