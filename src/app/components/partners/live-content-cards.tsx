@@ -74,7 +74,12 @@ export function LiveStoryCard({
             photoUrl={story.authorAvatarUrl}
             isPledger={!!story.authorEarsCount}
           />
-          <p className="text-sm font-medium text-foreground line-clamp-2 flex-1">{preview}</p>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground line-clamp-2">{preview}</p>
+            {story.content.length > 100 && (
+              <p className="text-xs text-muted-foreground mt-0.5">Read more ↓</p>
+            )}
+          </div>
         </div>
 
         {/* Metadata Row */}
