@@ -20,6 +20,7 @@ interface DbEventWithHost {
   max_attendees: number | null;
   created_at: string;
   status: 'upcoming' | 'completed' | 'cancelled';
+  banner_url: string | null;
   host: {
     id: string;
     full_name: string | null;
@@ -68,6 +69,7 @@ function mapEventFromDb(row: DbEventWithHost): EventWithHost {
     hostAvatarColor: row.host?.avatar_color ?? '#3B82F6',
     hostAvatarUrl: row.host?.avatar_url ?? undefined,
     hostHasPledged: row.host?.has_pledged ?? false, // P118: Host pledge status
+    bannerUrl: row.banner_url ?? undefined,
     // Attendees fetched separately - components should call getEventAttendees()
     attendees: [],
     attendeeCount: 0,

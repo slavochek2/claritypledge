@@ -787,6 +787,7 @@ export interface Event {
   maxAttendees?: number;
   createdAt: string;
   status: EventStatus;
+  bannerUrl?: string;
 }
 
 export interface EventWithHost extends Event {

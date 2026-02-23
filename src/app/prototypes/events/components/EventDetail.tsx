@@ -190,15 +190,25 @@ export function EventDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header Gradient - Mesh style */}
-      <div
-        className="w-full h-32 md:h-48"
-        style={{
-          background: isCancelled
-            ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`
-            : `radial-gradient(at 0% 0%, ${event.hostAvatarColor}50 0%, transparent 50%), radial-gradient(at 100% 100%, ${event.hostAvatarColor}30 0%, transparent 50%), linear-gradient(135deg, ${event.hostAvatarColor}15 0%, ${event.hostAvatarColor}08 100%)`,
-        }}
-      />
+      {/* Header - Banner image or gradient fallback */}
+      {event.bannerUrl ? (
+        <div className="w-full h-48 md:h-64 relative overflow-hidden">
+          <img
+            src={event.bannerUrl}
+            alt={event.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div
+          className="w-full h-32 md:h-48"
+          style={{
+            background: isCancelled
+              ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`
+              : `radial-gradient(at 0% 0%, ${event.hostAvatarColor}50 0%, transparent 50%), radial-gradient(at 100% 100%, ${event.hostAvatarColor}30 0%, transparent 50%), linear-gradient(135deg, ${event.hostAvatarColor}15 0%, ${event.hostAvatarColor}08 100%)`,
+          }}
+        />
+      )}
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">
