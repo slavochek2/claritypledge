@@ -42,4 +42,6 @@ export interface CreateEventInput {
   maxAttendees?: number;
 }
 
-export type UpdateEventInput = Partial<CreateEventInput>;
+export interface UpdateEventInput extends Partial<CreateEventInput> {
+  bannerUrl?: string | null;
+}

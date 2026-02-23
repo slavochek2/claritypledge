@@ -14,12 +14,14 @@ import {
   Pencil,
   Ban,
   Ear,
+  RefreshCw,
 } from 'lucide-react';
 import { classifyLocation } from '../location-utils';
 import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { useAuth } from '@/auth';
+import { extractBannerKeywords, regenerateUnsplashBanner } from '../banner-utils';
 import { formatTime, downloadICSFile, getGoogleCalendarUrl, getOutlookUrl, getOffice365Url, getTimezoneLabel } from '../utils';
 import type { EventWithHost, PersonRef } from '@/app/types';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -67,6 +69,15 @@ export function EventDetail() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [calendarMenuOpen, setCalendarMenuOpen] = useState(false);
   const calendarMenuRef = useRef<HTMLDivElement>(null);
+
+  // Banner state (can change via Regenerate/Remove)
+  const [bannerUrl, setBannerUrl] = useState<string | undefined>(undefined);
+  const [isBannerLoading, setIsBannerLoading] = useState(false);
+
+  // Sync banner state when event loads
+  useEffect(() => {
+    setBannerUrl(event?.bannerUrl ?? undefined);
+  }, [event?.bannerUrl]);
 
   // Confirm dialog states
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
@@ -175,6 +186,27 @@ export function EventDetail() {
     }
   };
 
+  const handleRegenerateBanner = async () => {
+    if (!event || isBannerLoading) return;
+    const keywords = extractBannerKeywords(event.title);
+    if (!keywords) return;
+    setIsBannerLoading(true);
+    const newUrl = await regenerateUnsplashBanner(keywords);
+    if (newUrl) {
+      await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
+      setBannerUrl(newUrl);
+    }
+    setIsBannerLoading(false);
+  };
+
+  const handleRemoveBanner = async () => {
+    if (!event || isBannerLoading) return;
+    setIsBannerLoading(true);
+    await eventsService.updateEvent(event.id, { bannerUrl: null });
+    setBannerUrl(undefined);
+    setIsBannerLoading(false);
+  };
+
   // Event data for calendar utilities
   const calendarEventData = {
     id: event.id,
@@ -190,25 +222,49 @@ export function EventDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - Banner image or gradient fallback */}
-      {event.bannerUrl ? (
-        <div className="w-full h-48 md:h-64 relative overflow-hidden">
+      {/* Header - Banner image or gradient fallback, with host controls overlay */}
+      <div className="w-full h-48 md:h-64 relative overflow-hidden">
+        {bannerUrl ? (
           <img
-            src={event.bannerUrl}
+            src={bannerUrl}
             alt={event.title}
             className="w-full h-full object-cover"
           />
-        </div>
-      ) : (
-        <div
-          className="w-full h-48 md:h-64"
-          style={{
-            background: isCancelled
-              ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`
-              : `radial-gradient(at 0% 0%, ${event.hostAvatarColor}50 0%, transparent 50%), radial-gradient(at 100% 100%, ${event.hostAvatarColor}30 0%, transparent 50%), linear-gradient(135deg, ${event.hostAvatarColor}15 0%, ${event.hostAvatarColor}08 100%)`,
-          }}
-        />
-      )}
+        ) : (
+          <div
+            className="w-full h-full"
+            style={{
+              background: isCancelled
+                ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`
+                : `radial-gradient(at 0% 0%, ${event.hostAvatarColor}50 0%, transparent 50%), radial-gradient(at 100% 100%, ${event.hostAvatarColor}30 0%, transparent 50%), linear-gradient(135deg, ${event.hostAvatarColor}15 0%, ${event.hostAvatarColor}08 100%)`,
+            }}
+          />
+        )}
+
+        {/* Host banner controls - bottom-right, over image/gradient */}
+        {isHost && (
+          <div className="absolute bottom-2 right-2 flex gap-1">
+            <button
+              onClick={handleRegenerateBanner}
+              disabled={isBannerLoading}
+              className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isBannerLoading ? 'animate-spin' : ''}`} />
+              New banner
+            </button>
+            {bannerUrl && (
+              <button
+                onClick={handleRemoveBanner}
+                disabled={isBannerLoading}
+                className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
+              >
+                <X className="w-3 h-3" />
+                Remove banner
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Content - Two column layout on desktop */}
       <div className="max-w-6xl mx-auto px-4 py-6">

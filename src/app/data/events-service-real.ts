@@ -2,6 +2,7 @@ import type { EventsService, CreateEventInput, UpdateEventInput } from './events
 import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
 import { supabase } from '@/lib/supabase';
 import { invokeEventEmails } from '@/lib/event-emails';
+import { extractBannerKeywords, fetchUnsplashBanner } from '@/app/prototypes/events/banner-utils';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -337,7 +338,20 @@ export const realEventsService: EventsService = {
       return null;
     }
 
-    return mapEventFromDb(created as DbEventWithHost);
+    const event = mapEventFromDb(created as DbEventWithHost);
+
+    // Fire-and-forget: auto-fetch banner from Unsplash (silent on failure)
+    const keywords = extractBannerKeywords(data.title);
+    if (keywords) {
+      fetchUnsplashBanner(keywords).then((bannerUrl) => {
+        if (bannerUrl) {
+          supabase.from('events').update({ banner_url: bannerUrl }).eq('id', event.id);
+          event.bannerUrl = bannerUrl;
+        }
+      }).catch(() => {/* silent */});
+    }
+
+    return event;
   },
 
   async updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean> {
@@ -359,6 +373,7 @@ export const realEventsService: EventsService = {
     if (data.timezone !== undefined) updateData.timezone = data.timezone;
     if (data.location !== undefined) updateData.location = data.location;
     if (data.maxAttendees !== undefined) updateData.max_attendees = data.maxAttendees;
+    if ('bannerUrl' in data) updateData.banner_url = data.bannerUrl ?? null;
 
     // Only allow update if user is the host (authorization check)
     const { error, data: updated } = await supabase
@@ -379,8 +394,11 @@ export const realEventsService: EventsService = {
       return false;
     }
 
-    // Fire-and-forget: send update emails to all attendees
-    invokeEventEmails('update', eventId);
+    // Fire-and-forget: send update emails — skip for banner-only changes
+    const isBannerOnly = Object.keys(updateData).length === 1 && 'banner_url' in updateData;
+    if (!isBannerOnly) {
+      invokeEventEmails('update', eventId);
+    }
 
     return true;
   },

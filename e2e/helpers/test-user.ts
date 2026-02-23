@@ -193,9 +193,17 @@ export async function createMagicLinkToken(email: string): Promise<string> {
 export async function setTestSession(page: Page, email: string) {
   console.log(`[TEST HELPER] Creating session for: ${email}`);
 
-  // Sign in with password to get a valid session
-  // This is much more reliable than magic link token verification for E2E tests
-  const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+  // Use a temporary anon client for sign-in so we don't mutate supabaseAdmin's
+  // in-memory session. Calling signOut on supabaseAdmin after signInWithPassword
+  // would revoke the session server-side, causing auth.getUser() calls in the
+  // browser to fail even though the JWT is still in localStorage.
+  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;
+  const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data, error } = await tempClient.auth.signInWithPassword({
     email,
     password: TEST_PASSWORD,
   });
@@ -237,7 +245,6 @@ export async function setTestSession(page: Page, email: string) {
     throw new Error(`[TEST HELPER] Profile not found after 5 attempts for user: ${userId}`);
   }
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL!;
   const storageKey = `sb-${supabaseUrl.split('//')[1].split('.')[0]}-auth-token`;
   const session = JSON.stringify({
     access_token,
@@ -259,11 +266,6 @@ export async function setTestSession(page: Page, email: string) {
       role: 'authenticated',
     },
   });
-
-  // Restore supabaseAdmin to service_role mode — signInWithPassword above modified its
-  // in-memory session, which would cause subsequent admin queries to run as the user (not
-  // service_role). Signing out resets the client back to using the service_role API key.
-  await supabaseAdmin.auth.signOut();
 
   // Inject session BEFORE every navigation so the Supabase client finds it
   // synchronously on init — eliminates the loading-state race with auth gates.

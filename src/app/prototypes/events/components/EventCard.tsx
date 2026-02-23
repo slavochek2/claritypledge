@@ -28,6 +28,17 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
       }`}
       data-testid="event-card"
     >
+      {/* Banner image - 16:9, only when bannerUrl is set */}
+      {event.bannerUrl && (
+        <div className="w-full aspect-video overflow-hidden">
+          <img
+            src={event.bannerUrl}
+            alt={event.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+      )}
+
       {/* Status badges row */}
       {(userIsHost || isUserGoing || isCancelled) && (
         <div className="px-4 pt-3 flex flex-wrap gap-1">
