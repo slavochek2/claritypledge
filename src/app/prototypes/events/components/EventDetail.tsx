@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft,
   MapPin,
+  Video,
   CheckCircle2,
   CalendarPlus,
   X,
@@ -14,6 +15,7 @@ import {
   Ban,
   Ear,
 } from 'lucide-react';
+import { classifyLocation } from '../location-utils';
 import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
@@ -184,7 +186,7 @@ export function EventDetail() {
     endDate: endDate,
   };
 
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
+  const locationInfo = classifyLocation(event.location);
 
   return (
     <div className="min-h-screen bg-background">
@@ -275,14 +277,17 @@ export function EventDetail() {
                 </div>
               </div>
 
-              {/* Location - clickable to open Google Maps */}
+              {/* Location */}
               <a
-                href={googleMapsUrl}
+                href={locationInfo.href}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 mb-4 text-muted-foreground hover:text-blue-600 transition-colors group"
               >
-                <MapPin className="w-5 h-5" />
+                {locationInfo.type === 'virtual'
+                  ? <Video className="w-5 h-5 flex-shrink-0" />
+                  : <MapPin className="w-5 h-5 flex-shrink-0" />
+                }
                 <span className="group-hover:underline">{event.location}</span>
               </a>
 

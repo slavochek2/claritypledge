@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe, Loader2 } from 'lucide-react';
+import { LocationHint } from './LocationHint';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -285,12 +286,10 @@ export function EditEvent() {
               placeholder="e.g., Golden Gate Park or Zoom: https://..."
               className={errors.location ? 'border-red-500' : ''}
             />
-            {errors.location && (
-              <p className="text-sm text-red-500 mt-1">{errors.location}</p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">
-              Physical address or virtual meeting link
-            </p>
+            {errors.location
+              ? <p className="text-sm text-red-500 mt-1">{errors.location}</p>
+              : <LocationHint value={location} />
+            }
           </div>
 
           {/* Description */}

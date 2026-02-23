@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Clock, MapPin, FileText, Globe } from 'lucide-react';
+import { LocationHint } from './LocationHint';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -230,12 +231,13 @@ export function CreateEvent() {
               id="location"
               value={location}
               onChange={e => setLocation(e.target.value)}
-              placeholder="e.g., Golden Gate Park, Main Entrance"
+              placeholder="e.g., Golden Gate Park or https://zoom.us/j/..."
               className={errors.location ? 'border-red-500' : ''}
             />
-            {errors.location && (
-              <p className="text-sm text-red-500 mt-1">{errors.location}</p>
-            )}
+            {errors.location
+              ? <p className="text-sm text-red-500 mt-1">{errors.location}</p>
+              : <LocationHint value={location} />
+            }
           </div>
 
           {/* Description */}
