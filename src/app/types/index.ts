@@ -832,6 +832,7 @@ export interface DbEvent {
   max_attendees?: number;
   created_at: string;
   status: EventStatus;
+  banner_url?: string | null;
 }
 
 export interface DbEventRsvp {

@@ -201,7 +201,7 @@ export function EventDetail() {
         </div>
       ) : (
         <div
-          className="w-full h-32 md:h-48"
+          className="w-full h-48 md:h-64"
           style={{
             background: isCancelled
               ? `radial-gradient(at 0% 0%, #9ca3af40 0%, transparent 50%), radial-gradient(at 100% 100%, #9ca3af30 0%, transparent 50%), linear-gradient(135deg, #9ca3af15 0%, #9ca3af08 100%)`

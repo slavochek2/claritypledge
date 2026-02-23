@@ -1,6 +1,7 @@
 import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
 import type { EventWithHost, EventAttendee, EventPracticeRoom } from '@/app/types';
 import { supabase } from '@/lib/supabase';
+import { invokeEventEmails } from '@/lib/event-emails';
 
 // Debug logging - only in development
 const DEBUG = import.meta.env.DEV;
@@ -378,6 +379,9 @@ export const realEventsService: EventsService = {
       return false;
     }
 
+    // Fire-and-forget: send update emails to all attendees
+    invokeEventEmails('update', eventId);
+
     return true;
   },
 
@@ -409,6 +413,9 @@ export const realEventsService: EventsService = {
       log('ERROR: cancelEvent: User is not the host or event not found');
       return false;
     }
+
+    // Fire-and-forget: cancel scheduled emails and notify all attendees
+    invokeEventEmails('cancel', eventId);
 
     return true;
   },
@@ -470,6 +477,9 @@ export const realEventsService: EventsService = {
       log('ERROR: rsvpToEvent error:', error);
       return false;
     }
+
+    // Fire-and-forget: send confirmation + schedule reminder and feedback emails
+    invokeEventEmails('rsvp', eventId, profileId);
 
     return true;
   },
