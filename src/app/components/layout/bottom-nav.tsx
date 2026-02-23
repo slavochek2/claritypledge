@@ -85,7 +85,7 @@ export function BottomNav() {
           }
 
           const itemClass = `flex flex-col items-center justify-center gap-1 flex-1 py-2 transition-colors ${
-            active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+            active ? "text-blue-500" : "text-muted-foreground hover:text-foreground"
           }`;
           const itemInner = (
             <>
