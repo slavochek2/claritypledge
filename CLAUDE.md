@@ -292,6 +292,20 @@ Each layer has a review gate. `/dev` and `/fix` auto-close the feature on succes
 
 See [docs/development-process.md](docs/development-process.md) for complete workflow documentation.
 
+### Skill Invocation — After Approval
+
+> **Rule:** When the user approves an approach in conversation ("let's do X", "do A+B"), invoke the matching skill — do NOT implement ad-hoc.
+
+| Situation | Invoke |
+|-----------|--------|
+| New feature approved | `/create-prd` (or `/quick-feature` for skeleton) |
+| Bug fix approved | `/fix` |
+| Implementation ready (spec exists) | `/dev` |
+
+**Why:** Ad-hoc implementation bypasses test generation, spec tracking, and auto-close. The skill does the same work with none of the gaps.
+
+**Exception:** One-liner config changes, typo fixes, or explicit "just do it inline" from the user.
+
 ---
 
 ## Tool Preferences

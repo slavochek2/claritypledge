@@ -1,6 +1,6 @@
 ---
 name: kdd
-description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and how the session went (process friction → process-learnings.md).
+description: Record decisions + meta-reflection. Run after features with trade-offs, architectural choices, or any session worth learning from. Captures what was built (why) and surfaces session friction as chat output only — no file logging.
 ---
 
 # Knowledge-Driven Development (KDD)
@@ -139,59 +139,22 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
-6. **Meta-reflection** — review how the session went:
+6. **Meta-reflection** — review how the session went, output to chat only (no file logging):
 
-   Scan the conversation for friction signals and turn them into actionable improvements.
+   Scan the conversation for friction signals and surface them as suggestions.
 
-   **Three precise signals to look for (most diagnostic):**
-   - AI expressed uncertainty mid-task → the rule/context under-specifies something
-   - AI diagnosed its own error in-session → that diagnosis IS the improved instruction
-   - AI suggested a different approach mid-task → missing context in the original brief
+   **Signals to look for:**
+   - You had to rephrase or ask Claude to simplify something → Claude should have led with that
+   - A step took multiple back-and-forth turns → skill candidate or missing context
+   - Claude missed something obvious that a review agent caught → encode as a pattern
+   - A prompt you typed could be a skill (reusable sequence you'd run again)
 
-   **Additional signals:**
-   - Same manual step repeated 2+ times (skill candidate)
-   - Same mistake type appeared in 2+ recent sessions (encode it immediately — 2 is enough)
-   - A question that came up repeatedly (missing CLAUDE.md rule or doc section)
-   - A guardrail that would have prevented a mistake
+   **Output format — concrete, not vague:**
+   - What happened
+   - What would have been faster/better
+   - Specific suggestion: new skill | different prompt approach | CLAUDE.md rule
 
-   **For each finding, classify and act:**
-
-   | Signal | Action |
-   |--------|--------|
-   | Repeated manual steps (2+) | Propose a new skill → user runs `/skill-creator` |
-   | Missing CLAUDE.md rule | Rewrite the specific rule → user runs `/claude-md "..."` |
-   | Architecture confusion | Update relevant `docs/technical/*.md` |
-   | Process decision worth recording | Add to `decisions.md` with `[process]` tag |
-   | Agent pattern worth encoding | Propose as skill or CLAUDE.md addition |
-
-   **Required format — before/after, not open-ended proposals:**
-   ```
-   🔴 Friction: [what happened]
-   Root cause: [why]
-   Before: [the current rule/prompt/instruction that failed, or "none"]
-   After: [the rewritten version — a specific sentence, not a vague idea]
-   Action: skill | claude-md | doc update | decisions.md
-   ```
-
-   **Optional: run `/insights` first** — Claude Code's built-in command surfaces conversation patterns before you do this manually. Run it in a fresh terminal, then use its output as additional input here.
-
-   If no friction detected: "Clean session — no process improvements identified."
-
-   **Don't manufacture findings.** Only report friction that actually occurred.
-
-   **Log all findings to `docs/process-learnings.md`** — append new entries at the top:
-
-   ```markdown
-   ## YYYY-MM-DD — [session/feature name]
-   **Friction:** [what happened]
-   **Root cause:** [why]
-   **Before:** [current rule/prompt/instruction, or "none"]
-   **After:** [rewritten version]
-   **Action:** skill | claude-md | doc update | decisions.md
-   **Status:** proposed
-   ```
-
-   Change `Status` to `done` once the fix is applied. `/weekly` reviews this log to surface chronic patterns.
+   User decides what to act on. No files written. If no friction: "Clean session."
 
 ## Rules
 

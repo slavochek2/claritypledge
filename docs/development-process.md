@@ -682,6 +682,30 @@ Bug reported
 
 ---
 
+### Reactive Improvements (Discovered Gaps)
+
+A third pattern — distinct from bugs and features — is when something *feels* wrong but it's not a clear bug yet. The discovery and the fix happen in the same conversation.
+
+```
+"Something seems wrong / I noticed X doesn't happen"
+│
+├─ 1. Conversation → analysis (root causes, side effects, options)
+│
+├─ 2. Decision point — user approves an approach ("let's do A+B")
+│      ↓
+│   → Invoke /fix (if it's a gap/bug fix)
+│   → Invoke /quick-feature (if it's a small addition)
+│   → Invoke /create-prd (if it's a real feature)
+│
+└─ 3. Post-work: /review-all + /kdd as usual
+```
+
+**Key rule:** The conversation IS the discovery phase. Once the user approves an approach, that's the skill entry point — don't implement ad-hoc. The skill handles spec tracking, test generation, and auto-close.
+
+**This session's example:** "Sessions don't end when users close the browser" → analyzed root causes → presented options → user said "do A+B" → `/fix` should have been invoked at that point.
+
+---
+
 ### Post-Work Skills (After Implementation)
 
 `/dev` and `/fix` auto-close the feature on success — spec moves to `features/done/`, `status: done` and `completed_at` are set.
