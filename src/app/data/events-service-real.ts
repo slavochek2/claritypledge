@@ -161,7 +161,7 @@ export const realEventsService: EventsService = {
           has_pledged
         )
       `)
-      .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${now})`)
+      .or(`status.eq.completed,and(status.eq.cancelled,datetime.lt.${now}),and(status.eq.upcoming,datetime.lt.${now})`)
       .order('datetime', { ascending: false });
 
     if (error) {
@@ -169,7 +169,29 @@ export const realEventsService: EventsService = {
       return [];
     }
 
-    return (data as DbEventWithHost[]).map(mapEventFromDb);
+    const events = (data as DbEventWithHost[]).map(mapEventFromDb);
+
+    // Fetch attendee counts in batch (same as getUpcomingEvents)
+    const eventIds = events.map(e => e.id);
+    if (eventIds.length > 0) {
+      const { data: rsvpCounts } = await supabase
+        .from('event_rsvps')
+        .select('event_id')
+        .in('event_id', eventIds);
+
+      if (rsvpCounts) {
+        const countMap = rsvpCounts.reduce((acc, rsvp) => {
+          acc[rsvp.event_id] = (acc[rsvp.event_id] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+
+        events.forEach(event => {
+          event.attendeeCount = countMap[event.id] || 0;
+        });
+      }
+    }
+
+    return events;
   },
 
   async getEventBySlug(slug: string): Promise<EventWithHost | null> {

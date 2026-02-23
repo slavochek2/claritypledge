@@ -119,7 +119,7 @@ export function EventDetail() {
 
   const eventDate = new Date(event.datetime);
   const endDate = new Date(eventDate.getTime() + event.durationMinutes * 60 * 1000);
-  const isPast = event.status === 'completed';
+  const isPast = endDate < new Date();
   const isCancelled = event.status === 'cancelled';
   const isFull = eventsService.isEventFull(event);
 

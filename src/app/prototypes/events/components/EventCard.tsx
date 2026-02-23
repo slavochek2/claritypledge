@@ -115,7 +115,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
             )}
             <span className="text-sm text-muted-foreground">
               {event.attendeeCount ?? event.attendees?.length ?? 0} {
-                event.status === 'completed' ? 'attended' :
+                event.status === 'completed' || new Date(event.datetime) < new Date() ? 'attended' :
                 event.status === 'cancelled' ? 'were going' : 'going'
               }
             </span>
