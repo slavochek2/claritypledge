@@ -25,7 +25,7 @@ const TABLE = 'profiles';
 const COLUMN = 'bio';
 
 test.describe('P414 Migration — profiles.bio column', () => {
-  test.describe.configure({ timeout: 30000 });
+  test.setTimeout(30000);
 
   let userA: TestUser;
   let userB: TestUser;
@@ -42,6 +42,7 @@ test.describe('P414 Migration — profiles.bio column', () => {
     });
     if (error || !signIn?.session) throw new Error(`P414: Failed to sign in userA: ${error?.message}`);
     userAToken = signIn.session.access_token;
+    await supabaseAdmin.auth.signOut(); // restore admin client to service_role
   });
 
   test.afterAll(async () => {
@@ -136,8 +137,8 @@ test.describe('P414 Migration — profiles.bio column', () => {
       .eq('id', userB.user.id)
       .select('bio');
 
-    // RLS should either return an error or silently update 0 rows
-    const mutated = !error && data && data.length > 0;
-    expect(mutated, 'RLS should prevent updating another user bio').toBe(false);
+    // RLS silently filters: no error, but 0 rows updated
+    expect(error, 'Unexpected error on cross-user update').toBeNull();
+    expect(data?.length ?? 0, 'RLS should prevent updating another user bio').toBe(0);
   });
 });
