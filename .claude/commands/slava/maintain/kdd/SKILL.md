@@ -156,31 +156,18 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - If frontmatter drift detected: mention it. Offer to run `fix-kanban`.
    - Confirm: "Kanban refreshed."
 
-6. **Meta-reflection** — review how the session went, output to chat only (no file logging):
+6. **Meta-reflection** — output to chat only (no file logging):
 
-   **Goal:** Fewer user messages next session. Claude does more. Quality improves. Every point must result in one concrete change — not a diary entry.
+   Scan for friction: unnecessary questions, repeated steps, missing context, duplicated work.
+   Skip if no friction — "Clean session." is the full output.
 
-   **Skip "what worked well"** unless it validates a change made in a previous session (confirm the fix held). If nothing changed, nothing to mention.
-
-   **Signals to scan for:**
-   - A question was asked that the user had to answer — could Claude have decided without asking?
-   - A point required 2+ back-and-forth turns to resolve — what context was missing?
-   - A decision was surfaced only when user re-asked — Claude buried it
-   - A step was repeated that a skill or rule could eliminate
-   - Something was built/spec'd that already existed elsewhere in the codebase
-
-   **Output format — one action per point:**
+   **Output format — one line per friction point:**
    ```
-   **[What happened]** — one sentence, specific
-   **Root cause:** why this required user effort
-   **Action:** exact change to make
-   **Where:** [CLAUDE.md rule | skill name + line | doc + section | prompting pattern]
+   - [What happened in one sentence] → [exact action to take + where]
    ```
 
-   If the action is small (edit a skill, add a doc note): apply it in this session.
-   If the action requires `/claude-md` gate or user judgement: flag it, don't act.
-
-   If no friction: "Clean session."
+   If the action is small (edit a skill, add a doc note): apply it now.
+   If it requires `/claude-md` gate or user judgement: flag it, don't act.
 
 ## Rules
 
