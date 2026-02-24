@@ -73,6 +73,9 @@ export function EventDetail() {
   // Banner state (can change via Regenerate/Remove)
   const [bannerUrl, setBannerUrl] = useState<string | undefined>(undefined);
   const [isBannerLoading, setIsBannerLoading] = useState(false);
+  const [showBannerSearch, setShowBannerSearch] = useState(false);
+  const [bannerSearchError, setBannerSearchError] = useState(false);
+  const [bannerSearchKeywords, setBannerSearchKeywords] = useState('');
 
   // Sync banner state when event loads
   useEffect(() => {
@@ -195,8 +198,27 @@ export function EventDetail() {
     if (newUrl) {
       await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
       setBannerUrl(newUrl);
+      setShowBannerSearch(false);
+      setBannerSearchError(false);
     } else {
-      toast.error("Couldn't find a new banner photo.");
+      setShowBannerSearch(true);
+      setBannerSearchError(false);
+    }
+    setIsBannerLoading(false);
+  };
+
+  const handleBannerSearch = async (keywords: string) => {
+    if (!event || isBannerLoading || !keywords.trim()) return;
+    setIsBannerLoading(true);
+    setBannerSearchError(false);
+    const newUrl = await regenerateUnsplashBanner(keywords);
+    if (newUrl) {
+      await eventsService.updateEvent(event.id, { bannerUrl: newUrl });
+      setBannerUrl(newUrl);
+      setShowBannerSearch(false);
+      setBannerSearchKeywords('');
+    } else {
+      setBannerSearchError(true);
     }
     setIsBannerLoading(false);
   };
@@ -245,24 +267,57 @@ export function EventDetail() {
 
         {/* Host banner controls - bottom-right, over image/gradient */}
         {isHost && (
-          <div className="absolute bottom-2 right-2 flex gap-1">
-            <button
-              onClick={handleRegenerateBanner}
-              disabled={isBannerLoading}
-              className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3 h-3 ${isBannerLoading ? 'animate-spin' : ''}`} />
-              New banner
-            </button>
-            {bannerUrl && (
+          <div className="absolute bottom-2 right-2 flex flex-col items-end gap-1">
+            <div className="flex gap-1">
               <button
-                onClick={handleRemoveBanner}
+                onClick={handleRegenerateBanner}
                 disabled={isBannerLoading}
                 className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
               >
-                <X className="w-3 h-3" />
-                Remove banner
+                <RefreshCw className={`w-3 h-3 ${isBannerLoading ? 'animate-spin' : ''}`} />
+                New banner
               </button>
+              {bannerUrl && (
+                <button
+                  onClick={handleRemoveBanner}
+                  disabled={isBannerLoading}
+                  className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
+                >
+                  <X className="w-3 h-3" />
+                  Remove banner
+                </button>
+              )}
+            </div>
+            {showBannerSearch && (
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    aria-label="Search photos"
+                    placeholder={extractBannerKeywords(event.title) || 'keywords'}
+                    value={bannerSearchKeywords}
+                    onChange={e => setBannerSearchKeywords(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleBannerSearch(bannerSearchKeywords);
+                    }}
+                    disabled={isBannerLoading}
+                    className="bg-black/50 backdrop-blur-sm text-white placeholder-white/60 rounded-full px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-white/50 disabled:opacity-50 w-40"
+                  />
+                  <button
+                    onClick={() => handleBannerSearch(bannerSearchKeywords)}
+                    disabled={isBannerLoading || !bannerSearchKeywords.trim()}
+                    className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white rounded-full px-2 py-1 text-xs hover:bg-black/70 transition-colors disabled:opacity-50"
+                    aria-label="Search"
+                  >
+                    Search
+                  </button>
+                </div>
+                {bannerSearchError && (
+                  <p className="text-xs text-white bg-black/50 backdrop-blur-sm rounded px-2 py-0.5">
+                    No photos found — try different keywords
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
