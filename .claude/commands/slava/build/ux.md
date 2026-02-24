@@ -115,6 +115,20 @@ Business requirements are needed to design UX.
 
 ---
 
+## Lean Challenge (run before designing)
+
+Before generating user flows, scan the business requirements for lean violations:
+
+- **Onboarding friction before value** — naming screens, setup steps, consent gates placed before the user reaches the core action
+- **One-user scope taxing all** — a feature that benefits one edge case but is stored, displayed, or computed for every user
+- **Deferrable scope** — any step that can be cut or deferred without losing the core hypothesis
+
+**If a violation is found:** State it directly and propose the leaner alternative before proceeding. Example: "This requires naming the mirror agent before the user tries filing — friction before value. Lean alternative: defer to after first story filed."
+
+**If scope looks right:** Proceed to user flows.
+
+---
+
 ## Agent Behavior
 
 The UX agent:

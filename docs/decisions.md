@@ -14,6 +14,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [technical]: Never Truncate Point Text in Voting Contexts (P434)
+
+**Context:** Point statements had `line-clamp-2` applied in `StoryCardDetail`, `profile-page-v2`, `story-card-with-links`, `PointCardDetail`, and `point-card-with-links`. Discovered during `/verify` when a point was visually cut off mid-sentence. A user being asked to vote on a claim must be able to read it in full.
+
+**Decision:** Two rules established:
+1. **Browse vs. voting context:** `line-clamp-N` is acceptable on point text only in browse/scan contexts (e.g., content picker lists like `live-content-cards.tsx`). In any context where voting buttons (`PositionButtons`) are present, point text must never be clamped.
+2. **`compact` prop decoupling:** Font size (`text-sm`) and truncation (`line-clamp-2`) are independent concerns. Never bundle them in the same conditional branch (`compact ? 'text-sm line-clamp-2' : 'text-base'`). A compact layout can use smaller text; it cannot truncate text the user must read to make a decision.
+
+**Alternatives rejected:** Leaving truncation in compact mode as "acceptable for space reasons" — rejected because the user may encounter the compact variant in a voting context in the future.
+
+**Consequences:** When adding `line-clamp` to any component that renders point text, check: are `PositionButtons` present anywhere in the render tree? If yes, no clamp. When adding a `compact` prop that affects text display, always keep font size and truncation as separate class conditions.
+
+**References:** [P434](../features/done/21_feb_26/p434_point_statement_truncation.md)
+
+---
+
 ## 2026-02-24 [product]: AI Story Filing Ships on `/chat` Page, Not Inline Panel (P425)
 
 **Context:** Original P425 UX spec had the story-filing loop as an inline panel below `PositionButtons` on the point-detail page. After running `/ascii-flows` to map the interaction, the inline panel created a fragmented UX — user is mid-flow on point-detail, gets context-switched into a filing experience without a clear home.

@@ -198,12 +198,27 @@ This is a UI feature with Claude API integration and Supabase persistence.
 
 **Non-negotiable rules:**
 - No labels, no "Story Guide" header, no menus on `/chat`
-- Story draft = versioned card in the thread (`Draft v1`, `Draft v2`...), NOT a message bubble
+- Story draft = versioned card in the thread (`Draft v1`, `Draft v2`...), NOT a message bubble. Use the existing story card component — add `Draft` as a fourth visibility state (alongside Private / Shared / Public). No new card component.
 - Rating prompt = user types in the standard input field (number or free text). NO interactive rating pill buttons.
 - AI formats options (A/B/C) as plain text in its message. User replies by typing in the input field.
 - `/chat` shows NO story list — stories appear only as output when filed. Profile = canonical story list.
 - Input always pinned at bottom
 - P428 constraint: filing loop must support overlay embedding — do not couple to page navigation
+- Button label is dynamic based on selected visibility: `Draft` → **Save draft**; `Private` → **Save privately**; `Shared` / `Public` → **Publish story**. Button is right-aligned. "Back to editing" is secondary, left-aligned or below.
+
+**Point component in context chip:**
+- Use the existing point component exactly as rendered on profiles — full name, ear icon, ear count, position badge, point text. Same component, no new one.
+- In `/chat` context chip: display-only. No position buttons. User already staked their position before navigating here — they cannot change it from inside the filing loop.
+- If user's position is later removed (outside the chat): context chip updates to drop the position badge. Story and story-point link persist. The story remains in chat history — it is an artifact of that moment, independent of current position state.
+
+**Mirror agent (AI identity):**
+- The AI is the user's personal mirror agent — not a named product persona. It reflects the user's meaning back to them.
+- Mirror agent name: deferred to after the first story is filed. After save, prompt: *"Your mirror helped you articulate that. Want to give it a name?"* Name is stored in private user settings, not on public profile. Not visible to other users.
+- V1: if user skips naming, the AI has no name — it just speaks. No placeholder name shown.
+
+**Navigation:**
+- `/chat` is NOT added to the bottom nav or desktop nav in V1. Entry is exclusively via the "Tell your story →" CTA on point pages. Revisit when `/chat` has enough gravity post-P420.
+- When embedding from `/live` (future P428): `StoryGuideChat` is mounted as an overlay — no navigation to `/chat`. Pass `sessionId` as a prop. `onStoryConfirmed` callback returns user to /live after filing.
 
 ---
 

@@ -19,22 +19,41 @@ The opportunity: if the listener can stake a position AND file a supporting stor
 
 P425's position → story prompt fires inline on the `point-detail-page`. In /live, the participant is inside the calibration session UI — not on a point-detail page. The trigger mechanism, UX, and flow context are all different.
 
-## Open Questions (must resolve before spec-ing)
+## Decisions Made (2026-02-24)
 
-- **Timing**: during the paraphrasing round, or as a post-session summary step?
-  - During: high friction, breaks session momentum
-  - Post-session: lower friction, but disagreement context may be cold
-- **UX**: side panel? full redirect? post-session queue?
-- **Who triggers it**: the listener who disagrees? the facilitator? automatic if rating < threshold?
-- **Does the /live session pause or continue** while the story is being filed?
-- **Is this the right tool?** Strong disagreement during /live might be better handled by a mediation or "flag for discussion" mechanism rather than a solo filing flow.
+- **Timing**: NOT during an active paraphrasing round — too disruptive. Trigger between rounds or from the session review screen (natural pause).
+- **UX**: Bottom-sheet overlay over `/live`. NOT a redirect. User stays in the /live context. `StoryGuideChat` (P425) must be embeddable as an overlay — this is a hard constraint in P425's design.
+- **Who triggers it**: The user who took a position (the listener who disagrees). Manual trigger — they tap a CTA.
+- **Session behaviour**: /live session pauses (waiting room state) while user files. Partner sees a waiting state. After story is filed, user returns to /live. Their newly filed story is immediately available to propose to their partner for verification — this is the whole point of filing it mid-session.
+- **Is this the right tool?** Yes for position-backed disagreement. "Flag for discussion" is a separate concern (no story needed). Filing = turning disagreement into calibratable content.
+
+## Where in /live the trigger appears
+
+- **NOT during a round** — position-taking and story-filing during an active paraphrase round is out of scope.
+- **Between rounds / session review** — after a round completes, if the user staked a position with no linked story, a soft CTA appears: "You took a position on this point. Want to file a story before the next round?"
+- **Starter screen** — before the session begins. User can file stories on any of the session's points.
+
+## Exit dialog (current behaviour — keep as-is)
+
+The current `/live` exit dialog reads:
+> **Leave session?** — Are you sure you want to leave this session? Your progress will be lost.
+> `[Cancel]` `[Leave]`
+
+This is sufficient. Do not change until P428 ships — at that point the overlay removes the need to exit at all.
+
+## Open Questions (remaining)
+
+- Exact CTA placement in the session review screen (between rounds)
+- What "waiting state" the partner sees while the other user is filing
+- Whether the filed story auto-appears as a proposal in the current round or only in future rounds
 
 ## Prerequisite
 
-- P425 must ship first (core loop exists)
+- P425 must ship first (`StoryGuideChat` component with `onDismiss` prop and no page-navigation coupling)
 - Run `/create-prd` when ready to move from concept to spec
 
 ## Related
 
-- P425: AI Story Core Loop — the loop this would trigger
+- P425: AI Story Core Loop — the embeddable loop this triggers
 - P419: Filing Chat V1 — standalone entry (post-session equivalent)
+- `/live` exit dialog: `clarity-live-page.tsx:2778`

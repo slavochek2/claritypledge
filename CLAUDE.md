@@ -123,21 +123,6 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 ---
 
-### Product Decisions — Challenge Before Building
-
-> **Pattern to watch:** When reviewing UX or product decisions, surface lean violations before implementing, not after.
-
-**Flag these immediately:**
-- Onboarding friction added before the user receives value (naming screens, setup steps, consent placed before the core action)
-- Features that benefit one user but are stored, displayed, or computed for all (complexity for an edge case)
-- Scope that can be deferred without losing the core hypothesis
-
-**How to flag:** State the concern directly and propose the leaner alternative. Don't wait to be asked.
-
-**Example:** "This requires naming the mirror agent before the user tries filing — that's friction before value. Lean alternative: defer naming to after the first story is filed."
-
----
-
 ### Plan Mode — No Writing, Just Planning
 
 > **Rule:** In plan mode, do NOT write spec content into the plan file. Plan mode is for exploration and decision-making only.
