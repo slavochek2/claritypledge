@@ -12,6 +12,13 @@ reviews:
   architect: null
   alignment: null
 created_date: 2026-02-24
+uat_file: features/uat/p425.md
+test_files:
+  - src/tests/p425-chat-phase.test.ts
+  - e2e/integration/p425-stories-rls.spec.ts
+  - e2e/p425-story-filing.spec.ts
+  - e2e/a11y/p425-accessibility.spec.ts
+  - e2e/p425-smoke.spec.ts
 ---
 
 # P425: AI-Guided Story Creation — Core Loop (position-triggered)
@@ -1457,3 +1464,118 @@ One-line change. Update import in `VisibilityAndSave.tsx`.
    supabase secrets set ANTHROPIC_API_KEY=<key> --project-ref gfjctyxqlwexxwsmkakq
    ```
    Key is never in `.env.local` or any committed file. Use the Supabase dashboard or CLI secrets command only.
+
+---
+
+## Test Coverage Strategy
+
+### Overview
+
+Tests are split into four layers. Each layer has a distinct purpose and can run independently.
+
+| File | Layer | Requires AI edge fn? | Run command |
+|------|-------|----------------------|-------------|
+| `src/tests/p425-chat-phase.test.ts` | Unit | No | `npm test` |
+| `e2e/integration/p425-stories-rls.spec.ts` | Integration | No | `npx playwright test --project=integration` |
+| `e2e/p425-smoke.spec.ts` | E2E smoke | No | `npm run test:e2e` |
+| `e2e/p425-story-filing.spec.ts` | E2E flow | Yes (most tests) | `VITE_STORY_GUIDE_EDGE_FN_URL=... npm run test:e2e` |
+| `e2e/a11y/p425-accessibility.spec.ts` | A11y | Partial | `npm run test:e2e` |
+| `features/uat/p425.md` | Manual UAT | Yes | Claude in Chrome / manual |
+
+### Layer A — Unit tests (`src/tests/p425-chat-phase.test.ts`)
+
+**What is tested:**
+- `ChatPhase` state machine: all 9 phase transitions, including escape hatch and new session reset
+- `parseRatingBand`: 20 cases covering pure numbers, numbers with inline comments, non-numeric input, and boundary values
+
+**Why these are units:**
+The state machine reducer and rating parser are pure functions. Testing them at the unit level gives fast, deterministic feedback independent of React, Supabase, or the AI API. When `StoryGuideChat.tsx` is implemented, the inline stub definitions in this file should be replaced with imports of the real functions.
+
+**Escape hatch coverage:**
+- After 3 iterations, `iterationCount === 3` and `phase === 'rating'` simultaneously — the component uses this to show the escape hatch UI
+- `ESCAPE_HATCH_SAVE` action jumps from `rating` or `iterating` directly to `polish`, bypassing further rating cycles
+
+### Layer B — Integration tests (`e2e/integration/p425-stories-rls.spec.ts`)
+
+**What is tested:**
+- Schema presence: `stories.content`, `stories.visibility`, `story_points.story_id`, `story_points.point_id`
+- RLS: verified user can INSERT a private story; unauthenticated caller cannot
+- RLS: private story is not visible to other authenticated users; public story is world-readable
+- story_points ownership: story owner can link their story to a point; non-owner cannot
+
+**Known gap tested:**
+The `is_verified` gate for the `stories` INSERT RLS is flagged in §Security Review as not enforced in P424. The unverified-user test is a canary — it will start failing once the gap is closed, at which point the assertion should be updated from a warning to `expect(error).not.toBeNull()`.
+
+**Two-client pattern:** `supabaseAdmin` for setup/teardown (bypasses RLS); JWT-authenticated clients for RLS assertions. Follows the convention established in `p396-host-rls-migration.spec.ts`.
+
+### Layer C — E2E tests (`e2e/p425-story-filing.spec.ts`)
+
+**What is tested:**
+
+| Test | AI required? |
+|------|-------------|
+| Auth gate: unauthenticated → /signup | No |
+| /chat loads without errors | No |
+| Input bar renders and is focusable | No |
+| Context chip visible with `?from=position` | No |
+| No context chip on direct `/chat` | No |
+| AI sends opening message (position-triggered) | Yes |
+| Brain dump → draft card (not bubble) | Yes |
+| Full filing loop (rate 7 → rate 10 → polish → save) | Yes |
+| Escape hatch after 3 iterations | Yes |
+
+**AI-gated tests:** Tests that require a real AI response check for `VITE_STORY_GUIDE_EDGE_FN_URL` and call `test.skip()` when it is not set. This keeps the test suite runnable in CI without the edge function deployed. Set the env var in `.env.test.local` to enable AI tests locally or in a staging CI pipeline.
+
+**Cleanup:** All test data (stories, story_points) is deleted in `afterAll`. Cleanup order: `story_points` → `stories` → `profiles` → auth users.
+
+### Layer D — A11y tests (`e2e/a11y/p425-accessibility.spec.ts`)
+
+**What is tested:**
+- Input bar reachable via Tab; sends on Ctrl+Enter
+- Input bar has accessible label (aria-label or placeholder)
+- Context chip is not keyboard-focusable (display-only)
+- Draft cards use `role="article"` with `aria-label="Draft version N, not saved"`
+- Visibility selector uses fieldset/legend pattern with per-button aria-labels
+- Save button not visible in pre-visibility phases
+- Toast live region exists in DOM
+
+**Static tests** (no AI required): Tab navigation, aria-label on input, save button visibility, toast region.
+**AI-gated tests**: Draft card ARIA, visibility selector labels, thread message `aria-hidden` check.
+
+### Layer E — Smoke tests (`e2e/p425-smoke.spec.ts`)
+
+**What is tested:**
+- `/chat` loads without JS errors (authenticated)
+- `/chat?from=position&pointId=XYZ` loads without JS errors
+- Input bar renders and is focusable
+- No 404/500 on static assets
+- Unauthenticated redirect to `/signup` without JS errors
+
+All smoke tests pass without the AI edge function deployed. They should pass from the first day of implementation.
+
+### Layer F — Manual UAT (`features/uat/p425.md`)
+
+12 scenarios covering all user-facing flows:
+- UAT-A: Position entry (stake → CTA → /chat with chip)
+- UAT-B: Direct entry (brain dump → draft card, not bubble)
+- UAT-C/D: Rating loop and A/B/C option selection
+- UAT-E: Escape hatch (3 iterations → save-at-current)
+- UAT-F: Polish pass (rating 10 → polish draft → changes note)
+- UAT-G: Visibility selector (private/shared/public, label changes)
+- UAT-H: Post-publish (saved card, toast, /live CTA)
+- UAT-I: Auth gate (logged-out → /signup)
+- UAT-J: Mobile layout (input pinned, chip full-width)
+- UAT-K: Rate limit (30 calls/hour — manual observation)
+- UAT-L: AI disclosure (one-time notice before first API call)
+
+### Coverage Gaps and TODOs
+
+1. **Mock AI in E2E**: AI-gated tests require the deployed edge function. A `VITE_MOCK_AI=true` stub (spec §Implementation Note 6) would unlock these tests in local/CI without real API calls. Implement in `src/app/data/story-guide-chat-stub.ts` and update gating condition.
+
+2. **Selector stability**: All E2E selectors use `data-testid` with `.or()` fallbacks to ARIA roles. When `StoryGuideChat.tsx`, `DraftCard.tsx`, and `VisibilityAndSave.tsx` are implemented, replace fallbacks with direct `getByTestId()` for deterministic selection.
+
+3. **Story cleanup via data-story-id**: The filing loop E2E test cannot capture the Supabase story ID to clean up after itself until `data-story-id` is on the saved story card element. Add cleanup once implemented.
+
+4. **is_verified gap canary**: The unverified-user INSERT test in the integration suite currently logs a warning instead of asserting failure. Once P424 closes the gap, change to a hard assertion: `expect(error).not.toBeNull()`.
+
+5. **Resume flow (V2)**: The spec explicitly defers session resume. No test coverage needed until that feature is implemented.
