@@ -712,8 +712,8 @@ export function ProfilePageV2() {
               )}
             </div>
 
-            {/* Calibration bars - always shown; empty state when < 5 sessions */}
-            <InlineCalibration calibration={calibration} />
+            {/* Calibration bars - shown only after 5 sessions */}
+            {calibration && <InlineCalibration calibration={calibration} />}
           </div>
 
           {/* Create Stories & Points CTA (owner only) */}
