@@ -1,0 +1,42 @@
+name: Daily DB Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 3am UTC daily
+  workflow_dispatch:      # allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install pg_dump
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run backup
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          DATE=$(date +%Y%m%d-%H%M%S)
+          FILENAME="prod-backup-${DATE}.sql.gz"
+          echo "Backing up to gs://claritypledge-db-backups/${FILENAME}"
+          pg_dump "$DB_URL" | gzip | gsutil cp - "gs://claritypledge-db-backups/${FILENAME}"
+          echo "Done."
+
+      - name: Delete backups older than 7 days
+        run: |
+          CUTOFF=$(date -d "7 days ago" +%Y%m%d)
+          gsutil ls gs://claritypledge-db-backups/ | while read file; do
+            FILE_DATE=$(echo "$file" | grep -oP '\d{8}' | head -1)
+            if [[ -n "$FILE_DATE" && "$FILE_DATE" < "$CUTOFF" ]]; then
+              gsutil rm "$file"
+              echo "Deleted: $file"
+            fi
+          done
