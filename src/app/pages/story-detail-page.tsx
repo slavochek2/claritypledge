@@ -26,6 +26,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, StoryVisibility } from '@/app/types';
@@ -35,6 +43,11 @@ import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 const POINT_CHAR_SOFT = 140;
 /** Hard character max */
 const POINT_CHAR_MAX = 500;
+
+/** Story edit soft nudge */
+const STORY_CHAR_SOFT = 2000;
+/** Story edit hard max (mirrors DB CHECK constraint) */
+const STORY_CHAR_MAX = 10000;
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
@@ -458,6 +471,165 @@ function KeyPointsSection({
 }
 
 // ---------------------------------------------------------------------------
+// Edit story card (replaces StoryCardDetail in edit mode)
+// ---------------------------------------------------------------------------
+
+function EditStoryCard({
+  content,
+  onContentChange,
+  isSaving,
+  onSave,
+  onCancel,
+}: {
+  content: string;
+  onContentChange: (value: string) => void;
+  isSaving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const canSave = content.trim().length > 0 && !isSaving;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canSave) {
+      onSave();
+    }
+    if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+
+  return (
+    <div className="bg-card border-2 border-blue-400 rounded-lg p-4 space-y-3">
+      <Textarea
+        ref={textareaRef}
+        value={content}
+        onChange={(e) => {
+          if (e.target.value.length <= STORY_CHAR_MAX) {
+            onContentChange(e.target.value);
+          }
+        }}
+        onKeyDown={handleKeyDown}
+        disabled={isSaving}
+        className="min-h-[160px] resize-y"
+      />
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={isSaving}
+            aria-label="Cancel editing"
+          >
+            Cancel
+          </Button>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    type="button"
+                    onClick={onSave}
+                    disabled={!canSave}
+                    aria-label="Save story"
+                    aria-busy={isSaving ? 'true' : 'false'}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin mr-1" />
+                        Saving…
+                      </>
+                    ) : (
+                      'Save'
+                    )}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!content.trim() && (
+                <TooltipContent side="top">Story can&apos;t be empty.</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <span
+          aria-live="polite"
+          className={`text-xs ${content.length >= STORY_CHAR_SOFT ? 'text-amber-600' : 'text-muted-foreground'}`}
+        >
+          {content.length} / {STORY_CHAR_MAX}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Delete story dialog
+// ---------------------------------------------------------------------------
+
+function DeleteStoryDialog({
+  open,
+  linkedPointCount,
+  onConfirm,
+  onCancel,
+  isDeleting,
+}: {
+  open: boolean;
+  linkedPointCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
+      <DialogContent hideCloseButton>
+        <DialogHeader>
+          <DialogTitle>Delete this story?</DialogTitle>
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <p>This will permanently remove your story. Points linked to this story will not be deleted — others may still hold positions on them.</p>
+              {linkedPointCount > 0 && (
+                <p>This story has {linkedPointCount} linked point(s).</p>
+              )}
+            </div>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={isDeleting}
+            autoFocus
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 size={16} className="animate-spin mr-1" />
+                Deleting…
+              </>
+            ) : (
+              'Delete story'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
 
@@ -483,6 +655,17 @@ export function StoryDetailPage() {
   const [storyAuthorPositions, setStoryAuthorPositions] = useState<Map<string, PointPosition>>(new Map());
   // Other stories each linked point appears in (for linked-stories section in QuotedPoint)
   const [linkedStoriesForPoints, setLinkedStoriesForPoints] = useState<Map<string, StoryWithAuthor[]>>(new Map());
+
+  // P427: Edit and Delete state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const popstateHandlerRef = useRef<(() => void) | null>(null);
 
   // P132: Guard for position removal — shows confirmation dialog with linked-story count
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -581,13 +764,18 @@ export function StoryDetailPage() {
     loadStory();
   }, [id, retryKey, user?.id, authLoading]);
 
+  const pendingNavigateRef = useRef<string | null>(null);
+
   const handleBack = useCallback(() => {
-    if (story?.authorSlug) {
-      navigate(`/p/${story.authorSlug}`);
-    } else {
-      navigate('/events');
+    const isDirty = isEditMode && editContent !== (story?.content ?? '');
+    const target = story?.authorSlug ? `/p/${story.authorSlug}` : '/events';
+    if (isDirty) {
+      pendingNavigateRef.current = target;
+      setShowUnsavedPrompt(true);
+      return;
     }
-  }, [navigate, story?.authorSlug]);
+    navigate(target);
+  }, [isEditMode, editContent, story?.content, story?.authorSlug, navigate]);
 
   const handleRetry = useCallback(() => {
     setRetryKey(k => k + 1);
@@ -617,6 +805,111 @@ export function StoryDetailPage() {
       });
     }
   }, [user?.id]);
+
+  // P427: Edit handlers
+  const handleEditStart = useCallback(() => {
+    if (!story) return;
+    setEditContent(story.content);
+    setIsEditMode(true);
+  }, [story]);
+
+  const handleEditCancel = useCallback(() => {
+    setIsEditMode(false);
+    setEditContent('');
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!story || !editContent.trim()) return;
+    setIsSaving(true);
+    try {
+      const updated = await storiesService.updateStory(story.id, { content: editContent });
+      if (updated) {
+        setStory(prev => prev ? { ...prev, content: editContent } : prev);
+        setIsEditMode(false);
+        setEditContent('');
+        toast.success('Story updated');
+        analytics.track('story_edited', { story_id: story.id, char_count: editContent.length });
+        setTimeout(() => editButtonRef.current?.focus(), 50);
+      } else {
+        toast.error('Failed to save. Try again.');
+      }
+    } catch {
+      toast.error('Failed to save. Try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [story, editContent]);
+
+  // P427: Delete handlers
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setTimeout(() => deleteButtonRef.current?.focus(), 0);
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    if (!story) return;
+    setIsDeleting(true);
+    const authorSlug = story.authorSlug;
+    try {
+      const success = await storiesService.deleteStory(story.id);
+      if (success) {
+        setDeleteDialogOpen(false);
+        toast.success('Story deleted');
+        analytics.track('story_deleted', { story_id: story.id, linked_point_count: story.points.length });
+        navigate(`/p/${authorSlug}`);
+      } else {
+        toast.error('Failed to delete. Try again.');
+      }
+    } catch {
+      toast.error('Failed to delete. Try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [story, navigate]);
+
+  // P427: Navigation guard — intercept browser back when edit mode is dirty.
+  // BrowserRouter doesn't support useBlocker; use popstate + history.pushState instead.
+  useEffect(() => {
+    const isDirty = isEditMode && editContent !== (story?.content ?? '');
+
+    // Remove any previously-registered handler
+    if (popstateHandlerRef.current) {
+      window.removeEventListener('popstate', popstateHandlerRef.current);
+      popstateHandlerRef.current = null;
+    }
+
+    if (!isDirty) return;
+
+    const handler = (e: PopStateEvent) => {
+      // stopImmediatePropagation prevents React Router's own popstate listener
+      // from processing this navigation (we registered with capture:true, so
+      // we run before React Router's bubble-phase listener).
+      e.stopImmediatePropagation();
+      // Re-push the current URL to keep the browser on this page
+      window.history.pushState(null, '', window.location.href);
+      setShowUnsavedPrompt(true);
+    };
+
+    popstateHandlerRef.current = handler;
+    window.addEventListener('popstate', handler, { capture: true });
+
+    return () => {
+      window.removeEventListener('popstate', handler, { capture: true });
+      popstateHandlerRef.current = null;
+    };
+  }, [isEditMode, editContent, story?.content]);
+
+  // P427: Native beforeunload guard for hard refreshes / tab close
+  useEffect(() => {
+    const isDirty = isEditMode && editContent !== (story?.content ?? '');
+    if (!isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isEditMode, editContent, story?.content]);
 
   // P132: Position recording handler
   const handlePositionClick = useCallback(async (pointId: string, position: PositionType) => {
@@ -751,23 +1044,72 @@ export function StoryDetailPage() {
     <div className="max-w-lg mx-auto px-4 py-6">
       <RemovePositionDialog {...dialogProps} />
 
+      {/* P427: Delete story dialog */}
+      {isAuthor && (
+        <DeleteStoryDialog
+          open={deleteDialogOpen}
+          linkedPointCount={story.points.length}
+          onConfirm={handleDelete}
+          onCancel={handleDeleteCancel}
+          isDeleting={isDeleting}
+        />
+      )}
+
+      {/* P427: Unsaved-changes guard overlay */}
+      {showUnsavedPrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-lg p-6 max-w-sm w-full space-y-4 shadow-lg">
+            <p className="text-sm">You have unsaved changes. Leave anyway?</p>
+            <div className="flex gap-2 justify-end">
+              <Button autoFocus onClick={() => setShowUnsavedPrompt(false)}>Stay</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Remove popstate guard before navigating
+                  if (popstateHandlerRef.current) {
+                    window.removeEventListener('popstate', popstateHandlerRef.current);
+                    popstateHandlerRef.current = null;
+                  }
+                  setShowUnsavedPrompt(false);
+                  setIsEditMode(false);
+                  setEditContent('');
+                  navigate(pendingNavigateRef.current ?? (story?.authorSlug ? `/p/${story.authorSlug}` : '/events'));
+                }}
+              >
+                Leave
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Back button */}
       <BackButton onClick={handleBack} />
 
-      {/* P132: Rich story view with position recording */}
-      <StoryCardDetail
-        story={story}
-        linkedPoints={story.points}
-        positionCounts={positionCounts}
-        userPositions={userPositions}
-        profileOwnerPositions={storyAuthorPositions}
-        onPositionClick={handlePositionClick}
-        isDetailView={true}
-        context="story-detail"
-        linkedStoriesForPoints={linkedStoriesForPoints}
-      />
+      {/* P132: Rich story view / P427: swap for edit card in edit mode */}
+      {isEditMode ? (
+        <EditStoryCard
+          content={editContent}
+          onContentChange={setEditContent}
+          isSaving={isSaving}
+          onSave={handleSave}
+          onCancel={handleEditCancel}
+        />
+      ) : (
+        <StoryCardDetail
+          story={story}
+          linkedPoints={story.points}
+          positionCounts={positionCounts}
+          userPositions={userPositions}
+          profileOwnerPositions={storyAuthorPositions}
+          onPositionClick={handlePositionClick}
+          isDetailView={true}
+          context="story-detail"
+          linkedStoriesForPoints={linkedStoriesForPoints}
+        />
+      )}
 
-      {/* P131/P424: Author-only section */}
+      {/* P131/P424/P427: Author-only section */}
       {isAuthor && (
         <>
           <VisibilitySelector
@@ -775,6 +1117,31 @@ export function StoryDetailPage() {
             currentVisibility={story.visibility}
             onChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
           />
+          <div className="mt-1 flex justify-end gap-2">
+            <Button
+              ref={editButtonRef}
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleEditStart}
+              aria-label="Edit story"
+              disabled={isDeleting || isEditMode}
+            >
+              Edit
+            </Button>
+            <Button
+              ref={deleteButtonRef}
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(true)}
+              aria-label="Delete story"
+              disabled={isDeleting || isEditMode}
+              className="text-destructive hover:text-destructive"
+            >
+              Delete
+            </Button>
+          </div>
           <KeyPointsSection
             storyId={story.id}
             currentUserId={user?.id ?? ''}

@@ -1,16 +1,22 @@
 ---
-status: backlog
+status: in-progress
 type: story
 rank: 10.0
 workstream: C1
 tags: [stories, edit, delete, ux]
 prepped_date: '2026-02-24'
-delivery_stage: arch-review
+delivery_stage: tests-review
 reviews:
   ux: null
   architect: null
   alignment: null
 created_date: 2026-02-24
+uat_file: features/uat/p427.md
+test_files:
+  - e2e/p427-story-edit-delete.spec.ts
+  - e2e/p427-smoke.spec.ts
+  - e2e/integration/p427-migration.spec.ts
+  - e2e/a11y/p427-accessibility.spec.ts
 ---
 
 # P427: Story Edit and Delete
@@ -390,3 +396,94 @@ No other files require modification. The service layer (`stories-service-real.ts
 6. Implement `handleDelete` handler — calls `storiesService.deleteStory(story.id)`, navigates to `/p/${story.authorSlug}` on success
 7. Update author-only section JSX: swap `StoryCardDetail` → `EditStoryCard` when `isEditMode`; add Edit + Delete buttons on same row as `VisibilitySelector`; mount `DeleteStoryDialog`
 8. Add analytics tracking: `story_edited` (with `story_id`, `char_count`) and `story_deleted` (with `story_id`, `linked_point_count`)
+
+---
+
+## Test Coverage Strategy
+
+### Files Generated
+
+| File | Type | Purpose |
+|------|------|---------|
+| `e2e/p427-story-edit-delete.spec.ts` | E2E | Full behavioural coverage: edit/delete happy paths, cancel flows, error states, access control, focus management |
+| `e2e/p427-smoke.spec.ts` | Smoke | Page loads without JS errors; author controls render; non-author view clean |
+| `e2e/integration/p427-migration.spec.ts` | Integration | CHECK constraint on `stories.content`, UPDATE/DELETE RLS policies, cascade behaviour |
+| `e2e/a11y/p427-accessibility.spec.ts` | A11y | ARIA labels, keyboard nav, focus management, focus trap in dialog, aria-live, disabled attributes |
+| `features/uat/p427.md` | UAT | 15 manual scenarios covering visual, layout, and flows that need a real browser session |
+
+---
+
+### What Is Tested and Why
+
+**Author-only access control (E2E + Smoke)**
+- Author sees Edit and Delete, non-author and unauthenticated visitors do not. This is the primary security boundary visible at the UI layer. Tested separately in both smoke (fast, no auth dependency) and full E2E (with real user sessions).
+
+**Edit happy path — pre-fill, save, state update (E2E)**
+- Core user value: story content updates and the page reflects the new content without a reload. Tested with real Supabase writes to prove the full stack works.
+
+**Edit cancel/Escape flows (E2E)**
+- Cancel is a high-frequency action. If cancel silently re-renders the old content correctly, the state management is correct. Escape key is a common UX expectation for inline editors.
+
+**Keyboard shortcuts: Cmd+Enter, Escape (E2E + A11y)**
+- Spec explicitly calls these out. Both flows are distinct code paths (`keydown` handler vs Cancel button click).
+
+**Empty content validation (E2E + A11y)**
+- Prevents silent data corruption (empty story). The `disabled` attribute test specifically catches the difference between visually disabled and semantically disabled — important for screen readers and form submission.
+
+**Unsaved changes guard — `useBlocker` (E2E)**
+- `useBlocker` is a React Router v7 API that can be tricky to get right. Testing SPA navigation interception is the only way to confirm it works. Browser `beforeunload` is not testable in headless Playwright — UAT covers that path manually.
+
+**Delete dialog — content, linked point count, cancel (E2E)**
+- Confirm dialog copy is spec-defined and testable. The conditional "N linked point(s)" line requires a story with a real DB-linked point, which is set up in beforeAll via the test helper.
+
+**Delete confirm — navigation, toast (E2E)**
+- Post-delete navigation to `/p/:authorSlug` is the primary success outcome. Tested with a dedicated disposable story to avoid breaking the shared `storyId` fixture.
+
+**Focus management (E2E + A11y)**
+- Edit mode: textarea must receive focus automatically (spec requirement). Dialog cancel: focus must return to Delete button (spec requirement + WCAG 2.1 criterion 2.4.3). These are programmatic requirements — only automation can reliably confirm them.
+
+**Dialog focus trap (A11y)**
+- Radix `Dialog` provides a focus trap by default but it must not be broken by how the component is wired up. Tab cycling inside the dialog is the verification.
+
+**CHECK constraint — 10,000-char limit (Integration)**
+- The security review flags this as Medium severity: without a DB constraint, a client could bypass the UX limit and insert arbitrarily long content. The integration test verifies the constraint exists and is enforced for both INSERT and UPDATE. The UX-layer limit alone is not sufficient.
+
+**UPDATE/DELETE RLS (Integration)**
+- P427 relies on existing RLS policies. The integration test verifies the policies are actually in effect (not just declared). This catches the class of bug where RLS is declared but has a logic error (e.g., wrong column reference).
+
+**CASCADE behaviour (Integration)**
+- The spec guarantees that deleting a story removes `story_points` rows but NOT the underlying `points`. This is a DB-level contract that the integration test proves without needing the UI.
+
+---
+
+### What Is NOT Tested and Why
+
+| Omitted | Reason |
+|---------|--------|
+| Unit tests for `updateStory` / `deleteStory` | Service methods are simple one-line Supabase calls — service contract is covered by integration tests (RLS checks) and E2E tests. No new logic to unit-test. |
+| Unit tests for `EditStoryCard` / `DeleteStoryDialog` | These are inline JSX functions in `story-detail-page.tsx`. They have no independent logic — all state lives in the parent page. Component-level unit tests would just re-test what E2E already covers with more fragile selectors. |
+| `beforeunload` browser native dialog | Not testable in headless Playwright. UAT-2.4 covers this manually. |
+| Save failure / delete failure network error paths | The error state (toast + editor stays open) requires intercepting the Supabase API call. This is feasible with `page.route()` but adds significant test complexity for a path that is covered in UAT. Marked as `TODO` in the E2E file for `/dev` to add if desired. |
+| Concurrent edit (two tabs) | Spec explicitly documents "last save wins, no special handling needed." Not tested. |
+| Analytics events (`story_edited`, `story_deleted`) | Analytics are production-only (Mixpanel). No test instrumentation available in the test environment. |
+| Story versioning side effects | `story_versions` is cascade-deleted with the story. The cascade integration test verifies the DB-level contract sufficiently. Checking version history is out of scope for P427. |
+
+---
+
+### Test Pyramid
+
+```
+           ╱ UAT ╲
+          ╱ 15 scenarios ╲        ← Manual, catches visual + flow issues
+         ╱─────────────────╲
+        ╱ E2E (32 tests) ╲        ← Behavioural + access control + keyboard
+       ╱───────────────────╲
+      ╱ A11y (13 tests) ╲         ← ARIA, focus, keyboard, tab order
+     ╱─────────────────────╲
+    ╱ Integration (9 tests) ╲     ← DB constraint, RLS, cascade
+   ╱───────────────────────────╲
+  ╱ Unit (0 tests) ╲              ← No new utility logic to unit-test
+ ╱─────────────────────────────╲
+```
+
+The base of this pyramid is narrower than usual because P427 is UI-only with no new service logic — the right investment is in E2E and integration (the layers that exercise real behaviour), not unit tests.
