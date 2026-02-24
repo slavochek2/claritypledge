@@ -1,9 +1,10 @@
 ---
-status: in-progress
+status: done
 type: feature
 rank: 125468
 workstream: foundation
 created_date: 2026-02-24
+completed_at: "2026-02-24"
 tags: []
 uat_file: features/uat/p418.md
 test_files:
