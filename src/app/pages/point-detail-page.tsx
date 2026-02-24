@@ -111,12 +111,11 @@ export function PointDetailPage() {
   }, [id, user?.id, retryKey]);
 
   // Derive Map<userId, StoryWithAuthor> from the batch-fetched stories for this point.
-  // Only public stories are included (getStoriesForPoints already filters, double-guarded here).
+  // RLS enforces visibility — trust what the query returns.
   const storyByAuthorId = useMemo(() => {
     const stories = linkedStories.get(id ?? '') ?? [];
     const map = new Map<string, StoryWithAuthor>();
     for (const story of stories) {
-      if (story.visibility !== 'public') continue;
       // Take only the first story per author (array is ordered desc by created_at)
       if (!map.has(story.authorId)) {
         map.set(story.authorId, story);
