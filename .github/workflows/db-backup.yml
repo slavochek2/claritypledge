@@ -32,7 +32,7 @@ jobs:
           DATE=$(date +%Y%m%d-%H%M%S)
           FILENAME="prod-backup-${DATE}.sql.gz"
           echo "Backing up to gs://claritypledge-db-backups/${FILENAME}"
-          pg_dump "$DB_URL" | gzip | gsutil cp - "gs://claritypledge-db-backups/${FILENAME}"
+          /usr/lib/postgresql/17/bin/pg_dump "$DB_URL" | gzip | gsutil cp - "gs://claritypledge-db-backups/${FILENAME}"
           SIZE=$(gsutil stat "gs://claritypledge-db-backups/${FILENAME}" | grep "Content-Length" | awk '{print $2}')
           echo "Backup size: ${SIZE} bytes"
           if [[ "${SIZE}" -lt 1000 ]]; then echo "ERROR: backup suspiciously small" && exit 1; fi
