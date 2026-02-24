@@ -6,7 +6,7 @@ workstream: C1
 tags: [stories, ai-chat, filing, calibration, position]
 prepped_date: '2026-02-24'
 blocked_by: [p424]
-delivery_stage: prd-approved
+delivery_stage: ux-review
 reviews:
   ux: null
   architect: null
@@ -196,43 +196,828 @@ This is a UI feature with Claude API integration and Supabase persistence.
 
 **Surface:** `/chat` — persistent page accessible from nav. Not a modal, not an inline panel.
 
-**Entry (position-triggered):**
-- After staking a position on a point, a single full-width primary button appears: **"Tell your story →"** with a ghost "Not now" link below. No card wrapper, no explanation copy.
-- Tapping navigates to `/chat?from=position&pointId=XYZ`. Position is already saved before navigation — nothing is gated.
-- Arriving at `/chat` with `?from=position&pointId=XYZ`: skip empty state, go straight to the loop. Pin a context chip (point text + position badge) throughout the loop.
-- Arriving at `/chat` without params: bare input with placeholder "What's on your mind?" — nothing else.
-
-**`/chat` page rules:**
-- No header labels, no menus, no story list. Stories appear in the thread only as output when filed. Profile is the canonical story list.
-- Input pinned at bottom always.
-
-**Filing loop:**
-- User sends brain dump as a message bubble.
-- AI streams a story draft. Draft appears as a **versioned card** in the thread (`Draft v1`, `Draft v2`...), labeled `[Draft · not saved]`. Not a message bubble.
-- Rating prompt below the card: user types a number or free text into the standard input. No interactive rating buttons.
-- AI formats its own options (A/B/C) as plain text in its message. User replies by typing into the input field.
-- On loop completion: AI shows a polished draft card with brief change note. User selects visibility, confirms save.
-- Saved story card replaces the draft card. Shows linked point, `[▷ Start /live]` CTA, visibility badge.
-
-**Session integration:**
-- `[▷ Start /live]` on a saved story card shows a link inline in the thread. `[Open as host →]` navigates to the existing `/live` page.
-- `/live` page gets a "← Story Guide" back link. Session result posts back to the story card on return.
-
-**P419 constraint:** `onStoryConfirmed(storyDraft)` callback must be clean and hookable — P419 triggers point extraction here without modifying loop internals.
-
-**P428 constraint:** The filing loop must support being embedded as a bottom-sheet overlay over `/live`. Do not couple to page-level navigation.
+**Non-negotiable rules:**
+- No labels, no "Story Guide" header, no menus on `/chat`
+- Story draft = versioned card in the thread (`Draft v1`, `Draft v2`...), NOT a message bubble
+- Rating prompt = user types in the standard input field (number or free text). NO interactive rating pill buttons.
+- AI formats options (A/B/C) as plain text in its message. User replies by typing in the input field.
+- `/chat` shows NO story list — stories appear only as output when filed. Profile = canonical story list.
+- Input always pinned at bottom
+- P428 constraint: filing loop must support overlay embedding — do not couple to page navigation
 
 ---
 
-### Entry Point: Position-Triggered Prompt (superseded detail — for reference only)
+## User Flows
 
-> The following was the original inline-panel design. Superseded by the chat-first design direction above. Kept for historical context only — do not implement.
+### Flow A — Position-Triggered Entry (primary)
 
-**Where it appeared:** Immediately after a user successfully stakes or changes a position on any point. The prompt appeared inline below the `PositionButtons` component on the point-detail page — it did not navigate away, open a modal, or block further interaction.
+**Preconditions:** User is authenticated. User stakes a position on a point. User does not already have a story linked to this point.
 
-**Trigger condition:** User clicks a position button (Strongly Agree / Agree / etc.) and a position is confirmed saved. If the user already has a story linked to this point, no prompt appears (they already explained why). If they already have a story and are changing position, defer to P419.
+**Step 1 — Position staked on point detail page**
 
-**Prompt anatomy (inline card below the position buttons):**
+After the position saves successfully, the existing position buttons remain. Immediately below them, two elements appear without a card wrapper:
+
+- Full-width primary button: `Tell your story →`
+- Ghost link below it: `Not now`
+
+No copy, no explanation, no card wrapper. Just the two actions.
+
+**Step 2 — User taps "Tell your story →"**
+
+Browser navigates to `/chat?from=position&pointId=XYZ`.
+
+Position is already persisted before navigation — nothing is gated on story filing.
+
+**Step 3 — `/chat` loads with context chip**
+
+The page loads. A pinned context chip appears above the thread area (stays visible throughout the entire loop):
+
+```
+┌─ context chip ─────────────────────────────────────┐
+│  📌 [point text truncated to ~80 chars...]          │
+│     [Agree] ← user's position badge                │
+└────────────────────────────────────────────────────┘
+```
+
+The AI sends an opening message immediately (no empty state, no menu):
+
+```
+[AI spark icon]  What's your experience behind this?
+                 Brain-dump it — messy is fine.
+```
+
+Input is active and focused. Placeholder: `What's your experience behind this?`
+
+**Step 4 — User types brain dump and sends**
+
+User types any length of text. Send button (`→`) enables on first non-whitespace character.
+
+Ctrl+Enter also sends. Message appears in the thread as a standard right-aligned user bubble.
+
+**Step 5 — AI streams story draft**
+
+Input area shows a subtle loading indicator (`...` typing indicator in the thread). AI streams its response.
+
+When the stream completes, a **versioned draft card** appears in the thread — not a message bubble:
+
+```
+┌── Draft v1 · [Draft · not saved] ──────────────────┐
+│  I ask people if they understood me. They say yes.  │
+│  When I ask them to explain back, it falls apart.   │
+│  I'm tired of being the only one who checks.        │
+│                                                     │
+│  linked to: 📌 Communication gaps are invisible...  │
+└────────────────────────────────────────────────────┘
+```
+
+Below the card, the AI sends a text message in the thread:
+
+```
+[AI spark icon]  How well does this capture what you meant?
+                 Type 0–10 or describe what's off.
+```
+
+Input placeholder changes to: `0–10, or describe what's off...`
+
+**Step 6 — User rates**
+
+User types in the input field. Examples: `8`, `7 — the emotion is right but the sequence is off`, `feels close but missing the frustration part`.
+
+**Step 7 — AI responds to rating (band logic)**
+
+AI reads the rating from the user's message and responds with a plain-text message containing its interpretation and options where applicable. See Rating Band Responses section below for exact message content per band.
+
+For rating 8–9, AI's message ends with:
+
+```
+A) [option text]
+B) [option text]
+C) [option text]
+D) Other — describe it
+```
+
+User replies by typing `A`, `B`, `C`, or a freeform description into the standard input.
+
+**Step 8 — Iteration (repeat Steps 5–7)**
+
+Each new draft appears as `Draft v2`, `Draft v3`, etc. Earlier drafts remain visible in the thread (scroll history). The latest draft is the active one.
+
+After 3 iterations without reaching a confirmed 10, the AI appends an escape hatch message (see Escape Hatch section).
+
+**Step 9 — Loop closes (rating 10 or escape hatch accepted)**
+
+AI sends a message: `Here's the polished version before I save it:` followed by a **polish draft card** in the thread:
+
+```
+┌── Draft v3 · [Polish · not saved] ────────────────────┐
+│  [polished story text]                                 │
+│                                                        │
+│  linked to: 📌 [point text]                            │
+│  Changes: tightened opening, removed repeated phrase.  │
+└────────────────────────────────────────────────────────┘
+```
+
+Below the card, the visibility selector and save action appear inline in the thread (not a separate step, not a modal).
+
+**Step 10 — User selects visibility and saves**
+
+Visibility selector (default: Private) and Save button appear below the polish card as thread-level UI:
+
+```
+[🔒 Private]  [👥 Shared]  [🌐 Public]
+
+[Save story]                    [Back to editing]
+```
+
+User selects visibility (or keeps Private), taps Save story.
+
+**Step 11 — Save completes**
+
+The polish draft card transitions to a **saved story card** in the thread:
+
+```
+┌───────────────────────────────────────────────────────┐
+│  [●] Author · just now · 🔒 Private                   │
+│  I ask people if they understood me...  Show more     │
+│  ↳ linked to: Communication gaps are invisible...     │
+│  [▷ Start /live]   [✏ Edit]   [···]                   │
+└───────────────────────────────────────────────────────┘
+```
+
+Sonner toast appears: `Story saved.`
+
+The input area clears. Placeholder resets to `What's on your mind?`
+
+---
+
+### Flow B — Direct `/chat` Visit (no position context)
+
+**Step 1 — User navigates to `/chat` directly**
+
+Page loads. No context chip. No opening AI message. No menus.
+
+Thread area is empty. Input is active and focused.
+
+Placeholder: `What's on your mind?`
+
+**Step 2 — User types a brain dump and sends**
+
+Same as Flow A Step 4 onward. The loop proceeds identically except:
+- No context chip pinned
+- No `linked to:` line in draft cards
+- On save, story is not linked to any point (standalone story, no `point_id`)
+
+---
+
+### Flow C — Return Visit with Draft in Progress
+
+**Preconditions:** User started the loop in a previous browser session. A partial loop state was persisted (local storage or server-side draft).
+
+**Step 1 — User navigates to `/chat`**
+
+Above the thread (but below the nav), a resume prompt appears as a single-line banner:
+
+```
+┌─ resume banner ────────────────────────────────────┐
+│  You have a story in progress.  [Resume]  [Discard] │
+└────────────────────────────────────────────────────┘
+```
+
+The thread area below is empty (prior draft not shown until resumed).
+
+**Step 2a — User taps Resume**
+
+Banner disappears. Thread loads with the prior conversation state including the last draft card. Input re-activates at the point where the user left off (e.g., rating prompt if they stopped after a draft).
+
+**Step 2b — User taps Discard**
+
+Confirmation prompt inline: `This will delete your draft. Continue?` with `[Yes, discard]` and `[Cancel]`.
+
+On confirm: draft is deleted, thread clears, page returns to empty state (Flow B).
+
+---
+
+### Flow D — `/live` Session from Saved Story Card
+
+**Step 1 — User taps `[▷ Start /live]` on a saved story card in the thread**
+
+No navigation. A session setup card appears inline in the thread immediately below the story card:
+
+```
+┌─ session setup ─────────────────────────────────────┐
+│  Session link ready:                                 │
+│  claritypledge.com/live/abc123                       │
+│  [Copy link]                                         │
+│                                                      │
+│  [Open as host →]                                    │
+└────────────────────────────────────────────────────┘
+```
+
+**Step 2 — User taps `[Open as host →]`**
+
+Navigates to `/live/{sessionId}` (existing `/live` page, full page navigation).
+
+The `/live` page displays a `← Story Guide` back link in the top-left (below the standard nav), linking back to `/chat`.
+
+**Step 3 — Session completes, user returns to `/chat`**
+
+User taps `← Story Guide` or navigates back.
+
+The story card in the `/chat` thread updates with the session result (e.g., verification count, new `understood` badge). This update is either optimistic (if state was passed) or fetched on return.
+
+---
+
+## Screen Designs
+
+### Screen 1: `/chat` — Empty State (Flow B)
+
+```
+┌─────────────────── /chat ───────────────────────────┐
+│  [nav]                                              │
+│─────────────────────────────────────────────────────│
+│                                                     │
+│                                                     │
+│                                                     │
+│          (empty thread — no content shown)          │
+│                                                     │
+│                                                     │
+│                                                     │
+│─────────────────────────────────────────────────────│
+│  ┌──────────────────────────────────────────────┐   │
+│  │  What's on your mind?                        │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                  [→] │
+└─────────────────────────────────────────────────────┘
+```
+
+Token reference: thread area `bg-background`, input bar `border-t border-border bg-background`, send icon `text-muted-foreground` when disabled, `text-blue-600` when enabled.
+
+---
+
+### Screen 2: `/chat` — Context Chip + Loop Open (Flow A, after navigation)
+
+```
+┌─────────────────── /chat ───────────────────────────┐
+│  [nav]                                              │
+│─────────────────────────────────────────────────────│
+│                                                     │
+│  ┌─ context chip ─────────────────────────────────┐ │
+│  │ 📌 Communication gaps are invisible to the...  │ │
+│  │    [Agree]                                      │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                     │
+│  ┌── AI message ──────────────────────────────────┐ │
+│  │ [✦] What's your experience behind this?        │ │
+│  │     Brain-dump it — messy is fine.             │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                     │
+│─────────────────────────────────────────────────────│
+│  ┌──────────────────────────────────────────────┐   │
+│  │  What's your experience behind this?         │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                  [→] │
+└─────────────────────────────────────────────────────┘
+```
+
+Context chip: `bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm`, pinned below nav with `sticky top-[nav-height] z-10`.
+
+AI avatar: `✦` Sparkles icon from lucide-react in `w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0`. No "Story Guide" label next to it.
+
+---
+
+### Screen 3: Thread with Draft Card (after AI first response)
+
+```
+┌─────────────────── /chat ───────────────────────────┐
+│  [nav]                                              │
+│  ┌─ context chip ─────────────────────────────────┐ │
+│  │ 📌 Communication gaps are invisible...  [Agree] │ │
+│  └────────────────────────────────────────────────┘ │
+│─────────────────────────────────────────────────────│
+│                                                     │
+│  ┌── AI message ──────────────────────────────────┐ │
+│  │ [✦] What's your experience behind this?...     │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                     │
+│  ┌── user bubble (right-aligned) ─────────────────┐ │
+│  │  I always ask people if they understood me...  │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                     │
+│  ┌── Draft v1 · [Draft · not saved] ─────────────┐ │
+│  │  I ask people if they understood me. They say  │ │
+│  │  yes. When I ask them to explain back, it      │ │
+│  │  falls apart. I'm tired of being the only one  │ │
+│  │  who checks.                                   │ │
+│  │                                                │ │
+│  │  linked to: 📌 Communication gaps are...       │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                     │
+│  ┌── AI message ──────────────────────────────────┐ │
+│  │ [✦] How well does this capture what you meant? │ │
+│  │     Type 0–10 or describe what's off.          │ │
+│  └────────────────────────────────────────────────┘ │
+│─────────────────────────────────────────────────────│
+│  ┌──────────────────────────────────────────────┐   │
+│  │  0–10, or describe what's off...             │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                  [→] │
+└─────────────────────────────────────────────────────┘
+```
+
+Draft card visual: `rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800 p-4`.
+
+Draft version label: `text-xs font-medium text-blue-700 dark:text-blue-300 mb-2` — `Draft v1 · Draft · not saved`.
+
+`linked to:` line: `text-xs text-muted-foreground mt-3 flex items-center gap-1` with `Pin` icon at 12px.
+
+---
+
+### Screen 4: Saved Story Card in Thread
+
+```
+┌── saved story card ────────────────────────────────────┐
+│  [●] Slava · just now · [🔒]                           │
+│  I ask people if they understood me. They say yes.     │
+│  When I ask them to explain back, it falls apart.      │
+│  [Show more]                                           │
+│  ↳ linked to: Communication gaps are invisible to...   │
+│────────────────────────────────────────────────────────│
+│  [▷ Start /live]   [✏ Edit]   [···]                    │
+└────────────────────────────────────────────────────────┘
+```
+
+Card styling: `rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm` — mirrors `StoryCardWithLinks` / `LiveStoryCardExpanded` existing pattern.
+
+Author row: `GravatarAvatar` (sm) + author name (`font-semibold text-gray-900 text-sm`) + timestamp (`text-xs text-gray-500`) + `VisibilityBadge` (icon-only, using existing component).
+
+`linked to:` row: `text-xs text-muted-foreground flex items-center gap-1` with `Pin` (12px).
+
+Footer row with CTAs: `border-t border-gray-100 px-4 py-2.5 flex items-center gap-3`.
+
+`[▷ Start /live]`: `text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1` — `Play` icon (14px) + `Start /live`.
+
+`[✏ Edit]`: `text-sm text-gray-500 hover:text-gray-700` — `Pencil` icon (14px). (Out of scope for P425 — renders as disabled placeholder.)
+
+`[···]`: `MoreHorizontal` icon button, ghost style, opens a dropdown with `Copy link`, `Delete` (out of scope for P425).
+
+Show more / Show less: same pattern as `LiveStoryCardExpanded` — threshold 180 chars.
+
+---
+
+### Screen 5: Session Setup Card (Flow D, inline in thread)
+
+```
+┌─ session setup ─────────────────────────────────────┐
+│  Session link:                                       │
+│  claritypledge.com/live/abc123                       │
+│                                          [Copy link] │
+│                                                      │
+│  [Open as host →]                                    │
+└─────────────────────────────────────────────────────┘
+```
+
+Card: `rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm`.
+
+Session link: `text-blue-600 font-mono text-sm`.
+
+`[Copy link]`: ghost button, small. On copy: button label changes to `Copied!` for 2s.
+
+`[Open as host →]`: primary button, `bg-blue-500 text-white`.
+
+---
+
+### Screen 6: Mobile Layout (320–767px)
+
+```
+┌──────── /chat (375px viewport) ─────────────────────┐
+│  [nav — full width]                                 │
+│  ┌─ context chip (full width) ─────────────────┐   │
+│  │ 📌 Communication gaps are...  [Agree]        │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                     │
+│  [thread content — full width, no horizontal pad]   │
+│                                                     │
+│  ┌── Draft v1 · Draft · not saved ────────────┐    │
+│  │  story text...                              │    │
+│  │  linked to: 📌 Communication gaps...        │    │
+│  └─────────────────────────────────────────────┘    │
+│                                                     │
+│  ┌── AI message ──────────────────────────────┐    │
+│  │ [✦] How well does this capture what you    │    │
+│  │     meant? Type 0–10 or describe.          │    │
+│  └─────────────────────────────────────────────┘    │
+│─────────────────────────────────────────────────────│
+│  ┌──────────────────────────────────────────┐   [→] │
+│  │  0–10, or describe...                    │       │
+│  └──────────────────────────────────────────┘       │
+└─────────────────────────────────────────────────────┘
+```
+
+Saved story card CTA footer on mobile: `[▷ Start /live]` and `[✏ Edit]` and `[···]` in a horizontal `flex-wrap gap-2` row. Full-width on 320px if needed.
+
+Visibility selector on mobile (save step): three buttons as `flex flex-wrap gap-2` — each button is `flex-1 min-w-[80px]`.
+
+---
+
+### Screen 7: `/chat` — Resume Banner (Flow C)
+
+```
+┌─────────────────── /chat ───────────────────────────┐
+│  [nav]                                              │
+│  ┌─ resume banner ────────────────────────────────┐ │
+│  │  You have a story in progress.                 │ │
+│  │                   [Resume]  [Discard]           │ │
+│  └────────────────────────────────────────────────┘ │
+│─────────────────────────────────────────────────────│
+│                                                     │
+│          (empty thread — prior draft not shown)     │
+│                                                     │
+│─────────────────────────────────────────────────────│
+│  ┌──────────────────────────────────────────────┐   │
+│  │  What's on your mind?                        │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                  [→] │
+└─────────────────────────────────────────────────────┘
+```
+
+Resume banner: `bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 rounded-lg px-4 py-3 flex items-center justify-between text-sm`.
+
+---
+
+## Rating Band Responses
+
+The AI responds to the user's typed rating. The AI parses the message for a numeric value (0–10). If no number is found, it treats the message as a free-text redirect and attempts a new draft.
+
+**Rating = 10** (or user types words that clearly confirm satisfaction):
+
+AI message:
+```
+Got it — I'll run a polish pass and we can save.
+```
+
+Followed by polish draft card in thread.
+
+**Rating 8–9:**
+
+AI message (plain text in message bubble):
+```
+Almost there. What's the gap?
+
+A) The emotional weight wasn't quite right
+B) The sequence of events is off
+C) It missed why this matters to me
+D) Other — describe it
+```
+
+User types `A`, `B`, `C`, or a free description. AI generates Draft v(n+1).
+
+**Rating 5–7:**
+
+AI message:
+```
+I'm missing something. Here's what I think I got wrong —
+[specific observation from the brain dump].
+
+Which is closer?
+
+A) [option rooted in specific text A]
+B) [option rooted in specific text B]
+C) Both, but weighted differently
+D) Other — I'll explain
+```
+
+User types their choice. AI generates Draft v(n+1).
+
+**Rating < 5:**
+
+AI message:
+```
+I think I missed the core of it. What's the most important
+thing I got wrong?
+```
+
+No lettered options — user types freely. AI generates Draft v(n+1).
+
+**Escape hatch (3 iterations, no 10):**
+
+AI appends below rating prompt:
+```
+We've iterated a few times. Current draft: v3.
+
+[Save at this version]   [Keep refining]
+```
+
+`[Save at this version]` is a button in the thread (not typed — this is the one exception to the "type everything" rule, because the escape hatch is the AI offering a structured exit, not a user-initiated action). The button triggers the polish pass.
+
+`[Keep refining]` clears the escape hatch and reactivates the input with placeholder `What should I change?`
+
+---
+
+## Visibility Selector (Save Step)
+
+Appears inline in the thread below the polish draft card, not in the input bar.
+
+```
+┌─ visibility + save ────────────────────────────────────┐
+│  Who can see this?                                      │
+│                                                         │
+│  [🔒 Private ✓]   [👥 Shared]   [🌐 Public]             │
+│                                                         │
+│  Private: only you can see this                         │
+│                                                         │
+│  [Save story]                   [Back to editing]       │
+└─────────────────────────────────────────────────────────┘
+```
+
+Uses `VISIBILITY_OPTIONS` from `create-story-page.tsx` — same tokens, same tooltip content via `MobileTooltip`.
+
+Selected option: `bg-blue-500 text-white border-blue-500`. Unselected: `bg-background text-foreground border-border`.
+
+Default: `private`.
+
+`[Save story]`: `bg-blue-500 text-white rounded-md px-4 py-2 text-sm font-medium`. While saving: `disabled` + `Loader2` spinner + `Saving...`.
+
+`[Back to editing]`: ghost button. Returns user to the thread at the last draft card, rating prompt reactivates.
+
+---
+
+## Edge Cases
+
+### API Failure During Streaming
+
+AI stream stops mid-message. Error state appears in the thread below the partial content (partial content is removed — not shown incomplete):
+
+```
+┌── AI message ─────────────────────────────────────────┐
+│ [✦] Something went wrong. [Try again]                  │
+└───────────────────────────────────────────────────────┘
+```
+
+`[Try again]` is an inline button in the message. Tapping resends the last user message without requiring re-typing. The input bar stays disabled until retry completes or the user manually retypes.
+
+After 2 consecutive failures:
+
+```
+┌── AI message ─────────────────────────────────────────┐
+│ [✦] Still having trouble. You can try again later,     │
+│     or write the story yourself.                       │
+│     [Write without AI →]                               │
+└───────────────────────────────────────────────────────┘
+```
+
+`[Write without AI →]` navigates to `/create` with `?pointId=XYZ` pre-filled (existing `CreateStoryPage` with point pre-linked).
+
+### Save Failure
+
+Sonner toast: `Save failed — please try again.`
+
+Save button re-enables immediately. Visibility selection and polish text are retained — user does not lose work.
+
+### Navigation Away Mid-Loop (beforeunload)
+
+V1: no `beforeunload` warning. The loop state is not persisted. If the user returns to `/chat` after navigating away, they see the resume banner only if a server-side draft exists (V1: no resume — Flow C is a stretch target for V1 and may ship in a follow-on).
+
+For V1: if user navigates away, the in-progress loop is lost silently. This is acceptable given the loop is short (under 15 minutes). A note in the input placeholder when a draft card exists: `Continue — or type to keep refining.`
+
+### User Not Authenticated
+
+`/chat` redirects to `/signup` if the user is not authenticated (same pattern as `CreateStoryPage`). No partial load.
+
+### Very Long Brain Dump (>5000 characters)
+
+No hard limit or counter shown. The textarea auto-grows (same `useCallback autoResize` pattern from `create-story-page.tsx`). If the AI API rejects due to token limits, the generic API failure state appears (see above). No silent truncation.
+
+### Rating 10 on First Iteration
+
+Immediately proceeds to polish pass. No "congratulations" message. No minimum iteration count. Polish draft card appears in the thread. Visibility selector appears.
+
+### Escape Hatch After 3 Tries
+
+After 3 iterations (regardless of the ratings given), if the user has not yet rated 10, the escape hatch appears. The counter resets if the user taps `[Keep refining]` (giving them 3 more attempts). After 6 total, the escape hatch appears again — permanently (does not reset a second time).
+
+### Context Chip with Very Long Point Text
+
+Point text truncated to 80 characters with `…` in the chip. Full text visible on tap (inline expand — `max-h` CSS transition, same `Show more` pattern as story cards). No tooltip — mobile-first approach.
+
+### Empty Thread on Return (no draft, no story filed)
+
+If user navigates to `/chat` with no in-progress state and no previously filed stories, the thread is empty. Placeholder text in the thread area (not a banner): `text-muted-foreground text-sm text-center` — "Stories you file here appear on your profile." Only shown when thread is genuinely empty. Disappears as soon as any story card exists in the thread.
+
+### `[▷ Start /live]` Tapped Before Saving
+
+CTA only appears on the saved story card, not on draft cards. No confusion possible — drafts show only the versioning label and content, no CTAs.
+
+---
+
+## Accessibility
+
+### ARIA Roles and Live Regions
+
+```
+<main>
+  <!-- Context chip (position-triggered flow) -->
+  <div aria-label="Context: [point text], your position: [position]">
+    ...chip content...
+  </div>
+
+  <!-- Thread -->
+  <div role="log" aria-live="polite" aria-label="Story filing conversation">
+    <!-- AI messages -->
+    <div role="article" aria-label="AI says: [message content]">...</div>
+
+    <!-- User messages -->
+    <div role="article" aria-label="You said: [message content]">...</div>
+
+    <!-- Draft card -->
+    <article aria-label="Draft version 1, not saved">
+      ...draft content...
+    </article>
+
+    <!-- Saved story card -->
+    <article aria-label="Saved story by [author], filed [timestamp]">
+      ...story content...
+    </article>
+  </div>
+
+  <!-- Streaming state announcement (separate from log) -->
+  <div aria-live="assertive" aria-atomic="true" class="sr-only">
+    <!-- Updated during streaming: "AI is generating your story..." -->
+    <!-- Updated on save: "Story saved successfully." -->
+  </div>
+
+  <!-- Input bar -->
+  <form aria-label="Send message">
+    <textarea
+      aria-label="Message input"
+      aria-describedby="input-hint"
+    />
+    <span id="input-hint" class="sr-only">
+      Press Enter or Ctrl+Enter to send
+    </span>
+    <button type="submit" aria-label="Send message">→</button>
+  </form>
+</main>
+```
+
+### Keyboard Navigation
+
+| Element | Key | Behavior |
+|---|---|---|
+| Input textarea | Tab | Focus input |
+| Input textarea | Ctrl+Enter | Send message |
+| Send button | Tab from textarea | Focus send |
+| Send button | Enter / Space | Send message |
+| Position-triggered buttons ("Tell your story →", "Not now") | Tab | Navigate between |
+| Position-triggered buttons | Enter / Space | Activate |
+| Escape hatch buttons | Tab | Navigate between |
+| Escape hatch buttons | Enter / Space | Activate |
+| Visibility selector buttons | Tab | Enter group |
+| Visibility selector buttons | Left / Right arrow | Navigate within group |
+| Visibility selector buttons | Enter / Space | Select |
+| Save story button | Tab from visibility | Focus |
+| Back to editing button | Tab from Save | Focus |
+| `[▷ Start /live]` in story card | Tab | Focus |
+| `[Copy link]` in session card | Tab | Focus |
+| Context chip (long text expand) | Enter / Space | Expand / collapse point text |
+| Show more / Show less in story card | Enter / Space | Expand / collapse |
+
+### Focus Management
+
+- On page load (position-triggered flow): focus moves to the input textarea after context chip renders.
+- On page load (direct flow): focus moves to the input textarea immediately.
+- After AI message renders: focus does NOT move automatically (screen reader will announce via `aria-live="polite"`).
+- After stream completes: status message `"AI response ready"` announced via `aria-live="assertive"` region.
+- After save: focus moves to the saved story card (`article` element with `tabindex="-1"` on the card, focus set programmatically). Announcement: `"Story saved successfully."` via assertive live region.
+- After `[Try again]` tapped: focus returns to the input textarea.
+- Modal/overlay: not used in this flow — no focus trap needed.
+
+### Color Contrast
+
+All colors use existing design system tokens. Verified patterns from codebase:
+- `text-gray-900` on `bg-white`: 15.3:1 (AAA)
+- `text-blue-600` on `bg-white`: 4.5:1 (AA)
+- `text-white` on `bg-blue-500`: 4.6:1 (AA) — primary button
+- `text-muted-foreground` on `bg-muted`: verified compliant in existing components
+- `text-blue-700` on `bg-blue-50`: 5.2:1 (AA) — draft card label
+
+Draft card version label uses `text-blue-700 dark:text-blue-300` to maintain contrast in both modes.
+
+### Screen Reader Announcements — Sequence
+
+1. User sends brain dump → `aria-live="assertive"`: `"Sending message..."`
+2. Stream starts → `aria-live="assertive"`: `"AI is generating your story"`
+3. Stream completes → `aria-live="polite"` (thread `role="log"`): draft card announced
+4. Escape hatch appears → `aria-live="polite"`: `"Option to save or keep refining available"`
+5. User taps Save → `aria-live="assertive"`: `"Saving story..."`
+6. Save completes → `aria-live="assertive"`: `"Story saved successfully."`
+
+---
+
+## Responsive Design
+
+### Mobile — 320px to 767px
+
+**Layout:** Single column, full-width.
+
+- Nav: existing mobile nav, unchanged.
+- Context chip: full width, `px-3 py-2`. Point text wraps. Position badge on second line if needed.
+- Thread: `px-4` horizontal padding. Draft cards: full width.
+- AI message bubble: left-aligned, max-width 85% of container, `bg-gray-100 rounded-lg px-3 py-2 text-sm`.
+- User message bubble: right-aligned, max-width 85%, `bg-blue-500 text-white rounded-lg px-3 py-2 text-sm`.
+- Draft card: full width, `rounded-lg border border-blue-200 bg-blue-50 p-4`.
+- Input bar: `fixed bottom-0 left-0 right-0 border-t border-border bg-background px-3 py-2`. Textarea + send button in a flex row.
+- Visibility selector: `flex flex-wrap gap-2`. Each button `flex-1 min-w-[80px] text-sm`.
+- Save / Back to editing: stacked vertically (`flex flex-col gap-2`). Save on top.
+- Story card footer CTAs: `flex flex-wrap gap-2 text-sm`.
+
+**Input auto-grow cap:** max-height 120px on mobile before scroll within textarea.
+
+### Tablet — 768px to 1023px
+
+**Layout:** Single column, max-width 640px centered.
+
+- Thread container: `max-w-2xl mx-auto px-4`.
+- Context chip: full width within container.
+- Draft cards: full width within container.
+- Rating area: same input field — no change needed.
+- Visibility selector: `flex gap-3` (single row, no wrap needed).
+- Save / Back to editing: `flex gap-3 flex-row-reverse` (Save on right, ghost on left — matches `CreateStoryPage` pattern).
+- Input bar: `max-w-2xl mx-auto` (not full-width — avoids text field stretching to 1023px).
+
+### Desktop — 1024px+
+
+**Layout:** Single column, max-width 640px centered.
+
+- Thread and input bar: same `max-w-2xl mx-auto` constraint.
+- No two-column layout (chat + point side-by-side) in V1.
+- `/live` back link (`← Story Guide`): positioned below the existing page nav, `text-sm text-blue-600 flex items-center gap-1` with `ArrowLeft` icon (16px). Only appears when navigated from `/chat`.
+- Context chip on desktop: slightly smaller font (`text-xs`) since screen real estate is generous — point text less likely to truncate.
+
+---
+
+## New Components Required
+
+### `StoryGuideChat`
+
+**File:** `src/app/components/story-guide/StoryGuideChat.tsx`
+
+**Props:**
+```typescript
+interface StoryGuideChatProps {
+  pointId?: string;          // undefined = Flow B (no position context)
+  userPosition?: PositionType; // undefined = Flow B
+  pointText?: string;        // for context chip display
+  onStoryConfirmed: (storyDraft: StoryDraft) => void;  // P419 hookable callback
+  onDismiss?: () => void;    // optional — if embedded (P428)
+}
+```
+
+**Encapsulates:** All phases of the loop. Manages its own phase state machine:
+`idle` → `brain-dump` → `streaming` → `rating` → `iterating` → `polish` → `visibility` → `saving` → `saved`
+
+**P428 embedding:** The component must not assume it is the full page. It renders a `div`, not a `page`. It must not call `useNavigate` for its own flow transitions (only for "Open as host →" in Flow D). It emits `onStoryConfirmed` and `onDismiss` for the embedding layer to handle.
+
+### `DraftCard`
+
+**File:** `src/app/components/story-guide/DraftCard.tsx`
+
+**Props:**
+```typescript
+interface DraftCardProps {
+  version: number;            // 1, 2, 3...
+  content: string;
+  status: 'draft' | 'polish';
+  linkedPointText?: string;
+  changeNote?: string;        // only for status='polish'
+}
+```
+
+Stateless display component. Renders the versioned card in the thread.
+
+### `SavedStoryChatCard`
+
+**File:** `src/app/components/story-guide/SavedStoryChatCard.tsx`
+
+**Props:**
+```typescript
+interface SavedStoryChatCardProps {
+  story: SavedStory;
+  onStartLive: (storyId: string) => void;
+  onEdit?: (storyId: string) => void;
+}
+```
+
+Renders the saved story card in the `/chat` thread. Distinct from `StoryCardWithLinks` (which is for profile/point-detail contexts) — this version includes `[▷ Start /live]` and session setup flow.
+
+---
+
+## Superseded Design History
+
+> The following sections document the original inline-panel design direction. They are preserved for historical context only. Do not implement these patterns.
+
+### Entry Point: Position-Triggered Prompt (superseded — do not implement)
+
+The original design placed a card inline below the position buttons on the point-detail page. Superseded by the navigation-to-`/chat` approach described above.
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -244,399 +1029,14 @@ This is a UI feature with Claude API integration and Supabase persistence.
 └─────────────────────────────────────────────────────┘
 ```
 
-- Background: `bg-blue-50 dark:bg-blue-900/20`, border: `border border-blue-200 dark:border-blue-800`, rounded-lg
-- "Explain why" button: primary, `bg-blue-500 text-white` — opens the AI chat interface inline (same page, below the prompt card, which then disappears)
-- "Not now" button: ghost/outline — dismisses the prompt silently. Position is already saved. No re-prompt for this session.
-- Prompt auto-dismisses if user navigates away
+### AI Chat Interface (superseded — inline panel, do not implement)
 
----
+The original design opened an inline panel below the point card on the point-detail page. All phases (brain dump, rating pills, options, polish, save) were implemented as an expanding panel within the point-detail page — not a separate page.
 
-### AI Chat Interface
+Key difference: rating was interactive pill buttons (0–10 row), not a text input. This was superseded: V1 ships with the user typing the rating into the standard input field to reduce component complexity and support the P428 overlay embedding constraint.
 
-**Layout:** Full-width panel that replaces the prompt card inline on the point-detail page. Not a modal. Not a new page. The point card with position buttons stays visible above as context — the chat opens below it.
+### Design System Notes (original — partially applies)
 
-**On mobile (320–767px):** Chat panel stacks vertically, takes full viewport width, scrollable. Point card stays anchored at top (sticky within the scroll context of the page).
-
-**On tablet (768–1023px):** Same vertical stack, max-width 600px centered.
-
-**On desktop (1024px+):** max-width 640px, left-aligned with the point card.
-
----
-
-#### Phase 1: Seeded Context + Brain Dump Input
-
-The chat opens pre-seeded. The first message is from the AI (not the user), already showing context:
-
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  [AI avatar]                                        │
-│  I see you marked yourself as [Agree] on:           │
-│                                                     │
-│  "Communication gaps are invisible to the           │
-│   person who created them."                         │
-│                                                     │
-│  What's your experience behind this? Brain-dump     │
-│  it — messy is fine, I'll help structure it.        │
-└─────────────────────────────────────────────────────┘
-│                                                     │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Type your thoughts here...                  │  │
-│  │  (any length, any order)                     │  │
-│  └──────────────────────────────────────────────┘  │
-│                               [Send →]              │
-└─────────────────────────────────────────────────────┘
-```
-
-- AI "avatar": small circular icon with a subtle spark/pen glyph (not a face — avoids anthropomorphism), label "AI Story Guide" in `text-xs text-muted-foreground`
-- Point text shown in the AI's opening message (truncated to ~100 chars with ellipsis if longer, full text on hover/tap)
-- Position badge shown inline (same `PositionBadge` component used elsewhere)
-- Textarea: auto-growing, min-height 80px, no character counter at this stage (brain dump is unconstrained)
-- Send button: enabled as soon as user types any non-whitespace character
-- No loading state shown yet (only shown after send)
-
----
-
-#### Phase 2: AI Story Draft + Rating
-
-After the user sends their brain dump, the AI streams back a structured first-person story. While streaming:
-
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  Here's what I understood:                          │
-│                                                     │
-│  I ask people if they understood me. They say       │
-│  yes. Then I ask them to explain it back. ░░░       │
-│  [streaming cursor — text fades in word by word]    │
-└─────────────────────────────────────────────────────┘
-```
-
-- Streaming: text appears word by word using a standard SSE/streaming approach. Cursor is a blinking `|` appended to the last word. The send button and textarea are disabled during streaming.
-- Once streaming completes, the rating prompt appears immediately below the story (no separate click needed):
-
-```
-┌─────────────────────────────────────────────────────┐
-│  How well does this capture what you meant?         │
-│                                                     │
-│   0   1   2   3   4   5   6   7   8   9   10       │
-│  [·] [·] [·] [·] [·] [·] [·] [·] [·] [·] [·]      │
-│                                                     │
-│  Tap a number to rate.                              │
-└─────────────────────────────────────────────────────┘
-```
-
-- Rating buttons: 11 buttons (0–10), displayed as a horizontal row of tappable pills
-- Each pill: 36×36px min touch target, `rounded-full`, unselected state `bg-muted text-foreground`, selected state `bg-blue-500 text-white ring-2 ring-blue-300`
-- On mobile, pills may wrap to two rows if needed (0–5 top, 6–10 bottom) — still functional
-- No submit button required — selecting a number immediately triggers the AI's rating-band response
-- Accessibility: `role="radiogroup"`, each button `role="radio"` with `aria-label="Rate {n} out of 10"`, `aria-checked` reflects selection
-
----
-
-#### Phase 3: Rating Band Response
-
-The AI responds to the rating in-chat. No page reload, no navigation. The response appears as a new AI message immediately after the selected rating is highlighted.
-
-**Rating = 10:**
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  Got it. Story complete.                            │
-│  Ready to polish and save?         [Yes, continue →]│
-└─────────────────────────────────────────────────────┘
-```
-
-**Rating 8–9:**
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  Almost there. What's missing?                      │
-│                                                     │
-│  A) The emotional weight wasn't quite right         │
-│  B) The sequence of events is off                   │
-│  C) It missed why this matters to me                │
-│  D) Other — I'll describe it                        │
-└─────────────────────────────────────────────────────┘
-```
-
-**Rating 5–7:**
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  I'm missing something. Here's what I'm             │
-│  uncertain about: was this about frustration with   │
-│  the listener, or isolation from being the only one │
-│  who checks?                                        │
-│                                                     │
-│  A) Frustration with the listener                   │
-│  B) Isolation — doing this alone                    │
-│  C) Both, but weighted differently                  │
-│  D) Other — I'll explain                            │
-└─────────────────────────────────────────────────────┘
-```
-
-**Rating < 5:**
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  I think I misunderstood significantly. Let me      │
-│  try again. What's the core thing I got wrong?      │
-│                                                     │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Type what I missed...                       │  │
-│  └──────────────────────────────────────────────┘  │
-│                               [Send →]              │
-└─────────────────────────────────────────────────────┘
-```
-
-**Options A/B/C/D display:**
-- Each option is a tappable button, full-width, left-aligned text, `bg-muted hover:bg-accent border border-border rounded-md px-3 py-2 text-sm`
-- "D) Other" always appears — tapping it opens a freetext textarea inline (same as brain dump input)
-- Selecting A/B/C immediately sends the selection and triggers a new AI story draft (no explicit submit)
-- Keyboard: Tab navigates options, Enter selects, Escape collapses to "Other" textarea
-
----
-
-#### Escape Hatch (after 3 attempts without rating 10)
-
-After the third iteration without reaching a 10 rating, the AI appends an escape hatch message:
-
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  We've been refining this a few times.              │
-│  Current rating: 7/10                               │
-│                                                     │
-│  [Save at current rating]    [Keep refining]        │
-└─────────────────────────────────────────────────────┘
-```
-
-- "Save at current rating": proceeds to the polish and visibility step with the current draft
-- "Keep refining": dismisses the escape hatch and shows a new freetext input so the user can redirect the AI
-- The escape hatch does not block — both options are equally accessible
-
----
-
-#### Phase 4: Polish Review + Visibility
-
-After the loop completes (rating 10, or user accepts escape hatch), the AI runs a silent polish pass and presents the result for review:
-
-```
-┌─── AI Story Guide ──────────────────────────────────┐
-│  Here's the polished version before I save it:      │
-│                                                     │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  I ask people if they understood me. They    │  │
-│  │  say yes. When I ask them to explain back,   │  │
-│  │  it falls apart. I'm tired of being the only │  │
-│  │  one who checks.                             │  │
-│  └──────────────────────────────────────────────┘  │
-│                                                     │
-│  Changes: removed repeated phrase in sentence 2,   │
-│  tightened final line.                              │
-└─────────────────────────────────────────────────────┘
-│                                                     │
-│  Visibility                                         │
-│  [🔒 Private ✓]  [👥 Shared]  [🌐 Public]           │
-│                                                     │
-│  Private: only you can see this                     │
-│                                                     │
-│  [Save story]                [Back to editing]      │
-└─────────────────────────────────────────────────────┘
-```
-
-- Polished story shown in a read-only card (`bg-muted rounded-lg p-4 text-sm`) — non-editable at this stage (editing would restart the loop, which is intentional friction)
-- "Changes" note: one sentence in `text-xs text-muted-foreground italic`, lists what the polish pass changed
-- Visibility selector: same component and styling as `CreateStoryPage` — three toggle buttons (Private / Shared / Public), **default: Private**
-- Tooltip on hover/tap for each visibility option (using existing `MobileTooltip` component)
-- "Save story": primary button, `bg-blue-500 text-white`, disabled while saving (shows spinner + "Saving...")
-- "Back to editing": ghost button — returns the user to the active chat iteration with the pre-polish draft, rating prompt reappears
-
----
-
-#### Phase 5: Confirmation State
-
-After save completes:
-
-```
-┌─────────────────────────────────────────────────────┐
-│  ✓  Story saved                                     │
-│                                                     │
-│  Your story is now linked to this point.            │
-│  Others can see your position is backed by a story. │
-│                                                     │
-│  [View story]              [Done]                   │
-└─────────────────────────────────────────────────────┘
-```
-
-- Success icon: `CheckCircle2` from lucide-react, `text-green-600`
-- "View story": navigates to `/story/{id}` (same pattern as post-create in `CreateStoryPage`)
-- "Done": dismisses the chat panel entirely, returns focus to the point detail page
-- The `PositionHolderCard` for the current user updates inline — "No story yet" label is replaced with a `StoryCardWithLinks` card (optimistic or via reload)
-
----
-
-### Screen Designs Summary
-
-#### Point Detail Page — After Position Staked
-
-```
-┌─────────────────────────────────────────────────────┐
-│  ← Back                                             │
-│                                                     │
-│  [Point card]                                       │
-│  "Communication gaps are invisible..."              │
-│  [Agree ✓] [Disagree] [Unsure]                      │
-│                                    [Share]          │
-└─────────────────────────────────────────────────────┘
-│                                                     │
-│  ┌── Want to explain why? ───────────────────────┐  │  ← NEW: inline prompt card
-│  │  Add a story so others understand your       │  │
-│  │  position, not just see the score.           │  │
-│  │                                              │  │
-│  │  [Explain why]          [Not now]            │  │
-│  └──────────────────────────────────────────────┘  │
-│                                                     │
-│  [Positions section with filter tabs]               │
-└─────────────────────────────────────────────────────┘
-```
-
-#### AI Chat Panel (open state)
-
-```
-┌─────────────────────────────────────────────────────┐
-│  [Point card — stays visible above]                 │
-└─────────────────────────────────────────────────────┘
-│                                                     │
-│  ┌── AI Story Guide ──────────────────────────────┐ │
-│  │  [Messages thread — scrollable]               │ │
-│  │  - AI seeded message                          │ │
-│  │  - User brain dump                            │ │
-│  │  - AI story draft + rating                    │ │
-│  │  - Rating band response                       │ │
-│  │  - (iterations...)                            │ │
-│  │  - Polish review + visibility                 │ │
-│  └────────────────────────────────────────────────┘ │
-│                                                     │
-│  [Input area — shown only during input phases]      │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
-### Edge Cases
-
-**User declines "Want to explain why?":**
-- Prompt dismissed immediately (no animation needed — just `display: none`)
-- Position already saved before prompt appeared — no side effects
-- No re-prompt for the same point in the same page session (tracked in local component state)
-- If user navigates back to the same point later, no prompt (they already declined this point + position combo — store in `sessionStorage` keyed by `pointId`)
-
-**User closes/navigates away mid-chat:**
-- Draft is NOT auto-saved to Supabase (no partial story rows)
-- Browser `beforeunload` warning: not shown (overly aggressive for this flow — just let them leave)
-- If they return to the same point, no chat reopens — the prompt has already been dismissed for this session
-
-**AI API fails or times out:**
-- During streaming: stop streaming, show error state inside the chat panel:
-  ```
-  ┌─── AI Story Guide ────────────────────────────┐
-  │  Something went wrong generating the story.  │
-  │  [Try again]                                  │
-  └───────────────────────────────────────────────┘
-  ```
-- "Try again" resends the last user message (retains the brain dump, no re-typing required)
-- After 2 consecutive failures: show "Try again later" with a "Save without AI" fallback that opens the existing `CreateStoryPage` with the point pre-linked
-
-**Save to Supabase fails:**
-- Error toast (using existing `sonner` toast): "Save failed. Please try again."
-- "Save story" button re-enables immediately
-- Visibility selection and polish text retained — user doesn't lose their work
-
-**User types nothing before sending:**
-- Send button remains disabled (no empty brain dump accepted)
-- No error message needed — the disabled state is self-explanatory
-
-**Story already exists for this point + user:**
-- No prompt shown (guard in `handlePositionClick`)
-- If user wants to update their story, that is a separate flow (out of scope for P425)
-
-**User not authenticated:**
-- Position buttons are already gated behind auth in the existing implementation — this flow inherits that gate
-- No additional auth prompt needed in the chat UI
-
-**Very long brain dump (>5000 characters):**
-- No hard limit shown to user during brain dump (open-ended by design)
-- If the API request fails due to length: show the same "Try again" error state; do not truncate silently
-
-**AI generates a story that contains verifiable factual claims:**
-- This is a prompt-level constraint (addressed in `/architect`), not a UI concern
-- No UI validation of story content — trust the AI to follow the sifter-story logic
-
-**Rating = 10 on first iteration:**
-- Loop completes immediately — no minimum iterations required
-- Proceed directly to polish review
-
----
-
-### Accessibility
-
-**Screen reader support:**
-- Chat panel has `role="log"` and `aria-live="polite"` — new AI messages are announced without interrupting user interaction
-- AI messages have `aria-label="AI Story Guide says: [message content]"`
-- Rating group: `role="radiogroup"` with `aria-label="How well does this capture what you meant? Rate from 0 to 10"`, each pill `role="radio"` with `aria-label="Rate [n] out of 10"` and `aria-checked`
-- Option buttons (A/B/C/D): `aria-label` includes the full option text
-- Streaming state: announce with `aria-live="assertive"` region: "AI is generating your story..."
-- Confirmation state: `aria-live="assertive"`: "Story saved successfully."
-
-**Keyboard navigation:**
-- "Explain why" prompt: Tab reaches both buttons, Enter activates
-- Chat input: Tab reaches textarea and Send button, Ctrl+Enter sends (alternative to clicking Send)
-- Rating pills: Tab enters the group, arrow keys navigate within (Left/Right), Enter/Space selects
-- Option buttons (A/B/C/D): Tab navigates, Enter selects; D (Other) opens textarea inline, focus moves to textarea automatically
-- Escape hatch: Tab reaches both buttons, Enter activates
-- Polish review: Tab through visibility options (arrow keys within group), then Tab to Save / Back to editing
-
-**Color contrast:**
-- All text meets WCAG AA (4.5:1 minimum)
-- Blue-500 on white for primary buttons: confirmed compliant
-- Muted foreground on card backgrounds: confirmed compliant (existing design system handles this)
-- Selected rating pill (white text on blue-500): confirmed compliant
-
-**Focus indicators:**
-- All interactive elements use existing `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` pattern (consistent with `point-detail-page.tsx`)
-- No custom focus overrides
-
-**Motor accessibility:**
-- All touch targets minimum 44×44px (buttons, rating pills, option buttons)
-- Rating pills on mobile: 36px diameter, 8px gap — total tap zone sufficient with padding
-- "Not now" and "Done" are never destructive actions — mis-taps are recoverable
-
----
-
-### Responsive Design
-
-**Mobile (320–767px):**
-- Point card: full width, existing mobile layout unchanged
-- Prompt card: full width, buttons stacked vertically (Explain why above, Not now below)
-- Chat panel: full width, no horizontal padding constraints
-- Rating pills: wrap into two rows if needed (0–5, 6–10) — still tappable
-- Option buttons (A/B/C/D): full width, stacked vertically
-- Visibility selector: three buttons displayed as a full-width flex row (equal width, can wrap)
-- "Save story" button: full width
-
-**Tablet (768–1023px):**
-- Prompt card and chat panel: max-width 600px, centered
-- Rating pills: single row of 11 pills (comfortably fits at this width)
-- Option buttons: full width within the max-width container
-- Visibility selector: inline row, no wrapping needed
-
-**Desktop (1024px+):**
-- Point detail page: existing max-width `max-w-lg` (512px) centered — chat panel inherits this constraint
-- Rating pills: single row, comfortable spacing
-- Prompt card: sits naturally within the max-width column
-- No two-column layout (chat and point side-by-side) in V1 — out of scope
-
----
-
-### Design System Notes
-
-- Uses existing components: `Dialog` (not used here — everything is inline), `Button`, `Textarea`, `MobileTooltip`, `PositionBadge`, `GravatarAvatar`, `toast` (sonner)
-- New component needed: `StoryGuideChat` — the full chat panel. Encapsulates all phases (brain dump → rating → options → polish → save). Self-contained, accepts `pointId`, `userPosition`, and `onComplete` / `onDismiss` props.
-- New component needed: `RatingPills` — the 0–10 rating row. Reusable in P419 and future specs.
-- Existing `VISIBILITY_OPTIONS` array and styling from `CreateStoryPage` can be imported directly — no duplication.
-- AI "Story Guide" avatar: use a simple `Sparkles` or `PenLine` icon from lucide-react in a `w-7 h-7 rounded-full bg-blue-100 text-blue-600` container. Do not use a human avatar — the AI is a tool, not a persona.
+- AI avatar: `Sparkles` or `PenLine` icon in `w-7 h-7 rounded-full bg-blue-100 text-blue-600` — this still applies.
+- `VISIBILITY_OPTIONS` from `CreateStoryPage` — still applies, imported directly.
+- `RatingPills` component — NOT built for V1. Rating is handled via the text input instead.

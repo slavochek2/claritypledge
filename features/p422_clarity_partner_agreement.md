@@ -5,11 +5,11 @@ rank: 8.0
 milestone: M2
 tags: [clarity-partner, agreement, co-founders, accountability, relationships]
 prepped_date: '2026-02-24'
-delivery_stage: ux-review
+delivery_stage: tests-review
 depends_on: [p424]
 reviews:
   ux: '2026-02-24'
-  architect: null
+  architect: '2026-02-24'
   alignment: null
 ---
 
@@ -63,17 +63,11 @@ reviews:
 - Any authenticated user can create a Clarity Partner Agreement and invite one other user as the second party
 - Agreement creation uses a flexible template text field: pre-suggested contract language covering minimum session length, frequency, response deadline, and optional expiry — but the text is fully editable; parties can exclude, rename, reword, or replace any variable, or add entirely new terms
 - Agreement is not active until both parties have accepted
-- Either party can file a session request at any time under an active agreement
-- Session requests are delivered as in-app notifications with email fallback (tracked delivery)
-- A /live session between the two parties automatically counts as fulfilling an open session request if at least one complete paraphrase round occurred — meaning both a listener estimate and a speaker rating were submitted. This mirrors the calibration counting logic. A session that starts but never reaches a completed paraphrase exchange does not count
-- No manual marking of sessions as fulfilled — attribution is automatic
-- Agreement creator selects visibility at creation: private (both parties + confirmed observers only) or public (anyone can view). "Shared" does not apply to agreements — there is no event context. Aligns with P424 visibility model
-- Creator can add observer emails at creation (or later); observers receive an invitation, must confirm their role (register + accept), and are then notified on deadline breach and "late" request state. Observers see: agreement existence, status, and breach notifications — not individual session content. Each observer invitation is a user acquisition opportunity
-- Both parties are stored as user references (not just emails), not ephemeral identifiers
-- Compliance data is tracked: requests filed, sessions completed, average response time
-- Agreement health view showing tracked compliance metrics is visible to both parties
-- Either party can terminate the agreement; both parties and observers are notified. No pause concept in V1
+- Agreement creator selects visibility at creation: private (both parties only) or public (anyone can view). "Shared" does not apply. Aligns with P424 visibility model
+- Both parties are stored as user references (not just emails)
+- Either party can terminate the agreement unilaterally; both parties are notified. No pause in V1
 - Agreements are discoverable on user profiles per visibility setting
+- Session requests, compliance tracking, and observer role are deferred to P429 and P430
 
 **Success conditions:**
 
@@ -84,12 +78,10 @@ reviews:
 
 **Constraints:**
 
-- V1 is strictly bilateral — no group agreements, no observer role (deferred)
+- V1 is strictly bilateral — no group agreements, no observer role (observer UX deferred to P430)
 - V1 does not build a general connections/network model — store user references only, do not create a connections graph
-- Fulfillment attribution is automatic and non-negotiable — no manual override in V1 (to prevent gaming)
-- Visibility model: private / public only (no "shared" — no event context for agreements). Private = both parties + confirmed observers. Public = anyone. Aligns with P424
-- Observer role is V1 (not deferred). Observers are read-only; they cannot file requests. Observer invitation = user acquisition path
-- Natural onboarding path: commitment to the agreement presupposes experience with /live sessions. The product does not block invitations technically, but the design and copy should guide toward "experience /live first, then formalize." The path to the agreement ideally runs through specific /live sessions and stories that build shared understanding of what the contract means
+- Visibility model: private / public only (no "shared" — no event context for agreements). Aligns with P424
+- Natural onboarding path: the product does not block invitations technically, but design and copy guide toward "experience /live first, then formalize"
 
 ---
 
@@ -182,43 +174,20 @@ I want to understand clearly what I'm committing to and what happens if I don't 
 - [ ] Both parties are stored as user references (not ephemeral identifiers)
 - [ ] Both parties receive confirmation when the agreement becomes active
 
-**Session Requests:**
-- [ ] Either party under an active agreement can file a session request
-- [ ] Filed request is delivered to the other party (in-app notification + email fallback) and delivery is tracked
-- [ ] Recipient can respond to a session request by booking a /live session
-- [ ] Open session requests are visible to both parties
-
-**Session Fulfillment:**
-- [ ] A /live session between the two parties automatically closes the oldest open session request if at least one complete paraphrase round occurred (listener estimate + speaker rating both submitted)
-- [ ] Automatic attribution requires no manual action from either party
-- [ ] Fulfilled session is recorded with timestamp and session reference
-
-**Compliance Tracking:**
-- [ ] Both parties can view: total requests filed, total sessions completed, average response time vs. configured deadline
-- [ ] Compliance data is updated automatically when sessions are completed
-- [ ] Agreement health view is accessible to both parties only (regardless of agreement visibility setting)
-
 **Visibility:**
-- [ ] Public agreements are visible on both parties' profiles to any authenticated user
-- [ ] Semi-public agreements are visible on profiles only to 2nd-degree connections (defined by /live session history)
-- [ ] Non-parties can see agreement existence and status but NOT compliance details
-
-**Observers:**
-- [ ] Observers receive an email invitation with the agreement terms and an explicit "accept observer role" action
-- [ ] Accepted observers are notified when: a session request goes "late" (deadline passed), agreement is terminated, agreement expires
-- [ ] Observers see: agreement existence, status, "late" flags — not individual session content or compliance scores
-- [ ] Observer invitation is a user acquisition path — non-registered observers are prompted to sign up on acceptance
+- [ ] Public agreements are visible on both parties' profiles to any viewer (no auth required for public)
+- [ ] Private agreements are visible only to both parties — not to profile visitors
+- [ ] Non-parties viewing a public agreement can see: certificate, both names, status. NOT compliance details.
 
 **Lifecycle:**
-- [ ] Either party can terminate an agreement; both parties and observers are notified; agreement is archived not deleted
-- [ ] Expired agreements (optional expiry date reached) are automatically archived
-- [ ] Terminated or expired agreements remain viewable as history by both parties
+- [ ] Either party can terminate an agreement unilaterally — no consent from the other party required; both parties are notified after termination; agreement is archived not deleted
+- [ ] Terminated agreements remain viewable as history by both parties
 - [ ] No pause concept in V1
 
 **Constraints validation:**
-- [ ] V1 rejects any attempt to add more than 2 parties to a single agreement
+- [ ] V1 is strictly bilateral — no group agreements, no observer role (deferred to P430)
 - [ ] No manual override for session fulfillment attribution exists in V1 UI
-- [ ] Invitation flow design and copy guides toward "experience /live first, then formalize" — no technical block, but UX should make the prerequisite clear
+- [ ] Invitation flow design and copy guides toward "experience /live first, then formalize" — no technical block, but UX should make the path clear
 
 ---
 
@@ -231,10 +200,18 @@ All resolved before UX:
 3. **Non-acceptance:** Inviting party is notified of decline. Decline triggers a prompt toward scheduling a /live session first.
 4. **Privacy model:** Private / Public only — "Shared" does not apply (no event context for agreements). Aligned with P424. Private = both parties + confirmed observers only.
 5. **Deadline breach:** Notification to both parties + "late" state on the open request. Observers also notified.
-6. **Observers in V1** (not deferred): Read-only, invited by email, must explicitly accept observer role. Notified on breach / "late" / termination / expiry. Non-registered observers are prompted to sign up on acceptance — user acquisition path.
-7. **Violation / breach status:** No auto-breach label on the agreement. Terms are free-text — the app cannot know what constitutes a violation. Instead: "late" badges accumulate visibly on open requests; observers and both parties see them. The agreement stays "active" until someone explicitly terminates. The friction of terminating is itself meaningful. If repeated "late" state is present, observers can intervene. This IS the graceful degradation mechanism.
-8. **Email notifications:** Extend existing Mailgun infrastructure (built for event cancellations). No new notification system needed — add agreement-specific templates alongside existing event templates.
-9. **Session tracking readiness:** Confirmed via codebase analysis. `clarity_sessions` already stores `creator_profile_id` + `joiner_profile_id` (UUID FKs). `clarity_demo_rounds` stores `speaker_rating` + `listener_self_rating` — both submitted = completed round. Query to detect "users A+B completed a round together" is straightforward. New tables needed: `clarity_agreements`, `agreement_session_requests`, `agreement_fulfillments`. RPC needed for auto-fulfillment detection. Chat verifications require a message join (minor, not blocking).
+6. **Observers deferred to P430.** P422 ships sign + view only. Observer invitation, confirmation flow, notifications, and breach visibility are P430's scope.
+7. **Termination is unilateral and immediate.** Either party can terminate without consent from the other. The other party is notified after. Bilateral agreements cannot require mutual exit consent — that would trap people. Termination IS the communication.
+8. **Violation / breach status:** No auto-breach label on the agreement. Terms are free-text — the app cannot know what constitutes a violation. Instead: "late" badges accumulate visibly on open requests (P429). The agreement stays "active" until someone explicitly terminates. The friction of terminating is itself meaningful.
+9. **Email notifications:** Extend existing Mailgun infrastructure (built for event cancellations). No new notification system needed — add agreement-specific templates alongside existing event templates.
+10. **Session tracking readiness (for P429):** `clarity_sessions` already stores `creator_profile_id` + `joiner_profile_id` (UUID FKs). `clarity_demo_rounds` stores `speaker_rating` + `listener_self_rating` — both submitted = completed round. Query to detect "users A+B completed a round together" is straightforward. New tables needed in P429: `agreement_session_requests`, `agreement_fulfillments`.
+11. **Certificate text:** Bilaterally adapted from v3 pledge. "I...commit to everyone" → "We...commit to each other." "MY PROMISE" → "OUR PROMISE." YOUR RIGHT reworded for bilateral voice. Same tagline "We all crave being understood."
+12. **Terms section label:** "Our terms:" — these are the protocol (scope, frequency, format, channel, violation handling), not additions to the pledge.
+13. **Default terms template:** Full 6-variable template covering scope, session duration (15 min), frequency, first /live commitment (within 30 days), response time (14 days), communication channel, violation protocol, auto-renewal. Max 1000 chars. Bracketed variables bolded to signal editability. We learn from what users keep, change, or add over time.
+14. **Auto-renewal:** Default is auto-renewing until either party terminates. No expiry date in template by default.
+15. **Co-sign = registration:** Unauthenticated partners create an account inline on the acceptance page — no redirect. ToS accepted as part of account creation. Same pattern as Clarity Pledge sign-up.
+16. **Post-signing /live CTA:** Non-blocking text link on pending page and celebration dialog. Pre-filled Google Calendar URL. Optional, not a gate.
+17. **"By creating, you agree to Terms":** Removed from creation form — redundant for authenticated users; covered by inline account creation for new partners.
 
 ---
 
@@ -242,16 +219,17 @@ All resolved before UX:
 
 This is a UI feature with backend persistence and automation logic.
 
-1. Run `/ux features/p422_clarity_partner_agreement.md` — design agreement creation flow, invitation/acceptance screens, session request flow, compliance view, and profile visibility
-2. Run `/architect features/p422_clarity_partner_agreement.md` — data model (agreements, requests, fulfillment), session attribution automation, visibility logic, notification system
+1. ✅ UX complete — agreement creation, invitation/acceptance, pending state, active certificate, profile display
+2. Run `/architect features/p422_clarity_partner_agreement.md` — data model (`clarity_agreements` table), visibility logic, invitation token system, email notifications, inline registration on acceptance
 3. Run `/generate-tests features/p422_clarity_partner_agreement.md` — test coverage including compliance automation and visibility rules
 4. Run `/dev features/p422_clarity_partner_agreement.md` — implement
 
 **Related features:**
 - P419 / P420 (Filing Chat) — users need stories in the system before /live sessions are meaningful
 - P421 (Pre-Session Safety Check) — runs before /live sessions that fulfill agreement requests
-- Future: Connections model (P-TBD) — agreement user references will seed this
-- Future: Observer role (P-TBD) — third party visibility into agreement compliance
+- P429 (Session Requests + Compliance) — extends P422 with request filing, fulfillment attribution, and health view
+- P430 (Observers) — extends P422 with observer invitation, confirmation, and breach notifications
+- P431 (Connections Model) — agreement user references will seed the social graph
 
 ---
 
@@ -259,7 +237,7 @@ This is a UI feature with backend persistence and automation logic.
 
 ### Overview
 
-The Clarity Partner Agreement UX is built on two core ideas: (1) the agreement IS the Clarity Pledge, scoped to a specific person, so the same certificate frame and pledge text are reused without modification; (2) signing feels like a ceremony, not a form — the document is the interface. All screens inherit the double-border certificate frame, Playfair Display serif for commitment text, cream (#FDFBF7) background, navy (#002B5C), and blue (#0044CC) from the existing pledge design system.
+The Clarity Partner Agreement UX is built on two core ideas: (1) the agreement IS the Clarity Pledge adapted bilaterally — same certificate frame, same pledge text structure, but reworded from "I commit to everyone" to "We commit to each other"; (2) signing feels like a ceremony, not a form — the document is the interface. All screens inherit the double-border certificate frame, Playfair Display serif for commitment text, cream (#FDFBF7) background, navy (#002B5C), and blue (#0044CC) from the existing pledge design system.
 
 The visibility toggle uses exactly the same three-option radio group as create-story-page: Private | Shared | Public, same icon/label/tooltip, same selected state (blue border + blue-50 background + blue-700 text), same unselected state (border-input + muted text). For agreements, only Private and Public are wired — Shared is present in the component but disabled with a tooltip explaining it does not apply to bilateral agreements.
 
@@ -313,8 +291,11 @@ Acceptance page (/agreements/[id]/accept)
   │    │    ▼
   │    │  Agreement certificate view (/agreements/[id])
   │    │
-  │    └─ New user: trigger registration flow (magic link or Google)
-  │         → on auth: activation + celebration dialog
+  │    └─ New user: inline account creation directly on acceptance page
+  │         (name + email + password fields appear below the certificate frame,
+  │          same form as sign-pledge-page registration — no redirect)
+  │         Terms of service are accepted as part of account creation, not separately.
+  │         → on account creation: agreement activated + celebration dialog
   │
   └─ [Decline] →
        ▼
@@ -388,23 +369,32 @@ Inside the frame, top-to-bottom:
 - "A Bilateral Commitment" — 10px/12px, uppercase, letter-spacing 0.2em, #1A1A1A/60
 - Bottom border: 2px solid #002B5C, mb-4/6
 
-**Pledge text section (full pledge text, rendered identically to sign-pledge-form.tsx):**
+**Pledge text section (bilaterally adapted pledge text — NOT a reuse of the existing components verbatim):**
+
+The certificate opens with the v3 pledge tagline and then uses bilaterally adapted wording:
 
 ```
-I, [creator name — read-only, shown as bold text, not an input], hereby commit
-to everyone—including strangers, people I disagree with, and even those I dislike:
+We all crave being understood. Let's commit to listen.
+
+We, [Creator Full Name] and [Partner Full Name — gray italic placeholder until accepted],
+hereby commit to each other:
 
 YOUR RIGHT
-[YourRightTextTailwind — same component, v3]
+When we speak, if either of us needs to know the other truly understood them,
+we can ask to have it mirrored back.
 
-MY PROMISE
-[MyPromiseTextTailwind — same component, v3]
+OUR PROMISE
+We will explain back what we think the other meant—withholding judgment or
+criticism—so they can confirm or correct us. We won't pretend to understand
+if we don't.
 
 THE EXCEPTION
-[ExceptionTextTailwind — same component]
+If either of us can't keep this promise in the moment, we'll explain why.
 ```
 
-The creator's name is pre-filled from their profile and shown as bold serif text (not an editable input). It is not a form field — it comes from the authenticated user's profile. If no name is set, show a red inline error: "Please add your name in Settings before creating an agreement."
+Creator name: pre-filled from profile, rendered as bold serif (not an input). If no name is set, show inline error: "Please add your name in Settings before creating an agreement."
+
+Partner name: shown as gray italic "[Partner Name]" placeholder in the opening line at creation time. Populated with the partner's actual name once they accept.
 
 **"Specifically with:" subsection (inside the frame, after the pledge text):**
 
@@ -418,16 +408,33 @@ Partner email input:
   - Not found: show "New user — they'll be invited to register when they accept." in muted text
   - Loading: pulsing skeleton row
 
-**"I additionally commit to:" subsection (inside the frame):**
+**"Our terms:" subsection (inside the frame):**
 
-Heading: "I additionally commit to:" — text-sm, #1A1A1A/70.
+Heading: "Our terms:" — text-sm, #1A1A1A/70.
+
+These are not additions to the pledge — they define the protocol: when the pledge applies, how often, in what format, how violations are handled. The creator fills this; both parties commit to it on signing.
 
 Terms textarea:
-- Pre-filled default: `"We commit to honoring each other's session requests within 14 days."`
+- Pre-filled default template (fully editable — users delete what doesn't fit, keep what does; we learn from what they change over time):
+
+```
+This agreement applies to: [all our conversations / our /live sessions only / our business meetings / our product decisions].
+
+We commit to at least one /live session of [15 minutes] per [month] as our regular moment to surface issues and maintain shared clarity.
+
+Our first commitment is to do a /live session together within [30 days].
+
+When either of us requests a session, the other will respond within [14 days]. Requests are made via: [email / direct message / WhatsApp].
+
+If either of us can't honor the pledge in the moment, we will [say so and reschedule / explain why in writing].
+
+This agreement renews automatically and remains valid until either party terminates it.
+```
+
+- Bracketed `[values]` are shown in bold to signal "edit this variable"
 - Underline-only style: border-0 border-b-2 border-[#1A1A1A] rounded-none bg-transparent focus-visible:ring-0 focus-visible:border-[#0044CC] resize-none
-- Min rows: 3, auto-expands
-- Character count: shown bottom-right, max 500 characters
-- The number "14" in the default text is visually bolded to signal it is the key editable variable, but the entire text is freely editable
+- Min rows: 6, auto-expands
+- Character count: shown bottom-right, max 1000 characters (increased from 500 to accommodate the full template)
 
 **Bottom section of frame (separated by 2px solid #002B5C border-top, matching pledge form):**
 
@@ -453,7 +460,6 @@ Submit button (matching sign-pledge-form.tsx):
 ```
 - Full width, bg-[#002B5C] hover:bg-[#001f45], text-white, font-semibold, text-base md:text-lg, py-4 md:py-6
 - Loading state: "Sealing..." with pulse animation
-- Below button: helper text "By creating, you agree to our Terms & Privacy." — 10px/12px, centered, muted, same style as pledge form
 
 **Error states inside the frame:**
 - Partner email invalid: "Please enter a valid email address." — red, below the input
@@ -507,6 +513,15 @@ claritypledge.com/agreements/[id]  [Copy Link]
 - Shareable URL shown in a muted input-like display (read-only, click-to-copy)
 - [Copy Link] button: outline variant, small
 - Success state: button changes to "Copied!" with checkmark for 2 seconds
+
+**First session CTA (below the share row):**
+```
+✦ Ready to experience what you just committed to?
+  [Schedule your first /live session →]
+```
+- Subtle, not prominent — muted text + text link (not a button)
+- Link: pre-filled Google Calendar event URL with title "Clarity /live session — [Creator] & [Partner]", duration 30 min
+- This is the post-signing /live nudge. No gate — it's optional.
 
 **Expiry state (after 7 days, no acceptance):**
 
@@ -646,6 +661,7 @@ Shown as a dialog overlay immediately after co-signature, for both parties. Crea
 - Mini-certificate inside the dialog: smaller version of the frame, navy border, cream bg
 - [View Agreement]: primary button, navigates to /agreements/[id]
 - Dialog closes on [View Agreement] click or outside-click (but not on Escape accidentally — the ✦ moment should feel intentional)
+- Below [View Agreement]: secondary text link "Schedule your first /live session →" (same pre-filled Google Calendar URL as pending page). Muted, smaller. Optional — not required to close the dialog.
 
 ---
 
@@ -920,10 +936,14 @@ All copy references in this section are the exact strings to use:
 | Certificate header title | "Clarity Partner Agreement" |
 | Certificate header subtitle | "A Bilateral Commitment" |
 | "Specifically with:" label | "Specifically with:" |
-| "I additionally commit to:" label | "I additionally commit to:" |
-| Terms default text | "We commit to honoring each other's session requests within 14 days." |
+| Terms section label | "Our terms:" |
+| Terms default text | (see terms template in section 2.1) |
 | Submit button | "Seal & Invite Partner ✦" |
 | Submitting state | "Sealing..." |
+| First session CTA text | "✦ Ready to experience what you just committed to?" |
+| First session CTA link | "Schedule your first /live session →" |
+| Celebration dialog secondary link | "Schedule your first /live session →" |
+| Inline registration label (acceptance page) | "Create your account to co-sign" |
 | Visibility Private tooltip | "Only you and your partner can view this agreement." |
 | Visibility Public tooltip | "Anyone can view this agreement on your public profile." |
 | Visibility Shared tooltip (disabled) | "Shared visibility does not apply to bilateral agreements." |
@@ -957,6 +977,483 @@ All copy references in this section are the exact strings to use:
 
 ---
 
+## Architecture
+
+> Authored: 2026-02-24 | Scope: P422 sign + view only (P429 session requests, P430 observers deferred)
+
+---
+
+### 1. Database Schema
+
+#### 1.1 `clarity_agreements` table
+
+```sql
+CREATE TABLE public.clarity_agreements (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Parties (both stored as profile UUIDs)
+  creator_profile_id  UUID NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
+  partner_profile_id  UUID REFERENCES public.profiles(id) ON DELETE RESTRICT,
+  -- partner_profile_id is NULL while invitation is pending for a non-registered partner.
+  -- It is set when the partner accepts (creates account or logs in).
+
+  -- Invitation target (always stored; used for lookup on acceptance)
+  partner_email       TEXT NOT NULL,  -- the email the invitation was sent to
+
+  -- Agreement content
+  terms_text          TEXT NOT NULL CHECK (char_length(terms_text) <= 1000),
+
+  -- Status lifecycle: pending → active | declined | expired | terminated
+  status              TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (status IN ('pending', 'active', 'declined', 'expired', 'terminated')),
+
+  -- Visibility: private or public (no "shared" — per spec decision 4)
+  visibility          TEXT NOT NULL DEFAULT 'private'
+                        CHECK (visibility IN ('private', 'public')),
+
+  -- Invitation token for the acceptance URL
+  -- UUID stored as text for URL-safe use; rotated on Resend Invitation
+  invitation_token    TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+  invitation_expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '7 days'),
+
+  -- Timestamps
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  partner_signed_at   TIMESTAMPTZ,          -- set when partner accepts
+  terminated_at       TIMESTAMPTZ,          -- set when either party terminates
+  terminated_by       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+
+  -- Display short ID — A-NNNN format, display only (not used in URLs)
+  -- Generated as a zero-padded sequence via a trigger (see 1.3 below)
+  display_id          TEXT UNIQUE
+);
+
+CREATE INDEX idx_clarity_agreements_creator     ON public.clarity_agreements(creator_profile_id);
+CREATE INDEX idx_clarity_agreements_partner     ON public.clarity_agreements(partner_profile_id);
+CREATE INDEX idx_clarity_agreements_token       ON public.clarity_agreements(invitation_token);
+CREATE INDEX idx_clarity_agreements_partner_email ON public.clarity_agreements(partner_email);
+CREATE INDEX idx_clarity_agreements_status      ON public.clarity_agreements(status);
+```
+
+**Design notes:**
+
+- `partner_profile_id` is nullable while pending for unregistered partners. It is populated on acceptance. This avoids the need for a separate "pending_partners" table and mirrors how the existing app handles pre-registration flows (profile created at auth callback).
+- `partner_email` is always stored. On acceptance by an authenticated user, the service layer matches email → profile.id and sets `partner_profile_id`.
+- `invitation_token` is a UUID (not the agreement `id`) so the token can be rotated on resend without changing the agreement URL (`/agreements/[id]`).
+- `display_id` (A-0042 format) is generated by a trigger on INSERT. It is display-only — URLs use `id` (UUID).
+- No `expiry_date` field for the agreement itself per decision 14 (auto-renewing until terminated).
+- `terms_text` max 1000 chars enforced at DB level (spec decision 13; note spec section 3.10 says 500 chars — use 1000 to match spec decision 13 and UX spec 2.1 which says "increased from 500 to 1000").
+
+#### 1.2 Short Display ID trigger
+
+```sql
+-- Sequence for the numeric part of A-NNNN
+CREATE SEQUENCE IF NOT EXISTS clarity_agreements_display_seq START 1;
+
+CREATE OR REPLACE FUNCTION trg_set_agreement_display_id()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.display_id := 'A-' || LPAD(nextval('clarity_agreements_display_seq')::text, 4, '0');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_agreement_display_id
+  BEFORE INSERT ON public.clarity_agreements
+  FOR EACH ROW
+  WHEN (NEW.display_id IS NULL)
+  EXECUTE FUNCTION trg_set_agreement_display_id();
+```
+
+#### 1.3 No additional tables in P422
+
+The following tables are **deferred** — do not create in this migration:
+- `agreement_session_requests` — P429
+- `agreement_fulfillments` — P429
+- `agreement_observers` — P430
+
+---
+
+### 2. RLS Policies
+
+```sql
+ALTER TABLE public.clarity_agreements ENABLE ROW LEVEL SECURITY;
+
+-- ── SELECT ────────────────────────────────────────────────────────────────────
+
+-- Public agreements: readable by anyone (unauthenticated included)
+-- Private agreements: readable only by the two parties
+-- Pending/expired agreements: readable by creator (and partner via token — handled in app layer)
+CREATE POLICY "Agreements readable by visibility and parties"
+  ON public.clarity_agreements FOR SELECT
+  USING (
+    visibility = 'public'
+    OR creator_profile_id = auth.uid()
+    OR partner_profile_id = auth.uid()
+  );
+
+-- ── INSERT ────────────────────────────────────────────────────────────────────
+
+-- Any authenticated user can create an agreement
+CREATE POLICY "Authenticated users can create agreements"
+  ON public.clarity_agreements FOR INSERT
+  WITH CHECK (
+    auth.uid() IS NOT NULL
+    AND creator_profile_id = auth.uid()
+  );
+
+-- ── UPDATE ────────────────────────────────────────────────────────────────────
+
+-- Only parties can update. Specific column guards are enforced in service layer.
+-- (RLS cannot restrict which columns are updated, only which rows)
+CREATE POLICY "Parties can update their agreements"
+  ON public.clarity_agreements FOR UPDATE
+  USING (
+    creator_profile_id = auth.uid()
+    OR partner_profile_id = auth.uid()
+  );
+
+-- ── DELETE ────────────────────────────────────────────────────────────────────
+
+-- No delete — agreements are archived (status = terminated/declined/expired), never deleted.
+-- This policy intentionally absent. Hard delete is not permitted.
+```
+
+**Column-level authorization (enforced in service layer, not RLS):**
+
+| Operation | Who can do it | Columns affected |
+|-----------|--------------|-----------------|
+| Accept agreement | Partner only | `partner_profile_id`, `partner_signed_at`, `status → active` |
+| Decline agreement | Partner only (via token, unauthenticated OK) | `status → declined` |
+| Terminate agreement | Either party | `status → terminated`, `terminated_at`, `terminated_by` |
+| Resend invitation | Creator only | `invitation_token`, `invitation_expires_at` |
+| Mark expired | Service role (edge function) or app layer | `status → expired` |
+
+Service-layer checks: before any UPDATE, fetch the agreement and assert the caller's `auth.uid()` matches the expected party for the operation.
+
+**Token-based access (decline/accept for unauthenticated partners):**
+
+The acceptance page is accessible without authentication — the partner reads the agreement before deciding to create an account. The edge function (or service layer with service role) handles the `status` transition when the token matches and has not expired. This means:
+- The frontend passes the invitation token to the edge function.
+- The edge function uses the **service role key** to perform the status update (bypasses RLS).
+- The token is validated server-side: `invitation_token = $token AND invitation_expires_at > now() AND status = 'pending'`.
+
+---
+
+### 3. API Layer
+
+#### 3.1 Pattern decision
+
+New features use the **interface-based service pattern** (`src/app/data/{domain}-service*.ts`). P422 introduces `agreements-service`. It follows the same structure as `events-service`.
+
+Token-sensitive operations (accept, decline by unauthenticated user) are handled by a new **Supabase Edge Function** (`send-agreement-emails`) that also sends Mailgun emails. This mirrors the `send-event-emails` pattern exactly.
+
+#### 3.2 Service interface — `src/app/data/agreements-service.interface.ts`
+
+```typescript
+export type AgreementStatus = 'pending' | 'active' | 'declined' | 'expired' | 'terminated';
+export type AgreementVisibility = 'private' | 'public';
+
+export interface AgreementParty {
+  profileId: string;
+  name: string;
+  slug: string | null;
+  avatarColor: string;
+  avatarUrl: string | null;
+  hasPledged: boolean;
+}
+
+export interface ClarityAgreement {
+  id: string;
+  displayId: string;           // e.g. "A-0042"
+  creatorProfileId: string;
+  partnerProfileId: string | null;
+  partnerEmail: string;
+  termsText: string;
+  status: AgreementStatus;
+  visibility: AgreementVisibility;
+  invitationToken: string;
+  invitationExpiresAt: string;
+  createdAt: string;
+  partnerSignedAt: string | null;
+  terminatedAt: string | null;
+  terminatedBy: string | null;
+  // Joined data (populated by service, not stored)
+  creator: AgreementParty | null;
+  partner: AgreementParty | null;
+}
+
+export interface CreateAgreementInput {
+  partnerEmail: string;
+  termsText: string;
+  visibility: AgreementVisibility;
+}
+
+export interface AgreementsService {
+  // Creator creates a new agreement
+  createAgreement(input: CreateAgreementInput): Promise<ClarityAgreement | null>;
+
+  // Fetch a single agreement by UUID (used for /agreements/[id] route)
+  // Returns null if not found or caller lacks access
+  getAgreement(id: string): Promise<ClarityAgreement | null>;
+
+  // Fetch an agreement by invitation token (unauthenticated access for acceptance page)
+  // Returned only if token is valid and status is pending
+  getAgreementByToken(token: string): Promise<ClarityAgreement | null>;
+
+  // Get all agreements for a given profile (for profile page display)
+  // Visibility filtering is applied: private ones returned only if viewer is a party
+  getAgreementsForProfile(profileId: string, viewerProfileId: string | null): Promise<ClarityAgreement[]>;
+
+  // Lookup user by email (for live user lookup on creation form)
+  lookupUserByEmail(email: string): Promise<AgreementParty | null>;
+
+  // Check if creator already has an active agreement with the given email
+  hasActiveAgreementWith(creatorProfileId: string, partnerEmail: string): Promise<boolean>;
+
+  // Resend invitation (creator only) — rotates token, extends expiry
+  resendInvitation(agreementId: string): Promise<boolean>;
+
+  // Terminate an agreement (either party)
+  terminateAgreement(agreementId: string): Promise<boolean>;
+}
+```
+
+#### 3.3 Real service — `src/app/data/agreements-service-real.ts`
+
+Key implementation notes:
+
+**`createAgreement`:**
+1. Assert `auth.uid()` is not null.
+2. Validate `partnerEmail !== currentUser.email` (cannot invite yourself).
+3. Check `hasActiveAgreementWith(uid, partnerEmail)` — return error if duplicate active exists.
+4. INSERT into `clarity_agreements` with `creator_profile_id = auth.uid()`.
+5. Fire-and-forget: `invokeAgreementEmails('invitation', agreementId)`.
+6. Return the created agreement with joined creator profile.
+
+**`getAgreement`:**
+- Single SELECT joining profiles for both creator and partner.
+- RLS enforces access. If RLS blocks (private, non-party), Supabase returns empty — service returns null.
+- Expired check: if `status = 'pending' AND invitation_expires_at < now()`, the service marks it expired on read (lazy expiry — no cron needed for V1). UPDATE `status = 'expired'` via service role or the UPDATE RLS policy (creator can do this update since they are a party).
+
+**`getAgreementByToken`:**
+- Uses unauthenticated Supabase client (anon key) for the SELECT.
+- Filters: `invitation_token = $token AND status = 'pending' AND invitation_expires_at > now()`.
+- Returns the agreement with joined creator profile (no partner profile yet, they haven't signed).
+- Does NOT use auth session — this is the public acceptance URL.
+
+**`getAgreementsForProfile`:**
+- SELECT all agreements where `creator_profile_id = profileId OR partner_profile_id = profileId`.
+- Filter out private agreements where `viewerProfileId` is not one of the two parties.
+- Order: active first, then pending (creator's own profile only), then terminated (history).
+- For non-owner visitors: return only `status IN ('active')` with `visibility = 'public'`.
+
+**`terminateAgreement`:**
+1. Fetch agreement, assert caller is `creator_profile_id` or `partner_profile_id`.
+2. UPDATE `status = 'terminated', terminated_at = now(), terminated_by = auth.uid()`.
+3. Fire-and-forget: `invokeAgreementEmails('terminated', agreementId)`.
+
+#### 3.4 Feature flag
+
+```typescript
+// src/app/data/agreements-service.ts
+const USE_REAL_API = import.meta.env.VITE_USE_REAL_AGREEMENTS_API === 'true';
+export const agreementsService: AgreementsService = USE_REAL_API ? realService : mockService;
+```
+
+Add `VITE_USE_REAL_AGREEMENTS_API=true` to `.env.local`.
+
+---
+
+### 4. Edge Function — `send-agreement-emails`
+
+Mirrors `send-event-emails` pattern exactly. New Deno edge function at:
+
+```
+supabase/functions/send-agreement-emails/index.ts
+```
+
+**Actions handled:**
+
+| Action | Trigger | Recipients | Template |
+|--------|---------|-----------|----------|
+| `invitation` | Agreement created | `partner_email` | "[Creator] invited you to a Clarity Partner Agreement" with acceptance link |
+| `accepted` | Partner accepts | creator email | "[Partner] co-signed your agreement. It's now active." |
+| `declined` | Partner declines | creator email | "[Partner] declined your agreement. Consider /live first." |
+| `terminated` | Either party terminates | both parties | "Your Clarity Partner Agreement has been terminated." |
+| `resend` | Creator resends | `partner_email` | Same as `invitation` with refreshed token |
+
+**From address:** `agreements@${MAILGUN_DOMAIN}` — new sender persona, consistent with event emails.
+
+**Acceptance link format:** `https://claritypledge.com/agreements/[id]/accept?token=[invitation_token]`
+
+**Service role usage:** The edge function uses `SUPABASE_SERVICE_ROLE_KEY` (same as `send-event-emails`). For the `accept` and `decline` actions triggered by unauthenticated partners, the function validates the token and updates `status` directly — bypassing RLS.
+
+**Invoke from frontend:** New helper at `src/lib/agreement-emails.ts`:
+
+```typescript
+export async function invokeAgreementEmails(
+  action: 'invitation' | 'accepted' | 'declined' | 'terminated' | 'resend',
+  agreementId: string
+): Promise<void> {
+  try {
+    const { error } = await supabase.functions.invoke('send-agreement-emails', {
+      body: { action, agreementId },
+    });
+    if (error) console.error('[agreement-emails] Edge function error:', error);
+  } catch (err) {
+    console.error('[agreement-emails] Invoke failed:', err);
+  }
+}
+```
+
+**Accept/Decline via edge function (unauthenticated path):**
+
+The acceptance page calls the edge function directly with `{ action: 'accept', agreementId, token, newUserData? }`. The function:
+1. Validates token against `clarity_agreements`.
+2. If `newUserData` present (inline registration): creates the Supabase auth user + profile via service role, then sets `partner_profile_id`.
+3. If user already authenticated (passed `userId`): sets `partner_profile_id = userId`.
+4. Updates `status = 'active', partner_signed_at = now()`.
+5. Sends `accepted` email to creator.
+
+This keeps auth user creation in a single place (server-side, service role) rather than the frontend — consistent with the principle that auth flows run through server functions.
+
+> **Risk flag:** Inline registration inside an edge function differs from the existing `AuthCallbackPage.tsx` pattern (which handles magic-link flow). The edge function path should call `supabase.auth.admin.createUser()` + insert into `profiles` with slug generation. This is the only place in P422 where a new profile is created outside the magic-link flow. If any complexity arises, fallback: redirect unauthenticated partners to `/signup?returnTo=/agreements/[id]/accept&token=[token]` instead (simpler but adds one extra step).
+
+---
+
+### 5. Files to Create or Modify
+
+#### New files
+
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/20260224HHMMSS_p422_clarity_agreements.sql` | `clarity_agreements` table, sequence, trigger, RLS policies |
+| `supabase/functions/send-agreement-emails/index.ts` | Edge function: Mailgun emails + token-validated accept/decline |
+| `src/app/data/agreements-service.interface.ts` | TypeScript types + service interface |
+| `src/app/data/agreements-service-real.ts` | Supabase implementation |
+| `src/app/data/agreements-service-mock.ts` | Mock implementation for unit tests |
+| `src/app/data/agreements-service.ts` | Feature-flag export |
+| `src/lib/agreement-emails.ts` | `invokeAgreementEmails()` helper (mirrors `event-emails.ts`) |
+| `src/app/pages/create-agreement-page.tsx` | `/agreements/new` — creation form |
+| `src/app/pages/agreement-page.tsx` | `/agreements/[id]` — pending + active + terminated views (state-branched) |
+| `src/app/pages/accept-agreement-page.tsx` | `/agreements/[id]/accept` — acceptance + inline registration |
+| `src/app/pages/declined-agreement-page.tsx` | `/agreements/[id]/declined` — static decline landing |
+| `src/app/components/agreements/agreement-certificate.tsx` | Reusable certificate frame component (shared across creation, pending, active, celebration dialog) |
+| `src/app/components/agreements/agreement-row.tsx` | Profile page row component |
+| `src/app/components/agreements/profile-agreements-section.tsx` | Profile page section with empty state + list |
+| `src/app/components/agreements/celebration-dialog.tsx` | Post-acceptance dialog overlay |
+| `e2e/agreements.spec.ts` | E2E tests (see test spec) |
+
+#### Modified files
+
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Add lazy routes: `/agreements/new`, `/agreements/:id`, `/agreements/:id/accept`, `/agreements/:id/declined` |
+| `src/app/pages/profile-page-v2.tsx` | Add `<ProfileAgreementsSection>` below the existing Pledges section |
+| `src/app/types/index.ts` | Add `ClarityAgreement`, `AgreementParty`, `AgreementStatus`, `AgreementVisibility` — or export from `agreements-service.interface.ts` and re-export here |
+| `.env.local` (dev only, not committed) | Add `VITE_USE_REAL_AGREEMENTS_API=true` |
+| `docs/technical/architecture.md` | Add `agreements-service` to the service pattern table |
+
+---
+
+### 6. Route Structure
+
+```
+/agreements/new                     → CreateAgreementPage   (auth required)
+/agreements/:id                     → AgreementPage         (public if visibility=public; party-gated if private)
+/agreements/:id/accept              → AcceptAgreementPage   (unauthenticated allowed — reads agreement before auth)
+/agreements/:id/declined            → DeclinedAgreementPage (static, no auth)
+```
+
+All agreement routes are lazy-loaded (same `lazy()` pattern as `CreateStoryPage`, `StoryDetailPage`).
+
+The `:id` param is the agreement UUID, not the display ID (A-0042 is display-only).
+
+---
+
+### 7. Security Considerations
+
+**Token validation is server-side only.** The invitation token is never trusted from the client for write operations. The edge function re-validates the token against the database on every accept/decline call.
+
+**Prevent self-invitation.** Service layer asserts `partnerEmail !== currentUser.email` before inserting. Also enforced by a DB check constraint:
+
+```sql
+-- Optional DB-level guard (belt-and-suspenders)
+ALTER TABLE public.clarity_agreements
+  ADD CONSTRAINT no_self_agreement
+  CHECK (partner_profile_id IS NULL OR partner_profile_id != creator_profile_id);
+```
+
+**Duplicate active agreements.** Service layer calls `hasActiveAgreementWith()` before INSERT. The unique constraint is not at DB level (a user could have a terminated and a new active agreement with the same person) — so the uniqueness check is scoped to `status = 'active' OR status = 'pending'`.
+
+**Private agreement access.** RLS SELECT policy: `visibility = 'public' OR creator_profile_id = auth.uid() OR partner_profile_id = auth.uid()`. This means:
+- Private agreements with `partner_profile_id IS NULL` (pending, partner not yet registered) are readable only by the creator. The partner uses the token-based `getAgreementByToken` path (no auth required, token-scoped).
+- Once the partner registers and `partner_profile_id` is set, RLS grants them SELECT via their `auth.uid()`.
+
+**Token rotation on resend.** `resendInvitation` generates a new `gen_random_uuid()` for `invitation_token` and extends `invitation_expires_at`. Old token links immediately return "expired" — only the latest token is valid.
+
+**Termination is unilateral.** Either party can terminate. No approval needed from the other. This is intentional (spec decision 7). The notified party receives an email — that is the only communication mechanism in V1.
+
+**Inline registration security.** If the edge function handles new user creation (service role `admin.createUser`):
+- Rate-limit the edge function invocation per IP (Supabase rate limiting on functions is on by default).
+- The email in the created account must match `clarity_agreements.partner_email` — validated server-side before account creation.
+- ToS acceptance is recorded in `terms_acceptances` table (existing consent mechanism from P37) as part of the registration flow.
+
+**RLS: no DELETE policy.** Agreements are never hard-deleted. The absence of a DELETE policy means no role (except service role or `postgres`) can delete rows. Service role is only used in the edge function, which never deletes.
+
+---
+
+### 8. Implementation Risks
+
+**Risk 1 — Inline registration: RESOLVED → Option A**
+
+Unauthenticated partners are redirected to `/signup?returnTo=/agreements/[id]/accept&token=[token]`. After magic-link auth, the return URL lands them on the acceptance page where they co-sign as an authenticated user. Keeps auth flow unchanged. Profile creation stays exclusively in `AuthCallbackPage.tsx`.
+
+**Risk 2 — Lazy expiry race condition (LOW)**
+
+If the creator views the agreement and the service marks it `expired` on read, but simultaneously the partner clicks accept with a token that was technically valid a moment ago: the edge function should validate `invitation_expires_at > now()` at the time of the accept action, not rely on the `status` column (which may or may not have been updated by the read side). The edge function must check the timestamp directly.
+
+**Risk 3 — Profile page N+1 on agreements (LOW)**
+
+`getAgreementsForProfile` must batch-fetch both party profiles in a single query (join or two IN queries), not loop per agreement. With the service pattern this is straightforward — fetch all agreements, collect all unique profile IDs, fetch all profiles in one query, resolve on the client.
+
+**Risk 4 — Display ID sequence gaps in test (LOW)**
+
+The `clarity_agreements_display_seq` sequence does not reset between test runs. E2E tests that assert on display ID format should match the pattern (`/^A-\d{4,}$/`) rather than specific values.
+
+**Risk 5 — Email deliverability for new Mailgun sender persona (LOW)**
+
+`agreements@${MAILGUN_DOMAIN}` is a new sender address. Ensure it is added to Mailgun allowed senders and SPF/DKIM is configured before testing email delivery. The existing `events@${MAILGUN_DOMAIN}` is a reference — same domain, should be covered by existing DNS records.
+
+**Risk 6 — Profile page load time (LOW)**
+
+Adding a `getAgreementsForProfile` query to the profile page increases load time. The profile page already fetches points, stories, witnesses, and calibration stats. The agreements query should run in parallel (via `Promise.all`) not sequentially. The section should have an independent loading skeleton so it does not block the rest of the profile from rendering.
+
+---
+
+### 9. Migration Filename
+
+Use a 14-digit timestamp per database rules. Since today is 2026-02-24 and other migrations exist for this date:
+
+```
+supabase/migrations/20260224150000_p422_clarity_agreements.sql
+```
+
+(Use the next available HH:MM:SS that does not conflict with existing files. Verify with `ls supabase/migrations/20260224*` before creating.)
+
+---
+
+### 10. Post-P422 Hooks for P429 / P430
+
+The `clarity_agreements` table is designed to be extended without schema changes for the P422 column set:
+- P429 adds `agreement_session_requests` and `agreement_fulfillments` tables (separate migrations).
+- P430 adds `agreement_observers` table.
+- Neither requires modifying `clarity_agreements` columns in P422.
+
+One future-proofing note: if P429 needs to denormalize a session count onto `clarity_agreements` for cheap profile display, add a `fulfilled_sessions_count INT DEFAULT 0` column in P429's migration — not now.
+
+---
+
 ### 7. Routing Summary
 
 | URL | Page | Auth Required |
@@ -967,3 +1464,791 @@ All copy references in this section are the exact strings to use:
 | `/agreements/[id]/declined` | Static decline confirmation | No |
 
 Short IDs (A-0042 format) are display-only. URLs use the full UUID. The display ID is shown in the certificate header and shareable URL text display for readability.
+
+---
+
+## Test Scenarios
+
+> Scope: P422 sign + view only. Session requests (P429) and observers (P430) are out of scope.
+>
+> File to create: `e2e/agreements.spec.ts`
+> Unit tests: described below — actual files created by `/dev`.
+
+---
+
+### E2E Tests — `e2e/agreements.spec.ts`
+
+**File header pattern** (match existing specs exactly):
+
+```typescript
+/**
+ * @file agreements.spec.ts
+ * @description E2E tests for P422: Clarity Partner Agreement
+ *
+ * Tests:
+ * - Creator creates agreement with existing user partner (happy path)
+ * - Creator creates agreement with new user partner (pending + invitation state)
+ * - Partner accepts agreement (existing user) → celebration dialog → active certificate
+ * - Partner accepts agreement (new user — redirect to signup with returnTo, then co-sign)
+ * - Partner declines → decline landing shown, creator sees declined state
+ * - Invitation expires (7 days) → resend invitation flow
+ * - Either party terminates → terminated state shown, other party sees terminated banner
+ * - Public agreement visible on profile without auth
+ * - Private agreement NOT visible to non-party visitors
+ * - Creator without a name set → inline error on /agreements/new
+ * - Creator invites themselves → inline error on /agreements/new
+ */
+
+import { test, expect } from '@playwright/test';
+import { createTestUser, deleteTestUser, setTestSession, type TestUser } from './helpers/test-user';
+import { supabaseAdmin } from '../src/lib/supabase-admin';
+```
+
+**Shared setup pattern:**
+
+```typescript
+test.describe('P422 — Clarity Partner Agreement', () => {
+  test.setTimeout(60000);
+
+  let creator: TestUser;
+  let partner: TestUser;
+  let visitorUser: TestUser;
+
+  test.beforeAll(async () => {
+    creator = await createTestUser({ name: 'P422 Creator' });
+    partner = await createTestUser({ name: 'P422 Partner' });
+    visitorUser = await createTestUser({ name: 'P422 Visitor' });
+  });
+
+  test.afterAll(async () => {
+    // Clean up all agreements created by creator in tests
+    await supabaseAdmin
+      .from('clarity_agreements')
+      .delete()
+      .eq('creator_profile_id', creator.user.id);
+    if (creator?.user?.id) await deleteTestUser(creator.user.id);
+    if (partner?.user?.id) await deleteTestUser(partner.user.id);
+    if (visitorUser?.user?.id) await deleteTestUser(visitorUser.user.id);
+  });
+```
+
+---
+
+#### TC-01: Creator creates agreement — existing user partner (happy path)
+
+**Purpose:** Full creation flow where the partner is already registered. Agreement created in pending state.
+
+```typescript
+test('creator creates agreement with an existing user partner — shows pending state', async ({ page }) => {
+  await setTestSession(page, creator.email);
+
+  await page.goto('/agreements/new');
+  await page.waitForLoadState('networkidle');
+
+  // Certificate frame heading visible
+  await expect(page.getByText('Clarity Partner Agreement')).toBeVisible({ timeout: 10000 });
+
+  // Enter partner email — triggers live user lookup
+  await page.getByLabel(/partner.*email/i).fill(partner.email);
+
+  // Live lookup should resolve and show "Found: P422 Partner"
+  await expect(page.getByText(/found/i)).toBeVisible({ timeout: 5000 });
+
+  // Terms textarea pre-filled with template
+  await expect(page.getByLabel(/our terms/i)).not.toBeEmpty();
+
+  // Submit
+  await page.getByRole('button', { name: /seal & invite partner/i }).click();
+
+  // Redirected to /agreements/[id] in pending state
+  await expect(page).toHaveURL(/\/agreements\/[0-9a-f-]{36}$/, { timeout: 10000 });
+
+  // Pending status banner
+  await expect(page.getByText(/pending co-signature/i)).toBeVisible({ timeout: 10000 });
+
+  // Creator's name signed
+  await expect(page.getByText('P422 Creator')).toBeVisible();
+
+  // Partner slot shows "Awaiting"
+  await expect(page.getByText(/awaiting/i)).toBeVisible();
+
+  // Shareable URL shown
+  await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+});
+```
+
+---
+
+#### TC-02: Creator creates agreement — partner is a new (unregistered) user
+
+**Purpose:** When the entered email has no account, the form shows "New user — they'll be invited" and creation still succeeds.
+
+```typescript
+test('creator creates agreement with a new user partner — shows pending state with invitation copy', async ({ page }) => {
+  await setTestSession(page, creator.email);
+
+  const newUserEmail = `p422-new-partner-${Date.now()}@gmail.com`;
+
+  await page.goto('/agreements/new');
+  await page.waitForLoadState('networkidle');
+
+  await page.getByLabel(/partner.*email/i).fill(newUserEmail);
+
+  // Live lookup shows "new user" copy (no found match)
+  await expect(page.getByText(/new user/i)).toBeVisible({ timeout: 5000 });
+
+  // Terms present
+  await expect(page.getByLabel(/our terms/i)).not.toBeEmpty();
+
+  await page.getByRole('button', { name: /seal & invite partner/i }).click();
+
+  // Lands on pending page
+  await expect(page).toHaveURL(/\/agreements\/[0-9a-f-]{36}$/, { timeout: 10000 });
+  await expect(page.getByText(/pending co-signature/i)).toBeVisible({ timeout: 10000 });
+
+  // Partner email shown in pending view (no name yet)
+  await expect(page.getByText(newUserEmail)).toBeVisible();
+
+  // Clean up: delete this test agreement
+  const url = page.url();
+  const agreementId = url.split('/agreements/')[1];
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreementId);
+});
+```
+
+---
+
+#### TC-03: Partner accepts agreement (existing user) → celebration dialog → active certificate
+
+**Purpose:** Core acceptance flow. Partner lands on accept page, reads agreement, clicks accept, sees celebration dialog, then the active certificate.
+
+**Setup:** Create agreement in DB directly for test isolation.
+
+```typescript
+test('existing user partner accepts agreement → celebration dialog shown → active certificate', async ({ page }) => {
+  // Create pending agreement directly in DB
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_email: partner.email,
+      terms_text: 'We commit to at least one /live session per month.',
+      status: 'pending',
+      visibility: 'public',
+    })
+    .select()
+    .single();
+
+  // Partner logs in and visits the accept page
+  await setTestSession(page, partner.email);
+  await page.goto(`/agreements/${agreement.id}/accept`);
+  await page.waitForLoadState('networkidle');
+
+  // Acceptance page header shows creator's name
+  await expect(page.getByText(/P422 Creator invites you/i)).toBeVisible({ timeout: 10000 });
+
+  // Full pledge text visible (read-only)
+  await expect(page.getByText(/We all crave being understood/i)).toBeVisible();
+
+  // Terms text shown read-only
+  await expect(page.getByText(/at least one \/live session/i)).toBeVisible();
+
+  // Accept button
+  await page.getByRole('button', { name: /i accept & co-sign/i }).click();
+
+  // Celebration dialog appears
+  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/agreement sealed/i)).toBeVisible();
+
+  // Click View Agreement to close dialog and navigate to certificate
+  await page.getByRole('button', { name: /view agreement/i }).click();
+
+  // Active certificate view
+  await expect(page.getByText(/active/i)).toBeVisible({ timeout: 10000 });
+
+  // Both names show checkmarks (signatures)
+  await expect(page.getByText('P422 Creator')).toBeVisible();
+  await expect(page.getByText('P422 Partner')).toBeVisible();
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-04: Partner accepts agreement — new user (redirect to signup with returnTo, then co-sign)
+
+**Purpose:** Unauthenticated partner visiting accept URL is redirected to /signup with returnTo preserved. After creating account, they land back on the accept page and can co-sign.
+
+**Note:** In P422 Risk 1 was resolved to Option A — redirect to `/signup?returnTo=...&token=...`. This test verifies the redirect and return URL mechanics.
+
+```typescript
+test('unauthenticated partner redirected to signup with returnTo — lands back on accept page after auth', async ({ page }) => {
+  const token = `test-token-${Date.now()}`;
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Create pending agreement with known token
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_email: `p422-unauth-${Date.now()}@gmail.com`,
+      terms_text: 'Test terms for unauth acceptance.',
+      status: 'pending',
+      visibility: 'private',
+      invitation_token: token,
+      invitation_expires_at: expiresAt,
+    })
+    .select()
+    .single();
+
+  // Visit accept page as unauthenticated user (no setTestSession)
+  await page.goto(`/agreements/${agreement.id}/accept?token=${token}`);
+  await page.waitForLoadState('networkidle');
+
+  // Agreement text should be readable before auth (spec: partner can read before committing to sign up)
+  await expect(page.getByText(/We all crave being understood/i)).toBeVisible({ timeout: 10000 });
+
+  // Auth prompt should appear (not a hard block — content visible first)
+  await expect(page.getByRole('link', { name: /create account/i }).or(
+    page.getByRole('button', { name: /create account/i })
+  )).toBeVisible({ timeout: 5000 });
+
+  // Clicking sign up should carry returnTo with token
+  const [navigationUrl] = await Promise.all([
+    page.waitForURL(/\/signup/, { timeout: 10000 }),
+    page.getByRole('link', { name: /create account/i }).click().catch(() =>
+      page.getByRole('button', { name: /create account/i }).click()
+    ),
+  ]);
+
+  // returnTo in URL preserves the accept path and token
+  expect(page.url()).toContain('returnTo=');
+  expect(page.url()).toContain(agreement.id);
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-05: Partner declines → decline landing shown, creator sees declined state
+
+**Purpose:** Decline confirmation flow. Decliner sees the decline landing page. Agreement is marked declined in DB.
+
+```typescript
+test('partner declines agreement → decline landing shown, agreement marked declined', async ({ page }) => {
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_email: partner.email,
+      terms_text: 'We commit to monthly sessions.',
+      status: 'pending',
+      visibility: 'private',
+    })
+    .select()
+    .single();
+
+  await setTestSession(page, partner.email);
+  await page.goto(`/agreements/${agreement.id}/accept`);
+  await page.waitForLoadState('networkidle');
+
+  // Click Decline
+  await page.getByRole('button', { name: /decline/i }).click();
+
+  // Confirmation dialog
+  await expect(page.getByRole('dialog', { name: /decline/i })
+    .or(page.getByText(/are you sure/i))).toBeVisible({ timeout: 5000 });
+
+  // Confirm decline
+  await page.getByRole('button', { name: /confirm decline/i }).click();
+
+  // Decline landing page
+  await expect(page.getByText(/you've declined this invitation/i)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/no further action is needed/i)).toBeVisible();
+
+  // Agreement is declined in DB
+  const { data: updated } = await supabaseAdmin
+    .from('clarity_agreements')
+    .select('status')
+    .eq('id', agreement.id)
+    .single();
+  expect(updated?.status).toBe('declined');
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-06: Invitation expires (7 days) → expired banner shown, resend invitation flow
+
+**Purpose:** When the invitation token is expired, the creator sees an expired banner with a "Resend Invitation" button. Clicking it regenerates the token and resets the expiry.
+
+```typescript
+test('expired invitation shows expired banner — resend generates new token', async ({ page }) => {
+  const expiredAt = new Date(Date.now() - 1000).toISOString(); // expired 1 second ago
+
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_email: partner.email,
+      terms_text: 'Test terms.',
+      status: 'pending',
+      visibility: 'private',
+      invitation_expires_at: expiredAt,
+    })
+    .select()
+    .single();
+
+  const originalToken = agreement.invitation_token;
+
+  await setTestSession(page, creator.email);
+  await page.goto(`/agreements/${agreement.id}`);
+  await page.waitForLoadState('networkidle');
+
+  // Expired banner shown
+  await expect(page.getByText(/invitation has expired/i)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole('button', { name: /resend invitation/i })).toBeVisible();
+
+  // Click resend
+  await page.getByRole('button', { name: /resend invitation/i }).click();
+
+  // Pending banner returns (expired banner goes away)
+  await expect(page.getByText(/pending co-signature/i)).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/invitation has expired/i)).not.toBeAttached({ timeout: 5000 });
+
+  // Token rotated in DB
+  const { data: refreshed } = await supabaseAdmin
+    .from('clarity_agreements')
+    .select('invitation_token, invitation_expires_at')
+    .eq('id', agreement.id)
+    .single();
+  expect(refreshed?.invitation_token).not.toBe(originalToken);
+  expect(new Date(refreshed!.invitation_expires_at) > new Date()).toBe(true);
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-07: Either party terminates → terminated state shown, other party sees terminated banner
+
+**Purpose:** Either party can terminate. After termination the certificate shows a red TERMINATED banner.
+
+**Two sub-tests:** one where creator terminates, one where partner terminates.
+
+```typescript
+test('creator terminates active agreement → terminated banner shown on certificate', async ({ page }) => {
+  // Set up active agreement directly in DB
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_profile_id: partner.user.id,
+      partner_email: partner.email,
+      terms_text: 'We commit to monthly sessions.',
+      status: 'active',
+      visibility: 'public',
+      partner_signed_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  await setTestSession(page, creator.email);
+  await page.goto(`/agreements/${agreement.id}`);
+  await page.waitForLoadState('networkidle');
+
+  // Agreement is active — party banner shown
+  await expect(page.getByText(/active/i)).toBeVisible({ timeout: 10000 });
+
+  // Open [···] menu and click Terminate
+  await page.getByRole('button', { name: /more options/i })
+    .or(page.locator('[aria-label*="more"]'))
+    .or(page.getByText('···')).click();
+  await page.getByRole('menuitem', { name: /terminate agreement/i }).click();
+
+  // Confirmation dialog
+  await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(/will be archived/i)).toBeVisible();
+
+  // Confirm termination
+  await page.getByRole('button', { name: /terminate agreement/i }).last().click();
+
+  // Terminated banner shown
+  await expect(page.getByText(/terminated/i)).toBeVisible({ timeout: 10000 });
+
+  // DB record updated
+  const { data: terminated } = await supabaseAdmin
+    .from('clarity_agreements')
+    .select('status, terminated_by')
+    .eq('id', agreement.id)
+    .single();
+  expect(terminated?.status).toBe('terminated');
+  expect(terminated?.terminated_by).toBe(creator.user.id);
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+
+test('partner terminates active agreement → terminated banner shown on certificate', async ({ page }) => {
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_profile_id: partner.user.id,
+      partner_email: partner.email,
+      terms_text: 'Monthly sessions.',
+      status: 'active',
+      visibility: 'public',
+      partner_signed_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  await setTestSession(page, partner.email);
+  await page.goto(`/agreements/${agreement.id}`);
+  await page.waitForLoadState('networkidle');
+
+  await page.getByRole('button', { name: /more options/i })
+    .or(page.locator('[aria-label*="more"]'))
+    .or(page.getByText('···')).click();
+  await page.getByRole('menuitem', { name: /terminate agreement/i }).click();
+  await page.getByRole('button', { name: /terminate agreement/i }).last().click();
+
+  await expect(page.getByText(/terminated/i)).toBeVisible({ timeout: 10000 });
+
+  const { data: terminated } = await supabaseAdmin
+    .from('clarity_agreements')
+    .select('status, terminated_by')
+    .eq('id', agreement.id)
+    .single();
+  expect(terminated?.status).toBe('terminated');
+  expect(terminated?.terminated_by).toBe(partner.user.id);
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-08: Public agreement visible on profile without auth
+
+**Purpose:** A public, active agreement appears in the "Partner Agreements" section of both parties' profile pages without authentication.
+
+```typescript
+test('public active agreement visible on profile page without authentication', async ({ page }) => {
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_profile_id: partner.user.id,
+      partner_email: partner.email,
+      terms_text: 'Public agreement terms.',
+      status: 'active',
+      visibility: 'public',
+      partner_signed_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  // Unauthenticated visit to creator's profile
+  await page.goto(`/p/${creator.slug}`);
+  await page.waitForLoadState('networkidle');
+
+  // Partner Agreements section visible
+  await expect(page.getByText('Partner Agreements')).toBeVisible({ timeout: 10000 });
+
+  // Agreement row shows both names
+  await expect(page.getByText('P422 Creator')).toBeVisible();
+  await expect(page.getByText('P422 Partner')).toBeVisible();
+
+  // View Agreement link exists and navigates to the certificate
+  const viewLink = page.getByRole('link', { name: /view agreement/i });
+  await expect(viewLink).toBeVisible();
+  await viewLink.click();
+
+  await expect(page).toHaveURL(`/agreements/${agreement.id}`, { timeout: 10000 });
+  await expect(page.getByText(/active/i)).toBeVisible({ timeout: 10000 });
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-09: Private agreement NOT visible to non-party visitors
+
+**Purpose:** A private agreement does not appear on the profile for non-party authenticated visitors, and navigating to the certificate URL shows "This agreement is private."
+
+```typescript
+test('private agreement hidden from non-party profile visitors', async ({ page }) => {
+  const { data: agreement } = await supabaseAdmin
+    .from('clarity_agreements')
+    .insert({
+      creator_profile_id: creator.user.id,
+      partner_profile_id: partner.user.id,
+      partner_email: partner.email,
+      terms_text: 'Private agreement terms.',
+      status: 'active',
+      visibility: 'private',
+      partner_signed_at: new Date().toISOString(),
+    })
+    .select()
+    .single();
+
+  // Log in as a non-party visitor
+  await setTestSession(page, visitorUser.email);
+
+  // Visit creator's profile — no Partner Agreements section for private agreements
+  await page.goto(`/p/${creator.slug}`);
+  await page.waitForLoadState('networkidle');
+
+  // Section either absent, or present but with no agreement rows
+  const agreementRow = page.getByRole('article', { name: /agreement with/i });
+  await expect(agreementRow).not.toBeAttached({ timeout: 5000 });
+
+  // Navigate to the agreement certificate directly — should be blocked
+  await page.goto(`/agreements/${agreement.id}`);
+  await page.waitForLoadState('networkidle');
+
+  await expect(
+    page.getByText(/private/i).or(page.getByText(/not found/i)).or(page.getByText(/access denied/i))
+  ).toBeVisible({ timeout: 10000 });
+
+  // Cleanup
+  await supabaseAdmin.from('clarity_agreements').delete().eq('id', agreement.id);
+});
+```
+
+---
+
+#### TC-10: Creator without a name set → inline error on /agreements/new
+
+**Purpose:** If the creator's profile has no display name, the form shows an inline error at the name position inside the certificate frame, and the form cannot be submitted.
+
+```typescript
+test('creator with no name set sees inline error and cannot submit', async ({ page }) => {
+  // Create a user without a name
+  const namelessUser = await createTestUser({ name: '' });
+  // Explicitly null out the name in profiles
+  await supabaseAdmin.from('profiles').update({ name: null }).eq('id', namelessUser.user.id);
+
+  await setTestSession(page, namelessUser.email);
+  await page.goto('/agreements/new');
+  await page.waitForLoadState('networkidle');
+
+  // Inline error where creator name would appear
+  await expect(
+    page.getByText(/add your name in settings/i).or(
+      page.getByText(/please add your name/i)
+    )
+  ).toBeVisible({ timeout: 10000 });
+
+  // Submit button should be disabled or absent
+  const submitButton = page.getByRole('button', { name: /seal & invite partner/i });
+  if (await submitButton.isVisible()) {
+    await expect(submitButton).toBeDisabled();
+  }
+
+  // Cleanup
+  await deleteTestUser(namelessUser.user.id);
+});
+```
+
+---
+
+#### TC-11: Creator invites themselves → inline error
+
+**Purpose:** Entering the creator's own email triggers an immediate inline error and keeps the submit disabled.
+
+```typescript
+test('creator entering their own email sees inline error — submit disabled', async ({ page }) => {
+  await setTestSession(page, creator.email);
+
+  await page.goto('/agreements/new');
+  await page.waitForLoadState('networkidle');
+
+  // Enter own email
+  await page.getByLabel(/partner.*email/i).fill(creator.email);
+  // Trigger blur/change
+  await page.keyboard.press('Tab');
+
+  // Inline error
+  await expect(
+    page.getByText(/cannot create an agreement with yourself/i).or(
+      page.getByText(/you cannot invite yourself/i)
+    )
+  ).toBeVisible({ timeout: 5000 });
+
+  // Submit disabled
+  const submitButton = page.getByRole('button', { name: /seal & invite partner/i });
+  await expect(submitButton).toBeDisabled({ timeout: 3000 });
+});
+```
+
+---
+
+### Unit / Service Tests
+
+These test the `agreements-service-real.ts` and `agreements-service-mock.ts` logic. Files to create by `/dev`: `src/app/data/__tests__/agreements-service.test.ts`.
+
+**Pattern:** Vitest unit tests with a mock Supabase client. Follow the same structure as existing `*-service` tests in the project.
+
+---
+
+#### UT-01: `hasActiveAgreementWith` — returns true when active agreement exists
+
+```
+describe('hasActiveAgreementWith', () => {
+  it('returns true when an active agreement exists between creator and partner email', async () => {
+    // Seed: one agreement with status='active' matching creatorProfileId + partnerEmail
+    // Call: hasActiveAgreementWith(creatorId, partnerEmail)
+    // Assert: returns true
+  });
+
+  it('returns false when only a terminated agreement exists', async () => {
+    // Seed: terminated agreement
+    // Assert: returns false
+  });
+
+  it('returns false when no agreement exists', async () => {
+    // Assert: returns false
+  });
+});
+```
+
+---
+
+#### UT-02: `getAgreementByToken` — returns null for expired token
+
+```
+describe('getAgreementByToken', () => {
+  it('returns null for an expired token (invitation_expires_at in the past)', async () => {
+    // Seed: pending agreement with invitation_expires_at = now() - 1 day
+    // Call: getAgreementByToken(token)
+    // Assert: returns null
+  });
+
+  it('returns null for an already-active agreement token (status != pending)', async () => {
+    // Seed: active agreement (partner already accepted)
+    // Call: getAgreementByToken(token)
+    // Assert: returns null
+  });
+
+  it('returns the agreement for a valid pending token within expiry', async () => {
+    // Seed: pending agreement with future expiry
+    // Assert: returns ClarityAgreement with correct id
+  });
+});
+```
+
+---
+
+#### UT-03: `getAgreementsForProfile` — filters private agreements from non-party viewers
+
+```
+describe('getAgreementsForProfile', () => {
+  it('returns public active agreements to any viewer (null viewerProfileId)', async () => {
+    // Seed: public active agreement
+    // Call: getAgreementsForProfile(profileId, null)
+    // Assert: agreement included
+  });
+
+  it('returns private active agreements to party viewers', async () => {
+    // Seed: private active agreement
+    // Call with creatorProfileId as viewerProfileId
+    // Assert: agreement included
+  });
+
+  it('excludes private active agreements from non-party viewers', async () => {
+    // Seed: private active agreement
+    // Call with unrelated viewerProfileId
+    // Assert: agreement NOT included
+  });
+
+  it('excludes pending agreements from non-owner viewers', async () => {
+    // Seed: pending agreement
+    // Call with a third-party viewerProfileId
+    // Assert: pending agreement NOT included
+  });
+});
+```
+
+---
+
+#### UT-04: `terminateAgreement` — rejects if caller is not a party
+
+```
+describe('terminateAgreement', () => {
+  it('returns false and does not update when caller is not creator or partner', async () => {
+    // Seed: active agreement between userA and userB
+    // Call terminateAgreement(agreementId) as userC (neither party)
+    // Assert: returns false, status unchanged in DB
+  });
+
+  it('succeeds when creator terminates', async () => {
+    // Call as creator
+    // Assert: returns true, status = 'terminated', terminated_by = creator.id
+  });
+
+  it('succeeds when partner terminates', async () => {
+    // Call as partner
+    // Assert: returns true, status = 'terminated', terminated_by = partner.id
+  });
+});
+```
+
+---
+
+### Test Helpers to Create
+
+A new helper file `e2e/helpers/test-agreement.ts` (mirrors `test-event.ts` pattern):
+
+```typescript
+export interface TestAgreement {
+  id: string;
+  invitationToken: string;
+}
+
+export async function createTestAgreement(
+  creatorProfileId: string,
+  partnerProfileId: string,
+  partnerEmail: string,
+  overrides?: Partial<{
+    status: string;
+    visibility: string;
+    termsText: string;
+    invitationExpiresAt: string;
+    invitationToken: string;
+    partnerSignedAt: string;
+  }>
+): Promise<TestAgreement>
+
+export async function deleteTestAgreement(id: string): Promise<void>
+```
+
+Use `createTestAgreement` in all E2E tests instead of raw `supabaseAdmin.from('clarity_agreements').insert(...)` to reduce boilerplate.
+
+---
+
+### Display ID Assertion Pattern
+
+Per Architecture Risk 4, the `display_id` sequence does not reset between test runs. Tests that check the display ID must match the pattern, not a literal:
+
+```typescript
+// Good
+expect(displayId).toMatch(/^A-\d{4,}$/);
+
+// Bad — fragile
+expect(displayId).toBe('A-0001');
+```
