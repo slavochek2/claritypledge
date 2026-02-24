@@ -14,6 +14,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [product]: AI Story Filing Ships on `/chat` Page, Not Inline Panel (P425)
+
+**Context:** Original P425 UX spec had the story-filing loop as an inline panel below `PositionButtons` on the point-detail page. After running `/ascii-flows` to map the interaction, the inline panel created a fragmented UX — user is mid-flow on point-detail, gets context-switched into a filing experience without a clear home.
+
+**Decision:** Story filing lives on `/chat` — a persistent, top-level page accessible from nav. Entry from position: a single "Tell your story →" button navigates to `/chat?from=position&pointId=XYZ`. `/chat` without params shows a bare input ("What's on your mind?"). The `StoryGuideChat` component must remain embeddable (bottom-sheet over `/live` for P428) — no page-level navigation coupling.
+
+**Alternatives rejected:**
+- Inline panel below PositionButtons — fragments the experience, hard to return to, no persistent home
+- Modal — same problem; takes over UI without giving user a dedicated space
+
+**Consequences:**
+- Nav needs a "Chat" item (or similar entry point)
+- `/chat?from=position&pointId=XYZ` is the canonical entry URL from position flow
+- `StoryGuideChat` must be embeddable (no router coupling) — tested by P428 bottom-sheet requirement
+- `[▷ Start /live]` appears inline in the chat thread on a saved story card
+
+**References:** [P425](../features/p425_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
+
+---
+
 ## 2026-02-24 [technical]: Story Visibility RLS — Correlated EXISTS over event_rsvps (P424)
 
 **Context:** The `shared` visibility level was deferred at implementation (P126) — the RLS policy silently collapsed `shared` to author-only. P424 implemented the full three-branch policy.

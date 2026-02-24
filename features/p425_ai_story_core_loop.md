@@ -6,7 +6,7 @@ workstream: C1
 tags: [stories, ai-chat, filing, calibration, position]
 prepped_date: '2026-02-24'
 blocked_by: [p424]
-delivery_stage: ux-review
+delivery_stage: prd-approved
 reviews:
   ux: null
   architect: null
@@ -190,9 +190,45 @@ This is a UI feature with Claude API integration and Supabase persistence.
 
 ## UX Requirements
 
-### Entry Point: Position-Triggered Prompt
+> **Design pivot (post ascii-flows):** This feature ships on `/chat` — a persistent chat page, not an inline panel. The section below is the authoritative UX spec. Superseded inline-panel descriptions are preserved below the main spec for historical reference only.
 
-**Where it appears:** Immediately after a user successfully stakes or changes a position on any point. The prompt appears inline below the `PositionButtons` component on the point-detail page — it does not navigate away, open a modal, or block further interaction.
+### Design Direction
+
+**Surface:** `/chat` — persistent page accessible from nav. Not a modal, not an inline panel.
+
+**Entry (position-triggered):**
+- After staking a position on a point, a single full-width primary button appears: **"Tell your story →"** with a ghost "Not now" link below. No card wrapper, no explanation copy.
+- Tapping navigates to `/chat?from=position&pointId=XYZ`. Position is already saved before navigation — nothing is gated.
+- Arriving at `/chat` with `?from=position&pointId=XYZ`: skip empty state, go straight to the loop. Pin a context chip (point text + position badge) throughout the loop.
+- Arriving at `/chat` without params: bare input with placeholder "What's on your mind?" — nothing else.
+
+**`/chat` page rules:**
+- No header labels, no menus, no story list. Stories appear in the thread only as output when filed. Profile is the canonical story list.
+- Input pinned at bottom always.
+
+**Filing loop:**
+- User sends brain dump as a message bubble.
+- AI streams a story draft. Draft appears as a **versioned card** in the thread (`Draft v1`, `Draft v2`...), labeled `[Draft · not saved]`. Not a message bubble.
+- Rating prompt below the card: user types a number or free text into the standard input. No interactive rating buttons.
+- AI formats its own options (A/B/C) as plain text in its message. User replies by typing into the input field.
+- On loop completion: AI shows a polished draft card with brief change note. User selects visibility, confirms save.
+- Saved story card replaces the draft card. Shows linked point, `[▷ Start /live]` CTA, visibility badge.
+
+**Session integration:**
+- `[▷ Start /live]` on a saved story card shows a link inline in the thread. `[Open as host →]` navigates to the existing `/live` page.
+- `/live` page gets a "← Story Guide" back link. Session result posts back to the story card on return.
+
+**P419 constraint:** `onStoryConfirmed(storyDraft)` callback must be clean and hookable — P419 triggers point extraction here without modifying loop internals.
+
+**P428 constraint:** The filing loop must support being embedded as a bottom-sheet overlay over `/live`. Do not couple to page-level navigation.
+
+---
+
+### Entry Point: Position-Triggered Prompt (superseded detail — for reference only)
+
+> The following was the original inline-panel design. Superseded by the chat-first design direction above. Kept for historical context only — do not implement.
+
+**Where it appeared:** Immediately after a user successfully stakes or changes a position on any point. The prompt appeared inline below the `PositionButtons` component on the point-detail page — it did not navigate away, open a modal, or block further interaction.
 
 **Trigger condition:** User clicks a position button (Strongly Agree / Agree / etc.) and a position is confirmed saved. If the user already has a story linked to this point, no prompt appears (they already explained why). If they already have a story and are changing position, defer to P419.
 
