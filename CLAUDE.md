@@ -39,6 +39,12 @@ Before implementing ANY feature or UI component:
 
 3. **Read the feature spec completely** if working from a P-number
 
+4. **Check the done-features index** for related past work:
+   ```bash
+   grep -i "keyword" features/done/INDEX.md
+   ```
+   Scan `features/done/INDEX.md` — one line per completed feature, grouped by domain. Catches gotchas, patterns, and prior decisions before you repeat them.
+
 **Why:** 5 minutes checking history saves hours of redundant work.
 
 ---

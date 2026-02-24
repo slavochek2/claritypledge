@@ -124,6 +124,30 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - Keep them accurate to current implementation
    - These are Claude's context shortcuts — save future re-reading
 
+4.5. **Update done-features index:**
+
+   After any feature is closed (moved to `features/done/`), append it to `features/done/INDEX.md`.
+
+   Find the right domain section and add one line:
+   ```
+   - **P{N}** ({Mon YY}) {Title} — {≤15-word learning: gotcha, pattern, or key decision}
+   ```
+
+   **Domain sections** (add new ones if needed):
+   - Live Session / Real-time
+   - Points & Stories
+   - Database / RLS / Migrations
+   - Navigation & Routing
+   - UI / Design System
+   - Auth & Verification
+   - Infrastructure / Process
+
+   **What makes a good learning:** A gotcha ("DROP CONSTRAINT before ALTER COLUMN TYPE"), a pattern ("use atomic transaction, not sequential calls"), or a decision ("positions use optimistic updates, not refetch"). Not a summary of what was built.
+
+   **Update the `Last updated:` date** at the top of the file.
+
+   **Skip if:** No features were closed this session (running `/kdd` standalone on infra/docs work with no spec to close).
+
 5. **Feature housekeeping:**
 
    **Skip if running after `/dev` or `/fix`** — those auto-close features already. This step only applies when running `/kdd` standalone after work done outside the standard flow (e.g., direct code edits, infra changes, manual migrations).
