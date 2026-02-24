@@ -48,6 +48,7 @@ import {
 } from "@/app/prototypes/linkedin-like/components/shared";
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
+import type { StoryVisibility } from "@/app/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
 // Profile owner context for card components
 interface ProfileOwner {
@@ -69,7 +70,7 @@ interface AdaptedStory {
   text: string;
   authorId: string;
   createdAt: string;
-  visibility: 'public';
+  visibility: StoryVisibility;
   verificationCount: number;
   tags: string[];
   linkedPointIds: string[];
@@ -872,6 +873,8 @@ interface StoryCardFullProps {
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
 }
 
+const STORY_THRESHOLD = 180;
+
 function StoryCardFull({
   story,
   author,
@@ -881,20 +884,31 @@ function StoryCardFull({
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
+  const [storyExpanded, setStoryExpanded] = useState(false);
 
   const handleCardClick = () => {
     navigate(detailRoutes.story(story.id));
   };
 
   const linkedPoints = story.points || [];
+  const isLongStory = story.content.length > STORY_THRESHOLD;
+  const storyDisplayText =
+    isLongStory && !storyExpanded
+      ? story.content.slice(0, STORY_THRESHOLD) + '…'
+      : story.content;
 
   return (
     <div
       role="button"
       tabIndex={0}
       className="group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-      onClick={handleCardClick}
+      aria-label={`Story by ${author.name}`}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
+        handleCardClick();
+      }}
       onKeyDown={(e) => {
+        if ((e.target as HTMLElement).closest('[data-story-toggle]')) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           handleCardClick();
@@ -950,7 +964,20 @@ function StoryCardFull({
             </div>
 
             {/* Story text */}
-            <p className="text-foreground text-base">{story.content}</p>
+            <p className="text-foreground text-base">{storyDisplayText}</p>
+            {isLongStory && (
+              <div role="presentation" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  data-story-toggle="true"
+                  onClick={() => setStoryExpanded((prev) => !prev)}
+                  aria-expanded={storyExpanded}
+                  className="text-sm text-blue-600 hover:text-blue-700 mt-1"
+                >
+                  {storyExpanded ? 'Show less' : 'Show more'}
+                </button>
+              </div>
+            )}
 
             {/* Stats row */}
             {story.understoodCount > 0 && (

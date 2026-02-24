@@ -80,7 +80,7 @@ function mapStoryFromDb(row: DbStoryWithAuthor): StoryWithAuthor {
     id: row.id,
     authorId: row.author_id,
     content: row.content,
-    visibility: row.visibility ?? 'public',
+    visibility: row.visibility ?? 'private',
     currentVersion: row.current_version,
     understoodCount: row.understood_count,
     createdAt: row.created_at,
@@ -132,7 +132,7 @@ export const realStoriesService: StoriesService = {
     _authorId: string,
     content: string,
     tags: string[] = [],
-    visibility: StoryVisibility = 'public'
+    visibility: StoryVisibility = 'private'
   ): Promise<Story | null> {
     // Use authenticated user, not caller-supplied authorId (RLS requires auth.uid() match)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -163,7 +163,7 @@ export const realStoriesService: StoriesService = {
       id: data.id,
       authorId: data.author_id,
       content: data.content,
-      visibility: data.visibility ?? 'public',
+      visibility: data.visibility ?? 'private',
       currentVersion: data.current_version,
       understoodCount: data.understood_count,
       createdAt: data.created_at,
@@ -399,6 +399,7 @@ export const realStoriesService: StoriesService = {
           has_pledged
         )
       `)
+      .eq('visibility', 'public')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -441,7 +442,7 @@ export const realStoriesService: StoriesService = {
       id: data.id,
       authorId: data.author_id,
       content: data.content,
-      visibility: data.visibility ?? 'public',
+      visibility: data.visibility ?? 'private',
       currentVersion: data.current_version,
       understoodCount: data.understood_count,
       createdAt: data.created_at,
@@ -557,7 +558,7 @@ export const realStoriesService: StoriesService = {
     const result = new Map<string, StoryWithAuthor[]>();
     for (const row of data as unknown as DbStoryPointWithStory[]) {
       const storyRow = row.story;
-      if (!storyRow || storyRow.visibility !== 'public') continue;
+      if (!storyRow) continue;
       const story = mapStoryFromDb(storyRow);
       const existing = result.get(row.point_id) ?? [];
       result.set(row.point_id, [...existing, story]);

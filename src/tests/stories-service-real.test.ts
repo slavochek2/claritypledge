@@ -275,8 +275,10 @@ describe('realStoriesService', () => {
   describe('getStoriesFeed', () => {
     it('returns paginated stories', async () => {
       mockSelect.mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          range: vi.fn().mockResolvedValue({ data: [], error: null }),
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            range: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
         }),
       });
 

@@ -28,9 +28,9 @@ const VISIBILITY_OPTIONS: {
   label: string;
   tooltip: string;
 }[] = [
-  { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can see this' },
-  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible only in /live sessions you share it in' },
-  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only you can see this' },
+  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
+  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
+  { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this.' },
 ];
 
 export function CreateStoryPage() {
@@ -40,7 +40,7 @@ export function CreateStoryPage() {
 
   // Form state
   const [content, setContent] = useState('');
-  const [visibility, setVisibility] = useState<StoryVisibility>('public');
+  const [visibility, setVisibility] = useState<StoryVisibility>('private');
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);

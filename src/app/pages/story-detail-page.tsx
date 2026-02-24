@@ -15,7 +15,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, LockIcon, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, LockIcon, Loader2, Plus, GlobeIcon, UsersIcon } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -28,7 +28,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
-import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType } from '@/app/types';
+import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, StoryVisibility } from '@/app/types';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -303,6 +304,82 @@ const EMPTY_COUNTS: SevenPointCounts = {
 };
 
 // ---------------------------------------------------------------------------
+// Visibility selector (author-only, inline below story card)
+// ---------------------------------------------------------------------------
+
+const VISIBILITY_OPTIONS: {
+  value: StoryVisibility;
+  icon: typeof GlobeIcon;
+  label: string;
+  tooltip: string;
+}[] = [
+  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
+  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
+  { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this.' },
+];
+
+function VisibilitySelector({
+  storyId,
+  currentVisibility,
+  onChanged,
+}: {
+  storyId: string;
+  currentVisibility: StoryVisibility;
+  onChanged: (v: StoryVisibility) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+
+  const handleChange = async (newVisibility: StoryVisibility) => {
+    if (newVisibility === currentVisibility || saving) return;
+    setSaving(true);
+    try {
+      const updated = await storiesService.updateStory(storyId, { visibility: newVisibility });
+      if (updated) {
+        onChanged(newVisibility);
+        toast.success('Visibility updated');
+      } else {
+        toast.error('Failed to update visibility');
+      }
+    } catch {
+      toast.error('Failed to update visibility');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 flex items-center gap-3">
+      <span className="text-sm text-muted-foreground">Visibility:</span>
+      <div className="flex gap-2" role="radiogroup" aria-label="Story visibility">
+        {VISIBILITY_OPTIONS.map((opt) => {
+          const Icon = opt.icon;
+          const isSelected = currentVisibility === opt.value;
+          return (
+            <MobileTooltip key={opt.value} content={opt.tooltip}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                disabled={saving}
+                onClick={() => handleChange(opt.value)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors min-h-[36px] ${
+                  isSelected
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-input bg-background text-muted-foreground hover:bg-accent'
+                } disabled:opacity-50`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {opt.label}
+              </button>
+            </MobileTooltip>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Key Points section
 // ---------------------------------------------------------------------------
 
@@ -452,13 +529,6 @@ export function StoryDetailPage() {
 
         if (!data) {
           setError('not_found');
-          setLoading(false);
-          return;
-        }
-
-        // Visibility enforcement: private/shared stories only visible to author
-        if (data.visibility !== 'public' && data.authorId !== user?.id) {
-          setError('private');
           setLoading(false);
           return;
         }
@@ -697,15 +767,22 @@ export function StoryDetailPage() {
         linkedStoriesForPoints={linkedStoriesForPoints}
       />
 
-      {/* P131: Author-only add-point form (below rich view) */}
+      {/* P131/P424: Author-only section */}
       {isAuthor && (
-        <KeyPointsSection
-          storyId={story.id}
-          currentUserId={user?.id ?? ''}
-          pointCount={story.points.length}
-          justCreated={justCreated}
-          onPointAdded={handlePointAdded}
-        />
+        <>
+          <VisibilitySelector
+            storyId={story.id}
+            currentVisibility={story.visibility}
+            onChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
+          />
+          <KeyPointsSection
+            storyId={story.id}
+            currentUserId={user?.id ?? ''}
+            pointCount={story.points.length}
+            justCreated={justCreated}
+            onPointAdded={handlePointAdded}
+          />
+        </>
       )}
     </div>
   );

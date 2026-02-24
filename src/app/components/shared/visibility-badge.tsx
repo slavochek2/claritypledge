@@ -16,9 +16,9 @@ const config: Record<StoryVisibility, {
   description: string;
   labelClassName: string;
 }> = {
-  public: { icon: Globe, label: 'Public', description: 'Anyone can see this', labelClassName: 'text-muted-foreground bg-muted' },
-  shared: { icon: Users, label: 'Shared', description: 'Visible only in /live sessions you share it in', labelClassName: 'text-muted-foreground bg-muted' },
-  private: { icon: Lock, label: 'Private', description: 'Only you can see this', labelClassName: 'text-muted-foreground bg-muted' },
+  public: { icon: Globe, label: 'Public', description: 'Anyone can view this.', labelClassName: 'text-muted-foreground bg-muted' },
+  shared: { icon: Users, label: 'Shared', description: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.', labelClassName: 'text-muted-foreground bg-muted' },
+  private: { icon: Lock, label: 'Private', description: 'Only people you explicitly share with can view this.', labelClassName: 'text-muted-foreground bg-muted' },
 };
 
 export function VisibilityBadge({ visibility, showLabel = false, size = 12 }: VisibilityBadgeProps) {
