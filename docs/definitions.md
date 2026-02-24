@@ -164,6 +164,20 @@ Current AI training faces a calibration gap:
 
 **What Stories provide:** Verified understanding — the human confirmed "Yes, you understood what I meant" at ≥8/10.
 
+### Mirror Agent (In-Product, `/chat`)
+
+> **Definition:** The user's personal AI reflection agent in `/chat`. It helps the user articulate a story by mirroring their meaning back in structured form — it reflects, it doesn't lead.
+
+**Key properties:**
+- Not a product persona — no fixed name, no brand identity
+- User can name it after their first story is filed (stored in private user settings, not visible to others)
+- Acts as a personal mirror, not a judge or coach — its job is accurate reflection, not improvement
+- Uses NVC scaffolding internally to structure the story; this scaffolding is invisible to the user
+
+**Distinction from Digital Twin:** The mirror agent is the story-filing interface (active now, in `/chat`). The digital twin is the long-term outcome — an AI trained on verified stories to represent you when you're absent. The mirror agent helps build the corpus that eventually trains the twin.
+
+---
+
 ### Digital Twin (Mirror Agent)
 
 > **Definition:** An AI agent trained on YOUR verified Stories — capable of representing your reasoning, values, and decision-making patterns in conversations where you're not present.

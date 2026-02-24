@@ -280,6 +280,7 @@ if (story) {
 | `/about` | About page with contact form |
 | `/settings` | User settings (authenticated) |
 | `/s/:code` | Short link redirects (see `src/app/data/short-links.ts`) |
+| `/chat` | AI-guided story filing. Chat-first paradigm (P425). Entry via "Tell your story →" CTA on point-detail pages — not in nav V1. Also embeddable as bottom-sheet overlay (P428). |
 
 ---
 
