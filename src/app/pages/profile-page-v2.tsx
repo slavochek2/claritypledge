@@ -1172,7 +1172,7 @@ function QuotedPointCard({
 
           {/* Content column */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground line-clamp-2">{point.statement}</p>
+            <p className="text-sm text-foreground">{point.statement}</p>
 
             {/* Position buttons - compact, only show for authenticated users */}
             {currentUserId && (
