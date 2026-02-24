@@ -8,6 +8,9 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Install pg_dump
         run: |
@@ -19,7 +22,8 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: projects/865832856153/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: db-backup-writer@gen-lang-client-0869694595.iam.gserviceaccount.com
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2

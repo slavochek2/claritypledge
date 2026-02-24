@@ -51,6 +51,23 @@ If <5 days, note: "Short cycle — [N] days since last review."
 ### 1. Context Health (run in parallel)
 
 ```bash
+# DB backup health — latest backup age and size
+LATEST=$(gsutil ls gs://claritypledge-db-backups/ 2>/dev/null | sort | tail -1)
+if [ -z "$LATEST" ]; then
+  echo "BACKUP: ❌ NO BACKUPS FOUND"
+else
+  SIZE=$(gsutil stat "$LATEST" 2>/dev/null | grep "Content-Length" | awk '{print $2}')
+  DATE=$(echo "$LATEST" | grep -oP '\d{8}')
+  DAYS_AGO=$(( ( $(date +%s) - $(date -d "$DATE" +%s 2>/dev/null || date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null) ) / 86400 ))
+  if [ "$DAYS_AGO" -gt 2 ]; then
+    echo "BACKUP: ⚠️  Last backup $DAYS_AGO days ago ($LATEST, ${SIZE}B) — check GitHub Actions"
+  elif [ "$SIZE" -lt 1000 ]; then
+    echo "BACKUP: ❌ Last backup suspiciously small (${SIZE}B) — may be corrupt"
+  else
+    echo "BACKUP: ✅ Last backup ${DAYS_AGO}d ago, ${SIZE}B"
+  fi
+fi
+
 # Broken links in CLAUDE.md
 grep -oE '\[.*?\]\((src/[^)]+|docs/[^)]+|features/[^)]+|e2e/[^)]+|scripts/[^)]+|\.claude/[^)]+)\)' CLAUDE.md | \
   sed 's/.*(\(.*\))/\1/' > /tmp/refs.txt
@@ -258,6 +275,7 @@ EOF
 ✅/⚠️ CLAUDE.md: X lines, [broken links or "clean"]
 ✅/⚠️ Rules: [files or "missing"]
 ✅/⚠️ Stale docs: [list or "none"]
+✅/⚠️ DB backup: [last backup age + size, or ❌ if missing/stale]
 
 ### Sentry
 ✅/⚠️ [summary]
