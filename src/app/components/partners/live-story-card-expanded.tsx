@@ -55,6 +55,8 @@ interface LiveStoryCardExpandedProps {
   defaultExpanded?: boolean;
 }
 
+const STORY_THRESHOLD = 180;
+
 export function LiveStoryCardExpanded({
   story,
   onPositionSelect,
@@ -64,8 +66,13 @@ export function LiveStoryCardExpanded({
   defaultExpanded = false,
 }: LiveStoryCardExpandedProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [storyExpanded, setStoryExpanded] = useState(false);
 
-  const preview = story.content.length > 120 ? story.content.slice(0, 120) + '…' : story.content;
+  const isLongStory = story.content.length > STORY_THRESHOLD;
+  const displayText =
+    isLongStory && !storyExpanded
+      ? story.content.slice(0, STORY_THRESHOLD) + '…'
+      : story.content;
 
   return (
     <div
@@ -99,7 +106,17 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <VisibilityBadge visibility={story.visibility} />}
               </p>
             )}
-            <p className="text-sm text-gray-900 leading-snug">{preview}</p>
+            <p className="text-sm text-gray-900 leading-snug">{displayText}</p>
+            {isLongStory && (
+              <button
+                type="button"
+                onClick={() => setStoryExpanded((prev) => !prev)}
+                aria-expanded={storyExpanded}
+                className="text-sm text-blue-600 hover:text-blue-700 mt-1"
+              >
+                {storyExpanded ? 'Show less' : 'Show more'}
+              </button>
+            )}
           </div>
         </div>
       </div>
