@@ -964,7 +964,7 @@ function StoryCardFull({
             </div>
 
             {/* Story text */}
-            <p className="text-foreground text-base">{storyDisplayText}</p>
+            <p id={`story-text-${story.id}`} className="text-foreground text-base">{storyDisplayText}</p>
             {isLongStory && (
               <div role="presentation" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -972,6 +972,7 @@ function StoryCardFull({
                   data-story-toggle="true"
                   onClick={() => setStoryExpanded((prev) => !prev)}
                   aria-expanded={storyExpanded}
+                  aria-controls={`story-text-${story.id}`}
                   className="text-sm text-blue-600 hover:text-blue-700 mt-1"
                 >
                   {storyExpanded ? 'Show less' : 'Show more'}

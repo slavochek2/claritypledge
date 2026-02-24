@@ -68,6 +68,11 @@ export function LiveStoryCardExpanded({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [storyExpanded, setStoryExpanded] = useState(false);
 
+  // Reset expand state when the story changes (e.g. live session rotates to next story)
+  useEffect(() => {
+    setStoryExpanded(false);
+  }, [story.id]);
+
   const isLongStory = story.content.length > STORY_THRESHOLD;
   const displayText =
     isLongStory && !storyExpanded
@@ -106,12 +111,13 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <VisibilityBadge visibility={story.visibility} />}
               </p>
             )}
-            <p className="text-sm text-gray-900 leading-snug">{displayText}</p>
+            <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug">{displayText}</p>
             {isLongStory && (
               <button
                 type="button"
                 onClick={() => setStoryExpanded((prev) => !prev)}
                 aria-expanded={storyExpanded}
+                aria-controls={`live-story-text-${story.id}`}
                 className="text-sm text-blue-600 hover:text-blue-700 mt-1"
               >
                 {storyExpanded ? 'Show less' : 'Show more'}
