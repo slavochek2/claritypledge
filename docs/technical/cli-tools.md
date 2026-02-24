@@ -62,6 +62,14 @@ Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple fi
 - Free tier: project auto-pauses after inactivity → unpause in Dashboard before running migrate.sh
 - `SUPABASE_ACCESS_TOKEN` in `.env.local` is the agent-friendly PAT — add yours from the Supabase Dashboard if agents need to apply migrations autonomously
 
+**Session pooler URL — always copy from the Connect dialog:**
+When setting up a new CI job or script that needs a direct Postgres connection (e.g., `pg_dump`, backup workflows), copy the session pooler URL from: Supabase Dashboard → project → **Connect** button → Method: "Session pooler". Do NOT construct it manually.
+
+Reason: the pooler hostname encodes the AWS region (`aws-1-ap-southeast-1`, `aws-0-us-east-1`, etc.) and this varies per project. Using the wrong region returns "Tenant not found." For the prod project (`besjtuodziykmjidubzw`) the correct URL is:
+```
+postgresql://postgres.besjtuodziykmjidubzw:[PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres
+```
+
 **Limitations:**
 - Requires Docker for `db dump` / `db diff` operations
 - No direct SQL via `psql` (not installed; pooler rejects direct pg connections)
