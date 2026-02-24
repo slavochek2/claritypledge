@@ -58,6 +58,27 @@ if [ -z "$SUPABASE_PAT" ]; then
   SUPABASE_PAT=$(grep "^SUPABASE_ACCESS_TOKEN=" "$ENV_FILE" | cut -d= -f2- || true)
 fi
 
+# --- Helper: validate Supabase Management API response body ---
+# The API can return HTTP 200 with a JSON error object ({"message":...,"code":...})
+# when a SQL statement fails. This function distinguishes real success (JSON array)
+# from silent failure (JSON object with message key). P417 regression guard.
+_check_api_success() {
+  local BODY="$1"
+  python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    if isinstance(d, list):
+        sys.exit(0)   # array = success (DDL returns [], SELECT returns rows)
+    elif isinstance(d, dict) and 'message' in d:
+        sys.exit(1)   # object with message = SQL error from Supabase
+    else:
+        sys.exit(0)   # other shapes treated as success
+except Exception:
+    sys.exit(1)       # unparseable = treat as error (fail safe)
+" <<< "$BODY"
+}
+
 # --- Helper: apply a single SQL file via Management API ---
 apply_via_api() {
   local FILE="$1"
@@ -78,8 +99,14 @@ apply_via_api() {
   VERSION=$(echo "$BASENAME" | sed -E 's/^([0-9]+)[_.]?.*/\1/')
   local INSERT_SQL="INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('${VERSION}') ON CONFLICT DO NOTHING"
 
-  # Management API returns 200 for queries, 201 for DDL statements
+  # Management API returns 200 for queries, 201 for DDL statements.
+  # Guard: even on HTTP 200, check the body — the API can return an error object
+  # ({"message":...,"code":...}) with HTTP 200 when SQL fails (P417).
   if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+    if ! _check_api_success "$BODY"; then
+      echo "  ✗ $BASENAME FAILED (HTTP $HTTP_CODE, SQL error in body): $BODY"
+      return 1
+    fi
     echo "  ✓ $BASENAME applied"
     # Record in migration history so future `db push` sees it as already applied
     curl -s -o /dev/null \
