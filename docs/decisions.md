@@ -14,6 +14,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [technical]: Validate Management API response body, not just HTTP status (P417)
+
+**Context:** `profiles.bio` column was absent from prod despite `migrate.sh` reporting the migration "already applied". Supabase Management API returns HTTP 200 with a JSON error object `{"message":...,"code":...}` when SQL fails. The old `apply_via_api()` only checked HTTP status — treated 200 as success, inserted the version into `schema_migrations`, and silently left the schema unchanged. Every subsequent run skipped it.
+
+**Decision:** Added `_check_api_success()` to `migrate.sh`: response body is a JSON array → success; JSON object with `message` key → SQL error, even if HTTP 200. Migration only recorded in history after body validation passes.
+
+**Alternatives rejected:** Post-migration schema verification (query actual columns after apply) — more powerful but complex to implement generically for arbitrary SQL. Kept as a manual debugging step instead.
+
+**Consequences:** `apply_via_api()` now fails loudly on SQL errors instead of silently recording them as applied. Regression test in `scripts/tests/test_migrate_api_response.sh`. When debugging save failures, always verify the column actually exists via REST API curl — don't trust migration history alone.
+
+**References:** [scripts/migrate.sh](../../scripts/migrate.sh), [database.md](database.md)
+
 ## 2026-02-23 [process]: promote-blog approval via HTML page in browser
 
 **Context:** Initial promote-blog skill presented copy variants and image options as plain text in the Claude chat window. Hard to review image thumbnails and compare copy side-by-side in a terminal context.

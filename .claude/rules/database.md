@@ -30,8 +30,13 @@ Extracts DB password from `.env.local` automatically. Run this — don't ask.
    ```sql
    SELECT * FROM pg_policies WHERE tablename = 'your_table';
    ```
-2. **Migration applied?** — check `supabase/migrations/` timestamps
-3. **Column existence** — only after ruling out RLS + migrations
+2. **Column actually exists on prod?** — migration history can lie (P417). Verify directly:
+   ```bash
+   curl "https://<ref>.supabase.co/rest/v1/<table>?select=<col>&limit=1" \
+     -H "apikey: <anon-key>" -H "Authorization: Bearer <anon-key>"
+   # {"code":"42703",...} = column missing despite migration showing "applied"
+   ```
+3. **Migration applied?** — check `supabase/migrations/` timestamps; if column missing, re-run the SQL directly via Management API
 
 ## RLS Key Patterns
 

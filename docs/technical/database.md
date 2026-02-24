@@ -317,6 +317,13 @@ const witnesses = await getWitnesses(profile.id);
 ```bash
 ./scripts/migrate.sh
 ```
-Primary path: `supabase db push`. Automatic fallback: Supabase Management API (used when the CLI fails due to branch divergence from main — common when the shared test DB has migrations from other branches that aren't in the current branch's file list). The fallback reads the PAT from the macOS keychain and applies unapplied migrations directly. **Always works.**
+Primary path: `supabase db push`. Automatic fallback: Supabase Management API (used when the CLI fails due to branch divergence from main). The fallback reads the PAT from the macOS keychain and applies unapplied migrations directly.
 
-**Rule:** one file per day, or use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations. All migration SQL must be idempotent (`CREATE OR REPLACE`, `IF NOT EXISTS`, `ON CONFLICT DO NOTHING`) — the fallback path re-applies any migration not tracked in `supabase_migrations.schema_migrations`. See [cli-tools.md](cli-tools.md) for details.
+**P417 caveat — migration history ≠ schema truth:** The Supabase Management API can return HTTP 200 with a JSON error body (`{"message":...,"code":...}`) when SQL fails. Before P417 fix, this caused `apply_via_api()` to record a migration as applied even when the schema change never executed. Fixed in `scripts/migrate.sh` — `_check_api_success()` now validates the response body, not just HTTP status. If you suspect silent drift, verify the column/index actually exists:
+```bash
+curl -s "https://<project-ref>.supabase.co/rest/v1/<table>?select=<column>&limit=1" \
+  -H "apikey: <anon-key>" -H "Authorization: Bearer <anon-key>"
+# Error 42703 = column missing despite migration showing "applied"
+```
+
+**Rule:** one file per day, or use 14-digit timestamps (`YYYYMMDDHHMMSS`) if you need multiple same-day migrations. All migration SQL must be idempotent (`CREATE OR REPLACE`, `IF NOT EXISTS`, `ON CONFLICT DO NOTHING`). See [cli-tools.md](cli-tools.md) for details.
