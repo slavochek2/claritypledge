@@ -342,7 +342,7 @@ The integration test MUST include a schema existence check using the **two-clien
 1. **You run:** `/generate-tests features/p142_csv_export.md`
 2. **Agent analyzes:** Business + UX + Technical requirements
 3. **Agent determines:** What test types are needed (unit + integration + E2E + a11y + smoke + UAT)
-4. **Agent generates:** 7 test files + coverage report
+4. **Agent generates:** 7 test files + coverage report — **the 6 file types are independent after analysis; dispatch them as parallel subagents for large features**
 5. **Agent appends:** Test strategy to spec
 6. **Agent updates frontmatter** — adds generated file paths to spec frontmatter using the Edit tool (insert before the closing `---`):
    - `uat_file: features/uat/p{N}.md` (always)
@@ -360,8 +360,7 @@ The integration test MUST include a schema existence check using the **two-clien
 
    Omit any test type that was skipped (e.g., no unit tests generated → no unit test entry). Do not add `test_files:` if no automated tests were generated (UAT-only features).
 
-7. **You review:** Test coverage rationale (optional)
-8. **You proceed:** `/dev features/p142_csv_export.md` (implementation)
+7. **You proceed:** `/dev features/p142_csv_export.md`
 
 ---
 
@@ -383,14 +382,14 @@ The integration test MUST include a schema existence check using the **two-clien
 - `/decompose` → (complex features only) reads Test Coverage Strategy to annotate tasks with test refs
 - `/dev` → Reads tests, implements feature, fills in TODOs, runs tests, iterates until all pass
 
-**No review gate:** Tests are auto-generated from approved layers (user doesn't need to review)
+**No gate.** `/generate-tests` outputs the coverage report and stops. Run `/dev` when ready.
 
 ---
 
 ## Common Questions
 
 ### Q: Do I need to review the generated tests?
-**A:** Optional. Tests are generated from approved layers (business + UX + architecture). If those were approved, tests should be correct. But you can review test strategy in the coverage report.
+**A:** No gate required. The coverage report is appended to the spec — review it if you want. If edge cases are missing, add them to the spec and re-run `/generate-tests`. Then run `/dev`.
 
 ### Q: Can I modify generated tests before `/dev`?
 **A:** Yes, but usually not needed. If acceptance criteria change, update the spec and re-run `/generate-tests`.
