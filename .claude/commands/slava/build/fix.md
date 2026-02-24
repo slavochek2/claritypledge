@@ -387,20 +387,21 @@ resolution: What was fixed  # Added after fix
 
 After commit succeeds:
 
-1. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
-2. Find destination: `ls -d features/done/*/ 2>/dev/null | sort -V | tail -1`
+1. **Review** — Spawn `/review-all` as a subagent with: "Review all changes on this branch vs main. Spec: [spec path if exists]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
+2. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
+3. Find destination: `ls -d features/done/*/ 2>/dev/null | sort -V | tail -1`
    Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
-3. Move files:
+4. Move files:
    ```bash
    mkdir -p features/done/{folder}
    git mv features/{spec} features/done/{folder}/
    git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
    ```
-4. Commit: `chore: close P{N} — {title}`
-5. Refresh kanban:
-   ```bash
-   curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null
-   ```
+5. Commit: `chore: close P{N} — {title}`
+6. Spawn parallel closing subagents:
+   - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
+   - **verify** (if `*.tsx` files changed): Ask "Run `/verify` for visual QA? (y/n)" — spawn as subagent if yes
+   fix-kanban runs automatically; verify is opt-in.
 6. Ask: "Capture learnings with /kdd? (y/n)"
 
 ---

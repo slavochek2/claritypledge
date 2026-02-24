@@ -7,6 +7,10 @@ description: >
   e.g. inline fix vs quick-feature vs full PRD pipeline. Triggered by "/pick-flow",
   "what flow should I use?", "which flow for this?", "should I file a spec?", or whenever
   the user is about to start a task and the right process is unclear.
+
+  Proactively offer this at the start of any non-trivial task (P-number mentioned, bug
+  described, "what do we do next" asked) — do not wait to be asked. Skip for one-liner
+  fixes, typo edits, or when the user has already named the exact commands to run.
 ---
 
 # pick-flow
@@ -47,7 +51,7 @@ Which flow?
 | New route, API endpoint, or DB column | B |
 | New auth logic, RLS, or edge function | C |
 | 5+ files or 3+ independent concerns | B or C |
-| Spec already written and complete | drop one level lighter |
+| Spec already written and complete | skip spec-writing steps, start from `/generate-tests` or `/dev` |
 | ASCII/design already decided in conversation | drop /ux |
 
 ## Available commands (in sequence order)
@@ -60,9 +64,15 @@ Which flow?
 - `/generate-tests` — writes test specs before implementation
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only)
 - `/dev` — implements from spec, auto-closes feature on success
-- `/review-all` — static code + design + UX review (post-dev, optional)
+- `/review-all` — 3-agent parallel review (code + design + UX); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
 - `/verify` — live browser UAT (when look/feel matters, optional)
 - `/kdd` — captures learnings into docs (optional, after shipping)
+
+## Quality principle
+
+> **Run steps with meaningful quality impact for this task's scope and risk. Skip steps where overhead exceeds the gain — not because they add zero value in theory, but because for a 1-file UI change, `/architect` costs 5 min and adds nothing that reading the file doesn't already provide.**
+
+Apply this to every step. Don't default to "might help a bit" — default to "clearly helps for this specific task."
 
 ## Hard rules
 
@@ -71,4 +81,5 @@ Which flow?
 - `/ux` only if visual/interaction design is unresolved — skip if ASCII/mockup already decided
 - `/decompose` only for 5+ files or 3+ independent concerns
 - If spec already exists, start from `/generate-tests` or `/dev`, not `/quick-feature`
-- `/review-all` and `/verify` are always optional — only mention in B/C, never force them
+- `/review-all` runs automatically inside `/dev` and `/fix` — never list it as a step in any flow
+- `/verify` is optional — only list it if look/feel matters for this task

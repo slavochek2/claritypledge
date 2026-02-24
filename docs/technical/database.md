@@ -147,6 +147,43 @@ Seven tables added by P117. Full schema details in [architecture.md](architectur
 
 See [architecture.md § RLS Policies](architecture.md#rls-policies) for the full matrix covering stories, points, positions, verifications, and related tables.
 
+### stories visibility policy (P424)
+
+The `stories` SELECT policy enforces three branches based on the `visibility` column (type `story_visibility` enum: `'public'`, `'shared'`, `'private'`):
+
+```sql
+CREATE POLICY "Stories readable by visibility"
+  ON stories FOR SELECT USING (
+    visibility = 'public'
+    OR author_id = auth.uid()
+    OR (
+      visibility = 'shared'
+      AND auth.uid() IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM event_rsvps reader_rsvp
+        WHERE reader_rsvp.profile_id = auth.uid()
+          AND EXISTS (
+            SELECT 1 FROM event_rsvps author_rsvp
+            WHERE author_rsvp.event_id = reader_rsvp.event_id
+              AND author_rsvp.profile_id = stories.author_id
+            UNION ALL
+            SELECT 1 FROM events hosted
+            WHERE hosted.id = reader_rsvp.event_id
+              AND hosted.host_id = stories.author_id
+          )
+      )
+    )
+  );
+```
+
+**`shared` access logic:** A reader can see a `shared` story if both the reader and the author attended (or hosted) the same event. The UNION ALL handles the case where the author is the event host — hosts may not have an `event_rsvps` row.
+
+**Column default:** `visibility` column defaults to `'private'` (changed from `'public'` in P424 migration `20260224120000_p424_visibility_model.sql`).
+
+**Client-side gate rule:** Remove any `if (story.visibility !== 'public') continue` guards once RLS is the enforcement layer. `getStory()` returning null = unauthorized — no need to distinguish "not found" from "forbidden" (enumeration prevention). Any consumer filtering by `visibility` in application code is a bug.
+
+**Feed vs. contextual queries:** `getStoriesFeed()` has an explicit `.eq('visibility','public')` filter — shared stories are intentionally excluded from global discovery. `getStoriesForPoints()` trusts RLS — shared stories surface in point context for co-registrants.
+
 ---
 
 ## Data Layer (api.ts)

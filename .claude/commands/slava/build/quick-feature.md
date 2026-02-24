@@ -81,6 +81,8 @@ Ask (text input, NOT AskUserQuestion):
 - **Title:** Brief description (will become filename)
 - **Problem:** What needs to be solved? (1-2 sentences)
 
+**Before writing the file:** Scan the conversation for any already-decided design context — ASCII mockups, wireframes, file paths, implementation approach. If found, include it in the spec rather than leaving placeholders. The spec should capture what's already known.
+
 ### 3. Determine P-Number
 
 Run the canonical script:
@@ -137,11 +139,15 @@ tags: []
 
 ## Solution
 
-_To be filled in during implementation planning._
+{If ASCII mockups, wireframes, or design decisions were already discussed in the conversation — include them here verbatim. Otherwise write: _To be filled in during implementation planning._}
+
+## UX Design
+
+{If ASCII mockups were already produced in the conversation — paste them here with brief labels. Otherwise omit this section entirely.}
 
 ## Technical Notes
 
-_Implementation details, architecture decisions._
+{If specific files, patterns, or implementation approach were already discussed — summarize them here. Otherwise write: _Implementation details, architecture decisions._}
 
 ## Acceptance Criteria
 

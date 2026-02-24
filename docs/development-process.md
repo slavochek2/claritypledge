@@ -19,8 +19,7 @@ This document describes how features move from idea to production in the Clarity
 /architect features/pN_feature.md    # Technical layer
 # [Review & approve architecture]
 
-/generate-tests features/pN_feature.md  # Test generation
-# [Auto-generated, no review needed]
+/generate-tests features/pN_feature.md  # Test generation (coverage report appended to spec)
 
 /decompose features/pN_feature.md    # Task manifest (complex features only*)
 # [Review & approve task breakdown — /decompose reads Test Coverage section to add test refs to tasks]
@@ -216,7 +215,7 @@ This document describes how features move from idea to production in the Clarity
 2. **E2E test stubs** (`e2e/pN-feature.spec.ts`) - Runnable test files with TODO stubs
 3. **Smoke tests** (`e2e/pN-smoke.spec.ts`) - Fast regression detection (page loads, no errors)
 
-**No review gate:** Auto-generated from approved layers (user doesn't need to review)
+**Review gate:** Agent presents `## Test Coverage Strategy` — user confirms coverage is sufficient or adds missing edge cases to spec before proceeding.
 
 **Frontmatter written:** After generating test files, /generate-tests writes `uat_file` and `test_files` keys to spec frontmatter. /decompose reads the `## Test Coverage Strategy` section and adds a `Tests:` line to each task manifest entry. This makes test files explicitly discoverable by /dev subagents without relying on naming convention guesses.
 
@@ -257,7 +256,7 @@ This document describes how features move from idea to production in the Clarity
 - "Tests: 9/10 passing, fixing edge case..."
 - "Tests: 10/10 passing ✅"
 
-**No review gate:** Agent tests itself, user only validates UX (not functionality)
+**Built-in review:** After commit, `/dev` automatically spawns `/review-all` as a subagent. Findings presented to user (HIGH/MEDIUM/LOW). User approves fixes before feature closes.
 
 **Example:**
 ```bash
@@ -398,6 +397,7 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps — run AFTER /generate-tests | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
 | `/dev` | All features (after tests generated) | Implementation + tests passing; orchestrator mode if task manifest exists |
 | `/quick-feature` | Quick skeleton (different use case) | Empty spec structure |
+| `/pick-flow` | Unsure which flow to use? | Proposes A/B/C options, recommends one |
 
 ---
 
@@ -479,7 +479,7 @@ This avoids context overflow on large features.
 
 # Step 4: Test generation
 /generate-tests features/p142_dark_mode.md
-# Auto-generated, no review
+# (coverage report appended to spec)
 
 # Step 5: Implementation
 /dev features/p142_dark_mode.md
@@ -710,9 +710,11 @@ A third pattern — distinct from bugs and features — is when something *feels
 
 `/dev` and `/fix` auto-close the feature on success — spec moves to `features/done/`, `status: done` and `completed_at` are set.
 
+**Built-in post-work (automatic):**
+- `/review-all` — spawned automatically by `/dev` after commit. Code + design + UX review (3 agents in parallel). Findings presented with fix options before feature closes.
+
 **Optional post-work:**
-- `/review-all` — code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or code you didn't closely supervise.
-- `/verify` — live browser UAT + visual QA. Run when you care about look/feel. Returns ✅ / ❌. Can be run on specs already in `features/done/`.
+- `/verify` — live browser UAT + visual QA. Run when you care about look/feel. Returns ✅ / ❌.
 - `/kdd` — capture notable learnings in strategic docs.
 
 **When to use what:**
@@ -730,7 +732,7 @@ A third pattern — distinct from bugs and features — is when something *feels
 These exist but aren't in the default path. Invoke them when you have a specific reason:
 
 - `/refactor` — post-implementation code cleanup (rename, deduplicate, restructure). Run after `/dev` closes the feature, only when code quality warrants it.
-- `/review-all` — parallel code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or unsupervised agent output.
+- `/review-all` — run manually if you want a second pass, or after `/fix` (which doesn't auto-run it). `/dev` already runs it automatically.
 - `/design-audit` — focused design system compliance check. Subset of `/review-all`.
 
 ---
@@ -742,7 +744,7 @@ These skills can be used at any point during development when you need them:
 | Skill | When to Use | What It Does |
 |-------|-------------|--------------|
 | `/simplify` | Facing complex decision with many options | Decision-by-decision analysis and recommendations |
-| `/review-all` | Any non-trivial feature: multi-file, auth/RLS, agent-written code | Static code + design + UX review (no browser). You decide what to fix. |
+| `/review-all` | After `/fix`, or for a second pass after `/dev` | Static code + design + UX review (no browser). `/dev` runs it automatically; use manually for `/fix` or re-review. |
 
 **Usage pattern:**
 - These don't block the main flow
@@ -777,8 +779,7 @@ These skills can be used at any point during development when you need them:
                         ↓
 ┌─────────────────────────────────────────────────────┐
 │ POST-WORK                                           │
-│ (auto) /dev or /fix closes feature on success       │
-│ (optional) /review-all — code+design+UX static      │
+│ (auto) /dev → /review-all subagent → fix → close   │
 │ (optional) /verify — live UAT + visual QA           │
 │ (optional) /kdd                                     │
 └─────────────────────────────────────────────────────┘
