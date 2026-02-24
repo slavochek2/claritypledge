@@ -43,7 +43,7 @@ Frontmatter: [issues found, or "clean ✅"]
 Kanban: refreshed ✅
 
 Open questions / decisions deferred:
-  [list any unresolved things from this session, or "none"]
+  [scan conversation history for: unresolved decisions, deferred TODOs, open "we should..." threads, hypotheses raised but not validated — list them, or "none"]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
