@@ -14,6 +14,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [process]: Vercel CLI token in .env.local for autonomous deployments
+
+**Context:** Banner regeneration worked in dev but not prod. Root cause: `VITE_UNSPLASH_ACCESS_KEY` was in `.env.local` but never added to Vercel's environment variables. Features using `VITE_*` build-time vars require manual Vercel config on every new API key — easy to miss. Also needed a way for the agent to do this autonomously without browser automation.
+
+**Decision:** `VERCEL_TOKEN` is now in `.env.local` (gitignored, never committed). Agent uses `vercel` CLI with `--token "$VERCEL_TOKEN"` for env var management and deployments. `.env.prod.example` updated to document `VITE_UNSPLASH_ACCESS_KEY` as required.
+
+**Alternatives rejected:**
+- Browser automation each time — fragile, session-dependent, slow
+- Vercel MCP — no official MCP server exists
+
+**Consequences:** Agent can now run `vercel env add KEY production --token "$VERCEL_TOKEN"` autonomously. Rule: any new `VITE_*` env var must be added to Vercel dashboard + `.env.prod.example`. VITE_* vars are **baked at build time** — changing them in Vercel requires a redeploy (not just a restart). Verify with: check all lazy chunks for the string, not just main bundle.
+
+---
+
 ## 2026-02-24 [process]: Chrome Remote Desktop over noVNC for VM desktop access
 
 **Context:** Need to interact with a headless VM desktop (solve LinkedIn CAPTCHAs, observe running GUI apps like LH). Built noVNC stack (Xvfb + x11vnc + websockify) — proved fragile: SSH tunnels die between sessions, websockify processes multiply, connection breaks frequently.
