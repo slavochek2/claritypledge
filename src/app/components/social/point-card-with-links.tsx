@@ -224,7 +224,7 @@ export function PointCardWithLinks({
                 {/* Content column */}
                 <div className="flex-1 min-w-0">
                   {/* Point text */}
-                  <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+                  <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
                     {point.text}
                   </p>
 
@@ -308,7 +308,7 @@ export function PointCardWithLinks({
               </div>
 
               {/* Point text - same position as StoryCard text */}
-              <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-2' : 'text-base'}`}>
+              <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
                 {point.text}
               </p>
 
