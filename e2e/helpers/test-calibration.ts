@@ -299,26 +299,8 @@ export async function createCalibrationDataNoStory(options: {
   }
 
   console.log(`[TEST HELPER] Created ${count} no-story verification records`);
-
-  // Use listener's own JWT to update profile count (same pattern as createCalibrationData)
-  const listenerClient = await createListenerClient(listenerId);
-  const { data: current } = await listenerClient
-    .from('profiles')
-    .select('verification_session_count')
-    .eq('id', listenerId)
-    .single();
-
-  const newCount = (current?.verification_session_count ?? 0) + count;
-  const { error: countUpdateError } = await listenerClient
-    .from('profiles')
-    .update({ verification_session_count: newCount })
-    .eq('id', listenerId);
-
-  if (countUpdateError) {
-    throw new Error(`Failed to update verification_session_count: ${countUpdateError.message}`);
-  }
-
-  console.log(`[TEST HELPER] Set verification_session_count to ${newCount} for listener`);
+  // DB trigger (increment_listener_verification_count) fires on each INSERT and
+  // increments verification_session_count automatically. No manual update needed.
 }
 
 /**
