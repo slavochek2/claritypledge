@@ -142,21 +142,8 @@ export async function createCalibrationData(options: {
   }
 
   console.log(`[TEST HELPER] Created ${count} verification records`);
-
-  // service_role UPDATE on profiles is blocked by a broken RLS policy (migration 20260217 not yet
-  // applied to the remote DB). Use the listener's own JWT instead — the standard
-  // "Users can update own profile" (auth.uid() = id) policy allows this.
-  const listenerClient = await createListenerClient(listenerId);
-  const { error: countUpdateError } = await listenerClient
-    .from('profiles')
-    .update({ verification_session_count: count })
-    .eq('id', listenerId);
-
-  if (countUpdateError) {
-    throw new Error(`Failed to update verification_session_count: ${countUpdateError.message}`);
-  }
-
-  console.log(`[TEST HELPER] Set verification_session_count to ${count} for listener`);
+  // DB trigger (increment_listener_verification_count) fires on each INSERT and
+  // increments verification_session_count automatically. No manual update needed.
 }
 
 /**

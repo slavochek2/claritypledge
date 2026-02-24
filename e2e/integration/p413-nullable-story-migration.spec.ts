@@ -117,7 +117,15 @@ test.describe('Migration: P413 — story_id and version_id nullable on story_ver
 
   // ── 5. RLS: authenticated user can insert without story_id ───────────────
   test('authenticated user can insert story_verification without story_id (RLS check)', async () => {
-    const { data: signIn, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+    // Use a fresh admin client for sign-in — calling signInWithPassword on the shared
+    // supabaseAdmin singleton would corrupt its in-memory auth state, causing subsequent
+    // service-role cleanup calls (afterAll) to use the user JWT instead.
+    const freshAdmin = createClient(
+      process.env.VITE_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+    const { data: signIn, error: signInError } = await freshAdmin.auth.signInWithPassword({
       email: speakerEmail,
       password: 'test-password-12345',
     });
