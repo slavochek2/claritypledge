@@ -14,6 +14,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [technical]: Daily prod DB backup via GitHub Actions → GCS
+
+**Context:** No automated backup existed for the Supabase prod DB. Supabase Free plan has zero automatic backups. A bad migration or accidental DROP would be unrecoverable.
+
+**Decision:** `pg_dump` daily via GitHub Actions cron → gzip → `gs://claritypledge-db-backups/`, 7-day retention. Keyless GCP auth via Workload Identity Federation (no long-lived JSON key). Email alerts on failure via GitHub notification settings (already enabled).
+
+**Alternatives rejected:**
+- Supabase Pro ($25/mo) — adds daily backups but costs money; DIY solution is free
+- Cron on clarity-agent VM — VM can't reach Supabase direct DB (IPv6-only); session pooler not reachable from VM either
+- Supabase IPv4 add-on ($4/mo) — would unblock the VM path but unnecessary given GitHub Actions works
+- Service account JSON key — replaced with WIF (no stored credential, token is short-lived per-run)
+
+**Consequences:** Backup runs at 3am UTC daily. Connection uses session pooler `aws-1-ap-southeast-1.pooler.supabase.com:5432` (Singapore region — must match prod project region, not US East). To restore: `gunzip -c backup.sql.gz | psql <session-pooler-url>`. Documented in `.private/docs/backup-recovery.md`. `/weekly` skill checks backup freshness automatically.
+
+**References:** [.github/workflows/db-backup.yml](../../.github/workflows/db-backup.yml), [backup-recovery.md](../../.private/docs/backup-recovery.md)
+
+---
+
 ## 2026-02-24 [technical]: Validate Management API response body, not just HTTP status (P417)
 
 **Context:** `profiles.bio` column was absent from prod despite `migrate.sh` reporting the migration "already applied". Supabase Management API returns HTTP 200 with a JSON error object `{"message":...,"code":...}` when SQL fails. The old `apply_via_api()` only checked HTTP status — treated 200 as success, inserted the version into `schema_migrations`, and silently left the schema unchanged. Every subsequent run skipped it.
