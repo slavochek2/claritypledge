@@ -9,7 +9,7 @@ rank: 125303.0
 created_date: 2026-02-05
 ---
 
-# P155: Switch Ghost Admin Email Back
+# P161: Switch Ghost Admin Email Back
 
 **Context:** Ghost admin email was temporarily changed to `slavochek@googlemail.com` because kasserver.com cached a negative DNS result for `mg.claritypledge.com` (no MX records at the time). MX records have since been added.
 

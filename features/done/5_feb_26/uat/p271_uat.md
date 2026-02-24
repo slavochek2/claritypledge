@@ -7,7 +7,7 @@ created_date: 2026-02-16
 completed_at: '2026-02-09'
 ---
 
-# P152: Profile System Production Readiness — Acceptance Tests
+# P271: Profile System Production Readiness — Acceptance Tests
 
 **Purpose:** Testable acceptance criteria for profile calibration and ear count implementation.
 **Usage:** Ralph Loop iterates until ALL tests pass (score 100%).

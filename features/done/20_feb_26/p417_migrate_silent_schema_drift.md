@@ -9,6 +9,9 @@ resolution: Added _check_api_success() that parses response body; JSON array = s
 type: bug
 severity: critical
 date_reported: 2026-02-24
+tags: []
+rank: 125480.0
+created_date: 2026-02-24
 ---
 
 # P417: migrate.sh Silent Schema Drift

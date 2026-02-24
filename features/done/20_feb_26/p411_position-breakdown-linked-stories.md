@@ -15,6 +15,7 @@ rank: 2
 tags: []
 created_at: 2026-02-21T00:00:00.000Z
 locked_at: '2026-02-21T09:05:43.157Z'
+created_date: 2026-02-22
 ---
 
 ## Problem

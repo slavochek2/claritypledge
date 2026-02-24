@@ -7,7 +7,7 @@ rank: 125300.0
 created_date: 2026-02-06
 ---
 
-# P115: Unified User Management (Ghost + Supabase)
+# P267: Unified User Management (Ghost + Supabase)
 
 ## Problem
 

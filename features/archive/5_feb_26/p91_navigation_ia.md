@@ -7,7 +7,7 @@ created_date: 2026-01-23
 completed_at: '2026-02-09'
 ---
 
-# P90: Navigation & Information Architecture
+# P91: Navigation & Information Architecture
 
 ## Problem
 

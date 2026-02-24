@@ -11,6 +11,7 @@ reviews:
   ux: null
   architect: null
   alignment: null
+created_date: 2026-02-24
 ---
 
 # P425: AI-Guided Story Creation — Core Loop (position-triggered)

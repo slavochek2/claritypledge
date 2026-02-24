@@ -8,7 +8,7 @@ created_date: 2026-02-22
 tags: []
 ---
 
-# P413: Count any completed paraphrase exchange toward calibration
+# P423: Count any completed paraphrase exchange toward calibration
 
 ## Problem
 

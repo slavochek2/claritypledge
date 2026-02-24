@@ -6,7 +6,7 @@ tags: []
 rank: 125317.0
 created_date: 2026-01-19
 ---
-# P76: Witness Feature Review
+# P253: Witness Feature Review
 
 **Status:** Planned (post-sprint cleanup)
 **Decision:** Delete witness feature

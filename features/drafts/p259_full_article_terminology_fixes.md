@@ -6,7 +6,7 @@ tags: []
 rank: 125299.0
 created_date: 2026-01-29
 ---
-# P111: Full Article Terminology Fixes
+# P259: Full Article Terminology Fixes
 
 **Status:** Draft (not started)
 **Created:** 2026-01-29

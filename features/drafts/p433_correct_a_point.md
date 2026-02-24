@@ -5,6 +5,7 @@ rank: 125474.0
 workstream: C1
 tags: [points, ux, positions, calibration]
 prepped_date: '2026-02-24'
+created_date: 2026-02-24
 ---
 
 # P433: "Correct a Point" UX Path (Draft)

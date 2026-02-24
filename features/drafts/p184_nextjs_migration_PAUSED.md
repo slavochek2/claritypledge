@@ -6,7 +6,7 @@ tags: []
 rank: 125310.0
 created_date: 2026-01-09
 ---
-# P24: Next.js Migration - PAUSED
+# P184: Next.js Migration - PAUSED
 
 **Status:** PAUSED - 3-4 attempts failed, needs different approach
 **Last Attempt:** 2026-01-09
