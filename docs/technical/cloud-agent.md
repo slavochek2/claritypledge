@@ -2,6 +2,8 @@
 
 Run AI coding tasks in the cloud. Works even when you close your laptop. Supports **parallel execution** via worktrees.
 
+> **This VM also runs LinkedIn Helper 2** for 24/7 LinkedIn outreach automation. See [decisions.md](../decisions.md) for the LH setup details. Use Chrome Remote Desktop (`remotedesktop.google.com`) to access the VM desktop — needed for first-login CAPTCHAs and observing LH.
+
 ## Quick Reference
 
 ```bash

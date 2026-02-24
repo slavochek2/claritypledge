@@ -14,6 +14,42 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [process]: Chrome Remote Desktop over noVNC for VM desktop access
+
+**Context:** Need to interact with a headless VM desktop (solve LinkedIn CAPTCHAs, observe running GUI apps like LH). Built noVNC stack (Xvfb + x11vnc + websockify) — proved fragile: SSH tunnels die between sessions, websockify processes multiply, connection breaks frequently.
+
+**Decision:** Replace noVNC with Chrome Remote Desktop (CRD). User accesses via `remotedesktop.google.com` in Chrome — no SSH tunnels, no port forwarding, no extra software on Mac. Google-managed infrastructure, extremely stable.
+
+**Alternatives rejected:**
+- noVNC — fragile 4-component chain (Xvfb → x11vnc → websockify → browser), repeated connection failures
+- Direct VNC client (TigerVNC) — requires installing app on Mac, still needs SSH tunnel
+
+**Consequences:** One-time CRD install on VM. User visits `remotedesktop.google.com` to see VM desktop anytime. Agent continues to use SSH + xdotool + CDP for programmatic control — CRD is for human interaction only (CAPTCHAs, visual observation). Xvfb still needed as the virtual display that both CRD and headless apps share.
+
+---
+
+## 2026-02-24 [product]: LinkedIn Helper 2 on GCP VM for LinkedIn outreach automation
+
+**Context:** Need LinkedIn outreach to coaches as a growth channel for ClarityPledge. LH is a desktop Electron app (~$15/mo Pro) that automates LinkedIn messaging, connection requests, and campaign management.
+
+**Decision:** Run LH on the existing `clarity-agent` GCP VM (same VM as cloud coding agents). Cloud deployment means campaigns run 24/7 without needing laptop open. Total cost: ~$15/mo LH + ~$3/day VM (VM already paid for coding agents).
+
+**Key technical findings:**
+- LH uses a **two-binary architecture**: main launcher (`/usr/lib/linked-helper/linked-helper`) spawns a separate per-account instance binary (`/usr/lib/linked-helper/resources/out/linked-helper`). The instance binary is a full Electron app that needs GPU flags for headless operation.
+- **Fix**: Replace instance binary with a wrapper shell script that prepends `--no-sandbox --disable-dev-shm-usage --use-gl=egl-angle --use-angle=swiftshader "$@"` then calls the real binary (renamed to `linked-helper.real`). Without this, instance crashes immediately (`'disconnect' fired` error).
+- **LinkedIn window is a separate X11 window** from the LH sidebar — not embedded via BrowserView. Content renders internally (CDP screenshots work) but doesn't composite to X11 display (rendering to EGL offscreen surface).
+- **GCP datacenter IP** triggers LinkedIn CAPTCHA on first login — expected, one-time, solved by user via Chrome Remote Desktop.
+
+**Alternatives rejected:**
+- LH on local Mac — campaigns pause when laptop closes; cloud is right for 24/7 automation
+- Residential proxy at setup — adds cost and complexity; not needed until LinkedIn is suspicious of activity patterns
+
+**Consequences:** LH wrapper script must survive LH auto-updates (updater may overwrite `linked-helper` binary — monitor). First-login CAPTCHA requires user to open Chrome Remote Desktop and solve manually — agent never solves CAPTCHAs. After login, LH maintains LinkedIn session automatically.
+
+**References:** [cloud-agent.md](cloud-agent.md)
+
+---
+
 ## 2026-02-24 [technical]: Daily prod DB backup via GitHub Actions → GCS
 
 **Context:** No automated backup existed for the Supabase prod DB. Supabase Free plan has zero automatic backups. A bad migration or accidental DROP would be unrecoverable.

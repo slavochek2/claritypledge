@@ -220,6 +220,20 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 
 ---
 
+### Before Choosing Infrastructure Tools
+
+> **Principle:** Never start building infrastructure without considering alternatives first.
+
+Before setting up any external or self-hosted infrastructure (VNC, tunnels, services, proxies, remote desktop, CI pipelines — not local dev tooling):
+
+1. List the top 2-3 alternatives with a one-line trade-off each
+2. Pick the simplest one that meets the need. If one option is clearly right, state it and proceed — no forced comparison needed
+3. State the choice explicitly before starting
+
+**Why:** Complex infrastructure is hard to reverse. 2 minutes of comparison prevents hours of debugging the wrong tool.
+
+---
+
 ### Risky Operations — Worktree Protection
 
 > **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
@@ -239,6 +253,8 @@ See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full wo
 When starting non-trivial work (multi-file changes, features, bug fixes), suggest: "Want me to create a tracking task?" Never auto-create. If user declines, don't ask again that session. When done, update to `status: done`.
 
 **Type classification:** `type: story` (user value), `task` (technical), `bug` (fix), `comment` (decisions).
+
+**Multi-session work:** If a task involves external systems or infrastructure and is not fully verified complete when a session ends, suggest filing a spec before the next session starts. After context compaction, if complex in-progress work exists with no tracking spec, suggest creating one before continuing — specs survive compaction, context doesn't.
 
 Feature spec rules (frontmatter, status values, P-number, lifecycle) auto-load when editing `features/` files via `.claude/rules/features.md`.
 
