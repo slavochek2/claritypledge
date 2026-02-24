@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [product]: Calibration unlocks from any paraphrase exchange — no story, no perfect score (P413)
+
+**Context:** Calibration was gated on 5 story verifications where speaker rated 10/10. In practice the bar stayed empty forever — required story selection, full rating flow, and a perfect speaker score. Real calibration data only needs two numbers: listener self-estimate + speaker's rating of them, which are available after any completed exchange.
+**Decision:** Every completed paraphrase exchange (both ratings submitted) counts toward calibration, regardless of whether a story was selected and regardless of score. `story_id`/`version_id` are now nullable on `story_verifications`. Threshold stays at 5 to unlock the display.
+**Alternatives rejected:** Separate lightweight table (unnecessary — `story_verifications` already holds all required fields; nullable FKs are simpler). Lowering the threshold below 5 (not needed — we just made 5 reachable, not too easy).
+**Consequences:** Calibration bar will actually fill in normal usage. Any future trigger that touches `story_id` on this table must guard against NULL.
+**References:** [p413 spec](../features/done/21_feb_26/p413_calibration_from_any_paraphrase.md)
+
+---
+
 ## 2026-02-24 [process]: Done-Features INDEX.md as Institutional Memory Layer
 
 **Context:** Agents start each session with no memory of past specs/decisions. `features/done/` had 70+ completed feature files — knowledge went in, nothing came out to inform future work. The write-only archive problem.

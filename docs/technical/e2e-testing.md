@@ -499,6 +499,35 @@ npx playwright show-trace test-results/<test-name>/trace.zip
 
 ---
 
+## Test Helper Patterns & Gotchas
+
+### Never call `signInWithPassword` on the shared `supabaseAdmin` singleton
+
+`supabaseAdmin` is a shared instance using the service_role key. Calling `auth.signInWithPassword()` on it sets a user JWT in its in-memory auth state — subsequent `supabaseAdmin.from()` calls then use the user JWT instead of service_role, silently breaking cleanup DELETEs in `afterAll`.
+
+**Wrong:**
+```typescript
+const { data: signIn } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+```
+
+**Correct — use a fresh client:**
+```typescript
+const freshAdmin = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+const { data: signIn } = await freshAdmin.auth.signInWithPassword({ email, password });
+```
+
+See `e2e/helpers/test-calibration.ts` `createListenerClient()` for the established pattern.
+
+### Don't manually update trigger-maintained counts
+
+Columns like `verification_session_count` on `profiles` are maintained by DB triggers. If you insert rows and then read + increment the count manually, you'll double-count. Either rely on the trigger entirely, or SET the column to an exact value (not `current + N`).
+
+---
+
 ## Conclusion
 
 **Total time invested:** ~6 hours

@@ -22,6 +22,7 @@ Last updated: 2026-02-24
 - **P401** (Feb 26) Position-Story Integrity — DB trigger cascades story-point unlinking on position delete; warning shows affected count
 - **P407** (Feb 26) Unify Story Detail Points — position state must sync on dialog resolve; remove duplicate point list
 - **P411** (Feb 26) Position Breakdown — batch fetch via `getStoriesForPoints` to avoid N+1
+- **P413** (Feb 26) Calibration from Any Exchange — `story_id`/`version_id` nullable on `story_verifications`; trigger guards for NULL story_id; InlineCalibration hidden until 5 sessions (was always rendered); test helper double-counting bug: trigger already increments count, don't add manually
 - **P423** (Feb 26) Calibration on Every Paraphrase — record calibration data on every exchange; no story/score requirement
 - **P424** (Feb 26) Visibility Model — three-tier (Private/Shared/Public); RLS uses EXISTS subquery on event_rsvps for shared
 - **P426** (Feb 26) Story Show/More Toggle — character limit prevents excessive card height; expandable text pattern
