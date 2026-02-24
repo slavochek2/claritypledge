@@ -90,6 +90,8 @@ File paths and line numbers where the bug lives. If unknown, list suspected area
 ### Fix Approach
 Proposed fix — can be brief. Even a direction ("add missing `onMount` DB call") is better than empty. If root cause is unknown, describe the investigation approach instead.
 
+**Surface spread check:** For UI bugs involving a CSS class or prop pattern, always grep for the same pattern across the codebase before proposing the fix — the same issue often exists in sibling components. Example: a `line-clamp-2` truncation bug in one card component is likely in 3–5 related components. A `compact ? 'text-sm line-clamp-2' : ...` conditional pattern means the bug is latent in any component with that prop. Check all surfaces, fix all at once.
+
 ### Acceptance Criteria
 Testable conditions that confirm the bug is fixed. Format as checkbox list. Each item should be observable without reading the code.
 

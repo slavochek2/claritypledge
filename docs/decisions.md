@@ -14,6 +14,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [product]: StoryGuideChat Embeds as Overlay — No Page Navigation (P428)
+
+**Context:** P428 adds story filing from inside `/live` sessions. The initial P425 spec described navigating to `/chat?from=live&sessionId=XYZ`, which would redirect the user away from the active session. P428 requires the story-filing flow to be available without leaving `/live`.
+
+**Decision:** `StoryGuideChat` is a self-contained component embeddable as a bottom-sheet overlay. P428 renders it over `/live` — no router navigation involved. Completion is signaled via `onStoryConfirmed(storyDraft)` callback; the overlay closes and the user returns to the session. P425 updated to match: "embed as overlay, pass sessionId as prop" (not "navigate to /chat").
+
+**Alternatives rejected:**
+- Navigate to `/chat?from=live` — removes user from the active session; back navigation is disruptive mid-session
+- Modal on `/live` with router state — couples story filing to `/live` page internals; `StoryGuideChat` would need to know about the host route
+
+**Consequences:** `StoryGuideChat` must never import from `react-router-dom` or call `navigate()` internally. The component receives all context (pointId, sessionId) as props and emits results via callbacks. This constraint must be enforced at code review for P425 and all future embeddings.
+
+**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p425_ai_story_core_loop.md)
+
+---
+
 ## 2026-02-24 [technical]: Never Truncate Point Text in Voting Contexts (P434)
 
 **Context:** Point statements had `line-clamp-2` applied in `StoryCardDetail`, `profile-page-v2`, `story-card-with-links`, `PointCardDetail`, and `point-card-with-links`. Discovered during `/verify` when a point was visually cut off mid-sentence. A user being asked to vote on a claim must be able to read it in full.
@@ -34,17 +50,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Context:** Original P425 UX spec had the story-filing loop as an inline panel below `PositionButtons` on the point-detail page. After running `/ascii-flows` to map the interaction, the inline panel created a fragmented UX — user is mid-flow on point-detail, gets context-switched into a filing experience without a clear home.
 
-**Decision:** Story filing lives on `/chat` — a persistent, top-level page accessible from nav. Entry from position: a single "Tell your story →" button navigates to `/chat?from=position&pointId=XYZ`. `/chat` without params shows a bare input ("What's on your mind?"). The `StoryGuideChat` component must remain embeddable (bottom-sheet over `/live` for P428) — no page-level navigation coupling.
+**Decision:** Story filing lives on `/chat` — a persistent page. Entry from position: a single "Tell your story →" button navigates to `/chat?from=position&pointId=XYZ`. `/chat` without params shows a bare input ("What's on your mind?"). The `StoryGuideChat` component must remain embeddable (bottom-sheet overlay over `/live` for P428) — no page-level navigation coupling. `/chat` is NOT in bottom nav or desktop nav V1 — entry is exclusively via "Tell your story →" CTA on point-detail pages.
+
+**Finalized UX decisions (2026-02-24):**
+- **Mirror agent identity:** Personal mirror, not a product persona. No fixed name. User can name it after their first story is filed (stored in private settings, not visible to others).
+- **Draft visibility:** `draft` is the fourth visibility state on the existing story card component (Draft / Private / Shared / Public) — no new component needed. Dynamic button label: Save draft / Save privately / Publish story based on selected state.
+- **Context chip:** Reuses the existing point profile component, display-only (no position buttons). Position badge dropped from chip; story and story-point link persist.
+- **Understanding arc:** Simplified pills showing rating history after second draft (v1: 6 → v2: 8...) — only appears after second iteration.
+- **AI message format:** A/B/C options rendered as plain text in the message bubble; user replies via the input field.
 
 **Alternatives rejected:**
 - Inline panel below PositionButtons — fragments the experience, hard to return to, no persistent home
 - Modal — same problem; takes over UI without giving user a dedicated space
+- Nav item in V1 — entry via CTA is sufficient; adds nav complexity before proving the flow
 
 **Consequences:**
-- Nav needs a "Chat" item (or similar entry point)
+- Entry is exclusively via "Tell your story →" CTA on point pages (V1)
 - `/chat?from=position&pointId=XYZ` is the canonical entry URL from position flow
 - `StoryGuideChat` must be embeddable (no router coupling) — tested by P428 bottom-sheet requirement
 - `[▷ Start /live]` appears inline in the chat thread on a saved story card
+- Draft state required in visibility model before P425 ships
 
 **References:** [P425](../features/p425_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
 
