@@ -147,6 +147,8 @@ Tests are specs — fix code, not tests. Rules auto-load when editing test files
 
 After completing a logical unit of work, suggest: "Good checkpoint for a commit. Want to commit now?"
 
+**Pre-commit failures: fix inline, never ask.** Apply the known fix and re-run. See [git-workflow.md](docs/technical/git-workflow.md) for remedies by failure type.
+
 ---
 
 ## Agent Behavior
@@ -311,6 +313,8 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 ### Skill Invocation — After Approval
 
 > **Rule:** When the user approves an approach in conversation ("let's do X", "do A+B"), invoke the matching skill — do NOT implement ad-hoc.
+
+**Before approval:** When a task starts and the right flow is unclear (P-number mentioned, bug or feature described, "what do we do next"), proactively run `/pick-flow` rather than waiting to be asked. Skip for one-liner fixes or when the user names the exact commands.
 
 | Situation | Invoke |
 |-----------|--------|

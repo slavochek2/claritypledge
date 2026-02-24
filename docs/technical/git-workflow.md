@@ -77,7 +77,14 @@ This catches issues before they reach the commit. Run it explicitly rather than 
 3. **Accessibility** - Linter catches basics, but verify keyboard navigation works
 4. **CLAUDE.md patterns** - Does it follow project conventions?
 
-If issues are found, ask the user how to proceed before committing.
+**Pre-commit failures: fix inline, never ask.** Every check has a known fix:
+
+| Failure | Fix |
+|---------|-----|
+| Duplicate P-number | Run `./scripts/next-p-number.sh` to get next available number, rename the conflicting file to use it |
+| Frontmatter issues | Run `scripts/fix-frontmatter.py` — auto-fixes and re-stages |
+| Lint / TypeScript errors | Fix the code; do not suppress with `@ts-ignore` or `as any` |
+| Secrets detected | Remove the secret, rotate it externally, then re-commit |
 
 ---
 
