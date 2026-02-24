@@ -57,14 +57,23 @@ if [ -z "$LATEST" ]; then
   echo "BACKUP: ❌ NO BACKUPS FOUND"
 else
   SIZE=$(gsutil stat "$LATEST" 2>/dev/null | grep "Content-Length" | awk '{print $2}')
-  DATE=$(echo "$LATEST" | grep -oP '\d{8}')
-  DAYS_AGO=$(( ( $(date +%s) - $(date -d "$DATE" +%s 2>/dev/null || date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null) ) / 86400 ))
-  if [ "$DAYS_AGO" -gt 2 ]; then
-    echo "BACKUP: ⚠️  Last backup $DAYS_AGO days ago ($LATEST, ${SIZE}B) — check GitHub Actions"
-  elif [ "$SIZE" -lt 1000 ]; then
-    echo "BACKUP: ❌ Last backup suspiciously small (${SIZE}B) — may be corrupt"
+  DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
+  if [ -z "$DATE" ]; then
+    echo "BACKUP: ⚠️  Could not parse date from: $LATEST"
   else
-    echo "BACKUP: ✅ Last backup ${DAYS_AGO}d ago, ${SIZE}B"
+    DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null || date -d "$DATE" +%s 2>/dev/null)
+    if [ -z "$DATE_EPOCH" ]; then
+      echo "BACKUP: ⚠️  Could not parse epoch from date: $DATE"
+    else
+      DAYS_AGO=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))
+      if [ "$DAYS_AGO" -gt 2 ]; then
+        echo "BACKUP: ⚠️  Last backup ${DAYS_AGO}d ago — check GitHub Actions: https://github.com/slavochek2/claritypledge/actions/workflows/db-backup.yml"
+      elif [ -z "$SIZE" ] || [ "$SIZE" -lt 1000 ]; then
+        echo "BACKUP: ❌ Last backup suspiciously small (${SIZE:-unknown}B) — may be corrupt"
+      else
+        echo "BACKUP: ✅ Last backup ${DAYS_AGO}d ago, ${SIZE}B"
+      fi
+    fi
   fi
 fi
 
