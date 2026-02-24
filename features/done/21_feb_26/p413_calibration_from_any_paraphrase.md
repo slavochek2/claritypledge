@@ -1,9 +1,10 @@
 ---
-status: in-progress
+status: done
 type: story
 rank: 125465
 workstream: C2
 created_date: 2026-02-22
+completed_at: "2026-02-24"
 tags: []
 uat_file: features/uat/p413.md
 test_files:
@@ -29,10 +30,10 @@ Calibration only needs two numbers: the listener's self-estimate + the speaker's
 
 ## Acceptance Criteria
 
-- [ ] A paraphrase exchange with no story selected increments `verification_session_count` for both participants
-- [ ] A paraphrase exchange where speaker rates < 10 still counts
-- [ ] Calibration unlocks after 5 such exchanges (any mix of story/no-story, any scores)
-- [ ] Existing calibration averages still compute correctly (speaker_rating, listener_rating columns unchanged)
+- [x] A paraphrase exchange with no story selected increments `verification_session_count` for both participants
+- [x] A paraphrase exchange where speaker rates < 10 still counts
+- [x] Calibration unlocks after 5 such exchanges (any mix of story/no-story, any scores)
+- [x] Existing calibration averages still compute correctly (speaker_rating, listener_rating columns unchanged)
 
 ## Testing
 
