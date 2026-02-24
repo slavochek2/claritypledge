@@ -125,6 +125,41 @@ This is a 2-minute scan. Don't expand it. Purpose is surfacing what /kdd session
 
 ---
 
+### 2.7 Prompt Pattern Mining (subagent, runs in background)
+
+Spawn a subagent in background while you continue to step 3. It scans session logs since `$SINCE` and returns skill gap candidates.
+
+**Subagent prompt:**
+```
+Scan Claude Code session logs in /Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/*.jsonl
+for files modified since [SINCE date].
+
+For each file, extract lines where role == "human" and content is conversational (skip tool results, system messages, skill content).
+
+Cluster the messages by intent. Count frequency. Identify the top 5 patterns that:
+- Appear 10+ times
+- Have NO matching skill in .claude/commands/slava/ (check by grepping for the intent)
+- Or have a skill that exists but is being bypassed (user types the intent informally instead of using the command)
+
+Return ONLY:
+- Pattern name (3-5 words)
+- Frequency (approximate count)
+- Sample prompt (1 real example)
+- Gap type: MISSING_SKILL | SKILL_EXISTS_BUT_BYPASSED | SKILL_NEEDS_IMPROVEMENT
+- One-line recommendation
+
+Max 5 candidates. No preamble.
+```
+
+Merge the subagent result into the Evidence Picture (step 4) as:
+```
+SKILL GAPS:   [N candidates — name (Nx), gap type] → act / defer / skip
+```
+
+If no gaps found: `SKILL GAPS: none detected`
+
+---
+
 ### 3. Evidence Gathering (run in parallel)
 
 ```bash
