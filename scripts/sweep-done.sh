@@ -8,8 +8,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DONE_DIR="$REPO_ROOT/features/done"
 
 # Find loose .md files at done/ root (not in subfolders)
+# Exclude INDEX.md — it's a permanent root-level reference file, not an archive
 LOOSE=()
 while IFS= read -r -d '' f; do
+  [[ "$(basename "$f")" == "INDEX.md" ]] && continue
   LOOSE+=("$f")
 done < <(find "$DONE_DIR" -maxdepth 1 -name "*.md" -print0 2>/dev/null)
 
