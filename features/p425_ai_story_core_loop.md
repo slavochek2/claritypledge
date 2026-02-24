@@ -5,8 +5,8 @@ rank: 8.5
 workstream: C1
 tags: [stories, ai-chat, filing, calibration, position]
 prepped_date: '2026-02-24'
-blocked_by: []
-delivery_stage: prd-review
+blocked_by: [p424]
+delivery_stage: ux-review
 reviews:
   ux: null
   architect: null
@@ -163,6 +163,7 @@ reviews:
 - [ ] Flow works for any authenticated user (not Slava-only)
 - [ ] Text input only in V1 (no voice)
 - [ ] Declining "want to explain why?" dismisses the prompt without blocking the position stake
+- [ ] User is warned before navigating away mid-chat (beforeunload or in-page prompt); work is not auto-saved
 
 ---
 
@@ -177,6 +178,429 @@ This is a UI feature with Claude API integration and Supabase persistence.
 
 **Related:**
 - P419: Filing Chat V1 — extends this loop with standalone entry point + point extraction
-- P420: Filing Chat V2 — open-ended multi-story conversation (builds on P419/P425)
-- P424: Visibility Model Rethink — defines the Private/Shared/Public semantics used in this spec
+- P424: Visibility Model Rethink — defines the Private/Shared/Public semantics used in this spec (in `features/done/20_feb_26/`)
+- `features/drafts/p420_filing_chat_v2.md` — open-ended multi-story V2 (parked, builds on P419/P425)
 - `.claude/commands/slava/content/sifter-story.md` — AI prompt logic to build on
+- `features/drafts/p99_create_story_after_position.md` — superseded by this spec
+
+**Component contract note (for architect):**
+`StoryGuideChat` must be designed with a clean, stable props interface from day one — P419 wraps or composes it rather than rebuilding the loop. Specifically: `onStoryConfirmed(storyDraft)` callback must be hookable so P419 can trigger point extraction after the loop completes, without modifying `StoryGuideChat` internals.
+
+---
+
+## UX Requirements
+
+### Entry Point: Position-Triggered Prompt
+
+**Where it appears:** Immediately after a user successfully stakes or changes a position on any point. The prompt appears inline below the `PositionButtons` component on the point-detail page — it does not navigate away, open a modal, or block further interaction.
+
+**Trigger condition:** User clicks a position button (Strongly Agree / Agree / etc.) and a position is confirmed saved. If the user already has a story linked to this point, no prompt appears (they already explained why). If they already have a story and are changing position, defer to P419.
+
+**Prompt anatomy (inline card below the position buttons):**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Want to explain why?                               │
+│  Add a story — others will understand your         │
+│  position, not just see the score.                  │
+│                                                     │
+│  [Explain why]           [Not now]                  │
+└─────────────────────────────────────────────────────┘
+```
+
+- Background: `bg-blue-50 dark:bg-blue-900/20`, border: `border border-blue-200 dark:border-blue-800`, rounded-lg
+- "Explain why" button: primary, `bg-blue-500 text-white` — opens the AI chat interface inline (same page, below the prompt card, which then disappears)
+- "Not now" button: ghost/outline — dismisses the prompt silently. Position is already saved. No re-prompt for this session.
+- Prompt auto-dismisses if user navigates away
+
+---
+
+### AI Chat Interface
+
+**Layout:** Full-width panel that replaces the prompt card inline on the point-detail page. Not a modal. Not a new page. The point card with position buttons stays visible above as context — the chat opens below it.
+
+**On mobile (320–767px):** Chat panel stacks vertically, takes full viewport width, scrollable. Point card stays anchored at top (sticky within the scroll context of the page).
+
+**On tablet (768–1023px):** Same vertical stack, max-width 600px centered.
+
+**On desktop (1024px+):** max-width 640px, left-aligned with the point card.
+
+---
+
+#### Phase 1: Seeded Context + Brain Dump Input
+
+The chat opens pre-seeded. The first message is from the AI (not the user), already showing context:
+
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  [AI avatar]                                        │
+│  I see you marked yourself as [Agree] on:           │
+│                                                     │
+│  "Communication gaps are invisible to the           │
+│   person who created them."                         │
+│                                                     │
+│  What's your experience behind this? Brain-dump     │
+│  it — messy is fine, I'll help structure it.        │
+└─────────────────────────────────────────────────────┘
+│                                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Type your thoughts here...                  │  │
+│  │  (any length, any order)                     │  │
+│  └──────────────────────────────────────────────┘  │
+│                               [Send →]              │
+└─────────────────────────────────────────────────────┘
+```
+
+- AI "avatar": small circular icon with a subtle spark/pen glyph (not a face — avoids anthropomorphism), label "AI Story Guide" in `text-xs text-muted-foreground`
+- Point text shown in the AI's opening message (truncated to ~100 chars with ellipsis if longer, full text on hover/tap)
+- Position badge shown inline (same `PositionBadge` component used elsewhere)
+- Textarea: auto-growing, min-height 80px, no character counter at this stage (brain dump is unconstrained)
+- Send button: enabled as soon as user types any non-whitespace character
+- No loading state shown yet (only shown after send)
+
+---
+
+#### Phase 2: AI Story Draft + Rating
+
+After the user sends their brain dump, the AI streams back a structured first-person story. While streaming:
+
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  Here's what I understood:                          │
+│                                                     │
+│  I ask people if they understood me. They say       │
+│  yes. Then I ask them to explain it back. ░░░       │
+│  [streaming cursor — text fades in word by word]    │
+└─────────────────────────────────────────────────────┘
+```
+
+- Streaming: text appears word by word using a standard SSE/streaming approach. Cursor is a blinking `|` appended to the last word. The send button and textarea are disabled during streaming.
+- Once streaming completes, the rating prompt appears immediately below the story (no separate click needed):
+
+```
+┌─────────────────────────────────────────────────────┐
+│  How well does this capture what you meant?         │
+│                                                     │
+│   0   1   2   3   4   5   6   7   8   9   10       │
+│  [·] [·] [·] [·] [·] [·] [·] [·] [·] [·] [·]      │
+│                                                     │
+│  Tap a number to rate.                              │
+└─────────────────────────────────────────────────────┘
+```
+
+- Rating buttons: 11 buttons (0–10), displayed as a horizontal row of tappable pills
+- Each pill: 36×36px min touch target, `rounded-full`, unselected state `bg-muted text-foreground`, selected state `bg-blue-500 text-white ring-2 ring-blue-300`
+- On mobile, pills may wrap to two rows if needed (0–5 top, 6–10 bottom) — still functional
+- No submit button required — selecting a number immediately triggers the AI's rating-band response
+- Accessibility: `role="radiogroup"`, each button `role="radio"` with `aria-label="Rate {n} out of 10"`, `aria-checked` reflects selection
+
+---
+
+#### Phase 3: Rating Band Response
+
+The AI responds to the rating in-chat. No page reload, no navigation. The response appears as a new AI message immediately after the selected rating is highlighted.
+
+**Rating = 10:**
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  Got it. Story complete.                            │
+│  Ready to polish and save?         [Yes, continue →]│
+└─────────────────────────────────────────────────────┘
+```
+
+**Rating 8–9:**
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  Almost there. What's missing?                      │
+│                                                     │
+│  A) The emotional weight wasn't quite right         │
+│  B) The sequence of events is off                   │
+│  C) It missed why this matters to me                │
+│  D) Other — I'll describe it                        │
+└─────────────────────────────────────────────────────┘
+```
+
+**Rating 5–7:**
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  I'm missing something. Here's what I'm             │
+│  uncertain about: was this about frustration with   │
+│  the listener, or isolation from being the only one │
+│  who checks?                                        │
+│                                                     │
+│  A) Frustration with the listener                   │
+│  B) Isolation — doing this alone                    │
+│  C) Both, but weighted differently                  │
+│  D) Other — I'll explain                            │
+└─────────────────────────────────────────────────────┘
+```
+
+**Rating < 5:**
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  I think I misunderstood significantly. Let me      │
+│  try again. What's the core thing I got wrong?      │
+│                                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Type what I missed...                       │  │
+│  └──────────────────────────────────────────────┘  │
+│                               [Send →]              │
+└─────────────────────────────────────────────────────┘
+```
+
+**Options A/B/C/D display:**
+- Each option is a tappable button, full-width, left-aligned text, `bg-muted hover:bg-accent border border-border rounded-md px-3 py-2 text-sm`
+- "D) Other" always appears — tapping it opens a freetext textarea inline (same as brain dump input)
+- Selecting A/B/C immediately sends the selection and triggers a new AI story draft (no explicit submit)
+- Keyboard: Tab navigates options, Enter selects, Escape collapses to "Other" textarea
+
+---
+
+#### Escape Hatch (after 3 attempts without rating 10)
+
+After the third iteration without reaching a 10 rating, the AI appends an escape hatch message:
+
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  We've been refining this a few times.              │
+│  Current rating: 7/10                               │
+│                                                     │
+│  [Save at current rating]    [Keep refining]        │
+└─────────────────────────────────────────────────────┘
+```
+
+- "Save at current rating": proceeds to the polish and visibility step with the current draft
+- "Keep refining": dismisses the escape hatch and shows a new freetext input so the user can redirect the AI
+- The escape hatch does not block — both options are equally accessible
+
+---
+
+#### Phase 4: Polish Review + Visibility
+
+After the loop completes (rating 10, or user accepts escape hatch), the AI runs a silent polish pass and presents the result for review:
+
+```
+┌─── AI Story Guide ──────────────────────────────────┐
+│  Here's the polished version before I save it:      │
+│                                                     │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  I ask people if they understood me. They    │  │
+│  │  say yes. When I ask them to explain back,   │  │
+│  │  it falls apart. I'm tired of being the only │  │
+│  │  one who checks.                             │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                     │
+│  Changes: removed repeated phrase in sentence 2,   │
+│  tightened final line.                              │
+└─────────────────────────────────────────────────────┘
+│                                                     │
+│  Visibility                                         │
+│  [🔒 Private ✓]  [👥 Shared]  [🌐 Public]           │
+│                                                     │
+│  Private: only you can see this                     │
+│                                                     │
+│  [Save story]                [Back to editing]      │
+└─────────────────────────────────────────────────────┘
+```
+
+- Polished story shown in a read-only card (`bg-muted rounded-lg p-4 text-sm`) — non-editable at this stage (editing would restart the loop, which is intentional friction)
+- "Changes" note: one sentence in `text-xs text-muted-foreground italic`, lists what the polish pass changed
+- Visibility selector: same component and styling as `CreateStoryPage` — three toggle buttons (Private / Shared / Public), **default: Private**
+- Tooltip on hover/tap for each visibility option (using existing `MobileTooltip` component)
+- "Save story": primary button, `bg-blue-500 text-white`, disabled while saving (shows spinner + "Saving...")
+- "Back to editing": ghost button — returns the user to the active chat iteration with the pre-polish draft, rating prompt reappears
+
+---
+
+#### Phase 5: Confirmation State
+
+After save completes:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ✓  Story saved                                     │
+│                                                     │
+│  Your story is now linked to this point.            │
+│  Others can see your position is backed by a story. │
+│                                                     │
+│  [View story]              [Done]                   │
+└─────────────────────────────────────────────────────┘
+```
+
+- Success icon: `CheckCircle2` from lucide-react, `text-green-600`
+- "View story": navigates to `/story/{id}` (same pattern as post-create in `CreateStoryPage`)
+- "Done": dismisses the chat panel entirely, returns focus to the point detail page
+- The `PositionHolderCard` for the current user updates inline — "No story yet" label is replaced with a `StoryCardWithLinks` card (optimistic or via reload)
+
+---
+
+### Screen Designs Summary
+
+#### Point Detail Page — After Position Staked
+
+```
+┌─────────────────────────────────────────────────────┐
+│  ← Back                                             │
+│                                                     │
+│  [Point card]                                       │
+│  "Communication gaps are invisible..."              │
+│  [Agree ✓] [Disagree] [Unsure]                      │
+│                                    [Share]          │
+└─────────────────────────────────────────────────────┘
+│                                                     │
+│  ┌── Want to explain why? ───────────────────────┐  │  ← NEW: inline prompt card
+│  │  Add a story so others understand your       │  │
+│  │  position, not just see the score.           │  │
+│  │                                              │  │
+│  │  [Explain why]          [Not now]            │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                     │
+│  [Positions section with filter tabs]               │
+└─────────────────────────────────────────────────────┘
+```
+
+#### AI Chat Panel (open state)
+
+```
+┌─────────────────────────────────────────────────────┐
+│  [Point card — stays visible above]                 │
+└─────────────────────────────────────────────────────┘
+│                                                     │
+│  ┌── AI Story Guide ──────────────────────────────┐ │
+│  │  [Messages thread — scrollable]               │ │
+│  │  - AI seeded message                          │ │
+│  │  - User brain dump                            │ │
+│  │  - AI story draft + rating                    │ │
+│  │  - Rating band response                       │ │
+│  │  - (iterations...)                            │ │
+│  │  - Polish review + visibility                 │ │
+│  └────────────────────────────────────────────────┘ │
+│                                                     │
+│  [Input area — shown only during input phases]      │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+### Edge Cases
+
+**User declines "Want to explain why?":**
+- Prompt dismissed immediately (no animation needed — just `display: none`)
+- Position already saved before prompt appeared — no side effects
+- No re-prompt for the same point in the same page session (tracked in local component state)
+- If user navigates back to the same point later, no prompt (they already declined this point + position combo — store in `sessionStorage` keyed by `pointId`)
+
+**User closes/navigates away mid-chat:**
+- Draft is NOT auto-saved to Supabase (no partial story rows)
+- Browser `beforeunload` warning: not shown (overly aggressive for this flow — just let them leave)
+- If they return to the same point, no chat reopens — the prompt has already been dismissed for this session
+
+**AI API fails or times out:**
+- During streaming: stop streaming, show error state inside the chat panel:
+  ```
+  ┌─── AI Story Guide ────────────────────────────┐
+  │  Something went wrong generating the story.  │
+  │  [Try again]                                  │
+  └───────────────────────────────────────────────┘
+  ```
+- "Try again" resends the last user message (retains the brain dump, no re-typing required)
+- After 2 consecutive failures: show "Try again later" with a "Save without AI" fallback that opens the existing `CreateStoryPage` with the point pre-linked
+
+**Save to Supabase fails:**
+- Error toast (using existing `sonner` toast): "Save failed. Please try again."
+- "Save story" button re-enables immediately
+- Visibility selection and polish text retained — user doesn't lose their work
+
+**User types nothing before sending:**
+- Send button remains disabled (no empty brain dump accepted)
+- No error message needed — the disabled state is self-explanatory
+
+**Story already exists for this point + user:**
+- No prompt shown (guard in `handlePositionClick`)
+- If user wants to update their story, that is a separate flow (out of scope for P425)
+
+**User not authenticated:**
+- Position buttons are already gated behind auth in the existing implementation — this flow inherits that gate
+- No additional auth prompt needed in the chat UI
+
+**Very long brain dump (>5000 characters):**
+- No hard limit shown to user during brain dump (open-ended by design)
+- If the API request fails due to length: show the same "Try again" error state; do not truncate silently
+
+**AI generates a story that contains verifiable factual claims:**
+- This is a prompt-level constraint (addressed in `/architect`), not a UI concern
+- No UI validation of story content — trust the AI to follow the sifter-story logic
+
+**Rating = 10 on first iteration:**
+- Loop completes immediately — no minimum iterations required
+- Proceed directly to polish review
+
+---
+
+### Accessibility
+
+**Screen reader support:**
+- Chat panel has `role="log"` and `aria-live="polite"` — new AI messages are announced without interrupting user interaction
+- AI messages have `aria-label="AI Story Guide says: [message content]"`
+- Rating group: `role="radiogroup"` with `aria-label="How well does this capture what you meant? Rate from 0 to 10"`, each pill `role="radio"` with `aria-label="Rate [n] out of 10"` and `aria-checked`
+- Option buttons (A/B/C/D): `aria-label` includes the full option text
+- Streaming state: announce with `aria-live="assertive"` region: "AI is generating your story..."
+- Confirmation state: `aria-live="assertive"`: "Story saved successfully."
+
+**Keyboard navigation:**
+- "Explain why" prompt: Tab reaches both buttons, Enter activates
+- Chat input: Tab reaches textarea and Send button, Ctrl+Enter sends (alternative to clicking Send)
+- Rating pills: Tab enters the group, arrow keys navigate within (Left/Right), Enter/Space selects
+- Option buttons (A/B/C/D): Tab navigates, Enter selects; D (Other) opens textarea inline, focus moves to textarea automatically
+- Escape hatch: Tab reaches both buttons, Enter activates
+- Polish review: Tab through visibility options (arrow keys within group), then Tab to Save / Back to editing
+
+**Color contrast:**
+- All text meets WCAG AA (4.5:1 minimum)
+- Blue-500 on white for primary buttons: confirmed compliant
+- Muted foreground on card backgrounds: confirmed compliant (existing design system handles this)
+- Selected rating pill (white text on blue-500): confirmed compliant
+
+**Focus indicators:**
+- All interactive elements use existing `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2` pattern (consistent with `point-detail-page.tsx`)
+- No custom focus overrides
+
+**Motor accessibility:**
+- All touch targets minimum 44×44px (buttons, rating pills, option buttons)
+- Rating pills on mobile: 36px diameter, 8px gap — total tap zone sufficient with padding
+- "Not now" and "Done" are never destructive actions — mis-taps are recoverable
+
+---
+
+### Responsive Design
+
+**Mobile (320–767px):**
+- Point card: full width, existing mobile layout unchanged
+- Prompt card: full width, buttons stacked vertically (Explain why above, Not now below)
+- Chat panel: full width, no horizontal padding constraints
+- Rating pills: wrap into two rows if needed (0–5, 6–10) — still tappable
+- Option buttons (A/B/C/D): full width, stacked vertically
+- Visibility selector: three buttons displayed as a full-width flex row (equal width, can wrap)
+- "Save story" button: full width
+
+**Tablet (768–1023px):**
+- Prompt card and chat panel: max-width 600px, centered
+- Rating pills: single row of 11 pills (comfortably fits at this width)
+- Option buttons: full width within the max-width container
+- Visibility selector: inline row, no wrapping needed
+
+**Desktop (1024px+):**
+- Point detail page: existing max-width `max-w-lg` (512px) centered — chat panel inherits this constraint
+- Rating pills: single row, comfortable spacing
+- Prompt card: sits naturally within the max-width column
+- No two-column layout (chat and point side-by-side) in V1 — out of scope
+
+---
+
+### Design System Notes
+
+- Uses existing components: `Dialog` (not used here — everything is inline), `Button`, `Textarea`, `MobileTooltip`, `PositionBadge`, `GravatarAvatar`, `toast` (sonner)
+- New component needed: `StoryGuideChat` — the full chat panel. Encapsulates all phases (brain dump → rating → options → polish → save). Self-contained, accepts `pointId`, `userPosition`, and `onComplete` / `onDismiss` props.
+- New component needed: `RatingPills` — the 0–10 rating row. Reusable in P419 and future specs.
+- Existing `VISIBILITY_OPTIONS` array and styling from `CreateStoryPage` can be imported directly — no duplication.
+- AI "Story Guide" avatar: use a simple `Sparkles` or `PenLine` icon from lucide-react in a `w-7 h-7 rounded-full bg-blue-100 text-blue-600` container. Do not use a human avatar — the AI is a tool, not a persona.

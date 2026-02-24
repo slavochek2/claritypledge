@@ -72,7 +72,25 @@ If no argument → use recent conversation context
 
 ---
 
-## 4 Thinking Modes
+## Groundwork: Before You Begin
+
+### Step 0: Research Before You Advise (REQUIRED)
+
+**Never generate recommendations from the spec alone. Ground first:**
+
+1. **Search the codebase** — Grep for key concepts from the spec in `src/`, `e2e/`, and skill/command files. What already exists? What's already tested? Features that exist somewhere are not "new work to build."
+
+2. **Check related specs and docs** — Read anything referenced in `blocked_by`, tags, or mentioned in the spec. Understand what's already decided upstream.
+
+3. **Search recent conversation context** — If working from a session, check what was already discussed and decided. Don't re-open closed questions.
+
+4. **Calibrate actual build cost** — Ask: how long does this actually take to build here, vs. how long to run manually? Only recommend manual-first if the manual version is genuinely cheaper AND produces equivalent learning. Don't assume building is expensive.
+
+**The principle:** Recommendations grounded in what exists are useful. Recommendations generated from the spec text alone produce false positives — flagging as "overbuilt" things that are already implemented, or recommending faking things that are faster to build.
+
+---
+
+## 5 Thinking Modes
 
 Use these lenses sequentially:
 
@@ -139,14 +157,18 @@ When teams work on a problem, they anchor on the first viable solution and optim
 ### Decision Tree
 
 ```
-Do users even want this?
-├─ Unknown → Smoke Test (landing page, ads)
-├─ Maybe → Concierge (do it manually, learn)
-└─ Probably →
-    Can we fake the hard part?
-    ├─ Yes → Wizard of Oz
-    ├─ Partially → Piecemeal (existing tools)
-    └─ No → Single-Feature MVP
+Is building it faster than faking it? (calibrate first — see Step 0 item 4)
+├─ Not sure yet → Complete Step 0 item 4 before proceeding
+├─ Yes → Single-Feature MVP (just build)
+└─ No →
+    Do users even want this?
+    ├─ Unknown → Smoke Test (landing page, ads)
+    ├─ Maybe → Concierge (do it manually, learn)
+    └─ Probably →
+        Can we fake the hard part?
+        ├─ Yes → Wizard of Oz
+        ├─ Partially → Piecemeal (existing tools)
+        └─ No → Single-Feature MVP
 ```
 
 ---
@@ -163,11 +185,13 @@ Do users even want this?
 | Do they love it? | NPS, referrals |
 | Will they pay? | Conversion to paid |
 
-**Budget Rule (2026):** 30% on build, 70% on validation/learning. Most founders flip this.
+**Budget Rule (2026):** 30% on build, 70% on validation/learning. Most founders flip this. For AI-assisted solo dev, always compare actual build cost vs. concierge cost — see Step 0 item 4.
 
 ---
 
 ## Process
+
+**Note:** Complete [Groundwork: Before You Begin](#groundwork-before-you-begin) (Step 0) before starting Step 1.
 
 ### Step 1: Identify the Riskiest Assumption
 What must be true for this to work? What are we least sure about?

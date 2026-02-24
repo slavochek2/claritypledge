@@ -425,6 +425,12 @@ After generating business requirements, tell user which skill to run next:
 - [ ] NO test templates included
 - [ ] Next steps documented
 
+**Before generating requirements — search for related work:**
+```bash
+grep -ril "{key concept}" features/ features/drafts/ 2>/dev/null | head -10
+```
+If a related spec exists in `features/drafts/`, read it. Either (a) supersede it (note in the new spec), or (b) build on it instead of filing a duplicate. This step is required — filing a duplicate spec wastes a P-number and misses prior thinking.
+
 If spec already exists at {spec_file}, read it first and extend the Business layer. DO NOT modify existing UX or Technical sections.
 
 **Determine P-number:** Run `./scripts/next-p-number.sh` from repo root — prints the correct next integer. Never compute manually (the script excludes `uat/` and `archive/` which must not drive the sequence). If the script is unavailable, halt and warn the user.

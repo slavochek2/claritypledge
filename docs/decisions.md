@@ -14,6 +14,99 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [technical]: Story Visibility RLS — Correlated EXISTS over event_rsvps (P424)
+
+**Context:** The `shared` visibility level was deferred at implementation (P126) — the RLS policy silently collapsed `shared` to author-only. P424 implemented the full three-branch policy.
+
+**Decision:** RLS `shared` condition uses a correlated EXISTS subquery joining `event_rsvps` (co-registration). No denormalized table, no triggers, no materialized view.
+
+```sql
+OR (
+  visibility = 'shared'
+  AND auth.uid() IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM event_rsvps reader_rsvp
+    WHERE reader_rsvp.profile_id = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM event_rsvps author_rsvp
+        WHERE author_rsvp.event_id = reader_rsvp.event_id
+          AND author_rsvp.profile_id = stories.author_id
+        UNION ALL
+        SELECT 1 FROM events hosted
+        WHERE hosted.id = reader_rsvp.event_id
+          AND hosted.host_id = stories.author_id
+      )
+  )
+)
+```
+
+**Client-side gate rule:** Remove client-side visibility guards once RLS is the enforcement layer. `getStory()` returning null = unauthorized — no need to distinguish "not found" from "forbidden" (enumeration prevention). Any consumer filtering by `visibility` in application code is a bug.
+
+**Feed vs. contextual queries:** `getStoriesFeed()` has an explicit `.eq('visibility','public')` — shared stories intentionally excluded from global discovery. `getStoriesForPoints()` trusts RLS — shared stories surface in point context for co-registrants.
+
+**Alternatives rejected:**
+- Denormalized `story_access(story_id, viewer_id)` table — requires triggers/jobs to stay current as RSVPs change; premature at current scale.
+- Postgres function `user_can_read_story()` — adds schema object for single call site; inline EXISTS is cleaner.
+
+**Consequences:** "Shared" scope is permanently expanding — future RSVPs to any event the author ever attended auto-grant access. Safe, intended, but warrants tooltip copy that warns authors. If scale grows (tens of thousands of stories/users), add a materialized summary table.
+
+**References:** [migration](../supabase/migrations/20260224120000_p424_visibility_model.sql)
+
+---
+
+## 2026-02-24 [product]: AI Story Filing = Calibration Session (P425/P419)
+
+**Context:** Story filing was slow (hours manually), used a blank form with no scaffolding, and would block workshop participants. The existing `sifter-story.md` CLI skill already encoded the full calibration loop logic.
+
+**Decision:** Story creation is a calibration session between user and AI:
+1. Brain dump → AI mirrors as first-person story (NVC scaffolding, invisible to user)
+2. 0-10 rating → banded AI responses: 10=save, 8-9=3 targeted correction options, 5-7=AI names its uncertainty + options, <5=re-attempt
+3. Escape hatch after 3 iterations: "save at current rating or keep refining?"
+4. Silent polish pass, then polished version shown to user before saving
+5. Visibility selector (default: private)
+
+Source of truth for prompt logic: `.claude/commands/slava/content/sifter-story.md` — build on it, never rebuild.
+
+Two-spec architecture:
+- **P425** (core loop): position-triggered, no point extraction. Ships first.
+- **P419** (V1): extends P425 with standalone "Create Story" entry + point extraction after confirmation. Hooks in via `onStoryConfirmed(storyDraft)` callback — P419 must not modify `StoryGuideChat` internals.
+
+**Alternatives rejected:**
+- Manual concierge (Wizard of Oz) — building with AI agents is faster than running manually; concierge cost > build cost at current solo-dev scale
+- Rebuilding sifter logic — escape hatch, banded responses, polish pass all already exist in sifter-story.md
+
+**Consequences:** Every story filing session is a calibration artifact. Author explicitly confirms ≥8/10 before publish. Workshop participants can file without prior training.
+
+**References:** [P425](../features/p425_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
+
+---
+
+## 2026-02-24 [product]: Story Visibility Model — Shared = Co-Registration, Feed = Public Only (P424)
+
+**Context:** "Shared" was always deferred (behaved like private in RLS). Default was "public" (privacy risk). UI order was Public→Shared→Private. No way to edit visibility after creation. "Shared" meaning was ambiguous.
+
+**Decision:**
+- `private`: author + explicitly granted users. Grant table deferred — RLS currently implements author-only as a temporary measure. "Private ≠ author-only" is the intent; the grant UI is a follow-on spec.
+- `shared`: anyone who has registered for the same event as the author — past AND future signups. Scope is co-registration, not attendance. Audience expands as new people RSVP. Authors should be warned in UI that audience is permanently expanding.
+- `public`: anyone, logged in or not
+- Default changed from `public` → `private`
+- UI order: Private → Shared → Public
+- Global feed (`getStoriesFeed`): public-only. Shared stories are NOT surfaced in the general feed — they appear on specific point pages and profiles where RLS grants access to co-registrants. Per-event feed is a future spec.
+- Edit visibility available post-creation (UI gap fixed)
+
+**Implementation gotcha — three places change together:**
+Changing DB column default alone is insufficient. Application layer sends the TypeScript default explicitly, overriding the DB default. Must change: (1) DB column default, (2) `createStory` TypeScript param default, (3) `mapStoryFromDb` + `updateStory` fallback values (`?? 'public'` → `?? 'private'`).
+
+**Alternatives rejected:**
+- Shared stories in global feed — "shared" means peer visibility within event circles, not broadcast
+- Denormalized `story_access` table for RLS join — premature; existing `event_rsvps` UNIQUE index is sufficient at current scale
+
+**Consequences:** New stories default private — safer for workshop participants. Shared stories become discoverable to event co-registrants via point pages. RLS is now the sole visibility enforcement for stories (client-side gate in `story-detail-page.tsx` removed).
+
+**References:** [P424](../features/done/20_feb_26/p424_visibility_model.md)
+
+---
+
 ## 2026-02-24 [process]: Vercel CLI token in .env.local for autonomous deployments
 
 **Context:** Banner regeneration worked in dev but not prod. Root cause: `VITE_UNSPLASH_ACCESS_KEY` was in `.env.local` but never added to Vercel's environment variables. Features using `VITE_*` build-time vars require manual Vercel config on every new API key — easy to miss. Also needed a way for the agent to do this autonomously without browser automation.

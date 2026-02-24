@@ -41,5 +41,5 @@ Key questions to resolve:
 
 - Decide: AI-authored stories — separate type or attribution field on existing type?
 - Design: navigation model between free chat and single-story sub-flow (modal? inline? separate panel?)
-- Spec V1 (P-number TBD) first as a dependency: single-story filing session must ship before V2 builds on it.
+- Spec P419 (Filing Chat V1) and P425 (AI Story Core Loop) must ship before V2 builds on them.
 - Run `/create-prd` when ready to move from concept to implementation planning.

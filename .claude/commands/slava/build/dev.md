@@ -72,6 +72,7 @@ You're not just writing code — you're building something that will run in prod
 7. **Mark** — Change `[ ]` to `[x]` after task passes
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
 9. **Commit** — Only if ALL tests pass
+9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
 10. **Close** — Move spec to `features/done/`, set `status: done` + `completed_at`, prompt for `/kdd`
 
 ---
@@ -383,9 +384,9 @@ Before marking a feature complete, `/dev` verifies:
 ✅ Acceptance criteria verified
 ✅ No regressions detected
 
-[If UI touched]
-⚠️  UI files modified. Recommend running /design-audit.
-   Run now? (y/n)
+Running /review-all...
+[Review findings presented — HIGH/MEDIUM/LOW]
+Fix issues before closing? (all HIGH / select / skip)
 
 Feature closed → features/done/5_feb_26/
 Capture learnings with /kdd? (y/n)
@@ -605,10 +606,10 @@ After successful commit, close the feature:
    git mv features/uat/p{N}.md features/done/{folder}/uat/ 2>/dev/null
    ```
 4. Commit: `chore: close P{N} — {title}`
-5. Refresh kanban:
-   ```bash
-   curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null
-   ```
+5. Spawn parallel closing subagents:
+   - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
+   - **verify** (if `*.tsx` files changed): Ask "Run `/verify` for visual QA? (y/n)" — spawn as subagent if yes
+   fix-kanban runs automatically; verify is opt-in.
 6. Ask: "Capture learnings with /kdd? (y/n)"
 
 If no spec file exists (inline description mode), skip closure silently.

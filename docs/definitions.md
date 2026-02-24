@@ -144,6 +144,10 @@ POSITION: "+2 (Agree) on this Point"
 
 **Key insight:** You don't verify Points (they're just claims). You verify understanding of the **Story behind someone's Position** on a Point.
 
+**Points are immutable shared objects.** Once a Point exists and others have staked positions on it, it cannot be edited — changing it would invalidate everyone else's positions. Points have no single owner: the first position-staker extracts the Point, but it belongs to the shared discourse.
+
+To "correct" a Point: file a new Story → extract a corrected Point → stake a fresh position. The old Point stays in the discourse; other positions on it remain valid.
+
 ---
 
 ## Stories as AI Training Data
@@ -398,11 +402,17 @@ See [authentication.md](technical/authentication.md#guest--unverified-users) for
 
 ## Story Visibility Model
 
-| Level | Who sees | Use case |
-|-------|----------|----------|
-| **Private** | Only author | Drafts |
-| **Shared** | Event participants | Event feed |
-| **Public** | Everyone | Global feed, profile |
+| Level | Who sees | Where it appears |
+|-------|----------|-----------------|
+| **Private** | Author only (explicit per-user grant UI is a future spec) | Only author's own views |
+| **Shared** | Author + anyone who has registered for the same event as the author — past or future signups (co-registration, not just attendance) | Point pages, profiles — via RLS. NOT in the global feed. |
+| **Public** | Anyone, logged in or not | Global feed, profiles, point pages |
+
+**Key "Shared" detail:** Scope is event co-registration, not event attendance. If the author and reader both registered for the same event at any point in time (including future RSVPs), the story is readable. Audience expands as new people sign up — authors should be aware the audience grows over time.
+
+**Default:** `private` (changed from `public` in P424 — safer for new users and workshop participants).
+
+**Global feed rule:** Only `public` stories appear in the discovery feed. Shared stories surface only on specific point pages and profiles, where RLS evaluates co-registration.
 
 ---
 

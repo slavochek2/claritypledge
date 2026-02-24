@@ -125,6 +125,9 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - These are Claude's context shortcuts — save future re-reading
 
 5. **Feature housekeeping:**
+
+   **Skip if running after `/dev` or `/fix`** — those auto-close features already. This step only applies when running `/kdd` standalone after work done outside the standard flow (e.g., direct code edits, infra changes, manual migrations).
+
    ```bash
    ls features/*.md
    ```
@@ -139,22 +142,45 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
+5.5. **Session wrap checklist:**
+
+   Run in parallel:
+   ```bash
+   git status --short          # uncommitted changes?
+   python3 scripts/fix-frontmatter.py --dry-run 2>/dev/null | head -5   # frontmatter drift?
+   curl -s "http://localhost:9050/api/features?refresh=true" > /dev/null  # refresh kanban
+   ```
+
+   Report:
+   - If uncommitted changes exist: list them. Ask: "Commit now or leave for next session?"
+   - If frontmatter drift detected: mention it. Offer to run `fix-kanban`.
+   - Confirm: "Kanban refreshed."
+
 6. **Meta-reflection** — review how the session went, output to chat only (no file logging):
 
-   Scan the conversation for friction signals and surface them as suggestions.
+   **Goal:** Fewer user messages next session. Claude does more. Quality improves. Every point must result in one concrete change — not a diary entry.
 
-   **Signals to look for:**
-   - You had to rephrase or ask Claude to simplify something → Claude should have led with that
-   - A step took multiple back-and-forth turns → skill candidate or missing context
-   - Claude missed something obvious that a review agent caught → encode as a pattern
-   - A prompt you typed could be a skill (reusable sequence you'd run again)
+   **Skip "what worked well"** unless it validates a change made in a previous session (confirm the fix held). If nothing changed, nothing to mention.
 
-   **Output format — concrete, not vague:**
-   - What happened
-   - What would have been faster/better
-   - Specific suggestion: new skill | different prompt approach | CLAUDE.md rule
+   **Signals to scan for:**
+   - A question was asked that the user had to answer — could Claude have decided without asking?
+   - A point required 2+ back-and-forth turns to resolve — what context was missing?
+   - A decision was surfaced only when user re-asked — Claude buried it
+   - A step was repeated that a skill or rule could eliminate
+   - Something was built/spec'd that already existed elsewhere in the codebase
 
-   User decides what to act on. No files written. If no friction: "Clean session."
+   **Output format — one action per point:**
+   ```
+   **[What happened]** — one sentence, specific
+   **Root cause:** why this required user effort
+   **Action:** exact change to make
+   **Where:** [CLAUDE.md rule | skill name + line | doc + section | prompting pattern]
+   ```
+
+   If the action is small (edit a skill, add a doc note): apply it in this session.
+   If the action requires `/claude-md` gate or user judgement: flag it, don't act.
+
+   If no friction: "Clean session."
 
 ## Rules
 

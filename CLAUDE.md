@@ -316,6 +316,8 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 
 **Before approval:** When a task starts and the right flow is unclear (P-number mentioned, bug or feature described, "what do we do next"), proactively run `/pick-flow` rather than waiting to be asked. Skip for one-liner fixes or when the user names the exact commands.
 
+**Name the skill you're running:** When informal language maps to a skill ("simplify this" → `/simplify`, "what now" → `/status`, "anything to kdd?" → `/kdd`, "wrap up" → `/wrap`), invoke the skill and name it — so the user learns the command exists.
+
 | Situation | Invoke |
 |-----------|--------|
 | New feature approved | `/create-prd` (or `/quick-feature` for skeleton) |

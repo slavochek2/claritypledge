@@ -50,16 +50,25 @@ reviews:
 
 ## Business Requirements
 
+**Entry points (V1):**
+1. **"Create Story" button** — standalone entry from own profile / stories section. Blank start, no pre-seeded context. Leads to full AI loop + point extraction.
+2. **Position → story prompt** — fires after staking a position on any point (the P425 `StoryGuideChat` core loop handles this). P419 adds the point extraction step after loop completion. The point context is pre-seeded; no separate entry mechanic needed.
+
+**Explicitly out of scope for V1:**
+- /live session context — strong-disagreement filing during a paraphrasing round is a separate UX problem (captured in `features/drafts/p428_live_position_story_filing.md`).
+
 **Must-haves:**
 - Any authenticated user can start a guided story-filing session from "Create Story"
 - User can paste or type a brain dump — raw, messy, unstructured
-- AI mirrors back a structured story and rates how well it captured the meaning
+- AI mirrors back a structured story (reuses `StoryGuideChat` from P425 via `onStoryConfirmed` callback)
 - User rates 0–10 how understood they feel; gives corrections if <10
 - Loop continues until user is satisfied (same principle as /live verification threshold)
 - AI extracts points from the approved story and presents them for review
 - User approves, removes, or edits extracted points
 - On confirmation: story and linked points are saved to Supabase
 - When a user takes a position on someone else's point, they are prompted to file a supporting story via this same flow
+- User must have staked a position on a point before filing a story linked to it (no position = no link, but story can still be filed standalone)
+- Removing a position removes the story↔point link but does NOT delete the story
 
 **Success conditions:**
 - Filing a story goes from hours → under 15 minutes
@@ -138,6 +147,7 @@ reviews:
 - [ ] User can rate understanding 0–10 and provide corrections
 - [ ] Conversation loops until user confirms satisfaction
 - [ ] AI presents extracted points for user review after story is approved
+- [ ] If AI extracts zero points, story saves standalone — user sees "no points found" message and is not blocked
 - [ ] User can edit, remove, or approve each extracted point
 - [ ] On confirmation, story is saved to Supabase with status = private (draft) or published per user choice
 - [ ] Extracted points are saved and linked to the story
@@ -158,5 +168,8 @@ This is a UI feature with backend persistence.
 4. Run `/dev features/p419_filing_chat_v1.md` — implement
 
 **Related:**
-- P420 (V2): Open-ended multi-story AI calibration conversation (in parallel PRD)
-- Psychological safety pre-session check — separate story (filed later)
+- `features/drafts/p420_filing_chat_v2.md` — multi-story V2 (parked)
+- `features/drafts/p421_presession_safety_check.md` — pre-session safety check (parked)
+- `features/drafts/p428_live_position_story_filing.md` — /live filing context (parked)
+
+**Sequencing note:** Run `/ux` only after P425 architect completes. The P425 architect defines `StoryGuideChat`'s props interface (`onStoryConfirmed` callback) — P419's UX depends on knowing how point extraction hooks in.
