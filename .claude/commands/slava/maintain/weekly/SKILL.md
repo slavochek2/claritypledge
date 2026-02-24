@@ -125,6 +125,30 @@ This is a 2-minute scan. Don't expand it. Purpose is surfacing what /kdd session
 
 ---
 
+### 2.6 Product Pulse (inline, fire in parallel with step 3)
+
+```bash
+# What changed in core product/strategy docs since $SINCE
+git diff "$SINCE"..HEAD -- docs/lean-canvas.md docs/philosophy.md README.md CLAUDE.md 2>/dev/null | \
+  grep -E "^[+-]" | grep -vE "^(---|\+\+\+|@@)" | head -60
+
+# Last meaningful edit date for each (to catch docs drifting from reality)
+for f in docs/lean-canvas.md docs/philosophy.md README.md; do
+  [ -f "$f" ] && echo "$f: last changed $(git log -1 --format='%ar' -- $f)"
+done
+```
+
+Read the diff output. Summarize in 1–3 bullets: what substantively changed (ignore formatting/typos). If no changes, check last-edit dates — if any core doc is >3 weeks untouched, flag it.
+
+Surface in the Evidence Picture as:
+```
+PRODUCT PULSE: [what changed — 1-3 bullets; or "no changes (last edit: X weeks ago)"]
+```
+
+The purpose: distinguish deliberate evolution from silent drift. Don't expand — this is a 2-minute read.
+
+---
+
 ### 2.7 Prompt Pattern Mining (subagent, runs in background)
 
 Spawn a subagent in background while you continue to step 3. It scans session logs since `$SINCE` and returns skill gap candidates.
@@ -160,7 +184,7 @@ If no gaps found: `SKILL GAPS: none detected`
 
 ---
 
-### 3. Evidence Gathering (run in parallel)
+### 3. Evidence Gathering (fire in parallel with steps 1 and 2.6 — all three are independent)
 
 ```bash
 # Commits (use $SINCE from step 0)
@@ -203,8 +227,9 @@ STRATEGY:     [docs touched or "none"]
 SMELLS:       [areas fixed 2+ times — scope only, not count; or "none"]
 LAST WEEK:    [paste saved commitment] → [founder's yes/partial/no]
 USER CONVOS:  [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
-PROCESS DEBT: [N proposed fixes from process-learnings.md — or "none"]
-CHRONIC:      [patterns appearing 2+ times — or "none"]
+PROCESS DEBT:  [N proposed fixes from process-learnings.md — or "none"]
+CHRONIC:       [patterns appearing 2+ times — or "none"]
+PRODUCT PULSE: [what changed in lean-canvas/philosophy/README/CLAUDE.md — or "no changes (X weeks)"]
 ```
 
 Collect the user conversation answer before moving to questions. Zero = flag immediately in the evidence table.
@@ -232,6 +257,7 @@ Show the evidence picture first. Then ask — **evidence-derived questions first
 - Specs created >> shipped → "You created [N] specs but shipped [M]. Is the backlog growing because priorities are unclear, or because you're scoping before validating?"
 - Same area fixed 3x → "You touched [area] [N] times. Is there a root cause being patched instead of fixed?"
 - Strategy docs changed → "You reopened [doc] — is that decision now settled, or still drifting?"
+- Product pulse has changes → "The product framing shifted: [summary]. Was that driven by new evidence, or did something feel off and you adjusted the words?"
 - Nothing shipped → "Nothing shipped. Groundwork week, or did something block you that's worth naming?"
 
 #### Mandatory (always ask all 4, in this order)
@@ -334,6 +360,7 @@ EOF
 **Last week:** [commitment text] → [yes/partial/no]
 **Process debt:** [N proposed fixes or "none"]
 **Chronic patterns:** [or "none"]
+**Product pulse:** [what changed or "no changes (X weeks)"]
 
 ### Evidence Signals
 [table of signals with interpretations]
