@@ -519,7 +519,7 @@ function QuotedPoint({
           {/* Content column */}
           <div className="flex-1 min-w-0">
             {/* Point text */}
-            <p className="text-sm text-gray-800 line-clamp-2">{point.statement}</p>
+            <p className="text-sm text-gray-800">{point.statement}</p>
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div role="presentation" className="mt-2 origin-left scale-[0.85]" onClick={e => e.stopPropagation()}>
