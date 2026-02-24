@@ -5,7 +5,7 @@ rank: 10.0
 workstream: C1
 tags: [stories, edit, delete, ux]
 prepped_date: '2026-02-24'
-delivery_stage: ux-review
+delivery_stage: arch-review
 reviews:
   ux: null
   architect: null
@@ -235,3 +235,158 @@ Alternative considered: buttons inside the card itself. Rejected — `StoryCardD
 - **After save**: focus returns to the story content area (or the Edit button). Toast is announced via `sonner` which uses `role="status"`.
 - **Keyboard nav**: Tab order within edit mode — Textarea → Cancel → Save. `Cmd+Enter` submits. `Escape` cancels.
 - **Screen reader**: `aria-busy="true"` on Save button during save. `aria-live="polite"` region for character count.
+
+---
+
+## Technical
+
+### Technical Analysis
+
+#### Service Layer — What Already Exists
+
+Both required service operations are fully implemented in `src/app/data/stories-service-real.ts`:
+
+**`updateStory(storyId, { content?, tags?, visibility? })`** (line 418)
+- Issues a Supabase `.update()` on the `stories` table filtered by `id`
+- Already handles `content` as an optional update field — no changes needed
+- RLS enforces `auth.uid() = author_id` — non-authors receive a silent Supabase error (0 rows updated, no error thrown, but `.single()` returns null)
+- Returns the updated `Story | null`
+
+**`deleteStory(storyId)`** (line 494)
+- Issues a Supabase `.delete()` on the `stories` table filtered by `id`
+- Returns `boolean` — true on success, false on error
+- RLS enforces author-only delete
+- Cascade behavior: `story_versions` (ON DELETE CASCADE) and `story_points` (ON DELETE CASCADE) are cleaned up automatically by the database — no application-level cascade logic needed
+
+**Cascade chain confirmed from `20260204_stories_points_calibration.sql`:**
+- `story_versions.story_id` → `REFERENCES stories(id) ON DELETE CASCADE`
+- `story_points.story_id` → `REFERENCES stories(id) ON DELETE CASCADE`
+- `points` rows are NOT deleted — `story_points` entries are deleted, but the underlying `points` records (and any `positions` on them) survive intact. This matches the spec requirement.
+
+#### UI Layer — What Exists
+
+**`story-detail-page.tsx`** (`src/app/pages/story-detail-page.tsx`):
+- Already has the author-only section (`isAuthor &&`) at lines 771–786 containing `VisibilitySelector` and `KeyPointsSection`
+- `VisibilitySelector` already calls `storiesService.updateStory(storyId, { visibility })` — the same service method that will be used for content edits
+- `story` state is `StoryWithPoints | null` — updating it locally after a successful save is straightforward: `setStory(prev => prev ? { ...prev, content: newContent } : prev)`
+- Imports already include `Textarea`, `Loader2`, `Button`, `toast`, `useNavigate` — no new imports needed beyond `useBlocker`
+
+**`StoryCardDetail`** (`src/app/components/social/StoryCardDetail.tsx`):
+- Pure display component, no mutation logic
+- `cardClassName` uses `border-l-blue-500` as the fixed left border; edit mode will require a full border change to `border-blue-400` — this means the edit form will render as a replacement card, not mutate `StoryCardDetail`'s classes. This is the correct approach (UX spec agrees: "swap the component")
+- No changes to `StoryCardDetail` needed
+
+**`RemovePositionDialog`** (`src/app/components/shared/remove-position-dialog.tsx`):
+- Uses `Dialog / DialogContent / DialogHeader / DialogTitle / DialogDescription / DialogFooter` from `@/components/ui/dialog`
+- The `DeleteStoryDialog` will follow the exact same structure — same imports, same pattern, different copy
+
+**Character limits:** `AddPointForm` uses `POINT_CHAR_SOFT = 140` and `POINT_CHAR_MAX = 500` for points. Stories are longer-form; UX specifies soft nudge at 2000, hard max at 10000. These are new constants, defined in the page file alongside the form.
+
+**React Router version:** `react-router-dom@^7.13.0` — `useBlocker` is available in React Router v6.7+ and v7.x. No version constraint issue.
+
+---
+
+### Architecture Decisions
+
+**Decision 1: Inline components in `story-detail-page.tsx` vs. separate files**
+
+- **Chosen:** Both `EditStoryForm` and `DeleteStoryDialog` live as functions inside `story-detail-page.tsx`, consistent with how `AddPointForm`, `VisibilitySelector`, `KeyPointsSection`, and `BackButton` are all defined in the same file.
+- **Rationale:** The page file already uses this pattern for all author-only controls. These components are tightly coupled to the page's state (`story`, `setStory`, `navigate`) and are not reused anywhere else. Keeping them co-located reduces indirection with no meaningful downside.
+- **Trade-off:** The page file grows longer (~180 lines added). Acceptable — the existing 792-line file already demonstrates this is a deliberate pattern, not an oversight.
+- **Alternative rejected:** Separate `edit-story-form.tsx` and `delete-story-dialog.tsx` files — adds file overhead and import chains for single-use components. UX spec explicitly says "inline, inside story-detail-page.tsx — not a separate file."
+
+**Decision 2: Card swap pattern for edit mode (not prop-threading into `StoryCardDetail`)**
+
+- **Chosen:** In edit mode, render a replacement card `<EditStoryCard>` in place of `<StoryCardDetail>`. The `story-detail-page.tsx` holds `isEditMode` boolean state and conditionally renders one or the other.
+- **Rationale:** `StoryCardDetail` is a shared display component used in profile pages, point detail pages, and story detail. Threading edit-specific props (`editMode`, `onEditSave`, `onEditCancel`, `isSaving`) into it would pollute its interface with concerns that only apply in one of its three usage contexts. The replacement-card pattern keeps the separation clean.
+- **Trade-off:** The edit card must reproduce the card's header section (avatar, author name, timestamp, border styling) to look like a seamless replacement. ~30 lines of markup duplication. Acceptable — the alternative (prop-threading) creates ongoing maintenance burden in a widely-used component.
+- **Alternative rejected:** Threading `editMode` as a prop into `StoryCardDetail` — violates single-responsibility, complicates future consumers of the component.
+
+**Decision 3: Optimistic vs. pessimistic update for edit save**
+
+- **Chosen:** Pessimistic update — update local state only after a confirmed successful API call. Keep `isSaving` spinner visible during the save. On success, call `setStory(prev => ...)` to update the displayed content.
+- **Rationale:** Content edits are not high-frequency (unlike position clicks where optimistic UX matters). The save takes under 500ms on a good connection. Pessimistic is simpler to reason about: no rollback logic needed. Consistent with how `VisibilitySelector` already works in the same file.
+- **Trade-off:** ~300–500ms where the textarea shows the spinner before the card re-renders. Acceptable — the UX spec anticipates this with the "Saving…" button state.
+- **Alternative rejected:** Optimistic update — swaps the card back to read-mode immediately and reverts on failure. Adds a revert path that increases complexity for minimal UX gain on a low-frequency action.
+
+**Decision 4: Post-delete navigation target**
+
+- **Chosen:** Navigate to `/p/:authorSlug` (author's profile) after successful delete. Use `story.authorSlug` which is already in the loaded `story` state.
+- **Rationale:** The story detail page is now a dead URL after deletion. The profile is the most natural landing place — it shows the author's remaining stories. The UX spec mandates this exact target.
+- **Trade-off:** If the user landed on the story via a direct link (no prior navigation in the SPA), Back would not return to the story anyway — navigating to profile is a safe fallback in all cases.
+- **Alternative rejected:** `navigate(-1)` (go back in history) — unreliable if the user landed directly on the story URL, and would navigate to a broken URL.
+
+**Decision 5: `useBlocker` for SPA navigation guard**
+
+- **Chosen:** Use `useBlocker` from `react-router-dom` to intercept SPA navigation when edit mode is active and `content !== initialContent`. Display an inline confirmation (`"You have unsaved changes. Leave anyway?"`) with Stay (default focus) / Leave buttons. Also attach a `beforeunload` event listener for hard refresh / tab close.
+- **Rationale:** React Router v7 provides `useBlocker` precisely for this use case. `beforeunload` alone only covers hard navigations. The blocker handles SPA navigation (clicking Back, navigating to another route). The UX spec explicitly calls for both.
+- **Trade-off:** `useBlocker` must be cleaned up correctly — it should only be active when `isEditMode && isDirty` (content has changed from initial). The blocker registration is conditional on both flags.
+- **Alternative rejected:** `window.confirm()` inside a `useEffect` cleanup — does not intercept React Router navigation, only works for full page unload.
+
+---
+
+### Security Review
+
+**RLS Policies:**
+
+- ✅ UPDATE policy exists and is author-scoped: `"Authors can update own stories" ON stories FOR UPDATE USING (auth.uid() = author_id)` — enforces author-only updates at DB level.
+- ✅ DELETE policy exists and is author-scoped: `"Authors can delete own stories" ON stories FOR DELETE USING (auth.uid() = author_id)`.
+- ✅ `story_points`, `story_versions`, `story_verifications`, and `story_point_history` all have `ON DELETE CASCADE` from `stories(id)`. No application-layer cascade needed.
+- ✅ Points are NOT cascade-deleted — junction rows only. Points survive story deletion as required.
+- ✅ `visibility` is backed by a `story_visibility` ENUM type — invalid values rejected at DB type level.
+- ⚠️ UPDATE RLS policy has no `WITH CHECK` clause. Safe for P427 (service never sends `author_id` in payload), but worth documenting. Low priority.
+
+**Authentication:**
+
+- ✅ `isAuthor = story.authorId === user?.id` computed in the page; edit/delete controls render only within `{isAuthor && (...)}`. Correct UI-layer gate.
+- ✅ Page waits for `authLoading` to settle before fetching — prevents visibility race condition.
+- ⚠️ `updateStory()` and `deleteStory()` rely on RLS for enforcement without a pre-flight `getUser()` check. A session expiry mid-edit surfaces as "Failed to save" rather than "You've been logged out." Minor UX gap, not a security hole.
+
+**Input Validation:**
+
+- ⚠️ No DB-level content length constraint on `stories.content`. The 10,000-char hard limit is UX-only. **Action: add `CHECK (char_length(content) <= 10000)` migration.**
+- ⚠️ No "content is plain text only" policy enforced in code. Currently safe (story content is rendered as text, never as raw markup), but implicit. **Action: document the policy.**
+- ✅ `storyId` is a UUID via parameterized query — SQL injection not possible.
+
+**Data Protection:**
+
+- ✅ All cascade deletes verified at schema level — no orphaned records after story deletion.
+- ⚠️ `story_versions` has `SELECT USING (true)` — fully public. After an edit, old content remains readable in `story_versions`. **Action: disclose in delete confirmation dialog ("Previous versions will also be removed").**
+- ✅ Positions on linked points are unaffected — cascade stops at `story_points`, does not reach position tables.
+
+**Summary of items requiring action:**
+
+| Severity | Item |
+|---|---|
+| Medium | Add DB `CHECK (char_length(content) <= 10000)` migration |
+| Medium | Disclose in delete dialog that previous story versions are also removed |
+| Low | `updateStory()` / `deleteStory()` lack auth pre-check (rely on RLS silent no-op) |
+| Low | UPDATE RLS missing `WITH CHECK` clause |
+| Low | Document "content is plain text only" policy |
+
+---
+
+### Implementation Approach
+
+#### Files to Create
+
+None. All new components are inline functions in the existing page file, following the established pattern.
+
+#### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/app/pages/story-detail-page.tsx` | Add `EditStoryCard` and `DeleteStoryDialog` inline components; add `isEditMode`, `editContent`, `isDeleting`, `deleteDialogOpen` state to `StoryDetailPage`; update author-only section to render edit mode card swap and delete dialog; add `useBlocker` + `beforeunload` guard; add `handleSave` and `handleDelete` handlers; add analytics events for `story_edited` and `story_deleted` |
+
+No other files require modification. The service layer (`stories-service-real.ts`, interface, mock) already supports both operations. `StoryCardDetail.tsx` is unchanged.
+
+#### Build Sequence
+
+1. Add state variables to `StoryDetailPage`: `isEditMode`, `editContent`, `isDeleting`, `deleteDialogOpen`
+2. Implement `EditStoryCard` inline component — textarea, char count (STORY_CHAR_SOFT = 2000, STORY_CHAR_MAX = 10000), Save/Cancel buttons, keyboard shortcuts (`Cmd+Enter`, `Escape`)
+3. Implement `handleSave` handler — calls `storiesService.updateStory(story.id, { content })`, updates local `story` state on success, exits edit mode
+4. Add `useBlocker` guard — active when `isEditMode && editContent !== story.content`; add `beforeunload` listener in the same `useEffect`
+5. Implement `DeleteStoryDialog` inline component — reuses `Dialog / DialogContent / DialogHeader / DialogFooter` from `@/components/ui/dialog`, shows linked point count from `story.points.length`
+6. Implement `handleDelete` handler — calls `storiesService.deleteStory(story.id)`, navigates to `/p/${story.authorSlug}` on success
+7. Update author-only section JSX: swap `StoryCardDetail` → `EditStoryCard` when `isEditMode`; add Edit + Delete buttons on same row as `VisibilitySelector`; mount `DeleteStoryDialog`
+8. Add analytics tracking: `story_edited` (with `story_id`, `char_count`) and `story_deleted` (with `story_id`, `linked_point_count`)
