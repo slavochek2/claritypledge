@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-24 [process]: Done-Features INDEX.md as Institutional Memory Layer
+
+**Context:** Agents start each session with no memory of past specs/decisions. `features/done/` had 70+ completed feature files — knowledge went in, nothing came out to inform future work. The write-only archive problem.
+**Decision:** Maintain `features/done/INDEX.md` — one line per completed feature, grouped by domain, focused on gotchas/patterns/decisions. `/kdd` step 4.5 appends to it when a feature closes. CLAUDE.md "Before Starting Work" step 4 instructs agents to grep it before touching a related area.
+**Alternatives rejected:** Grep-before-filing check (only catches duplicates at filing time, not the retrieval problem). Hook-based auto-update (produces title dumps, not learnings — quality requires judgment). Weekly agent regeneration (too infrequent, same quality problem).
+**Consequences:** INDEX.md quality depends on `/kdd` discipline. If `/kdd` is skipped, INDEX.md drifts. The mechanism is correct; the lever is habit.
+**References:** [features/done/INDEX.md](../features/done/INDEX.md)
+
+---
+
 ## 2026-02-24 [product]: StoryGuideChat Embeds as Overlay — No Page Navigation (P428)
 
 **Context:** P428 adds story filing from inside `/live` sessions. The initial P425 spec described navigating to `/chat?from=live&sessionId=XYZ`, which would redirect the user away from the active session. P428 requires the story-filing flow to be available without leaving `/live`.
