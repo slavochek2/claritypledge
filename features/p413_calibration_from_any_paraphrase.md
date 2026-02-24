@@ -5,6 +5,11 @@ rank: 125465
 workstream: C2
 created_date: 2026-02-22
 tags: []
+uat_file: features/uat/p413.md
+test_files:
+  - e2e/integration/p413-nullable-story-migration.spec.ts
+  - e2e/p413-calibration-any-exchange.spec.ts
+  - e2e/p413-smoke.spec.ts
 ---
 
 # P413: Count any completed paraphrase exchange toward calibration
@@ -32,3 +37,40 @@ Calibration only needs two numbers: the listener's self-estimate + the speaker's
 ## Testing
 
 Do 5 quick paraphrase exchanges in a live session without creating any stories. Calibration bar should appear on profile after exchange 5.
+
+**Accelerated:** Use DB seeding (see `features/uat/p413.md` UAT-1.1) — no live partner needed.
+
+---
+
+## Test Coverage Strategy
+
+**What's tested:**
+- ✅ Schema: `story_id` and `version_id` nullable after migration (integration)
+- ✅ Trigger: no-story insert increments `verification_session_count` (integration)
+- ✅ RLS: authenticated user can insert without story_id (integration)
+- ✅ 5 no-story exchanges unlock calibration on profile (E2E)
+- ✅ Low ratings (< 10) count toward calibration (E2E)
+- ✅ Mixed story + no-story exchanges count together (E2E)
+- ✅ < 5 exchanges do NOT unlock calibration (E2E)
+- ✅ Calibration averages reflect actual ratings from no-story rows (E2E)
+- ✅ Profile loads without errors for no-story verification user (smoke)
+
+**What's NOT tested (rationale):**
+- ❌ Full two-party /live session flow — requires 2 simultaneous browser sessions; covered by UAT-2.x manual scenarios
+- ❌ `update_story_understood_count` trigger NULL guard — pure SQL behaviour, impossible to surface via UI test; relies on migration correctness
+
+**Test pyramid:**
+```
+      /\
+     /  \   5 E2E tests
+    /____\
+   / 1 SMOKE \
+  /___________\
+ / 5 INTEGRATION \
+```
+
+**Files:**
+- `e2e/integration/p413-nullable-story-migration.spec.ts` — 5 integration tests
+- `e2e/p413-calibration-any-exchange.spec.ts` — 5 E2E tests
+- `e2e/p413-smoke.spec.ts` — 1 smoke test
+- `features/uat/p413.md` — 7 UAT scenarios (4 automated-friendly, 3 require live session)

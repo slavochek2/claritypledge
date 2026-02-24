@@ -14,6 +14,7 @@ Auto-fixes (no judgment needed):
   - missing created_date → from git log
   - missing completed_at on done items → most recent git date (or today)
   - duplicate P-numbers → lower-priority file renamed + all references updated
+  - header P-number mismatch (filename says p432, header says P429) → header corrected
 
 Reports only (needs manual fix):
   - missing type field (story | bug | task | comment)
@@ -221,6 +222,22 @@ def fix_file(file_path, next_rank):
     changes = []
     errors = []
     new_lines = list(fm_lines)
+
+    # Fix: header P-number must match filename P-number
+    filename_match = re.match(r'p(\d+)', file_path.name)
+    if filename_match:
+        expected_num = int(filename_match.group(1))
+        for i, line in enumerate(body.split('\n')):
+            m = re.match(r'^# P(\d+)[:.]?\s', line)
+            if m:
+                header_num = int(m.group(1))
+                if header_num != expected_num:
+                    # Replace in body
+                    old_header = f'P{header_num}:'
+                    new_header = f'P{expected_num}:'
+                    body = body.replace(old_header, new_header, 1)
+                    changes.append(f'header P{header_num} → P{expected_num} (matches filename)')
+                break
 
     # Fix: status casing + normalize underscores
     for i, line in enumerate(new_lines):

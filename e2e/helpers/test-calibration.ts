@@ -242,6 +242,86 @@ export async function createEarCountData(options: {
 }
 
 /**
+ * Creates story verification records WITHOUT a story (P413 scenario)
+ * Any completed paraphrase exchange counts toward calibration — no story required.
+ *
+ * @param listenerId - User whose calibration we're building
+ * @param speakerId - User who rates the listener
+ * @param count - Number of verification sessions (default 5)
+ * @param overconfident - If true, listener rates self higher than speaker rates them
+ * @param lowRatings - If true, uses low ratings (4-6) to verify < 10 still counts
+ */
+export async function createCalibrationDataNoStory(options: {
+  listenerId: string;
+  speakerId: string;
+  count?: number;
+  overconfident?: boolean;
+  lowRatings?: boolean;
+}): Promise<void> {
+  const { listenerId, speakerId, count = 5, overconfident = false, lowRatings = false } = options;
+
+  console.log(`[TEST HELPER] Creating ${count} no-story calibration records for listener: ${listenerId}`);
+
+  const verifications = [];
+  for (let i = 0; i < count; i++) {
+    let speakerRating: number;
+    let listenerRating: number;
+
+    if (lowRatings) {
+      speakerRating = 4 + Math.floor(Math.random() * 3); // 4-6
+      listenerRating = 5 + Math.floor(Math.random() * 3); // 5-7
+    } else if (overconfident) {
+      speakerRating = 6 + Math.floor(Math.random() * 2); // 6-7
+      listenerRating = 8 + Math.floor(Math.random() * 2); // 8-9
+    } else {
+      const base = 7 + Math.floor(Math.random() * 3); // 7-9
+      speakerRating = base;
+      listenerRating = base + Math.floor(Math.random() * 2) - 1; // ±1
+    }
+
+    verifications.push({
+      story_id: null,
+      version_id: null,
+      speaker_id: speakerId,
+      listener_id: listenerId,
+      speaker_rating: speakerRating,
+      listener_rating: listenerRating,
+      created_at: new Date(Date.now() - (count - i) * 86400000).toISOString(),
+    });
+  }
+
+  const { error: verifyError } = await supabaseAdmin
+    .from('story_verifications')
+    .insert(verifications);
+
+  if (verifyError) {
+    throw new Error(`Failed to create no-story verifications: ${verifyError.message}`);
+  }
+
+  console.log(`[TEST HELPER] Created ${count} no-story verification records`);
+
+  // Use listener's own JWT to update profile count (same pattern as createCalibrationData)
+  const listenerClient = await createListenerClient(listenerId);
+  const { data: current } = await listenerClient
+    .from('profiles')
+    .select('verification_session_count')
+    .eq('id', listenerId)
+    .single();
+
+  const newCount = (current?.verification_session_count ?? 0) + count;
+  const { error: countUpdateError } = await listenerClient
+    .from('profiles')
+    .update({ verification_session_count: newCount })
+    .eq('id', listenerId);
+
+  if (countUpdateError) {
+    throw new Error(`Failed to update verification_session_count: ${countUpdateError.message}`);
+  }
+
+  console.log(`[TEST HELPER] Set verification_session_count to ${newCount} for listener`);
+}
+
+/**
  * Deletes all calibration test data for a user
  * Call this in afterEach to clean up
  */

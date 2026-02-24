@@ -11,6 +11,7 @@ reviews:
   ux: '2026-02-24'
   architect: '2026-02-24'
   alignment: null
+created_date: 2026-02-24
 ---
 
 # P422: Clarity Partner Agreement
@@ -582,6 +583,34 @@ Partner name: if authenticated, pre-filled from profile (read-only, same as crea
 
 ---
 
+#### 2.4a Declined Agreement Page (`/agreements/[id]` — declined state)
+
+**Shown to:** Creator only (the person who sent the invitation). Accessible at the same URL.
+
+**Status banner (above the certificate frame):**
+```
+┌────────────────────────────────────────────────────────┐
+│  ✕  DECLINED                                           │
+│  [Partner Name] declined this invitation on [date].    │
+└────────────────────────────────────────────────────────┘
+```
+- Background: red-50, border: red-200, text: red-800
+
+**Inside the certificate frame:**
+
+Full certificate rendered in a muted/faded state (opacity-60, grayscale filter). Both the pledge text and terms are visible — the creator can see exactly what they proposed. Partner signature slot shows "—" (em dash), not a clock or checkmark.
+
+**Below the frame:**
+```
+[+ Create New Agreement]
+```
+- Outline variant, navigates to /agreements/new
+- Optional secondary copy: "Consider inviting [Partner Name] to a /live session first."
+
+**Not shown to:** The partner (they see the `/declined` static page). Not shown to any visitor.
+
+---
+
 #### 2.4 Active Agreement Certificate Page (`/agreements/[id]` — active state)
 
 **Shown to:** Both parties (always), public visitors if visibility = public, private = parties only.
@@ -689,29 +718,34 @@ Location: User's profile page (`/p/[slug]`), below the existing Pledges section.
 
 **Section header:**
 ```
-Partner Agreements  (N public)
+Partner Agreements
 ```
 - "Partner Agreements" — h2 equivalent, font-bold
-- "(N public)" — muted, text-sm, shows count of public agreements for this profile
+- No count shown — visibility badge on each row conveys what's public vs. private
 
-**Agreement row (for each agreement):**
+**Agreement row (active — all viewers who can see it):**
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  🤝  [Your Name] & [Partner Name]  ·  Active [N] months    │
-│      Sealed [Month Year]                [View Agreement →]  │
+│  [●●] [Name A] & [Name B]  ·  Active [N] months  [PUBLIC]  │
+│       Sealed [Month Year]                [View Agreement →] │
 └─────────────────────────────────────────────────────────────┘
 ```
 - Border: 1px solid border-input, rounded-lg
-- 🤝 is replaced with a paired-avatar display: two overlapping PersonAvatar components (same -space-x-2 pattern as social proof on sign-pledge-page), 32px each
-- "Active N months" is computed from sealed date
-- [View Agreement →] is a text link (text-[#0044CC], underline on hover)
-- The row itself is not clickable — only the explicit link is, to avoid accidental navigation
+- Paired-avatar display: two overlapping PersonAvatar components (-space-x-2, 32px each)
+- Visibility badge: [PUBLIC] or [PRIVATE] — muted pill, same VisibilityBadge component
+- "Active N months" computed from sealed date (singular "month" when N=1)
+- [View Agreement →]: text link (text-[#0044CC], underline on hover)
+- Row itself is not clickable — only the explicit link
 
-**Empty state (no public agreements, viewing someone else's profile):**
+**What each viewer sees:**
 
-Not shown. If there are no public agreements, the section is hidden entirely from non-party viewers.
+| Viewer | Sees |
+|--------|------|
+| Profile owner (own profile) | All active + pending + terminated (own) |
+| Party to a private agreement (viewing partner's profile) | That private agreement + any public agreements on the profile |
+| Anonymous / non-party visitor | Public active agreements only |
 
-**Empty state (own profile, no agreements yet):**
+**Empty state — own profile, no agreements yet:**
 ```
 Partner Agreements
 
@@ -722,14 +756,15 @@ Partner Agreements
   [+ New Agreement]
 ```
 
-**[+ New Agreement] button (shown to profile owner, below the list):**
-- Outline variant, small, with a "+" icon
-- Navigates to /agreements/new
-- Position: bottom-right of the section, or below the empty state copy
+**Empty state — visitor, no public agreements:**
+Section hidden entirely. Visitor does not know whether private agreements exist.
 
-**Pending agreements (shown to profile owner only, never to visitors):**
+**[+ New Agreement] button:**
+- Shown to profile owner only (never to visitors)
+- Outline variant, small, "+" icon, navigates to /agreements/new
+- Position: top-right of section header, or below empty state copy
 
-Pending rows are shown in a subdued style:
+**Pending rows (own profile only, never to visitors):**
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  ⌛  [Your Name] & [partner@email.com]  ·  Pending          │
@@ -737,7 +772,20 @@ Pending rows are shown in a subdued style:
 └─────────────────────────────────────────────────────────────┘
 ```
 - Background: amber-50/30, border: amber-200/50
-- Not shown to profile visitors
+
+**Terminated rows (own profile only, never to visitors):**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [●●] [Name A] & [Name B]  ·  Terminated [Month Year]      │
+│       Active [N] months                  [View →]           │
+└─────────────────────────────────────────────────────────────┘
+```
+- Background: gray-50, border: gray-200, text: gray-500 (subdued)
+- "Active N months" = duration from sealed to terminated date
+- Shown below active rows, in a visually de-emphasized style
+- Hidden from all visitors (even if the agreement was previously public)
+
+**Declined agreements:** Hidden from profile list entirely. Declined = no agreement was ever formed.
 
 ---
 
