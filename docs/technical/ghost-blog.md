@@ -28,13 +28,14 @@ sudo docker compose restart     # Restart Ghost
 
 | Component | Detail |
 |-----------|--------|
-| VM | `ghost-prod` (e2-small, us-central1-a) |
+| VM | `ghost-prod` (e2-micro, us-central1-a) — downgraded 2026-02-25 from e2-small |
+| Swap | 2GB on pd-standard disk (`/swapfile`) — added as OOM safety net before downgrade |
 | Static IP | 35.224.81.21 (reserved as `ghost-prod-ip`) |
 | OS | Ubuntu 22.04 LTS |
 | Reverse proxy | Caddy (auto-SSL via Let's Encrypt) |
 | Ghost | Docker (`ghost:5`), port 2368 |
 | Database | SQLite (in Docker volume `ghost_ghost-content`) |
-| Cost | ~$0.05/hour (~$1.20/day) — covered by $25K GCP credits |
+| Cost | ~$0.014/hour (~$0.34/day) — covered by $25K GCP credits |
 
 ## Email Configuration
 
@@ -205,7 +206,18 @@ Custom CSS/JS injected via Ghost Admin → Settings → Advanced → Code Inject
 **Never use `fill()` for large content in Ghost's CM6 editor:**
 - Types char-by-char, times out on 8KB+ content, corrupts the editor
 - For small edits (< 500 chars), `fill()` after `Meta+a` select-all is OK
-- **Preferred method:** Use Ghost Admin API (`PUT /ghost/api/admin/settings/`) to set `codeinjection_head` directly — bypasses CM6 entirely
+- **Preferred method (Ghost < 5.130):** Use Ghost Admin API (`PUT /ghost/api/admin/settings/`) to set `codeinjection_head` directly — bypasses CM6 entirely
+- **Ghost 5.130+ broken:** `PUT /ghost/api/admin/settings/` returns 501 NotImplementedError — API changed. Workaround: update SQLite directly on the host:
+  ```bash
+  gcloud compute ssh ghost-prod --zone=us-central1-a --command="sudo python3 -c \"
+  import sqlite3, time
+  db = sqlite3.connect('/var/lib/docker/volumes/ghost_ghost-content/_data/data/ghost.db')
+  val = db.execute(\\\"SELECT value FROM settings WHERE key='codeinjection_head'\\\").fetchone()[0]
+  db.execute(\\\"UPDATE settings SET value=?, updated_at=? WHERE key='codeinjection_head'\\\", (val + NEW_CONTENT, int(time.time()*1000)))
+  db.commit()
+  \"" && gcloud compute ssh ghost-prod --zone=us-central1-a --command="cd ~/ghost && sudo docker compose restart"
+  ```
+  Container name is `ghost-ghost-1` (not `ghost`). sqlite3 not available in container — use host python3 with sudo.
 
 **CSS `:empty` gotcha:**
 - Does NOT match elements with whitespace text nodes (Ghost templates have them)
