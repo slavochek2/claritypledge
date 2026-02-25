@@ -722,3 +722,23 @@ await expect(creatorPage.getByText(joinerName)).toBeVisible({ timeout: 5000 });
 ```
 
 This works because `waitForDBPresence` runs in Node.js (Playwright's runner), not in the browser — it bypasses the isolated context problem entirely.
+
+---
+
+## Production Smoke Testing
+
+A lightweight smoke test runs against the live production DB to verify core flows post-deploy.
+
+```bash
+node scripts/prod-smoke-test.mjs
+```
+
+**What it tests:** auth sign-in, profile read, story INSERT → SELECT → DELETE, public profile anon access.
+
+**When to run:** after any deployment that touches stories, auth, or RLS policies.
+
+**Test agent:** `test-agent@claritypledge.com` — a dedicated service account used only by this script.
+Credentials are in `.env.local`. Details in `.private/docs/testing.md`.
+
+The integration tests in `e2e/integration/` run against the **test** Supabase project.
+The smoke test runs against **production**. They complement each other.

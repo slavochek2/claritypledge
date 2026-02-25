@@ -184,15 +184,25 @@ export function PointCardWithLinks({
 
   const cardClassName = isDetailView
     ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden'
-    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all';
+    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-slate-400 border border-gray-200 overflow-hidden cursor-pointer hover:border-slate-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2';
 
   // Quote pattern: when on profile, show position label outside, Point in quoted box
   const showQuotePattern =
     profileOwner && profileOwner.position;
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className={cardClassName} onClick={handleCardClick}>
+    <div
+      role={!isDetailView && !disableNavigation ? 'button' : undefined}
+      tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
+      className={cardClassName}
+      onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
+      onKeyDown={!isDetailView && !disableNavigation ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCardClick();
+        }
+      } : undefined}
+    >
       {/* Main content */}
       <div className="p-4">
         {showQuotePattern && profileOwner && profileOwner.position ? (
@@ -482,10 +492,17 @@ function QuotedStory({
   const author = getStoryAuthor?.(story.authorId);
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
+        }
+      }}
+      className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
     >
       {/* Author info at top */}
       {author && (
@@ -538,7 +555,14 @@ function QuotedStory({
         </div>
       )}
       {/* Story text */}
-      <p className="text-sm text-gray-800 line-clamp-2">{story.text}</p>
+      {story.text.length > 100 ? (
+        <p className="text-sm text-gray-800">
+          {story.text.slice(0, 90)}
+          <span className="text-blue-600 font-medium"> ...more</span>
+        </p>
+      ) : (
+        <p className="text-sm text-gray-800">{story.text}</p>
+      )}
     </div>
   );
 }

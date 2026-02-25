@@ -3,6 +3,7 @@
  * @description P117: Real Supabase stories service implementation
  */
 
+import * as Sentry from '@sentry/react';
 import type { StoriesService } from './stories-service.interface';
 import type {
   Story,
@@ -138,6 +139,10 @@ export const realStoriesService: StoriesService = {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       log('ERROR: createStory - not authenticated');
+      Sentry.captureMessage('createStory: not authenticated', {
+        level: 'error',
+        extra: { authError: authError?.message },
+      });
       return null;
     }
 
@@ -156,6 +161,9 @@ export const realStoriesService: StoriesService = {
 
     if (error || !data) {
       log('ERROR: createStory error:', error);
+      Sentry.captureException(new Error(`createStory failed: ${error?.message}`), {
+        extra: { code: error?.code, details: error?.details, hint: error?.hint, authorId: user.id },
+      });
       return null;
     }
 

@@ -156,12 +156,11 @@ export function PointCardDetail({
   const showQuotePattern = profileOwner && profileOwnerPosition;
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Has role, tabIndex, and keyboard support
     <div
       role={isDetailView ? undefined : 'button'}
       tabIndex={isDetailView ? undefined : 0}
       className={cardClassName}
-      onClick={handleCardClick}
+      onClick={isDetailView ? undefined : handleCardClick}
       onKeyDown={
         isDetailView
           ? undefined

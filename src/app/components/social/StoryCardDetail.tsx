@@ -171,12 +171,11 @@ export function StoryCardDetail({
     : 'group bg-card rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-border cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none';
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Has role, tabIndex, and keyboard support
     <div
       role={isDetailView ? undefined : 'button'}
       tabIndex={isDetailView ? undefined : 0}
       className={cardClassName}
-      onClick={handleCardClick}
+      onClick={isDetailView ? undefined : handleCardClick}
       onKeyDown={
         isDetailView
           ? undefined

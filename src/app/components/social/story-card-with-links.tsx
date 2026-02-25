@@ -132,10 +132,17 @@ export function StoryCardWithLinks({
         </div>
 
         {/* Quoted Story box */}
-        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
-          className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors"
+          role="button"
+          tabIndex={0}
+          className="bg-gray-50 border border-gray-200 rounded-lg p-3 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           onClick={handleCardClick}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleCardClick();
+            }
+          }}
         >
           {/* Role + date (name/avatar already shown outside) */}
           <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
@@ -146,9 +153,16 @@ export function StoryCardWithLinks({
           </p>
 
           {/* Story text */}
-          <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-            {story.text}
-          </p>
+          {compact && story.text.length > 150 ? (
+            <p className="text-sm text-gray-900">
+              {story.text.slice(0, 140)}
+              <span className="text-blue-600 font-medium"> ...more</span>
+            </p>
+          ) : (
+            <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
+              {story.text}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -157,11 +171,21 @@ export function StoryCardWithLinks({
   // Standard rendering (non-quote pattern)
   const cardClassName = isDetailView
     ? 'bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden'
-    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all';
+    : 'group bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2';
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div className={cardClassName} onClick={handleCardClick}>
+    <div
+      role={!isDetailView && !disableNavigation ? 'button' : undefined}
+      tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
+      className={cardClassName}
+      onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
+      onKeyDown={!isDetailView && !disableNavigation ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCardClick();
+        }
+      } : undefined}
+    >
       {/* Main content */}
       <div className="p-4">
         {/* Author row with avatar */}
@@ -206,9 +230,16 @@ export function StoryCardWithLinks({
             </div>
 
             {/* Story text - indented under author */}
-            <p className={`text-gray-900 ${compact ? 'text-sm line-clamp-3' : 'text-base'}`}>
-              {story.text}
-            </p>
+            {compact && story.text.length > 150 ? (
+              <p className="text-sm text-gray-900">
+                {story.text.slice(0, 140)}
+                <span className="text-blue-600 font-medium"> ...more</span>
+              </p>
+            ) : (
+              <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
+                {story.text}
+              </p>
+            )}
 
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
