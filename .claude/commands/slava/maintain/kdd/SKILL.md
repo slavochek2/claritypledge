@@ -109,7 +109,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    **Tag is required.** Pick exactly one:
    - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-prd`, `/ux`, `/spec-review`
    - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/architect`, `/review-all`, `/spec-review`
-   - `[process]` — workflows, skills, dev tooling, testing, agent setup → read by `/day-end`, `/weekly`, `/claude-md`
+   - `[process]` — workflows, skills, dev tooling, testing, agent setup → no active skill filters this tag; serves as human-readable context in `/day-end` and `/weekly` when they scan decisions.md
 
    **Quick classification:** if it affects how users experience the product → `[product]`. If it affects how the code is structured → `[technical]`. If it affects how the team/agents work → `[process]`.
 
@@ -209,6 +209,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    If the action is small (edit a skill, add a doc note): apply it now.
    If it requires `/claude-md` gate or user judgement: flag it as a `/simplify` block, don't act.
+   If friction has no obvious fix and is worth tracking: append to `docs/process-learnings.md` as `Status: proposed` — this feeds `/weekly` step 2.5 which surfaces unresolved items.
 
 ## Rules
 

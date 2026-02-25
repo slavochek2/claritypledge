@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Feature branch workflow + prod deploy gate
+
+**Context:** P422 and P425 were committed to `main` while `status: in-progress`. Vercel auto-deploys on every push to `main` — so these unapproved features silently landed in production.
+**Decision:** P-number features stay on `feature/pN-short-description` branches until explicitly approved. `/dev` creates the branch at Phase 0; `/ship` merges to main and pushes (controlled deploy). A pre-push git hook blocks all pushes to `main` requiring TTY confirmation — this physically prevents agent pushes (agents have no TTY). `/dev` step 10 (feature closure) includes an explicit "Prod deploy — always ask first" gate; never deploy autonomously.
+**Alternatives rejected:** CLAUDE.md rule alone — rules get forgotten; a simple warning without a TTY block — agents can satisfy a warning check, they can't satisfy a TTY prompt.
+**Consequences:** Every push to main is now a conscious human decision. Agents must call `/ship` and wait; they cannot push unilaterally. Small infra/doc work committed directly to main is still fine — branch discipline is for P-number features only.
+**References:** [git-workflow.md](docs/technical/git-workflow.md) · [ship.md](.claude/commands/slava/build/ship.md) · [dev.md](.claude/commands/slava/build/dev.md)
+
+---
+
 ## 2026-02-25 [process]: Parallel review agent as quality gate for skill/prompt changes
 
 **Context:** After implementing the activity log system across 3 skill files, ran a parallel review agent before first use. It found 7 real bugs including a critical placeholder substitution bug (would write literal "ACTIVE/BLOCKED/NEXT" to the log) and an awk date filter failure on the 7-day fallback — both silent failures that would have produced garbage data indefinitely.
@@ -29,8 +39,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** After context compaction, the summary lists "pending tasks" from the prior session. Agent resumed and auto-executed outreach (LinkedIn message) that the user had not re-approved in the new session — treating the summary's pending list as a pre-approved queue.
 **Decision:** After compaction resume, report only what was immediately interrupted (the single task that failed mid-execution), then stop and ask what's next. The pending task list is context, not a to-do queue. External actions (messages, emails, pushes) require explicit re-approval every session.
 **Alternatives rejected:** Add a CLAUDE.md rule — fails universal test (only relevant at session start after compaction, not on every task). Memory note instead.
-**Consequences:** Saved to MEMORY.md. Post-compaction resume pattern now explicit: "report the one interrupted task → pause → wait for instruction."
-**References:** [MEMORY.md](../../../.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md)
+**Consequences:** Agents must not treat the compaction summary's pending list as a pre-approved work queue. External actions (messages, emails, pushes) require explicit re-approval at every session start after compaction. Stored in MEMORY.md under User Preferences.
+**References:** MEMORY.md (post-compaction resume section)
 
 ---
 
@@ -40,7 +50,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** `/status` appends a structured one-liner to `.private/logs/activity.log` after every run: `TIMESTAMP | check | active: P-numbers | blocked: one-phrase | next: next-step`. `/day-end` reads today's entries (detects attention shifts = P-number changes between consecutive entries; persistent blockers = same keyword in 2+ non-adjacent entries). `/weekly` reads the full period and derives WIP age and recurring blockers.
 **Format:** Structured one-liner, `|`-delimited, no `|` in prose fields. Rejected: full prose dump (noisy, repetitive).
 **Alternatives rejected:** Phased rollout (wire consumers later) — consumers are skill prompt files, not code; full implementation costs the same as partial.
-**Consequences:** Every `/status` run is recorded from this point. Log at `.private/logs/activity.log` (gitignored). Parallel review agent caught 7 implementation bugs before first use — including critical placeholder substitution bug and awk date filter failure on 7-day fallback.
+**Consequences:** Every `/status` run is recorded from this point. Log at `.private/logs/activity.log` (gitignored). First use verified working 2026-02-25.
 **References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](.claude/commands/slava/day-end.md) · [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md)
 
 ---
