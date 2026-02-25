@@ -14,6 +14,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: /weekly reads activity log to surface WIP age and recurring blockers
+
+**Context:** /weekly had no visibility into intra-week patterns — it could see commits and metrics but not whether a feature was stuck for 3 days or the same blocker kept appearing.
+**Decision:** Step 3 reads `.private/logs/activity.log` (populated by `/status` checks) and derives: total status checks this period, P-numbers active across 2+ calendar days (WIP age signal), keywords recurring in `blocked:` field 3+ times (chronic blocker signal). Surfaced in evidence picture as ACTIVITY LOG row.
+**Alternatives rejected:** Git-only analysis — commits don't show in-progress state or blockers, only completed work.
+**Consequences:** Chronic blockers that never make it into commits are now visible in the weekly retro. WIP >2 days surfaces before it becomes a week-long invisible drag.
+**References:** [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md)
+
+---
+
+## 2026-02-25 [process]: Privacy in public repo — two-layer protection architecture
+
+**Context:** Personal email addresses (owner's private emails) were found in `docs/technical/mcp-servers.md`, a public file. Needed a systematic approach to prevent future exposure in a public AGPL repo.
+**Decision:** Two-layer model: (1) mechanical — pre-commit hook section 16 checks staged diffs for known PII patterns (specific email addresses, domains) and warns before commit; (2) judgment — `/weekly` step 2.10 spawns a subagent to read docs changed that week and flag nuanced content the hook misses (private business strategy, personal struggles, named-person opinions). Canonical location for all personal identity info is `.private/docs/accounts.md` (double-gitignored). Public docs reference it as "see `.private/docs/accounts.md`".
+**Alternatives rejected:** Pre-commit as a hard block — too aggressive, legitimate files in `.private/` would false-positive; single-layer mechanical-only — misses contextual/nuanced content that requires reading.
+**Consequences:** All future doc work touching personal info must use `.private/`. The pre-commit hook warns on known patterns; `/weekly` catches the rest. Neither is a substitute for the other.
+**References:** [pre-commit-checks.sh](scripts/pre-commit-checks.sh) · [privacy/SKILL.md](.claude/commands/slava/maintain/privacy/SKILL.md) · [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md) · [accounts.md](.private/docs/accounts.md)
+
+---
+
 ## 2026-02-25 [technical]: Inline system prompts in Supabase edge functions
 
 **Context:** P425 edge function originally used `Deno.readTextFile('./prompts/v1.md')` to load the system prompt. Works in local `supabase functions serve` but fails with a silent 500 in deployed functions — Deno cannot resolve relative paths at runtime in the deployed sandbox.

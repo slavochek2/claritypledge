@@ -98,24 +98,44 @@ Check Docker Desktop → MCP Toolkit → server settings if tools fail.
 
 These are configured globally for all projects, not via Docker MCP Toolkit.
 
-### Google Workspace — slava@inguro.com
+### Google Workspace (work account)
 
-Work account. Full Google Workspace access (Gmail, Drive, Docs, Calendar, Sheets, etc.).
+Full Google Workspace access (Gmail, Drive, Docs, Calendar, Sheets, etc.).
 
 - **Config key:** `slava-inguro-workspace`
 - **Package:** `workspace-mcp` (via `uvx`)
 - **Auth:** OAuth (credentials stored in `~/.google_workspace_mcp/`)
+- **Account:** see `.private/docs/accounts.md`
 
-### Personal Gmail — slavochek@googlemail.com
+### Personal Gmail
 
 Personal Gmail access via IMAP.
 
 - **Config key:** `slavochek-gmail`
 - **Package:** `gmail-mcp-imap` (via `npx`)
 - **Auth:** App Password (stored in `~/.claude.json` env vars — never commit)
-- **Why IMAP not OAuth:** Avoids Google Cloud project setup and zero conflict risk with workspace-mcp
+- **Why IMAP not OAuth:** Avoids Google Cloud project setup, zero conflict risk with workspace-mcp
+- **Account:** see `.private/docs/accounts.md`
 
 > **If App Password expires or needs rotation:** Google Account → Security → App Passwords → regenerate, then update `GMAIL_APP_PASSWORD` in `~/.claude.json`.
+
+### Claritypledge emails — ops@ and slava@ (SMTP/IMAP scripts)
+
+Two mailboxes on All-Inkl hosting, accessed via raw TLS scripts (no MCP — scripts only).
+
+| Address | Purpose | Env var (user) | Env var (pass) |
+|---------|---------|----------------|----------------|
+| `ops@claritypledge.com` | Service account signups, transactional | `OPS_EMAIL` | `OPS_EMAIL_PASSWORD` |
+| `slava@claritypledge.com` | Sending emails on Slava's behalf | `SLAVA_EMAIL` | `SLAVA_EMAIL_PASSWORD` |
+
+- **Server:** `w00dd4f1.kasserver.com`
+- **IMAP:** port 993 (TLS)
+- **SMTP:** port 465 (SMTPS) — use this; port 587 is filtered on local network
+- **Credentials:** `.env.local` (gitignored — never commit)
+- **Read ops inbox:** `node scripts/read-ops-email.mjs` (direct IMAP, no packages)
+- **Send from slava@:** use the same raw TLS pattern — see `scripts/read-ops-email.mjs` for IMAP template, SMTP mirrors it on port 465
+
+> **To reset a password:** Log in via All-Inkl Members Area → Technische Verwaltung → KAS Login → E-Mail-Postfach → edit the mailbox. Use browser automation (Claude in Chrome) — direct JS injection works on KAS pages once logged in via the members area session link.
 
 ---
 

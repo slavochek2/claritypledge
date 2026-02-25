@@ -405,6 +405,29 @@ if [ -f "./scripts/sweep-done.sh" ]; then
 fi
 echo ""
 
+# 16. Privacy check — personal identifiers that must not appear in public files
+echo ">>> Privacy check (personal identifiers)..."
+STAGED_FILES_ALL=$(git diff --cached --name-only 2>/dev/null || echo "")
+if [ -n "$STAGED_FILES_ALL" ]; then
+    # Patterns: owner's personal email addresses (project emails like ops@/slava@ are OK)
+    # Add new patterns here if owner acquires new personal addresses
+    PII_HITS=$(echo "$STAGED_FILES_ALL" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
+        grep -E '^\+' | grep -v '^\+\+\+' | \
+        grep -iE '(slavochek@|@inguro\.com|@googlemail\.com)' || true)
+    if [ -n "$PII_HITS" ]; then
+        echo -e "${YELLOW}⚠ Personal email address found in staged changes:${NC}"
+        echo "$PII_HITS" | head -5
+        echo -e "${YELLOW}  → Personal identifiers belong in .private/docs/ (gitignored), not public files${NC}"
+        echo -e "${YELLOW}  → Replace with: \"see .private/docs/accounts.md\"${NC}"
+        WARNINGS=$((WARNINGS + 1))
+    else
+        echo -e "${GREEN}✓ No personal identifiers detected${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ No staged files${NC}"
+fi
+echo ""
+
 # Summary
 echo "=== SUMMARY ==="
 if [ $ERRORS -gt 0 ]; then

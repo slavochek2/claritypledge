@@ -402,6 +402,17 @@ If gcloud auth fails: `GCP SPEND: skipped (auth unavailable)`.
 ### 3. Evidence Gathering (fire in parallel with steps 1 and 2.6 — all three are independent)
 
 ```bash
+# Activity log for this period (timeline of /status checks)
+# Use SINCE_DATE (always a YYYY-MM-DD) — $SINCE may be "7 days ago" and breaks awk string comparison
+SINCE_DATE=$(date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || date -d "${DAYS} days ago" +%F)
+[ -f .private/logs/activity.log ] && \
+  awk -F'|' -v since="$SINCE_DATE" 'substr($1,1,10) >= since' .private/logs/activity.log || \
+  echo "Activity log: not found"
+# From the log lines above, derive:
+# - Total lines = N status checks
+# - P-numbers appearing in active: field across entries spanning 2+ calendar days = WIP >2 days
+# - Keywords in blocked: field appearing in 3+ entries = recurring blockers
+
 # Commits (use $SINCE from step 0)
 git log --since="$SINCE" --oneline --no-merges
 
@@ -440,6 +451,7 @@ CREATED:      [N new specs — list titles]
 COMMITS:      [N total — split by type: feat/fix/chore/docs/refactor]
 STRATEGY:     [docs touched or "none"]
 SMELLS:       [areas fixed 2+ times — scope only, not count; or "none"]
+ACTIVITY LOG: [N /status checks | WIP active >2 days: list or "none" | Recurring blockers: list or "none" | or "no log yet"]
 LAST WEEK:    [paste saved commitment] → [founder's yes/partial/no]
 USER CONVOS:  [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
 GCP SPEND:    [$XX/week, ~$XXX/mo | credits: ~$XX,XXX | flags: list or "none"]
@@ -579,6 +591,7 @@ Signups: N this week (total pledgers: M) | Live sessions: N
 **Commits:** [N] ([feat/fix/chore split])
 **Strategy touched:** [docs or "none"]
 **Smells:** [repeated fixes or "none"]
+**Activity log:** N checks | WIP >2 days: [or "none"] | Recurring blockers: [or "none"]
 **User conversations:** [N — names if any, or "zero"]
 **Last week:** [commitment text] → [yes/partial/no]
 **Process debt:** [N proposed fixes or "none"]
