@@ -46,6 +46,18 @@ else
 fi
 echo ""
 
+# 1.8: Auto-fix lint issues before checking (why report what we can fix?)
+echo ">>> Auto-fixing lint issues on staged files..."
+STAGED_TS=$(git diff --cached --name-only 2>/dev/null | grep -E '\.(ts|tsx|js|jsx)$' || true)
+if [ -n "$STAGED_TS" ]; then
+  npx eslint --fix $STAGED_TS 2>/dev/null || true
+  echo "$STAGED_TS" | xargs git add 2>/dev/null || true
+  echo -e "${GREEN}✓ Lint auto-fix applied, files re-staged${NC}"
+else
+  echo -e "${GREEN}✓ No TS/JS files staged${NC}"
+fi
+echo ""
+
 # 2. Lint
 echo ">>> Running ESLint..."
 if npm run lint; then

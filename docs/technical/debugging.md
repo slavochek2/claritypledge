@@ -1,5 +1,24 @@
 # Debugging Guide
 
+## Prod-First Protocol
+
+> **Rule:** For runtime/data/behavior issues, query live data in the first 60 seconds. Static analysis comes after.
+
+**Decision:**
+- Build/compile/type error → static analysis is correct
+- Runtime/data/behavior issue → **query prod first**
+
+| Issue type | First tool |
+|------------|-----------|
+| DB data wrong | Supabase MCP: `execute_sql` on prod (ref: `besjtuodziykmjidubzw`) |
+| API misbehaving | `curl` the prod endpoint, read the actual response body |
+| Error in prod | Sentry MCP: `search_issues` |
+| UI wrong in prod | Chrome DevTools MCP: `navigate_page` + `take_screenshot` |
+
+**Anti-pattern:** Reading 10 files to trace data flow → discovering the DB column doesn't exist. Spend 60s querying prod first, then read code once you know what the data shows.
+
+---
+
 ## Screenshot-Driven Debugging Protocol
 
 > **Principle:** Always verify current codebase state before acting on screenshots.

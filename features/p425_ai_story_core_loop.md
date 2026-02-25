@@ -67,7 +67,7 @@ test_files:
 - AI responds to the rating with targeted clarifications or options (per the rating band)
 - Loop continues until user is satisfied or chooses to save at current rating
 - After the loop, AI presents a polished version for user review before saving
-- User selects visibility: Private / Shared / Public (default: Private)
+- User selects visibility: Public / Shared / Private (default: Private)
 - Story is saved to Supabase, linked to the point the user took a position on
 - No point extraction in this flow (the point already exists — this loop files only the story)
 
@@ -164,7 +164,7 @@ test_files:
 - [ ] AI responds differently based on rating band (10 = complete; 8–9 = targeted options; 5–7 = clarification options; <5 = re-attempt)
 - [ ] After 3 iterations without reaching 10, user is offered "save at current rating or keep refining"
 - [ ] On loop completion, AI presents a polished version with brief change notes before saving
-- [ ] User selects visibility (Private / Shared / Public) before confirming save — default is Private
+- [ ] User selects visibility (Public / Shared / Private) before confirming save — default is Private (rightmost)
 - [ ] Story is saved to Supabase linked to the point the position was staked on
 - [ ] No point extraction happens in this flow (point already exists)
 - [ ] Stories/points distinction is maintained: AI does not file verifiable factual claims as the story body
@@ -203,6 +203,9 @@ This is a UI feature with Claude API integration and Supabase persistence.
 ### Design Direction
 
 **Surface:** `/chat` — persistent page accessible from nav. Not a modal, not an inline panel.
+
+**Canonical component rule:**
+Points and stories use the same components everywhere — in `/chat`, on profiles, on point-detail pages, in `/live`. Do NOT create new display components for points or stories. Reuse what exists. The context chip uses the existing point display component (same as on profiles). Draft/saved story cards in the thread match the story card appearance from profiles — same visual language, same status badges, same show-more pattern. This is not a stylistic preference — it is an architectural constraint. Inconsistency creates UI debt that compounds across P419, P426, P427, P428.
 
 **Non-negotiable rules:**
 - No labels, no "Story Guide" header, no menus on `/chat`
@@ -362,18 +365,9 @@ User types in the input field. Examples: `8`, `7 — the emotion is right but th
 
 **Step 7 — AI responds to rating (band logic)**
 
-AI reads the rating from the user's message and responds with a plain-text message containing its interpretation and options where applicable. See Rating Band Responses section below for exact message content per band.
+AI reads the rating from the user's message and responds with a plain-text message. The format is flexible — the AI may offer lettered options, open questions, or free-form suggestions depending on what it determines will best help refine the story. The user replies by typing in the standard input field.
 
-For rating 8–9, AI's message ends with:
-
-```
-A) [option text]
-B) [option text]
-C) [option text]
-D) Other — describe it
-```
-
-User replies by typing `A`, `B`, `C`, or a freeform description into the standard input.
+The AI is model-agnostic: the response format is determined by the system prompt in the edge function, not hardcoded in the UI. The UI only renders whatever the AI produces as a plain-text message bubble.
 
 **Step 8 — Iteration (repeat Steps 5–7)**
 
@@ -401,7 +395,7 @@ Below the card, the visibility selector and save action appear inline in the thr
 Visibility selector (default: Private) and Save button appear below the polish card as thread-level UI:
 
 ```
-[🔒 Private]  [👥 Shared]  [🌐 Public]
+[🌐 Public]  [👥 Shared]  [🔒 Private]
 
 [Save story]                    [Back to editing]
 ```
@@ -417,7 +411,7 @@ The polish draft card transitions to a **saved story card** in the thread:
 │  [●] Author · just now · 🔒 Private                   │
 │  I ask people if they understood me...  Show more     │
 │  ↳ linked to: Communication gaps are invisible...     │
-│  [▷ Start /live]   [✏ Edit]   [···]                   │
+│  [✏ Edit]   [···]                                      │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -474,33 +468,9 @@ On confirm: draft is deleted, thread clears, page returns to empty state (Flow B
 
 ---
 
-### Flow D — `/live` Session from Saved Story Card
+### Flow D — Start /live from Story Card (deferred to P428)
 
-**Step 1 — User taps `[▷ Start /live]` on a saved story card in the thread**
-
-No navigation. A session setup card appears inline in the thread immediately below the story card:
-
-```
-┌─ session setup ─────────────────────────────────────┐
-│  Session link ready:                                 │
-│  claritypledge.com/live/abc123                       │
-│  [Copy link]                                         │
-│                                                      │
-│  [Open as host →]                                    │
-└────────────────────────────────────────────────────┘
-```
-
-**Step 2 — User taps `[Open as host →]`**
-
-Navigates to `/live/{sessionId}` (existing `/live` page, full page navigation).
-
-The `/live` page displays a `← Story Guide` back link in the top-left (below the standard nav), linking back to `/chat`.
-
-**Step 3 — Session completes, user returns to `/chat`**
-
-User taps `← Story Guide` or navigates back.
-
-The story card in the `/chat` thread updates with the session result (e.g., verification count, new `understood` badge). This update is either optimistic (if state was passed) or fetched on return.
+> **Out of scope for P425.** The `[▷ Start /live]` CTA and session setup flow belong to P428 (live position story filing overlay). P425 ships the story creation loop only. The saved story card in `/chat` has no Start /live action in V1.
 
 ---
 
@@ -619,9 +589,11 @@ Draft version label: `text-xs font-medium text-blue-700 dark:text-blue-300 mb-2`
 │  [Show more]                                           │
 │  ↳ linked to: Communication gaps are invisible to...   │
 │────────────────────────────────────────────────────────│
-│  [▷ Start /live]   [✏ Edit]   [···]                    │
+│  [✏ Edit]   [···]                                      │
 └────────────────────────────────────────────────────────┘
 ```
+
+> **Note:** `[▷ Start /live]` CTA is NOT included in P425. It belongs to P428 (live position story filing overlay). The saved story card in `/chat` shows only `[✏ Edit]` (disabled V1 stub) and `[···]` (menu stub).
 
 Card styling: `rounded-lg border-l-4 border-l-blue-500 border border-gray-200 bg-white shadow-sm` — mirrors `StoryCardWithLinks` / `LiveStoryCardExpanded` existing pattern.
 
@@ -631,8 +603,6 @@ Author row: `GravatarAvatar` (sm) + author name (`font-semibold text-gray-900 te
 
 Footer row with CTAs: `border-t border-gray-100 px-4 py-2.5 flex items-center gap-3`.
 
-`[▷ Start /live]`: `text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1` — `Play` icon (14px) + `Start /live`.
-
 `[✏ Edit]`: `text-sm text-gray-500 hover:text-gray-700` — `Pencil` icon (14px). (Out of scope for P425 — renders as disabled placeholder.)
 
 `[···]`: `MoreHorizontal` icon button, ghost style, opens a dropdown with `Copy link`, `Delete` (out of scope for P425).
@@ -641,29 +611,7 @@ Show more / Show less: same pattern as `LiveStoryCardExpanded` — threshold 180
 
 ---
 
-### Screen 5: Session Setup Card (Flow D, inline in thread)
-
-```
-┌─ session setup ─────────────────────────────────────┐
-│  Session link:                                       │
-│  claritypledge.com/live/abc123                       │
-│                                          [Copy link] │
-│                                                      │
-│  [Open as host →]                                    │
-└─────────────────────────────────────────────────────┘
-```
-
-Card: `rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm`.
-
-Session link: `text-blue-600 font-mono text-sm`.
-
-`[Copy link]`: ghost button, small. On copy: button label changes to `Copied!` for 2s.
-
-`[Open as host →]`: primary button, `bg-blue-500 text-white`.
-
----
-
-### Screen 6: Mobile Layout (320–767px)
+### Screen 5: Mobile Layout (320–767px)
 
 ```
 ┌──────── /chat (375px viewport) ─────────────────────┐
@@ -690,13 +638,13 @@ Session link: `text-blue-600 font-mono text-sm`.
 └─────────────────────────────────────────────────────┘
 ```
 
-Saved story card CTA footer on mobile: `[▷ Start /live]` and `[✏ Edit]` and `[···]` in a horizontal `flex-wrap gap-2` row. Full-width on 320px if needed.
+Saved story card CTA footer on mobile: `[✏ Edit]` and `[···]` in a horizontal `flex-wrap gap-2` row. (`[▷ Start /live]` is deferred to P428.)
 
 Visibility selector on mobile (save step): three buttons as `flex flex-wrap gap-2` — each button is `flex-1 min-w-[80px]`.
 
 ---
 
-### Screen 7: `/chat` — Resume Banner (Flow C)
+### Screen 6: `/chat` — Resume Banner (Flow C)
 
 ```
 ┌─────────────────── /chat ───────────────────────────┐
@@ -721,74 +669,6 @@ Resume banner: `bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:bo
 
 ---
 
-## Rating Band Responses
-
-The AI responds to the user's typed rating. The AI parses the message for a numeric value (0–10). If no number is found, it treats the message as a free-text redirect and attempts a new draft.
-
-**Rating = 10** (or user types words that clearly confirm satisfaction):
-
-AI message:
-```
-Got it — I'll run a polish pass and we can save.
-```
-
-Followed by polish draft card in thread.
-
-**Rating 8–9:**
-
-AI message (plain text in message bubble):
-```
-Almost there. What's the gap?
-
-A) The emotional weight wasn't quite right
-B) The sequence of events is off
-C) It missed why this matters to me
-D) Other — describe it
-```
-
-User types `A`, `B`, `C`, or a free description. AI generates Draft v(n+1).
-
-**Rating 5–7:**
-
-AI message:
-```
-I'm missing something. Here's what I think I got wrong —
-[specific observation from the brain dump].
-
-Which is closer?
-
-A) [option rooted in specific text A]
-B) [option rooted in specific text B]
-C) Both, but weighted differently
-D) Other — I'll explain
-```
-
-User types their choice. AI generates Draft v(n+1).
-
-**Rating < 5:**
-
-AI message:
-```
-I think I missed the core of it. What's the most important
-thing I got wrong?
-```
-
-No lettered options — user types freely. AI generates Draft v(n+1).
-
-**Escape hatch (3 iterations, no 10):**
-
-AI appends below rating prompt:
-```
-We've iterated a few times. Current draft: v3.
-
-[Save at this version]   [Keep refining]
-```
-
-`[Save at this version]` is a button in the thread (not typed — this is the one exception to the "type everything" rule, because the escape hatch is the AI offering a structured exit, not a user-initiated action). The button triggers the polish pass.
-
-`[Keep refining]` clears the escape hatch and reactivates the input with placeholder `What should I change?`
-
----
 
 ## Visibility Selector (Save Step)
 
@@ -798,7 +678,7 @@ Appears inline in the thread below the polish draft card, not in the input bar.
 ┌─ visibility + save ────────────────────────────────────┐
 │  Who can see this?                                      │
 │                                                         │
-│  [🔒 Private ✓]   [👥 Shared]   [🌐 Public]             │
+│  [🌐 Public]   [👥 Shared]   [🔒 Private ✓]             │
 │                                                         │
 │  Private: only you can see this                         │
 │                                                         │
@@ -880,9 +760,9 @@ Point text truncated to 80 characters with `…` in the chip. Full text visible 
 
 If user navigates to `/chat` with no in-progress state and no previously filed stories, the thread is empty. Placeholder text in the thread area (not a banner): `text-muted-foreground text-sm text-center` — "Stories you file here appear on your profile." Only shown when thread is genuinely empty. Disappears as soon as any story card exists in the thread.
 
-### `[▷ Start /live]` Tapped Before Saving
+### CTAs Before Saving
 
-CTA only appears on the saved story card, not on draft cards. No confusion possible — drafts show only the versioning label and content, no CTAs.
+Draft cards show no CTAs — only the versioning label and content. The `[✏ Edit]` and `[···]` stubs only appear on the saved story card after the loop completes. No confusion possible. (`[▷ Start /live]` is deferred to P428 — not present in P425 at all.)
 
 ---
 
@@ -953,8 +833,7 @@ CTA only appears on the saved story card, not on draft cards. No confusion possi
 | Visibility selector buttons | Enter / Space | Select |
 | Save story button | Tab from visibility | Focus |
 | Back to editing button | Tab from Save | Focus |
-| `[▷ Start /live]` in story card | Tab | Focus |
-| `[Copy link]` in session card | Tab | Focus |
+| `[✏ Edit]` in story card | Tab | Focus (disabled in V1) |
 | Context chip (long text expand) | Enter / Space | Expand / collapse point text |
 | Show more / Show less in story card | Enter / Space | Expand / collapse |
 
@@ -1052,7 +931,7 @@ interface StoryGuideChatProps {
 **Encapsulates:** All phases of the loop. Manages its own phase state machine:
 `idle` → `brain-dump` → `streaming` → `rating` → `iterating` → `polish` → `visibility` → `saving` → `saved`
 
-**P428 embedding:** The component must not assume it is the full page. It renders a `div`, not a `page`. It must not call `useNavigate` for its own flow transitions (only for "Open as host →" in Flow D). It emits `onStoryConfirmed` and `onDismiss` for the embedding layer to handle.
+**P428 embedding:** The component must not assume it is the full page. It renders a `div`, not a `page`. It must not call `useNavigate` for its own flow transitions. It emits `onStoryConfirmed` and `onDismiss` for the embedding layer to handle.
 
 ### `DraftCard`
 
@@ -1079,12 +958,11 @@ Stateless display component. Renders the versioned card in the thread.
 ```typescript
 interface SavedStoryChatCardProps {
   story: SavedStory;
-  onStartLive: (storyId: string) => void;
   onEdit?: (storyId: string) => void;
 }
 ```
 
-Renders the saved story card in the `/chat` thread. Distinct from `StoryCardWithLinks` (which is for profile/point-detail contexts) — this version includes `[▷ Start /live]` and session setup flow.
+Renders the saved story card in the `/chat` thread. Uses the same author-row and show-more patterns as `LiveStoryCardExpanded` — no position voting, no `[▷ Start /live]` (deferred to P428). Edit is a stub in V1.
 
 ---
 
@@ -1142,7 +1020,7 @@ No `ANTHROPIC_API_KEY`, `VITE_ANTHROPIC_API_KEY`, or any `@anthropic-ai/sdk` usa
 Migration `20260224120000_p424_visibility_model.sql` ships three-branch RLS (`public`, `shared`, `private`). DB default is `private`. `StoryVisibility = 'public' | 'shared' | 'private'` is defined in `src/app/types`. `VISIBILITY_OPTIONS` with icons, labels, and tooltips is defined in `src/app/pages/create-story-page.tsx` — importable directly.
 
 **`LiveStoryCardExpanded` — evaluate but do not reuse as-is.**
-`src/app/components/partners/live-story-card-expanded.tsx` shows story content, author row, visibility badge, show more/less (threshold 180 chars), and an expanded points section with position voting buttons. The spec for `SavedStoryChatCard` wants the same story header and show-more pattern but adds `[▷ Start /live]`, `[✏ Edit]`, `[···]` CTAs and does NOT need position voting. Build `SavedStoryChatCard` as a thin new component that copies the author-row and show-more patterns from `LiveStoryCardExpanded` (approx. 60 lines) — do not import `LiveStoryCardExpanded` directly, as its points/voting section is not suppressible without prop drilling.
+`src/app/components/partners/live-story-card-expanded.tsx` shows story content, author row, visibility badge, show more/less (threshold 180 chars), and an expanded points section with position voting buttons. The spec for `SavedStoryChatCard` wants the same story header and show-more pattern but adds `[✏ Edit]` (V1 stub) and `[···]` CTAs, does NOT need position voting, and does NOT include `[▷ Start /live]` (deferred to P428). Build `SavedStoryChatCard` as a thin new component that copies the author-row and show-more patterns from `LiveStoryCardExpanded` (approx. 60 lines) — do not import `LiveStoryCardExpanded` directly, as its points/voting section is not suppressible without prop drilling.
 
 **`create-story-page.tsx` — two imports are reusable.**
 (1) `VISIBILITY_OPTIONS` array — import directly, do not duplicate. (2) `autoResize` callback pattern — copy the `useCallback` implementation (~10 lines). The `storiesService` usage pattern (`createStory` → toast → navigate) is the template for the save step.
@@ -1185,6 +1063,8 @@ Used for `?from=position&pointId=XYZ` URL param parsing. React Router is already
 **Alternative rejected:** Calling Anthropic directly from the browser (client-side API key). Rejected because the repo is public — any `VITE_*` var ends up in the built bundle which is shipped to every user. Security non-starter.
 
 **Alternative rejected:** Vercel serverless function / Next.js API route. This is a Vite/React SPA on Vercel. There is no Next.js runtime. Adding one just for this endpoint would be disproportionate.
+
+**Model-agnostic design:** The edge function is the only place where the model is referenced. The React client sends `messages[]` and receives streamed text — it has no knowledge of which LLM is used. Switching from Claude to Gemini (or any other provider) requires only a change in `story-guide-chat/index.ts` — no client code changes. V1 ships with Claude; future versions may switch models by updating the edge function only.
 
 ---
 
@@ -1254,7 +1134,7 @@ src/app/pages/story-guide-chat-page.tsx        (~80 lines)
 
 **`story-guide-chat-page.tsx`** — thin page shell. Auth gate (`useAuth` + redirect to `/signup`). Reads URL params (`useSearchParams`). Renders the app layout + `<StoryGuideChat />`. Approx. 80 lines.
 
-**`StoryGuideChat.tsx`** — the stateful core. Owns `phase`, `messages`, `drafts`, `iterationCount`, `streamingContent`, `selectedVisibility`. Contains `handleSend`, `handleRating`, `handleSave`, `handleEscapeHatch`, `handleStartLive`. Renders the thread map + input bar. Does NOT assume it is a page — renders a `div`. Approx. 280 lines.
+**`StoryGuideChat.tsx`** — the stateful core. Owns `phase`, `messages`, `drafts`, `iterationCount`, `streamingContent`, `selectedVisibility`. Contains `handleSend`, `handleRating`, `handleSave`, `handleEscapeHatch`. (No `handleStartLive` — deferred to P428.) Renders the thread map + input bar. Does NOT assume it is a page — renders a `div`. Approx. 280 lines.
 
 **`ContextChip.tsx`** — sticky chip shown when `pointId` prop is set. Receives `pointText`, `pointId`, `userPosition`. Display-only. Truncates to 80 chars with expand. Approx. 50 lines.
 
@@ -1262,7 +1142,7 @@ src/app/pages/story-guide-chat-page.tsx        (~80 lines)
 
 **`DraftCard.tsx`** — stateless. Props: `version`, `content`, `status: 'draft' | 'polish'`, `linkedPointText?`, `changeNote?`. Renders the versioned card in the thread. Approx. 70 lines.
 
-**`SavedStoryChatCard.tsx`** — renders the post-save card. Copies author-row and show-more patterns from `LiveStoryCardExpanded` (not imported — too coupled to voting UI). Adds `[▷ Start /live]`, `[✏ Edit]` (disabled in V1), `[···]` (stub). Approx. 100 lines.
+**`SavedStoryChatCard.tsx`** — renders the post-save card. Copies author-row and show-more patterns from `LiveStoryCardExpanded` (not imported — too coupled to voting UI). Adds `[✏ Edit]` (disabled in V1), `[···]` (stub). No `[▷ Start /live]` — deferred to P428. Approx. 80 lines.
 
 **`VisibilityAndSave.tsx`** — inline thread-level UI for the save step. Props: `selectedVisibility`, `onVisibilityChange`, `onSave`, `onBack`, `isSaving`. Imports `VISIBILITY_OPTIONS` from `create-story-page.tsx`. Approx. 80 lines.
 
@@ -1335,7 +1215,7 @@ interface StoryGuideChatProps {
 
 **RLS Policies:**
 - ✅ SELECT policy correctly restricts visibility: `public` rows world-readable; `private`/`shared` rows author-only. `shared` adds co-registration check via `event_rsvps`.
-- ⚠️ INSERT policy requires `is_verified = true`. P425 spec says "any authenticated user" but workshop participants may not be verified — silent save failure during C1. **Spec gap: clarify whether the verified gate applies to P425 or needs a migration to relax it for story filing.**
+- ✅ INSERT policy requires `is_verified = true`. Confirmed non-issue: `AuthCallbackPage.tsx` always upserts `is_verified: true` after email verification. All authenticated users are verified by definition. No migration needed.
 - ⚠️ `story_versions` SELECT is `USING (true)` — world-readable. Draft content of private stories readable to anyone who holds the `story_id`. Discarded drafts persist. Low-risk (UUIDs), but worth noting.
 - ✅ `story_points` INSERT verifies story ownership. Prevents linking a point to another user's story.
 
@@ -1455,7 +1335,7 @@ One-line change. Update import in `VisibilityAndSave.tsx`.
 
 4. **AbortController for fetch cleanup.** Edge function fetch in `handleSend` must be wrapped in `AbortController`. Abort in `useEffect` cleanup. This prevents streaming continuations after the component unmounts (e.g., user navigates away mid-stream).
 
-5. **`StoryGuideChat` must not call `useNavigate` for its own phase transitions.** Exception: `[Open as host →]` in Flow D may call `useNavigate('/live/{sessionId}')` since it is an explicit navigational CTA, not a phase transition.
+5. **`StoryGuideChat` must not call `useNavigate` for its own phase transitions.** No exceptions in P425 — `[▷ Start /live]` and its session setup flow are deferred to P428.
 
 6. **Mock service path.** `storiesService` is mock-or-real based on `VITE_USE_REAL_API`. The edge function call is always real (no mock path). Implement a `VITE_MOCK_AI` flag that returns a canned response from a local stub function — enables UI development without the deployed edge function. Stub file: `src/app/data/story-guide-chat-stub.ts`.
 
@@ -1503,8 +1383,8 @@ The state machine reducer and rating parser are pure functions. Testing them at 
 - RLS: private story is not visible to other authenticated users; public story is world-readable
 - story_points ownership: story owner can link their story to a point; non-owner cannot
 
-**Known gap tested:**
-The `is_verified` gate for the `stories` INSERT RLS is flagged in §Security Review as not enforced in P424. The unverified-user test is a canary — it will start failing once the gap is closed, at which point the assertion should be updated from a warning to `expect(error).not.toBeNull()`.
+**Note on unverified user test:**
+The unverified-user INSERT test logs a warning rather than asserting failure. Confirmed non-issue: `AuthCallbackPage` always sets `is_verified: true` after email verification, so all authenticated users are verified. The canary test documents this behaviour; no migration needed.
 
 **Two-client pattern:** `supabaseAdmin` for setup/teardown (bypasses RLS); JWT-authenticated clients for RLS assertions. Follows the convention established in `p396-host-rls-migration.spec.ts`.
 
@@ -1576,6 +1456,6 @@ All smoke tests pass without the AI edge function deployed. They should pass fro
 
 3. **Story cleanup via data-story-id**: The filing loop E2E test cannot capture the Supabase story ID to clean up after itself until `data-story-id` is on the saved story card element. Add cleanup once implemented.
 
-4. **is_verified gap canary**: The unverified-user INSERT test in the integration suite currently logs a warning instead of asserting failure. Once P424 closes the gap, change to a hard assertion: `expect(error).not.toBeNull()`.
+4. **is_verified canary**: The unverified-user INSERT test currently logs a warning. Confirmed that `AuthCallbackPage` always sets `is_verified: true` — all authenticated users are verified. This test is effectively always-warn (no gap to close). Consider converting to an explicit documentation-only note in a future cleanup.
 
 5. **Resume flow (V2)**: The spec explicitly defers session resume. No test coverage needed until that feature is implemented.

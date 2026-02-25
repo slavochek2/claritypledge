@@ -155,6 +155,8 @@ After completing a logical unit of work, suggest: "Good checkpoint for a commit.
 
 **Pre-commit failures: fix inline, never ask.** Apply the known fix and re-run. See [git-workflow.md](docs/technical/git-workflow.md) for remedies by failure type.
 
+**Commit flow is zero-question.** When the user says "commit", "wrap", "ship", or equivalent: fix any blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Do NOT ask "should I fix the lint error?" — just fix it. Only pause for genuine ambiguity (e.g., a test failure that could mean the fix is wrong, not auto-fixable lint).
+
 ---
 
 ## Agent Behavior
@@ -215,6 +217,10 @@ Run `./scripts/mcp-validate.sh` and `./scripts/mcp-backup.sh "before-<change>"` 
 See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol.
 
 **Quick rules:** (1) Verify current code before acting on screenshots, (2) For DB issues check RLS → migrations → columns, (3) Fix ONE root cause at a time, (4) For slow-deploy systems: diagnose ALL causes before deploying — one deployment, fully verified.
+
+**(5) Query prod before static analysis.** For runtime/data/behavior issues: first tool is a live prod query (Supabase MCP, Sentry MCP, or `curl` against the API). Read static code only after you have real data. Exception: build/compile/type errors where no runtime data exists.
+
+**(6) Browser verification required for UI changes.** A UI fix is not done until a screenshot or live browser check confirms it. "Tests pass" is necessary but not sufficient. Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated pages). Never declare a UI bug fixed based on code reading alone.
 
 ---
 

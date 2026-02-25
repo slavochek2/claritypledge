@@ -280,14 +280,14 @@ Fix: Use form data reference instead of event target
 - [ ] Regression test passes (proves bug is fixed)
 - [ ] Smoke tests pass (fast regression check)
 - [ ] Full test suite passes (no new bugs introduced)
-- [ ] Manual verification (if applicable)
+- [ ] **Browser verification (required for any UI change)** — navigate to affected route, screenshot, confirm fix visually. Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated). "Tests pass" is not sufficient.
 - [ ] Bug spec updated with resolution details
 
 **Steps:**
 1. Run regression test → MUST pass
 2. Run smoke tests → MUST pass
 3. Run full test suite → MUST pass
-4. If UI bug: Manually verify in browser
+4. If UI bug: **Run browser check now** (not optional) — `mcp__chrome-devtools__navigate_page` + `take_screenshot` on the affected route. Report what you see.
 5. Update bug spec:
    - Set `date_resolved: YYYY-MM-DD`
    - Add `root_cause: [brief explanation]`
@@ -400,8 +400,7 @@ After commit succeeds:
 5. Commit: `chore: close P{N} — {title}`
 6. Spawn parallel closing subagents:
    - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
-   - **verify** (if `*.tsx` files changed): Ask "Run `/verify` for visual QA? (y/n)" — spawn as subagent if yes
-   fix-kanban runs automatically; verify is opt-in.
+   - **verify** (if `*.tsx` files changed): Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually." Do not ask; just do it.
 6. Ask: "Capture learnings with /kdd? (y/n)"
 
 ---

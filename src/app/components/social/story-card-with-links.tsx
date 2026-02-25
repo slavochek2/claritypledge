@@ -155,8 +155,8 @@ export function StoryCardWithLinks({
           {/* Story text */}
           {compact && story.text.length > 150 ? (
             <p className="text-sm text-gray-900">
-              {story.text.slice(0, 140)}
-              <span className="text-blue-600 font-medium"> ...more</span>
+              {story.text.slice(0, 150)}
+              <span data-testid="more-link" className="text-blue-600 font-medium"> ...more</span>
             </p>
           ) : (
             <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
@@ -232,8 +232,8 @@ export function StoryCardWithLinks({
             {/* Story text - indented under author */}
             {compact && story.text.length > 150 ? (
               <p className="text-sm text-gray-900">
-                {story.text.slice(0, 140)}
-                <span className="text-blue-600 font-medium"> ...more</span>
+                {story.text.slice(0, 150)}
+                <span data-testid="more-link" className="text-blue-600 font-medium"> ...more</span>
               </p>
             ) : (
               <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>

@@ -210,6 +210,8 @@ Next steps:
 3. Run /dev — dispatches one subagent per task in dependency order
 ```
 
+**Large features (10+ tasks):** Run `/dev` as a single command — do not manually split into phases. `/dev` is resumable: if the orchestrator session gets interrupted or autocompacts mid-run, just re-run `/dev`. It reads the `[x] Complete` checkboxes from the spec file and skips already-finished tasks. No work is lost. Each subagent always has a clean context window regardless of orchestrator state.
+
 > Note: /generate-tests must run BEFORE /decompose (not after). /decompose reads the
 > `## Test Coverage Strategy` section written by /generate-tests to add `Tests:` lines
 > to each task entry. If /generate-tests has not run, task entries will lack test refs.

@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed_at: '2026-02-25'
 type: story
 rank: 10.0
 workstream: C1

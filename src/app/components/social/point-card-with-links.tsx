@@ -557,8 +557,8 @@ function QuotedStory({
       {/* Story text */}
       {story.text.length > 100 ? (
         <p className="text-sm text-gray-800">
-          {story.text.slice(0, 90)}
-          <span className="text-blue-600 font-medium"> ...more</span>
+          {story.text.slice(0, 100)}
+          <span data-testid="more-link" className="text-blue-600 font-medium"> ...more</span>
         </p>
       ) : (
         <p className="text-sm text-gray-800">{story.text}</p>
