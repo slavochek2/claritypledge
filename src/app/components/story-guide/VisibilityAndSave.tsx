@@ -4,7 +4,7 @@
  */
 import { Button } from '@/components/ui/button';
 import type { StoryVisibility } from '@/app/types';
-import { VISIBILITY_OPTIONS } from '@/app/pages/create-story-page';
+import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 
 interface VisibilityAndSaveProps {
   selectedVisibility: StoryVisibility;

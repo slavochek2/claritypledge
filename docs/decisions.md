@@ -14,6 +14,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Parallel feature work requires separate worktrees — index collision rule
+
+**Context:** During a session where cleanup work was staged, a parallel session committed P437 and swept up the staged cleanup files into the wrong commit. Root cause: two sessions sharing one git index in the same worktree.
+**Decision:** Any time two features are being developed simultaneously, they must run in separate worktrees. `/dev` pre-flight check now detects uncommitted other-feature work and presents three options: (A) create worktree, (B) commit current work first, (C) proceed with manual discipline.
+**Alternatives rejected:** Trusting manual staging discipline — too easy to sweep wrong files, especially when agents commit autonomously.
+**Consequences:** `/dev` skill has a step-0 gate. CLAUDE.md has the principle under "Parallel Feature Work — Index Collision Risk". Cost: 30 seconds per `/dev` invocation on a clean tree (zero cost).
+**References:** `CLAUDE.md` (Parallel Feature Work section), `.claude/commands/slava/build/dev.md` (step 0), `docs/technical/worktree-setup.md`
+
 ## 2026-02-25 [process]: Analytics observability split — /analytics skill + /weekly orchestration
 
 **Context:** /weekly accumulated inline analytics steps (Supabase user health, Mixpanel event audit) that had no clear ownership boundary. As more data sources become relevant (Stripe at C2, Ghost at R1), they'd keep piling into /weekly, making it hard to run analytics standalone.

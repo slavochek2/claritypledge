@@ -71,6 +71,7 @@ Last updated: 2026-02-25
 
 ## Events & Content
 
+- **P437** (Feb 26) Uncancel Event — host-only button; mirrors cancelEvent pattern; re-announcement email via edge function
 - **P416** (Feb 26) Event Auto Banner via Unsplash — extract keywords from event title; fallback to gradient
 - **P418** (Feb 26) Banner Search Fallback — inline input for custom Unsplash keywords when search returns zero results
 - **P415** (Feb 26) Event Email Notifications — RSVP confirmation + reminders; template system with personalization

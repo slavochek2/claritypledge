@@ -9,29 +9,18 @@ import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
-import { Loader2Icon, GlobeIcon, LockIcon, UsersIcon, ArrowLeft } from 'lucide-react';
+import { Loader2Icon, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
-import type { StoryVisibility } from '@/app/types';
+import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 
 /** Soft character marker — not a hard limit, just the sweet spot for verification */
 const CHAR_SOFT_MARKER = 280;
 
 /** Max content length to prevent abuse */
 const CHAR_MAX = 10000;
-
-export const VISIBILITY_OPTIONS: {
-  value: StoryVisibility;
-  icon: typeof GlobeIcon;
-  label: string;
-  tooltip: string;
-}[] = [
-  { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this.' },
-  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
-  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
-];
 
 export function CreateStoryPage() {
   const navigate = useNavigate();

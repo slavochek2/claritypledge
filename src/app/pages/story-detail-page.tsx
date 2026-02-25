@@ -15,7 +15,8 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, LockIcon, Loader2, Plus, GlobeIcon, UsersIcon, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -323,15 +324,6 @@ const EMPTY_COUNTS: SevenPointCounts = {
 // Author action row (author-only): visibility dropdown + edit + delete
 // ---------------------------------------------------------------------------
 
-const VISIBILITY_OPTIONS: {
-  value: StoryVisibility;
-  icon: typeof GlobeIcon;
-  label: string;
-}[] = [
-  { value: 'public', icon: GlobeIcon, label: 'Public' },
-  { value: 'shared', icon: UsersIcon, label: 'Shared' },
-  { value: 'private', icon: LockIcon, label: 'Private' },
-];
 
 function AuthorActionRow({
   storyId,
