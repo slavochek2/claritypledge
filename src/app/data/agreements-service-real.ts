@@ -202,22 +202,17 @@ export const realAgreementsService: AgreementsService = {
   async getAgreementByToken(token: string): Promise<ClarityAgreement | null> {
     log('getAgreementByToken:', token);
 
-    const now = new Date().toISOString();
-
+    // H2 fix: use SECURITY DEFINER RPC instead of direct table read.
+    // The old SELECT policy exposed all pending agreements to anon users.
     const { data, error } = await supabase
-      .from('clarity_agreements')
-      .select('*')
-      .eq('invitation_token', token)
-      .eq('status', 'pending')
-      .gt('invitation_expires_at', now)
-      .maybeSingle();
+      .rpc('get_agreement_by_token', { p_token: token });
 
-    if (error || !data) {
+    if (error || !data || (data as DbAgreementRow[]).length === 0) {
       log('getAgreementByToken not found or expired:', error);
       return null;
     }
 
-    const row = data as DbAgreementRow;
+    const row = (data as DbAgreementRow[])[0];
 
     // Fetch creator profile
     const { data: creatorProfile } = await supabase
@@ -346,6 +341,12 @@ export const realAgreementsService: AgreementsService = {
       return false;
     }
 
+    // M6 fix: only allow resend for pending or expired agreements
+    if (row.status !== 'pending' && row.status !== 'expired') {
+      log('ERROR: resendInvitation: Cannot resend for status:', row.status);
+      return false;
+    }
+
     const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const { error: updateError } = await supabase
@@ -399,6 +400,12 @@ export const realAgreementsService: AgreementsService = {
 
     if (!isParty) {
       log('ERROR: terminateAgreement: Caller is not a party to the agreement');
+      return false;
+    }
+
+    // M5 fix: only allow terminating active agreements
+    if (row.status !== 'active') {
+      log('ERROR: terminateAgreement: Cannot terminate agreement with status:', row.status);
       return false;
     }
 

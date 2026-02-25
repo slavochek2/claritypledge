@@ -12,6 +12,19 @@ const MAILGUN_BASE = MAILGUN_REGION === 'eu'
 
 const FROM = `Clarity Pledge <agreements@${MAILGUN_DOMAIN}>`;
 
+// ── Auth helper ───────────────────────────────────────────────────────────────
+
+function getJwtRole(authHeader: string | null): string | null {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7);
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── HTML email base template ──────────────────────────────────────────────────
 
 function htmlEmail(title: string, body: string): string {
@@ -298,6 +311,15 @@ serve(async (req: Request) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
       },
+    });
+  }
+
+  // Auth check — reject anon callers
+  const role = getJwtRole(req.headers.get('Authorization'));
+  if (!role || role === 'anon') {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 

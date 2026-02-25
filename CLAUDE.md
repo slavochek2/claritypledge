@@ -45,7 +45,7 @@ Before implementing ANY feature or UI component:
    ```
    Scan `features/done/INDEX.md` — one line per completed feature, grouped by domain. Catches gotchas, patterns, and prior decisions before you repeat them.
 
-5. **Verify assumptions before building.** Before writing code that depends on a schema column, API response shape, user flow sequence, or state invariant — verify it. Run a quick query or check the migration file. Don't trust type definitions alone; they can be ahead of prod. The signal you need this rule: "I'll assume X and add handling for the case where X is false." That sentence means stop and verify X first.
+5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response shape, user flow sequence, or state invariant — verify it. Run a quick query or check the migration file. Don't trust type definitions alone; they can be ahead of prod. This applies equally to /architect and /create-prd phases: don't spec behavior based on assumed infrastructure. The signal you need this rule: "I'll assume X and add handling for the case where X is false." That sentence means stop and verify X first.
 
 **Why:** 5 minutes checking history saves hours of redundant work.
 
@@ -124,6 +124,8 @@ Applies everywhere: strategic docs, feature specs, PRDs, architecture docs, code
 - ✅ Analysis outputs: Terminal only (no files)
 - ✅ Migration scripts: `scripts/archive/migrations/YYYYMMDD-{name}.{ext}`
 
+**Output-to-surface rule:** Match output format to how it will be used. Reasoning, analysis, and summaries → terminal output (readable now, forgotten safely). Persistent reference → the right doc (linked, not pasted inline). Never create a file to hold output that's only needed in this conversation.
+
 **Full guidance:** [docs/technical/file-locations.md](docs/technical/file-locations.md)
 
 ---
@@ -139,6 +141,8 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 **When to ask:** Genuine ambiguity, user preference matters, or irreversible actions.
 **When to act:** The right path is clear from context, principles, or analysis.
+
+**When asked for an opinion:** Give one. "What do you think?", "Which would you choose?", "Is this a good idea?" are invitations for a clear take — not for a list of options. State your view, give the strongest reason, and flag if you're uncertain. Hedging with "it depends" when you have a view is a form of false choice.
 
 **Tie-breaker with Transparency Principle:** When both rules apply — the action seems clear but something feels off — Transparency wins if the action is irreversible, data-mutating, or touches prod. Decisive Action wins everywhere else.
 
@@ -254,6 +258,21 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 ---
 
+### Approval Gate for External Actions
+
+> **Rule:** Before taking any action visible to others or that sends real output to external systems, ask explicitly.
+
+This includes: sending emails (Gmail MCP), posting to social media (Postiz), sending Slack/chat messages (Beeper), creating GitHub issues or PRs, submitting forms to external services.
+
+**Bad:** Drafting and sending an email in one step.
+**Good:** Show draft → "Ready to send?" → user confirms → send.
+
+The pattern is: **draft → show → confirm → act.** Never collapse draft+send into a single unreviewable step, even when the user says "send this." Show the final content first.
+
+Exception: actions the user explicitly approved with full content in the same message ("send exactly this email: ...").
+
+---
+
 ### MCP Configuration Safety
 
 > **Principle:** NEVER touch MCP configs without backing up first.
@@ -272,7 +291,7 @@ See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol
 
 **(5) Query prod before static analysis.** For runtime/data/behavior issues: first tool is a live prod query (Supabase MCP, Sentry MCP, or `curl` against the API). Read static code only after you have real data. Exception: build/compile/type errors where no runtime data exists.
 
-**(6) Browser verification required for UI changes.** A UI fix is not done until a screenshot or live browser check confirms it. "Tests pass" is necessary but not sufficient. Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated pages). Never declare a UI bug fixed based on code reading alone.
+**(6) Browser verification required for UI changes.** A UI fix is not done until a screenshot or live browser check confirms it. "Tests pass" is necessary but not sufficient. Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated pages). Never declare a UI bug fixed based on code reading alone. More broadly: never say a feature is "done" based on code alone — "done" means the user could use it right now and it would work. If you can't verify that, say "implemented, not yet verified."
 
 **(7) Second patch in the same area = wrong root cause.** If you're making a second fix in the same area after the first didn't fully solve it — stop. You have the wrong root cause. Re-read the original error, check the actual data, re-diagnose from scratch. Don't layer patches. See also: persistent failures across multiple sessions → consider removal ([debugging.md](docs/technical/debugging.md)).
 
@@ -412,7 +431,9 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 
 **Before approval:** When a task starts and the right flow is unclear (P-number mentioned, bug or feature described, "what do we do next"), proactively run `/pick-flow` rather than waiting to be asked. Skip for one-liner fixes or when the user names the exact commands.
 
-**Name the skill you're running:** When informal language maps to a skill ("simplify this" → `/simplify`, "what now" → `/status`, "anything to kdd?" → `/kdd`, "wrap up" → `/wrap`), invoke the skill and name it — so the user learns the command exists.
+**Name the skill you're running:** When informal language maps to a skill ("simplify this" → `/simplify`, "what now" → `/status`, "where are we?" → `/status`, "anything to kdd?" → `/kdd`, "wrap up" → `/wrap`), invoke the skill and name it — so the user learns the command exists.
+
+**Proactive `/status` trigger:** When the user asks "what's next?", "where are we?", "what should we focus on?", or starts a session with no clear task — don't answer from memory. Run `/status` first. It has the live feature list, outstanding items, and delivery position. Answering without it is guessing.
 
 | Situation | Invoke |
 |-----------|--------|
