@@ -208,7 +208,15 @@ If no gaps found: `SKILL GAPS: none detected`
 
 ---
 
-### 2.9 Mixpanel Event Audit (subagent, runs in background — parallel with 2.7 and 2.8)
+### 2.9 Analytics Snapshot (invoke /slava:maintain:analytics)
+
+Run `/slava:maintain:analytics` and incorporate its output into the Evidence Picture.
+
+This handles: Mixpanel session check → login if needed → Supabase user health → Mixpanel board metrics.
+
+---
+
+### 2.9.1 Mixpanel Event Audit (subagent, runs in background — parallel with 2.7 and 2.8)
 
 Spawn a subagent in background while you continue to step 3.
 
@@ -236,40 +244,6 @@ MIXPANEL:     Features: N | Has events: N | Missing: [list or "none"]
 ```
 
 If no feature commits this week: `MIXPANEL: no new features — nothing to audit`
-
----
-
-### 2.10 Supabase User Health (inline, run in parallel with step 3)
-
-```bash
-source /Users/slavochek/Projects/public/claritypledge/.env.local
-node -e "
-const ref = 'besjtuodziykmjidubzw';
-const key = process.env.VITE_SUPABASE_ANON_KEY;
-const url = 'https://' + ref + '.supabase.co/rest/v1/profiles';
-const headers = { apikey: key, Authorization: 'Bearer ' + key };
-
-// Compute cutoff for $DAYS days ago
-const since = new Date(Date.now() - (parseInt(process.env.DAYS || '7')) * 86400 * 1000).toISOString();
-
-fetch(url + '?select=id,created_at,email_confirmed_at&limit=2000', { headers })
-  .then(r => r.json())
-  .then(rows => {
-    const total = rows.length;
-    const verified = rows.filter(r => r.email_confirmed_at).length;
-    const newThisWeek = rows.filter(r => r.created_at >= since).length;
-    console.log('USERS: total=' + total + ' verified=' + verified + ' unverified=' + (total - verified) + ' new_this_week=' + newThisWeek);
-  })
-  .catch(e => console.log('USERS: error — ' + e.message));
-"
-```
-
-Surface in the Evidence Picture as:
-```
-USERS:        Total: N | Verified: N | Unverified: N | New this week: N
-```
-
-If the query fails, output `USERS: query failed — check VITE_SUPABASE_ANON_KEY in .env.local` and continue.
 
 ---
 
