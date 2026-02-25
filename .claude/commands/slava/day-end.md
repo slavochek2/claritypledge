@@ -7,6 +7,7 @@ saves learnings to memory, and leaves you excited and clear about tomorrow.
 
 ### 1. Gather today's data (run in parallel)
 
+- **Cloud server status**: `gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)"` — note if RUNNING or TERMINATED
 - **Git log**: `git log --oneline --since="6am today" --author-date-order`
 - **Milestone**: Read `docs/milestones/c1-stories-live-events.md` — note all `[x]` steps and the gate condition
 - **KDD**: KDD is distributed — check `docs/decisions.md`, `docs/technical/` files, and `features/done/INDEX.md`. Also scan git log for `docs(kdd):` prefix commits today.
@@ -65,7 +66,17 @@ TOMORROW
 → [one clear next move + why it matters now]
 ```
 
-### 4. Save learnings to memory (auto, no confirmation needed)
+### 4. Cloud server check (only if RUNNING)
+
+If the `clarity-agent` VM is RUNNING:
+
+> **clarity-agent is still running** (e2-standard-4, ~$3/day while idle). Stop it now?
+
+Wait for user response. If yes: `gcloud compute instances stop clarity-agent --zone=<zone>` and confirm stopped. If no: note it and continue.
+
+Skip this step entirely if the VM is TERMINATED.
+
+### 5. Save learnings to memory (auto, no confirmation needed)
 
 After outputting the reflection, silently update memory:
 - If INSIGHT OF THE DAY is substantive → append to relevant topic file in memory dir, or create `daily-insights.md`
@@ -84,7 +95,7 @@ Use Edit tool on the memory files — brief, factual entries only.
 
 ## Notes
 
-- Never ask questions. This is a read-only reflection — fully automated.
+- Never ask questions — **except** Step 4 (cloud server stop), which is a deliberate cost-saving prompt.
 - If git log is empty (no commits today), say so honestly: "No commits today." Then reflect on
   what non-code work happened (planning, research, decisions) based on any KDD or milestone reads.
 - Run data gathering steps in parallel using the Task tool where possible.
