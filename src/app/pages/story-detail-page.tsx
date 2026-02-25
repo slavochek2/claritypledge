@@ -15,7 +15,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, LockIcon, Loader2, Plus, GlobeIcon, UsersIcon } from 'lucide-react';
+import { ArrowLeft, LockIcon, Loader2, Plus, GlobeIcon, UsersIcon, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
@@ -37,7 +37,13 @@ import {
 import { analytics } from '@/lib/mixpanel';
 import { PositionButtons, type SevenPointCounts } from '@/app/prototypes/linkedin-like/components/shared';
 import type { StoryWithPoints, StoryWithAuthor, PointSummary, PointPosition, PositionType, StoryVisibility } from '@/app/types';
-import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 /** Soft character marker — nudge to keep points concise */
 const POINT_CHAR_SOFT = 140;
@@ -314,38 +320,48 @@ const EMPTY_COUNTS: SevenPointCounts = {
 };
 
 // ---------------------------------------------------------------------------
-// Visibility selector (author-only, inline below story card)
+// Author action row (author-only): visibility dropdown + edit + delete
 // ---------------------------------------------------------------------------
 
 const VISIBILITY_OPTIONS: {
   value: StoryVisibility;
   icon: typeof GlobeIcon;
   label: string;
-  tooltip: string;
 }[] = [
-  { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this.' },
-  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
-  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
+  { value: 'public', icon: GlobeIcon, label: 'Public' },
+  { value: 'shared', icon: UsersIcon, label: 'Shared' },
+  { value: 'private', icon: LockIcon, label: 'Private' },
 ];
 
-function VisibilitySelector({
+function AuthorActionRow({
   storyId,
   currentVisibility,
-  onChanged,
+  onVisibilityChanged,
+  onEdit,
+  onDelete,
+  disabled,
+  editRef,
+  deleteRef,
 }: {
   storyId: string;
   currentVisibility: StoryVisibility;
-  onChanged: (v: StoryVisibility) => void;
+  onVisibilityChanged: (v: StoryVisibility) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  disabled?: boolean;
+  editRef?: React.RefObject<HTMLButtonElement>;
+  deleteRef?: React.RefObject<HTMLButtonElement>;
 }) {
   const [saving, setSaving] = useState(false);
 
-  const handleChange = async (newVisibility: StoryVisibility) => {
-    if (newVisibility === currentVisibility || saving) return;
+  const handleVisibilityChange = async (newVisibility: string) => {
+    const v = newVisibility as StoryVisibility;
+    if (v === currentVisibility || saving) return;
     setSaving(true);
     try {
-      const updated = await storiesService.updateStory(storyId, { visibility: newVisibility });
+      const updated = await storiesService.updateStory(storyId, { visibility: v });
       if (updated) {
-        onChanged(newVisibility);
+        onVisibilityChanged(v);
         toast.success('Visibility updated');
       } else {
         toast.error('Failed to update visibility');
@@ -357,33 +373,68 @@ function VisibilitySelector({
     }
   };
 
+  const current = VISIBILITY_OPTIONS.find(o => o.value === currentVisibility) ?? VISIBILITY_OPTIONS[0];
+  const CurrentIcon = current.icon;
+
   return (
-    <div className="mt-4 flex items-center gap-3">
-      <span className="text-sm text-muted-foreground">Visibility:</span>
-      <div className="flex gap-2" role="radiogroup" aria-label="Story visibility">
-        {VISIBILITY_OPTIONS.map((opt) => {
-          const Icon = opt.icon;
-          const isSelected = currentVisibility === opt.value;
-          return (
-            <MobileTooltip key={opt.value} content={opt.tooltip}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                disabled={saving}
-                onClick={() => handleChange(opt.value)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors min-h-[36px] ${
-                  isSelected
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-input bg-background text-muted-foreground hover:bg-accent'
-                } disabled:opacity-50`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {opt.label}
-              </button>
-            </MobileTooltip>
-          );
-        })}
+    <div className="mt-3 flex items-center justify-between">
+      {/* Visibility dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={saving || disabled}
+            aria-label={`Story visibility: ${current.label}`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-input bg-background text-sm text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            <CurrentIcon className="w-3.5 h-3.5" />
+            {current.label}
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup value={currentVisibility} onValueChange={handleVisibilityChange}>
+            {VISIBILITY_OPTIONS.map(opt => {
+              const Icon = opt.icon;
+              return (
+                <DropdownMenuRadioItem key={opt.value} value={opt.value}>
+                  <Icon className="w-3.5 h-3.5 mr-1.5" />
+                  {opt.label}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Edit + Delete */}
+      <div className="flex items-center gap-1">
+        <Button
+          ref={editRef}
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          aria-label="Edit story"
+          disabled={disabled}
+          className="gap-1.5 text-muted-foreground"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          Edit
+        </Button>
+        <Button
+          ref={deleteRef}
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          aria-label="Delete story"
+          disabled={disabled}
+          className="gap-1.5 text-destructive hover:text-destructive"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Delete
+        </Button>
       </div>
     </div>
   );
@@ -1111,36 +1162,16 @@ export function StoryDetailPage() {
       {/* P131/P424/P427: Author-only section */}
       {isAuthor && (
         <>
-          <VisibilitySelector
+          <AuthorActionRow
             storyId={story.id}
             currentVisibility={story.visibility}
-            onChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
+            onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
+            onEdit={handleEditStart}
+            onDelete={() => setDeleteDialogOpen(true)}
+            disabled={isDeleting || isEditMode}
+            editRef={editButtonRef}
+            deleteRef={deleteButtonRef}
           />
-          <div className="mt-1 flex justify-end gap-2">
-            <Button
-              ref={editButtonRef}
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleEditStart}
-              aria-label="Edit story"
-              disabled={isDeleting || isEditMode}
-            >
-              Edit
-            </Button>
-            <Button
-              ref={deleteButtonRef}
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setDeleteDialogOpen(true)}
-              aria-label="Delete story"
-              disabled={isDeleting || isEditMode}
-              className="text-destructive hover:text-destructive"
-            >
-              Delete
-            </Button>
-          </div>
           <KeyPointsSection
             storyId={story.id}
             currentUserId={user?.id ?? ''}

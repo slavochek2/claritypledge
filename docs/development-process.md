@@ -21,6 +21,9 @@ This document describes how features move from idea to production in the Clarity
 
 /generate-tests features/pN_feature.md  # Test generation (coverage report appended to spec)
 
+/spec-review features/pN_feature.md  # Pre-dev spec audit (redundancy, gaps, blindspots)
+# [Fix any BLOCK findings, then proceed]
+
 /decompose features/pN_feature.md    # Task manifest (complex features only*)
 # [Review & approve task breakdown — /decompose reads Test Coverage section to add test refs to tasks]
 
@@ -228,7 +231,47 @@ This document describes how features move from idea to production in the Clarity
 # 2. e2e/p142-dark-mode.spec.ts - Test stubs (agent fills in during /dev)
 # 3. e2e/p142-smoke.spec.ts - Smoke test (page loads, toggle visible)
 
-# No user review needed, proceed to /dev
+# No user review needed, proceed to /spec-review
+```
+
+---
+
+### Layer 4.5: Spec Review (`/spec-review`)
+
+**What it does:** Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots, and under-specification before implementation starts.
+
+**When to use:** Always, after `/generate-tests`. Run before `/decompose` or `/dev`. Never skip.
+
+**Input:** Reads the fully-prepared spec (all layers: Business + UX + Technical + Tests).
+
+**Output:** Structured findings report:
+- `[BLOCK]` — Ambiguity that will cause wrong implementation. Must fix before `/dev`.
+- `[WARN]` — Rework risk. Should fix.
+- `[NOTE]` — Cleanup or style suggestion. Optional.
+- **Verdict:** `READY` (zero BLOCKs) or `NEEDS FIXES` (one or more BLOCKs)
+
+**Seven audit dimensions:**
+1. Redundancy — content repeated across layers without adding value
+2. Consistency — contradictions between layers (UX says X, arch says Y)
+3. Gaps — acceptance criteria not covered by any UX flow, test, or build step
+4. Blindspots — unvalidated assumptions (component doesn't exist, DB column not migrated, state unreachable)
+5. Under-specification — vague requirements a dev agent cannot implement without guessing
+6. Over-specification — implementation details in UX layer, pixel values in business requirements
+7. Cross-spec conflicts — contradictions with related features in `blocked_by` / `tags`
+
+**Review gate:** Fix all `[BLOCK]` findings. `[WARN]` and `[NOTE]` are judgment calls. Re-run `/spec-review` after fixing BLOCKs if unsure.
+
+**Example:**
+```bash
+/spec-review features/p142_dark_mode.md
+
+# Agent returns:
+# [BLOCK] Gap: AC-3 "preference persists across sessions" has no localStorage key defined — dev agent will have to guess the key name
+# [WARN] Consistency: UX says toggle is in top-right corner, arch says footer — which is it?
+# [NOTE] Redundancy: "Users can toggle dark mode" appears in Problem, User Stories, and AC without variation
+#
+# Verdict: NEEDS FIXES
+# Fix AC-3 and the corner discrepancy, then proceed to /dev
 ```
 
 ---
@@ -382,7 +425,7 @@ Security review incomplete — what if user tries to set preference for another 
 Need RLS policy or validation that userId matches authenticated user.
 ```
 
-**Next:** If approved → Run `/generate-tests`, then `/decompose` (if complex: 5+ files OR 3+ concerns OR 6+ steps)
+**Next:** If approved → Run `/generate-tests`, then `/spec-review`, then `/decompose` (if complex: 5+ files OR 3+ concerns OR 6+ steps)
 
 ---
 
@@ -394,8 +437,9 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
 | `/generate-tests` | All features (after architecture approved) | UAT + E2E stubs + smoke tests |
-| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps — run AFTER /generate-tests | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
-| `/dev` | All features (after tests generated) | Implementation + tests passing; orchestrator mode if task manifest exists |
+| `/spec-review` | All features (after tests generated) | Findings report: BLOCK / WARN / NOTE + READY or NEEDS FIXES verdict |
+| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps — run AFTER /spec-review | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
+| `/dev` | All features (after spec-review passes) | Implementation + tests passing; orchestrator mode if task manifest exists |
 | `/quick-feature` | Quick skeleton (different use case) | Empty spec structure |
 | `/pick-flow` | Unsure which flow to use? | Proposes A/B/C options, recommends one |
 
@@ -481,11 +525,15 @@ This avoids context overflow on large features.
 /generate-tests features/p142_dark_mode.md
 # (coverage report appended to spec)
 
-# Step 5: Implementation
+# Step 5: Spec review
+/spec-review features/p142_dark_mode.md
+# Verdict: READY ✅ (or fix BLOCKs and re-run)
+
+# Step 6: Implementation
 /dev features/p142_dark_mode.md
 # Agent tests itself, all pass ✅
 
-# Step 6: User validation
+# Step 7: User validation
 # User clicks toggle, checks feel: "Looks good ✅"
 ```
 
@@ -510,11 +558,15 @@ This avoids context overflow on large features.
 /generate-tests features/p143_export_api.md
 # Auto-generated, no review
 
-# Step 5: Implementation
+# Step 5: Spec review
+/spec-review features/p143_export_api.md
+# Verdict: READY ✅
+
+# Step 6: Implementation
 /dev features/p143_export_api.md
 # Agent tests itself, all pass ✅
 
-# Step 6: User validation
+# Step 7: User validation
 # User tests API with curl: "Works ✅"
 ```
 
@@ -526,7 +578,7 @@ This avoids context overflow on large features.
 
 | Aspect | Old Flow | New Flow |
 |--------|----------|----------|
-| **Skills** | create-prd → prep-spec → dev | create-prd → ux → architect → generate-tests → dev |
+| **Skills** | create-prd → prep-spec → dev | create-prd → ux → architect → generate-tests → spec-review → dev |
 | **Review gates** | ❌ None (can't approve layers) | ✅ After each layer |
 | **Duplication** | ❌ create-prd + prep-spec overlap | ✅ Each skill does ONE thing |
 | **Parallel agents** | ❌ UX + Architect run together | ✅ Sequential (UX before Architect) |
@@ -618,7 +670,7 @@ If agent iterates 5+ times without progress, it will ask for help.
 
 ## Skills Ecosystem: Beyond the Core Flow
 
-The sequential flow (`/create-prd → /ux → /architect → /generate-tests → /dev`) is the core, but there are other skills that help optimize your workflow.
+The sequential flow (`/create-prd → /ux → /architect → /generate-tests → /spec-review → /decompose* → /dev`) is the core, but there are other skills that help optimize your workflow.
 
 ### Pre-Work Skills (Optional - Use When Needed)
 
@@ -768,7 +820,7 @@ These skills can be used at any point during development when you need them:
 │ CORE FLOW                                           │
 │                                                     │
 │ Features:                                           │
-│ /create-prd → /ux → /architect → /generate-tests → /decompose* → /dev │
+│ /create-prd → /ux → /architect → /generate-tests → /spec-review → /decompose* → /dev │
 │                                                     │
 │ * /decompose optional — 5+ files OR 3+ concerns OR 6+ build steps      │
 │   /decompose reads Test Coverage section from /generate-tests           │

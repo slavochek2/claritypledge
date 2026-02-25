@@ -1,0 +1,180 @@
+---
+description: 'Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots, and under-specification before implementation starts'
+---
+
+# /spec-review
+
+Pre-dev spec quality audit — catches redundancy, consistency gaps, blindspots, and under-specification before implementation starts.
+
+**Announce at start:** "I'm using the /spec-review skill to audit the spec before development."
+
+---
+
+## Usage
+
+```bash
+/spec-review features/pN_feature.md
+```
+
+**Examples:**
+- `/spec-review features/p425_ai_story_core_loop.md`
+- `/spec-review features/p142_csv_export.md`
+
+**Run after:** `/generate-tests` (all spec layers exist)
+**Run before:** `/decompose` (if complex) or `/dev`
+
+---
+
+## What This Skill Does
+
+Reads the fully prepared spec (Business + UX + Technical + Tests) and audits it across seven dimensions. Returns a structured findings report with severity ratings. Does NOT auto-fix — surfaces issues for the user to decide.
+
+**Seven audit dimensions:**
+
+1. **Redundancy** — Content repeated across sections (same requirement in business + UX + tech)
+2. **Consistency** — Contradictions between layers (UX wireframe says X, arch decision says Y)
+3. **Gaps** — Missing edge cases, error states, or behaviors required by acceptance criteria but not specified anywhere
+4. **Blindspots** — Unvalidated assumptions that could break during implementation (auth assumed, state not tracked, component not yet built)
+5. **Under-specification** — Vague requirements ("TBD", "as needed", "similar to X") that a dev agent cannot implement without guessing
+6. **Over-specification** — Implementation details in UX layer, pixel measurements in business layer, or tech decisions that constrain without rationale
+7. **Cross-spec conflicts** — Contradictions with related features referenced in `blocked_by`, `related_to`, or frontmatter tags (reads related specs to verify)
+
+---
+
+## Output Format
+
+```
+## Spec Review: P{N} {Feature Name}
+
+**Verdict:** READY | NEEDS FIXES
+
+**Blocking issues (must fix before /dev):**
+- [BLOCK] Dimension: Description — what's missing/conflicting, where to fix it
+
+**Warnings (should fix, won't break dev but will cause rework):**
+- [WARN] Dimension: Description — what's at risk
+
+**Notes (minor, optional to address):**
+- [NOTE] Dimension: Description — suggestion only
+
+**Summary:**
+{1-2 sentence synthesis: what's the biggest risk if we proceed now?}
+```
+
+**Severity levels:**
+- `[BLOCK]` — Ambiguity will cause dev agent to make wrong assumptions or produce untestable output. Fix before `/dev`.
+- `[WARN]` — Implementation will work but likely needs a revision cycle. Recommend fixing.
+- `[NOTE]` — Cleanup or stylistic improvement. Optional.
+
+**Verdict rules:**
+- `READY` — zero BLOCK findings
+- `NEEDS FIXES` — one or more BLOCK findings
+
+---
+
+## Agent Directive
+
+When invoked, spawn a general-purpose agent with this directive:
+
+```
+You are a spec auditor. Your job is to catch issues that will cause rework during implementation.
+
+Read the full spec at {spec_file}. All layers should be present: Business Requirements, UX Requirements (if UI feature), Technical Architecture, and Test Coverage Strategy.
+
+To determine feature type: check frontmatter for `feature_type: backend`. If absent, check whether the spec contains a "UX Requirements" or "UX Design" section. If neither frontmatter flag nor UX section exists, add BLOCK: "Cannot determine feature type — add `feature_type: backend` to frontmatter (if backend-only) or run /ux first (if UI feature)."
+
+If any mandatory layer is missing for the feature type:
+- UI feature missing UX section → BLOCK: "UX layer not found — run /ux first"
+- Any feature missing Technical Architecture → BLOCK: "Technical layer not found — run /architect first"
+- Any feature missing Test Coverage Strategy → BLOCK: "Tests layer not found — run /generate-tests first"
+
+Otherwise, audit across all seven dimensions:
+
+### 1. Redundancy
+Flag content copied verbatim or near-verbatim across sections without adding new information. Each section should add a new layer, not repeat the previous one.
+
+### 2. Consistency
+Cross-check each layer against the others:
+- UX wireframes vs. acceptance criteria (do wireframes cover every criterion?)
+- Architecture decisions vs. UX flows (does the tech approach support every UX state?)
+- Test coverage vs. acceptance criteria (is every criterion tested?)
+- Data model vs. UX fields (does every UI field have a corresponding DB column or computed value?)
+
+### 3. Gaps
+For each acceptance criterion: verify that at least one of (UX flow / test case / implementation step) covers it explicitly. Flag criteria with no coverage.
+
+Also check:
+- Error states: does every API call / async operation have an error path specified?
+- Empty states: does every list/collection have an empty state specified?
+- Loading states: does every async operation have a loading state specified?
+- Auth boundaries: does the spec specify who can access what, and is it enforced at both UI and DB levels?
+
+### 4. Blindspots
+Look for unvalidated assumptions:
+- "Users will see X" — where is X rendered? Does the component exist?
+- State machine transitions — is every phase/state reachable AND escapable?
+- Third-party dependencies — are external services (APIs, edge functions, AI models) confirmed to exist and accessible?
+- Component reuse — does the spec reference components that don't exist yet?
+- Migration order — does the spec assume DB columns exist that require a prior migration to apply?
+
+### 5. Under-specification
+Flag any requirement where a dev agent would have to guess:
+- "TBD", "similar to", "as needed", "standard behavior" — what IS the standard?
+- Missing labels, copy, or placeholder text for UI elements
+- Missing error message copy
+- Unspecified behavior when optional fields are omitted
+- Phase transitions with no trigger specified
+
+### 6. Over-specification
+Flag constraints that limit implementation without justification:
+- Pixel measurements in UX section (specify intent, not px)
+- Specific library/implementation choices in UX (not the UX layer's concern)
+- Business requirements that dictate HOW instead of WHAT
+- Test files that specify implementation internals (test behavior, not code)
+
+### 7. Cross-spec conflicts
+Read the frontmatter `blocked_by` and `tags` fields. For each referenced feature (pN), read that feature's spec and check:
+- Does this spec's architecture contradict a decision made in a dependency?
+- Does this spec add a DB column/table that a dependency already added (collision)?
+- Does this spec's UX flow assume a component or page that a dependency has designed differently?
+
+**Output rules:**
+- Be specific: quote the exact text that is problematic, and name the section it's in
+- Be actionable: say what needs to change, not just that something is wrong
+- Do NOT suggest fixes that change product decisions — only surface spec quality issues
+- Do NOT auto-fix the spec — return findings only
+- Severity: BLOCK for anything that will cause a wrong implementation; WARN for rework risk; NOTE for cleanup
+
+Use the output format specified in the skill. End with a one-line verdict: READY or NEEDS FIXES.
+```
+
+---
+
+## When to Run
+
+**In the sequential flow:**
+```
+/generate-tests → /spec-review → /decompose* → /dev
+```
+
+Run after all layers exist. `/spec-review` cannot audit what isn't there — partial specs will generate false BLOCKs.
+
+**Optional re-runs:** After making spec fixes based on findings, re-run `/spec-review` to confirm the issues are resolved before proceeding to `/dev`.
+
+---
+
+## What This Skill Does NOT Do
+
+- Does not auto-fix the spec (user decides what to change)
+- Does not evaluate product decisions (wrong vs. right feature)
+- Does not replace user review gates (it surfaces quality issues, not product direction)
+- Does not test the implementation (that's `/dev`)
+
+---
+
+## Related Skills
+
+- `/architect` — Technical architecture (run before /spec-review)
+- `/generate-tests` — Test generation (run before /spec-review)
+- `/decompose` — Task decomposition (run after /spec-review, complex features only)
+- `/dev` — Implementation (run after /spec-review)

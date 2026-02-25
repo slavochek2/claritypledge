@@ -151,7 +151,7 @@ Tests are specs — fix code, not tests. Rules auto-load when editing test files
 
 > **Pattern to watch:** The founder tends to accumulate changes rather than commit incrementally.
 
-After completing a logical unit of work, suggest: "Good checkpoint for a commit. Want to commit now?"
+**Commit autonomous, push always needs your OK.** When running a skill (`/dev`, `/fix`, etc.), commit independently when tests pass and the change is clearly complete — no need to ask. In open-ended conversation (no skill running), suggest: "Good checkpoint for a commit. Want to commit now?" Pushing to remote (`git push`) always requires explicit user approval first — ask before every push, even in "autonomous" mode.
 
 **Pre-commit failures: fix inline, never ask.** Apply the known fix and re-run. See [git-workflow.md](docs/technical/git-workflow.md) for remedies by failure type.
 
@@ -307,10 +307,10 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 ### Sequential Flow — Current Standard
 
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /decompose* → /dev
+/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
-`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps).
+`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `/spec-review` runs ALWAYS after `/generate-tests` — mandatory before `/dev`.
 
 Each layer has a review gate. `/dev` and `/fix` auto-close the feature on success (move to `features/done/`, set `completed_at`).
 

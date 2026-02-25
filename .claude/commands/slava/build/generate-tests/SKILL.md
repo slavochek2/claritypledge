@@ -367,10 +367,10 @@ The integration test MUST include a schema existence check using the **two-clien
 ## Integration with Sequential Flow
 
 ```
-/architect → /generate-tests → /decompose* → /dev
+/architect → /generate-tests → /spec-review → /decompose* → /dev
 ```
 
-* /decompose optional — run AFTER /generate-tests (not before). /decompose reads the
+* /decompose optional — run AFTER /spec-review (not before). /decompose reads the
   `## Test Coverage Strategy` section written here to add `Tests:` lines to each task entry.
 
 **Before `/generate-tests`:**
@@ -379,10 +379,11 @@ The integration test MUST include a schema existence check using the **two-clien
 - `/architect` → Architecture approved ✅
 
 **After `/generate-tests`:**
+- `/spec-review` → Pre-dev audit (ALWAYS — catches gaps, consistency issues, blindspots before /dev)
 - `/decompose` → (complex features only) reads Test Coverage Strategy to annotate tasks with test refs
 - `/dev` → Reads tests, implements feature, fills in TODOs, runs tests, iterates until all pass
 
-**No gate.** `/generate-tests` outputs the coverage report and stops. Run `/dev` when ready.
+**No gate.** `/generate-tests` outputs the coverage report and stops. Run `/spec-review` next.
 
 ---
 
