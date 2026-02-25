@@ -316,6 +316,24 @@ Remaining issues (not fixed):
 - 7 medium/low priority items for future consideration
 ```
 
+### Step 6: Capture Unfixed MEDIUM Findings (if any)
+
+If there are unfixed MEDIUM findings after Step 5 (or if user chose "Skip" in Step 4), ask once:
+
+```
+Unfixed MEDIUM items (tech debt):
+- [Code] pledge-page.tsx — extract duplicated fetch logic
+- [Code] profile-page-v2.tsx — window.history.length check unreliable
+
+Want me to file a tracking task for any of these so they surface before you build on this code?
+(I'll create a /quick-feature with type: task for each one you name, or "all", or "none")
+```
+
+If user confirms any: create the task(s) with `/quick-feature`, title prefixed with `refactor:`, type `task`.
+If user says "none" or skips: drop it — don't repeat the offer.
+
+> **Why this matters:** Without tracking, MEDIUM findings disappear silently. The task surfaces as a signal when you're about to build on the same area — the right moment to consider `/refactor`.
+
 ---
 
 ## Notes
