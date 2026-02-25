@@ -14,6 +14,47 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Activity log system — /status appends timeline, /day-end and /weekly consume it
+
+**Context:** Git logs only capture completed work. No record existed of what was in-flight during the day — what was active, blocked, or shifted attention. `/day-end` and `/weekly` had no visibility into intra-session patterns.
+**Decision:** `/status` appends a structured one-liner to `.private/logs/activity.log` after every run: `TIMESTAMP | check | active: P-numbers | blocked: one-phrase | next: next-step`. `/day-end` reads today's entries (detects attention shifts = P-number changes between consecutive entries; persistent blockers = same keyword in 2+ non-adjacent entries). `/weekly` reads the full period and derives WIP age and recurring blockers.
+**Format:** Structured one-liner, `|`-delimited, no `|` in prose fields. Rejected: full prose dump (noisy, repetitive).
+**Alternatives rejected:** Phased rollout (wire consumers later) — consumers are skill prompt files, not code; full implementation costs the same as partial.
+**Consequences:** Every `/status` run is recorded from this point. Log at `.private/logs/activity.log` (gitignored). Parallel review agent caught 7 implementation bugs before first use — including critical placeholder substitution bug and awk date filter failure on 7-day fallback.
+**References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](.claude/commands/slava/day-end.md) · [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md)
+
+---
+
+## 2026-02-25 [technical]: ghost-prod downgraded to e2-micro with swap buffer
+
+**Context:** ghost-prod was running e2-small (2GB RAM) at ~$0.0168/hr for a low-traffic blog with minimal Ghost workload. e2-micro (1GB RAM) is sufficient but risky without a RAM safety net.
+**Decision:** Add 2GB swap to pd-standard disk before downsizing, then resize VM. Post-downgrade: 303MB RAM used of 958MB available, 268K swap used. Ghost running healthy.
+**Alternatives rejected:** Stay on e2-small — saves $0.75/week but unnecessary given $25K credits; downgrade without swap — risky if Ghost has a memory spike during initial load.
+**Consequences:** ghost-prod cost drops from ~$2.92/week to ~$2.17/week (VM + disk). If Ghost ever becomes sluggish under load, swap is the first signal — upgrade back to e2-small. Swap survives reboots.
+**References:** [ghost-blog.md](docs/technical/ghost-blog.md)
+
+---
+
+## 2026-02-25 [process]: macOS LaunchAgent PATH trap — Homebrew tools not in minimal PATH
+
+**Context:** Dropbox backup LaunchAgent was failing silently since its creation. Root cause: macOS LaunchAgents run with a minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) that excludes `/opt/homebrew/bin`. GPG (installed via Homebrew) was unreachable, and the error was swallowed by `2>/dev/null` guards in the script.
+**Decision:** Always add `EnvironmentVariables/PATH` to any LaunchAgent plist that uses Homebrew tools: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`. Also verified the backup destination directory must exist before first run — LaunchAgents don't create it.
+**Alternatives rejected:** Symlinking Homebrew tools to `/usr/local/bin` — fragile and pollutes system paths; using full absolute paths in scripts — works but brittle across machines.
+**Consequences:** Any future LaunchAgent using Homebrew (brew, gpg, restic, gcloud, etc.) must include this PATH block. New LaunchAgents should be tested manually before relying on the scheduled run. The backup now runs correctly at 9am daily.
+**References:** [backup-recovery.md](../private/personal/docs/backup-recovery.md) · `~/Library/LaunchAgents/com.claritypledge.backup.plist`
+
+---
+
+## 2026-02-25 [process]: GCS storage class — always verify before assuming
+
+**Context:** During a cost analysis, `claritypledge-backups/mac` (211GB Restic backup) was assumed to be Standard storage class ($0.020/GB/mo). The actual class was Coldline ($0.004/GB/mo) — already optimized. The optimization suggestion was wrong by 5x.
+**Decision:** Before suggesting storage class changes, always verify with `gcloud storage buckets describe gs://BUCKET --format="value(default_storage_class)"`. Never assume Standard class on an existing bucket.
+**Alternatives rejected:** Trusting cost estimates from bucket listing alone — sizes are visible but storage class is not.
+**Consequences:** gcp-spend skill now annotates known bucket storage classes explicitly. Future cost audits must run bucket describe before calculating storage costs.
+**References:** [gcp-spend.md](.claude/commands/slava/maintain/gcp-spend.md)
+
+---
+
 ## 2026-02-25 [process]: /weekly reads activity log to surface WIP age and recurring blockers
 
 **Context:** /weekly had no visibility into intra-week patterns — it could see commits and metrics but not whether a feature was stuck for 3 days or the same blocker kept appearing.
