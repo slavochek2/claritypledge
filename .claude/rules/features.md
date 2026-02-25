@@ -42,3 +42,31 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually. Script exclu
 - `bug` — something broken that needs fixing
 - `task` — technical work (refactor, infra, tools, docs)
 - `comment` — notes, decisions (not actionable)
+
+## Secrets & External Services in Specs
+
+When a spec introduces a new external API key, edge function, or third-party service secret, the spec **MUST** include a **Pre-deploy Checklist** section.
+
+**Trigger conditions (any one is sufficient):**
+- New `VITE_*` or server-side env var not yet in Vercel prod
+- New Supabase edge function that calls an external API
+- New third-party integration (OAuth provider, payment processor, webhook, etc.)
+
+**Required section format:**
+
+```markdown
+## Pre-deploy Checklist
+
+### Secrets to provision
+- [ ] `VITE_EXAMPLE_KEY` — `vercel env add VITE_EXAMPLE_KEY production --token "$VERCEL_TOKEN"`
+
+### Deploy commands
+- [ ] `supabase functions deploy <name> --project-ref <ref>` (if edge function)
+- [ ] Trigger Vercel redeploy (VITE_* vars baked at build time — redeploy required)
+
+### Post-deploy verification
+- [ ] Smoke test the new endpoint/function on prod
+- [ ] Check Sentry for new errors in first 10 minutes
+```
+
+**Why:** VITE_* env vars are baked at build time. A secret that works in `.env.local` is silently absent in prod until explicitly provisioned AND a redeploy is triggered.
