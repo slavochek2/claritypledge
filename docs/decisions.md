@@ -14,6 +14,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Monthly meta-review — /monthly skill for behavioral pattern extraction
+
+**Context:** One-time deep-dive session extracted 6 months of contrarian decisions from JSONL session logs to identify behavioral patterns not yet in CLAUDE.md. Found high signal: 132 genuine contrarian moments, 3 new patterns, 6 systemic issues.
+**Decision:** Run `/monthly` monthly (not weekly). It spawns 3 parallel agents: (A) contrarian decisions + abandoned work, (B) agent errors + recurring questions, (C) CLAUDE.md critical review. Findings filtered against existing CLAUDE.md before surfacing — prevents re-finding already-captured patterns.
+**Alternatives rejected:** Ad-hoc retrospectives — no methodology, findings go nowhere. Weekly cadence — thin signal, high noise.
+**Consequences:** CLAUDE.md has 6 new behavioral improvements from this first run. `/monthly` is the canonical home for collaboration system improvement. Chrome extension can fill+submit external forms (GitHub support) — flag for automation rather than manual work.
+**References:** `.claude/commands/slava/maintain/monthly/SKILL.md`, `CLAUDE.md` (6 new rules in 008b24a)
+
 ## 2026-02-25 [process]: Parallel feature work requires separate worktrees — index collision rule
 
 **Context:** During a session where cleanup work was staged, a parallel session committed P437 and swept up the staged cleanup files into the wrong commit. Root cause: two sessions sharing one git index in the same worktree.
