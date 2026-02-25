@@ -269,7 +269,7 @@ This includes: sending emails (Gmail MCP), posting to social media (Postiz), sen
 
 The pattern is: **draft → show → confirm → act.** Never collapse draft+send into a single unreviewable step, even when the user says "send this." Show the final content first.
 
-Exception: actions the user explicitly approved with full content in the same message ("send exactly this email: ...").
+Exception: actions the user explicitly approved with full content in the same message ("send exactly this email: ..."), or when the user directly says "submit it", "go ahead", "do it" after seeing the draft.
 
 ---
 

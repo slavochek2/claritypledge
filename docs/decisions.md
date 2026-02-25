@@ -14,6 +14,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [product]: Event transactional email copy — plain language over corporate-speak
+
+**Context:** Reviewing all 5 email templates (confirmation, reminder, feedback, cancellation, uncancel) revealed formal phrases that don't match the product's casual, human tone.
+**Decision:** Plain-language standard for all transactional emails. Specific fixes: "You're going to: X" → "You're in: X", "reinstated. Here are the current details" → "is back on — here are the details", "sorry for the inconvenience" → "sorry this didn't work out", "Here's what you need to know" → "Here's what changed".
+**Alternatives rejected:** Formal register — sounds trustworthy but feels corporate for a community product.
+**Consequences:** When adding new email templates, default to conversational tone. Test: would a friend send this? If it reads like a corporate notification, rewrite it.
+**References:** `supabase/functions/send-event-emails/index.ts`
+
+## 2026-02-25 [process]: Agent-driven feature testing with live DB state setup
+
+**Context:** UAT-3.3 for P437 (uncancel email) was skipped because the test event had no RSVPd attendees. Testing the email path required a real RSVP and a future-dated event.
+**Decision:** When a feature requires specific DB state to test, set it up autonomously via curl against the test Supabase project (service role key). Pattern: query → insert/update → test in browser → done.
+**Alternatives rejected:** Asking user to RSVP manually — unnecessary delegation when service role access is available.
+**Consequences:** Any feature test needing seed data (RSVPs, specific event states) can be fully agent-driven. Only stop if auth (CAPTCHA, 2FA) is required.
+**References:** Test project ref `gfjctyxqlwexxwsmkakq`, service role key via `supabase projects api-keys`
+
 ## 2026-02-25 [process]: Monthly meta-review — /monthly skill for behavioral pattern extraction
 
 **Context:** One-time deep-dive session extracted 6 months of contrarian decisions from JSONL session logs to identify behavioral patterns not yet in CLAUDE.md. Found high signal: 132 genuine contrarian moments, 3 new patterns, 6 systemic issues.
