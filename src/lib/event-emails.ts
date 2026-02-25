@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-type EmailAction = 'rsvp' | 'cancel' | 'update';
+type EmailAction = 'rsvp' | 'cancel' | 'uncancel' | 'update';
 
 /**
  * Invoke the send-event-emails Edge Function.

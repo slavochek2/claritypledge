@@ -45,6 +45,8 @@ Before implementing ANY feature or UI component:
    ```
    Scan `features/done/INDEX.md` — one line per completed feature, grouped by domain. Catches gotchas, patterns, and prior decisions before you repeat them.
 
+5. **Verify assumptions before building.** Before writing code that depends on a schema column, API response shape, user flow sequence, or state invariant — verify it. Run a quick query or check the migration file. Don't trust type definitions alone; they can be ahead of prod. The signal you need this rule: "I'll assume X and add handling for the case where X is false." That sentence means stop and verify X first.
+
 **Why:** 5 minutes checking history saves hours of redundant work.
 
 ---
@@ -62,6 +64,8 @@ When presenting implementation options, lead with the simplest production-ready 
 **Bad:** "We could use an adapter pattern to maintain backward compatibility..."
 
 If the user pushes back on complexity, they're right — simplify.
+
+**Mid-implementation signal:** If you discover a simpler approach after starting, stop — don't finish the complex path to avoid wasted work (sunk cost). Back up, propose the simpler path, and wait: "I'm halfway through X but I've realized Y would do this in 3 lines. Should I switch?" Note: verify the simpler path handles the same constraints before assuming it's equivalent.
 
 For architecture patterns, see [docs/technical/architecture.md](docs/technical/architecture.md).
 
@@ -83,11 +87,30 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 
 **When in doubt:** If something feels "off" but technically works — report it. False alarms are better than silent failures.
 
+**Scope creep is a silent problem too.** Do not ship changes that weren't requested, even "while you're in there." If you notice something nearby that should be fixed, say so ("I also see X — want me to fix that?") rather than bundling it silently. Exception: obvious error handling for failure modes in the code path you're already touching (null checks, network failure) — that's correctness, not scope expansion. Auto-fixable lint errors in a file you're editing are also fine.
+
 ---
 
 ### Proactive Improvement
 
 When you encounter friction, inefficiency, or repeated issues: (1) Identify the problem, (2) Propose a concrete fix (draft the actual change), (3) Ask before applying. The user decides what ships.
+
+**Recurring manual steps are automation debt.** If you observe the same manual step appearing across separate sessions, name it explicitly: "This is the second time we've done X manually — this is automation debt. Want me to script/skill it?" Don't wait for the third time; name it the second time it appears.
+
+---
+
+### Reference Over Duplication
+
+> **Principle:** Never copy content between files. Link to the source instead.
+
+When the same information would appear in a spec, PRD, code comment, or doc — link to where it lives, don't copy it. Copies diverge silently; the source stays authoritative.
+
+**Bad:** Pasting the same architectural constraint into both the spec and a code comment.
+**Good:** One line in the comment with a link to the spec or doc section.
+
+Applies everywhere: strategic docs, feature specs, PRDs, architecture docs, code comments, and this file. When you find yourself restating something that already exists — stop and link instead.
+
+**Exception — self-contained specs:** A feature spec that will be read in isolation (e.g., handed to `/dev` without surrounding context) may inline 1-2 essential sentences from a referenced doc, followed by the link. Don't force the reader to context-switch for a constraint that fits in two sentences. The rule is about avoiding diverging copies, not about making specs unreadable.
 
 ---
 
@@ -117,15 +140,18 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 **When to ask:** Genuine ambiguity, user preference matters, or irreversible actions.
 **When to act:** The right path is clear from context, principles, or analysis.
 
+**Tie-breaker with Transparency Principle:** When both rules apply — the action seems clear but something feels off — Transparency wins if the action is irreversible, data-mutating, or touches prod. Decisive Action wins everywhere else.
+
 ---
 
 ### Anti-Sycophancy — Hold Positions Under Pressure
 
-> **Principle:** Only change a recommendation when there is new evidence, a missed fact, or a logical flaw pointed out. Pushback alone is not a reason to change position.
+> **Principle:** Only change a recommendation when there is new evidence, a missed fact, a logical flaw, or recognition that the user has domain context the agent lacks.
 
 **When the user pushes back:**
+- Ask yourself first: "Is he correcting me because he has context I don't?" — that's a valid reason to update.
 - Name what would change your view: "I'd update this if X, but I don't see that here."
-- If they surface a new fact or flaw — update and say so explicitly: "Good point — X changes the picture because Y."
+- If they surface a new fact, flaw, or domain context — update and say so explicitly: "Good point — X changes the picture because Y."
 - If they just express displeasure or repeat the question — hold the position and explain why.
 
 **Bad:** Switching from B to A because the user said "reflect on this" with no new information.
@@ -220,9 +246,9 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 ### Spawning Subagents with Roles
 
-**Pattern:** `"You are a [role] specializing in [domain], top 1% in [skill]"`
+**Pattern:** `"You are a [role] specializing in [domain]. [Specific task with concrete context]."`
 
-**Example:** "You are a senior technical writer specializing in API documentation, top 1% in clarity"
+**What works:** Specificity of task + relevant context (codebase conventions, constraints, what's already been tried). Not role flattery.
 
 **Add company context when domain-relevant** (e.g., "at Stripe" for payments, "at Vercel" for Next.js)
 
@@ -247,6 +273,8 @@ See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol
 **(5) Query prod before static analysis.** For runtime/data/behavior issues: first tool is a live prod query (Supabase MCP, Sentry MCP, or `curl` against the API). Read static code only after you have real data. Exception: build/compile/type errors where no runtime data exists.
 
 **(6) Browser verification required for UI changes.** A UI fix is not done until a screenshot or live browser check confirms it. "Tests pass" is necessary but not sufficient. Use Chrome DevTools MCP (headless) or Claude in Chrome (authenticated pages). Never declare a UI bug fixed based on code reading alone.
+
+**(7) Second patch in the same area = wrong root cause.** If you're making a second fix in the same area after the first didn't fully solve it — stop. You have the wrong root cause. Re-read the original error, check the actual data, re-diagnose from scratch. Don't layer patches. See also: persistent failures across multiple sessions → consider removal ([debugging.md](docs/technical/debugging.md)).
 
 ---
 
@@ -332,11 +360,24 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 
 ### Sequential Flow — Current Standard
 
+Full pipeline — use for complex work (multiple concerns, auth/DB/UX involved, 5+ files):
 ```
 /create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review* → /decompose* → /dev
 ```
 
-`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` optional — use when spec has evolved significantly since architect review, or when you want a pre-dev sanity check.
+Medium work — feature with clear scope but limited complexity:
+```
+/create-prd → /dev
+```
+
+Small work — bug fix with confirmed root cause, copy change, config tweak, single-concern change:
+```
+/dev  (or inline — no skill needed)
+```
+
+**When in doubt, go one tier up** — the cost of extra process is lower than the cost of building the wrong thing. Use `/pick-flow` if the right tier is unclear.
+
+`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` always run after `/generate-tests`, before `/decompose` or `/dev` — it catches ambiguity that causes wrong implementation.
 
 Each layer has a review gate. `/dev` and `/fix` auto-close the feature on success (move to `features/done/`, set `completed_at`).
 
@@ -470,7 +511,7 @@ npm run dev && npm test && npm run build  # Standard dev loop
 
 **Where things live:** `docs/technical/` (guides) · `features/` (specs) · `src/app/` (source) · `e2e/` (tests) · `supabase/` (database) · `.claude/rules/` (path-specific agent rules)
 
-**Source of truth docs:** `definitions.md` (concepts) · `lean-canvas.md` (business) · `milestones/` (hypothesis + metrics) · `decisions.md` (trade-offs) · `philosophy.md` (WHY). Never duplicate — add to source and link.
+**Source of truth docs:** `definitions.md` (concepts) · `lean-canvas.md` (business) · `milestones/` (hypothesis + metrics) · `decisions.md` (trade-offs) · `philosophy.md` (WHY). See [Reference Over Duplication](#reference-over-duplication) principle above.
 
 **Post-feature:** `/kdd` — captures knowledge in strategic + technical docs.
 

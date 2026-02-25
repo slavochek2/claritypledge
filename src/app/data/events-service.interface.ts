@@ -21,6 +21,7 @@ export interface EventsService {
   createEvent(data: CreateEventInput): Promise<EventWithHost | null>;
   updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean>;
   cancelEvent(eventId: string): Promise<boolean>;
+  uncancelEvent(eventId: string): Promise<boolean>;
   rsvpToEvent(eventId: string, profileId: string): Promise<boolean>;
   cancelRsvp(eventId: string, profileId: string): Promise<boolean>;
 

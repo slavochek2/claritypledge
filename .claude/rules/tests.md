@@ -22,7 +22,7 @@ Tests are executable specifications. Modifying a test to make it pass = changing
 
 - Location: `e2e/*.spec.ts`
 - Run: `npm run test:e2e`
-- Full guide: [e2e-testing.md](docs/technical/e2e-testing.md)
+- Full guide: [e2e-testing-guide.md](docs/technical/e2e-testing-guide.md)
 
 ## Unit Tests (Vitest)
 

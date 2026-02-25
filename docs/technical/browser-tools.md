@@ -214,12 +214,12 @@ This ensures browser tools are never contended.
 
 **Playwright tests failing locally but passing in CI (or vice versa):**
 - Check port — dev server must be running on the correct worktree port
-- See [e2e-testing.md](e2e-testing.md) for full setup
+- See [e2e-testing-guide.md](e2e-testing-guide.md) for full setup
 
 ---
 
 ## Related Docs
 
-- [e2e-testing.md](e2e-testing.md) — Playwright test suite details
+- [e2e-testing-guide.md](e2e-testing-guide.md) — Playwright test suite details
 - [live-session-testing.md](live-session-testing.md) — `/live` two-party test simulation
 - [mcp-servers.md](mcp-servers.md) — All available MCP servers

@@ -167,5 +167,3 @@ export const mockCalibrationService: CalibrationService = {
   },
 };
 
-// Legacy exports for backward compatibility during migration
-export const calibrationService = mockCalibrationService;

@@ -110,7 +110,7 @@ Magic links redirect to `localhost:5001` in development. To test:
 E2E tests require additional setup:
 
 1. Create `.env.test.local` with `SUPABASE_SERVICE_ROLE_KEY`
-2. See [docs/technical/e2e-testing.md](./docs/technical/e2e-testing.md) for full guide
+2. See [docs/technical/e2e-testing-guide.md](./docs/technical/e2e-testing-guide.md) for full guide
 
 ## Code Style
 

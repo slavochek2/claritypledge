@@ -14,6 +14,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Parallel subagent codebase audit — pattern and findings
+
+**Context:** Codebase had accumulated config drift, doc contradictions, and coupling issues across months of feature work. Ran a systematic audit using 4 parallel Explore agents (config, code, docs, spec-drift), each producing a prioritized report.
+**Decision:** Use parallel Explore agents for periodic codebase health reviews — 4 agents × 10 min = full sweep, then fix agents in parallel. Total: ~1 hour for comprehensive audit + all fixes applied and verified.
+**Alternatives rejected:** Manual review (too slow, misses cross-file patterns); single sequential agent (loses parallelism advantage).
+**Consequences:** Run this pattern ~monthly or after a sprint of heavy feature work. Key findings that became fixes: (1) mock service files re-exported facade names (bypasses `VITE_USE_REAL_API`), (2) production components importing from prototype directory, (3) tsconfig alias pointing to non-existent path, (4) Supabase dev auth redirecting to wrong port, (5) duplicate docs causing contradictory agent guidance.
+**References:** `docs/technical/architecture.md`
+
+## 2026-02-25 [technical]: Service mock files must not re-export under facade name
+
+**Context:** `points-service-mock.ts`, `stories-service-mock.ts`, and `calibration-service-mock.ts` each had a "legacy compatibility" block re-exporting `pointsService = mockPointsService` etc. — the same name used by the facade. Any code importing from the mock directly would get a hardcoded mock, silently bypassing `VITE_USE_REAL_API`.
+**Decision:** Mock files export only their own name (`mockXxxService`). The facade (`xxx-service.ts`) is the only file that exports `xxxService`. Type re-exports in mock files are fine and retained.
+**Alternatives rejected:** Keeping the legacy exports with a deprecation comment — creates ongoing confusion with no benefit since no consuming code used them.
+**Consequences:** The switchable facade pattern is now correctly enforced. Applies to all future service additions: mock file → `mockXxxService` only, facade → `xxxService` only.
+**References:** `src/app/data/points-service.ts`, `src/app/data/points-service-mock.ts`
+
 ## 2026-02-25 [technical]: Sitemap must use canonical routes, not redirect aliases
 
 **Context:** Google Search Console flagged one page as "Page with redirect". The sitemap had `/clarity-champions`, but the actual route is `/pledgers` — `/clarity-champions` redirects to it. Google followed the redirect but flagged the sitemap URL as non-canonical.
@@ -691,7 +707,7 @@ Changing DB column default alone is insufficient. Application layer sends the Ty
 
 **Consequences:** Parallelization safety is now a test authoring rule: all `supabaseAdmin.from()` calls must be scoped by test-specific IDs. Any test touching global state must declare `test.describe.configure({ mode: 'serial' })`. Pre-existing audit confirmed only `pledgers-page.spec.ts` had global state — all others were already scoped.
 
-**References:** [P277](../features/done/p277_e2e-parallelization-multi-worker-test-execution.md), [e2e-testing.md](technical/e2e-testing.md)
+**References:** [P277](../features/done/p277_e2e-parallelization-multi-worker-test-execution.md), [e2e-testing-guide.md](technical/e2e-testing-guide.md)
 
 ---
 

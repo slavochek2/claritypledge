@@ -50,6 +50,7 @@ import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import type { StoryVisibility } from "@/app/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
+import { formatTimeAgo } from "@/app/prototypes/shared/utils";
 // Profile owner context for card components
 interface ProfileOwner {
   id: string;
@@ -98,24 +99,15 @@ function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
   };
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
 import { linkifyText } from "@/app/utils/linkify";
 import { calibrationService } from "@/app/data/calibration-service";
+import { agreementsService } from "@/app/data/agreements-service";
+import type { ClarityAgreement } from "@/app/data/agreements-service.interface";
 import { RemovePositionDialog, useRemovePositionGuard } from "@/app/components/shared/remove-position-dialog";
+import { ProfileAgreementsSection } from "@/app/components/agreements/profile-agreements-section";
 import type { StoryWithPoints, PointWithUserPosition, PointSummary, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
@@ -170,6 +162,10 @@ export function ProfilePageV2() {
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
+
+  // P422: Agreements state
+  const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
+  const [agreementsLoading, setAgreementsLoading] = useState(true);
 
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
@@ -229,7 +225,7 @@ export function ProfilePageV2() {
   useEffect(() => {
     if (!profile) return;
 
-    // Load stories, points, and calibration in parallel
+    // Load stories, points, calibration, and agreements in parallel
     Promise.all([
       storiesService.getStoriesByAuthorWithPoints(profile.id, currentUser?.id),
       // P151: Use getPointsForProfileDisplay (efficient batch loading)
@@ -240,10 +236,16 @@ export function ProfilePageV2() {
       // - Avoids N+1 queries (2-3 queries total instead of 1+N)
       pointsService.getPointsForProfileDisplay(profile.id, currentUser?.id),
       calibrationService.getCalibration(profile.id),
-    ]).then(async ([stories, pointsWithData, calibration]) => {
+      // P422: Fetch agreements for this profile
+      agreementsService.getAgreementsForProfile(profile.id, currentUser?.id ?? null),
+    ]).then(async ([stories, pointsWithData, calibration, fetchedAgreements]) => {
       // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
+
+      // P422: Set agreements
+      setAgreements(fetchedAgreements);
+      setAgreementsLoading(false);
 
       // P151: Points now come with position counts and user positions pre-loaded
       // No manual batch fetching needed!
@@ -728,6 +730,16 @@ export function ProfilePageV2() {
               </button>
             </div>
           )}
+
+          {/* P422: Partner Agreements section */}
+          <div className="mt-3">
+            <ProfileAgreementsSection
+              profileId={profile.id}
+              viewerProfileId={currentUser?.id ?? null}
+              agreements={agreements}
+              isLoading={agreementsLoading}
+            />
+          </div>
 
           {/* Content tab selector */}
           <div className="bg-card border border-border mt-3 rounded-lg overflow-hidden">

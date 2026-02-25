@@ -63,18 +63,13 @@ const supabaseAnonKey = 'YOUR_ANON_KEY'; // Should start with "eyJ..."
 
 ### 3. Setup Database
 
-If setting up a fresh Supabase project, run the schema in the SQL Editor:
+Apply the schema and all migrations to your Supabase project:
 
-1. Go to [Supabase SQL Editor](https://supabase.com/dashboard/project/YOUR_PROJECT/sql)
-2. Copy the contents of `supabase/schema.sql`
-3. Paste and execute
+```bash
+./scripts/migrate.sh
+```
 
-This creates:
-- `profiles` table for user data
-- `witnesses` table for endorsements
-- Row Level Security (RLS) policies
-
-**Note:** Profile creation happens in application code (not via database trigger). See [CLAUDE.md](./CLAUDE.md) for architecture details.
+This pushes all migrations in `supabase/migrations/` via `supabase db push`, creating the tables, RLS policies, and any incremental schema changes. Profile creation happens in application code (not via database trigger). See [CLAUDE.md](./CLAUDE.md) for architecture details.
 
 ### 4. Run Development Server
 
@@ -130,7 +125,7 @@ See `.env.example` for optional configuration (feature flags, Sentry).
 | Architecture & conventions | [CLAUDE.md](./CLAUDE.md) |
 | Database schema | [docs/technical/database.md](./docs/technical/database.md) |
 | Authentication | [docs/technical/authentication.md](./docs/technical/authentication.md) |
-| E2E testing | [docs/technical/e2e-testing.md](./docs/technical/e2e-testing.md) |
+| E2E testing | [docs/technical/e2e-testing-guide.md](./docs/technical/e2e-testing-guide.md) |
 
 ## License
 

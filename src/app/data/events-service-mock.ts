@@ -145,6 +145,13 @@ export const mockEventsService: EventsService = {
     return mockCancelEvent(eventId);
   },
 
+  async uncancelEvent(eventId: string): Promise<boolean> {
+    const event = mockEvents.find(e => e.id === eventId);
+    if (!event || event.hostId !== mockCurrentUser.id) return false;
+    event.status = 'upcoming';
+    return true;
+  },
+
   async rsvpToEvent(eventId: string, _profileId: string): Promise<boolean> {
     const event = mockEvents.find(e => e.id === eventId);
     if (!event) return false;

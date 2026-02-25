@@ -85,6 +85,7 @@ export function EventDetail() {
   // Confirm dialog states
   const [showCancelRsvpDialog, setShowCancelRsvpDialog] = useState(false);
   const [showCancelEventDialog, setShowCancelEventDialog] = useState(false);
+  const [showUncancelEventDialog, setShowUncancelEventDialog] = useState(false);
 
   // Check if current user is the host
   const isHost = isLoggedIn && user && event?.hostId === user.id;
@@ -186,6 +187,20 @@ export function EventDetail() {
     if (success) {
       toast.success('Event cancelled');
       navigate('/events');
+    }
+  };
+
+  const confirmUncancelEvent = async () => {
+    if (!event) return;
+    setIsActionLoading(true);
+    const success = await eventsService.uncancelEvent(event.id);
+    setIsActionLoading(false);
+    setShowUncancelEventDialog(false);
+    if (success) {
+      setEvent({ ...event, status: 'upcoming' });
+      toast.success('Event is back on — attendees notified');
+    } else {
+      toast.error('Could not reinstate the event. Please try again.');
     }
   };
 
@@ -346,13 +361,27 @@ export function EventDetail() {
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                   <div className="flex items-start gap-3">
                     <Ban className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
+                    <div className="flex-1">
                       <p className="font-semibold text-red-800">This event has been cancelled</p>
                       <p className="text-sm text-red-600 mt-1">
                         {isHost
                           ? 'You cancelled this event. Attendees have been notified.'
                           : 'The organizer cancelled this event. We apologize for any inconvenience.'}
                       </p>
+                      {isHost && !isPast && (
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowUncancelEventDialog(true)}
+                            disabled={isActionLoading}
+                            className="gap-1.5 bg-white border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Uncancel Event
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -645,6 +674,19 @@ export function EventDetail() {
         cancelLabel="Keep Event"
         variant="destructive"
         onConfirm={confirmCancelEvent}
+        isLoading={isActionLoading}
+      />
+
+      {/* Uncancel Event Confirmation Dialog */}
+      <ConfirmDialog
+        open={showUncancelEventDialog}
+        onOpenChange={setShowUncancelEventDialog}
+        title="Reinstate this event?"
+        description="All attendees will receive a re-announcement email with the current event details."
+        confirmLabel="Yes, Uncancel"
+        cancelLabel="Keep Cancelled"
+        variant="default"
+        onConfirm={confirmUncancelEvent}
         isLoading={isActionLoading}
       />
 

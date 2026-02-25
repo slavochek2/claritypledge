@@ -100,3 +100,15 @@ When fixing visual bugs in external systems like Ghost where deploy cycles are s
 **Anti-pattern**: Finding one cause → shipping fix → seeing it didn't work → finding another cause → shipping again. This wastes round-trips especially in admin UIs.
 
 **Rule**: One deployment, fully verified. Spend extra time diagnosing upfront to avoid multiple failed deploys.
+
+---
+
+## When to Propose Removal
+
+If two separate debug sessions (different context windows, not the same session) have been spent on the same feature or component without resolution, surface the removal option explicitly:
+
+> "We've debugged this twice without resolution. Worth considering removing it — want to discuss?"
+
+Before proposing removal, ask: is this a **failed approach**, or a **failed implementation of a sound approach**? If the latter, fix the spec first, not just the code.
+
+Sunk cost is not a reason to keep perpetually broken things. Reliability is binary for users — "works 70% of the time" is broken.

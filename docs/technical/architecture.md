@@ -390,4 +390,4 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 - Magic link auth requires correct redirect URLs in Supabase dashboard
 - Profile creation must only happen in auth callback (not hooks)
-- E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing.md](e2e-testing.md))
+- E2E tests: 6 skipped due to browser session detection limitation (see [e2e-testing-guide.md](e2e-testing-guide.md))

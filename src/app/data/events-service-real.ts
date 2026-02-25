@@ -442,6 +442,38 @@ export const realEventsService: EventsService = {
     return true;
   },
 
+  async uncancelEvent(eventId: string): Promise<boolean> {
+    log(' uncancelEvent:', eventId);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      log('ERROR: uncancelEvent: No authenticated user');
+      return false;
+    }
+
+    const { error, data: updated } = await supabase
+      .from('events')
+      .update({ status: 'upcoming' })
+      .eq('id', eventId)
+      .eq('host_id', user.id)
+      .select('id');
+
+    if (error) {
+      log('ERROR: uncancelEvent error:', error);
+      return false;
+    }
+
+    if (!updated || updated.length === 0) {
+      log('ERROR: uncancelEvent: User is not the host or event not found');
+      return false;
+    }
+
+    // Fire-and-forget: send re-announcement to all attendees
+    invokeEventEmails('uncancel', eventId);
+
+    return true;
+  },
+
   async rsvpToEvent(eventId: string, profileId: string): Promise<boolean> {
     log(' rsvpToEvent:', { eventId, profileId });
 

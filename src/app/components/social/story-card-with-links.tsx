@@ -8,7 +8,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
-import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared/MobileTooltip';
+import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
   PositionButtons,

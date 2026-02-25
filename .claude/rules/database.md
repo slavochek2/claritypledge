@@ -47,3 +47,13 @@ Extracts DB password from `.env.local` automatically. Run this — don't ask.
 ## No Database Trigger for Profile Creation
 
 Profile creation happens ONLY in `AuthCallbackPage.tsx` after email verification — not via trigger. Do not add triggers for this.
+
+## Seed and Sync Scripts — Never Override User-Set State
+
+Seeds and sync scripts must be idempotent **and** non-destructive to values the user has explicitly set. Before writing a value, check if it already exists.
+
+- Use `ON CONFLICT DO NOTHING` (not `ON CONFLICT DO UPDATE`) unless the update is the explicit intent
+- Use `UPDATE ... WHERE column IS NULL` to fill only unset values
+- Never assume the DB is in a factory/default state
+
+**Why:** A deploy that silently resets a value the user deliberately changed is a trust violation, not expected behavior. If a safety constraint requires rejecting a user-set value, reject it explicitly — never auto-revert silently.

@@ -214,6 +214,25 @@ function buildCancellation(event: EventRow): { subject: string; html: string; te
   return { subject, html, text };
 }
 
+function buildUncancel(event: EventRow): { subject: string; html: string; text: string } {
+  const subject = `It's back on: ${event.title}`;
+  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
+  const html = htmlEmail(subject, `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Good news — the event is back on! 🎉</h1>
+    <p style="margin:0;font-size:16px;color:#4b5563;">
+      <strong>${event.title}</strong> has been reinstated. Here are the current details:
+    </p>
+    ${eventCard(event)}
+    ${eventLink}
+    ${calendarLinks(event)}
+    <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
+      Questions? Reply to this email.
+    </p>
+  `);
+  const text = `Good news — ${event.title} is back on!\n\n${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}\n\nSee you there!\nClarity Pledge`;
+  return { subject, html, text };
+}
+
 function buildUpdate(event: EventRow): { subject: string; html: string; text: string } {
   const subject = `Updated: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
@@ -382,6 +401,33 @@ async function handleCancel(supabase: ReturnType<typeof createClient>, eventId: 
   }));
 }
 
+async function handleUncancel(supabase: ReturnType<typeof createClient>, eventId: string) {
+  const { data: event } = await supabase
+    .from('events')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug')
+    .eq('id', eventId)
+    .single();
+
+  if (!event) throw new Error('Event not found');
+
+  const { data: rsvps } = await supabase
+    .from('event_rsvps')
+    .select('id, profile_id, profiles(email)')
+    .eq('event_id', eventId);
+
+  if (!rsvps) return;
+
+  const uncancel = buildUncancel(event);
+
+  await Promise.all(rsvps.map(async (rsvp) => {
+    const profileData = rsvp.profiles as { email: string } | null;
+    const email = profileData?.email;
+    if (email) {
+      await sendEmail({ to: email, ...uncancel });
+    }
+  }));
+}
+
 async function handleUpdate(supabase: ReturnType<typeof createClient>, eventId: string) {
   // Fetch updated event
   const { data: event } = await supabase
@@ -470,7 +516,7 @@ serve(async (req: Request) => {
     );
 
     const { action, eventId, userId } = await req.json() as {
-      action: 'rsvp' | 'cancel' | 'update';
+      action: 'rsvp' | 'cancel' | 'uncancel' | 'update';
       eventId: string;
       userId?: string;
     };
@@ -486,6 +532,9 @@ serve(async (req: Request) => {
         break;
       case 'cancel':
         await handleCancel(supabaseClient, eventId);
+        break;
+      case 'uncancel':
+        await handleUncancel(supabaseClient, eventId);
         break;
       case 'update':
         await handleUpdate(supabaseClient, eventId);

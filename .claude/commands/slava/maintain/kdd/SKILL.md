@@ -25,7 +25,7 @@ Capture knowledge that matters. Git tracks *what* changed; this captures *why* a
 | Service layer, component patterns | `docs/technical/architecture.md` |
 | Schema, RLS, data model | `docs/technical/database.md` |
 | Auth flows, session handling | `docs/technical/authentication.md` |
-| Test patterns, helpers | `docs/technical/e2e-testing.md` |
+| Test patterns, helpers | `docs/technical/e2e-testing-guide.md` |
 
 **Consumer docs** (link only, never duplicate):
 - `README.md` — Setup for humans

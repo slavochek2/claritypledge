@@ -371,6 +371,4 @@ export const mockPointsService: PointsService = {
   },
 };
 
-// Legacy exports for backward compatibility during migration
 export type { PositionType, PointPosition } from '@/app/types';
-export const pointsService = mockPointsService;

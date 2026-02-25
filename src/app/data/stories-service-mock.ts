@@ -224,6 +224,4 @@ export const mockStoriesService: StoriesService = {
   },
 };
 
-// Legacy exports for backward compatibility during migration
 export type { Story, StoryWithAuthor } from '@/app/types';
-export const storiesService = mockStoriesService;
