@@ -143,7 +143,7 @@ interface EventRow {
 }
 
 function buildConfirmation(event: EventRow): { subject: string; html: string; text: string } {
-  const subject = `You're going to: ${event.title}`;
+  const subject = `You're in: ${event.title}`;
   const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${eventPageUrl(event.slug)}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
@@ -207,7 +207,7 @@ function buildCancellation(event: EventRow): { subject: string; html: string; te
     ${eventCard(event)}
     ${eventLink}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
-      We're sorry for the inconvenience. Questions? Reply to this email.
+      We're sorry this didn't work out. Questions? Reply to this email.
     </p>
   `);
   const text = `${event.title} has been cancelled.\n\nWe're sorry for the inconvenience.\nClarity Pledge`;
@@ -239,7 +239,7 @@ function buildUpdate(event: EventRow): { subject: string; html: string; text: st
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event updated</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      The details for <strong>${event.title}</strong> have changed. Here's what you need to know:
+      The details for <strong>${event.title}</strong> have changed. Here's what changed:
     </p>
     ${eventCard(event)}
     ${eventLink}
