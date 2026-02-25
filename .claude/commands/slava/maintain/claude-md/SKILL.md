@@ -145,7 +145,12 @@ For the proposed change: "{USER_INPUT}"
 
 ## Follow-up Actions
 
-If recommendation is approved, update the files manually or ask agent to help.
+If recommendation is approved:
+1. Run to unlock CLAUDE.md editing (marker expires in 30 min):
+   ```bash
+   touch /tmp/.claude-md-gate-ok
+   ```
+2. Apply the validated change (the PreToolUse hook will allow one edit, then re-lock).
 ```
 
 ## Examples
