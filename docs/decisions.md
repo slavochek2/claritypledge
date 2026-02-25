@@ -14,6 +14,44 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Three-layer CLAUDE.md edit protection
+
+**Context:** Agents were bypassing the /claude-md validation gate and editing CLAUDE.md directly, causing rule contradictions and knowledge scatter (e.g. /spec-review mandatory in one file, optional in another after a single session).
+
+**Decision:** Three-layer protection: (1) PreToolUse hook blocks all CLAUDE.md / rules/*.md edits, exits 1 unless `/tmp/.claude-md-gate-ok` marker exists; (2) `/claude-md` skill creates the marker after completing validation; (3) `/day-end` reviews any CLAUDE.md changes from the day via `/claude-md` subagent and outputs VALID/NEEDS REVISION in an AGENT CONFIG section.
+
+**Alternatives rejected:** Advisory PostToolUse reminder only — proven ineffective (agents ignored it mid-flow). `/status` check — too late once changes are committed.
+
+**Consequences:** Every CLAUDE.md edit requires an explicit gate step. The 30-minute marker expiry means one validation unlocks one edit session. Skill files (`.claude/commands/`) are NOT gated — only CLAUDE.md and `.claude/rules/*.md`.
+
+**References:** [claude-md-gate-pre.sh](../.claude/hooks/claude-md-gate-pre.sh), [claude-md/SKILL.md](../.claude/commands/slava/maintain/claude-md/SKILL.md), [day-end.md](../.claude/commands/slava/day-end.md)
+
+---
+
+## 2026-02-25 [process]: Commit autonomous, push always needs user OK
+
+**Context:** Reflected on commit/push ownership — agents were either asking for every commit (too slow) or unclear about push authority.
+
+**Decision:** Agents commit independently when tests pass and change is clearly complete (during skill runs). In open-ended conversation, suggest the commit first. Push to remote always requires explicit user approval — ask before every push, no exceptions.
+
+**Alternatives rejected:** Always ask before commit — unnecessary friction on skill runs. Full autonomy including push — too risky for shared remotes.
+
+**Consequences:** Skill runs (`/dev`, `/fix`) are now fully autonomous through commit. Push is a deliberate human gate. Wired into CLAUDE.md Commit Discipline section.
+
+---
+
+## 2026-02-25 [process]: /spec-review made optional in Sequential Flow
+
+**Context:** /spec-review was sitting in CLAUDE.md Sequential Flow as mandatory ("ALWAYS") but this was inconsistent — it adds overhead for simple features and was contradicted by the optional `*` notation used for /decompose.
+
+**Decision:** /spec-review is optional (`*`), same as /decompose. Use when spec evolved significantly since architect review, or as a pre-dev sanity check. Updated in CLAUDE.md, generate-tests/SKILL.md, and docs/development-process.md.
+
+**Alternatives rejected:** Keep mandatory — adds gate overhead for every feature regardless of complexity.
+
+**Consequences:** Agents no longer run /spec-review by default. It's a judgment call for the developer/agent based on spec complexity.
+
+---
+
 ## 2026-02-25 [product]: Mirror agent persona deferred — validate core loop first
 
 **Context:** P425 spec included a post-save naming prompt ("Want to give your mirror a name?") to introduce the "mirror agent" concept. Spec review surfaced it as unvalidated: no storage, no service call, and the concept itself (AI as a named personal mirror) hadn't been tested with users.
