@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { MailIcon, RefreshCwIcon, CheckCircle2Icon } from "lucide-react";
+import { MailIcon, RefreshCwIcon, CheckCircle2Icon, ArrowLeft } from "lucide-react";
 import { signInWithEmail } from "@/app/data/api";
 
 export function PledgeConfirmationPage() {
@@ -58,7 +58,17 @@ export function PledgeConfirmationPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16 max-w-2xl text-center">
+    <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-8 -ml-1 min-h-[44px] px-1"
+        aria-label="Go back"
+      >
+        <ArrowLeft size={16} />
+        Back
+      </button>
+
+      <div className="text-center">
       <div className="mb-8 flex justify-center">
         <div className="h-24 w-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
           <MailIcon className="h-12 w-12 text-green-600 dark:text-green-400" />
@@ -112,6 +122,7 @@ export function PledgeConfirmationPage() {
       >
         Use different email
       </button>
+      </div>
     </div>
   );
 }

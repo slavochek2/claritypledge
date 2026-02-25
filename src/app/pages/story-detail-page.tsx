@@ -229,7 +229,7 @@ function AddPointForm({
           onChange={handleChange}
           placeholder="State your point..."
           disabled={isAdding || !!orphanPoint}
-          className="min-h-[80px] resize-y border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+          className="min-h-[100px] resize-y border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit) {
               handleAdd();
@@ -241,65 +241,62 @@ function AddPointForm({
             Please retry linking "{orphanPoint.statement}" or cancel before adding new points.
           </p>
         )}
-        <div className="flex items-center justify-between">
+        {statement.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {statement.length >= POINT_CHAR_SOFT
+              ? <>Under 140 is punchiest · {statement.length}/{POINT_CHAR_MAX}</>
+              : `${statement.length}/${POINT_CHAR_MAX}`}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
           <PositionButtons
             userPosition={selectedPosition}
             counts={EMPTY_COUNTS}
             onPositionClick={(pos) => setSelectedPosition(prev => prev === pos ? null : pos)}
             compact
           />
-          <span className="text-xs text-muted-foreground">
-            {statement.length >= POINT_CHAR_SOFT
-              ? <span>Under 140 is punchiest · {statement.length}/{POINT_CHAR_MAX}</span>
-              : statement.length > 0
-                ? `${statement.length}/${POINT_CHAR_MAX}`
-                : null}
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <span />
-        <div className="flex items-center gap-2">
-          {showCancel && onCancel && (
-            <Button type="button" variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    type="button"
-                    onClick={handleAdd}
-                    disabled={!canSubmit || !!orphanPoint}
-                    className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
-                  >
-                    {isAdding ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={16} />
-                        Add Point
-                      </>
-                    )}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {(!statement.trim() || !selectedPosition) && (
-                <TooltipContent side="top">
-                  {!statement.trim() && !selectedPosition
-                    ? 'Write a point and pick your position first'
-                    : !selectedPosition
-                      ? 'Pick your position first'
-                      : 'Write your point first'}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-2 ml-auto">
+            {showCancel && onCancel && (
+              <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      type="button"
+                      onClick={handleAdd}
+                      disabled={!canSubmit || !!orphanPoint}
+                      className="bg-blue-500 hover:bg-blue-600 text-white min-h-[44px]"
+                    >
+                      {isAdding ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={16} />
+                          Add Point
+                        </>
+                      )}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {(!statement.trim() || !selectedPosition) && (
+                  <TooltipContent side="top">
+                    {!statement.trim() && !selectedPosition
+                      ? 'Write a point and pick your position first'
+                      : !selectedPosition
+                        ? 'Pick your position first'
+                        : 'Write your point first'}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
     </div>
@@ -326,9 +323,9 @@ const VISIBILITY_OPTIONS: {
   label: string;
   tooltip: string;
 }[] = [
-  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
-  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
   { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this.' },
+  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
+  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
 ];
 
 function VisibilitySelector({

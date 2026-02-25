@@ -9,7 +9,7 @@ import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { toast } from 'sonner';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
-import { Loader2Icon, GlobeIcon, LockIcon, UsersIcon } from 'lucide-react';
+import { Loader2Icon, GlobeIcon, LockIcon, UsersIcon, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { analytics } from '@/lib/mixpanel';
@@ -28,9 +28,9 @@ const VISIBILITY_OPTIONS: {
   label: string;
   tooltip: string;
 }[] = [
-  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
-  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
   { value: 'public', icon: GlobeIcon, label: 'Public', tooltip: 'Anyone can view this.' },
+  { value: 'shared', icon: UsersIcon, label: 'Shared', tooltip: 'Visible to anyone who has registered for an event you\'ve also registered for or hosted — including future registrants.' },
+  { value: 'private', icon: LockIcon, label: 'Private', tooltip: 'Only people you explicitly share with can view this.' },
 ];
 
 export function CreateStoryPage() {
@@ -40,7 +40,7 @@ export function CreateStoryPage() {
 
   // Form state
   const [content, setContent] = useState('');
-  const [visibility, setVisibility] = useState<StoryVisibility>('private');
+  const [visibility, setVisibility] = useState<StoryVisibility>('public');
 
   // UI state
   const [isSaving, setIsSaving] = useState(false);
@@ -150,6 +150,16 @@ export function CreateStoryPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
+      <Button
+        variant="ghost"
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
+        aria-label="Go back"
+      >
+        <ArrowLeft size={16} />
+        Back
+      </Button>
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Create a Story</h1>

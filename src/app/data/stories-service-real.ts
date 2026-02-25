@@ -132,7 +132,7 @@ export const realStoriesService: StoriesService = {
     _authorId: string,
     content: string,
     tags: string[] = [],
-    visibility: StoryVisibility = 'private'
+    visibility: StoryVisibility = 'public'
   ): Promise<Story | null> {
     // Use authenticated user, not caller-supplied authorId (RLS requires auth.uid() match)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
