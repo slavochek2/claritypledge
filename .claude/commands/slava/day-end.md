@@ -12,6 +12,8 @@ saves learnings to memory, and leaves you excited and clear about tomorrow.
 - **KDD**: KDD is distributed — check `docs/decisions.md`, `docs/technical/` files, and `features/done/INDEX.md`. Also scan git log for `docs(kdd):` prefix commits today.
 - **Memory**: Read `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md`
 - **Features done today**: `git log --oneline --since="6am today"` — look for `feat:`, `fix:`, `docs:`, `tests:` prefixes
+- **New signups today**: Supabase MCP, prod project `besjtuodziykmjidubzw`: `SELECT count(*) FROM profiles WHERE created_at > now() - interval '24 hours'`
+- **Sentry today**: Sentry MCP (`mcp__sentry__search_issues`), org `22minds-llc`, project `javascript-react` — unresolved issues first seen in last 24h. Count only.
 
 ### 2. Synthesize (internal, don't show raw data)
 
@@ -42,6 +44,10 @@ SHIPPED
 
 BUSINESS
 • [how you moved toward the pilot / first paid session / milestone gate — one line each]
+
+METRICS  (skip if no signups and no sentry issues)
+• [N new signups today — or omit if 0 and nothing interesting]
+• [N new Sentry issues today — or omit if clean]
 
 INSIGHT  (skip if nothing real)
 • [one thing learned about users, product, or yourself as founder]

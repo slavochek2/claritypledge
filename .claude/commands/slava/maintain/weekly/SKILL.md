@@ -98,18 +98,42 @@ Flag if >300 lines. Flag stale docs with archive-or-update call.
 
 ### 2. Sentry Health
 
-```
-Org: 22minds-llc | Region: https://de.sentry.io | Project: javascript-react
-Query: unresolved errors from last 7 days
-```
+Use Sentry MCP (`mcp__sentry__search_issues`):
+- Org: `22minds-llc`, Project: `javascript-react`
+- Query: unresolved issues first seen since `$SINCE`
 
 >10 events = investigate now. 5–10 = flag. <5 = note only.
 
 ---
 
+### 2.1 Product Metrics (Supabase MCP, prod project `besjtuodziykmjidubzw`, run in parallel with step 2)
+
+```sql
+-- New signups this period (substitute $DAYS from step 0)
+SELECT count(*) FROM profiles WHERE created_at > now() - interval '$DAYS days';
+
+-- Total pledgers (all-time, sanity check)
+SELECT count(*) FROM profiles WHERE has_pledged = true;
+
+-- Live sessions completed this period (meaningful engagement)
+SELECT count(DISTINCT session_code) FROM live_sessions
+WHERE created_at > now() - interval '$DAYS days';
+```
+
+Surface in the output header as:
+```
+METRICS:  Signups: N this week (total pledgers: M) | Live sessions: N
+```
+
+If live_sessions table doesn't exist yet, omit that line silently.
+
+---
+
 ### 2.5 Process Friction Review
 
-Read `docs/process-learnings.md`. Scan for entries with `Status: proposed`.
+Read `docs/process-learnings.md`. If the file does not exist, output `PROCESS DEBT: no tracking file yet` and skip this step.
+
+Scan for entries with `Status: proposed`.
 
 For each unresolved entry:
 - If it's been proposed for 2+ weeks without action → flag it: "This fix has been sitting since [date]. Still worth doing?"
@@ -191,7 +215,7 @@ If no gaps found: `SKILL GAPS: none detected`
 git log --since="$SINCE" --oneline --no-merges
 
 # Features shipped
-git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- 'features/done/*.md'
+git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- 'features/done/'
 
 # Features created (new specs)
 git log --since="$SINCE" --diff-filter=A --name-only --pretty="" -- "features/p*.md" | grep "\.md$"
@@ -349,6 +373,9 @@ EOF
 
 ### Sentry
 ✅/⚠️ [summary]
+
+### Metrics
+Signups: N this week (total pledgers: M) | Live sessions: N
 
 ### This Week
 **Shipped:** [N] — [titles]

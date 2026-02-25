@@ -1,8 +1,45 @@
 # Day Start (/day-start)
 
-Interactive daily check-in. Shows what's next, asks what's done, updates the milestone.
+Interactive daily check-in. Checks prod health, shows what's next, asks what's done, updates the milestone.
 
 ## Steps
+
+### 0. Health Check (run all three in parallel, show before milestone)
+
+**a) Prod smoke test**
+```bash
+node scripts/prod-smoke-test.mjs
+```
+Show: `✓ Prod smoke: all pass` or `✗ Prod smoke: N failed — [first failure]`
+
+**b) Sentry: new issues last 24h**
+Use Sentry MCP (`mcp__sentry__search_issues`):
+- Org: `22minds-llc`, Project: `javascript-react`
+- Query: unresolved issues first seen in the last 24h
+
+Show: `✓ Sentry: clean` or `⚠ Sentry: N new issues — [top title]`
+
+**c) New signups today**
+Use Supabase MCP to query prod (`besjtuodziykmjidubzw`):
+```sql
+SELECT count(*) FROM profiles WHERE created_at > now() - interval '24 hours'
+```
+
+Show: `✓ Signups: N today` (0 is fine — just state it)
+
+Output the health block:
+```
+HEALTH
+  [✓/✗] Prod smoke
+  [✓/⚠] Sentry
+  [✓/—] Signups: N today
+```
+
+If smoke test fails, flag it prominently before continuing. Do not skip the milestone section.
+
+---
+
+### 1. Milestone
 
 1. Read `docs/milestones/c1-stories-live-events.md`
 2. Parse the `## Pilot Sequence` section — identify steps marked `[ ]` (not done) vs `[x]` (done)
