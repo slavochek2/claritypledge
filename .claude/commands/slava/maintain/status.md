@@ -1,69 +1,48 @@
 ---
 name: status
-description: Session status — what we did, what we achieved, what's outstanding, what's next. Run after context compaction or any "where are we?" question.
-when_to_use: After context compaction, mid-session check-in, or any "what now / what did we do / what's outstanding" message.
+description: Session snapshot — what happened in THIS conversation. Problems, open questions, next step. Read-only, no actions taken.
+when_to_use: After context compaction. Mid-session "where are we?". Before /kdd to confirm what to capture.
 ---
 
 # /status
 
-Session snapshot — not git history.
+This conversation only. No git commands, no scanning features/, no project-wide view.
 
-> **Principle:** What happened in THIS conversation. Not repo state, not recent commits — what we just did together.
+> **Scope:** What happened since this chat opened. Not git history, not the backlog, not other sessions.
 
-## Usage
-
-```bash
-/status    # Session snapshot
-```
-
----
-
-## Output
-
-**From conversation context only — no git commands needed.**
-
-**Format (≤20 lines, no preamble):**
+## Output format (≤15 lines, no preamble)
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Session Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Done this session:
-  ✓ P424: visibility model — full PRD + arch + security (shipped)
-  ✓ P425: AI story core loop — PRD + UX complete
-  ✓ P427: story edit/delete — quick spec filed
-  ✓ Lean agent: added Step 0 (groundwork before advising)
-  ✓ KDD: 2 decisions captured, definitions updated
+Done:
+  ✓ Added ESLint auto-fix hook + wired into settings.json
+  ✓ Two CLAUDE.md rules (prod-first debug, browser verify)
+  ✓ /ship skill created
 
-Outstanding:
-  → P425: spec ✓ — needs /architect
-  → P419: needs /ux (waiting on P425 /architect)
-  → Commit: review p422 diff (777 additions from parallel session)
+Problems / blockers:
+  ⚠ [anything that failed or is stuck in this session]
+
+Open questions:
+  ? [unresolved decisions or deferred threads from this chat]
 
 Next:
-  → /architect features/p425_ai_story_core_loop.md
+  → [one concrete thing — the most important action right now]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-Rules:
-- **Done:** What was completed or advanced in this session (specs created, decisions made, files updated, features shipped)
-- **Outstanding:** Show WHERE each item sits in the delivery flow (`/create-prd → /ux → /architect → /generate-tests → /dev`). Format: `P{N}: {last completed step} ✓ — needs /{next step}`. Also flag: bugs waiting on external signal (Sentry, user retest), uncommitted changes, blocked work.
-- **Next:** ONE concrete command — the most important thing to do now
-- If nothing was done yet: "Session just started — no work done yet"
-- If nothing outstanding: "All session goals complete"
+## Rules
 
----
-
-## When to Use
-
-- After context compaction (agent loses memory of what was happening)
-- Mid-session: "where are we?" or "what have we done?"
-- End of session: before /kdd, to confirm what to capture
-- Any "what now / what's next / what did we accomplish" message
-
----
+- **Done:** Only things completed or meaningfully advanced in this conversation
+- **Problems:** Errors, failures, or blockers encountered in this session — surface even if you worked around them
+- **Open questions:** Decisions deferred, unresolved trade-offs, "we should..." threads that didn't close
+- **Next:** ONE command or action. If session is complete and nothing outstanding: "→ /kdd if anything worth capturing, otherwise done"
+- If nothing done yet: `Done: session just started`
+- If no problems: omit the Problems section entirely
+- If no open questions: omit that section
+- **Never** scan features/, git log, or external state — answer from conversation memory only
 
 ## Related
 
-- `/kdd` — Capture learnings and close out the session
-- `/pick-flow` — Decide which flow to use for a given feature
+- `/kdd` — Capture learnings after a feature worth remembering

@@ -14,6 +14,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Agent auto-commit policy + /status as universal reorient
+
+**Context:** Sessions accumulated multiple finishing skills (/wrap, /ship, /status) with overlapping responsibilities, causing confusion about which to use when. Simultaneously, the insights report showed 28% of friction was git commit hygiene — lint errors and pre-commit failures at wrap time.
+
+**Decision:** (1) Agents commit autonomously when a logical unit of work is complete and tests pass. Pushing always requires explicit user approval. (2) /wrap and /ship archived — redundant once agents commit during work rather than accumulating changes for a manual end-of-session commit. (3) /status is the single "reorient me" command for any moment (mid-session, end-of-session, after compaction). It outputs: Done / Problems / Open questions / Next — conversation memory only, no git scanning. (4) Pre-commit ESLint auto-fix added to pre-commit-checks.sh — fixes staged files before lint check, re-stages them, so fixable errors never block commits.
+
+**Alternatives rejected:** Keeping /wrap as "commit + open questions ritual" — redundant with auto-commit. Per-edit ESLint hook (PostToolUse) — adds latency to every file write; pre-commit fix is sufficient since lint only matters at commit time.
+
+**Consequences:** No manual closing ritual required. /status replaces /wrap for any "where are we?" need. Skills that auto-trigger (fix-kanban, kanban refresh) are internal — users never call them directly. /cleanup and /fix-kanban remain for explicit maintenance.
+
+**References:** [status.md](../.claude/commands/slava/maintain/status.md), [pre-commit-checks.sh](../scripts/pre-commit-checks.sh), [CLAUDE.md](../CLAUDE.md#commit-discipline)
+
+---
+
+## 2026-02-25 [process]: Prod-first debugging + mandatory browser verify for UI fixes
+
+**Context:** Insights analysis identified 45% of friction was "wrong approach" — Claude spending time on static code analysis when a direct prod query would surface the answer in 60 seconds. Separately, fixes were being declared done based on tests passing without browser confirmation, leading to incomplete fixes being discovered later.
+
+**Decision:** (1) For runtime/data/behavior issues: first action is a live prod query (Supabase MCP, Sentry MCP, or curl). Static code reading only after real data is in hand. Exception: build/compile/type errors where no runtime data exists. (2) Browser verification is mandatory for any UI change — navigate to affected route, screenshot, confirm. "Tests pass" is necessary but not sufficient. Chrome DevTools MCP for headless, Claude in Chrome for authenticated pages.
+
+**Alternatives rejected:** Static-first analysis — proven to waste time discovering missing DB columns after reading 10 files. Opt-in browser verify ("run /verify? y/n") — the opt-in pattern was consistently skipped, producing false "done" declarations.
+
+**Consequences:** Debugging protocol documented in debugging.md. fix.md updated: browser check is automatic step in Phase 4, not optional. Any agent declaring a UI bug fixed without a screenshot is violating the protocol.
+
+**References:** [debugging.md](../docs/technical/debugging.md), [fix.md](../.claude/commands/slava/build/fix.md), [CLAUDE.md](../CLAUDE.md#debugging)
+
+---
+
 ## 2026-02-25 [process]: Three-layer CLAUDE.md edit protection
 
 **Context:** Agents were bypassing the /claude-md validation gate and editing CLAUDE.md directly, causing rule contradictions and knowledge scatter (e.g. /spec-review mandatory in one file, optional in another after a single session).

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "postinstall": "bash scripts/install-hooks.sh",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
