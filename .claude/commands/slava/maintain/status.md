@@ -36,8 +36,8 @@ Done this session:
   ✓ KDD: 2 decisions captured, definitions updated
 
 Outstanding:
-  → P425: needs /architect (blocked_by P424 ✓ shipped)
-  → P419: needs /ux after P425 architect
+  → P425: spec ✓ — needs /architect
+  → P419: needs /ux (waiting on P425 /architect)
   → Commit: review p422 diff (777 additions from parallel session)
 
 Next:
@@ -47,11 +47,10 @@ Next:
 
 Rules:
 - **Done:** What was completed or advanced in this session (specs created, decisions made, files updated, features shipped)
-- **Outstanding:** What was started but not finished, or what was identified as the next required step
+- **Outstanding:** Show WHERE each item sits in the delivery flow (`/create-prd → /ux → /architect → /generate-tests → /dev`). Format: `P{N}: {last completed step} ✓ — needs /{next step}`. Also flag: bugs waiting on external signal (Sentry, user retest), uncommitted changes, blocked work.
 - **Next:** ONE concrete command — the most important thing to do now
 - If nothing was done yet: "Session just started — no work done yet"
 - If nothing outstanding: "All session goals complete"
-- Uncommitted changes worth flagging: mention briefly in Outstanding
 
 ---
 
