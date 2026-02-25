@@ -7,7 +7,7 @@
     "postinstall": "bash scripts/install-hooks.sh",
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 999",
     "preview": "vite preview",
     "test": "vitest",
     "test:e2e": "playwright test",
