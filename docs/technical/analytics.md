@@ -719,6 +719,7 @@ The `analytics.reset()` call on sign out clears the user identity so subsequent 
 **Consequence:** Any Mixpanel UI action (creating boards, adding cards, configuring reports) must be done manually by the user. Agents can navigate to Mixpanel pages and take screenshots, but cannot interact with UI elements.
 
 **What agents CAN do:** Navigate to board URLs, take screenshots to verify current state, read page text via JavaScript `document.body.innerText` (text is accessible even in Shadow DOM via `innerText`).
+- **Adding reports**: click the gray empty card slot in the board — triggers existing-report picker. Shadow DOM blocks `querySelectorAll` but coordinate clicks work fine.
 
 **Retention board is manual-only.** The Retention board (id: 10989955) requires manual card setup in Mixpanel UI. A "duplicate board card" fix in a previous session inadvertently lost the Monthly Retention card — it must be re-added manually. Do not attempt to recreate via automation.
 
