@@ -4,7 +4,7 @@ Interactive daily check-in. Checks prod health, shows what's next, asks what's d
 
 ## Steps
 
-### 0. Health Check (run all three in parallel, show before milestone)
+### 0. Health Check (run all four in parallel, show before milestone)
 
 **a) Prod smoke test**
 ```bash
@@ -27,15 +27,45 @@ SELECT count(*) FROM profiles WHERE created_at > now() - interval '24 hours'
 
 Show: `✓ Signups: N today` (0 is fine — just state it)
 
+**d) Cloud systems (silent on green — only output if something is wrong)**
+```bash
+# GCP VMs
+gcloud compute instances list \
+  --project=gen-lang-client-0869694595 \
+  --account=slava@inguro.com \
+  --format="value(name,status)" 2>/dev/null
+
+# Ghost blog
+curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
+
+# DB backup freshness
+LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ --account=slava@inguro.com 2>/dev/null | sort | tail -1)
+DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
+if [ -n "$DATE" ]; then
+  DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null)
+  if [ -n "$DATE_EPOCH" ]; then
+    DAYS_OLD=$(( ( $(date +%s) - DATE_EPOCH ) / 86400 ))
+    echo "backup_age_days=$DAYS_OLD"
+  fi
+fi
+```
+
+Flag only if broken:
+- Any VM not `RUNNING` → `⚠ GCP: [name] is [STATUS]`
+- Ghost non-200 → `⚠ Ghost blog: down ([code])`
+- Backup >2 days old → `⚠ DB backup: [N]d old`
+- gcloud unavailable → `⚠ GCP: auth unavailable (skip)`
+
 Output the health block:
 ```
 HEALTH
   [✓/✗] Prod smoke
   [✓/⚠] Sentry
-  [✓/—] Signups: N today
+  [✓] Signups: N today
+  [nothing if cloud ok / ⚠ line per issue if not]
 ```
 
-If smoke test fails, flag it prominently before continuing. Do not skip the milestone section.
+If any check fails, flag it prominently before continuing. Do not skip the milestone section.
 
 ---
 

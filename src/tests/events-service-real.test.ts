@@ -14,6 +14,11 @@ const mockFrom = vi.fn(() => ({
   delete: mockDelete,
 }));
 
+vi.mock('@/app/prototypes/events/banner-utils', () => ({
+  extractBannerKeywords: vi.fn().mockReturnValue(null),
+  fetchUnsplashBanner: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockFrom(table),
