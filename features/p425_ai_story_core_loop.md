@@ -209,7 +209,7 @@ Points and stories use the same components everywhere — in `/chat`, on profile
 
 **Non-negotiable rules:**
 - No labels, no "Story Guide" header, no menus on `/chat`
-- Story draft = versioned card in the thread (`Draft v1`, `Draft v2`...), NOT a message bubble. Use the existing story card component — add `Draft` as a fourth visibility state (alongside Private / Shared / Public). No new card component.
+- Story draft = versioned card in the thread (`Draft v1`, `Draft v2`...), NOT a message bubble. Rendered by `DraftCard.tsx` (a new lightweight component — see Technical Architecture). `Draft` is a UI-only state; it is NOT a value in the `StoryVisibility` type and is NOT saved to the DB visibility column.
 - Rating prompt = user types in the standard input field (number or free text). NO interactive rating pill buttons.
 - AI formats options (A/B/C) as plain text in its message. User replies by typing in the input field.
 - `/chat` shows NO story list — stories appear only as output when filed. Profile = canonical story list.
@@ -224,8 +224,7 @@ Points and stories use the same components everywhere — in `/chat`, on profile
 
 **Mirror agent (AI identity):**
 - The AI is the user's personal mirror agent — not a named product persona. It reflects the user's meaning back to them.
-- Mirror agent name: deferred to after the first story is filed. After save, prompt: *"Your mirror helped you articulate that. Want to give it a name?"* Name is stored in private user settings, not on public profile. Not visible to other users.
-- V1: if user skips naming, the AI has no name — it just speaks. No placeholder name shown.
+- V1: no naming prompt, no mirror name. The AI has no name — it just speaks. Mirror naming is deferred to a future feature once the core loop is validated.
 
 **Navigation:**
 - `/chat` is NOT added to the bottom nav or desktop nav in V1. Entry is exclusively via the "Tell your story →" CTA on point pages. Revisit when `/chat` has enough gravity post-P420.
@@ -233,7 +232,7 @@ Points and stories use the same components everywhere — in `/chat`, on profile
 
 **Post-publish state:**
 - On story save: Sonner toast (`Story saved.`) + draft card transitions to saved story card in-place.
-- Naming prompt appears below if this is the user's first ever filed story: *"Your mirror helped you articulate that. Want to give it a name?"* with `[Name your mirror]` and `[Skip]` inline text actions.
+- NO naming prompt in V1 (deferred — see Mirror agent section above).
 - NO "Start /live" CTA on the post-publish card — that belongs to P428 only.
 - Input resets to neutral placeholder. Loop is complete. User can start a new session.
 
@@ -244,7 +243,7 @@ Reuse layout shell from `clarity-chat-page.tsx`. Strip bilateral session logic. 
 *Page structure:*
 - Standard app nav stays (do NOT render the internal `"You & PartnerName"` header from the existing page).
 - `max-w-2xl mx-auto` centered column, `h-[calc(100vh-4rem)]`, `flex flex-col`.
-- Context chip: `sticky top-0 z-10 bg-background border-b border-border px-4 py-3`. Present only when `?from=position` param exists.
+- Context chip: `sticky top-16 z-10 bg-background border-b border-border px-4 py-3`. Present only when `?from=position` param exists. (`top-16` = 4rem = nav height — ensures chip sticks below the nav bar, not behind it.)
 - Thread area: `flex-1 overflow-y-auto px-4 py-6 space-y-4`.
 - Input bar: `sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe`.
 
@@ -279,6 +278,7 @@ Reuse layout shell from `clarity-chat-page.tsx`. Strip bilateral session logic. 
 *Resume banner (return visit with in-progress draft):*
 - `bg-muted border border-border rounded-lg px-4 py-3 flex items-center justify-between text-sm` (gray — NOT blue, NOT amber; non-interactive info banner).
 - `"You have a story in progress."` + `[Resume]` (blue link) + `[Discard]` (ghost/muted).
+- Note: Screen 6 wireframe shows amber styling — that is superseded by this definition. Use gray (`bg-muted`) only.
 
 *Responsive:*
 - Desktop (`lg:`): `max-w-2xl` centered with generous padding. Input bar max-width matches thread.
@@ -665,7 +665,7 @@ Visibility selector on mobile (save step): three buttons as `flex flex-wrap gap-
 └─────────────────────────────────────────────────────┘
 ```
 
-Resume banner: `bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 rounded-lg px-4 py-3 flex items-center justify-between text-sm`.
+Resume banner: `bg-muted border border-border rounded-lg px-4 py-3 flex items-center justify-between text-sm` (gray — matches the authoritative definition in Design Direction above).
 
 ---
 
@@ -906,7 +906,6 @@ Draft card version label uses `text-blue-700 dark:text-blue-300` to maintain con
 
 - Thread and input bar: same `max-w-2xl mx-auto` constraint.
 - No two-column layout (chat + point side-by-side) in V1.
-- `/live` back link (`← Story Guide`): positioned below the existing page nav, `text-sm text-blue-600 flex items-center gap-1` with `ArrowLeft` icon (16px). Only appears when navigated from `/chat`.
 - Context chip on desktop: slightly smaller font (`text-xs`) since screen real estate is generous — point text less likely to truncate.
 
 ---
@@ -1017,7 +1016,9 @@ No `ANTHROPIC_API_KEY`, `VITE_ANTHROPIC_API_KEY`, or any `@anthropic-ai/sdk` usa
 `storiesService.createStory(authorId, content, tags, visibility)` exists in `src/app/data/stories-service-real.ts`. Inserts to `stories` table, returns `Story | null`. Auth is RLS-based (uses `supabase.auth.getUser()` internally — caller-supplied `authorId` is ignored for security). `storiesService.linkPointToStory(storyId, pointId)` exists via `story_points` join table. Both operations are available and production-ready.
 
 **Visibility model — fully ready.**
-Migration `20260224120000_p424_visibility_model.sql` ships three-branch RLS (`public`, `shared`, `private`). DB default is `private`. `StoryVisibility = 'public' | 'shared' | 'private'` is defined in `src/app/types`. `VISIBILITY_OPTIONS` with icons, labels, and tooltips is defined in `src/app/pages/create-story-page.tsx` — importable directly.
+Migration `20260224120000_p424_visibility_model.sql` ships three-branch RLS (`public`, `shared`, `private`). Migration `20260225000000_story_default_public.sql` changed the DB column default to `public`. `StoryVisibility = 'public' | 'shared' | 'private'` is defined in `src/app/types`. `VISIBILITY_OPTIONS` with icons, labels, and tooltips is defined in `src/app/pages/create-story-page.tsx` — importable directly.
+
+**IMPORTANT:** The DB column defaults to `public`, but the spec requires `Private` as the UI default. `StoryGuideChat` must initialize `selectedVisibility` state to `'private'` explicitly — do NOT rely on the DB default. The `selectedVisibility` component state value is what gets passed to `createStory`, overriding the DB default.
 
 **`LiveStoryCardExpanded` — evaluate but do not reuse as-is.**
 `src/app/components/partners/live-story-card-expanded.tsx` shows story content, author row, visibility badge, show more/less (threshold 180 chars), and an expanded points section with position voting buttons. The spec for `SavedStoryChatCard` wants the same story header and show-more pattern but adds `[✏ Edit]` (V1 stub) and `[···]` CTAs, does NOT need position voting, and does NOT include `[▷ Start /live]` (deferred to P428). Build `SavedStoryChatCard` as a thin new component that copies the author-row and show-more patterns from `LiveStoryCardExpanded` (approx. 60 lines) — do not import `LiveStoryCardExpanded` directly, as its points/voting section is not suppressible without prop drilling.
@@ -1132,7 +1133,7 @@ src/app/pages/story-guide-chat-page.tsx        (~80 lines)
        └─ VisibilityAndSave.tsx                  (~80 lines)
 ```
 
-**`story-guide-chat-page.tsx`** — thin page shell. Auth gate (`useAuth` + redirect to `/signup`). Reads URL params (`useSearchParams`). Renders the app layout + `<StoryGuideChat />`. Approx. 80 lines.
+**`story-guide-chat-page.tsx`** — thin page shell. Auth gate (`useAuth` + redirect to `/signup`). Reads URL params (`useSearchParams`): extracts `pointId` and `from`. When `pointId` is present, fetches the point data via `pointsService.getPointById(pointId)` (or equivalent) before rendering `StoryGuideChat` — `pointText` and `userPosition` are passed as props to the component. Loading state: render a skeleton or spinner in the thread area while the point fetch is in-flight. Error state: if `pointId` is present but the fetch returns null/404, render `StoryGuideChat` without `pointText`/`userPosition` props (same as Flow B — no context chip). Do not block the page on a failed point fetch. Approx. 80 lines.
 
 **`StoryGuideChat.tsx`** — the stateful core. Owns `phase`, `messages`, `drafts`, `iterationCount`, `streamingContent`, `selectedVisibility`. Contains `handleSend`, `handleRating`, `handleSave`, `handleEscapeHatch`. (No `handleStartLive` — deferred to P428.) Renders the thread map + input bar. Does NOT assume it is a page — renders a `div`. Approx. 280 lines.
 
@@ -1201,7 +1202,7 @@ interface StoryGuideChatProps {
 - **P428** receives confirmation that the story is persisted and can close the overlay, returning the user to `/live` with the story ready.
 - The parent does not need to handle the save — `StoryGuideChat` owns save entirely. `onStoryConfirmed` is notification-only.
 
-**On the `/chat` page** (`story-guide-chat-page.tsx`), the default implementation of `onStoryConfirmed` shows the Sonner toast and shows the naming prompt if it is the user's first story. No navigation away — the loop is complete but the page stays.
+**On the `/chat` page** (`story-guide-chat-page.tsx`), the default implementation of `onStoryConfirmed` shows the Sonner toast. No navigation away — the loop is complete but the page stays. No naming prompt in V1.
 
 **Rationale:** The spec states: "`onStoryConfirmed(storyDraft)` callback must be hookable so P419 can trigger point extraction after the loop completes, without modifying `StoryGuideChat` internals." Firing after save (not before) eliminates a class of race conditions where P419 tries to link points to a story that hasn't been committed yet.
 
@@ -1233,14 +1234,25 @@ interface StoryGuideChatProps {
 - ✅ Story content in DraftCard and SavedStoryChatCard must use React text nodes only — no raw HTML injection. XSS is High severity if story content renders as HTML.
 
 **Data Protection:**
-- ⚠️ Brain dump and story content (personal experiences, beliefs) are transmitted to Anthropic's API. Surface a one-time disclosure before first Claude call: "Your input will be processed by Claude AI to help structure your story." Confirm existing ToS covers AI processing.
+- ⚠️ Brain dump and story content (personal experiences, beliefs) are transmitted to Anthropic's API. Surface a one-time disclosure before first Claude call:
+  - **Copy:** `"This story is drafted with Claude AI (Anthropic). Your text is sent to their API."`
+  - **Placement:** Inline notice rendered in the thread area above the input bar, below any existing messages. Not a modal.
+  - **Trigger:** First ever use — controlled by `localStorage` key `ai_disclosure_acked`. If the key is absent or `false`, show the disclosure. If `true`, skip it.
+  - **Persistence:** `localStorage.setItem('ai_disclosure_acked', 'true')` — survives page reloads and new sessions. Does not reset per session.
+  - **Gate:** The Send button is disabled until the user acknowledges. Show an `[Acknowledge]` button alongside the notice. On click: set localStorage, hide notice, enable Send, and proceed with the first API call.
+  - **Confirm existing ToS covers AI processing before launch.**
 - ✅ Default visibility is `Private` — correct for sensitive first-party narratives.
 - ⚠️ `story_versions` has no visibility filter — full draft history readable with `story_id`. Consider private story versions inheriting story RLS (deferred, low-urgency).
 
 **Edge Function Security (`story-guide-chat`):**
 - ✅ `ANTHROPIC_API_KEY` must be a Supabase edge function secret — never a `VITE_*` var, never `.env.local`.
 - ✅ Validate JWT on every request: `supabase.auth.getUser(token)` → `401` if invalid. Do not copy the `send-event-emails` header-presence-only pattern.
-- ⚠️ **Implement per-user rate limiting.** Without it, a single user can make unlimited Claude API calls — direct cost amplification. Minimum: 30 calls/user/hour tracked in a Supabase table or Deno KV.
+- ⚠️ **Implement per-user rate limiting.** Without it, a single user can make unlimited Claude API calls — direct cost amplification. Implement two guards:
+  - **Burst:** max 10 calls per rolling 5 minutes (prevents rapid-fire abuse within a session)
+  - **Sustained:** max 30 calls per rolling 60 minutes (sliding window — not a fixed hourly reset, to avoid punishing users at the hour boundary)
+  - Track in a Supabase table: `ai_rate_limits(id uuid, user_id uuid, called_at timestamptz)`. On each call: count rows `WHERE user_id = $1 AND called_at > now() - interval '5 minutes'` (burst check) and `called_at > now() - interval '60 minutes'` (sustained check). Insert a row on every allowed call.
+  - On limit hit: return HTTP 429. User-facing message: `"You've been on a roll — take a short break and you can keep going in X minutes."` Do not use the word "rate limited."
+  - Add this to Build Step 9 in the implementation sequence.
 - ✅ CORS: restrict `Access-Control-Allow-Origin` to `https://claritypledge.com` — not `'*'` for a user-data endpoint.
 - ✅ Set explicit stream timeout (90s). Close SSE stream with error event on timeout.
 - ✅ Never log brain dump content to Sentry or edge function logs. Log only `userId`, `phase`, and error codes.

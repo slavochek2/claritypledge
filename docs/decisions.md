@@ -14,6 +14,38 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [product]: Mirror agent persona deferred — validate core loop first
+
+**Context:** P425 spec included a post-save naming prompt ("Want to give your mirror a name?") to introduce the "mirror agent" concept. Spec review surfaced it as unvalidated: no storage, no service call, and the concept itself (AI as a named personal mirror) hadn't been tested with users.
+
+**Decision:** Remove the mirror agent persona from V1 entirely. No naming prompt, no mirror name, no "mirror" framing surfaced to users. The AI just speaks. Mirror agent as a named, persistent entity is deferred until the core filing loop is validated.
+
+**Alternatives rejected:** Visual stub (render prompt, no persistence) — rejected because a stub that does nothing on click actively damages trust on first use; better to not show it at all.
+
+**Consequences:** Future features that want to introduce the mirror concept (naming, memory, persona) need a dedicated feature. P425 must not reference "your mirror" in any user-visible copy. The system prompt can use "mirror" internally to guide AI tone, but users never see the label.
+
+**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
+
+---
+
+## 2026-02-25 [technical]: AI rate limiting pattern — sliding dual guard, user-friendly messaging
+
+**Context:** P425 introduces the first Claude API edge function. Without rate limiting, a single user can make unlimited API calls — direct cost amplification. Fixed hourly windows are punishing (user hits limit at 11:59, resets at 12:00 but loses the previous window's allowance).
+
+**Decision:** Two-guard sliding window pattern for any AI-backed edge function:
+- **Burst guard:** max 10 calls per rolling 5 minutes (stops rapid-fire abuse)
+- **Sustained guard:** max 30 calls per rolling 60 minutes (sliding, not fixed-hour reset)
+- Track in `ai_rate_limits(user_id, called_at)` table. Query by time window on each call.
+- On limit hit: return 429 with message `"You've been on a roll — take a short break and you can keep going in X minutes."` Never use the word "rate limited."
+
+**Alternatives rejected:** Fixed hourly window — punishes legitimate users at the hour boundary; Deno KV — adds infrastructure not already in the stack; per-story limit — harder to implement and easier to game.
+
+**Consequences:** All future AI edge functions should follow this pattern. The `ai_rate_limits` table is shared — future functions add a `feature` column to scope limits independently. User-friendly messaging is the standard: no technical jargon in rate limit responses.
+
+**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
+
+---
+
 ## 2026-02-25 [process]: Prod test agent for agent-driven post-deploy verification
 
 **Context:** Stories were silently broken in production for months — no tests, no alerts, nothing caught it until a user noticed. Needed a way for the agent to verify prod DB/RLS without requiring slava's browser session.
