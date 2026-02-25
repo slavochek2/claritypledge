@@ -351,7 +351,6 @@ Visit the main page(s) affected by this feature. Take screenshots. Assess:
 **Layout:**
 - [ ] No elements overflowing their containers
 - [ ] Consistent spacing (not too tight, not too loose)
-- [ ] Responsive? (try 390px mobile width if applicable)
 
 **Typography:**
 - [ ] Text is readable (contrast, size)
@@ -372,9 +371,43 @@ Visit the main page(s) affected by this feature. Take screenshots. Assess:
 
 Skip this step if only functional accuracy matters (e.g., a backend bug fix).
 
+#### 6a. Mobile Sanity Shot (auto-triggered when UI files changed)
+
+Check whether any UI files were modified by this feature:
+```bash
+git diff main...HEAD --name-only 2>/dev/null | grep -E '\.(tsx|css|module\.css)$'
+```
+
+Edge case: if already on `main` or branch is merged, the above returns nothing. Fall back to:
+```bash
+git show --name-only --format="" HEAD | grep -E '\.(tsx|css|module\.css)$'
+```
+
+If any `.tsx`, `.css`, or `.module.css` files changed → **automatically** resize to 390px and take one screenshot of the main affected page.
+
+`mcp__claude-in-chrome__resize_window` is the correct tool (confirmed in claude-in-chrome MCP manifest):
+```
+mcp__claude-in-chrome__resize_window(width=390, height=844, tabId=...)
+```
+Take the screenshot, then restore:
+```
+mcp__claude-in-chrome__resize_window(width=1280, height=800, tabId=...)
+```
+
+Check specifically for mobile failure modes:
+- [ ] Dialog/drawer buttons not hidden behind bottom nav
+- [ ] Text not truncated or overflowing at narrow width
+- [ ] Touch targets large enough (≥44px)
+- [ ] No horizontal scroll introduced
+
+Report as part of the visual pass result. Mark ⚠️ for any mobile-specific issues found.
+
+If no UI files changed (pure backend/config/logic change) → skip 6a, mark ⏭️.
+
 Report the visual pass:
 ```
 Visual quality: ✅ Looks great / ⚠️ Minor issues / ❌ Needs work
+Mobile (390px): ✅ Clean / ⚠️ Issues / ⏭️ Skipped (no UI file changes)
 Issues: {list if any}
 ```
 
@@ -401,6 +434,7 @@ P{N} Verification Report
 
 Functional: {passed}/{total} scenarios passed
 Visual quality: {✅ / ⚠️ / ❌}
+Mobile (390px): {✅ Clean / ⚠️ Issues / ⏭️ Skipped}
 UAT scorecard: updated
 
 PASSED ✅
