@@ -437,9 +437,9 @@ Need RLS policy or validation that userId matches authenticated user.
 | `/ux` | UI features (after business approved) | UX design (flows, screens, edge cases) |
 | `/architect` | All features (after UX approved if UI) | Technical architecture + security |
 | `/generate-tests` | All features (after architecture approved) | UAT + E2E stubs + smoke tests |
-| `/spec-review` | All features (after tests generated) | Findings report: BLOCK / WARN / NOTE + READY or NEEDS FIXES verdict |
-| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps — run AFTER /spec-review | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
-| `/dev` | All features (after spec-review passes) | Implementation + tests passing; orchestrator mode if task manifest exists |
+| `/spec-review` | Optional — use when spec evolved since architect review, or for pre-dev sanity check | Findings report: BLOCK / WARN / NOTE + READY or NEEDS FIXES verdict |
+| `/decompose` | Complex features only: 5+ files OR 3+ concerns OR 6+ steps | Task manifest (`## Implementation Tasks` in spec) with test refs per task |
+| `/dev` | All features | Implementation + tests passing; orchestrator mode if task manifest exists |
 | `/quick-feature` | Quick skeleton (different use case) | Empty spec structure |
 | `/pick-flow` | Unsure which flow to use? | Proposes A/B/C options, recommends one |
 

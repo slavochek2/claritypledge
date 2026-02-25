@@ -379,7 +379,7 @@ The integration test MUST include a schema existence check using the **two-clien
 - `/architect` → Architecture approved ✅
 
 **After `/generate-tests`:**
-- `/spec-review` → Pre-dev audit (ALWAYS — catches gaps, consistency issues, blindspots before /dev)
+- `/spec-review` → Pre-dev audit (optional — useful when spec evolved since architect review, or for a sanity check before /dev)
 - `/decompose` → (complex features only) reads Test Coverage Strategy to annotate tasks with test refs
 - `/dev` → Reads tests, implements feature, fills in TODOs, runs tests, iterates until all pass
 
