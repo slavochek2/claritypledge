@@ -302,6 +302,31 @@ else
 fi
 echo ""
 
+# 13c. Duplicate spec check — detect features/p*.md that also exist in features/done/
+# Prevents the "Write instead of git mv" failure mode where closure copies but doesn't remove original.
+echo ">>> Checking for duplicate feature specs (original + done/ copy)..."
+DUPLICATE_SPECS=$(find features -maxdepth 1 -name 'p*.md' 2>/dev/null | while read -r orig; do
+    basename=$(basename "$orig")
+    pnum=$(echo "$basename" | grep -oE '^p[0-9]+')
+    if [ -n "$pnum" ] && find features/done -name "${pnum}_*.md" 2>/dev/null | grep -q .; then
+        echo "$orig"
+    fi
+done || true)
+
+if [ -n "$DUPLICATE_SPECS" ]; then
+    echo -e "${YELLOW}⚠ Duplicate spec(s) found — original still in features/ but also in features/done/:${NC}"
+    echo "$DUPLICATE_SPECS" | while read -r f; do
+        echo -e "${YELLOW}  → $f (auto-staging removal)${NC}"
+        git rm --cached "$f" 2>/dev/null || true
+        git rm "$f" 2>/dev/null || true
+    done
+    echo -e "${YELLOW}  → Staged removal. Re-run commit.${NC}"
+    WARNINGS=$((WARNINGS + 1))
+else
+    echo -e "${GREEN}✓ No duplicate specs${NC}"
+fi
+echo ""
+
 # 14. Root file pollution check (prevent agent-generated temp files)
 echo ">>> Checking for temporary files in project root..."
 ROOT_TEMP_FILES=$(ls -1 /*.md /*.json 2>/dev/null | grep -vE '(CLAUDE|GEMINI|README|CONTRIBUTING|SECURITY|CLA|components\.json|package\.json|package-lock\.json|tsconfig.*\.json|vercel\.json)' || true)
