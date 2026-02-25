@@ -403,8 +403,8 @@ export function ClarityLivePage() {
         console.error('[P28.1] Failed to start recording:', err);
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- name is immutable once view='live' (no UI to change it); we only want to trigger on session start
-  }, [view, session?.id, micStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- name is immutable once view='live'; startRecording/analytics are stable module refs
+  }, [view, session?.id, session?.isPrivate, session?.code, micStatus, isRecording]);
 
   // P28.2: Keep sessionForChunks and userForChunks in sync with updates
   // This is important when joiner joins after recording has started
@@ -2072,8 +2072,7 @@ export function ClarityLivePage() {
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
       // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestMicPermission]);
+  }, [requestMicPermission, user?.id]);
 
   // P40: Handle mic permission dialog cancel
   // B48: Cancel returns user to start view (they can't join without mic permission)

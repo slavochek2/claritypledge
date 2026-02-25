@@ -53,6 +53,8 @@ interface PointCardDetailProps {
   getPointPositionCounts: (point: Point) => SevenPointCounts;
   compact?: boolean;
   isDetailView?: boolean;
+  /** Suppress card navigation even when not in detail view (e.g. inside live session UI) */
+  disableNavigation?: boolean;
   /** Route generator - defaults to /story/:id and /point/:id */
   routes?: {
     story?: (id: string) => string;
@@ -75,6 +77,7 @@ export function PointCardDetail({
   getPointPositionCounts,
   compact = false,
   isDetailView = false,
+  disableNavigation = false,
   routes = {},
 }: PointCardDetailProps) {
   const navigate = useNavigate();
@@ -138,7 +141,7 @@ export function PointCardDetail({
     : null;
 
   const handleCardClick = () => {
-    if (!isDetailView) {
+    if (!isDetailView && !disableNavigation) {
       navigate(pointRoute(point.id));
     }
   };
@@ -157,19 +160,19 @@ export function PointCardDetail({
 
   return (
     <div
-      role={isDetailView ? undefined : 'button'}
-      tabIndex={isDetailView ? undefined : 0}
+      role={!isDetailView && !disableNavigation ? 'button' : undefined}
+      tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
       className={cardClassName}
-      onClick={isDetailView ? undefined : handleCardClick}
+      onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={
-        isDetailView
-          ? undefined
-          : e => {
+        !isDetailView && !disableNavigation
+          ? e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 handleCardClick();
               }
             }
+          : undefined
       }
     >
       {/* Main content */}

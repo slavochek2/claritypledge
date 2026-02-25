@@ -51,6 +51,8 @@ interface StoryCardDetailProps {
   onPositionClick?: (pointId: string, position: PositionType) => Promise<void>;
   compact?: boolean;
   isDetailView?: boolean;
+  /** Suppress card navigation even when not in detail view (e.g. inside live session UI) */
+  disableNavigation?: boolean;
   /** Display context - 'profile' hides QuotedPoints, 'point-detail' hides QuotedPoints */
   context?: StoryCardContext;
   /** Show "Verify" button in card footer */
@@ -82,6 +84,7 @@ export function StoryCardDetail({
   onPositionClick,
   compact = false,
   isDetailView = false,
+  disableNavigation = false,
   context,
   showVerifyButton = false,
   onVerify,
@@ -98,7 +101,7 @@ export function StoryCardDetail({
   const profileRoute = routes.profile || ((id: string) => `/p/${id}`);
 
   const handleCardClick = () => {
-    if (!isDetailView) {
+    if (!isDetailView && !disableNavigation) {
       navigate(storyRoute(story.id));
     }
   };
@@ -172,19 +175,19 @@ export function StoryCardDetail({
 
   return (
     <div
-      role={isDetailView ? undefined : 'button'}
-      tabIndex={isDetailView ? undefined : 0}
+      role={!isDetailView && !disableNavigation ? 'button' : undefined}
+      tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
       className={cardClassName}
-      onClick={isDetailView ? undefined : handleCardClick}
+      onClick={!isDetailView && !disableNavigation ? handleCardClick : undefined}
       onKeyDown={
-        isDetailView
-          ? undefined
-          : e => {
+        !isDetailView && !disableNavigation
+          ? e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 handleCardClick();
               }
             }
+          : undefined
       }
     >
       {/* Main content */}
@@ -232,14 +235,16 @@ export function StoryCardDetail({
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                {/* People who understood the story author */}
-                <MobileTooltip
-                  content={`${story.authorName.split(' ')[0]} confirmed ${story.understoodCount} ${story.understoodCount === 1 ? 'person' : 'people'} understood this story`}
-                >
-                  <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-muted-foreground">
-                    {story.understoodCount} understood
-                  </span>
-                </MobileTooltip>
+                {/* People who understood the story author — hide when zero */}
+                {story.understoodCount > 0 && (
+                  <MobileTooltip
+                    content={`${story.authorName.split(' ')[0]} confirmed ${story.understoodCount} ${story.understoodCount === 1 ? 'person' : 'people'} understood this story`}
+                  >
+                    <span className="px-2.5 py-1 bg-gray-100 rounded-full text-sm text-muted-foreground">
+                      {story.understoodCount} understood
+                    </span>
+                  </MobileTooltip>
+                )}
               </div>
               {showVerifyButton && (
                 <button
