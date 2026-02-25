@@ -4,6 +4,26 @@ This document catalogs all Mixpanel events tracked in the Clarity Pledge app.
 
 **Note:** Analytics are production-only. Events are not sent in development mode.
 
+## Analytics Strategy
+
+**Purpose:** Answer three weekly questions:
+1. Are people creating stories? (story funnel)
+2. Are stories triggering /live sessions? (activation)
+3. Are users coming back? (retention)
+
+**Sources:**
+- Mixpanel: behavioral events (sessions, stories, gaps)
+- Supabase prod: account health (total users, verified, unverified, signups this week)
+
+**Dashboards:**
+- Session Value: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards#id=10989894
+- Activation: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards#id=10989933
+- Retention: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards#id=10989955
+
+**Event audit:** Run /weekly — it includes a subagent that checks for missing events after new features ship.
+
+---
+
 ## Overview
 
 Events are categorized by feature area:
@@ -622,6 +642,41 @@ Realtime sync detected state mismatch (fallback polling corrected it).
 | `checkerDrift` | boolean | Checker submission mismatch |
 | `responderDrift` | boolean | Responder submission mismatch |
 | `explainBackDoneDrift` | boolean | Explain-back done mismatch |
+
+---
+
+## Stories
+
+Events for story creation, viewing, and activation into /live sessions.
+
+### `story_created`
+User saves a new story.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `story_id` | string | ID of the created story |
+| `has_points` | boolean | Whether any points were added at creation time (always `false` at creation — points are added after) |
+| `points_count` | number | Number of points at creation time (always `0` at creation) |
+| `word_count` | number | Approximate word count of story text |
+| `visibility` | string | Story visibility: `public`, `shared`, or `private` |
+
+### `story_viewed`
+Someone views a story detail page (`/story/:id`).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `story_id` | string | ID of the viewed story |
+| `is_own_story` | boolean | Whether the viewer is the story author |
+| `has_points` | boolean | Whether the story has any linked points |
+| `viewer_authenticated` | boolean | Whether the viewer is logged in |
+
+### `story_session_started`
+A /live session has a story selected as the subject for understanding verification. Fired when a user selects a story inside an active session (i.e. the session is being driven by a story).
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `story_id` | string | ID of the story selected for the session |
+| `session_code` | string | 6-character room code of the active session |
 
 ---
 

@@ -906,6 +906,10 @@ export function ClarityLivePage() {
       session_code: session?.code,
       story_id: storyId,
     });
+    analytics.track('story_session_started', {
+      story_id: storyId,
+      session_code: session?.code,
+    });
 
     // Set selected content in shared state (partner will see it via selectedStoryData)
     updateLiveState({

@@ -773,6 +773,8 @@ export function StoryDetailPage() {
           analytics.track('story_viewed', {
             story_id: data.id,
             is_own_story: data.authorId === user?.id,
+            has_points: data.points.length > 0,
+            viewer_authenticated: !!user?.id,
           });
         }
 

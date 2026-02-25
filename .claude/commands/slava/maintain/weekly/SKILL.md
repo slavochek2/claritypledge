@@ -208,6 +208,71 @@ If no gaps found: `SKILL GAPS: none detected`
 
 ---
 
+### 2.9 Mixpanel Event Audit (subagent, runs in background — parallel with 2.7 and 2.8)
+
+Spawn a subagent in background while you continue to step 3.
+
+**Subagent prompt:**
+```
+You are a Mixpanel event auditor. Look at git commits from the last 7 days:
+[run: git log --oneline --since="7 days ago" --no-merges in /Users/slavochek/Projects/public/claritypledge]
+
+For each commit that looks like a new feature (not fix/chore/docs):
+1. Read the changed files to understand what was built
+2. Check if analytics.track() calls were added in those files
+3. Check if docs/technical/analytics.md was updated
+4. Flag any features that should have events but don't
+
+Output format — be concise, no preamble:
+**New features this week:** [list or "none"]
+**Has events:** [list or "none"]
+**Missing events (action needed):** [list or "none"]
+**Recommendation:** [specific events to add with key properties, or "none needed"]
+```
+
+Merge into Evidence Picture (step 4) as:
+```
+MIXPANEL:     Features: N | Has events: N | Missing: [list or "none"]
+```
+
+If no feature commits this week: `MIXPANEL: no new features — nothing to audit`
+
+---
+
+### 2.10 Supabase User Health (inline, run in parallel with step 3)
+
+```bash
+source /Users/slavochek/Projects/public/claritypledge/.env.local
+node -e "
+const ref = 'besjtuodziykmjidubzw';
+const key = process.env.VITE_SUPABASE_ANON_KEY;
+const url = 'https://' + ref + '.supabase.co/rest/v1/profiles';
+const headers = { apikey: key, Authorization: 'Bearer ' + key };
+
+// Compute cutoff for $DAYS days ago
+const since = new Date(Date.now() - (parseInt(process.env.DAYS || '7')) * 86400 * 1000).toISOString();
+
+fetch(url + '?select=id,created_at,email_confirmed_at&limit=2000', { headers })
+  .then(r => r.json())
+  .then(rows => {
+    const total = rows.length;
+    const verified = rows.filter(r => r.email_confirmed_at).length;
+    const newThisWeek = rows.filter(r => r.created_at >= since).length;
+    console.log('USERS: total=' + total + ' verified=' + verified + ' unverified=' + (total - verified) + ' new_this_week=' + newThisWeek);
+  })
+  .catch(e => console.log('USERS: error — ' + e.message));
+"
+```
+
+Surface in the Evidence Picture as:
+```
+USERS:        Total: N | Verified: N | Unverified: N | New this week: N
+```
+
+If the query fails, output `USERS: query failed — check VITE_SUPABASE_ANON_KEY in .env.local` and continue.
+
+---
+
 ### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.7)
 
 Spawn a subagent in background while you continue to step 3.
@@ -288,6 +353,8 @@ USER CONVOS:  [cannot be detected from git — ask now: "How many real user conv
 PROCESS DEBT:  [N proposed fixes from process-learnings.md — or "none"]
 CHRONIC:       [patterns appearing 2+ times — or "none"]
 PRODUCT PULSE: [what changed in lean-canvas/philosophy/README/CLAUDE.md — or "no changes (X weeks)"]
+USERS:         [total / verified / unverified / new this week — or "query failed"]
+MIXPANEL:      [features audited / has events / missing — or "no new features"]
 ```
 
 Collect the user conversation answer before moving to questions. Zero = flag immediately in the evidence table.
@@ -423,6 +490,8 @@ Signups: N this week (total pledgers: M) | Live sessions: N
 **Chronic patterns:** [or "none"]
 **Product pulse:** [what changed or "no changes (X weeks)"]
 **Code health:** TS: N | Lint: N | eslint-disables: N (N new) | Untested: N | Chunks: [list or "clean"]
+**User health:** Total: N | Verified: N | Unverified: N | New this week: N
+**Mixpanel audit:** Features: N | Has events: N | Missing: [list or "none"]
 
 ### Evidence Signals
 [table of signals with interpretations]

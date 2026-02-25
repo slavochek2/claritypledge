@@ -22,7 +22,7 @@ const CHAR_SOFT_MARKER = 280;
 /** Max content length to prevent abuse */
 const CHAR_MAX = 10000;
 
-const VISIBILITY_OPTIONS: {
+export const VISIBILITY_OPTIONS: {
   value: StoryVisibility;
   icon: typeof GlobeIcon;
   label: string;
@@ -117,6 +117,15 @@ export function CreateStoryPage() {
         return;
       }
 
+      const words = content.trim().split(/\s+/).filter(Boolean);
+      analytics.track('story_created', {
+        story_id: story.id,
+        has_points: false,
+        points_count: 0,
+        word_count: words.length,
+        visibility,
+      });
+      // Legacy event kept for backward compatibility with existing Mixpanel charts
       analytics.track('story_saved', {
         story_id: story.id,
         char_count: content.trim().length,
