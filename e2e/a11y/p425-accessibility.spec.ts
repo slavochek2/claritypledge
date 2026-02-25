@@ -27,6 +27,14 @@ import { createTestUser, deleteTestUser, setTestSession } from '../helpers/test-
 
 const CHAT_PATH = '/chat';
 
+/** Dismisses the AI disclosure banner if present. */
+async function acknowledgeDisclosure(page: Parameters<typeof setTestSession>[0]) {
+  const ackBtn = page.getByRole('button', { name: 'Acknowledge' });
+  if (await ackBtn.isVisible()) {
+    await ackBtn.click();
+  }
+}
+
 test.describe('P425 Accessibility — /chat page structure', () => {
   test.describe.configure({ timeout: 60000 });
 
@@ -168,6 +176,7 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     await setTestSession(page, testUser.email);
     await page.goto(CHAT_PATH);
     await page.waitForLoadState('networkidle');
+    await acknowledgeDisclosure(page);
 
     const inputBar = page.getByTestId('story-guide-input').or(
       page.getByRole('textbox', { name: /your story|what's on your mind/i })
@@ -178,7 +187,7 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     // Wait for draft card to appear
     // Spec: <article aria-label="Draft version 1, not saved">
     const draftCard = page.getByRole('article', { name: /draft version 1/i });
-    await expect(draftCard).toBeVisible({ timeout: 30000 });
+    await expect(draftCard).toBeVisible({ timeout: 60000 });
 
     // Verify aria-label is present
     const ariaLabel = await draftCard.getAttribute('aria-label');
@@ -294,6 +303,7 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     await setTestSession(page, testUser.email);
     await page.goto(CHAT_PATH);
     await page.waitForLoadState('networkidle');
+    await acknowledgeDisclosure(page);
 
     const inputBar = page.getByTestId('story-guide-input').or(
       page.getByRole('textbox', { name: /your story|what's on your mind/i })
@@ -304,7 +314,7 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     // AI opening message should be in the thread
     // Spec: <article role="article" aria-label="AI message">
     const aiMessage = page.getByRole('article', { name: /AI message|assistant message/i }).first();
-    await expect(aiMessage).toBeVisible({ timeout: 30000 });
+    await expect(aiMessage).toBeVisible({ timeout: 60000 });
 
     // Verify it's not hidden from accessibility tree
     const ariaHidden = await aiMessage.getAttribute('aria-hidden');

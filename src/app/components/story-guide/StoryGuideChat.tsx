@@ -542,7 +542,7 @@ export function StoryGuideChat({
             data-testid="ai-disclosure"
           >
             <p className="text-muted-foreground">
-              This story is drafted with Claude AI (Anthropic). Your text is sent to their API.
+              This story is drafted with Gemini AI (Google). Your text is sent to their API.
             </p>
             <button
               type="button"

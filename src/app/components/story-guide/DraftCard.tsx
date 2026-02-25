@@ -30,7 +30,9 @@ export function DraftCard({
   const statusLabel = STATUS_LABELS[status];
 
   return (
-    <div
+    <article
+      role="article"
+      aria-label={`Draft version ${version}, not saved`}
       data-testid={status === 'polish' ? 'draft-card-polish' : 'draft-card'}
       data-draft-card="true"
       className="rounded-xl border border-border bg-muted/40 p-4"
@@ -60,6 +62,6 @@ export function DraftCard({
       {changeNote && (
         <p className="text-xs text-muted-foreground italic mt-1">{changeNote}</p>
       )}
-    </div>
+    </article>
   );
 }
