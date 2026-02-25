@@ -160,8 +160,11 @@ export function StoryCardWithLinks({
               {story.text.slice(0, 150)}
               <span
                 data-testid="more-link"
+                role="button"
+                tabIndex={0}
                 className="text-blue-600 font-medium cursor-pointer"
                 onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
               > ...more</span>
             </p>
           ) : (
