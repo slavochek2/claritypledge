@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [process]: KDD loop was write-only — skills now read decisions.md before building
+
+**Context:** KDD runs frequently and produces ~114 decisions across [product], [technical], [process] tags. Audit revealed no skill read those docs before building — /architect, /create-prd, /spec-review, and /review-all all started cold without consulting prior decisions. The loop was write-only.
+**Decision:** Four skills updated to consume decisions.md filtered by tag: /architect reads [technical] + INDEX.md before proposing patterns; /create-prd reads [product] + INDEX.md in Phase 0; /spec-review adds dimension 8 (prior decisions conflict, BLOCK on contradiction); /review-all code agent reads [technical] before reviewing. Tag docs in /kdd now show which skills consume each tag so writers tag accurately.
+**Alternatives rejected:** "Fix two skills first, then see" — no reason to defer when all 4 fixes are independent markdown edits with no risk.
+**Consequences:** Prior decisions are now visible to the skills that build next. Contradictions surface as BLOCK in spec-review before implementation starts, not after. Writers who see the consumer column in /kdd tag docs will tag with more intent.
+**References:** [architect.md](.claude/commands/slava/build/architect.md) · [create-prd/agent.md](.claude/commands/slava/build/create-prd/agent.md) · [spec-review.md](.claude/commands/slava/build/spec-review.md) · [review-all/SKILL.md](.claude/commands/slava/build/review-all/SKILL.md)
+
+---
+
 ## 2026-02-25 [product]: Event transactional email copy — plain language over corporate-speak
 
 **Context:** Reviewing all 5 email templates (confirmation, reminder, feedback, cancellation, uncancel) revealed formal phrases that don't match the product's casual, human tone.
