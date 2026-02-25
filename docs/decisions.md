@@ -14,6 +14,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Prod test agent for agent-driven post-deploy verification
+
+**Context:** Stories were silently broken in production for months — no tests, no alerts, nothing caught it until a user noticed. Needed a way for the agent to verify prod DB/RLS without requiring slava's browser session.
+
+**Decision:** Dedicated service account `test-agent@claritypledge.com` on prod with `is_verified=true`. Agent authenticates via `scripts/prod-smoke-test.mjs` to verify auth, profile, story INSERT/SELECT/DELETE, and public anon access. Credentials stored in `.env.local` (gitignored). Run after any deployment touching stories, auth, or RLS.
+
+**Alternatives rejected:** Only relying on integration tests (they run against test DB, not prod schema/data); user browser testing (can't automate without user's credentials).
+
+**Consequences:** Post-deploy verification is now 3-second automated check. Test agent must never leave data footprint (creates+deletes its own test rows). Documented in `.private/docs/testing.md` and referenced in `/ship` skill.
+
+**References:** [prod-smoke-test.mjs](../../scripts/prod-smoke-test.mjs) · [.private/docs/testing.md](../../.private/docs/testing.md)
+
+---
+
+## 2026-02-25 [technical]: Service-layer errors must Sentry-capture — log() is DEV-only anti-pattern
+
+**Context:** `createStory` was silently returning `null` in production with no visibility. The `log()` utility wraps `console.log` behind `import.meta.env.DEV` — it's a no-op in prod. Auth failures, RLS rejections, and Supabase errors were swallowed entirely.
+
+**Decision:** All real service functions that can fail at auth or DB level must call `Sentry.captureMessage` / `Sentry.captureException` on every failure path, not just `log()`. Pattern added to `stories-service-real.ts`: auth check → Sentry error, INSERT failure → Sentry exception with context.
+
+**Alternatives rejected:** Replacing `log()` with `console.error` (clutters prod logs and not structured); adding a prod-aware `log()` variant (more indirection, same risk of forgetting).
+
+**Consequences:** Every new real service (`*-service-real.ts`) must follow this pattern. `log()` is fine for debug-level tracing — it's `log()` on error paths that's the anti-pattern. Sentry captures give actionable context (error code, user ID, hint).
+
+**References:** [stories-service-real.ts](../../src/app/data/stories-service-real.ts)
+
+---
+
+## 2026-02-25 [process]: Feature flag env vars must be verified in Vercel at deploy time
+
+**Context:** `VITE_USE_REAL_API` controlled mock vs. real stories service. It was set in `.env.local` but never added to Vercel. Result: prod ran mock mode for months, stories table was always empty, users got mock data.
+
+**Decision:** Any `VITE_*` feature flag that switches prod behavior must be added to Vercel environment variables explicitly. Vercel does not inherit `.env.local`. VITE_* vars are baked at build time — missing = wrong build, not a runtime fallback.
+
+**Alternatives rejected:** Defaulting to real API (safe but hides the gap); using runtime config (adds complexity, not our pattern).
+
+**Consequences:** Deployment checklist must include: "Are all required VITE_* vars set in Vercel?" For any new feature flag, add to Vercel immediately when adding to `.env.local`. Never assume `.env.local` = Vercel.
+
+---
+
 ## 2026-02-25 [technical]: Navigation guard without useBlocker (BrowserRouter constraint)
 
 **Context:** P427 needed an unsaved-changes guard on the story detail page. `useBlocker` from react-router-dom was the obvious tool, but crashed the app with an error boundary.
