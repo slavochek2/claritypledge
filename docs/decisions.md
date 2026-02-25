@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [technical]: Inline system prompts in Supabase edge functions
+
+**Context:** P425 edge function originally used `Deno.readTextFile('./prompts/v1.md')` to load the system prompt. Works in local `supabase functions serve` but fails with a silent 500 in deployed functions — Deno cannot resolve relative paths at runtime in the deployed sandbox.
+**Decision:** Always inline system prompts as template literals directly in `index.ts`. Keep a source-of-truth `.md` file alongside for readability, but the deployed code must not use `Deno.readTextFile` for anything loaded at request time.
+**Alternatives rejected:** Bundling the prompt file as a static asset — no documented Supabase mechanism for this; env var — too unwieldy for multi-paragraph prompts.
+**Consequences:** All future edge functions with prompt files must inline them. The `.md` file stays as a comment/reference but is not read at runtime.
+**References:** [story-guide-chat/index.ts](../supabase/functions/story-guide-chat/index.ts)
+
+---
+
 ## 2026-02-25 [process]: ops@ inbox monitored in /weekly — subagent triages all unread
 
 **Context:** ops@claritypledge.com accumulates service signups, notifications, and occasional real emails. No regular review existed — inbox was checked ad-hoc.

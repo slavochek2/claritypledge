@@ -742,3 +742,57 @@ Credentials are in `.env.local`. Details in `.private/docs/testing.md`.
 
 The integration tests in `e2e/integration/` run against the **test** Supabase project.
 The smoke test runs against **production**. They complement each other.
+
+---
+
+## AI Streaming Tests (P425+)
+
+Tests that call the Gemini edge function have special setup requirements.
+
+### Gating with VITE_STORY_GUIDE_EDGE_FN_URL
+
+AI tests are skipped if the env var is not set:
+
+```typescript
+test.skip(
+  !process.env.VITE_STORY_GUIDE_EDGE_FN_URL,
+  'Skipping AI test — VITE_STORY_GUIDE_EDGE_FN_URL not set'
+);
+```
+
+Add `VITE_STORY_GUIDE_EDGE_FN_URL` to **both**:
+- `.env.test.local` — so Playwright reads it at startup
+- `playwright.config.ts` `webServer.env` block — so Vite dev server gets it baked in
+
+### Acknowledge the AI disclosure banner
+
+The `/chat` page shows a one-time disclosure banner on first visit. It blocks the send button until acknowledged. Tests must dismiss it before sending:
+
+```typescript
+async function acknowledgeDisclosure(page: Page) {
+  const ackBtn = page.getByRole('button', { name: 'Acknowledge' });
+  if (await ackBtn.isVisible()) {
+    await ackBtn.click();
+  }
+}
+// Call after page.waitForLoadState('networkidle')
+```
+
+### Timeouts
+
+AI streaming can take 10–30s per round-trip. Use:
+- `{ timeout: 60000 }` on assertions that wait for AI responses
+- Global test timeout: 90000ms (set in `playwright.config.ts`)
+- Describe-level: `test.describe.configure({ timeout: 120000 })` for multi-turn loops
+
+### Gemini model fragility
+
+`gemini-2.0-flash` was deprecated and returns 404 for new users. Current model: `gemini-2.5-flash` (set in `supabase/functions/story-guide-chat/index.ts`). If tests start returning 404/500 from the edge function, check for a new deprecation first.
+
+### Structured AI output detection
+
+The frontend detects the polish phase by regex: `/^here'?s? (?:is )?the polished version/i`. The system prompt must explicitly instruct the AI to use this exact prefix — without it the AI invents its own phrasing and detection fails. Same pattern applies to any future state transitions that rely on parsing AI output.
+
+### Playwright strict mode with `or()` locators
+
+`locator.or(otherLocator)` throws "strict mode violation" if both branches resolve to different elements simultaneously. Prefer `data-testid` over text-based fallbacks. Remove `or()` once `data-testid` is confirmed working.
