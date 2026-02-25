@@ -62,7 +62,13 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
-0. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
+0. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
+   - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation)
+   - **(B) Commit the in-progress work first** (if it's at a safe checkpoint)
+   - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)
+   Wait for user decision. Skip this check if the tree is clean or all changes belong to this feature.
+
+0.1. **Mark in-progress** — If a P-number spec was provided, update `status: in-progress` in frontmatter (skip silently if inline description mode)
 1. **Read tests** — UAT scenarios, E2E test stubs, acceptance criteria
 2. **Understand** — Read spec, find `[ ]` tasks (skip `[x]` done)
 3. **Implement** — Feature code + fill in test stubs

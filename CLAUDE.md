@@ -310,6 +310,23 @@ Before setting up any external or self-hosted infrastructure (VNC, tunnels, serv
 
 **Why:** Easy rollback if experiment fails.
 
+### Parallel Feature Work — Index Collision Risk
+
+> **Principle:** Two features being developed simultaneously in the same worktree risk git index collisions — one session's staged files get swept into the other's commit.
+
+**The signal:** Before `/dev` starts, run `git status --short`. If modified or untracked files from a **different** feature exist, collision risk is present.
+
+**Agent behavior:** Present options and wait for decision:
+- **(A) Create a worktree** for the new feature — clean index, full isolation (recommended)
+- **(B) Commit current work first** — if the in-progress feature is at a safe checkpoint
+- **(C) Proceed anyway** — only if user explicitly confirms both features are one logical changeset
+
+**Rule:** Parallel sessions must always use separate worktrees. If a second Claude session starts while the first has uncommitted work, one of them must move to a worktree. Shared index = staging collision risk.
+
+**Why it matters:** This is how cleanup work (11 files) ended up silently bundled into a P437 feature commit — two sessions, one index.
+
+See [worktree-setup.md](docs/technical/worktree-setup.md) for how to create worktrees.
+
 ---
 
 ### Task Tracking
