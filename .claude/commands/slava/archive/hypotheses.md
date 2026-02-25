@@ -1,3 +1,7 @@
+---
+archived_reason: "prep-spec sub-agent — hypothesis validation absorbed into /spec-review"
+---
+
 # Hypotheses Review
 
 ## Your Role

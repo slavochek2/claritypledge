@@ -1,3 +1,7 @@
+---
+archived_reason: "merged into archive/prep-spec-agents/alignment.md — use alignment instead"
+---
+
 # Definitions Review
 
 **REDIRECT:** This agent was merged into `alignment.md`.

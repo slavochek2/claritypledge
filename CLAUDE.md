@@ -159,6 +159,8 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 Tests are specs — fix code, not tests. Rules auto-load when editing test files via `.claude/rules/tests.md`.
 
+Skill archiving checklist and frontmatter requirements auto-load when editing `.claude/commands/slava/` files via `.claude/rules/skills.md`.
+
 ---
 
 ### Commit Discipline

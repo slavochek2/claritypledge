@@ -1,3 +1,7 @@
+---
+archived_reason: "prep-spec sub-agent — superseded by dedicated /slava:build:ux skill"
+---
+
 # UX Review
 
 **Base agent:** [ux.md](../../ux.md)

@@ -1,5 +1,6 @@
 ---
 description: Alternative Solutions Explorer Agent
+archived_reason: "prep-spec sub-agent — /prep-spec superseded by sequential flow (/create-prd → /ux → /architect)"
 ---
 
 # Alternative Solutions Explorer

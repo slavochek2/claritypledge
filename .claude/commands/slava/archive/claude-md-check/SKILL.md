@@ -1,3 +1,7 @@
+---
+archived_reason: "replaced by /slava:maintain:claude-md — automated agent instead of manual checklist"
+---
+
 # /slava:claude-md-check
 
 **⚠️ DEPRECATED** — Replaced by `/slava:claude-md-maintain` (automated agent instead of manual checklist)

@@ -1,3 +1,7 @@
+---
+archived_reason: "replaced by /dev auto-close — /dev moves feature to done/ on success automatically"
+---
+
 # /done
 
 Mark a feature as complete: update spec, move to done/, capture knowledge, commit.

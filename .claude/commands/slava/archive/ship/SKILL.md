@@ -2,6 +2,7 @@
 name: ship
 description: Zero-friction commit. Fixes auto-fixable issues inline, commits with a generated message, refreshes kanban. No questions unless something requires judgment.
 when_to_use: "Any time the user says 'commit', 'ship it', 'wrap and commit', or 'push this'. Replaces the manual commit + confirmation cycle."
+archived_reason: "replaced by commit-commands:commit skill and autonomous commit rule in CLAUDE.md"
 ---
 
 # /ship

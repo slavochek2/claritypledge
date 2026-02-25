@@ -1,3 +1,7 @@
+---
+archived_reason: "prep-spec sub-agent — superseded by dedicated /slava:build:architect skill"
+---
+
 # Architect Review
 
 > **Principle:** Will we regret this in 6 months? Today's shortcut is tomorrow's tech debt.

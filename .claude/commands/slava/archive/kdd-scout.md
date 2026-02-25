@@ -1,3 +1,7 @@
+---
+archived_reason: "replaced by /slava:maintain:kdd — run after /dev to capture learnings"
+---
+
 # KDD Scout
 
 ## Your Role

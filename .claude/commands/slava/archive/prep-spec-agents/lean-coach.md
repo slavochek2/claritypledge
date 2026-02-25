@@ -1,3 +1,7 @@
+---
+archived_reason: "prep-spec sub-agent — lean coaching absorbed into /slava:think:lean:index and /create-prd"
+---
+
 # Lean Coach
 
 > **Principle:** Build the simplest thing that validates the riskiest assumption — and connects to the business model.

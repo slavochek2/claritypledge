@@ -1,3 +1,7 @@
+---
+archived_reason: "pointer file only — actual skill at /slava:think:innovate:index"
+---
+
 # Innovation Agent
 
 **Source of truth:** `.claude/commands/innovate/index.md`

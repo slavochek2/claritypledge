@@ -1,3 +1,7 @@
+---
+archived_reason: "prep-spec sub-agent — /prep-spec superseded by sequential flow; alignment check absorbed into /spec-review"
+---
+
 # Alignment Review
 
 > **Principle:** Features should fit the strategy we've documented. If they don't, either the feature or the strategy needs to change.

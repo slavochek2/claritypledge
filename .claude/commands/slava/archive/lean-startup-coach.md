@@ -1,3 +1,7 @@
+---
+archived_reason: "pointer file only — actual skill at /slava:think:lean:index"
+---
+
 # Lean Startup Coach
 
 **Source of truth:** `.claude/commands/lean/index.md`

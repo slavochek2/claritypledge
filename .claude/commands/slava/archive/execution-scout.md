@@ -1,3 +1,7 @@
+---
+archived_reason: "prep-spec sub-agent — execution tooling review absorbed into /architect"
+---
+
 # Execution Scout
 
 ## Your Role
