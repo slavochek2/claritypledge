@@ -73,6 +73,13 @@ Adds UX layer to feature spec:
 - Tablet layout (768px-1023px)
 - Desktop layout (1024px+)
 
+**Component Analysis:**
+- Every major UI element classified: Reuse / Extend / New
+- Reuse = existing component, no changes needed
+- Extend = existing component + new props, variants, or styles
+- New = no existing equivalent — net-new component required
+- Decisions that need founder input surfaced explicitly (e.g., "disable vs hide", "generalize vs one-off")
+
 ---
 
 ## Workflow
@@ -145,6 +152,8 @@ The UX agent:
 - [ ] Edge cases identified (errors, loading, empty)
 - [ ] Accessibility requirements specified
 - [ ] Responsive design considered
+- [ ] Component analysis complete (Reuse/Extend/New for every major element)
+- [ ] Decisions requiring founder input surfaced explicitly
 - [ ] No technical implementation details (just UX)
 
 ---
@@ -259,12 +268,34 @@ Generate a complete UX section covering:
    - Desktop layout (1024px+): Multi-column, expanded features, mouse interactions
    - Breakpoint behavior: What changes at each breakpoint?
 
-**Critical constraints:**
+**Critical constraints (UX sections 1–5 only):**
 - Generate UX layer only (flows, screens, interactions, accessibility)
 - DO NOT include: Technical implementation, file paths, code patterns, database schema
 - Ask clarifying questions if UX is unclear (e.g., "Which page does this appear on?")
 - Check existing codebase patterns: Use Grep/Glob to find similar components, follow existing design system
 - Consider mobile-first: Design for smallest screen first, enhance for larger screens
+
+---
+
+**Section 6 — Component Analysis** *(different rules: codebase references are required here)*
+
+Before writing this section, use Glob/Grep to scan `src/app/components/` and `src/app/pages/`.
+
+For every major UI element in this feature, classify it:
+- **Reuse** — existing component, no changes needed. Name the file.
+- **Extend** — existing component needs new props, a new variant, or style tweaks. Name the file and describe the change.
+- **New** — no existing equivalent. Name the proposed component and describe it.
+
+Surface any decisions that require founder input, for example:
+- "Disable vs. hide an option that doesn't apply in this context?"
+- "Generalize an existing component to handle both old and new cases, or keep them separate?"
+- "Add this new pattern to the design system, or treat it as a one-off?"
+
+Format as a table:
+| Element | Classification | File / Notes | Decision needed? |
+|---------|---------------|--------------|-----------------|
+
+---
 
 **Self-review checklist before returning:**
 - [ ] All user stories have corresponding user flows
@@ -272,7 +303,9 @@ Generate a complete UX section covering:
 - [ ] Edge cases identified for: errors, loading, empty states, validation
 - [ ] Accessibility requirements specified: screen reader, keyboard, ARIA, color contrast
 - [ ] Responsive design considered: mobile, tablet, desktop breakpoints
-- [ ] No technical implementation details (no file paths, no code patterns)
+- [ ] Component Analysis table complete — every major element classified as Reuse/Extend/New
+- [ ] Decisions requiring founder input surfaced explicitly
+- [ ] Sections 1–5 contain no file paths or code patterns
 - [ ] Flows are specific enough that developer can implement without guessing
 
 If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating incomplete UX.

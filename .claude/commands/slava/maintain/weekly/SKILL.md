@@ -208,6 +208,40 @@ If no gaps found: `SKILL GAPS: none detected`
 
 ---
 
+### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.7)
+
+Spawn a subagent in background while you continue to step 3.
+
+**Subagent prompt:**
+```
+You are a code quality analyst. Run these checks in the repo at /Users/slavochek/Projects/public/claritypledge and return a brief health report. Do NOT fix anything — scan only.
+
+1. **TypeScript**: run `npx tsc --noEmit 2>&1 | tail -5` — report error count (0 = ✅)
+2. **Lint warnings**: run `npx eslint src --max-warnings 9999 2>&1 | grep "warning" | wc -l` — report count
+3. **eslint-disable comments**: run `grep -r "eslint-disable" src --include="*.tsx" --include="*.ts" -l | wc -l` — report file count; also flag any added since last git tag: `git diff HEAD~7..HEAD -- src/ | grep "^+.*eslint-disable" | grep -v "^+++" | wc -l`
+4. **Untested source files**: count .ts/.tsx files in src/app/ that have no corresponding test file: `comm -23 <(find src/app -name "*.tsx" -o -name "*.ts" | sed 's|src/app/||' | sort) <(find src/tests -name "*.test.*" | sed 's|src/tests/||;s|\.test\.[^.]*||' | sort) | wc -l`
+5. **Bundle size**: run `npx vite build 2>&1 | grep "dist/assets" | awk '{print $3}' | sort -h | tail -3` — flag any chunk >500kB
+
+Return ONLY:
+- TS_ERRORS: N
+- LINT_WARNINGS: N
+- ESLINT_DISABLES: N files (N new this week)
+- UNTESTED_FILES: N
+- LARGE_CHUNKS: [list chunks >500kB or "none"]
+- VERDICT: ✅ healthy / ⚠️ watch / ❌ needs attention
+
+No preamble. If a command fails, skip it and note "skipped".
+```
+
+Merge into Evidence Picture (step 4) as:
+```
+CODE HEALTH:  TS: N errors | Lint: N warnings | eslint-disables: N files (N new) | Untested: N | Chunks: [list or "clean"]
+```
+
+If verdict is ❌: add to questions "Code health degraded — worth a fix session this week?"
+
+---
+
 ### 3. Evidence Gathering (fire in parallel with steps 1 and 2.6 — all three are independent)
 
 ```bash
@@ -388,6 +422,7 @@ Signups: N this week (total pledgers: M) | Live sessions: N
 **Process debt:** [N proposed fixes or "none"]
 **Chronic patterns:** [or "none"]
 **Product pulse:** [what changed or "no changes (X weeks)"]
+**Code health:** TS: N | Lint: N | eslint-disables: N (N new) | Untested: N | Chunks: [list or "clean"]
 
 ### Evidence Signals
 [table of signals with interpretations]
