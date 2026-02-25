@@ -472,3 +472,5 @@ Bug fixed. Closing feature.
 - **Document root cause** - Help future developers understand WHY it broke
 - **Verify thoroughly** - Running tests is not optional, it's required
 - **Announce at start:** "I'm using the fix skill to remediate this bug."
+- **TypeScript verification: use `tsc --noEmit`, NOT `npm run build`** — `npm run build` runs Vite + asset pipeline and can trigger side-effects (e.g. eslint-plugin-react-hooks auto-fixing dep arrays in unrelated files).
+- **Scope discipline:** Only edit files specified in the fix task. Never touch files outside the stated scope as a build side-effect.

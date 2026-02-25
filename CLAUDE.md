@@ -307,10 +307,10 @@ This repo is public. Before creating/updating files (especially `content/`, `doc
 ### Sequential Flow — Current Standard
 
 ```
-/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review → /decompose* → /dev
+/create-prd → /ux (if UI) → /architect → /generate-tests → /spec-review* → /decompose* → /dev
 ```
 
-`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `/spec-review` runs ALWAYS after `/generate-tests` — mandatory before `/dev`.
+`* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` optional — use when spec has evolved significantly since architect review, or when you want a pre-dev sanity check.
 
 Each layer has a review gate. `/dev` and `/fix` auto-close the feature on success (move to `features/done/`, set `completed_at`).
 

@@ -185,13 +185,30 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    Scan for friction: unnecessary questions, repeated steps, missing context, duplicated work.
    Skip if no friction — "Clean session." is the full output.
 
-   **Output format — one line per friction point:**
+   **Output format — `/simplify` style (A/B/C choices, ≤15 lines per block):**
+
+   For each friction point that requires a decision, output a `/simplify` block:
+   ```
+   **Situation:** [1 sentence — what friction occurred]
+
+   **Options:**
+   A) [option] — [one-line tradeoff]
+   B) [option] — [one-line tradeoff]
+
+   **Recommendation:** [Option X] — [one sentence why]
+
+   Reply: "A" or "B"
+   ```
+
+   Present all friction blocks together in a single message. If multiple blocks, number them and end with: "Reply with your choices, e.g. 1=A, 2=B."
+
+   For friction points where the fix is obvious (no real choice), output the one-liner format instead:
    ```
    - [What happened in one sentence] → [exact action to take + where]
    ```
 
    If the action is small (edit a skill, add a doc note): apply it now.
-   If it requires `/claude-md` gate or user judgement: flag it, don't act.
+   If it requires `/claude-md` gate or user judgement: flag it as a `/simplify` block, don't act.
 
 ## Rules
 
