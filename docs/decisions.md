@@ -14,6 +14,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [technical]: Sitemap must use canonical routes, not redirect aliases
+
+**Context:** Google Search Console flagged one page as "Page with redirect". The sitemap had `/clarity-champions`, but the actual route is `/pledgers` — `/clarity-champions` redirects to it. Google followed the redirect but flagged the sitemap URL as non-canonical.
+**Decision:** Sitemap entries must always point to the canonical URL (the route the page renders on), never to a redirect alias.
+**Alternatives rejected:** Removing the `/clarity-champions` redirect — it's a user-facing alias kept for usability.
+**Consequences:** Whenever a route is renamed or aliased, update `public/sitemap.xml` to the canonical. The SEO component's `url` prop must also match the canonical (e.g., `url="/pledgers"`, not `url="/clarity-champions"`).
+**References:** `public/sitemap.xml`, `src/app/pages/clarity-pledgers-page.tsx`
+
 ## 2026-02-25 [process]: Code review after test writing, not after committing
 
 **Context:** After implementing inline text expand, the fix agent wrote 9 tests and they all passed. A code review subagent then found: (1) `QuotedStory` surface had zero tests despite being in scope, (2) slice/threshold mismatch (140 vs 150) was an implementation bug, (3) missing `role`/`tabIndex`/`onKeyDown` on interactive span. All three were caught by code review, not by green tests.

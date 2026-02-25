@@ -351,6 +351,27 @@ const result = useMemo(() => compute(items), [items]);
 
 ---
 
+## SEO Pattern
+
+Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are handled by a single `<SEO>` component at `src/app/components/seo.tsx`. `react-helmet-async` is already installed and `HelmetProvider` wraps the app root in `src/App.tsx`.
+
+**Usage:**
+```tsx
+<SEO
+  title="Page Title — Clarity Pledge"
+  description="150-char description."
+  url="/route-path"   // canonical route (not a redirect alias)
+/>
+```
+
+**Do not reinstall** `react-helmet-async` — it's already a dependency. `index.html` holds the site-wide fallback meta; `<SEO>` overrides it per-page.
+
+**Sitemap rule:** `public/sitemap.xml` must use canonical routes only — never redirect aliases. See `decisions.md` 2026-02-25 for the `/clarity-champions` gotcha.
+
+**Search Console:** Verified under `slavochek@googlemail.com` for `claritypledge.com`. Sitemap submitted Dec 18 2025, status: Success.
+
+---
+
 ## Common Gotchas
 
 1. **Profile lookup**: Routes use `slug` (e.g., `/p/john-doe`), not UUID. Use `getProfileBySlug()` for routes, `getProfile(id)` when you have UUID.
