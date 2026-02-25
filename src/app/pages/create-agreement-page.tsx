@@ -96,7 +96,7 @@ export function CreateAgreementPage() {
   // Auth redirect
   useEffect(() => {
     if (!authLoading && !session) {
-      navigate('/sign-in');
+      navigate('/login');
     }
   }, [authLoading, session, navigate]);
 

@@ -522,7 +522,7 @@ export function AgreementPage() {
           <LockIcon className="w-8 h-8 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground">This agreement is private.</p>
           <Button asChild>
-            <Link to="/sign-in">Sign in to view</Link>
+            <Link to="/login">Sign in to view</Link>
           </Button>
         </div>
       </div>
