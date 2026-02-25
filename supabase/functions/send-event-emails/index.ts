@@ -220,7 +220,7 @@ function buildUncancel(event: EventRow): { subject: string; html: string; text: 
   const html = htmlEmail(subject, `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Good news — the event is back on! 🎉</h1>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      <strong>${event.title}</strong> has been reinstated. Here are the current details:
+      <strong>${event.title}</strong> is back on — here are the details:
     </p>
     ${eventCard(event)}
     ${eventLink}
