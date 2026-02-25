@@ -624,7 +624,8 @@ After successful commit, close the feature:
    - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
    - **verify** (if `*.tsx` files changed): Ask "Run `/verify` for visual QA? (y/n)" — spawn as subagent if yes
    fix-kanban runs automatically; verify is opt-in.
-6. Ask: "Capture learnings with /kdd? (y/n)"
+7. **Prod deploy — always ask first.** If the feature requires deploying to production (Vercel redeploy, edge function deploy, env vars), list what needs deploying and ask: "Deploy to prod now? (y/n)". Never deploy to prod autonomously.
+8. Ask: "Capture learnings with /kdd? (y/n)"
 
 If no spec file exists (inline description mode), skip closure silently.
 

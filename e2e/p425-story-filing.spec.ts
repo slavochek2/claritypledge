@@ -373,9 +373,11 @@ test.describe('P425 Escape hatch — 3 iterations', () => {
     await page.keyboard.press('Control+Enter');
     await expect(page.getByText(/Draft v1/i).first()).toBeVisible({ timeout: 60000 });
 
-    // 3 iterations with non-10 ratings
+    // 3 iterations with low ratings — must be <5 so the AI retries with a new draft.
+    // Ratings 5–7 trigger clarifying questions only (no new draft card), which would
+    // cause the Draft v{n} assertions below to time out.
     for (let i = 1; i <= 3; i++) {
-      await inputBar.fill('5');
+      await inputBar.fill('4');
       await page.keyboard.press('Control+Enter');
       const draftN = page.getByText(new RegExp(`Draft v${i + 1}`, 'i')).first();
       await expect(draftN).toBeVisible({ timeout: 60000 });

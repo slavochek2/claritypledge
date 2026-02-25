@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')!;
 
 const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
@@ -112,8 +113,8 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // ── Guard: GEMINI_API_KEY must be set ─────────────────────────────────────
-  if (!GEMINI_API_KEY) {
+  // ── Guards: required env vars ─────────────────────────────────────────────
+  if (!GEMINI_API_KEY || !SUPABASE_ANON_KEY) {
     return new Response(
       JSON.stringify({ error: 'Service temporarily unavailable' }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
@@ -132,7 +133,7 @@ Deno.serve(async (req: Request) => {
   const token = authHeader.replace('Bearer ', '');
 
   // Use anon client to validate the user JWT
-  const anonClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') ?? '');
+  const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
 
   if (authError || !user) {

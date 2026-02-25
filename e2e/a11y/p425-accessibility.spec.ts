@@ -268,28 +268,11 @@ test.describe('P425 Accessibility — /chat page structure', () => {
 
   // ── Toast accessibility ──────────────────────────────────────────────────
 
-  test('Sonner toast container has aria-live region', async ({ page }) => {
-    await setTestSession(page, testUser.email);
-    await page.goto(CHAT_PATH);
-    await page.waitForLoadState('networkidle');
-
-    // Sonner renders a <section> with aria-label="Notifications" and role="region"
-    // or an ol/ul with aria-live
-    // TODO: Adjust once actual Sonner implementation is confirmed in this page
-    const toastRegion = page
-      .locator('[aria-live]')
-      .or(page.locator('[role="region"][aria-label*="otif"]'))
-      .first();
-
-    // The toast container may be present but empty — that's fine. We check it exists in DOM.
-    // If not rendered at mount, Sonner injects it dynamically — this is acceptable.
-    // The key assertion: if a toast IS shown, it will be announced by a live region.
-    // We can't easily test this without triggering an actual save, so we verify the
-    // structural setup only.
-    const toastRegionCount = await toastRegion.count();
-    // Either a live region exists (rendered) or Sonner will inject one on first toast
-    // Both cases are acceptable — no assertion failure here unless DOM is fundamentally broken
-    expect(toastRegionCount).toBeGreaterThanOrEqual(0); // always true — structural check
+  test.skip('Sonner toast container has aria-live region', () => {
+    // TODO(p425): Sonner injects the live region dynamically on first toast — it won't be
+    // in the DOM until a save is triggered. Meaningful assertion requires completing the
+    // full filing loop (brain dump → rate 10 → save) so the toast fires.
+    // Skipping until we add an AI-gated save test that covers this path end-to-end.
   });
 
   // ── Keyboard navigation order ─────────────────────────────────────────────
