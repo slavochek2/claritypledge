@@ -75,6 +75,14 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     await page.goto(CHAT_PATH);
     await page.waitForLoadState('networkidle');
 
+    // Acknowledge the AI disclosure (required before first send — spec §Security Review)
+    const ackButton = page.getByTestId('ai-disclosure').getByRole('button', { name: /acknowledge/i });
+    const disclosureVisible = await ackButton.isVisible().catch(() => false);
+    if (disclosureVisible) {
+      await ackButton.click();
+      await page.waitForTimeout(100); // allow state update
+    }
+
     const inputBar = page.getByTestId('story-guide-input').or(
       page.getByRole('textbox', { name: /your story|what's on your mind/i })
     );
@@ -88,7 +96,6 @@ test.describe('P425 Accessibility — /chat page structure', () => {
     await page.keyboard.press('Control+Enter');
 
     // Input should be cleared or disabled after send
-    // TODO: Verify the exact behavior once implemented. Either emptied or aria-disabled="true"
     const inputValue = await inputBar.inputValue().catch(() => '');
     const isDisabled = await inputBar.isDisabled().catch(() => false);
     expect(

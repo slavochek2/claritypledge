@@ -54,6 +54,7 @@ export function PointDetailPage() {
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
+  const [showStoryCTA, setShowStoryCTA] = useState(false);
 
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -180,6 +181,7 @@ export function PointDetailPage() {
       } else {
         const result = await pointsService.setPosition(id, user.id, newPosition);
         console.log('[DEBUG] setPosition result:', result);
+        setShowStoryCTA(true);
       }
 
       // Reload point to get updated counts
@@ -334,6 +336,26 @@ export function PointDetailPage() {
           <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
         </div>
       </div>
+
+      {/* P425: Story CTA — shown after staking a position */}
+      {showStoryCTA && id && (
+        <div className="mt-4 flex flex-col gap-2">
+          <button
+            type="button"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium"
+            onClick={() => navigate(`/chat?from=position&pointId=${id}`)}
+          >
+            Tell your story →
+          </button>
+          <button
+            type="button"
+            className="text-muted-foreground text-sm hover:text-foreground transition-colors"
+            onClick={() => setShowStoryCTA(false)}
+          >
+            Not now
+          </button>
+        </div>
+      )}
 
       {/* Positions section */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">

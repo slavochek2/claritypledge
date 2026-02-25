@@ -712,6 +712,18 @@ Users are identified with Mixpanel in two places:
 
 The `analytics.reset()` call on sign out clears the user identity so subsequent events aren't attributed to the wrong user.
 
+## Browser Automation Limitations (Mixpanel)
+
+**Shadow DOM blocks all browser automation tools.** Mixpanel's UI is built with Shadow DOM — `document.querySelector`, accessibility tree traversal, and CDP element queries cannot find buttons, inputs, or clickable elements inside Shadow DOM components. This affects Claude in Chrome, Chrome DevTools MCP, and Playwright equally.
+
+**Consequence:** Any Mixpanel UI action (creating boards, adding cards, configuring reports) must be done manually by the user. Agents can navigate to Mixpanel pages and take screenshots, but cannot interact with UI elements.
+
+**What agents CAN do:** Navigate to board URLs, take screenshots to verify current state, read page text via JavaScript `document.body.innerText` (text is accessible even in Shadow DOM via `innerText`).
+
+**Retention board is manual-only.** The Retention board (id: 10989955) requires manual card setup in Mixpanel UI. A "duplicate board card" fix in a previous session inadvertently lost the Monthly Retention card — it must be re-added manually. Do not attempt to recreate via automation.
+
+---
+
 ## User Properties
 
 Properties set on the user profile in Mixpanel (via `analytics.setUserProperties()`):

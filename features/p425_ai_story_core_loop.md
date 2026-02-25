@@ -1,12 +1,12 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 8.5
 workstream: C1
 tags: [stories, ai-chat, filing, calibration, position]
 prepped_date: '2026-02-24'
 blocked_by: [p424]
-delivery_stage: arch-review
+delivery_stage: decompose-review
 reviews:
   ux: null
   architect: null
@@ -1524,3 +1524,113 @@ Run before pushing to production. These steps are NOT automated by the build pro
   Note: `--no-verify-jwt` is intentional — the function validates the JWT manually for security.
 - [ ] Post-deploy smoke test: `node scripts/prod-smoke-test.mjs`
 - [ ] Manual test: open `/chat?from=position&pointId=<valid-id>` on prod, send one brain dump, verify AI responds
+
+---
+
+## Implementation Tasks
+
+### Consistency Check Findings (warnings only)
+
+**AC gap — "beforeunload" warning:** AC line 174 requires a navigation-away warning. Edge Cases section (line 735) explicitly overrides this for V1: "no `beforeunload` warning" — loop state lost silently. The spec's own Edge Cases section is authoritative. No task needed, but implementer should know the AC is aspirational only.
+
+**Security gap — AI disclosure build step missing:** Security review (line 1271) requires a one-time AI disclosure notice before the first Claude API call, with a Send button gate. This ⚠️ risk has no corresponding build step in the Implementation Approach. Task 7 (save flow) covers this.
+
+**Security gap — position ownership check not in Step 6 text:** Security review (line 1262) requires checking `positions` table before calling `linkPointToStory`. Step 6 mentions the call but not the guard. Task 6 below makes this explicit.
+
+**Security gap — rate limiting not in build step text:** Spec says "Add this to Build Step 9" but the Step 9 text does not include rate limiting. Task 2 (DB migration) and Task 3 (edge function) below make this explicit.
+
+**UX–Architecture tension (minor):** UX says "reuse layout shell from `clarity-chat-page.tsx`" (line 241). Architecture says do NOT copy it, strip and rebuild (line 1187). Architecture wins. Implementer: use the layout structure as a visual reference only; write fresh code.
+
+---
+
+### Task 1: DB migration — `ai_rate_limits` table
+- **Files:** `supabase/migrations/YYYYMMDDHHMMSS_p425_ai_rate_limits.sql` (create)
+- **Spec refs:** "Security Review > Edge Function Security (lines ~1284–1289)"
+- **Tests:** `e2e/integration/p425-stories-rls.spec.ts` (schema presence assertions)
+- **Depends on:** None
+- **Verify:** `supabase db push` succeeds; `ai_rate_limits(id, user_id, called_at)` table exists in test DB with an index on `(user_id, called_at)`.
+- [x] Complete
+
+### Task 2: Edge function scaffold + streaming + system prompt
+- **Files:** `supabase/functions/story-guide-chat/index.ts` (create), `supabase/functions/story-guide-chat/prompts/v1.md` (create)
+- **Spec refs:** "Technical Architecture > What Does Not Exist (lines ~1037–1047)", "System Prompt (lines ~1050–1079)", "Architecture Decisions 1–2 (lines ~1085–1121)", "Implementation Approach > Build Steps 1–3 (lines ~1322–1336)", "Security Review > Edge Function Security (lines ~1281–1293)"
+- **Tests:** None (verified via `curl` during build)
+- **Depends on:** Task 1 (rate limit table must exist before rate limit queries run)
+- **Verify:** `curl --no-buffer` against the deployed test function returns SSE deltas; JWT-less request returns 401; rate limit inserts a row in `ai_rate_limits` on each allowed call; 429 returned on burst limit (>10 in 5 min).
+- [x] Complete
+
+### Task 3: Sub-components — `ThreadMessage`, `DraftCard`, `ContextChip`
+- **Files:**
+  - `src/app/components/story-guide/ThreadMessage.tsx` (create)
+  - `src/app/components/story-guide/DraftCard.tsx` (create)
+  - `src/app/components/story-guide/ContextChip.tsx` (create)
+- **Spec refs:** "New Components Required (lines ~913–966)", "Architecture Decision 4 (lines ~1155–1187)", "UX Requirements > Message bubbles / Draft cards (lines ~256–281)", "Accessibility (lines ~769–868)"
+- **Tests:** `e2e/a11y/p425-accessibility.spec.ts` (draft card ARIA, context chip keyboard, thread message aria-hidden)
+- **Depends on:** None (stateless display components, no service calls)
+- **Verify:** Each component renders in isolation with test props; `DraftCard` shows correct version label, status badge, and `linked to:` line; `ThreadMessage` shows typing indicator when `isStreaming=true`; `ContextChip` truncates text beyond 80 chars with expand on Enter/Space.
+- [x] Complete
+
+### Task 4: Sub-components — `VisibilityAndSave`, `SavedStoryChatCard`; export `VISIBILITY_OPTIONS`
+- **Files:**
+  - `src/app/components/story-guide/VisibilityAndSave.tsx` (create)
+  - `src/app/components/story-guide/SavedStoryChatCard.tsx` (create)
+  - `src/app/pages/create-story-page.tsx` (modify — export `VISIBILITY_OPTIONS`)
+- **Spec refs:** "New Components Required (lines ~913–966)", "Visibility Selector (lines ~673–697)", "Screen 4 (lines ~582–611)", "Architecture Decision 4 (lines ~1155–1187)", "Implementation Approach > Step 10 (lines ~1355–1356)"
+- **Tests:** `e2e/a11y/p425-accessibility.spec.ts` (visibility selector fieldset/legend, save button visibility, aria-labels), `e2e/p425-story-filing.spec.ts` (visibility selector render)
+- **Depends on:** None (stateless; `VISIBILITY_OPTIONS` export is a one-line change)
+- **Verify:** `VisibilityAndSave` renders three buttons, Private selected by default, Save button label changes by selection; `SavedStoryChatCard` shows author row, show-more at 180 chars, Edit (disabled stub) and menu stub — no `[▷ Start /live]` button present.
+- [x] Complete
+
+### Task 5: `StoryGuideChat` core stateful component + mock AI stub
+- **Files:**
+  - `src/app/components/story-guide/StoryGuideChat.tsx` (create)
+  - `src/app/data/story-guide-chat-stub.ts` (create)
+- **Spec refs:** "New Components Required > StoryGuideChat (lines ~915–933)", "Architecture Decisions 3–6 (lines ~1124–1244)", "Implementation Approach > Build Steps 4–5 (lines ~1337–1341)", "Key Constraints (lines ~1358–1392)"
+- **Tests:** `src/tests/p425-chat-phase.test.ts` (phase transitions, `parseRatingBand`, escape hatch counter), `e2e/p425-smoke.spec.ts` (page loads, input bar focusable, no JS errors)
+- **Depends on:** Tasks 3 and 4 (sub-components must exist to be composed here)
+- **Verify:** `npm test` passes all `p425-chat-phase` unit tests; with `VITE_MOCK_AI=true` the full loop (brain dump → draft card → rate 7 → rate 10 → polish card → visibility selector) completes in-browser without hitting the real edge function; `AbortController` cancels stream on component unmount (verify via React DevTools or a test).
+- [x] Complete
+
+### Task 6: Save flow — `handleSave`, position ownership check, AI disclosure
+- **Files:** `src/app/components/story-guide/StoryGuideChat.tsx` (modify — add `handleSave` and AI disclosure logic)
+- **Spec refs:** "Architecture Decision 5 (lines ~1191–1207)", "Architecture Decision 6 (lines ~1211–1244)", "Implementation Approach > Build Step 6 (lines ~1342–1344)", "Security Review > Authorization / Data Protection (lines ~1262–1278)"
+- **Tests:** `e2e/p425-story-filing.spec.ts` (full filing loop with AI, story save, story linked to point), `e2e/integration/p425-stories-rls.spec.ts` (RLS INSERT and story_points ownership)
+- **Depends on:** Task 5 (`StoryGuideChat` scaffold must exist); Task 1 (DB schema for stories/story_points must be present)
+- **Verify:** Story is saved to Supabase; story appears in DB linked to `pointId` via `story_points`; attempting to link to a point the user has no position on is blocked at application layer (returns error, not silent); AI disclosure notice appears on first visit (no `ai_disclosure_acked` in localStorage), Send button disabled until acknowledged; second visit skips notice.
+- [x] Complete
+
+### Task 7: Page shell, route swap, entry point CTA
+- **Files:**
+  - `src/app/pages/story-guide-chat-page.tsx` (create)
+  - `src/App.tsx` (modify — repoint `/chat` to `StoryGuideChatPage`)
+  - Point-detail page (modify — add "Tell your story →" / "Not now" CTA after position stake)
+- **Spec refs:** "Architecture Decision 4 > story-guide-chat-page.tsx (lines ~1169)", "Implementation Approach > Build Steps 7–8 (lines ~1346–1350)", "User Flows > Flow A Step 1–2 (lines ~296–309)", "UX Requirements > Navigation (lines ~229–231)"
+- **Tests:** `e2e/p425-smoke.spec.ts` (auth gate redirect, `/chat` loads, `?from=position` loads), `e2e/p425-story-filing.spec.ts` (context chip visible with `?from=position`, not visible on direct `/chat`), `e2e/a11y/p425-accessibility.spec.ts` (Tab navigation to "Tell your story" and "Not now" buttons)
+- **Depends on:** Task 5 (`StoryGuideChat` must exist to render inside the page shell)
+- **Verify:** Unauthenticated `/chat` redirects to `/signup`; `/chat?from=position&pointId=XYZ` shows context chip and AI opening message; direct `/chat` shows empty state; "Tell your story →" on point-detail navigates to `/chat?from=position&pointId=...`; "Not now" dismisses inline without blocking the staked position.
+- [x] Complete
+
+### Task 8: Error states, edge cases, escape hatch
+- **Files:** `src/app/components/story-guide/StoryGuideChat.tsx` (modify — add error states, escape hatch counter, "Write without AI" fallback)
+- **Spec refs:** "Edge Cases (lines ~701–766)", "Implementation Approach > Build Step 9 (lines ~1352–1353)", "Security Review > Input Validation (lines ~1264–1268)"
+- **Tests:** `e2e/p425-story-filing.spec.ts` (escape hatch after 3 iterations, "Write without AI →" navigates to `/create?pointId`), `e2e/p425-smoke.spec.ts` (no JS errors on load)
+- **Depends on:** Task 5 (phase machine must exist to wire escape hatch counter into)
+- **Verify:** API failure shows inline `[Try again]` button; second consecutive failure shows "Write without AI →" link; tapping it navigates to `/create?pointId=XYZ`; after 3 iterations without rating 10, escape hatch appears in thread; `[Keep refining]` resets counter to 0; second escape hatch (at 6) does not reset; `MAX_BRAIN_DUMP_LENGTH = 5000` enforced client-side (Send button disabled when content > 5000 chars).
+- [x] Complete
+
+### Task 9: Tests — unit, integration, E2E, a11y, smoke
+- **Files:**
+  - `src/tests/p425-chat-phase.test.ts` (create — unit test file)
+  - `e2e/integration/p425-stories-rls.spec.ts` (create — integration RLS tests)
+  - `e2e/p425-story-filing.spec.ts` (create — E2E flow tests)
+  - `e2e/a11y/p425-accessibility.spec.ts` (create — a11y tests)
+  - `e2e/p425-smoke.spec.ts` (create — smoke tests)
+- **Spec refs:** "Test Coverage Strategy (lines ~1396–1508)"
+- **Tests:** Self — these ARE the tests
+- **Depends on:** Tasks 1–8 (all implementation must exist for E2E tests to pass; unit tests can be written in parallel with Task 5)
+- **Verify:** `npm test` passes `p425-chat-phase.test.ts`; `npx playwright test --project=integration p425-stories-rls` passes (no AI needed); `npm run test:e2e p425-smoke` passes (no AI needed); with `VITE_MOCK_AI=true`, `npm run test:e2e p425-story-filing` passes the non-AI-gated subset.
+- [x] Complete
+
+---
+
+**Total tasks:** 9 | **Can parallelize:** Task 1, Task 3, Task 4 (all independent — no deps) | **Must be sequential:** Task 1 → Task 2 (rate limit table before edge function) · Tasks 3+4 → Task 5 (sub-components before core component) · Task 5 → Tasks 6, 7, 8 (StoryGuideChat must exist before save flow, page shell, and error states) · Tasks 1–8 → Task 9 (implementation before full test suite)

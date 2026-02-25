@@ -103,6 +103,19 @@ When fixing visual bugs in external systems like Ghost where deploy cycles are s
 
 ---
 
+## Test Mock — `.maybeSingle()` vs `.single()`
+
+When mocking Supabase query chains in tests, the mock must match the exact method called in production code. A common mismatch:
+
+- Production code uses `.maybeSingle()` (returns `null` if no row, no error)
+- Test mock chains `.single()` (throws on no row)
+
+These are different Supabase methods and the mock chain must match exactly. Symptom: test fails with unexpected errors or mock doesn't intercept the call. Fix: check the production service method, then mirror the exact chain in the mock.
+
+**Example (from `points-service-real.ts`):** `getMyPosition` used `.maybeSingle()` but the test mock had `.single()`. The mock never matched, so the test used a fallback path.
+
+---
+
 ## When to Propose Removal
 
 If two separate debug sessions (different context windows, not the same session) have been spent on the same feature or component without resolution, surface the removal option explicitly:
