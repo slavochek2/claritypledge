@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 8.0
 milestone: M2

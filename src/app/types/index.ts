@@ -1193,3 +1193,5 @@ export interface DbClaritySessionWithProfiles extends DbClaritySession {
   joiner_profile_id?: string;
 }
 
+// P422: Agreement types
+export type { ClarityAgreement, AgreementParty, AgreementStatus, AgreementVisibility, CreateAgreementInput } from '@/app/data/agreements-service.interface';

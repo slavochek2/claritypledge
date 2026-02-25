@@ -122,25 +122,29 @@ export function AcceptAgreementPage() {
     }
   };
 
+  const declineAgreement = async (): Promise<boolean> => {
+    if (!agreementId) return false;
+    // Use SECURITY DEFINER RPC — direct UPDATE fails RLS WITH CHECK when
+    // partner_profile_id is still NULL (pending agreement, no partner set yet).
+    const { data, error } = await supabase.rpc('decline_agreement', {
+      p_agreement_id: agreementId,
+      p_token: token,
+    });
+    if (error) {
+      console.error('[AcceptAgreementPage] decline error:', error);
+      return false;
+    }
+    return data === true;
+  };
+
   const handleDeclineConfirmed = async () => {
     if (!agreement || !agreementId) return;
     setIsDeclining(true);
     setShowDeclineConfirm(false);
     try {
-      const { error } = await supabase
-        .from('clarity_agreements')
-        .update({ status: 'declined' })
-        .eq('id', agreementId)
-        .eq('invitation_token', token);
-
-      if (error) {
-        console.error('[AcceptAgreementPage] decline error:', error);
-        return;
-      }
-
-      // Fire-and-forget
+      const ok = await declineAgreement();
+      if (!ok) return;
       invokeAgreementEmails('declined', agreementId);
-
       navigate(`/agreements/${agreementId}/declined`);
     } finally {
       setIsDeclining(false);
@@ -156,17 +160,8 @@ export function AcceptAgreementPage() {
     setIsDeclining(true);
     setShowDeclineConfirm(false);
     try {
-      const { error } = await supabase
-        .from('clarity_agreements')
-        .update({ status: 'declined' })
-        .eq('id', agreementId)
-        .eq('invitation_token', token);
-
-      if (error) {
-        console.error('[AcceptAgreementPage] decline error:', error);
-        return;
-      }
-
+      const ok = await declineAgreement();
+      if (!ok) return;
       invokeAgreementEmails('declined', agreementId);
       navigate(`/agreements/${agreementId}/declined`);
     } finally {
