@@ -41,6 +41,11 @@ test.describe('P427 Smoke — Story detail page loads', () => {
       content: 'Smoke test story for P427 author controls check.',
     });
 
+    // Register console error listener BEFORE page navigation so errors
+    // thrown during load are captured.
+    const errors: string[] = [];
+    page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+
     try {
       await setTestSession(page, author.email);
       await page.goto(`/story/${story.id}`);
@@ -56,8 +61,6 @@ test.describe('P427 Smoke — Story detail page loads', () => {
       await expect(page.getByRole('button', { name: /delete story/i })).toBeVisible({ timeout: 10000 });
 
       // No JS errors thrown
-      const errors: string[] = [];
-      page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
       expect(errors).toHaveLength(0);
     } finally {
       await deleteTestStory(story.id).catch(() => {});

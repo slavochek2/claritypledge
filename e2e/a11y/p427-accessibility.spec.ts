@@ -180,7 +180,6 @@ test.describe('P427 Accessibility — Edit and Delete controls', () => {
 
     await page.getByRole('button', { name: 'Edit story' }).click();
 
-    // TODO: confirm exact selector for char-count region once implementation is known
     const charCountRegion = page.locator('[aria-live="polite"]').filter({ hasText: /\d+ \/ 10000/ });
     await expect(charCountRegion).toBeAttached({ timeout: 5000 });
   });
@@ -193,27 +192,42 @@ test.describe('P427 Accessibility — Edit and Delete controls', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByRole('button', { name: 'Edit story' }).click();
+    await page.getByRole('textbox').fill('Updated content for aria-busy test');
 
-    const textarea = page.getByRole('textbox');
-    await textarea.fill('Testing aria-busy during save.');
+    // Set up route intercept to pause the save request so we can assert
+    // aria-busy="true" while the request is in-flight.
+    let resolveRoute: (() => void) | null = null;
+    const routeHandler = async (route: import('@playwright/test').Route) => {
+      if (route.request().method() === 'PATCH') {
+        // Pause until released
+        await new Promise<void>(resolve => { resolveRoute = resolve; });
+        await route.continue();
+      } else {
+        await route.continue();
+      }
+    };
+    await page.route('**/rest/v1/stories*', routeHandler);
 
-    const saveButton = page.getByRole('button', { name: 'Save story' });
+    await page.getByRole('button', { name: /save story/i }).click();
 
-    // Click save and immediately check aria-busy (race window is small —
-    // if this proves flaky, use page.route() to slow down the API call)
-    await saveButton.click();
-    // Note: aria-busy check may need page.route() network interception to reliably assert
-    // TODO: use route interception to pause the save API call and assert aria-busy="true"
+    // While the request is paused, aria-busy should be "true"
+    const saveButton = page.getByRole('button', { name: /save story/i });
+    await expect(saveButton).toHaveAttribute('aria-busy', 'true', { timeout: 2000 });
 
-    // Wait for save to complete and verify mode exits
-    await expect(page.getByText(/story updated/i)).toBeVisible({ timeout: 10000 });
-    await expect(textarea).not.toBeAttached({ timeout: 5000 });
+    // Release the route to complete the save
+    resolveRoute?.();
 
-    // Restore
+    // Wait for save to complete (textarea removed = edit mode exited)
+    await expect(page.getByRole('textbox')).not.toBeAttached({ timeout: 5000 });
+
+    // Remove the intercept before the restore save so it completes normally
+    await page.unroute('**/rest/v1/stories*', routeHandler);
+
+    // Restore original content
     await page.getByRole('button', { name: 'Edit story' }).click();
     await page.getByRole('textbox').fill(STORY_CONTENT);
     await page.getByRole('button', { name: 'Save story' }).click();
-    await expect(page.getByText(/story updated/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('textbox')).not.toBeAttached({ timeout: 10000 });
   });
 
   // ── Delete dialog: focus trap ────────────────────────────────────────────

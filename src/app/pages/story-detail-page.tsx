@@ -590,7 +590,7 @@ function DeleteStoryDialog({
           <DialogTitle>Delete this story?</DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-2">
-              <p>This will permanently remove your story. Points linked to this story will not be deleted — others may still hold positions on them.</p>
+              <p>This will permanently remove your story. Points linked to this story will not be deleted — others may still hold positions on them. Any previous versions of this story will also be permanently removed.</p>
               {linkedPointCount > 0 && (
                 <p>This story has {linkedPointCount} linked point(s).</p>
               )}
@@ -884,6 +884,7 @@ export function StoryDetailPage() {
       e.stopImmediatePropagation();
       // Re-push the current URL to keep the browser on this page
       window.history.pushState(null, '', window.location.href);
+      pendingNavigateRef.current = null; // will use fallback (profile page)
       setShowUnsavedPrompt(true);
     };
 
@@ -1052,33 +1053,34 @@ export function StoryDetailPage() {
         />
       )}
 
-      {/* P427: Unsaved-changes guard overlay */}
-      {showUnsavedPrompt && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-lg p-6 max-w-sm w-full space-y-4 shadow-lg">
-            <p className="text-sm">You have unsaved changes. Leave anyway?</p>
-            <div className="flex gap-2 justify-end">
-              <Button autoFocus onClick={() => setShowUnsavedPrompt(false)}>Stay</Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Remove popstate guard before navigating
-                  if (popstateHandlerRef.current) {
-                    window.removeEventListener('popstate', popstateHandlerRef.current);
-                    popstateHandlerRef.current = null;
-                  }
-                  setShowUnsavedPrompt(false);
-                  setIsEditMode(false);
-                  setEditContent('');
-                  navigate(pendingNavigateRef.current ?? (story?.authorSlug ? `/p/${story.authorSlug}` : '/events'));
-                }}
-              >
-                Leave
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* P427: Unsaved-changes guard dialog */}
+      <Dialog open={showUnsavedPrompt} onOpenChange={(open) => { if (!open) setShowUnsavedPrompt(false); }}>
+        <DialogContent hideCloseButton>
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+            <DialogDescription>You have unsaved changes. Leave anyway?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button autoFocus onClick={() => setShowUnsavedPrompt(false)}>Stay</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                // Remove popstate guard before navigating
+                if (popstateHandlerRef.current) {
+                  window.removeEventListener('popstate', popstateHandlerRef.current);
+                  popstateHandlerRef.current = null;
+                }
+                setShowUnsavedPrompt(false);
+                setIsEditMode(false);
+                setEditContent('');
+                navigate(pendingNavigateRef.current ?? (story?.authorSlug ? `/p/${story.authorSlug}` : '/events'));
+              }}
+            >
+              Leave
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Back button */}
       <BackButton onClick={handleBack} />

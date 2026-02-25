@@ -201,7 +201,7 @@ export function ClarityLivePage() {
       : null;
     if (!partnerProfileId) return;
     calibrationService.getEarsCount(partnerProfileId).then(setPartnerEarsCount);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- calibrationService is a module singleton; setPartnerEarsCount is a stable state setter; both are referentially stable
   }, [session?.joinerProfileId, session?.creatorProfileId, isCreator]);
 
   // P28.1: Audio recording and events collection for ML training
@@ -1847,7 +1847,7 @@ export function ClarityLivePage() {
       setIsLoading(false);
       handleJoinRef.current();
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- user.name captured once at join time (autoJoinFiredRef prevents re-runs); setters/service fns are stable refs; handleJoin is indirected via handleJoinRef to avoid dep
   }, [isJoinViaLink, urlCode, isAuthLoading, isRestoring, user?.id, view]);
 
   // Cancel waiting and go back to start
@@ -2072,7 +2072,7 @@ export function ClarityLivePage() {
       // Recording will start automatically via the useEffect when micStatus becomes 'granted'
       // Note: Do NOT call resetMic() here - it would clear the 'granted' status
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestMicPermission]);
 
   // P40: Handle mic permission dialog cancel
