@@ -490,6 +490,8 @@ function QuotedStory({
   getStoryAuthor?: (authorId: string) => StoryAuthor | undefined;
 }) {
   const author = getStoryAuthor?.(story.authorId);
+  const [textExpanded, setTextExpanded] = useState(false);
+  useEffect(() => { setTextExpanded(false); }, [story.id]);
 
   return (
     <div
@@ -555,10 +557,17 @@ function QuotedStory({
         </div>
       )}
       {/* Story text */}
-      {story.text.length > 100 ? (
+      {!textExpanded && story.text.length > 100 ? (
         <p className="text-sm text-gray-800">
           {story.text.slice(0, 100)}
-          <span data-testid="more-link" className="text-blue-600 font-medium"> ...more</span>
+          <span
+            data-testid="more-link"
+            role="button"
+            tabIndex={0}
+            className="text-blue-600 font-medium cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
+          > ...more</span>
         </p>
       ) : (
         <p className="text-sm text-gray-800">{story.text}</p>

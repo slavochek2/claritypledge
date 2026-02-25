@@ -4,7 +4,7 @@
  * Refactored from prototype to accept explicit props instead of using mock data
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
@@ -90,6 +90,8 @@ export function StoryCardWithLinks({
 }: StoryCardWithLinksProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
+  const [textExpanded, setTextExpanded] = useState(false);
+  useEffect(() => { setTextExpanded(false); }, [story.id]);
   const _isCurrentUserStory = currentUserId && story.authorId === currentUserId;
 
   const handleCardClick = () => {
@@ -153,10 +155,14 @@ export function StoryCardWithLinks({
           </p>
 
           {/* Story text */}
-          {compact && story.text.length > 150 ? (
+          {compact && !textExpanded && story.text.length > 150 ? (
             <p className="text-sm text-gray-900">
               {story.text.slice(0, 150)}
-              <span data-testid="more-link" className="text-blue-600 font-medium"> ...more</span>
+              <span
+                data-testid="more-link"
+                className="text-blue-600 font-medium cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+              > ...more</span>
             </p>
           ) : (
             <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
@@ -230,10 +236,17 @@ export function StoryCardWithLinks({
             </div>
 
             {/* Story text - indented under author */}
-            {compact && story.text.length > 150 ? (
+            {compact && !textExpanded && story.text.length > 150 ? (
               <p className="text-sm text-gray-900">
                 {story.text.slice(0, 150)}
-                <span data-testid="more-link" className="text-blue-600 font-medium"> ...more</span>
+                <span
+                  data-testid="more-link"
+                  role="button"
+                  tabIndex={0}
+                  className="text-blue-600 font-medium cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
+                > ...more</span>
               </p>
             ) : (
               <p className={`text-gray-900 ${compact ? 'text-sm' : 'text-base'}`}>
