@@ -162,7 +162,14 @@ prompt: |
   Review these changed files: [FILE_LIST]
   Spec context: [SPEC_SUMMARY]
 
+  Before reviewing, read:
+  ```bash
+  grep "\[technical\]" docs/decisions.md
+  ```
+  Flag any implementation that contradicts a prior [technical] decision.
+
   Focus on:
+  - Prior decisions (does implementation contradict decisions.md [technical]?)
   - Architecture compliance (does it follow existing patterns?)
   - Error handling (what happens when things fail?)
   - Edge cases (direct links, missing data, race conditions)

@@ -107,9 +107,9 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
 
    **Tag is required.** Pick exactly one:
-   - `[product]` — strategy, positioning, business model, UX model, customer definition
-   - `[technical]` — schema, code patterns, data model, infrastructure, service design
-   - `[process]` — workflows, skills, dev tooling, testing, agent setup
+   - `[product]` — strategy, positioning, business model, UX model, customer definition → read by `/create-prd`, `/ux`, `/spec-review`
+   - `[technical]` — schema, code patterns, data model, infrastructure, service design → read by `/architect`, `/review-all`, `/spec-review`
+   - `[process]` — workflows, skills, dev tooling, testing, agent setup → read by `/day-end`, `/weekly`, `/claude-md`
 
    **Quick classification:** if it affects how users experience the product → `[product]`. If it affects how the code is structured → `[technical]`. If it affects how the team/agents work → `[process]`.
 

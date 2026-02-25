@@ -146,6 +146,7 @@ Add to spec frontmatter: `feature_type: backend`
 ## Agent Behavior
 
 **Architect agent:**
+- Reads `docs/decisions.md` (grep `[technical]`) and `features/done/INDEX.md` — flags prior decisions relevant to this area before proposing patterns
 - Explores current codebase (Read, Grep, Glob)
 - Makes architecture decisions (patterns, trade-offs)
 - Identifies files to change (concrete paths)
@@ -162,6 +163,7 @@ Add to spec frontmatter: `feature_type: backend`
 - **Reports findings to Architect agent for merge**
 
 **Self-review checklist:**
+- [ ] Prior technical decisions checked (decisions.md [technical] + INDEX.md)
 - [ ] Current code state analyzed (not assumptions)
 - [ ] Architecture decisions justified (not arbitrary)
 - [ ] Security review complete (RLS, auth, validation)

@@ -68,7 +68,19 @@ Goal: Export button on results page
    - What each track validates
    - Priority hierarchy (Recognition PRIMARY, Coaching SAFETY)
 
-2. **Hypotheses (optional, if relevant):**
+2. **Past product decisions:**
+   ```bash
+   grep "\[product\]" docs/hypotheses.md docs/decisions.md 2>/dev/null
+   ```
+   Flags prior product-level decisions this spec might contradict or build on.
+
+3. **Related past features (optional):**
+   ```bash
+   grep -i "<keyword from feature>" features/done/INDEX.md
+   ```
+   Catches gotchas and patterns from similar past features.
+
+4. **Hypotheses (optional, if relevant):**
    ```bash
    # Check if hypotheses.md exists
    test -f docs/hypotheses.md && cat docs/hypotheses.md

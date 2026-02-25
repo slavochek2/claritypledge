@@ -138,6 +138,13 @@ Read the frontmatter `blocked_by` and `tags` fields. For each referenced feature
 - Does this spec add a DB column/table that a dependency already added (collision)?
 - Does this spec's UX flow assume a component or page that a dependency has designed differently?
 
+### 8. Prior decisions conflict
+```bash
+grep "\[technical\]" docs/decisions.md
+grep "\[product\]" docs/decisions.md
+```
+Check whether this spec contradicts any prior `[technical]` or `[product]` decision. If a contradiction exists, flag it as BLOCK with the exact decision entry date and title. If the spec intentionally supersedes a prior decision, it should say so explicitly — flag as WARN if it doesn't.
+
 **Output rules:**
 - Be specific: quote the exact text that is problematic, and name the section it's in
 - Be actionable: say what needs to change, not just that something is wrong
