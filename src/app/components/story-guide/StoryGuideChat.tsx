@@ -124,8 +124,9 @@ export function StoryGuideChat({
   const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
   const [polishedContent, setPolishedContent] = useState<string | null>(null);
   const [aiDisclosureAcked, setAiDisclosureAcked] = useState(
-    () => localStorage.getItem('ai_disclosure_acked') === 'true'
+    () => { try { return localStorage.getItem('ai_disclosure_acked') === 'true'; } catch { return false; } }
   );
+  const [visibilitySource, setVisibilitySource] = useState<'polish' | 'escape' | null>(null);
 
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -136,6 +137,12 @@ export function StoryGuideChat({
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  // Track currentDraftVersion in a ref for the same reason — streaming callbacks are stale closures
+  const currentDraftVersionRef = useRef(currentDraftVersion);
+  useEffect(() => {
+    currentDraftVersionRef.current = currentDraftVersion;
+  }, [currentDraftVersion]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on new messages / streaming
@@ -177,7 +184,7 @@ export function StoryGuideChat({
   // AI disclosure ack
   // ---------------------------------------------------------------------------
   const handleAckDisclosure = useCallback(() => {
-    localStorage.setItem('ai_disclosure_acked', 'true');
+    try { localStorage.setItem('ai_disclosure_acked', 'true'); } catch { /* ignore */ }
     setAiDisclosureAcked(true);
   }, []);
 
@@ -231,10 +238,12 @@ export function StoryGuideChat({
 
           const decoder = new TextDecoder();
           let buffer = '';
+          let streamDone = false;
 
           while (true) {
+            if (controller.signal.aborted) break;
             const { done, value } = await reader.read();
-            if (done || controller.signal.aborted) break;
+            if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
@@ -243,7 +252,7 @@ export function StoryGuideChat({
             for (const line of lines) {
               if (line.startsWith('data: ')) {
                 const data = line.slice(6).trim();
-                if (data === '[DONE]') break;
+                if (data === '[DONE]') { streamDone = true; break; }
                 try {
                   const parsed = JSON.parse(data) as { type?: string; text?: string };
                   if (parsed.type === 'delta' && parsed.text) {
@@ -255,6 +264,7 @@ export function StoryGuideChat({
                 }
               }
             }
+            if (streamDone) break;
           }
         }
       } catch (err) {
@@ -277,7 +287,8 @@ export function StoryGuideChat({
       if (!accumulated) return;
 
       // Detect polish phase: AI responded with polished content
-      const isPolishResponse = accumulated.trimStart().startsWith("Here's the polished version");
+      const polishTrigger = /^here'?s? (?:is )?the polished version/i;
+      const isPolishResponse = polishTrigger.test(accumulated.trimStart());
 
       if (isPolishResponse) {
         // Extract the content between the header line and the change note
@@ -290,30 +301,39 @@ export function StoryGuideChat({
           contentLines.push(lines[i]);
         }
         const extracted = contentLines.join('\n').trim();
-        const changeNote = lines.find(l => l.startsWith('Changes:'))?.replace('Changes:', '').trim();
+        const extractionLooksValid = extracted.length > 0 && !polishTrigger.test(extracted);
 
-        const newVersion = currentDraftVersion + 1;
-        setCurrentDraftVersion(newVersion);
-        setPolishedContent(extracted);
+        if (extractionLooksValid) {
+          const changeNote = lines.find(l => l.startsWith('Changes:'))?.replace('Changes:', '').trim();
 
-        const polishCard: P425Message = {
-          id: makeId(),
-          role: 'ai',
-          content: extracted,
-          isDraftCard: true,
-          draftVersion: newVersion,
-          draftStatus: 'polish',
-          changeNote,
-          timestamp: Date.now(),
-        };
+          const newVersion = currentDraftVersionRef.current + 1;
+          setCurrentDraftVersion(newVersion);
+          setPolishedContent(extracted);
 
-        setMessages(prev => [...prev, polishCard]);
-        setPhase('visibility');
-        return;
+          const polishCard: P425Message = {
+            id: makeId(),
+            role: 'ai',
+            content: extracted,
+            isDraftCard: true,
+            draftVersion: newVersion,
+            draftStatus: 'polish',
+            changeNote,
+            timestamp: Date.now(),
+          };
+
+          setMessages(prev => [...prev, polishCard]);
+          setVisibilitySource('polish');
+          setPhase('visibility');
+          return;
+        } else {
+          // Extraction failed — treat as regular response
+          console.warn('Polish extraction failed, treating as regular response');
+          // Fall through to regular draft handling below
+        }
       }
 
       // Regular draft response
-      const newVersion = iteration === 0 ? 1 : currentDraftVersion + 1;
+      const newVersion = iteration === 0 ? 1 : currentDraftVersionRef.current + 1;
       if (iteration === 0) {
         setCurrentDraftVersion(1);
       } else {
@@ -340,7 +360,7 @@ export function StoryGuideChat({
       setMessages(prev => [...prev, draftCard, ratingPrompt]);
       setPhase('rating');
     },
-    [currentDraftVersion, session, pointText, userPosition]
+    [session, pointText, userPosition]
   );
 
   // ---------------------------------------------------------------------------
@@ -398,6 +418,7 @@ export function StoryGuideChat({
   // Escape hatch handlers
   // ---------------------------------------------------------------------------
   const handleEscapeHatchSave = useCallback(() => {
+    setVisibilitySource('escape');
     setPhase('visibility');
   }, []);
 
@@ -415,7 +436,10 @@ export function StoryGuideChat({
       [...messages].reverse().find(m => m.isDraftCard)?.content ?? ''
     );
 
-    if (!contentToSave) return;
+    if (!contentToSave) {
+      toast.error('No draft to save. Please write a story first.');
+      return;
+    }
 
     setIsSaving(true);
     setPhase('saving');
@@ -635,7 +659,7 @@ export function StoryGuideChat({
             selectedVisibility={selectedVisibility}
             onVisibilityChange={setSelectedVisibility}
             onSave={handleSave}
-            onBack={() => setPhase('rating')}
+            onBack={() => setPhase(visibilitySource === 'escape' ? 'iterating' : 'rating')}
             isSaving={isSaving}
           />
         )}

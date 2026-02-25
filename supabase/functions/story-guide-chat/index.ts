@@ -5,9 +5,10 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!;
 
-// CORS headers - restrict to claritypledge.com in prod
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'https://claritypledge.com';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', // TODO: restrict to https://claritypledge.com before prod
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
@@ -174,9 +175,6 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Record this call
-  await recordRateLimitHit(serviceClient, userId);
-
   // ── System prompt construction ────────────────────────────────────────────
   const systemPromptBase = await Deno.readTextFile('./prompts/v1.md');
 
@@ -210,6 +208,10 @@ Deno.serve(async (req: Request) => {
         system: systemPrompt,
         messages: messages,
       });
+
+      // Record after stream object is created (reduces missed-quota on SDK-level failures;
+      // mid-stream Anthropic errors will still consume quota — that's acceptable)
+      await recordRateLimitHit(serviceClient, userId);
 
       for await (const event of stream) {
         if (
