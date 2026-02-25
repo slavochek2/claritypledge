@@ -76,8 +76,9 @@ export function ClarityPledgeLanding() {
   return (
     <div className="relative" style={{ overflowX: 'clip', overflowY: 'visible' }}>
       <SEO
+        title="Clarity Pledge — Commit to Clear Communication"
         url="/"
-        description="Join professionals worldwide in a public commitment to clear, honest communication. Sign the pledge, get your shareable certificate, and collect endorsements from colleagues."
+        description="Join professionals worldwide in a commitment to clear, honest communication. Sign the pledge and get your shareable certificate."
       />
 
       {/* 1. Clarity Tax Section (Hero) */}

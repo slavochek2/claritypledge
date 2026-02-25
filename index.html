@@ -41,6 +41,44 @@
     <meta name="apple-mobile-web-app-title" content="Clarity" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
 
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://claritypledge.com/#organization",
+      "name": "Clarity Pledge",
+      "url": "https://claritypledge.com",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://claritypledge.com/clarity-pledge-icon.png"
+      },
+      "sameAs": []
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://claritypledge.com/#website",
+      "url": "https://claritypledge.com",
+      "name": "Clarity Pledge",
+      "description": "Calibrated communication practice for coaches and professionals",
+      "publisher": {
+        "@id": "https://claritypledge.com/#organization"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://claritypledge.com/clarity-champions?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+  ]
+}
+    </script>
+
     <!-- Mixpanel Analytics (production only) -->
     <script type="text/javascript">
       if (window.location.hostname !== 'localhost' && !window.location.hostname.includes('127.0.0.1')) {

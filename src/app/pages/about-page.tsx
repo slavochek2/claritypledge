@@ -89,7 +89,7 @@ export function AboutPage() {
     <div className="min-h-screen py-20 px-4">
       <SEO
         title="About"
-        description="Learn the story behind the Clarity Pledge movement. Founded by Vyacheslav Ladischenski to combat miscommunication and intellectual moral injury in professional settings."
+        description="Learn about the mission behind Clarity Pledge: helping people communicate with precision and honesty."
         url="/about"
       />
       <div className="container mx-auto max-w-3xl">

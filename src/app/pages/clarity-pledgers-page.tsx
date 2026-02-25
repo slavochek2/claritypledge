@@ -71,8 +71,8 @@ export function ClarityPledgersPage() {
   return (
     <div className="min-h-screen py-12 px-4">
       <SEO
-        title="Clarity Pledgers"
-        description="Meet the professionals who have publicly committed to clear, honest communication by signing the Clarity Pledge."
+        title="Clarity Champions"
+        description="Meet the professionals who have committed to clear, honest communication. Browse the Clarity Pledge community."
         url="/pledgers"
       />
       <div className="container mx-auto max-w-7xl">

@@ -90,7 +90,7 @@ export function SignPledgePage() {
     <>
       <SEO
         title="Sign the Pledge"
-        description="Join professionals worldwide in a public commitment to clear, honest communication. Sign the Clarity Pledge and get your shareable certificate."
+        description="Make your public commitment to clear communication. Sign the Clarity Pledge and receive your shareable certificate."
         url="/sign-pledge"
       />
       <div className="container mx-auto px-4 py-8 md:py-12 max-w-3xl">
