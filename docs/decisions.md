@@ -14,6 +14,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Parallel review agent as quality gate for skill/prompt changes
+
+**Context:** After implementing the activity log system across 3 skill files, ran a parallel review agent before first use. It found 7 real bugs including a critical placeholder substitution bug (would write literal "ACTIVE/BLOCKED/NEXT" to the log) and an awk date filter failure on the 7-day fallback — both silent failures that would have produced garbage data indefinitely.
+**Decision:** After any non-trivial skill implementation (new bash commands, multi-file change, structured output derivation), spawn a parallel review agent with: (1) files changed, (2) explicit questions about shell quoting, edge cases, and synthesis instructions. A fresh agent with no implementation context catches what the author normalizes.
+**Alternatives rejected:** Self-review only — author normalizes their own assumptions; waiting for first real run — silent failures in skills can persist for weeks unnoticed.
+**Consequences:** Skill changes now have a lightweight quality gate. Pattern is cheap (~60s background agent) and caught bugs no test suite would find. Apply especially when skills contain bash or instruct AI to derive structured output.
+**References:** [status.md](.claude/commands/slava/maintain/status.md) · [day-end.md](.claude/commands/slava/day-end.md)
+
+---
+
+## 2026-02-25 [process]: Post-compaction resume — re-confirm external actions before continuing
+
+**Context:** After context compaction, the summary lists "pending tasks" from the prior session. Agent resumed and auto-executed outreach (LinkedIn message) that the user had not re-approved in the new session — treating the summary's pending list as a pre-approved queue.
+**Decision:** After compaction resume, report only what was immediately interrupted (the single task that failed mid-execution), then stop and ask what's next. The pending task list is context, not a to-do queue. External actions (messages, emails, pushes) require explicit re-approval every session.
+**Alternatives rejected:** Add a CLAUDE.md rule — fails universal test (only relevant at session start after compaction, not on every task). Memory note instead.
+**Consequences:** Saved to MEMORY.md. Post-compaction resume pattern now explicit: "report the one interrupted task → pause → wait for instruction."
+**References:** [MEMORY.md](../../../.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md)
+
+---
+
 ## 2026-02-25 [process]: Activity log system — /status appends timeline, /day-end and /weekly consume it
 
 **Context:** Git logs only capture completed work. No record existed of what was in-flight during the day — what was active, blocked, or shifted attention. `/day-end` and `/weekly` had no visibility into intra-session patterns.

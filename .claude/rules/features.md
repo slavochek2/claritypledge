@@ -34,7 +34,7 @@ When the kanban UI sets a status manually, it writes `locked_at: <ISO timestamp>
 
 ## P-Number Assignment
 
-ALWAYS run `./scripts/next-p-number.sh` — never compute manually. Script excludes `uat/` and `archive/` correctly. If script unavailable, warn user and halt.
+ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`, or manual inspection miss `features/done/` and cause duplicate P-numbers). Script excludes `uat/` and `archive/` correctly. If script unavailable, warn user and halt.
 
 ## Type Classification
 
