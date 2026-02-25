@@ -62,7 +62,14 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
-0. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
+0. **Pre-flight: branch check** — If current branch is `main` AND this is a P-number feature, create a feature branch before writing any code:
+   ```bash
+   git checkout -b feature/pN-short-description
+   ```
+   Name it `feature/pN-short-description`. Report: "Created branch feature/pN-... — commits will stay off main until you /ship."
+   Skip this if already on a feature branch or if task is not a P-number feature (infra, docs, small fixes).
+
+0.1. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
    - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation)
    - **(B) Commit the in-progress work first** (if it's at a safe checkpoint)
    - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)

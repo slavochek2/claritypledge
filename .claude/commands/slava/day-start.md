@@ -64,6 +64,33 @@ WHAT'S NEXT:
 GATE TO [next milestone]: [one line condition]
 ```
 
+---
+
+### 2. Branch Status
+
+Run these two commands:
+```bash
+git branch --format='%(refname:short) %(upstream:track)' | grep -v "^main"
+git log --oneline origin/main..HEAD 2>/dev/null | wc -l | tr -d ' '
+```
+
+Output a branch block:
+
+```
+BRANCHES
+  main: N commits ahead of origin (not yet pushed)
+  feature/p422-clarity-partner-agreement  ← ready to /ship?
+  feature/p425-story-filing               ← in-progress
+```
+
+Rules:
+- If on `main` with 0 commits ahead: "main is clean and in sync"
+- If on `main` with N commits ahead: "N commits on main not pushed — push when ready or was this meant to be on a branch?"
+- For each feature branch: show name + one-line suggestion ("ready to /ship?" if closed, "in-progress" if spec still open)
+- If no feature branches: omit the section
+
+---
+
 ## Notes
 
 - Never show done steps. Only what's coming.

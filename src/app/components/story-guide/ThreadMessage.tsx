@@ -15,7 +15,6 @@ export function ThreadMessage({ role, content, isStreaming = false }: ThreadMess
 
   return (
     <article
-      role="article"
       aria-label={isAi ? 'AI message' : 'Your message'}
       data-testid={isAi ? 'thread-message-ai' : 'thread-message-user'}
       className={`flex gap-2 ${isAi ? 'items-start' : 'items-start justify-end'}`}

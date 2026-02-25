@@ -31,7 +31,6 @@ export function DraftCard({
 
   return (
     <article
-      role="article"
       aria-label={`Draft version ${version}, not saved`}
       data-testid={status === 'polish' ? 'draft-card-polish' : 'draft-card'}
       data-draft-card="true"

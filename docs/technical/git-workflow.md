@@ -1,5 +1,60 @@
 # Git Workflow Guide
 
+## Feature Branch vs Worktree — Decision Guide
+
+> **Rule:** In-progress features stay off `main` until approved for production.
+
+### Which to use?
+
+| Situation | Use | Why |
+|-----------|-----|-----|
+| Single feature, focused session | **Feature branch** | Simple, no extra setup, merges cleanly |
+| Two approaches to compare visually | **Worktree** | Parallel dev servers — see both at once |
+| Agent parallelism (multiple features simultaneously) | **Worktree** | Each agent gets an isolated copy |
+| Quick experiment that might be thrown away | **Worktree** | Reset without touching main branch |
+
+### Feature branch workflow
+
+```bash
+# Start new feature
+git checkout -b feature/p422-clarity-partner-agreement
+
+# Work, commit, iterate...
+
+# When approved for prod — merge to main and push
+git checkout main
+git merge feature/p422-clarity-partner-agreement --no-ff
+git push origin main   # → Vercel auto-deploys
+
+# Clean up
+git branch -d feature/p422-clarity-partner-agreement
+```
+
+**Naming:** `feature/pN-short-description` (e.g., `feature/p427-story-edit-delete`)
+
+### Worktree workflow (parallel / comparison)
+
+See [worktree-setup.md](worktree-setup.md) for full setup.
+
+```bash
+# Each worktree = separate disk folder + port + branch
+# claritypledge-1 on :5100, claritypledge-2 on :5200, etc.
+
+# Assign a feature to a worktree
+cd /Users/slavochek/Projects/public/claritypledge-1
+git checkout -b feature/p422-clarity-partner-agreement
+
+# Dev server at http://localhost:5100 — isolated, no conflict with main
+```
+
+**Key rule:** Never merge the worktree's port-config commit to main. Use `git rebase -i` to drop it, or cherry-pick only the feature commits.
+
+### Pre-push safety net
+
+A pre-push git hook (`.git/hooks/pre-push`) checks for `status: in-progress` feature specs before any push to `main`. If found, it warns you and requires explicit confirmation. This is the last line of defense — ideally you're already on a feature branch before it fires.
+
+---
+
 ## Pre-Commit Hook Handling
 
 > **Principle:** If unrelated in-progress work causes pre-commit hooks to fail, isolate it with a WIP commit — not a stash.

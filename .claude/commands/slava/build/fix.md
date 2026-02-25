@@ -89,7 +89,16 @@ Bug reported
 
 ## Workflow
 
-### Phase 0: Mark in Progress
+### Phase 0: Branch check
+
+If current branch is `main` AND this is a P-number feature fix (not an urgent prod hotfix):
+- Check if a `feature/pN*` branch already exists → if yes, `git checkout feature/pN-...` before starting
+- If no branch exists, create one: `git checkout -b feature/pN-short-description`
+- Report: "Switching to feature/pN-... — fix will stay off main until /ship."
+
+Skip if: fixing a live prod bug that needs immediate deployment (hotfix), or already on the right feature branch.
+
+### Phase 0.1: Mark in Progress
 
 If a P-number spec was provided (file path or short form like `p99`):
 1. Locate feature file: `features/p{N}_*.md`
