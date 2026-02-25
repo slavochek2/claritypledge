@@ -14,6 +14,7 @@ saves learnings to memory, and leaves you excited and clear about tomorrow.
 - **Features done today**: `git log --oneline --since="6am today"` — look for `feat:`, `fix:`, `docs:`, `tests:` prefixes
 - **New signups today**: Supabase MCP, prod project `besjtuodziykmjidubzw`: `SELECT count(*) FROM profiles WHERE created_at > now() - interval '24 hours'`
 - **Sentry today**: Sentry MCP (`mcp__sentry__search_issues`), org `22minds-llc`, project `javascript-react` — unresolved issues first seen in last 24h. Count only.
+- **CLAUDE.md health**: `git log --oneline --since="6am today" -- CLAUDE.md .claude/rules/` — if any commits found, collect the diff (`git diff HEAD~N HEAD -- CLAUDE.md .claude/rules/` where N = number of those commits) and spawn `/slava:maintain:claude-md` as a subagent with the diff as context. Get back: VALID / NEEDS REVISION + one-line recommendation.
 
 ### 2. Synthesize (internal, don't show raw data)
 
@@ -54,6 +55,11 @@ INSIGHT  (skip if nothing real)
 
 CHALLENGE  (skip if nothing real)
 • [real obstacle — what it revealed, not the technical detail]
+
+AGENT CONFIG  (skip if CLAUDE.md and rules unchanged today)
+• [what changed — plain English, not file names]
+• /claude-md verdict: VALID ✅ / NEEDS REVISION ⚠️
+• [one-line recommendation if NEEDS REVISION, otherwise omit]
 
 TOMORROW
 → [one clear next move + why it matters now]
