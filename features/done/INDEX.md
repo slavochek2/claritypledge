@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-02-24
+Last updated: 2026-02-25
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-02-24
 - **P423** (Feb 26) Calibration on Every Paraphrase — record calibration data on every exchange; no story/score requirement
 - **P424** (Feb 26) Visibility Model — three-tier (Private/Shared/Public); RLS uses EXISTS subquery on event_rsvps for shared
 - **P426** (Feb 26) Story Show/More Toggle — character limit prevents excessive card height; expandable text pattern
+- **P427** (Feb 26) Story Edit and Delete — `useBlocker` requires data router; guard via handleBack override + popstate; `story_versions` RLS was USING(true); Radix Dialog modal always needs `hideCloseButton` for confirm dialogs
 - **P434** (Feb 26) Point Statement Truncation — line-clamp prevents card overflow
 - **P117** (Feb 5) Stories & Points Backend — DB schema: points, point_positions, point_history, story_points junction
 - **P131** (Feb 5) Manual Points Creation — user-created points with story linking; validate before AI extraction

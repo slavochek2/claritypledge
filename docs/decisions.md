@@ -14,6 +14,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [technical]: Navigation guard without useBlocker (BrowserRouter constraint)
+
+**Context:** P427 needed an unsaved-changes guard on the story detail page. `useBlocker` from react-router-dom was the obvious tool, but crashed the app with an error boundary.
+
+**Decision:** `useBlocker` requires `createBrowserRouter` (data router context). The app uses `BrowserRouter` (no data router). Guard implemented via two mechanisms: (1) `handleBack` override that checks dirty state before calling `navigate()`, and (2) `popstate` event listener (capture phase) for browser back button.
+
+**Alternatives rejected:** `useBlocker` (requires data router migration — too large a scope); `beforeunload` alone (only covers tab/window close, not SPA navigation).
+
+**Consequences:** Every page that needs a navigation guard must override its own back-handler AND register a popstate listener. If we ever migrate to `createBrowserRouter`, replace both with `useBlocker`. `pendingNavigateRef` tracks the intended destination so the Leave button navigates to the right place regardless of how the prompt was triggered.
+
+**References:** [story-detail-page.tsx](../../src/app/pages/story-detail-page.tsx)
+
 ## 2026-02-24 [product]: Calibration unlocks from any paraphrase exchange — no story, no perfect score (P413)
 
 **Context:** Calibration was gated on 5 story verifications where speaker rated 10/10. In practice the bar stayed empty forever — required story selection, full rating flow, and a perfect speaker score. Real calibration data only needs two numbers: listener self-estimate + speaker's rating of them, which are available after any completed exchange.

@@ -1,7 +1,7 @@
 # E2E Testing with Playwright
 
-**Last Updated:** 2025-12-01
-**Status:** 10/17 tests passing, 6 skipped (session detection issue), 1 failing (focus timing)
+**Last Updated:** 2026-02-25
+**Status:** Session injection solved via `addInitScript` (see P413). Auth tests now work. See patterns section below for current testing conventions.
 
 ---
 
@@ -543,3 +543,83 @@ While we didn't achieve 17/17 passing tests, we:
 - ✅ Fixed menu blinking issue (bonus!)
 
 **Recommendation:** Try Option 1 (setSession API) first (1-2 hours). If unsuccessful, pivot to Option 2 (integration tests) which has higher success probability and arguably better long-term value.
+
+---
+
+## Current Patterns (Feb 2026)
+
+### Session Injection — Solved
+
+Use `addInitScript` to inject the session before any page navigation. This fires synchronously before the page's JS runs, so Supabase auth state is available immediately:
+
+```typescript
+await page.addInitScript((session) => {
+  const key = `sb-${PROJECT_REF}-auth-token`;
+  localStorage.setItem(key, JSON.stringify(session));
+}, sessionData);
+await page.goto('/story/123');
+```
+
+Helper: `e2e/helpers/test-user.ts` → `setTestSession(page, email)` — handles session creation and injection in one call.
+
+### Disabled-Button Tooltip Hover
+
+Shadcn buttons apply `pointer-events: none` when `disabled`. Playwright's `.hover()` still moves the mouse but Radix UI tooltips may not trigger reliably. Use `page.mouse.move()` to the element's coordinates instead:
+
+```typescript
+const btn = page.getByRole('button', { name: /save story/i });
+const bbox = await btn.boundingBox();
+if (bbox) {
+  await page.mouse.move(bbox.x + bbox.width / 2, bbox.y + bbox.height / 2);
+}
+await expect(page.getByText(/can't be empty/i)).toBeVisible({ timeout: 5000 });
+```
+
+### Route Interception for Async UI State (aria-busy, loading spinners)
+
+To assert UI state that only exists while a network request is in flight, intercept and pause the request:
+
+```typescript
+let resolveRoute: (() => void) | null = null;
+const routeHandler = async (route: Route) => {
+  if (route.request().method() === 'PATCH') {
+    await new Promise<void>(resolve => { resolveRoute = resolve; });
+    await route.continue();
+  } else {
+    await route.continue();
+  }
+};
+await page.route('**/rest/v1/stories*', routeHandler);
+
+await page.getByRole('button', { name: /save/i }).click();
+await expect(page.getByRole('button', { name: /save/i }))
+  .toHaveAttribute('aria-busy', 'true', { timeout: 2000 });
+
+resolveRoute?.();
+await page.unroute('**/rest/v1/stories*', routeHandler); // unroute before next save
+```
+
+**Important:** call `page.unroute()` before any subsequent request to the same URL to avoid re-intercepting cleanup calls.
+
+### Console Error Listener Timing
+
+Register the listener **before** `page.goto()` — errors thrown during page load are missed if the listener is set up after navigation:
+
+```typescript
+// ✅ correct
+const errors: string[] = [];
+page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+await page.goto('/story/123');
+await page.waitForLoadState('networkidle');
+expect(errors).toHaveLength(0);
+
+// ❌ wrong — always passes
+await page.goto('/story/123');
+await page.waitForLoadState('networkidle');
+const errors: string[] = [];
+page.on('console', msg => { ... });
+```
+
+### Rate Limiting — Run E2E with --workers=2
+
+Supabase rate-limits `createTestUser` calls under parallel load. Run P4xx feature tests with `--workers=2` to avoid 429 errors in `beforeAll`.
