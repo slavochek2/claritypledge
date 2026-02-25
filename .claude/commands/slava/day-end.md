@@ -9,6 +9,7 @@ saves learnings to memory, and leaves you excited and clear about tomorrow.
 
 - **Cloud server status**: `gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)"` — note if RUNNING or TERMINATED
 - **Git log**: `git log --oneline --since="6am today" --author-date-order`
+- **Activity log (today)**: `grep "^$(date +%Y-%m-%d)" .private/logs/activity.log 2>/dev/null || echo "no activity log yet"` — count entries (= N status checks today). Detect: **attention shift** = P-number in `active:` field changes between consecutive entries. **Persistent blocker** = same keyword appears in `blocked:` field in 2+ non-adjacent entries.
 - **Milestone**: Read `docs/milestones/c1-stories-live-events.md` — note all `[x]` steps and the gate condition
 - **KDD**: KDD is distributed — check `docs/decisions.md`, `docs/technical/` files, and `features/done/INDEX.md`. Also scan git log for `docs(kdd):` prefix commits today.
 - **Memory**: Read `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md`
@@ -56,6 +57,10 @@ INSIGHT  (skip if nothing real)
 
 CHALLENGE  (skip if nothing real)
 • [real obstacle — what it revealed, not the technical detail]
+
+ATTENTION  (skip if fewer than 2 status checks today, or nothing notable)
+• [N /status checks — what shifted focus, e.g. "P425 blocked all afternoon"]
+• [persistent blockers — anything that appeared in multiple checks]
 
 AGENT CONFIG  (skip if CLAUDE.md and rules unchanged today)
 • [what changed — plain English, not file names]
