@@ -14,6 +14,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Analytics observability split — /analytics skill + /weekly orchestration
+
+**Context:** /weekly accumulated inline analytics steps (Supabase user health, Mixpanel event audit) that had no clear ownership boundary. As more data sources become relevant (Stripe at C2, Ghost at R1), they'd keep piling into /weekly, making it hard to run analytics standalone.
+**Decision:** Extract `/slava:maintain:analytics` as an independent skill. It owns: Mixpanel session check → login if needed → Supabase user health → Mixpanel board metric reads. `/weekly` calls it as a single step. New sources (Stripe, Ghost) are added to `/analytics` only — never inline in `/weekly`.
+**Alternatives rejected:** Keep all steps inline in /weekly — works short-term but breaks as sources grow; `/weekly` would become an analytics file.
+**Consequences:** Running `/analytics` standalone gives a clean "how is the product doing right now?" answer without running a full retro. `/weekly` stays focused on the retrospective, not data collection.
+**References:** `.claude/commands/slava/maintain/analytics.md`
+
+## 2026-02-25 [product]: Story event attribution — C1 measurement gap closed
+
+**Context:** C1 hypothesis ("stories solve /live's cold start problem") requires measuring story creation rate and story→session attribution. Mixpanel had zero story events — we couldn't tell if stories were being created or if /live sessions referenced a story. C1 kill/proceed criteria were unmeasurable.
+**Decision:** Add `story_created` (on save), `story_viewed` (on page load, with `viewer_authenticated` + `has_points`), and `story_session_started` (when a story is selected in /live) events. Kept legacy `story_saved` event to preserve any existing Mixpanel charts.
+**Alternatives rejected:** Wait until C1 measurement becomes urgent — means flying blind on the core hypothesis; cohort data is lost retroactively.
+**Consequences:** C1 can now be measured: story creation rate, story→session conversion, and viewer type (anonymous vs authenticated). Retention board will show real data once deployed to prod.
+**References:** `docs/technical/analytics.md`, `docs/milestones/c1-stories-live-events.md`
+
 ## 2026-02-25 [process]: Parallel subagent codebase audit — pattern and findings
 
 **Context:** Codebase had accumulated config drift, doc contradictions, and coupling issues across months of feature work. Ran a systematic audit using 4 parallel Explore agents (config, code, docs, spec-drift), each producing a prioritized report.
