@@ -287,7 +287,10 @@ Fix: Use form data reference instead of event target
 1. Run regression test → MUST pass
 2. Run smoke tests → MUST pass
 3. Run full test suite → MUST pass
-4. If UI bug: **Run browser check now** (not optional) — `mcp__chrome-devtools__navigate_page` + `take_screenshot` on the affected route. Report what you see.
+4. **Once tests pass, spawn in parallel (do not wait for one before starting the other):**
+   - **Code review agent** — review tests + implementation together. Prompt: "Review tests AND implementation for [bug]. Check: missing surface coverage, threshold/logic bugs, accessibility gaps, stale state risks."
+   - **Browser verify agent** (UI bugs only) — navigate to affected route, screenshot, confirm fix visually.
+   - Apply any HIGH findings from code review before committing.
 5. Update bug spec:
    - Set `date_resolved: YYYY-MM-DD`
    - Add `root_cause: [brief explanation]`

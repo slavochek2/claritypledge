@@ -165,6 +165,38 @@ const point = await pointsService.getPoint(pointId);
 **Hooks:** `usePointsForProfile`, `usePointsForFeed` — `src/app/hooks/usePointsForDisplay.ts`
 **Service methods:** `getPointsForProfileDisplay`, `getPointsForFeedDisplay`
 
+### Inline Text Expand Pattern (Compact Cards)
+
+For story text in compact card contexts (feed, quoted cards), use stateful inline expand — **not** CSS `line-clamp` + navigate-away.
+
+```tsx
+const [textExpanded, setTextExpanded] = useState(false);
+useEffect(() => { setTextExpanded(false); }, [story.id]); // reset on item change
+
+{!textExpanded && story.text.length > THRESHOLD ? (
+  <p>
+    {story.text.slice(0, THRESHOLD)}
+    <span
+      role="button" tabIndex={0}
+      className="text-blue-600 font-medium cursor-pointer"
+      onClick={(e) => { e.stopPropagation(); setTextExpanded(true); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setTextExpanded(true); } }}
+    > ...more</span>
+  </p>
+) : <p>{story.text}</p>}
+```
+
+**Thresholds:** `StoryCardWithLinks` compact → 150 chars. `QuotedStory` inside `PointCardWithLinks` → 100 chars.
+
+**Rules:**
+- `stopPropagation` required — parent card div has its own click handler (navigate to detail)
+- `useEffect` reset required — component instances are reused in lists; stale `textExpanded=true` leaks to new items if not reset
+- `role="button"` + `onKeyDown` required — span is not natively interactive
+
+**Affected files:** `story-card-with-links.tsx`, `point-card-with-links.tsx`
+
+---
+
 ### Optimistic Position State in QuotedPoint
 
 `QuotedPoint` (inside `StoryCardDetail.tsx`) uses `localPosition`/`effectivePosition` to stay responsive during async round-trips without going stale on parent re-renders:

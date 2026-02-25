@@ -14,6 +14,18 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: Code review after test writing, not after committing
+
+**Context:** After implementing inline text expand, the fix agent wrote 9 tests and they all passed. A code review subagent then found: (1) `QuotedStory` surface had zero tests despite being in scope, (2) slice/threshold mismatch (140 vs 150) was an implementation bug, (3) missing `role`/`tabIndex`/`onKeyDown` on interactive span. All three were caught by code review, not by green tests.
+
+**Decision:** After any test-writing step, run a code review agent on the tests AND the implementation together before considering the work done. Green tests ≠ correct tests.
+
+**Alternatives rejected:** Trusting green tests alone — they proved insufficient; the bugs were in what the tests didn't assert, not in what they did.
+
+**Consequences:** `/fix` and `/dev` should include code review as a parallel step after tests pass, before committing. The verify + code-review-in-parallel pattern used this session is now the standard.
+
+---
+
 ## 2026-02-25 [process]: Agent auto-commit policy + /status as universal reorient
 
 **Context:** Sessions accumulated multiple finishing skills (/wrap, /ship, /status) with overlapping responsibilities, causing confusion about which to use when. Simultaneously, the insights report showed 28% of friction was git commit hygiene — lint errors and pre-commit failures at wrap time.

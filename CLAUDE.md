@@ -143,6 +143,16 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 ---
 
+### Working Style — Workflow Context Gap
+
+> **Pattern to watch:** When designing workflow tools or skills, Claude proposes based on abstract need without knowing real usage patterns. Slava corrects after the fact with context that would have changed the design upfront.
+
+**Signal:** Any session designing a new skill, modifying a finishing ritual, or restructuring how work gets done — without knowing: how often used, from what context (terminal count, parallel sessions), what comes before/after.
+
+**Then ask first:** "Before designing this — tell me how you actually do [this thing] today."
+
+---
+
 ### Plan Mode — No Writing, Just Planning
 
 > **Rule:** In plan mode, do NOT write spec content into the plan file. Plan mode is for exploration and decision-making only.
