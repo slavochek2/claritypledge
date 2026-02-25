@@ -129,6 +129,23 @@ If live_sessions table doesn't exist yet, omit that line silently.
 
 ---
 
+### 2.2 SEO Pulse (Search Console, quick — run in parallel with 2.1)
+
+Open Search Console at `https://search.google.com/search-console/performance/search-analytics?resource_id=sc-domain%3Aclaritypledge.com` (or use `mcp__claude-in-chrome__navigate` if browser is available).
+
+Check two things only:
+1. **Impression trend** — is the 28-day total higher or lower than last period?
+2. **Coverage errors** — any new "Error" or "Valid with warnings" in the Coverage report?
+
+Surface in Evidence Picture as:
+```
+SEO:          Impressions: N this week (↑/↓ vs last period) | Coverage: ✅ clean / ⚠️ N errors
+```
+
+If Search Console is inaccessible, skip silently and note "SEO: skipped (no browser access)".
+
+---
+
 ### 2.5 Process Friction Review
 
 Read `docs/process-learnings.md`. If the file does not exist, output `PROCESS DEBT: no tracking file yet` and skip this step.
@@ -247,6 +264,35 @@ If no feature commits this week: `MIXPANEL: no new features — nothing to audit
 
 ---
 
+### 2.10 Privacy Scan (subagent, runs in background — parallel with 2.7 and 2.8)
+
+Spawn a subagent to scan docs changed this week for PII and sensitive content that the pre-commit hook may have missed.
+
+**Subagent prompt:**
+```
+You are a privacy auditor. Run /slava:maintain:privacy on docs changed in this repo since [SINCE date].
+
+Repo: /Users/slavochek/Projects/public/claritypledge
+
+Steps:
+1. Run: git log --since="[SINCE]" --name-only --pretty="" -- "docs/" ".claude/commands/" "CLAUDE.md" "README.md" "features/" | sort -u
+2. Filter to public files only (exclude .private/, .env*, gitignored paths).
+3. Read each file and flag:
+   - HARD: personal email addresses (non-project), phone numbers, passwords, tokens, personal usernames
+   - SOFT: private business strategy, personal struggles, negative opinions about named people, unannounced decisions
+4. Return findings concisely — file, what was found, category (hard/soft), suggested action.
+5. If nothing found: "Privacy: ✅ no issues in [N] docs scanned"
+```
+
+Merge into Evidence Picture as:
+```
+PRIVACY:      ✅ clean (N docs) / ⚠️ [N findings — hard/soft breakdown]
+```
+
+If hard flags found: surface them in Questions as "Privacy issue in [file] — fix before next commit."
+
+---
+
 ### 2.8 Code Health Scan (subagent, runs in background — parallel with 2.7)
 
 Spawn a subagent in background while you continue to step 3.
@@ -278,6 +324,78 @@ CODE HEALTH:  TS: N errors | Lint: N warnings | eslint-disables: N files (N new)
 ```
 
 If verdict is ❌: add to questions "Code health degraded — worth a fix session this week?"
+
+---
+
+### 2.11 Ops Email Triage (subagent, runs in background — parallel with 2.7, 2.8, 2.9.1)
+
+Spawn a subagent in background to check `ops@claritypledge.com` and surface only emails that need a decision or action.
+
+**Subagent prompt:**
+```
+You are an email triage assistant for ops@claritypledge.com.
+
+Repo: /Users/slavochek/Projects/public/claritypledge
+
+Step 1 — fetch all unread email headers:
+Run: node scripts/read-ops-email.mjs --unread
+Returns From, Subject, Date for every unread message.
+
+If output is "📭 No unread emails": return "OPS EMAIL: ✅ inbox clear" and stop.
+
+Step 2 — decide whether to fetch bodies:
+Fetch bodies if ANY email header has:
+- A human-looking sender (not noreply@, no-reply@, notifications@, mailer@, or known SaaS domains like github.com, stripe.com, vercel.com, sentry.io, supabase.io)
+- OR a subject that isn't clearly a system notification/receipt (e.g. not "Your invoice", "Verification code", "Password reset", "[GitHub]", "Delivery notification")
+
+If bodies needed:
+Run: node scripts/read-ops-email.mjs --unread --body --mark-read
+(Fetches full bodies AND marks all unread as read in one connection.)
+
+If bodies NOT needed (all obvious FYI/SPAM):
+Run: node scripts/read-ops-email.mjs --unread --mark-read
+(Just marks as read.)
+
+Step 3 — classify each email:
+- ACTION_NEEDED: requires a reply, payment, registration decision, or external action by Slava
+- DECISION: Slava must decide something (pricing, partnership, account, policy)
+- FYI: informational, no response needed (receipts, confirmations, newsletters, auto-notifications)
+- SPAM: unsolicited, no relevance
+
+Step 4 — return ONLY ACTION_NEEDED and DECISION items.
+
+Output format (no preamble):
+**OPS EMAIL TRIAGE**
+ACTION_NEEDED:
+- [From] | [Subject] | [Date] | [1-line: what action is needed]
+DECISION:
+- [From] | [Subject] | [Date] | [1-line: what decision is needed]
+FYI: N suppressed
+SPAM: N suppressed
+
+If all suppressed: "OPS EMAIL: ✅ nothing actionable (N unread processed)"
+```
+
+Merge into Evidence Picture (step 4) as:
+```
+OPS EMAIL:    [N actionable — list subjects; or "✅ nothing actionable (N total)"]
+```
+
+---
+
+### 2.12 GCP Spend (invoke /slava:maintain:gcp-spend — runs in background with 2.7, 2.8, 2.9.1)
+
+Run `/slava:maintain:gcp-spend` and incorporate its output into the Evidence Picture.
+
+This handles: gcloud resource inventory → cost estimate → optimization flags.
+
+Surface in Evidence Picture as:
+```
+GCP SPEND:    $XX/week (~$XXX/mo, XX% of €400 budget) | Credits: ~$XX,XXX left (~XXX months)
+INFRA FLAGS:  [optimization opportunities or "none"]
+```
+
+If gcloud auth fails: `GCP SPEND: skipped (auth unavailable)`.
 
 ---
 
@@ -324,11 +442,14 @@ STRATEGY:     [docs touched or "none"]
 SMELLS:       [areas fixed 2+ times — scope only, not count; or "none"]
 LAST WEEK:    [paste saved commitment] → [founder's yes/partial/no]
 USER CONVOS:  [cannot be detected from git — ask now: "How many real user conversations this week? Names if any."]
+GCP SPEND:    [$XX/week, ~$XXX/mo | credits: ~$XX,XXX | flags: list or "none"]
 PROCESS DEBT:  [N proposed fixes from process-learnings.md — or "none"]
 CHRONIC:       [patterns appearing 2+ times — or "none"]
 PRODUCT PULSE: [what changed in lean-canvas/philosophy/README/CLAUDE.md — or "no changes (X weeks)"]
 USERS:         [total / verified / unverified / new this week — or "query failed"]
 MIXPANEL:      [features audited / has events / missing — or "no new features"]
+SEO:           [impressions trend + coverage errors — or "skipped"]
+OPS EMAIL:     [N actionable — subjects; or "✅ nothing actionable (N total)"]
 ```
 
 Collect the user conversation answer before moving to questions. Zero = flag immediately in the evidence table.
@@ -466,6 +587,10 @@ Signups: N this week (total pledgers: M) | Live sessions: N
 **Code health:** TS: N | Lint: N | eslint-disables: N (N new) | Untested: N | Chunks: [list or "clean"]
 **User health:** Total: N | Verified: N | Unverified: N | New this week: N
 **Mixpanel audit:** Features: N | Has events: N | Missing: [list or "none"]
+**SEO pulse:** Impressions: N (↑/↓) | Coverage: ✅/⚠️ N errors
+**Ops email:** ✅ nothing actionable / ⚠️ [N items — list subjects]
+**GCP spend:** $X.XX/week (~$XXX/mo) | Credits: ~$XX,XXX (~XXX months) | Flags: [list or "none"]
+**Privacy scan:** ✅ clean (N docs) / ⚠️ [findings]
 
 ### Evidence Signals
 [table of signals with interpretations]

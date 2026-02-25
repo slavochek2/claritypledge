@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-25 [process]: ops@ inbox monitored in /weekly — subagent triages all unread
+
+**Context:** ops@claritypledge.com accumulates service signups, notifications, and occasional real emails. No regular review existed — inbox was checked ad-hoc.
+**Decision:** Added step 2.11 to /weekly: background subagent reads all unread emails via `scripts/read-ops-email.mjs --unread`, classifies into ACTION_NEEDED / DECISION / FYI / SPAM, marks all as read, and surfaces only actionable items. FYI and SPAM are suppressed with counts. If anything looks potentially actionable (human sender, non-obvious subject), fetches full bodies first with `--unread --body --mark-read` in a single IMAP connection.
+**Alternatives rejected:** Checking ad-hoc — creates blind spots; checking all emails with full bodies — wasteful when 90%+ are receipts/notifications.
+**Consequences:** ops@ is now cleared and triaged every week. The `read-ops-email.mjs` script now supports `--unread`, `--body`, `--mark-read` flags. Note: untested against live server — smoke test needed: `node scripts/read-ops-email.mjs --unread`.
+**References:** [weekly/SKILL.md](.claude/commands/slava/maintain/weekly/SKILL.md) · [scripts/read-ops-email.mjs](scripts/read-ops-email.mjs)
+
+---
+
 ## 2026-02-26 [process]: KDD loop was write-only — skills now read decisions.md before building
 
 **Context:** KDD runs frequently and produces ~114 decisions across [product], [technical], [process] tags. Audit revealed no skill read those docs before building — /architect, /create-prd, /spec-review, and /review-all all started cold without consulting prior decisions. The loop was write-only.
@@ -21,6 +31,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** "Fix two skills first, then see" — no reason to defer when all 4 fixes are independent markdown edits with no risk.
 **Consequences:** Prior decisions are now visible to the skills that build next. Contradictions surface as BLOCK in spec-review before implementation starts, not after. Writers who see the consumer column in /kdd tag docs will tag with more intent.
 **References:** [architect.md](.claude/commands/slava/build/architect.md) · [create-prd/agent.md](.claude/commands/slava/build/create-prd/agent.md) · [spec-review.md](.claude/commands/slava/build/spec-review.md) · [review-all/SKILL.md](.claude/commands/slava/build/review-all/SKILL.md)
+
+---
+
+## 2026-02-25 [process]: clarity-agent VM desktop — noVNC replaced by Chrome Remote Desktop + XFCE4
+
+**Context:** LinkedIn Helper 2 needs a visible GUI desktop so the operator can solve LinkedIn CAPTCHAs and monitor automation. noVNC was the original approach but proved fragile: 4-component chain (Xvfb → x11vnc → websockify → cloudflared tunnel), persistent black-screen rendering from Electron/EGL, and broken between sessions.
+**Decision:** Replace noVNC stack with Chrome Remote Desktop (CRD) + XFCE4. CRD is a Google product, free, accessed at remotedesktop.google.com — no ports, no tunnels, session-persistent. XFCE4 gives a full desktop with taskbar and terminal. Xvfb moved from manual start to systemd (`xvfb.service`). LH and terminal auto-start via `~/.config/autostart/`. PIN stored as `CRD_PIN` in `.env.local`.
+**Alternatives rejected:** noVNC — 4 brittle components, black rendering on EGL; VNC over direct port — requires GCP firewall change + SSH tunnel per session.
+**Consequences:** On every VM start: CRD, Xvfb, and LH start automatically. Connect via remotedesktop.google.com to see full desktop. ⚠️ LH wrapper (`/usr/lib/linked-helper/resources/out/linked-helper`) survives restarts but NOT LH auto-updates — re-apply after any LH upgrade.
+**References:** [cloud-agent.md](docs/technical/cloud-agent.md)
 
 ---
 
