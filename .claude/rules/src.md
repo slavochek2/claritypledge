@@ -63,3 +63,12 @@ const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 - Tailwind CSS for styling, shadcn/ui for UI components
 - Never put dates in comments or documentation — use relative terms ("current", "recent")
 - Routes use `slug` (e.g., `/p/john-doe`), not UUID — use `getProfileBySlug()` for route params
+
+## Inline vs. Skill Threshold
+
+Inline src edits (without `/dev` or `/fix`) are only appropriate for:
+- A single constant, string, color value, or typo — one line, no logic change
+
+Anything beyond that — multi-line edits, logic changes, new components, refactors — must go through `/dev` (feature work) or `/fix` (bug fix). When in doubt, use the skill.
+
+**Why:** Inline bypasses test generation, spec tracking, and the QA gate. The skill does the same work with none of the gaps.

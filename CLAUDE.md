@@ -445,7 +445,7 @@ See [docs/development-process.md](docs/development-process.md) for complete work
 
 **Why:** Ad-hoc implementation bypasses test generation, spec tracking, and auto-close. The skill does the same work with none of the gaps.
 
-**Exception:** One-liner config changes, typo fixes, or explicit "just do it inline" from the user.
+**Exception:** One-liner config/doc changes, typos, or explicit "just do it inline" from the user. For `src/` edits, the threshold is stricter — see `.claude/rules/src.md`.
 
 ---
 
