@@ -98,6 +98,11 @@ function makeId(): string {
   return crypto.randomUUID();
 }
 
+/** Strip trailing rating question the AI appends after the draft story text. */
+function stripTrailingRatingQuestion(text: string): string {
+  return text.replace(/\n*(?:how well does this|on a scale of|rate this)[^\n]*\?[^\n]*$/im, '').trim();
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -294,17 +299,18 @@ export function StoryGuideChat({
         // Extract the content between the header line and the change note
         const lines = accumulated.split('\n');
         // Skip "Here's the polished version..." line and blank line
-        const contentStart = lines.findIndex(l => l.trim() === '') + 1;
+        const blankIdx = lines.findIndex(l => l.trim() === '');
+        const contentStart = blankIdx === -1 ? 1 : blankIdx + 1;
         const contentLines: string[] = [];
         for (let i = contentStart; i < lines.length; i++) {
-          if (lines[i].startsWith('Changes:')) break;
+          if (lines[i].trimStart().startsWith('Changes:')) break;
           contentLines.push(lines[i]);
         }
         const extracted = contentLines.join('\n').trim();
         const extractionLooksValid = extracted.length > 0 && !polishTrigger.test(extracted);
 
         if (extractionLooksValid) {
-          const changeNote = lines.find(l => l.startsWith('Changes:'))?.replace('Changes:', '').trim();
+          const changeNote = lines.find(l => l.trimStart().startsWith('Changes:'))?.replace(/^\s*Changes:\s*/, '').trim();
 
           const newVersion = currentDraftVersionRef.current + 1;
           setCurrentDraftVersion(newVersion);
@@ -343,7 +349,7 @@ export function StoryGuideChat({
       const draftCard: P425Message = {
         id: makeId(),
         role: 'ai',
-        content: accumulated,
+        content: stripTrailingRatingQuestion(accumulated),
         isDraftCard: true,
         draftVersion: newVersion,
         draftStatus: 'draft',
