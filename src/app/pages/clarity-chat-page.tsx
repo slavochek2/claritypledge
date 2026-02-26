@@ -316,7 +316,7 @@ export function ClarityChatPage() {
   const [selfRatingDrawerOpen, setSelfRatingDrawerOpen] = useState(false);
   const [ratingVerificationId, setRatingVerificationId] = useState<string | null>(null);
   const [activeRatingVerification, setActiveRatingVerification] = useState<Verification | null>(null);
-  const [rating, setRating] = useState(70); // 0-100 internally
+  const [rating, setRating] = useState<number | null>(null); // 0-100 internally, null = not yet selected
   const [correctionInput, setCorrectionInput] = useState(''); // Author's correction feedback
 
   // Audio recording state
@@ -676,7 +676,7 @@ export function ClarityChatPage() {
   // Rate a paraphrase (as message author)
   // If not accepting, can provide correction for retry
   const handleRate = async (accept: boolean) => {
-    if (!ratingVerificationId) return;
+    if (!ratingVerificationId || rating === null) return;
 
     try {
       // Pass correction text only if not accepting and there is text
@@ -684,7 +684,7 @@ export function ClarityChatPage() {
       await rateVerification(ratingVerificationId, rating, accept, correction);
       setRatingVerificationId(null);
       setActiveRatingVerification(null);
-      setRating(70);
+      setRating(null);
       setCorrectionInput('');
     } catch (err) {
       console.error('Failed to rate:', err);
@@ -1141,7 +1141,7 @@ export function ClarityChatPage() {
                       onClick={() => {
                         setRatingVerificationId(pendingRating.id);
                         setActiveRatingVerification(pendingRating);
-                        setRating(70);
+                        setRating(null);
                       }}
                     >
                       Did {pendingRating.verifierName} get it right?
@@ -1298,6 +1298,7 @@ export function ClarityChatPage() {
             if (!open) {
               setRatingVerificationId(null);
               setActiveRatingVerification(null);
+              setRating(null);
               setCorrectionInput('');
             }
           }}
@@ -1330,7 +1331,7 @@ export function ClarityChatPage() {
             <div className="px-4 pb-8 pt-2 space-y-4">
               <div className="flex justify-center">
                 <RatingButtons
-                  selectedValue={rating / 10}
+                  selectedValue={rating === null ? null : rating / 10}
                   onSelect={(v) => setRating(v * 10)}
                 />
               </div>
@@ -1353,6 +1354,7 @@ export function ClarityChatPage() {
                   <>
                     <Button
                       className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                      disabled={rating === null}
                       onClick={() => handleRate(false)}
                     >
                       <RotateCcw className="h-4 w-4 mr-1" />
@@ -1361,6 +1363,7 @@ export function ClarityChatPage() {
                     <Button
                       variant="outline"
                       className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                      disabled={rating === null}
                       onClick={() => handleRate(true)}
                     >
                       <CheckCircle2 className="h-4 w-4 mr-1" />
