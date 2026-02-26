@@ -106,7 +106,9 @@ Use Sentry MCP (`mcp__sentry__search_issues`):
 
 ---
 
-### 2.1 Product Metrics (Supabase MCP, prod project `besjtuodziykmjidubzw`, run in parallel with step 2)
+### 2.1 Product Metrics (Supabase MCP preferred; fallback: curl with `PROD_SUPABASE_SERVICE_ROLE_KEY` from `.env.local` — see day-start.md step 1c for curl pattern)
+
+Prod project: `besjtuodziykmjidubzw`, run in parallel with step 2.
 
 ```sql
 -- New signups this period (substitute $DAYS from step 0)

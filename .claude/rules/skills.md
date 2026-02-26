@@ -46,3 +46,22 @@ version: 1.0.0
 
 Namespace placement: `build/` · `maintain/` · `content/` · `think/` · `util/` · `events/`
 No skill without a namespace — if none fits, propose a new one first.
+
+---
+
+## MCP Calls — Always Include a Bash Fallback
+
+When a skill instruction says "Use X MCP", it must also specify an explicit bash fallback for when MCP is unavailable (subagents, CI, non-interactive sessions).
+
+**Pattern:**
+```
+Use Supabase MCP if available.
+Fallback: curl with PROD_SUPABASE_SERVICE_ROLE_KEY from .env.local — see day-start.md step 1c for exact command.
+```
+
+**Tool hierarchy for Supabase prod queries:**
+1. **Supabase MCP** — best for ad-hoc SQL, main conversation context only (subagents never have MCP access)
+2. **curl + service role key** — universal fallback, works in any context
+3. **Supabase CLI** — migrations/schema only (`db push`, `db pull`, `projects api-keys`); cannot run ad-hoc SQL queries (`supabase db query` does not exist in v2.75.0)
+
+**Why:** Without an explicit fallback, agents in subagent/CI contexts improvise — burning 10–20 tool uses on dead ends before failing.
