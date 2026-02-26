@@ -211,6 +211,8 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 **Commit autonomous, push always needs your OK.** When running a skill (`/dev`, `/fix`, etc.), commit independently when tests pass and the change is clearly complete — no need to ask. In open-ended conversation (no skill running), suggest: "Good checkpoint for a commit. Want to commit now?" Pushing to remote (`git push`) always requires explicit user approval first — ask before every push, even in "autonomous" mode.
 
+**Commit at coherent state, not just after features.** Commit whenever work reaches a coherent, passing state — even small docs, spec, or config changes. Don't let uncommitted changes accumulate across sessions. Uncommitted changes in a shared git index are collision fuel: a second Claude session opening in the same directory can silently sweep them into an unrelated commit.
+
 **Pre-commit failures: fix inline, never ask.** Apply the known fix and re-run. See [git-workflow.md](docs/technical/git-workflow.md) for remedies by failure type.
 
 **Commit flow is zero-question.** When the user says "commit", "wrap", "ship", or equivalent: fix any blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Do NOT ask "should I fix the lint error?" — just fix it. Only pause for genuine ambiguity (e.g., a test failure that could mean the fix is wrong, not auto-fixable lint).

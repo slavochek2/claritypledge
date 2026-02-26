@@ -89,6 +89,21 @@ Bug reported
 
 ## Workflow
 
+### Phase 0.0: Collision check
+
+Run `git status --short`. If modified or staged files from a **different** feature exist (files unrelated to this bug fix):
+
+Present options and wait for decision:
+- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Note: copy `.env.local` into worktree after creating.
+- **(B) Commit current work first** — if in-progress work is at a safe checkpoint
+- **(C) Proceed anyway** — only if user confirms both are one logical changeset
+
+Do NOT proceed until user chooses. Staging collision = one fix's files swept into the other's commit.
+
+Skip if: working tree is clean, or all dirty files belong to this fix.
+
+---
+
 ### Phase 0: Branch check
 
 If current branch is `main` AND this is a P-number feature fix (not an urgent prod hotfix):

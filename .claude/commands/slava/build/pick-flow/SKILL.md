@@ -53,6 +53,23 @@ Which flow?
 | 5+ files or 3+ independent concerns | B or C |
 | Spec already written and complete | skip spec-writing steps, start from `/generate-tests` or `/dev` |
 | ASCII/design already decided in conversation | drop /ux |
+| **Changes skills, hooks, CLAUDE.md, or git workflow** | **Infrastructure tier — see below** |
+
+## Infrastructure tier (skills / hooks / process changes)
+
+Changes to `.claude/commands/`, `.claude/rules/`, `.claude/hooks/`, `CLAUDE.md`, or git workflow affect **all future work** — not a single feature. Risk is asymmetric: hard to detect when broken, blast radius is every session.
+
+**Required before implementing:**
+1. Run adversarial analysis subagent: "Challenge this design. Find failure modes, edge cases, invariant violations. Return: SURVIVES / BUBBLES UP with findings."
+2. If SURVIVES → write design decision to `docs/decisions.md` (what was chosen and why alternatives were rejected)
+3. Implement only if adversarial review passes
+
+**Commands (infrastructure):**
+```
+[adversarial subagent] → decisions.md entry → inline implementation (no /dev, no feature branch)
+```
+
+**Skip adversarial review only if:** change is purely additive (new standalone skill with no cross-dependencies) AND scope is a single file with no shared state.
 
 ## Available commands (in sequence order)
 

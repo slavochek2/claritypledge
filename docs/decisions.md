@@ -8,9 +8,66 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Context:** Why this came up
 **Decision:** What we chose
+
+---
+
+## 2026-02-26 [process]: Terminal session persistence — tmux + resurrect + continuum
+
+**Context:** After Mac restarts (including unexpected crash described below), all Ghostty terminal sessions (tabs, working directories, running processes) were lost. Previous tmux attempt failed because no persistence plugins were configured. Ghostty's `window-save-state = always` restores layout/directories but not running processes.
+**Decision:** tmux + tmux-resurrect + tmux-continuum. Auto-saves every 1 min to `~/.tmux/resurrect/`. Auto-restores on `tmux` server start. `t` shell function wraps startup: boots server, polls until continuum restores sessions (up to 10s), then attaches. `t name` creates/attaches named sessions. fzf session picker for switching. `c` = `claudec`, `e` = `exit`.
+**Alternatives rejected:** Zellij (built-in resurrection broken on macOS Homebrew, GitHub #4412/#4413); iTerm2 (can't restore processes after reboot); Warp (loses working directories on reboot, multiple open GitHub issues); Ghostty alone (restores layout, not processes).
+**Consequences:** Workflow: open Ghostty → type `t` → all sessions restored. Sessions protected from crash within 1-min window. Security: `~/.tmux/resurrect/` is chmod 700; pane-capture disabled; ssh excluded from resurrect processes (dead connections). Config: `~/.tmux.conf`, `t()` + `c` + `e` aliases in `~/.zshrc`.
+
+---
+
+## 2026-02-26 [process]: Mac crash prevention — quit Beeper on lid close via launchd
+
+**Context:** Mac restarted unexpectedly during Clamshell Sleep (~15:40→16:18). Root cause: Beeper Desktop writing 2,147 MB in 10 min during a background update, triggering a Security Coprocessor crash (`scrash_in crash` in boot faults — Apple Silicon-specific, leaves almost no trace). Contributing factor: MagSafe plugged in seconds before lid close is a known macOS 15.x instability trigger. tmux was previously tried for session continuity after restarts — did not work.
+**Decision:** Two launchd agents installed: (1) `com.slava.quit-beeper-on-lid-close` — checks lid state via `ioreg` every 30s, quits Beeper if closed; (2) `com.slava.panic-checker` — runs at login, notifies if new `ResetCounter-*.diag` files exist since last login. Scripts in `~/.local/bin/`.
+**Alternatives rejected:** Manually quitting Beeper before sleep (relies on memory); disabling Beeper auto-updates (doesn't prevent I/O storms from other operations).
+**Consequences:** Beeper won't be running when lid is closed — open it manually when needed. Unexpected restarts will surface as a login notification. Diagnostic approach for future crashes: check `ResetCounter-*.diag` in `/Library/Logs/DiagnosticReports/` and `pmset -g log` for the sleep/wake timeline.
+
+---
+
+## 2026-02-26 [product]: /sim — 3-layer persona simulation pipeline as pre-done UX gate
+
+**Context:** P422 and P425 shipped but felt off in ways only visible when actually using them. Static code review (`/review-all`) catches patterns, not experience. Smoke testing (`/verify`) confirms function, not feel. No structured way to discover UX friction before closing a feature.
+**Decision:** Three-layer persona simulation system: (1) Experience Reporter — browser agent (Claude in Chrome) navigates as a persona, produces raw first-person stream; (2) Interpreter — classifies issues across personas, identifies root cause; (3) Change Request Generator — consolidated report, selected findings become `type: change-request` P-specs. Pipeline: `/dev → /sim → [change requests] → done`. Personas live in `.claude/personas/` (version-controlled). `/sim` replaces `/verify` as the pre-done gate for UI features.
+**Alternatives rejected:** Manual walkthroughs (non-reproducible, skipped under time pressure); adding more static review passes (same blind spot — can't simulate experience); keeping `/verify` as the gate (functional, not experiential).
+**Consequences:** New spec type `type: change-request` with required frontmatter (`changes`, `source`, `persona`). `/verify` demoted to pure functional smoke testing. Three initial personas: `solo-founder`, `coach`, `invited-party`. Skills flow updated: `/dev → /sim` is the new standard for UI features.
+**References:** [features/p439_sim_persona_simulation_system.md](features/p439_sim_persona_simulation_system.md) · [.claude/personas/](.claude/personas/)
+
+---
+
+## 2026-02-26 [process]: quick-feature template is a floor, not a ceiling
+
+**Context:** Specs created from `/quick-feature` were missing architecture decisions, personas, output formats, and pipeline position that had already been established in conversation — agents were leaving placeholders instead of capturing what was already known.
+**Decision:** `/quick-feature` scans conversation for decided context (ASCII mockups, wireframes, file paths, implementation approach, architecture decisions, output formats, personas, pipeline position) and includes it. Agents may add sections beyond the template when conversation context warrants — template is a floor, not a ceiling. Section names should be descriptive (`## Architecture`, `## Personas`, etc.).
+**Alternatives rejected:** Rigid template — forces placeholders for context that already exists, requiring re-discussion at `/dev` time.
+**Consequences:** Specs created from rich conversations will be richer. Agents should not add boilerplate placeholder sections for things not yet decided; the extension rule applies to things already decided in conversation.
+**References:** [.claude/commands/slava/build/quick-feature.md](.claude/commands/slava/build/quick-feature.md)
 **Alternatives rejected:** What we didn't choose
 **Consequences:** What this means going forward
 ```
+
+---
+
+## 2026-02-26 [process]: Worktree automation rejected — .env.local showstopper + hook fires too late
+
+**Context:** Two Claude sessions sharing a `.git/index` caused staging collisions (P437/P440 incident). Proposed fix: PreToolUse hook that auto-forks into a worktree when a branch is detected. Ran adversarial review before implementing.
+**Decision:** Rejected automation. Implement instead: (1) commit-at-coherent-state rule in CLAUDE.md, (2) collision check in `/fix` (mirrors `/dev`'s existing check), (3) infrastructure tier in `/pick-flow`. Keep ask behavior — agent surfaces collision, user decides.
+**Alternatives rejected:** PreToolUse hook — three fatal flaws: (a) `.env.local` is not present in worktrees (breaks `source .env.local` in any credential script — a hard showstopper); (b) hook fires after `git checkout -b` so the branch already exists in the original worktree when the fork happens; (c) auto-forking without asking violates the Transparency Principle. Auto-merge-on-close also rejected: no clean "session ended" event to hook into.
+**Consequences:** Agents detect collision and ask — they don't act unilaterally. `.env.local` must be copied manually when creating worktrees (documented in worktree-setup.md). The main defence is committing frequently, not worktree isolation.
+
+---
+
+## 2026-02-26 [process]: Commit at coherent state — shared git index is collision fuel
+
+**Context:** Two Claude sessions open in the same worktree can silently sweep one session's uncommitted changes into the other's commit. The P440/P437 incident caused 11 spec files to end up in the wrong commit because changes accumulated between sessions.
+**Decision:** Commit whenever work reaches a coherent, passing state — docs, specs, config changes, not just feature completions. Don't let uncommitted changes accumulate across sessions.
+**Alternatives rejected:** Relying on session awareness — agents don't reliably know what other sessions have staged.
+**Consequences:** CLAUDE.md now states this explicitly. Parallel sessions must use separate worktrees. `/kdd` and `/status` wrap steps check `git status --short` and flag uncommitted changes.
+**References:** [CLAUDE.md](../CLAUDE.md) · [worktree-setup.md](docs/technical/worktree-setup.md)
 
 ---
 
