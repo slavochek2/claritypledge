@@ -157,6 +157,14 @@ export function StoryGuideChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Auto-resize textarea as content grows (up to max-h-[150px])
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
+  }, [inputValue]);
+
   // Track messages in a ref so streaming handler can access latest without stale closures
   const messagesRef = useRef<P425Message[]>(messages);
   useEffect(() => {
