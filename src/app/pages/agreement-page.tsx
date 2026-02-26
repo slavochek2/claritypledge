@@ -189,14 +189,16 @@ function PendingView({
 
       {isCreator && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
-          <div className="flex items-start gap-2">
-            <Clock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-amber-900">
-              Invitation sent to{' '}
-              <span className="font-medium">{agreement.partnerEmail}</span>. Waiting for them to
-              sign.
-            </p>
-            <p className="text-xs text-amber-700/70 mt-1">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-start gap-2">
+              <Clock size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-900">
+                Invitation sent to{' '}
+                <span className="font-medium">{agreement.partnerEmail}</span>. Waiting for them to
+                sign.
+              </p>
+            </div>
+            <p className="text-xs text-amber-700/70 pl-6">
               Their email is shown here only to confirm where the invitation was sent.
             </p>
           </div>
