@@ -18,6 +18,7 @@ import { AgreementCertificate } from '@/app/components/agreements/agreement-cert
 import { CelebrationDialog } from '@/app/components/agreements/celebration-dialog';
 import { invokeAgreementEmails } from '@/lib/agreement-emails';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -105,6 +106,7 @@ export function AcceptAgreementPage() {
 
       if (error || !accepted) {
         console.error('[AcceptAgreementPage] accept error:', error);
+        toast.error('Something went wrong. Please try again or use the link from your invitation email.');
         return;
       }
 

@@ -241,7 +241,7 @@ function PendingView({
       {isPartner && (
         <div className="flex justify-center">
           <Button asChild className="min-h-[44px] px-8">
-            <Link to={`/agreements/${agreement.id}/accept`}>Review &amp; Sign</Link>
+            <Link to={`/agreements/${agreement.id}/accept?token=${encodeURIComponent(agreement.invitationToken)}`}>Review &amp; Sign</Link>
           </Button>
         </div>
       )}
