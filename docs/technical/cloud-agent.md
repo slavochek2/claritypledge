@@ -2,7 +2,21 @@
 
 Run AI coding tasks in the cloud. Works even when you close your laptop. Supports **parallel execution** via worktrees.
 
-> **This VM also runs LinkedIn Helper 2** for 24/7 LinkedIn outreach automation. See [decisions.md](../decisions.md) for the LH setup details. Use Chrome Remote Desktop (`remotedesktop.google.com`) to access the VM desktop — needed for first-login CAPTCHAs and observing LH.
+> **This VM also runs LinkedIn Helper 2** for 24/7 LinkedIn outreach automation and has a full **XFCE4 desktop** accessible via Chrome Remote Desktop. See [decisions.md](../decisions.md) for the CRD+XFCE setup rationale.
+
+## Desktop Access (Chrome Remote Desktop)
+
+Connect at **remotedesktop.google.com** (login as `slavochek@googlemail.com`, PIN in `.env.local` as `CRD_PIN`).
+
+**What auto-starts on VM boot:**
+- `xvfb.service` — virtual display `:99` (systemd, always on)
+- `chrome-remote-desktop@slavochek` — CRD service (systemd, always on)
+- `~/.config/autostart/linkedhelper.desktop` — LinkedIn Helper on display `:20`
+- `~/.config/autostart/terminal.desktop` — xfce4-terminal with tmux session `main`
+
+**What you'll see:** XFCE4 desktop with taskbar, LH window, and a maximised terminal running tmux. Right-click desktop for app launcher. Firefox installed for Postiz and other browser access.
+
+**⚠️ LH wrapper note:** The two-binary wrapper at `/usr/lib/linked-helper/resources/out/linked-helper` survives restarts but NOT LH auto-updates. If LH updates, re-apply the wrapper (see MEMORY.md for the exact command).
 
 ## Quick Reference
 

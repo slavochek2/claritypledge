@@ -1,8 +1,10 @@
 ---
-status: in-progress
+status: week
 type: task
 priority: medium
-created_at: 2026-02-25
+created_at: 2026-02-25T00:00:00.000Z
+rank: 4.5
+locked_at: '2026-02-26T04:18:17.294Z'
 ---
 
 # P437: Blog Article — AI Agent Orchestration for Solo Founders

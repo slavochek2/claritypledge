@@ -41,7 +41,7 @@ Next:
   1. If active work is clearly unfinished → `→ continue [specific next task]`
   2. If session looks like it's wrapping up (Done list is substantial, no clear next task):
      - If uncommitted changes exist → `→ commit, then /kdd`
-     - If everything committed → `→ /kdd` (if work worth capturing) or `→ /day-end`
+     - If everything committed → `→ /kdd` (if work worth capturing) or `→ /day-end` (only after 20:30 local time — before that, suggest the next feature or task instead)
   3. If mid-session with clear next step → name it specifically
   - `.claude/` files or `CLAUDE.md` changed → also note `→ /claude-md "description"` to validate
   - UI files (`*.tsx`) modified → also note `→ /verify` for visual QA
