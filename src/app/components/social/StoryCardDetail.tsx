@@ -69,6 +69,10 @@ interface StoryCardDetailProps {
   };
   /** Other stories that contain each linked point. Map<pointId, stories[]> */
   linkedStoriesForPoints?: Map<string, LinkedStory[]>;
+  /** Visibility indicator rendered inline after the date. Pass a dropdown for authors, static icon for others. */
+  visibilitySlot?: React.ReactNode;
+  /** Icon-only action buttons rendered in the footer row before Share. Author-only (edit, delete). */
+  footerActionsSlot?: React.ReactNode;
 }
 
 /**
@@ -91,6 +95,8 @@ export function StoryCardDetail({
   authorPosition,
   routes = {},
   linkedStoriesForPoints,
+  visibilitySlot,
+  footerActionsSlot,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -222,9 +228,15 @@ export function StoryCardDetail({
                 {/* Credibility stats */}
                 <EarBadge count={story.authorEarsCount ?? 0} name={story.authorName} />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {formatTimeAgo(story.createdAt)}
-              </p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>{formatTimeAgo(story.createdAt)}</span>
+                {visibilitySlot && (
+                  <>
+                    <span className="opacity-40">·</span>
+                    {visibilitySlot}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Story text - indented under author */}
@@ -289,24 +301,25 @@ export function StoryCardDetail({
 
             {/* Action icons */}
             <div className="flex items-center gap-1">
+              {footerActionsSlot}
               <ShareButton
                 type="story"
                 id={story.id}
                 title={`${story.authorName}'s story`}
                 description={story.content.slice(0, 100)}
               />
-              {/* External link - only in feed (redundant in detail view) */}
-              {!isDetailView && (
-                <MobileTooltip content="Open story">
-                  <button
-                    onClick={() => navigate(storyRoute(story.id))}
-                    className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
-                    aria-label="Open story"
-                  >
-                    <ExternalLink size={16} />
-                  </button>
-                </MobileTooltip>
-              )}
+              <MobileTooltip content="Open story">
+                <button
+                  onClick={() => isDetailView
+                    ? window.open(storyRoute(story.id), '_blank')
+                    : navigate(storyRoute(story.id))
+                  }
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
+                  aria-label="Open story"
+                >
+                  <ExternalLink size={16} />
+                </button>
+              </MobileTooltip>
             </div>
           </div>
 
