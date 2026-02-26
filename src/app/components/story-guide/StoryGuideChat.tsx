@@ -18,9 +18,11 @@ import type { StoryVisibility } from '@/app/types';
 import { useAuth } from '@/auth';
 import { ThreadMessage } from './ThreadMessage';
 import { DraftCard } from './DraftCard';
-import { ContextChip } from './ContextChip';
 import { VisibilityAndSave } from './VisibilityAndSave';
 import { SavedStoryChatCard } from './SavedStoryChatCard';
+import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
+import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
+import type { Point as PrototypePoint, PositionEntry } from '@/app/prototypes/shared/types';
 import { mockStoryGuideStream } from '@/app/data/story-guide-chat-stub';
 import { storiesService } from '@/app/data/stories-service';
 import { supabase } from '@/lib/supabase';
@@ -62,11 +64,27 @@ export interface StoryDraft {
   visibility: StoryVisibility;
 }
 
+/** Minimal Point shape for card display — adapted from PointWithUserPosition in the page. */
+export interface ContextPoint {
+  id: string;
+  text: string;
+  createdAt: string;
+  positions: Record<string, PositionEntry>;
+  linkedStoryIds: string[];
+}
+
+/** Profile owner shape for the context card header badge. */
+export type ContextProfileOwner = PointProfileOwner;
+
 export interface StoryGuideChatProps {
   pointId?: string;
   /** PositionType as string */
   userPosition?: string;
   pointText?: string;
+  /** Adapted point for the context card at the top of the chat. */
+  contextPoint?: ContextPoint;
+  /** Profile owner for the context card position badge. */
+  contextProfileOwner?: ContextProfileOwner;
   onStoryConfirmed: (draft: StoryDraft) => void;
   onDismiss?: () => void;
 }
@@ -111,6 +129,8 @@ export function StoryGuideChat({
   pointId,
   userPosition,
   pointText,
+  contextPoint,
+  contextProfileOwner,
   onStoryConfirmed,
   onDismiss: _onDismiss,
 }: StoryGuideChatProps) {
@@ -529,10 +549,15 @@ export function StoryGuideChat({
 
   return (
     <div className="flex flex-col h-full" data-testid="story-guide-chat">
-      {/* Context chip (only when pointId and pointText provided) */}
-      {pointId && pointText && (
+      {/* Context card (only when full point data is available) */}
+      {contextPoint && (
         <div className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
-          <ContextChip pointId={pointId} pointText={pointText} userPosition={userPosition} />
+          <PointCardWithLinks
+            point={contextPoint as PrototypePoint}
+            profileOwner={contextProfileOwner}
+            hideActions
+            disableNavigation
+          />
         </div>
       )}
 

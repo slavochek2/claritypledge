@@ -9,7 +9,8 @@ import { useSearchParams, Navigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { StoryGuideChat } from '@/app/components/story-guide/StoryGuideChat';
 import { pointsService } from '@/app/data/points-service';
-import type { StoryDraft } from '@/app/components/story-guide/StoryGuideChat';
+import type { StoryDraft, ContextPoint, ContextProfileOwner } from '@/app/components/story-guide/StoryGuideChat';
+import type { PointWithUserPosition } from '@/app/types';
 
 export function StoryGuideChatPage() {
   const { user, isLoading } = useAuth();
@@ -21,6 +22,7 @@ export function StoryGuideChatPage() {
 
   const [pointText, setPointText] = useState<string | undefined>(undefined);
   const [userPosition, setUserPosition] = useState<string | undefined>(undefined);
+  const [fullPoint, setFullPoint] = useState<PointWithUserPosition | null>(null);
   const [pointLoading, setPointLoading] = useState(isPositionTriggered);
 
   // Fetch point data when position-triggered
@@ -32,12 +34,13 @@ export function StoryGuideChatPage() {
     pointsService.getPointWithUserPosition(pointId, user.id)
       .then(point => {
         if (point) {
+          setFullPoint(point);
           setPointText(point.statement);
           if (point.userPosition?.position) {
             setUserPosition(String(point.userPosition.position));
           }
         }
-        // If point not found — proceed without context chip (graceful degradation)
+        // If point not found — proceed without context card (graceful degradation)
       })
       .catch(() => {
         // Graceful degradation: proceed without context
@@ -58,6 +61,25 @@ export function StoryGuideChatPage() {
     return <Navigate to="/signup" replace />;
   }
 
+  // Adapt fetched point to the card display format
+  const contextPoint: ContextPoint | undefined =
+    fullPoint && user
+      ? {
+          id: fullPoint.id,
+          text: fullPoint.statement,
+          createdAt: fullPoint.createdAt,
+          positions: fullPoint.userPosition
+            ? { [user.id]: { position: fullPoint.userPosition.position, timestamp: fullPoint.userPosition.createdAt } }
+            : {},
+          linkedStoryIds: [],
+        }
+      : undefined;
+
+  const contextProfileOwner: ContextProfileOwner | undefined =
+    fullPoint && user
+      ? { id: user.id, name: user.name, position: fullPoint.userPosition?.position ?? null }
+      : undefined;
+
   const handleStoryConfirmed = (_draft: StoryDraft) => {
     // toast is already shown inside StoryGuideChat after save
     // onStoryConfirmed is the parent notification hook — nothing extra needed for Flow A/B
@@ -75,6 +97,8 @@ export function StoryGuideChatPage() {
           pointId={pointId}
           pointText={pointText}
           userPosition={userPosition}
+          contextPoint={contextPoint}
+          contextProfileOwner={contextProfileOwner}
           onStoryConfirmed={handleStoryConfirmed}
         />
       )}
