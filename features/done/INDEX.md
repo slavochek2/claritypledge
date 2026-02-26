@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-02-25
+Last updated: 2026-02-26
 
 ---
 
@@ -69,6 +69,10 @@ Last updated: 2026-02-25
 - **P396** (Feb 26) Eliminate Unverified State — instant email verification via one-time link in welcome email; no UNVERIFIED users
 - **P273** (Feb 26) Create Story Unverified Error — grant role/RLS access on instant verification; check verification before RLS errors surface
 - **P274** (Feb 26) Post-Session Verification Email — one-time verification reminder after first live session
+
+## Agreements & Relationships
+
+- **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
 
 ## Events & Content
 

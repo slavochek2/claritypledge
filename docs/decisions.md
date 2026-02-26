@@ -14,6 +14,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [technical]: kanban PATCH — all-done must be excluded from "move back to active" condition
+
+**Context:** Setting `status: all-done` via the kanban UI on a file already in `features/done/{sprint}/` triggered the PATCH handler's "move back to active" branch (`status !== 'done' && status !== 'rejected' && isInSubfolder`). Result: 11 spec files silently moved from `features/done/` subdirectories to `features/` root, showing as deleted in git and untracked at features/.
+**Decision:** Add `all-done` to the exception list alongside `done` and `rejected`. The condition is now: `status !== 'done' && status !== 'all-done' && status !== 'rejected' && isInSubfolder`. Files with any "terminal" status must never be moved back to active by the PATCH handler.
+**Alternatives rejected:** Moving to flat `features/done/` on `all-done` (loses sprint subdirectory organization).
+**Consequences:** Any new terminal status added to the kanban (beyond `done`/`all-done`/`rejected`) must also be added to this exception list — treat it as a registry. Spec file restores were handled by moving untracked files back to their sprint subfolders manually.
+**References:** [tools/kanban/server/api.ts](tools/kanban/server/api.ts) — PATCH `/api/features/:id` handler
+
+---
+
+## 2026-02-26 [technical]: Calibration bar — don't gate null-aware components with `&&`
+
+**Context:** `InlineCalibration` accepts `calibration: UserCalibration | null` and renders an empty bar + "Complete 5 sessions" tooltip when null — intentional design from P269. A later commit added `{calibration && <InlineCalibration>}` with comment "hidden until 5 sessions" which *overrode* that design, hiding the bar entirely for users with < 5 sessions. Discovered when calibration bar was missing on all profiles.
+**Decision:** Remove the `&&` guard — render `<InlineCalibration calibration={calibration} />` always and let the component own its empty state.
+**Alternatives rejected:** Keeping the guard + separate placeholder — unnecessary complexity when the component already handles null.
+**Consequences:** Pattern: if a component has intentional null/empty-state rendering built in, pass null directly and never gate with `{nullable && <Component>}`. The guard silently overrides the component's design contract.
+**References:** [profile-page-v2.tsx](src/app/pages/profile-page-v2.tsx)
+
+---
+
+## 2026-02-26 [process]: Deploy queue pattern for infra-aware feature releases
+
+**Context:** P422 and P425 both introduced edge functions and `VITE_*` env vars that must be provisioned on prod before `/ship` pushes. Config was staged manually (Supabase secrets + Vercel env). `/ship` only does git merge+push — it's blind to these infra requirements. Risk: future features silently missing prod dependencies.
+**Decision:** Option A — `/dev` appends an "Infra requirements" block to `DEPLOY_QUEUE.md` when closing a feature that has a Pre-deploy Checklist. `/ship` reads the queue, shows pending items, gets confirmation, runs each command, then clears the file. `DEPLOY_QUEUE.md` is gitignored.
+**Alternatives rejected:** Option B (GitHub Actions automation for edge fn deploys) — requires a staging environment to safely validate; premature until staging exists.
+**Consequences:** Deploy process becomes explicitly aware of infra dependencies. First `/ship` after this decision will need P422+P425 queue items seeded manually. Implementation still pending (update `/dev` + `/ship` skills).
+**References:** [ship.md](.claude/commands/slava/build/ship.md) · [features.md](.claude/rules/features.md) — Pre-deploy Checklist format
+
+---
+
 ## 2026-02-26 [process]: day-start skill hardening — signup identity + subagent anti-pattern
 
 **Context:** `/day-start` was spawning a background subagent to count signups, which took 20 tool uses / 75s and still got the wrong answer (count only, wrong column name). Health check also had GCP VM check that silently failed every run due to keychain auth not being available in agent sessions.
