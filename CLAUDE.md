@@ -41,15 +41,21 @@ Before implementing ANY feature or UI component:
    grep -r "ComponentName" src/
    ```
 
-3. **Read the feature spec completely** if working from a P-number
+3. **For page/component files: verify the file is reachable** before editing:
+   ```bash
+   grep -r "ComponentName\|component-filename" src/app/App.tsx src/
+   ```
+   If a component isn't imported or routed anywhere, it's dead code — don't implement into it. Check git log for why the route was removed before touching it.
 
-4. **Check the done-features index** for related past work:
+4. **Read the feature spec completely** if working from a P-number
+
+5. **Check the done-features index** for related past work:
    ```bash
    grep -i "keyword" features/done/INDEX.md
    ```
    Scan `features/done/INDEX.md` — one line per completed feature, grouped by domain. Catches gotchas, patterns, and prior decisions before you repeat them.
 
-5. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response shape, user flow sequence, or state invariant — verify it. Run a quick query or check the migration file. Don't trust type definitions alone; they can be ahead of prod. This applies equally to /architect and /create-prd phases: don't spec behavior based on assumed infrastructure. The signal you need this rule: "I'll assume X and add handling for the case where X is false." That sentence means stop and verify X first.
+6. **Verify assumptions before building — at every phase.** Before writing code, a spec, or an architect plan that depends on a schema column, API response shape, user flow sequence, or state invariant — verify it. Run a quick query or check the migration file. Don't trust type definitions alone; they can be ahead of prod. This applies equally to /architect and /create-prd phases: don't spec behavior based on assumed infrastructure. The signal you need this rule: "I'll assume X and add handling for the case where X is false." That sentence means stop and verify X first.
 
 **Why:** 5 minutes checking history saves hours of redundant work.
 

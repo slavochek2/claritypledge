@@ -2,6 +2,9 @@
  * @file clarity-chat-page.tsx
  * @description Clarity Chat MVP - Create/join chat, send messages, paraphrase flow.
  * Reuses session infrastructure from P19.1 (clarity_sessions table).
+ *
+ * NOT ROUTED — /clarity-chat was reverted from prod (see App.tsx).
+ * Before editing, verify a route wires this up, or you're editing dead code.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';

@@ -148,9 +148,6 @@ export function StoryGuideChat({
   const [inputValue, setInputValue] = useState('');
   const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
   const [polishedContent, setPolishedContent] = useState<string | null>(null);
-  const [aiDisclosureAcked, setAiDisclosureAcked] = useState(
-    () => { try { return localStorage.getItem('ai_disclosure_acked') === 'true'; } catch { return false; } }
-  );
   const [visibilitySource, setVisibilitySource] = useState<'polish' | 'escape' | null>(null);
 
   const threadRef = useRef<HTMLDivElement>(null);
@@ -211,14 +208,6 @@ export function StoryGuideChat({
     return () => {
       abortRef.current?.abort();
     };
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // AI disclosure ack
-  // ---------------------------------------------------------------------------
-  const handleAckDisclosure = useCallback(() => {
-    try { localStorage.setItem('ai_disclosure_acked', 'true'); } catch { /* ignore */ }
-    setAiDisclosureAcked(true);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -402,7 +391,7 @@ export function StoryGuideChat({
   // ---------------------------------------------------------------------------
   const handleSend = useCallback(() => {
     const trimmed = inputValue.trim();
-    if (!trimmed || phase === 'streaming' || trimmed.length > MAX_BRAIN_DUMP_LENGTH || !aiDisclosureAcked) return;
+    if (!trimmed || phase === 'streaming' || trimmed.length > MAX_BRAIN_DUMP_LENGTH) return;
 
     // Clear any previous error state on new user send
     setConsecutiveFailures(0);
@@ -552,8 +541,7 @@ export function StoryGuideChat({
   const sendDisabled =
     !inputValue.trim() ||
     phase === 'streaming' ||
-    inputValue.length > MAX_BRAIN_DUMP_LENGTH ||
-    !aiDisclosureAcked;
+    inputValue.length > MAX_BRAIN_DUMP_LENGTH;
 
   return (
     <div className="flex flex-col h-full" data-testid="story-guide-chat">
@@ -572,25 +560,6 @@ export function StoryGuideChat({
         ref={threadRef}
         className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
       >
-        {/* AI disclosure (if not acknowledged) */}
-        {!aiDisclosureAcked && (
-          <div
-            className="bg-muted border border-border rounded-lg px-4 py-3 text-sm space-y-2"
-            data-testid="ai-disclosure"
-          >
-            <p className="text-muted-foreground">
-              This story is drafted with Gemini AI (Google). Your text is sent to their API.
-            </p>
-            <button
-              type="button"
-              onClick={handleAckDisclosure}
-              className="text-blue-600 hover:underline text-sm font-medium"
-            >
-              Acknowledge
-            </button>
-          </div>
-        )}
-
         {/* Message list */}
         {messages.map(msg => {
           if (msg.isDraftCard) {
@@ -734,11 +703,6 @@ export function StoryGuideChat({
           {inputValue.length > MAX_BRAIN_DUMP_LENGTH && (
             <p className="text-xs text-destructive mt-1 px-1">
               {inputValue.length}/{MAX_BRAIN_DUMP_LENGTH} — too long
-            </p>
-          )}
-          {!aiDisclosureAcked && inputValue.trim() && (
-            <p className="text-xs text-muted-foreground mt-1 px-1">
-              Acknowledge the AI disclosure above to send.
             </p>
           )}
           {phase !== 'idle' && phase !== 'brain-dump' && (
