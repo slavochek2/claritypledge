@@ -340,9 +340,14 @@ app.get('/api/features', async (req, res) => {
 
 // GET /api/milestones - list all milestones
 // Query param: ?worktree=/path/to/worktree
+// Query param: ?refresh=true - clear cache before fetching
 app.get('/api/milestones', async (req, res) => {
   try {
     const worktreePath = req.query.worktree as string | undefined
+    if (req.query.refresh === 'true') {
+      const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
+      milestonesCacheByWorktree.delete(cacheKey)
+    }
     const milestones = await getCachedMilestones(worktreePath)
     res.json(milestones)
   } catch (error) {

@@ -106,6 +106,18 @@ async function patchFeature(
 }
 
 /**
+ * Helper: Make GET request to /api/features/:id/content
+ */
+async function fetchFeatureContent(id: string, worktreePath?: string): Promise<{ status: number; data: any }> {
+  const params = new URLSearchParams();
+  if (worktreePath) params.set('worktree', worktreePath);
+
+  const url = `${API_BASE_URL}/api/features/${id}/content${params.toString() ? '?' + params.toString() : ''}`;
+  const response = await fetch(url);
+  return { status: response.status, data: await response.json() };
+}
+
+/**
  * Helper: Make GET request to /api/milestones
  */
 async function fetchMilestones(worktreePath?: string): Promise<{ status: number; data: any }> {
@@ -863,5 +875,101 @@ describe('P147: GET /api/milestones', () => {
     expect(data.length).toBe(3);
     const ids = data.map((m: any) => m.id);
     expect(ids).toEqual(['M1', 'M2', 'M3']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P147: GET /api/features/:id/content
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('P147: GET /api/features/:id/content', () => {
+  useTestWorktree();
+
+  it('returns frontmatter and markdown body', async () => {
+    await createTestFeature(
+      'p300_content.md',
+      { status: 'backlog', rank: 300.0, type: 'story' },
+      '## Overview\n\nThis is the body text of the feature.'
+    );
+
+    // Seed the features cache so the content endpoint can find the feature
+    await fetchFeatures(TEST_WORKTREE_PATH, true);
+
+    const { status, data } = await fetchFeatureContent('p300_content', TEST_WORKTREE_PATH);
+
+    expect(status).toBe(200);
+
+    // frontmatter fields
+    expect(data.frontmatter).toBeDefined();
+    expect(data.frontmatter.status).toBe('backlog');
+    expect(data.frontmatter.rank).toBe(300.0);
+    expect(data.frontmatter.type).toBe('story');
+
+    // markdown body
+    expect(data.content).toBeDefined();
+    expect(data.content).toContain('This is the body text of the feature.');
+
+    // content must not contain frontmatter delimiters
+    expect(data.content).not.toContain('---');
+    expect(data.content).not.toContain('status:');
+    expect(data.content).not.toContain('rank:');
+  });
+
+  it('returns 404 for non-existent feature id', async () => {
+    // Seed cache (empty worktree — no features)
+    await fetchFeatures(TEST_WORKTREE_PATH, true);
+
+    const { status, data } = await fetchFeatureContent('p999_nonexistent', TEST_WORKTREE_PATH);
+
+    expect(status).toBe(404);
+    expect(data.error).toBe('Feature not found');
+  });
+
+  it('content cache is invalidated after PATCH', async () => {
+    await createTestFeature('p301_cache_inv.md', { status: 'backlog', rank: 301.0, type: 'task' });
+
+    // Seed features cache
+    await fetchFeatures(TEST_WORKTREE_PATH, true);
+
+    // First GET — populates contentCache
+    const { status: status1, data: data1 } = await fetchFeatureContent('p301_cache_inv', TEST_WORKTREE_PATH);
+    expect(status1).toBe(200);
+    expect(data1.frontmatter.status).toBe('backlog');
+
+    // PATCH the feature — should call contentCache.delete()
+    const { status: patchStatus } = await patchFeature(
+      'p301_cache_inv',
+      { status: 'week' },
+      TEST_WORKTREE_PATH
+    );
+    expect(patchStatus).toBe(200);
+
+    // Second GET — cache was cleared, must re-read from disk
+    const { status: status2, data: data2 } = await fetchFeatureContent('p301_cache_inv', TEST_WORKTREE_PATH);
+    expect(status2).toBe(200);
+    expect(data2.frontmatter.status).toBe('week');
+  });
+
+  it('cached content is returned on second request', async () => {
+    await createTestFeature(
+      'p302_cached.md',
+      { status: 'in-progress', rank: 302.0 },
+      '## Cached\n\nSame content both times.'
+    );
+
+    // Seed features cache
+    await fetchFeatures(TEST_WORKTREE_PATH, true);
+
+    const { status: status1, data: data1 } = await fetchFeatureContent('p302_cached', TEST_WORKTREE_PATH);
+    const { status: status2, data: data2 } = await fetchFeatureContent('p302_cached', TEST_WORKTREE_PATH);
+
+    expect(status1).toBe(200);
+    expect(status2).toBe(200);
+
+    // Both responses must be identical
+    expect(data2.frontmatter.status).toBe(data1.frontmatter.status);
+    expect(data2.frontmatter.rank).toBe(data1.frontmatter.rank);
+    expect(data2.content).toBe(data1.content);
+    expect(data2.content).toContain('Same content both times.');
   });
 });

@@ -1,10 +1,40 @@
-import { describe, it, beforeAll, afterAll, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll, beforeEach, afterEach, expect } from 'vitest'
 import { app } from '../api'
 import { createServer } from 'http'
 import type { AddressInfo } from 'net'
+import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'fs'
+import { resolve } from 'path'
 
 let server: ReturnType<typeof createServer>
 let API_BASE_URL: string
+
+// Resolve project root: from server/__tests__/ go up 4 levels (__tests__ → server → kanban → tools → project root)
+const PROJECT_ROOT = resolve(__dirname, '../../../..')
+const FIXTURE_PATH = resolve(PROJECT_ROOT, 'docs', 'milestones', 'test-fixture-milestone.md')
+
+// Use milestone: A0 so this sorts before C1 and is picked up first by .find(status === 'active')
+const FIXTURE_CONTENT = `---
+status: active
+milestone: A0
+summary: "Test milestone for goals API testing"
+---
+
+# A0: Goals API Test Fixture
+
+**Hypothesis:** Users will engage more with calibrated feedback
+
+**The question:** Does structured feedback increase session completion?
+
+## Pilot Sequence
+
+1. [ ] First step to validate
+2. [x] Second step already done
+3. [ ] Third step pending
+`
+
+async function bustMilestonesCache(baseUrl: string) {
+  await fetch(`${baseUrl}/api/milestones?refresh=true`)
+}
 
 beforeAll(async () => {
   server = app.listen(0)
@@ -18,10 +48,10 @@ afterAll(() => {
 })
 
 // ---------------------------------------------------------------------------
-// GET /api/goals
+// GET /api/goals — fallback shape (no fixture)
 // ---------------------------------------------------------------------------
 
-describe('Goals API - GET /api/goals', () => {
+describe('Goals API - GET /api/goals (no active milestone fallback)', () => {
   it('returns a valid shape { steps, hypothesis, question }', async () => {
     const res = await fetch(`${API_BASE_URL}/api/goals`)
     expect(res.status).toBe(200)
@@ -38,17 +68,13 @@ describe('Goals API - GET /api/goals', () => {
     expect(typeof body.question).toBe('string')
   })
 
-  it('returns empty steps array when there is no active milestone or no pilot sequence', async () => {
-    // This is the safe fallback case. If there is an active milestone with a pilot sequence
-    // the test still passes because it only checks the shape — it doesn't assert steps is empty.
-    // What matters is that the endpoint never crashes and always returns the correct shape.
+  it('each step (if any) must have the required shape', async () => {
     const res = await fetch(`${API_BASE_URL}/api/goals`)
     expect(res.status).toBe(200)
 
     const body = await res.json()
     expect(Array.isArray(body.steps)).toBe(true)
 
-    // Each step (if any) must have the required shape
     for (const step of body.steps) {
       expect(typeof step.index).toBe('number')
       expect(typeof step.text).toBe('string')
@@ -62,31 +88,144 @@ describe('Goals API - GET /api/goals', () => {
 
     const body = await res.json()
 
-    // If steps exist, milestoneId and milestoneTitle must also be present
     if (body.steps.length > 0) {
       expect(typeof body.milestoneId).toBe('string')
       expect(typeof body.milestoneTitle).toBe('string')
     }
-    // If steps is empty, milestoneId/milestoneTitle may be absent — that's fine
   })
 })
 
 // ---------------------------------------------------------------------------
-// PATCH /api/goals/:index
+// GET /api/goals — real fixture tests
 // ---------------------------------------------------------------------------
 
-describe('Goals API - PATCH /api/goals/:index', () => {
+describe('Goals API - GET /api/goals with real fixture', () => {
+  beforeEach(async () => {
+    writeFileSync(FIXTURE_PATH, FIXTURE_CONTENT, 'utf-8')
+    await bustMilestonesCache(API_BASE_URL)
+  })
+
+  afterEach(async () => {
+    try {
+      if (existsSync(FIXTURE_PATH)) unlinkSync(FIXTURE_PATH)
+    } catch { /* ignore */ }
+    await bustMilestonesCache(API_BASE_URL)
+  })
+
+  it('parses steps from Pilot Sequence section', async () => {
+    const res = await fetch(`${API_BASE_URL}/api/goals`)
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.steps).toHaveLength(3)
+    expect(body.steps[0]).toEqual({ index: 0, text: 'First step to validate', done: false })
+    expect(body.steps[1]).toEqual({ index: 1, text: 'Second step already done', done: true })
+    expect(body.steps[2]).toEqual({ index: 2, text: 'Third step pending', done: false })
+  })
+
+  it('extracts hypothesis and question', async () => {
+    const res = await fetch(`${API_BASE_URL}/api/goals`)
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.hypothesis).toBe('Users will engage more with calibrated feedback')
+    expect(body.question).toBe('Does structured feedback increase session completion?')
+  })
+
+  it('returns milestoneId and milestoneTitle', async () => {
+    const res = await fetch(`${API_BASE_URL}/api/goals`)
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(typeof body.milestoneId).toBe('string')
+    // ID comes from frontmatter `milestone: A0`
+    expect(body.milestoneId).toBe('A0')
+    expect(body.milestoneTitle).toContain('Goals API Test Fixture')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /api/goals/:index — real fixture tests
+// ---------------------------------------------------------------------------
+
+describe('Goals API - PATCH /api/goals/:index with real fixture', () => {
+  beforeEach(async () => {
+    writeFileSync(FIXTURE_PATH, FIXTURE_CONTENT, 'utf-8')
+    await bustMilestonesCache(API_BASE_URL)
+  })
+
+  afterEach(async () => {
+    try {
+      if (existsSync(FIXTURE_PATH)) unlinkSync(FIXTURE_PATH)
+    } catch { /* ignore */ }
+    await bustMilestonesCache(API_BASE_URL)
+  })
+
+  it('toggles step 0 from undone to done', async () => {
+    const res = await fetch(`${API_BASE_URL}/api/goals/0`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: true }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+
+    // Verify file was updated
+    const fileContent = readFileSync(FIXTURE_PATH, 'utf-8')
+    // Step 0 should now be [x]
+    const lines = fileContent.split('\n')
+    const step0Line = lines.find((l) => l.match(/^1\. \[.\] /))
+    expect(step0Line).toMatch(/^1\. \[x\] First step to validate/)
+  })
+
+  it('toggles step 1 from done to undone', async () => {
+    const res = await fetch(`${API_BASE_URL}/api/goals/1`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: false }),
+    })
+    expect(res.status).toBe(200)
+
+    // Verify file was updated
+    const fileContent = readFileSync(FIXTURE_PATH, 'utf-8')
+    const lines = fileContent.split('\n')
+    const step1Line = lines.find((l) => l.match(/^2\. \[.\] /))
+    expect(step1Line).toMatch(/^2\. \[ \] Second step already done/)
+  })
+
+  it('returns 200 for out-of-range index (no-op, file unchanged)', async () => {
+    const originalContent = readFileSync(FIXTURE_PATH, 'utf-8')
+
+    const res = await fetch(`${API_BASE_URL}/api/goals/99`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: true }),
+    })
+    // Out-of-range index is a no-op: regex finds no match for that index, returns 200
+    expect(res.status).toBe(200)
+
+    // File must be unchanged
+    const afterContent = readFileSync(FIXTURE_PATH, 'utf-8')
+    expect(afterContent).toBe(originalContent)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PATCH /api/goals/:index — no active milestone
+// ---------------------------------------------------------------------------
+
+describe('Goals API - PATCH /api/goals/:index (no active milestone)', () => {
   it('returns 404 when no active milestone is present', async () => {
-    // This test is always safe: if an active milestone exists the endpoint may succeed (200),
-    // but if none exists it must return 404 with an error message.
-    // We test the 404 path by checking the real project state.
-    // If an active milestone exists, skip this particular assertion — we test shape instead.
+    // Ensure fixture is absent and cache is clear
+    if (existsSync(FIXTURE_PATH)) unlinkSync(FIXTURE_PATH)
+    await bustMilestonesCache(API_BASE_URL)
 
     const goalsRes = await fetch(`${API_BASE_URL}/api/goals`)
     const goalsBody = await goalsRes.json()
 
+    // Only run the 404 assertion when there is genuinely no active milestone
     if (goalsBody.steps.length === 0) {
-      // No active milestone — PATCH must return 404
       const res = await fetch(`${API_BASE_URL}/api/goals/0`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -95,19 +234,13 @@ describe('Goals API - PATCH /api/goals/:index', () => {
       expect(res.status).toBe(404)
       const body = await res.json()
       expect(body.error).toBe('No active milestone')
-    } else {
-      // Active milestone exists — PATCH may succeed; verify it returns a valid response shape
-      const res = await fetch(`${API_BASE_URL}/api/goals/0`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ done: false }), // restore to undone to avoid side effects
-      })
-      // Either 200 (success) or 500 (write error in test env) — must not be 4xx other than 404
-      expect([200, 404, 500]).toContain(res.status)
     }
   })
 
   it('responds with JSON on all code paths', async () => {
+    if (existsSync(FIXTURE_PATH)) unlinkSync(FIXTURE_PATH)
+    await bustMilestonesCache(API_BASE_URL)
+
     const res = await fetch(`${API_BASE_URL}/api/goals/999`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -118,7 +251,6 @@ describe('Goals API - PATCH /api/goals/:index', () => {
     const contentType = res.headers.get('content-type') || ''
     expect(contentType).toContain('application/json')
 
-    // Body must be parseable
     const body = await res.json()
     expect(body).toBeDefined()
   })
