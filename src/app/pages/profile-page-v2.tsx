@@ -693,13 +693,13 @@ export function ProfilePageV2() {
                     Take the Clarity Pledge
                   </Link>
                 ) : null}
+                {/* Calibration bar - inside text column for natural alignment */}
+                <InlineCalibration calibration={calibration} />
                 {profile.bio && (
-                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 pt-2 border-t break-words">
+                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
                     {linkifyText(profile.bio)}
                   </p>
                 )}
-                {/* Calibration bar - inside text column for natural alignment */}
-                <InlineCalibration calibration={calibration} />
               </div>
 
               {/* Share button - only shown for profile owner */}
