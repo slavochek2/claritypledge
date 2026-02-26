@@ -422,7 +422,7 @@ export function StoryGuideChat({
 
     setPhase(nextPhase);
     void streamAiResponse(updatedMessages, currentIteration);
-  }, [inputValue, phase, aiDisclosureAcked, iterationCount, streamAiResponse]);
+  }, [inputValue, phase, iterationCount, streamAiResponse]);
 
   // ---------------------------------------------------------------------------
   // Keyboard handler
