@@ -14,6 +14,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [process]: P440 — QA status as dev-completion signal + delivery_stage cleanup
+
+**Context:** After `/dev` finished, features stayed in `in-progress` — visually indistinguishable from active coding work. The `delivery_stage: uat` badge was confusing (UAT ≠ "needs your review"), and 4 of 8 delivery_stage values were never set by any skill (dead weight). No ordering cues existed to know which review stage came first.
+**Decision:** (1) New `status: qa` column (amber, between `in-progress` and `done`) — `/dev` and `/fix` land features here; `/ship` accepts `qa` as input and closes to `done`. The column IS the signal: "code complete, needs review before prod." (2) `delivery_stage` reduced to 4 numbered values matching the planning pipeline skills: `1-prd-review`, `2-ux-review`, `3-arch-review`, `4-tests-ready`. Ghost values removed. (3) Running the next skill (e.g., `/ux`) is implicit approval of the previous stage — no manual frontmatter edits required.
+**Alternatives rejected:** Keeping `delivery_stage: uat` — confusing to non-QA teammates; adding a badge to `in-progress` cards — too subtle, no column-level visibility.
+**Consequences:** `qa` is NOT a terminal status — it must NOT be added to the PATCH handler's "move back to active" exception list. `done`/`all-done`/`rejected` remain the only terminals. Any skill that previously set `delivery_stage: uat` or `status: done` directly now sets `status: qa` instead.
+**References:** [features/p440](features/p440_qa_status_and_delivery_stage_cleanup.md) · [types.ts](tools/kanban/src/lib/types.ts) · [scanner-rules.ts](tools/kanban/lib/scanner-rules.ts)
+
+---
+
+## 2026-02-26 [technical]: kanban security testing — use raw strings for path traversal attack vectors
+
+**Context:** During kanban test coverage work, a security test for path traversal used `path.join(mainWt.path, 'features', '..', '.env.local')`. Node's `path.join()` normalizes `..` segments eagerly at call time, producing an already-resolved path. The test passed the server's `resolve()` check trivially — it was never actually testing the traversal fix.
+**Decision:** Security tests that simulate path traversal attacks must use **raw string concatenation**, not `path.join()`. Example: `mainWt.path + '/features/../.env.local'` — this preserves the `..` segment so the server's `path.resolve()` is the only thing that normalizes it, correctly testing the guard.
+**Alternatives rejected:** Using `path.join()` — silently defeats the test's purpose; using `path.resolve()` in the test — also pre-normalizes, same problem.
+**Consequences:** Rule for all security tests involving path manipulation: if the test simulates an attack, construct the attack string as a raw string literal. The server's defense mechanism must be the first thing that normalizes it — not the test setup.
+**References:** [tools/kanban/server/__tests__/security.test.ts](tools/kanban/server/__tests__/security.test.ts)
+
+---
+
 ## 2026-02-26 [technical]: kanban PATCH — all-done must be excluded from "move back to active" condition
 
 **Context:** Setting `status: all-done` via the kanban UI on a file already in `features/done/{sprint}/` triggered the PATCH handler's "move back to active" branch (`status !== 'done' && status !== 'rejected' && isInSubfolder`). Result: 11 spec files silently moved from `features/done/` subdirectories to `features/` root, showing as deleted in git and untracked at features/.

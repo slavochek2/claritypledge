@@ -1,5 +1,6 @@
 ---
-status: qa
+status: done
+completed_at: '2026-02-26'
 type: task
 rank: 1
 tags: [kanban, workflow, process]

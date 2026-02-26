@@ -93,6 +93,7 @@ Last updated: 2026-02-26
 
 ## Infrastructure / Process
 
+- **P440** (Feb 26) QA Status + Delivery Stage Cleanup — `status: qa` column is the dev-complete signal; `/ship` closes it; `qa` is NOT a terminal status (don't add to PATCH exception list)
 - **P141** (Feb 5) Unified Rank System — test-first gate; no test modifications allowed, all E2E required before completion
 - **P277** (Feb 26) E2E Parallelization — parallel test runners; worker isolation reduces flakiness
 - **P278** (Feb 26) E2E Quick Wins — mic permission template skip; production E2E reliability improvements
