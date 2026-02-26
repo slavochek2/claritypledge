@@ -698,6 +698,8 @@ export function ProfilePageV2() {
                     {linkifyText(profile.bio)}
                   </p>
                 )}
+                {/* Calibration bar - inside text column for natural alignment */}
+                <InlineCalibration calibration={calibration} />
               </div>
 
               {/* Share button - only shown for profile owner */}
@@ -713,9 +715,6 @@ export function ProfilePageV2() {
                 </MobileTooltip>
               )}
             </div>
-
-            {/* Calibration bar - always shown; empty state handled by InlineCalibration */}
-            <InlineCalibration calibration={calibration} />
           </div>
 
           {/* Create Stories & Points CTA (owner only) */}
