@@ -2,19 +2,23 @@
 
 Synthetic usability testing uses AI persona agents to simulate real user behavior through browser automation. It produces experience reports and change request candidates before real users encounter friction.
 
-**Why:** User sims find issues that static code review (`/review-all`) and functional smoke testing (`/verify`) miss — because they test experience, not correctness.
+**Why:** User sims find issues that static code review (`/review-all`) and structured UAT (`/verify`) miss — because they test *experience*, not just correctness against the spec.
 
 ---
 
 ## When to Run
 
-After `/dev` ships a feature with UI. Part of the standard pipeline:
+After `/dev` ships a UI feature. Complements `/verify` in the post-work pipeline:
 
 ```
-/dev → /sim → [change requests if any] → done
+/dev → /verify (did we build the spec?) → /sim (does it feel right?) → [change requests] → /ship
 ```
 
-Replaces `/verify` as the pre-done gate for UI features. `/verify` stays for functional smoke testing.
+**`/verify` vs `/sim`:**
+- `/verify` — structured acceptance criteria: "Did we build what we said we'd build?" Walks through UAT scenarios, ✅/❌ per criterion.
+- `/sim` — persona experience: "Does it feel right to a real user?" Walks through the feature as user archetypes, surfaces friction beyond the spec.
+
+Neither replaces the other. Run both for high-quality UI features. Run `/sim` alone when you already know the spec was met and want the experience perspective.
 
 ---
 

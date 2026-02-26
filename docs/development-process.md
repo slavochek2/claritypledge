@@ -769,17 +769,17 @@ A third pattern — distinct from bugs and features — is when something *feels
 - `/ship pN` — merges branch → main → Vercel deploys → closes spec. Only you can trigger this.
 
 **Optional post-work:**
-- `/sim` — persona simulation + UX friction report. Runs browser agents as real user archetypes (Solo Founder, Invited Party, Coach, UX Critic). Produces classified findings + change request candidates. Run for any UI feature before calling it done. See `docs/technical/synthetic-usability-testing.md`.
-- `/verify` — functional smoke test. Confirms things work; no UX depth. Use for pure backend or quick working-check when `/sim` isn't warranted.
+- `/verify` — structured UAT: walks through acceptance criteria scenarios (from UAT file), confirms you built what the spec said. ✅/❌ per scenario. Run when you want spec compliance confirmed.
+- `/sim` — persona simulation: runs browser agents as real user archetypes (Solo Founder, Invited Party, Coach, UX Critic), finds UX friction *beyond* the spec. Complementary to `/verify`, not a replacement. See `docs/technical/synthetic-usability-testing.md`.
 - `/kdd` — capture notable learnings in strategic docs.
 
 **When to use what:**
 
 | Situation | Run |
 |-----------|-----|
-| UI feature (any complexity) | `/sim` (personas) — finds UX friction |
-| Simple UI tweak / pure backend | `/verify` — confirms it works |
-| Non-trivial feature (multi-file, auth) | `/review-all` then `/sim` |
+| Want to confirm spec compliance | `/verify` — structured AC scenarios |
+| Want to find UX friction | `/sim` — persona walkthroughs |
+| High-quality UI feature | `/verify` then `/sim` — both gates |
 | Pure backend | `/review-all` only |
 
 ---
@@ -839,8 +839,8 @@ These skills can be used at any point during development when you need them:
 │ (auto) /dev → /review-all subagent → fix → QA gate  │
 │ (gate) status:qa set — code on feature branch       │
 │ (you) /ship pN → merges to prod, closes spec        │
-│ (optional) /sim  — persona UX sims (UI features)   │
-│ (optional) /verify — functional smoke test          │
+│ (optional) /verify — structured UAT (spec compliance) │
+│ (optional) /sim  — persona UX sims (experience)    │
 │ (optional) /kdd                                     │
 └─────────────────────────────────────────────────────┘
 

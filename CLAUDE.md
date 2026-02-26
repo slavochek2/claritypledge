@@ -423,8 +423,8 @@ Small work — bug fix with confirmed root cause, copy change, config tweak, sin
 
 Each layer has a review gate. `/dev` and `/fix` stop at QA gate — set `status: qa`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec (`status: done`, moves to `features/done/`).
 
-**Optional post-work:** `/sim` — persona simulation + UX friction report (UI features). Runs browser agents as real user archetypes, produces change request candidates. See `docs/technical/synthetic-usability-testing.md`.
-- `/verify` — functional smoke test. Use for pure backend or quick working-check when `/sim` isn't warranted.
+**Optional post-work:** `/verify` — structured UAT: walks through acceptance criteria scenarios, confirms you built what the spec said. Produces ✅/❌ per scenario. Run after `/dev` when you want spec compliance confirmed.
+- `/sim` — persona simulation: runs browser agents as real user archetypes, finds UX friction *beyond* the spec. Produces change request candidates. Complementary to `/verify`, not a replacement. See `docs/technical/synthetic-usability-testing.md`.
 - `/kdd` — capture notable learnings.
 - `/review-all` — code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or code you didn't closely supervise.
 

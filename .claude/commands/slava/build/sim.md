@@ -11,8 +11,9 @@ version: 1.0.0
 
 **Pipeline position:**
 ```
-/dev → /sim → [file change requests if any] → done
+/dev → /verify (spec compliance) → /sim (experience) → [file change requests if any] → /ship
 ```
+Both `/verify` and `/sim` are optional post-work. `/verify` checks you built what the spec said. `/sim` checks that what you built feels right to real users. Run both for high-quality UI features.
 
 **Full reference:** `docs/technical/synthetic-usability-testing.md`
 
