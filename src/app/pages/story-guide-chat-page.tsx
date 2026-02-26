@@ -65,7 +65,7 @@ export function StoryGuideChatPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto h-[calc(100vh-4rem)] flex flex-col">
+    <div className="max-w-2xl mx-auto h-[calc(100vh-9rem)] lg:h-[calc(100vh-5rem)] flex flex-col">
       {pointLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
