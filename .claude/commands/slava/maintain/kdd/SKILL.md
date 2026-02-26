@@ -211,6 +211,8 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    If it requires `/claude-md` gate or user judgement: flag it as a `/simplify` block, don't act.
    If friction has no obvious fix and is worth tracking: append to `docs/process-learnings.md` as `Status: proposed` — this feeds `/weekly` step 2.5 which surfaces unresolved items.
 
+   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty process-learnings.md is healthy.
+
 ## Rules
 
 - **Be decisive** — analyze and propose, don't repeatedly ask

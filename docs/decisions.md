@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [process]: process-learnings.md — open items only, resolved items graduate to decisions.md
+
+**Context:** process-learnings.md had accumulated three "Status: done" entries that were also captured in decisions.md — a graveyard of resolved items. /weekly only surfaces `Status: proposed` entries, so done items were invisible noise. The graduation step (remove from process-learnings → add to decisions.md) was never documented, causing items to pile up in place.
+**Decision:** process-learnings.md holds open/proposed friction only. When an item is resolved: (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. The file header now makes this explicit. Also: decisions.md is append-only and cannot hold proposals — these must stay separate.
+**Alternatives rejected:** Single file with status field — decisions.md is append-only by design; adding "proposed" entries would fill it with noise that never gets cleaned up.
+**Consequences:** /kdd step 6 must include the graduation instruction. /weekly correctly surfaces open items. decisions.md stays clean. process-learnings.md stays short (empty = healthy).
+**References:** [process-learnings.md](docs/process-learnings.md)
+
+---
+
 ## 2026-02-26 [process]: P440 — QA status as dev-completion signal + delivery_stage cleanup
 
 **Context:** After `/dev` finished, features stayed in `in-progress` — visually indistinguishable from active coding work. The `delivery_stage: uat` badge was confusing (UAT ≠ "needs your review"), and 4 of 8 delivery_stage values were never set by any skill (dead weight). No ordering cues existed to know which review stage came first.
