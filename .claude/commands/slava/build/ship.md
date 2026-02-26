@@ -26,7 +26,7 @@ Ship an approved feature to production.
 7. **Close the spec** — move spec to `features/done/`, update frontmatter:
    - `status: done`
    - `completed_at: YYYY-MM-DD`
-   - Remove `delivery_stage: uat` line
+   - Remove `delivery_stage` line (if present)
    ```bash
    ls -d features/done/*/ 2>/dev/null | sort -V | tail -1  # find current sprint folder
    mkdir -p features/done/{folder}/uat

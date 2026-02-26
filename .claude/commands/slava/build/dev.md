@@ -86,7 +86,7 @@ You're not just writing code — you're building something that will run in prod
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
 9. **Commit** — Only if ALL tests pass
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
+10. **QA gate** — Set `status: qa` in spec frontmatter (clear `delivery_stage`, do NOT move to `features/done/`). Tell user: "Feature ready for QA on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
 
 ---
 
@@ -401,7 +401,7 @@ Running /review-all...
 [Review findings presented — HIGH/MEDIUM/LOW]
 Fix issues before closing? (all HIGH / select / skip)
 
-Feature ready for UAT — delivery_stage: uat set in spec.
+Feature ready for QA — status: qa set in spec.
 Branch: feature/pN-xxx
 Run /ship pN when satisfied → merges to prod and closes the spec.
 ```
@@ -603,16 +603,16 @@ Feature implementation complete.
 
 ---
 
-## Feature UAT Gate
+## Feature QA Gate
 
-After successful commit, mark the feature ready for UAT — do NOT move to `features/done/` yet.
+After successful commit, mark the feature ready for QA — do NOT move to `features/done/` yet.
 
 1. Mark all `## Acceptance Criteria` checkboxes `[x]` in the spec file.
-2. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
-3. Commit: `chore: pN ready for UAT — {title}`
+2. Update frontmatter: `status: qa` (clear `delivery_stage` — it's no longer needed once in QA)
+3. Commit: `chore: pN ready for QA — {title}`
 4. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
 5. If `*.tsx` files changed: Ask "Run `/verify` for visual QA? (y/n)"
-6. Tell user: "Feature ready for UAT on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
+6. Tell user: "Feature ready for QA on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
 **Do NOT:**
 - Move spec to `features/done/` — that happens in `/ship`

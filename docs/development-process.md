@@ -760,10 +760,10 @@ A third pattern — distinct from bugs and features — is when something *feels
 
 ### Post-Work Skills (After Implementation)
 
-`/dev` does NOT auto-close to prod. It stops at the UAT gate — `delivery_stage: uat` is set, code lives on `feature/pN-xxx` branch. When you're satisfied, run `/ship pN` to merge to prod and close the spec (`status: done`, moves to `features/done/`).
+`/dev` and `/fix` do NOT auto-close to prod. They stop at the QA gate — `status: qa` is set, code lives on `feature/pN-xxx` branch. When you're satisfied, run `/ship pN` to merge to prod and close the spec (`status: done`, moves to `features/done/`).
 
 **Built-in post-work (automatic):**
-- `/review-all` — spawned automatically by `/dev` after commit. Code + design + UX review (3 agents in parallel). Findings presented with fix options before UAT gate.
+- `/review-all` — spawned automatically by `/dev` after commit. Code + design + UX review (3 agents in parallel). Findings presented with fix options before QA gate.
 
 **Your gate:**
 - `/ship pN` — merges branch → main → Vercel deploys → closes spec. Only you can trigger this.
@@ -834,8 +834,8 @@ These skills can be used at any point during development when you need them:
                         ↓
 ┌─────────────────────────────────────────────────────┐
 │ POST-WORK                                           │
-│ (auto) /dev → /review-all subagent → fix → UAT gate │
-│ (gate) delivery_stage:uat set — code on branch      │
+│ (auto) /dev → /review-all subagent → fix → QA gate  │
+│ (gate) status:qa set — code on feature branch       │
 │ (you) /ship pN → merges to prod, closes spec        │
 │ (optional) /verify — live UAT + visual QA           │
 │ (optional) /kdd                                     │

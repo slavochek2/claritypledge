@@ -290,10 +290,9 @@ Include these subsections:
 - **Implementation Approach** (Files to Create, Files to Modify, Build Sequence)
 
 **Delivery Stage Tracking:**
-1. BEFORE starting architecture design:
-   - Edit frontmatter: change `delivery_stage: ux-review` → `delivery_stage: ux-approved` (or `prd-review` → `prd-approved` for backend features)
-2. AFTER the Edit tool confirms the Technical section was appended:
-   - Edit frontmatter: change `delivery_stage: ux-approved` → `delivery_stage: arch-review`
+1. BEFORE starting architecture design, set delivery_stage (running /architect = UX approved):
+   - Edit frontmatter: `delivery_stage: 3-arch-review` (overwrite whatever was there — running this skill is the approval signal)
+2. AFTER the Edit tool confirms the Technical section was appended, delivery_stage is already `3-arch-review` — no further change needed.
 
 If any Edit call fails, retry with more surrounding context to make the match unique.
 ```

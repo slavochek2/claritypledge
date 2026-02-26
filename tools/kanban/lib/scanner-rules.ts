@@ -20,6 +20,7 @@ export const VALID_STATUS: readonly Status[] = [
   'today',
   'in-progress',
   'blocked',
+  'qa',
   'done',
   'all-done',
   'draft',
@@ -31,18 +32,10 @@ export const VALID_TYPE: readonly FeatureType[] = ['bug', 'task', 'story', 'comm
 export const VALID_SIZE: readonly Size[] = ['xs', 's', 'm', 'l', 'xl'] as const;
 
 export const VALID_DELIVERY_STAGE: readonly DeliveryStage[] = [
-  'prd-draft',
-  'prd-review',
-  'prd-approved',
-  'ux-design',
-  'ux-review',
-  'ux-approved',
-  'arch-design',
-  'arch-review',
-  'arch-approved',
-  'tests-generated',
-  'implementation',
-  'uat',
+  '1-prd-review',
+  '2-ux-review',
+  '3-arch-review',
+  '4-tests-ready',
 ] as const;
 
 // Folders to skip during scanning

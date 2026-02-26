@@ -129,7 +129,7 @@ If the feature spec was in `features/done/`, move it back to `features/` with `s
 
 ```bash
 git mv features/done/{sprint}/pN_name.md features/pN_name.md
-# Edit frontmatter: status: blocked, remove completed_at, add delivery_stage: uat
+# Edit frontmatter: status: blocked, remove completed_at
 ```
 
 ---

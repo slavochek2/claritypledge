@@ -194,8 +194,8 @@ After all tasks, include the summary line:
 
 ## Delivery Stage Tracking
 
-1. **Before generating:** Verify frontmatter shows `delivery_stage: arch-approved`. If it shows `arch-review`, update it to `arch-approved` first (indicates user approved the architecture).
-2. **After appending task manifest:** Update frontmatter to `delivery_stage: decompose-review`.
+1. **Before generating:** No approval check needed — running /decompose is the arch approval signal. Clear `3-arch-review` by setting `delivery_stage: 4-tests-ready` after tests are generated (step 2).
+2. **After appending task manifest:** Update frontmatter to `delivery_stage: 4-tests-ready`.
 
 Use Edit tool for both frontmatter changes.
 

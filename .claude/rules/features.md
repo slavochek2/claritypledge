@@ -19,8 +19,9 @@ tags: []              # REQUIRED: can be empty array
 
 ## Status Values
 
-`backlog` → `week` → `today` → `in-progress` → `blocked` → `done` → `all-done`
+`backlog` → `week` → `today` → `in-progress` → `blocked` → `qa` → `done` → `all-done`
 
+- When `status: qa` → feature is implemented, awaiting user review before shipping. Stays on feature branch; run `/ship pN` to merge to prod.
 - When `status: done` → move file to `features/done/`, add `completed_at`
 - When `status: all-done` → move file to `features/done/` (same as `done`), `completed_at` not required. Use for permanently closed features that should remain visually prominent on the kanban.
 - When rejected → move to `features/archive/`, set `status: rejected`

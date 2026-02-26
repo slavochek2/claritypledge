@@ -83,7 +83,7 @@ Bug reported
 └─ Complex (unknown cause) → Investigate (debugging.md) → /fix
 ```
 
-/fix auto-closes the feature on success: moves spec to `features/done/`, sets `status: done` + `completed_at`, prompts for `/kdd`.
+/fix stops at a QA gate on success: sets `status: qa` in frontmatter, stays on the feature branch. Run `/ship pN` to merge to prod and close the spec.
 
 ---
 
@@ -395,25 +395,16 @@ resolution: What was fixed  # Added after fix
 
 ---
 
-## Feature Closure
+## Feature QA Gate
 
 After commit succeeds:
 
 1. **Review** — Spawn `/review-all` as a subagent with: "Review all changes on this branch vs main. Spec: [spec path if exists]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-2. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
-3. Find destination: `ls -d features/done/*/ 2>/dev/null | sort -V | tail -1`
-   Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
-4. Move files:
-   ```bash
-   mkdir -p features/done/{folder}
-   git mv features/{spec} features/done/{folder}/
-   git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
-   ```
-5. Commit: `chore: close P{N} — {title}`
-6. Spawn parallel closing subagents:
-   - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
-   - **verify** (if `*.tsx` files changed): Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually." Do not ask; just do it.
-6. Ask: "Capture learnings with /kdd? (y/n)"
+2. Update frontmatter: `status: qa` (clear `delivery_stage`)
+3. Commit: `chore: pN ready for QA — {title}`
+4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
+5. If `*.tsx` files changed: Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually."
+6. Tell user: "Fix ready for QA on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
 ---
 

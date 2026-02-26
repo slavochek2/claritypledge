@@ -46,6 +46,7 @@ const COLUMNS: ColumnConfig[] = [
   { id: 'today', title: 'Today', color: '#22c55e' },
   { id: 'blocked', title: 'Blocked', color: '#ef4444' },
   { id: 'in-progress', title: 'In Progress', color: '#3b82f6' },
+  { id: 'qa', title: 'QA', color: '#f59e0b' },
   { id: 'done', title: 'Done', color: '#22c55e', filter: 'last-3-days' },
   { id: 'rejected', title: 'Rejected', color: '#6b7280', defaultHidden: true },
 ]
@@ -58,7 +59,7 @@ const ALL_DONE_COLUMN: ColumnConfig = {
   filter: 'older-than-3-days',
 }
 
-const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'all-done', 'rejected'])
+const VALID_COLUMN_IDS = new Set<Status>(['backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected'])
 
 type ViewMode = 'active' | 'backlog' | 'all-done'
 type FocusViewMode = 'active' | 'backlog' | 'done'

@@ -12,7 +12,7 @@ This file provides guidance for AI agents working with code in this repository.
 
 **Clarity Pledge** — TypeScript web app for calibrated communication practice.
 
-**Development pattern:** Read spec → implement → test → `/dev` stops at UAT gate (`delivery_stage: uat`, stays on feature branch). You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed.
+**Development pattern:** Read spec → implement → test → `/dev` stops at QA gate (`status: qa`, stays on feature branch). You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed.
 
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
@@ -415,7 +415,7 @@ Small work — bug fix with confirmed root cause, copy change, config tweak, sin
 
 `* /decompose` optional — complex features only (5+ files, 3+ concerns, or 6+ build steps). `* /spec-review` always run after `/generate-tests`, before `/decompose` or `/dev` — it catches ambiguity that causes wrong implementation.
 
-Each layer has a review gate. `/dev` stops at UAT gate — sets `delivery_stage: uat`, keeps `status: in-progress`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec (`status: done`, moves to `features/done/`). `/fix` closes inline (no branch needed).
+Each layer has a review gate. `/dev` and `/fix` stop at QA gate — set `status: qa`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec (`status: done`, moves to `features/done/`).
 
 **Optional post-work:** `/verify` — live browser UAT + visual QA. Run when you care about look/feel.
 - `/kdd` — capture notable learnings.
