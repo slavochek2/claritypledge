@@ -14,6 +14,8 @@ This file provides guidance for AI agents working with code in this repository.
 
 **Development pattern:** Read spec → implement → test → `/dev` stops at QA gate (`status: qa`, stays on feature branch). You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed.
 
+**Inline implementation rule:** When implementing without `/dev` (e.g., inline in conversation), manually apply the QA gate at the end: set `status: qa` in spec frontmatter and commit `chore: pN ready for QA — {title}`.
+
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
 ---

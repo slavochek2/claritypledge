@@ -1,5 +1,5 @@
 ---
-status: today
+status: qa
 type: task
 rank: 1
 tags: [kanban, workflow, process]
