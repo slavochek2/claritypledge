@@ -57,7 +57,7 @@ export default defineConfig({
     : process.env.CI ? 2 : 3,
 
   // Timeouts
-  timeout: 90000, // 90s per test (increased for AI streaming tests)
+  timeout: 30000, // 30s per test
   expect: {
     timeout: 5000, // 5s for assertions
   },
@@ -119,7 +119,6 @@ export default defineConfig({
       // Always use real API in E2E tests — mock services don't have test user data
       VITE_USE_REAL_API: 'true',
       VITE_USE_REAL_EVENTS_API: 'true',
-      VITE_STORY_GUIDE_EDGE_FN_URL: process.env.VITE_STORY_GUIDE_EDGE_FN_URL || '',
     },
   },
 });

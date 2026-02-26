@@ -410,9 +410,10 @@ export const realPointsService: PointsService = {
       .select('*')
       .eq('point_id', pointId)
       .eq('user_id', userId)
-      .maybeSingle();
+      .single();
 
     if (error || !data) {
+      // PGRST116 = not found, which is expected when no position
       return null;
     }
 

@@ -25,7 +25,7 @@ const PrivacyPolicyPage = lazy(() => import("@/app/pages/privacy-policy-page").t
 const TermsOfServicePage = lazy(() => import("@/app/pages/terms-of-service-page").then(m => ({ default: m.TermsOfServicePage })));
 const SettingsPage = lazy(() => import("@/app/pages/settings-page").then(m => ({ default: m.SettingsPage })));
 const ClarityDemoPage = lazy(() => import("@/app/pages/clarity-demo-page").then(m => ({ default: m.ClarityDemoPage })));
-const StoryGuideChatPage = lazy(() => import("@/app/pages/story-guide-chat-page").then(m => ({ default: m.StoryGuideChatPage })));
+const ClarityChatPage = lazy(() => import("@/app/pages/clarity-chat-page").then(m => ({ default: m.ClarityChatPage })));
 const IdeaFeedPage = lazy(() => import("@/app/pages/idea-feed-page").then(m => ({ default: m.IdeaFeedPage })));
 const IdeaDetailPage = lazy(() => import("@/app/pages/idea-detail-page").then(m => ({ default: m.IdeaDetailPage })));
 const ClarityLivePage = lazy(() => import("@/app/pages/clarity-live-page").then(m => ({ default: m.ClarityLivePage })));
@@ -34,10 +34,6 @@ const CollaboratePage = lazy(() => import("@/app/pages/collaborate-page").then(m
 const CreateStoryPage = lazy(() => import("@/app/pages/create-story-page").then(m => ({ default: m.CreateStoryPage })));
 const StoryDetailPage = lazy(() => import("@/app/pages/story-detail-page").then(m => ({ default: m.StoryDetailPage })));
 const PointDetailPage = lazy(() => import("@/app/pages/point-detail-page").then(m => ({ default: m.PointDetailPage })));
-const CreateAgreementPage = lazy(() => import("@/app/pages/create-agreement-page").then(m => ({ default: m.CreateAgreementPage })));
-const AgreementPage = lazy(() => import("@/app/pages/agreement-page").then(m => ({ default: m.AgreementPage })));
-const AcceptAgreementPage = lazy(() => import("@/app/pages/accept-agreement-page").then(m => ({ default: m.AcceptAgreementPage })));
-const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
 
 // Isolated prototypes - completely self-contained, no dependencies on main app
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -243,51 +239,6 @@ export default function ClarityPledgeApp() {
           }
         />
 
-        {/* P422: Clarity Partner Agreement routes — /new must come before /:id */}
-        <Route
-          path="/agreements/new"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <CreateAgreementPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        <Route
-          path="/agreements/:id"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <AgreementPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        <Route
-          path="/agreements/:id/accept"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <AcceptAgreementPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
-        <Route
-          path="/agreements/:id/declined"
-          element={
-            <ClarityLandingLayout>
-              <LazyRoute>
-                <DeclinedAgreementPage />
-              </LazyRoute>
-            </ClarityLandingLayout>
-          }
-        />
-
         <Route
           path="/story/:id"
           element={
@@ -434,7 +385,7 @@ export default function ClarityPledgeApp() {
           element={
             <ClarityLandingLayout>
               <LazyRoute>
-                <StoryGuideChatPage />
+                <ClarityChatPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }
