@@ -412,7 +412,7 @@ export function StoryGuideChat({
   // ---------------------------------------------------------------------------
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && e.ctrlKey) {
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
@@ -707,7 +707,7 @@ export function StoryGuideChat({
           )}
           {phase !== 'idle' && phase !== 'brain-dump' && (
             <p className="text-xs text-muted-foreground mt-1 px-1">
-              Ctrl+Enter to send
+              Shift+Enter for new line
             </p>
           )}
         </div>

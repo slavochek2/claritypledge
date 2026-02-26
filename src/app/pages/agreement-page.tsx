@@ -79,7 +79,7 @@ function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
         displayId={agreement.displayId}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
-        partnerName={agreement.partner?.name ?? agreement.partnerEmail}
+        partnerName={agreement.partner?.name ?? 'Invited party'}
         partnerSignedAt={agreement.partnerSignedAt}
         termsText={agreement.termsText}
       />
@@ -182,7 +182,7 @@ function PendingView({
         displayId={agreement.displayId}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
-        partnerName={agreement.partner?.name ?? agreement.partnerEmail}
+        partnerName={agreement.partner?.name ?? 'Invited party'}
         partnerSignedAt={null}
         termsText={agreement.termsText}
       />
@@ -195,6 +195,9 @@ function PendingView({
               Invitation sent to{' '}
               <span className="font-medium">{agreement.partnerEmail}</span>. Waiting for them to
               sign.
+            </p>
+            <p className="text-xs text-amber-700/70 mt-1">
+              Their email is shown here only to confirm where the invitation was sent.
             </p>
           </div>
 
@@ -260,7 +263,7 @@ function ActiveView({
         displayId={agreement.displayId}
         creatorName={agreement.creator?.name ?? 'Creator'}
         creatorSignedAt={agreement.createdAt}
-        partnerName={agreement.partner?.name ?? agreement.partnerEmail}
+        partnerName={agreement.partner?.name ?? 'Partner'}
         partnerSignedAt={agreement.partnerSignedAt}
         termsText={agreement.termsText}
       />

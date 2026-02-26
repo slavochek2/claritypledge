@@ -1,18 +1,24 @@
 ---
-status: done
-completed_at: '2026-02-25'
+status: qa
 type: story
-rank: 8.0
+rank: 1
 milestone: M2
-tags: [clarity-partner, agreement, co-founders, accountability, relationships]
+tags:
+  - clarity-partner
+  - agreement
+  - co-founders
+  - accountability
+  - relationships
 prepped_date: '2026-02-24'
 delivery_stage: decompose-review
-depends_on: [p424]
+depends_on:
+  - p424
 reviews:
   ux: '2026-02-24'
   architect: '2026-02-24'
   alignment: null
-created_date: 2026-02-24
+created_date: 2026-02-24T00:00:00.000Z
+locked_at: '2026-02-26T13:53:14.081Z'
 ---
 
 # P422: Clarity Partner Agreement

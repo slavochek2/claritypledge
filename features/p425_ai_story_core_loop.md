@@ -1,18 +1,23 @@
 ---
-status: done
-completed_at: "2026-02-25"
+status: qa
 type: story
-rank: 8.5
+rank: 0.5
 workstream: C1
-tags: [stories, ai-chat, filing, calibration, position]
+tags:
+  - stories
+  - ai-chat
+  - filing
+  - calibration
+  - position
 prepped_date: '2026-02-24'
-blocked_by: [p424]
+blocked_by:
+  - p424
 delivery_stage: decompose-review
 reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-02-24
+created_date: 2026-02-24T00:00:00.000Z
 uat_file: features/uat/p425.md
 test_files:
   - src/tests/p425-chat-phase.test.ts
@@ -20,6 +25,7 @@ test_files:
   - e2e/p425-story-filing.spec.ts
   - e2e/a11y/p425-accessibility.spec.ts
   - e2e/p425-smoke.spec.ts
+locked_at: '2026-02-26T13:53:18.108Z'
 ---
 
 # P425: AI-Guided Story Creation — Core Loop (position-triggered)
