@@ -2,14 +2,16 @@ import express from 'express'
 import cors from 'cors'
 import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync } from 'fs'
-import { join, basename, extname } from 'path'
+import { join, basename, extname, sep, resolve } from 'path'
 import matter from 'gray-matter'
-import { exec, execSync, spawnSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
+import { KANBAN_CONFIG } from '../config'
 
 const app = express()
-app.use(cors())
+// Restrict CORS to the kanban frontend origin only (prevents CSRF-style attacks from other sites)
+app.use(cors({ origin: `http://localhost:${KANBAN_CONFIG.ports.frontend}` }))
 app.use(express.json())
 
 // Default features directory (relative to project root)
@@ -59,9 +61,9 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
     }
 
     return worktrees
-  } catch {
-    // If git command fails, return just the current directory
-    return [{ path: DEFAULT_PROJECT_ROOT, branch: 'main', isCurrent: true }]
+  } catch (error) {
+    console.warn('git worktree list failed, falling back to cwd:', error)
+    return [{ path: DEFAULT_PROJECT_ROOT, branch: 'unknown', isCurrent: true }]
   }
 }
 
@@ -172,7 +174,8 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       prepped: !!data.prepped_date,
       locked_at: typeof data.locked_at === 'string' ? data.locked_at : undefined,
     }
-  } catch {
+  } catch (error) {
+    console.warn(`Failed to parse file ${filePath}:`, error)
     return null
   }
 }
@@ -262,7 +265,8 @@ async function parseMilestoneFile(filePath: string): Promise<Milestone | null> {
       tests,
       answers,
     }
-  } catch {
+  } catch (error) {
+    console.warn(`Failed to parse file ${filePath}:`, error)
     return null
   }
 }
@@ -328,7 +332,8 @@ app.get('/api/features', async (req, res) => {
 
     const features = await getCachedFeatures(worktreePath)
     res.json(features)
-  } catch {
+  } catch (error) {
+    console.error('GET /api/features error:', error)
     res.status(500).json({ error: 'Failed to read features' })
   }
 })
@@ -340,7 +345,8 @@ app.get('/api/milestones', async (req, res) => {
     const worktreePath = req.query.worktree as string | undefined
     const milestones = await getCachedMilestones(worktreePath)
     res.json(milestones)
-  } catch {
+  } catch (error) {
+    console.error('GET /api/milestones error:', error)
     res.status(500).json({ error: 'Failed to read milestones' })
   }
 })
@@ -492,8 +498,14 @@ app.patch('/api/features/:id', async (req, res) => {
     const moveAndStage = async (oldPath: string, newPath: string) => {
       await rename(oldPath, newPath)
       // Best-effort: if git staging fails the file move still succeeded
-      spawnSync('git', ['add', '--', newPath], { cwd: DEFAULT_PROJECT_ROOT, stdio: 'ignore' })
-      spawnSync('git', ['rm', '--cached', '--', oldPath], { cwd: DEFAULT_PROJECT_ROOT, stdio: 'ignore' })
+      const addResult = spawnSync('git', ['add', '--', newPath], { cwd: DEFAULT_PROJECT_ROOT, stdio: 'pipe' })
+      if (addResult.error || addResult.status !== 0) {
+        console.warn(`git add failed for ${newPath}:`, addResult.error?.message || addResult.stderr?.toString())
+      }
+      const rmResult = spawnSync('git', ['rm', '--cached', '--', oldPath], { cwd: DEFAULT_PROJECT_ROOT, stdio: 'pipe' })
+      if (rmResult.error || rmResult.status !== 0) {
+        console.warn(`git rm --cached failed for ${oldPath}:`, rmResult.error?.message || rmResult.stderr?.toString())
+      }
     }
 
     const featuresDir = getFeaturesDir(worktreePath)
@@ -502,6 +514,7 @@ app.patch('/api/features/:id', async (req, res) => {
     const isInSubfolder = isInDone || isInArchive
 
     if (status === 'done' && !isInDone) {
+      await mkdir(join(featuresDir, 'done'), { recursive: true })
       const newPath = join(featuresDir, 'done', basename(feature.path))
       await moveAndStage(feature.path, newPath)
       if (cachedFeatures) {
@@ -516,7 +529,7 @@ app.patch('/api/features/:id', async (req, res) => {
         const cachedFeature = cachedFeatures.find((f) => f.id === id)
         if (cachedFeature) cachedFeature.path = newPath
       }
-    } else if (status && status !== 'done' && status !== 'rejected' && isInSubfolder) {
+    } else if (status && status !== 'done' && status !== 'all-done' && status !== 'rejected' && isInSubfolder) {
       // Moving out of done/ or archive/ back to active
       const newPath = join(featuresDir, basename(feature.path))
       await moveAndStage(feature.path, newPath)
@@ -563,7 +576,8 @@ app.get('/api/features/:id/content', async (req, res) => {
     const result = { frontmatter, content }
     contentCache.set(feature.path, result)
     res.json(result)
-  } catch {
+  } catch (error) {
+    console.error('GET /api/features/:id/content error:', error)
     res.status(500).json({ error: 'Failed to read file' })
   }
 })
@@ -575,23 +589,32 @@ app.post('/api/open', (req, res) => {
     return res.status(400).json({ error: 'Path required' })
   }
 
-  // Security: only allow opening files in known worktree features directories
+  // Security: only allow opening files in known worktree features directories.
+  // Resolve path first to eliminate .. traversal segments before the allowlist check.
+  // Append sep so "features-evil/..." doesn't pass a startsWith("features") check (path traversal fix).
+  const resolvedPath = resolve(filePath)
   const worktrees = getWorktrees()
-  const isAllowedPath = worktrees.some((wt) => filePath.startsWith(join(wt.path, 'features')))
+  const isAllowedPath = worktrees.some((wt) => {
+    const allowed = join(wt.path, 'features') + sep
+    return resolvedPath.startsWith(allowed) || resolvedPath === join(wt.path, 'features')
+  })
 
   if (!isAllowedPath) {
+    // Note: if git worktree list failed, getWorktrees() returns only DEFAULT_PROJECT_ROOT.
+    // Files in additional worktrees will also be rejected here — check server logs for
+    // "git worktree list failed" warnings if a legitimate open returns 403 unexpectedly.
     return res.status(403).json({ error: 'Path not allowed' })
   }
 
   // Note: Cursor CLI doesn't support --preview flag
   // User can press Cmd+Shift+V in Cursor for markdown preview
-  exec(`cursor -r "${filePath}"`, (error) => {
-    if (error) {
-      console.error('Failed to open in Cursor:', error)
-      return res.status(500).json({ error: 'Failed to open file' })
-    }
-    res.json({ success: true })
-  })
+  // Use spawnSync with args array (not exec) to prevent shell injection via filePath
+  const result = spawnSync('cursor', ['-r', resolvedPath], { stdio: 'ignore' })
+  if (result.error || result.status !== 0) {
+    console.error('Failed to open in Cursor:', result.error)
+    return res.status(500).json({ error: 'Failed to open file' })
+  }
+  res.json({ success: true })
 })
 
 // GET /api/goals - parse pilot sequence from active milestone
@@ -663,14 +686,16 @@ app.get('/api/weekly', (_req, res) => {
   }
 })
 
-import { KANBAN_CONFIG } from '../config'
+export { app }
 
-const PORT = KANBAN_CONFIG.ports.api
-app.listen(PORT, () => {
-  console.log(`Kanban API running on http://localhost:${PORT}`)
-  const worktrees = getWorktrees()
-  console.log(`Available worktrees:`)
-  worktrees.forEach((wt) => {
-    console.log(`  ${wt.isCurrent ? '* ' : '  '}${wt.branch} → ${wt.path}`)
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = KANBAN_CONFIG.ports.api
+  app.listen(PORT, () => {
+    console.log(`Kanban API running on http://localhost:${PORT}`)
+    const worktrees = getWorktrees()
+    console.log(`Available worktrees:`)
+    worktrees.forEach((wt) => {
+      console.log(`  ${wt.isCurrent ? '* ' : '  '}${wt.branch} → ${wt.path}`)
+    })
   })
-})
+}
