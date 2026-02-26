@@ -130,7 +130,7 @@ export function InlineCalibration({
   const listenerLabel = calibration ? getCalibrationLabel(calibration.listener.avgGap) : null;
 
   const barContent = (
-    <div className="relative h-6 w-[120px]">
+    <div className="relative h-6 w-full">
       <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-2.5 rounded-full bg-muted border border-border" />
       <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-0.5 h-3.5 bg-muted-foreground -translate-x-px rounded-full" />
       {listenerPos !== null && (
@@ -144,35 +144,37 @@ export function InlineCalibration({
 
   return (
     <TooltipProvider delayDuration={100}>
-      <div className="mt-3">
-        <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="mt-3 flex items-center gap-3">
+        <div className="flex items-center gap-1.5 shrink-0">
           <Ear size={12} className="text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">Understanding Calibration</span>
         </div>
 
-        {calibration ? (
-          <CalibrationTooltip
-            side="top"
-            content={
-              <>
-                <p className="text-xs font-medium">{listenerLabel}</p>
-                <p className="text-xs text-muted-foreground">{TOOLTIP_TEXT.listener}</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
-                </p>
-              </>
-            }
-          >
-            {barContent}
-          </CalibrationTooltip>
-        ) : (
-          <CalibrationTooltip
-            side="top"
-            content={<p className="text-xs">Complete 5 live sessions to unlock your calibration score</p>}
-          >
-            {barContent}
-          </CalibrationTooltip>
-        )}
+        <div className="flex-1">
+          {calibration ? (
+            <CalibrationTooltip
+              side="top"
+              content={
+                <>
+                  <p className="text-xs font-medium">{listenerLabel}</p>
+                  <p className="text-xs text-muted-foreground">{TOOLTIP_TEXT.listener}</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    Avg (their rating − your confidence) over {calibration.listener.sessionCount} session{calibration.listener.sessionCount !== 1 ? 's' : ''}
+                  </p>
+                </>
+              }
+            >
+              {barContent}
+            </CalibrationTooltip>
+          ) : (
+            <CalibrationTooltip
+              side="top"
+              content={<p className="text-xs">Complete 5 live sessions to unlock your calibration score</p>}
+            >
+              {barContent}
+            </CalibrationTooltip>
+          )}
+        </div>
       </div>
     </TooltipProvider>
   );
