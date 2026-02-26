@@ -39,8 +39,8 @@ function formatDate(isoDate: string): string {
   });
 }
 
-function buildAcceptUrl(agreementId: string): string {
-  return `${window.location.origin}/agreements/${agreementId}/accept`;
+function buildAcceptUrl(agreementId: string, token: string): string {
+  return `${window.location.origin}/agreements/${agreementId}/accept?token=${encodeURIComponent(token)}`;
 }
 
 function buildCalendarUrl(): string {
@@ -173,7 +173,7 @@ function PendingView({
   onResend: () => void;
   isResending: boolean;
 }) {
-  const acceptUrl = buildAcceptUrl(agreement.id);
+  const acceptUrl = buildAcceptUrl(agreement.id, agreement.invitationToken);
 
   return (
     <div className="space-y-6">
