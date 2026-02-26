@@ -51,7 +51,21 @@ git checkout -b feature/p422-clarity-partner-agreement
 
 ### Pre-push safety net
 
-A pre-push git hook (`.git/hooks/pre-push`) checks for `status: in-progress` feature specs before any push to `main`. If found, it warns you and requires explicit confirmation. This is the last line of defense — ideally you're already on a feature branch before it fires.
+A pre-push git hook (`.git/hooks/pre-push`) checks for `status: in-progress` feature specs before any push to `main`. If found, it shows the in-progress features as context, then requires TTY confirmation before allowing the push.
+
+**Agent pushes are physically blocked** — agents have no TTY, so the confirmation prompt can never be satisfied. Agents must call `/ship` and wait for user approval; they cannot push to main unilaterally.
+
+This is the last line of defense — ideally you're already on a feature branch before it fires.
+
+### Deploying to production
+
+Vercel auto-deploys on every push to `main`. There is no staging gate — pushing to main IS deploying to prod.
+
+- **Feature branches:** use `/ship pN` — merges branch → main → pushes → Vercel deploys
+- **Small infra/doc work on main:** just say "push" — no `/ship` needed
+- **Agent rule:** never push autonomously; always ask first, even if everything looks clean
+
+> **⚠️ Vercel rollback ≠ git revert.** A Vercel rollback only changes the active deployment pointer — it is temporary. The next `git push` to `main` overrides it and the "rolled-back" code returns to prod. If you need to permanently remove code from prod, you MUST do a git revert or `/revert-feature pN`. Vercel rollback alone is not sufficient.
 
 ---
 
@@ -140,6 +154,10 @@ This catches issues before they reach the commit. Run it explicitly rather than 
 | Frontmatter issues | Run `scripts/fix-frontmatter.py` — auto-fixes and re-stages |
 | Lint / TypeScript errors | Fix the code; do not suppress with `@ts-ignore` or `as any` |
 | Secrets detected | Remove the secret, rotate it externally, then re-commit |
+
+### Moving files in git — always use `git mv`
+
+When closing a feature (`git mv features/pN.md features/done/`), always use `git mv`, not `cp` + manual delete. A plain `cp` creates a new file and orphans the original — resulting in a commit with 0 deletions and a duplicate spec at both paths. `git mv` preserves history and stages the rename atomically.
 
 ---
 

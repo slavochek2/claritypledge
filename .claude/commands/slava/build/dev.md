@@ -86,7 +86,7 @@ You're not just writing code — you're building something that will run in prod
 8. **Check** — Run `./scripts/pre-commit-checks.sh`
 9. **Commit** — Only if ALL tests pass
 9.5. **Review** — Spawn `/review-all` as a subagent with this explicit instruction: "Review all changes on this branch vs main. Spec: [current spec path]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings to user. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-10. **Close** — Move spec to `features/done/`, set `status: done` + `completed_at`, prompt for `/kdd`
+10. **UAT gate** — Set `delivery_stage: uat` in spec frontmatter (keep `status: in-progress`, do NOT move to `features/done/`). Tell user: "Feature ready for UAT on branch feature/pN-xxx. Run `/ship pN` when you're satisfied."
 
 ---
 
@@ -401,8 +401,9 @@ Running /review-all...
 [Review findings presented — HIGH/MEDIUM/LOW]
 Fix issues before closing? (all HIGH / select / skip)
 
-Feature closed → features/done/5_feb_26/
-Capture learnings with /kdd? (y/n)
+Feature ready for UAT — delivery_stage: uat set in spec.
+Branch: feature/pN-xxx
+Run /ship pN when satisfied → merges to prod and closes the spec.
 ```
 
 **Failure handling:**
@@ -602,32 +603,23 @@ Feature implementation complete.
 
 ---
 
-## Feature Closure
+## Feature UAT Gate
 
-After successful commit, close the feature:
+After successful commit, mark the feature ready for UAT — do NOT move to `features/done/` yet.
 
 1. Mark all `## Acceptance Criteria` checkboxes `[x]` in the spec file.
-2. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
-3. Find destination:
-   ```bash
-   ls -d features/done/*/ 2>/dev/null | sort -V | tail -1
-   ```
-   Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
-4. Move files:
-   ```bash
-   mkdir -p features/done/{folder}/uat
-   git mv features/{spec} features/done/{folder}/
-   git mv features/uat/p{N}.md features/done/{folder}/uat/ 2>/dev/null
-   ```
-5. Commit: `chore: close P{N} — {title}`
-6. Spawn parallel closing subagents:
-   - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
-   - **verify** (if `*.tsx` files changed): Ask "Run `/verify` for visual QA? (y/n)" — spawn as subagent if yes
-   fix-kanban runs automatically; verify is opt-in.
-7. **Prod deploy — always ask first.** If the feature requires deploying to production (Vercel redeploy, edge function deploy, env vars), list what needs deploying and ask: "Deploy to prod now? (y/n)". Never deploy to prod autonomously.
-8. Ask: "Capture learnings with /kdd? (y/n)"
+2. Update frontmatter: `delivery_stage: uat` (keep `status: in-progress`)
+3. Commit: `chore: pN ready for UAT — {title}`
+4. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
+5. If `*.tsx` files changed: Ask "Run `/verify` for visual QA? (y/n)"
+6. Tell user: "Feature ready for UAT on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
-If no spec file exists (inline description mode), skip closure silently.
+**Do NOT:**
+- Move spec to `features/done/` — that happens in `/ship`
+- Set `status: done` — that happens in `/ship`
+- Deploy to prod — that happens in `/ship`
+
+If no spec file exists (inline description mode), skip the UAT gate silently.
 
 ---
 

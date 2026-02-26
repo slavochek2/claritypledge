@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship a feature branch to production. Merges feature/pN branch → main → pushes → Vercel deploys.
+description: Ship an approved feature to production. Merges feature/pN → main → pushes → Vercel deploys → closes spec (status: done, moves to features/done/).
 when_to_use: When a feature is approved for production and lives on a feature branch.
 ---
 
@@ -23,7 +23,20 @@ Ship an approved feature to production.
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
 5. **Push** — `git push origin main` → Vercel auto-deploys
 6. **Confirm** — report the deployment URL
-7. **Clean up** — delete the local feature branch
+7. **Close the spec** — move spec to `features/done/`, update frontmatter:
+   - `status: done`
+   - `completed_at: YYYY-MM-DD`
+   - Remove `delivery_stage: uat` line
+   ```bash
+   ls -d features/done/*/ 2>/dev/null | sort -V | tail -1  # find current sprint folder
+   mkdir -p features/done/{folder}/uat
+   git mv features/pN_name.md features/done/{folder}/
+   git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || true
+   ```
+   Commit: `chore: close pN — {title}`
+8. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
+9. **Clean up** — delete the local feature branch
+10. **Ask:** "Capture learnings with /kdd? (y/n)"
 
 ---
 
