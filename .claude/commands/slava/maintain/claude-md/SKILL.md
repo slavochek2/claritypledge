@@ -21,9 +21,10 @@ Spawns an agent that:
    - Is it a principle or implementation detail?
    - Does it duplicate existing content?
    - Will it still matter in 6 months?
-4. Suggests where to put it, how to phrase it, and what to update
+4. **Applies the change directly** when recommendation is unambiguous (routing is clear, no trade-offs)
+5. Surfaces to user only when there are genuine trade-offs or ambiguity requiring judgment
 
-**Agent mode:** Suggest only (you approve before applying)
+**Agent mode:** Apply when clear, suggest when judgment required
 
 ## Validation Principles
 
@@ -145,12 +146,15 @@ For the proposed change: "{USER_INPUT}"
 
 ## Follow-up Actions
 
-If recommendation is approved:
-1. Run to unlock CLAUDE.md editing (marker expires in 30 min):
+**When recommendation is unambiguous** (routing is clear, all checks pass, single destination):
+1. Run to unlock CLAUDE.md editing:
    ```bash
    touch /tmp/.claude-md-gate-ok
    ```
-2. Apply the validated change (the PreToolUse hook will allow one edit, then re-lock).
+2. Apply the change directly. Report: "Applied to [file] — [one sentence what changed]."
+
+**When judgment is required** (genuine trade-offs, ambiguous routing, or destructive change):
+- Surface the analysis and wait for user decision before applying.
 ```
 
 ## Examples

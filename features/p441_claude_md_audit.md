@@ -1,0 +1,48 @@
+---
+status: backlog
+type: task
+rank: 125482.0
+workstream: foundation
+created_date: 2026-02-26
+tags: [process, claude-md, agents]
+---
+
+# TASK: P441 — CLAUDE.md Audit (Reduce Size, Fix Instruction Dilution)
+
+## Goal
+
+CLAUDE.md has grown to ~500 lines. Rules are diluting each other — the more that's added, the less each rule is weighted by the model. Audit the document, move path-specific directives to `.claude/rules/`, remove redundancy, and tighten what remains.
+
+**Root cause identified:** Every gap found → rule added to CLAUDE.md → document grows → each rule gets less attention → more gaps → repeat. Can't fix instruction compliance by adding more instructions to the same document.
+
+## Steps
+
+1. **Research pass** — spawn agent to analyze what makes AI instruction docs effective at this scale; what patterns cause compliance to degrade; best practices for CLAUDE.md-style docs
+2. **Audit pass** — for each rule in CLAUDE.md, classify:
+   - Belongs here (universal, applies to all tasks)
+   - Should move to `.claude/rules/X.md` (only fires for specific file paths)
+   - Redundant (duplicates existing content — remove or link)
+   - Too vague to apply consistently (rewrite or drop)
+   - Not needed in 6 months (archive)
+3. **Existing rules files to check for additions:**
+   - `.claude/rules/src.md` — src/**
+   - `.claude/rules/features.md` — features/**
+   - `.claude/rules/database.md` — supabase/**
+   - `.claude/rules/tests.md` — e2e/**, src/**/*.test.*
+   - Consider new rules files for: `.claude/commands/slava/**` (skills), `tools/kanban/**`
+4. **Apply approved changes** — in a worktree (CLAUDE.md edits are high-blast-radius)
+5. **Verify** — confirm agent behavior unchanged after reduction
+
+## Done When
+
+- [ ] CLAUDE.md is under 300 lines of actual content
+- [ ] All path-specific directives live in `.claude/rules/` not CLAUDE.md
+- [ ] No duplicate rules (same constraint stated twice)
+- [ ] All remaining rules pass the universal test (>80% of task types need it)
+
+## Context
+
+- Triggered by: P440 session where Decisive Action rule was violated because the `/claude-md` skill "suggest only" instruction overrode it. Structural instructions beat ambient ones.
+- Related fix already done: `.claude/rules/src.md` inline-vs-skill threshold (P440 session)
+- Related fix already done: `/claude-md` skill changed from "suggest only" to "apply when clear"
+- See `docs/decisions.md` for prior CLAUDE.md architecture decisions
