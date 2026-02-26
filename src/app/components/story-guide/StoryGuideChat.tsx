@@ -736,6 +736,11 @@ export function StoryGuideChat({
               {inputValue.length}/{MAX_BRAIN_DUMP_LENGTH} — too long
             </p>
           )}
+          {!aiDisclosureAcked && inputValue.trim() && (
+            <p className="text-xs text-muted-foreground mt-1 px-1">
+              Acknowledge the AI disclosure above to send.
+            </p>
+          )}
           {phase !== 'idle' && phase !== 'brain-dump' && (
             <p className="text-xs text-muted-foreground mt-1 px-1">
               Shift+Enter for new line
