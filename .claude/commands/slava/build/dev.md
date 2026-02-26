@@ -609,6 +609,13 @@ After successful commit, mark the feature ready for QA — do NOT move to `featu
 
 1. Mark all `## Acceptance Criteria` checkboxes `[x]` in the spec file.
 2. Update frontmatter: `status: qa` (clear `delivery_stage` — it's no longer needed once in QA)
+2.5. **Append to deploy queue** — check if the spec has a `## Pre-deploy Checklist` section. If yes, extract all `- [ ]` items and append to `DEPLOY_QUEUE.md` (create if missing):
+   ```markdown
+   ## P{N}: {title}
+   - [ ] <command 1>
+   - [ ] <command 2>
+   ```
+   Skip silently if no Pre-deploy Checklist.
 3. Commit: `chore: pN ready for QA — {title}`
 4. Run fix-kanban: Invoke `/slava:maintain:fix-kanban`
 5. If `*.tsx` files changed: Ask "Run `/verify` for visual QA? (y/n)"

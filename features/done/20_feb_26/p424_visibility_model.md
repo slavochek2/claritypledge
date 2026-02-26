@@ -1,12 +1,16 @@
 ---
-status: done
-completed_at: '2026-02-24'
+status: all-done
 delivery_stage: arch-review
 type: story
-rank: 8.0
+rank: 8
 workstream: C1
-tags: [visibility, privacy, stories, rls]
+tags:
+  - visibility
+  - privacy
+  - stories
+  - rls
 created_date: '2026-02-24'
+locked_at: '2026-02-26T04:16:58.396Z'
 ---
 
 # P424: Visibility Model Rethink

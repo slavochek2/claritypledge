@@ -20,6 +20,13 @@ Ship an approved feature to production.
 1. **Find the branch** — looks for `feature/pN*` or `feature/pN-*`
 2. **Verify clean state** — no uncommitted changes on the feature branch
 3. **Run pre-commit checks** — `./scripts/pre-commit-checks.sh`
+3.5. **Check deploy queue** — read `DEPLOY_QUEUE.md`. If entries exist for this P-number:
+   - Show the pending `- [ ]` items
+   - Ask: "Run these infra steps before pushing? (y to run / s to skip)"
+   - If **y**: `source .env.local` then run each command in order, report result, mark `[x]` on success
+   - If **s**: warn "Skipped — infra may be missing on prod. Continuing anyway."
+   - Remove this P-number's section from `DEPLOY_QUEUE.md` after running (or skipping)
+   - If `DEPLOY_QUEUE.md` doesn't exist or has no entry for this P-number: skip silently
 4. **Merge to main** — `git merge feature/pN --no-ff` (preserves branch history)
 5. **Push** — `git push origin main` → Vercel auto-deploys
 6. **Confirm** — report the deployment URL

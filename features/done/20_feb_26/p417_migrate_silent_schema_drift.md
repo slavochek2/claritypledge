@@ -1,17 +1,25 @@
 ---
 id: p417
-title: "migrate.sh: silent schema drift when Management API returns HTTP 200 with error body"
-status: done
-completed_at: 2026-02-24
-date_resolved: 2026-02-24
-root_cause: apply_via_api() checked only HTTP status code; Supabase Management API returns HTTP 200 with JSON error object {message,code} when SQL fails — script recorded migration as applied without schema change executing
-resolution: Added _check_api_success() that parses response body; JSON array = success, JSON object with message = SQL error even if HTTP 200; wired into apply_via_api() before recording in schema_migrations
+title: >-
+  migrate.sh: silent schema drift when Management API returns HTTP 200 with
+  error body
+status: all-done
+date_resolved: 2026-02-24T00:00:00.000Z
+root_cause: >-
+  apply_via_api() checked only HTTP status code; Supabase Management API returns
+  HTTP 200 with JSON error object {message,code} when SQL fails — script
+  recorded migration as applied without schema change executing
+resolution: >-
+  Added _check_api_success() that parses response body; JSON array = success,
+  JSON object with message = SQL error even if HTTP 200; wired into
+  apply_via_api() before recording in schema_migrations
 type: bug
 severity: critical
-date_reported: 2026-02-24
+date_reported: 2026-02-24T00:00:00.000Z
 tags: []
-rank: 125480.0
-created_date: 2026-02-24
+rank: 125480
+created_date: 2026-02-24T00:00:00.000Z
+locked_at: '2026-02-26T04:17:28.911Z'
 ---
 
 # P417: migrate.sh Silent Schema Drift

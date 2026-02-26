@@ -1,16 +1,16 @@
 ---
-status: done
-completed_at: "2026-02-24"
+status: all-done
 type: feature
 rank: 125470
 workstream: E
-created_date: 2026-02-24
+created_date: 2026-02-24T00:00:00.000Z
 tags: []
 uat_file: features/uat/p426.md
 test_files:
   - e2e/p426-story-show-more.spec.ts
   - e2e/p426-smoke.spec.ts
   - e2e/a11y/p426-accessibility.spec.ts
+locked_at: '2026-02-26T04:17:34.738Z'
 ---
 
 # P426: Story "Show more" toggle

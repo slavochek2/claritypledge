@@ -1,23 +1,27 @@
 ---
-status: done
-completed_at: '2026-02-25'
+status: all-done
 type: story
-rank: 10.0
+rank: 10
 workstream: C1
-tags: [stories, edit, delete, ux]
+tags:
+  - stories
+  - edit
+  - delete
+  - ux
 prepped_date: '2026-02-24'
 delivery_stage: tests-review
 reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-02-24
+created_date: 2026-02-24T00:00:00.000Z
 uat_file: features/uat/p427.md
 test_files:
   - e2e/p427-story-edit-delete.spec.ts
   - e2e/p427-smoke.spec.ts
   - e2e/integration/p427-migration.spec.ts
   - e2e/a11y/p427-accessibility.spec.ts
+locked_at: '2026-02-26T04:17:49.958Z'
 ---
 
 # P427: Story Edit and Delete

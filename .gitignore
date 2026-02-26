@@ -87,3 +87,6 @@ TEST_*.md
 # Personal data
 private/personal/
 .private/
+
+# Deploy queue — local operational state, cleared by /ship after running
+DEPLOY_QUEUE.md

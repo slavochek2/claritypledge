@@ -1,10 +1,9 @@
 ---
-status: done
-completed_at: "2026-02-23"
+status: all-done
 type: feature
 rank: 125466
 workstream: foundation
-created_date: 2026-02-23
+created_date: 2026-02-23T00:00:00.000Z
 tags: []
 uat_file: features/uat/p414.md
 test_files:
@@ -13,6 +12,7 @@ test_files:
   - e2e/p414-profile-bio.spec.ts
   - e2e/p414-smoke.spec.ts
   - e2e/a11y/p414-accessibility.spec.ts
+locked_at: '2026-02-26T04:17:39.790Z'
 ---
 
 # P414: Profile bio

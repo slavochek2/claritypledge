@@ -1,13 +1,17 @@
 ---
-status: done
-completed_at: "2026-02-24"
+status: all-done
 type: bug
 rank: 125468
 severity: medium
 workstream: E
 date_reported: '2026-02-24'
 created_date: '2026-02-24'
-tags: [points, truncation, readability, voting]
+tags:
+  - points
+  - truncation
+  - readability
+  - voting
+locked_at: '2026-02-26T04:17:13.457Z'
 ---
 
 # P434: Point statements truncated with no expand — user can't read full text before voting
