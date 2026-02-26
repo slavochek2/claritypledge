@@ -5,6 +5,12 @@ saves learnings to memory, and leaves you excited and clear about tomorrow.
 
 ## Steps
 
+### 0. Reset Whisper language to auto-detect
+```bash
+rm -f ~/.whisper-lang
+```
+Silent — no output needed.
+
 ### 1. Gather today's data (run in parallel)
 
 - **Cloud server status**: `gcloud compute instances list --filter="name=clarity-agent" --format="value(name,status,zone)"` — note if RUNNING or TERMINATED
@@ -14,7 +20,7 @@ saves learnings to memory, and leaves you excited and clear about tomorrow.
 - **KDD**: KDD is distributed — check `docs/decisions.md`, `docs/technical/` files, and `features/done/INDEX.md`. Also scan git log for `docs(kdd):` prefix commits today.
 - **Memory**: Read `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md`
 - **Features done today**: `git log --oneline --since="6am today"` — look for `feat:`, `fix:`, `docs:`, `tests:` prefixes
-- **New signups today**: Supabase MCP, prod project `besjtuodziykmjidubzw`: `SELECT count(*) FROM profiles WHERE created_at > now() - interval '24 hours'`
+- **New signups today**: `source "$(git rev-parse --show-toplevel)/.env.local" && SINCE=$(date -u -v-24H +"%Y-%m-%dT%H:%M:%SZ") && curl -s "https://besjtuodziykmjidubzw.supabase.co/rest/v1/profiles?select=name,email,created_at&created_at=gt.${SINCE}&order=created_at.desc" -H "apikey: $PROD_SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $PROD_SUPABASE_SERVICE_ROLE_KEY"` — filter out `test-agent@claritypledge.com`, show names + count
 - **Sentry today**: Sentry MCP (`mcp__sentry__search_issues`), org `22minds-llc`, project `javascript-react` — unresolved issues first seen in last 24h. Count only.
 - **CLAUDE.md health**: `git log --oneline --since="6am today" -- CLAUDE.md .claude/rules/` — if any commits found, collect the diff (`git diff HEAD~N HEAD -- CLAUDE.md .claude/rules/` where N = number of those commits) and spawn `/slava:maintain:claude-md` as a subagent with the diff as context. Get back: VALID / NEEDS REVISION + one-line recommendation.
 

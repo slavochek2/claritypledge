@@ -14,6 +14,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [process]: day-start skill hardening — signup identity + subagent anti-pattern
+
+**Context:** `/day-start` was spawning a background subagent to count signups, which took 20 tool uses / 75s and still got the wrong answer (count only, wrong column name). Health check also had GCP VM check that silently failed every run due to keychain auth not being available in agent sessions.
+**Decision:** (1) Signup query uses `curl` with `PROD_SUPABASE_SERVICE_ROLE_KEY` inline — no subagent. Key retrieved via `supabase projects api-keys --project-ref <ref>` (CLI uses macOS keychain). Column is `name`+`email`, not `username`/`full_name`. (2) GCP VM check removed — VMs are set-and-forget, not a daily concern. DB backup check kept with silent skip on gcloud auth failure. (3) `source .env.local` → `source "$(git rev-parse --show-toplevel)/.env.local"` to handle non-root cwd in agent sessions.
+**Alternatives rejected:** Background subagent — inherently slow, burns context, and will try 20 workarounds before failing cleanly.
+**Consequences:** day-start signup check is ~1s, returns names, works regardless of cwd. Pattern: for any "check prod data at session start" use direct curl+service key, never subagent.
+**References:** [day-start.md](.claude/commands/slava/day-start.md)
+
+---
+
 ## 2026-02-25 [process]: Feature branch workflow + prod deploy gate
 
 **Context:** P422 and P425 were committed to `main` while `status: in-progress`. Vercel auto-deploys on every push to `main` — so these unapproved features silently landed in production.
