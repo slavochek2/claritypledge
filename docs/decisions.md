@@ -57,7 +57,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** Two Claude sessions sharing a `.git/index` caused staging collisions (P437/P440 incident). Proposed fix: PreToolUse hook that auto-forks into a worktree when a branch is detected. Ran adversarial review before implementing.
 **Decision:** Rejected automation. Implement instead: (1) commit-at-coherent-state rule in CLAUDE.md, (2) collision check in `/fix` (mirrors `/dev`'s existing check), (3) infrastructure tier in `/pick-flow`. Keep ask behavior — agent surfaces collision, user decides.
 **Alternatives rejected:** PreToolUse hook — three fatal flaws: (a) `.env.local` is not present in worktrees (breaks `source .env.local` in any credential script — a hard showstopper); (b) hook fires after `git checkout -b` so the branch already exists in the original worktree when the fork happens; (c) auto-forking without asking violates the Transparency Principle. Auto-merge-on-close also rejected: no clean "session ended" event to hook into.
-**Consequences:** Agents detect collision and ask — they don't act unilaterally. `.env.local` must be copied manually when creating worktrees (documented in worktree-setup.md). The main defence is committing frequently, not worktree isolation.
+**Consequences:** Agents detect collision and ask — they don't act unilaterally. `.env.local` must be symlinked after creating any new worktree (`ln -sf /path/to/main/.env.local .env.local` — see worktree-setup.md). The main defence is committing frequently, not worktree isolation.
 
 ---
 

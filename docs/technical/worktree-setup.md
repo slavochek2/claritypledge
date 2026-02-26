@@ -275,6 +275,25 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+## Ad-hoc Worktrees (Collision Avoidance)
+
+When `/fix` or `/dev` detects a staging collision (uncommitted changes from a different feature in the index), it may suggest creating an ad-hoc worktree. The minimum setup for a functional worktree:
+
+```bash
+# 1. Create worktree on a new branch
+git worktree add ../claritypledge-tmp -b feature/pN-description
+
+# 2. Symlink .env.local — REQUIRED, or all credential scripts will fail
+ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-tmp/.env.local
+
+# 3. Install dependencies
+cd ../claritypledge-tmp && npm install
+```
+
+**Why step 2 is critical:** `.env.local` is gitignored and not present in new worktrees. Any script that runs `source .env.local` (migrations, edge function deploys, test env setup) will silently fail without it.
+
+---
+
 ## Best Practices
 
 1. **Always commit port configs to worktree branches** - Ensures persistence
@@ -282,6 +301,7 @@ npm install
 3. **One dev server per worktree** - strictPort prevents accidental port conflicts
 4. **Clean up after exploration** - Reset or remove worktrees after merging winner
 5. **Document branch purpose** - Use descriptive branch names (`feat/minimalist-ui` better than `worktree-1`)
+6. **Always symlink .env.local** - Do this immediately after `git worktree add`, before any npm/script commands
 
 ## References
 
