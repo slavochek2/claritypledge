@@ -74,7 +74,7 @@ For small work committed directly to main, just say "push" — no need for /ship
 ## After shipping
 
 - Vercel deployment takes ~60s — check claritypledge.com
-- If the feature had a spec: it should already be in `features/done/` (closed by /dev)
+- If the feature had a spec: /ship moves it to `features/done/` and sets `status: all-done`
 - Run `/verify` if you want visual QA of the live site
 
 ---

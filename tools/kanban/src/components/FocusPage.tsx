@@ -53,7 +53,7 @@ function getStatusSummary(features: Feature[]): string {
     counts[f.status] = (counts[f.status] || 0) + 1
   }
   const parts: string[] = []
-  const displayOrder: Status[] = ['in-progress', 'today', 'blocked', 'week', 'backlog', 'done']
+  const displayOrder: Status[] = ['in-progress', 'today', 'blocked', 'week', 'backlog', 'qa', 'done']
   for (const status of displayOrder) {
     const count = counts[status]
     if (count) parts.push(`${count} ${status}`)

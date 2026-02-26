@@ -530,5 +530,5 @@ If ⚠️ verdict (visual issues only):
 ## Related Skills
 
 - `/generate-tests` — Generates the UAT file this skill reads
-- `/dev` — Runs automated tests, auto-closes feature on success
+- `/dev` — Runs automated tests, stops at QA gate on success (run `/ship` to close)
 - `/review-all` — Code/design/UX static review

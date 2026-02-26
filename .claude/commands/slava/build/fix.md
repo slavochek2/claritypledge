@@ -318,7 +318,7 @@ Bug spec updated:
 - root_cause: Safari event.target incompatibility on buttons
 - resolution: Changed to use formData reference
 
-Bug fixed and verified. Closing feature.
+Bug fixed and verified. Status set to qa — run `/ship pN` when satisfied.
 ```
 
 ---
@@ -444,7 +444,7 @@ Phase 4: Verify
 ✅ Regression test passes
 ✅ All tests pass (512/512)
 
-Bug fixed. Closing feature.
+Bug fixed. Status set to qa — run `/ship pN` when satisfied.
 ```
 
 ### Complex Bug (Debugging first)
@@ -463,7 +463,7 @@ Bug fixed. Closing feature.
 → Fix with debounce + queue
 → Verify
 
-Bug fixed. Closing feature.
+Bug fixed. Status set to qa — run `/ship pN` when satisfied.
 ```
 
 ---

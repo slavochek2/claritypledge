@@ -315,7 +315,7 @@ reviews:
    - Agent implements, runs tests, iterates until pass
    - User validates UX only (not functionality)
 
-6. **Ship** - `/dev` auto-closes on success
+6. **Ship** - `/dev` stops at QA gate; run `/ship pN` to close
 
 ---
 

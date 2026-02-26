@@ -56,14 +56,14 @@ Which flow?
 
 ## Available commands (in sequence order)
 
-- `/fix` — targeted bug fix, auto-closes feature on success
+- `/fix` — targeted bug fix, stops at QA gate on success (run `/ship` to close)
 - `/quick-feature` — skeleton spec in `features/` (30 sec), use for tracking
 - `/create-prd` — full PRD with acceptance criteria (3-5 min)
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)
 - `/architect` — architecture plan (only if new infra, multi-service, or unfamiliar patterns)
 - `/generate-tests` — writes test specs before implementation
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only)
-- `/dev` — implements from spec, auto-closes feature on success
+- `/dev` — implements from spec, stops at QA gate on success (run `/ship` to close)
 - `/review-all` — 3-agent parallel review (code + design + UX); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
 - `/verify` — live browser UAT (when look/feel matters, optional)
 - `/kdd` — captures learnings into docs (optional, after shipping)
