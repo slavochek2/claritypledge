@@ -769,15 +769,17 @@ A third pattern — distinct from bugs and features — is when something *feels
 - `/ship pN` — merges branch → main → Vercel deploys → closes spec. Only you can trigger this.
 
 **Optional post-work:**
-- `/verify` — live browser UAT + visual QA. Run when you care about look/feel. Returns ✅ / ❌.
+- `/sim` — persona simulation + UX friction report. Runs browser agents as real user archetypes (Solo Founder, Invited Party, Coach, UX Critic). Produces classified findings + change request candidates. Run for any UI feature before calling it done. See `docs/technical/synthetic-usability-testing.md`.
+- `/verify` — functional smoke test. Confirms things work; no UX depth. Use for pure backend or quick working-check when `/sim` isn't warranted.
 - `/kdd` — capture notable learnings in strategic docs.
 
 **When to use what:**
 
 | Situation | Run |
 |-----------|-----|
-| Simple UI tweak | `/verify` only |
-| Non-trivial feature (multi-file, auth) | `/review-all` then `/verify` |
+| UI feature (any complexity) | `/sim` (personas) — finds UX friction |
+| Simple UI tweak / pure backend | `/verify` — confirms it works |
+| Non-trivial feature (multi-file, auth) | `/review-all` then `/sim` |
 | Pure backend | `/review-all` only |
 
 ---
@@ -837,7 +839,8 @@ These skills can be used at any point during development when you need them:
 │ (auto) /dev → /review-all subagent → fix → QA gate  │
 │ (gate) status:qa set — code on feature branch       │
 │ (you) /ship pN → merges to prod, closes spec        │
-│ (optional) /verify — live UAT + visual QA           │
+│ (optional) /sim  — persona UX sims (UI features)   │
+│ (optional) /verify — functional smoke test          │
 │ (optional) /kdd                                     │
 └─────────────────────────────────────────────────────┘
 

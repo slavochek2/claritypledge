@@ -11,6 +11,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [process]: CLAUDE.md size cap — P441 audit to fix instruction dilution
+
+**Context:** CLAUDE.md has grown to ~500 lines. Rules are diluting each other — every gap found triggers a new rule, which makes the document larger, which reduces attention each rule gets, which creates more gaps. A session where the Decisive Action rule existed but wasn't applied proved the pattern.
+**Decision:** Cap CLAUDE.md at ~300 lines of content. Path-specific directives belong in `.claude/rules/` (auto-load only when relevant). Universal principles stay in CLAUDE.md. P441 filed to do the full audit in a dedicated session with a worktree for safety.
+**Alternatives rejected:** Adding more rules to CLAUDE.md to fix compliance (self-defeating); making CLAUDE.md shorter by removing content without a routing strategy (loses coverage).
+**Consequences:** Before adding anything to CLAUDE.md, ask: "Is this universal?" If path-specific → `.claude/rules/`. If already documented elsewhere → link. Running `/claude-md` gate enforces this per-change.
+
+---
+
+## 2026-02-26 [process]: Agent pipeline output — apply when clear, never surface as false choice
+
+**Context:** Critique agent and claude-md gate agent both converged on the same answer with no trade-offs. The output was surfaced to the user as a "decision" requiring approval, wasting their reading time on something that wasn't genuinely theirs to decide.
+**Decision:** When spawned agents agree and recommendation is unambiguous → apply and report. Only surface to user when: genuine trade-offs exist that depend on user preference, action is irreversible/risky, or agents disagree. This is the Decisive Action principle applied to agent pipelines, not just user interactions.
+**Alternatives rejected:** Always surface agent output for approval (theater, shifts burden without value); never surface (misses genuine ambiguity).
+**Consequences:** Agents in pipelines are peers, not advisors. Their clear output is a decision already made. Surfacing it as a question is a false choice. Saved to MEMORY.md so it persists across sessions.
+
+---
+
+## 2026-02-26 [process]: Structural instructions beat ambient — fix the skill, not CLAUDE.md
+
+**Context:** CLAUDE.md's Decisive Action rule was violated in the same session it was reinforced. Root cause: the `/claude-md` skill had "suggest only" in its prompt — read fresh at invocation — which overrode the ambient CLAUDE.md rule competing with 499 other lines.
+**Decision:** Fix compliance problems at the structural level (skill design, `.claude/rules/` path matching, hooks) not by adding more ambient rules to CLAUDE.md. Structural instructions are read fresh and in full; ambient ones are diluted. `/claude-md` skill changed from "suggest only" to "apply when clear, surface when judgment required."
+**Alternatives rejected:** Adding a CLAUDE.md rule saying "apply agent output when clear" — same document, same dilution problem.
+**Consequences:** Before adding a CLAUDE.md rule to fix a compliance gap, ask: "Can this be enforced structurally instead?" Skill design > rules file > CLAUDE.md.
+**References:** [claude-md/SKILL.md](.claude/commands/slava/maintain/claude-md/SKILL.md)
+
+---
+
 ## 2026-02-26 [process]: Terminal session persistence — tmux + resurrect + continuum
 
 **Context:** After Mac restarts (including unexpected crash described below), all Ghostty terminal sessions (tabs, working directories, running processes) were lost. Previous tmux attempt failed because no persistence plugins were configured. Ghostty's `window-save-state = always` restores layout/directories but not running processes.
