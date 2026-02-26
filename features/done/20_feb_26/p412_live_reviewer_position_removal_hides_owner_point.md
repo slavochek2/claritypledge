@@ -1,5 +1,6 @@
 ---
-status: in-progress
+status: done
+completed_at: '2026-02-22'
 type: bug
 rank: 125464.0
 severity: high
