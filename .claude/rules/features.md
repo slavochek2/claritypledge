@@ -44,6 +44,18 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 - `task` — technical work (refactor, infra, tools, docs)
 - `comment` — notes, decisions (not actionable)
 
+## Change Requests (from `/sim`)
+
+Sim findings filed as improvement specs use `type: story` with extra frontmatter:
+
+```yaml
+source: sim        # found via synthetic usability testing
+changes: p422      # which original feature this improves
+persona: solo-founder  # which persona surfaced it
+```
+
+No separate `change-request` type — kanban shows them as regular stories. The `source: sim` field is the distinguisher.
+
 ## Secrets & External Services in Specs
 
 When a spec introduces a new external API key, edge function, or third-party service secret, the spec **MUST** include a **Pre-deploy Checklist** section.

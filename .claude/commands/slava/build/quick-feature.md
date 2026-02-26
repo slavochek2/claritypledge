@@ -81,7 +81,7 @@ Ask (text input, NOT AskUserQuestion):
 - **Title:** Brief description (will become filename)
 - **Problem:** What needs to be solved? (1-2 sentences)
 
-**Before writing the file:** Scan the conversation for any already-decided design context — ASCII mockups, wireframes, file paths, implementation approach. If found, include it in the spec rather than leaving placeholders. The spec should capture what's already known.
+**Before writing the file:** Scan the conversation for any already-decided design context — ASCII mockups, wireframes, file paths, implementation approach, architecture decisions, output formats, personas, pipeline position. If found, include it in the spec rather than leaving placeholders. The spec should capture what's already known. **Agents may add any additional sections beyond the template when conversation context warrants it** — the template is a floor, not a ceiling. Name sections descriptively (e.g., `## Architecture`, `## Personas`, `## Output Format`).
 
 ### 3. Determine P-Number
 

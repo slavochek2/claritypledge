@@ -16,6 +16,8 @@ This file provides guidance for AI agents working with code in this repository.
 
 **Inline implementation rule:** When implementing without `/dev` (e.g., inline in conversation), manually apply the QA gate at the end: set `status: qa` in spec frontmatter and commit `chore: pN ready for QA — {title}`.
 
+**Merge gate — hard rule:** NEVER merge a feature branch to main directly, even if the code looks ready. The only permitted merge path is `/ship pN`. This applies to all branches, all task types. A direct merge bypasses UAT, skips spec closure, and cannot be undone cleanly in prod.
+
 **Deep dive:** See `docs/technical/` for architecture, auth, database, testing guides.
 
 ---
