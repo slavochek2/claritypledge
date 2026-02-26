@@ -94,18 +94,16 @@ export function AcceptAgreementPage() {
     if (!agreement || !currentUser || !agreementId) return;
     setIsAccepting(true);
     try {
-      const { error } = await supabase
-        .from('clarity_agreements')
-        .update({
-          partner_profile_id: currentUser.id,
-          partner_signed_at: new Date().toISOString(),
-          status: 'active',
-        })
-        .eq('id', agreementId)
-        .eq('invitation_token', token)
-        .eq('status', 'pending');
+      // Use SECURITY DEFINER RPC — direct UPDATE RLS collapses to status='pending'
+      // (invitation_token IS NOT NULL is always true), allowing any authenticated
+      // user to hijack a pending agreement if they know the UUID.
+      const { data: accepted, error } = await supabase.rpc('accept_agreement', {
+        p_agreement_id: agreementId,
+        p_token: token,
+        p_partner_id: currentUser.id,
+      });
 
-      if (error) {
+      if (error || !accepted) {
         console.error('[AcceptAgreementPage] accept error:', error);
         return;
       }
