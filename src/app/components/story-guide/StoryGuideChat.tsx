@@ -555,8 +555,6 @@ export function StoryGuideChat({
           <PointCardWithLinks
             point={contextPoint as PrototypePoint}
             profileOwner={contextProfileOwner}
-            hideActions
-            disableNavigation
           />
         </div>
       )}
