@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Slider } from '@/components/ui/slider';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
+import { RatingButtons } from '@/app/components/partners/shared';
 import {
   createClaritySession,
   joinClaritySession,
@@ -311,9 +312,11 @@ export function ClarityChatPage() {
   // Paraphrase flow state
   const [paraphrasingMessageId, setParaphrasingMessageId] = useState<string | null>(null);
   const [paraphraseInput, setParaphraseInput] = useState('');
-  const [selfRating, setSelfRating] = useState<number | null>(null); // null = not yet selected
+  const [selfRating, setSelfRating] = useState<number | null>(null); // null = not yet selected, 0-100 internally
+  const [selfRatingDrawerOpen, setSelfRatingDrawerOpen] = useState(false);
   const [ratingVerificationId, setRatingVerificationId] = useState<string | null>(null);
-  const [rating, setRating] = useState(50);
+  const [activeRatingVerification, setActiveRatingVerification] = useState<Verification | null>(null);
+  const [rating, setRating] = useState(70); // 0-100 internally
   const [correctionInput, setCorrectionInput] = useState(''); // Author's correction feedback
 
   // Audio recording state
@@ -662,6 +665,7 @@ export function ClarityChatPage() {
       setParaphrasingMessageId(null);
       setParaphraseInput('');
       setSelfRating(null);
+      setSelfRatingDrawerOpen(false);
       setAudioBlob(null);
       setAudioUrl(null);
     } catch (err) {
@@ -679,12 +683,16 @@ export function ClarityChatPage() {
       const correction = !accept && correctionInput.trim() ? correctionInput.trim() : undefined;
       await rateVerification(ratingVerificationId, rating, accept, correction);
       setRatingVerificationId(null);
-      setRating(50);
+      setActiveRatingVerification(null);
+      setRating(70);
       setCorrectionInput('');
     } catch (err) {
       console.error('Failed to rate:', err);
     }
   };
+
+  // Message currently being paraphrased (used to show author name in self-rating drawer)
+  const paraphrasingMessage = paraphrasingMessageId ? messages.find(m => m.id === paraphrasingMessageId) : undefined;
 
   // Find pending verification for a message that I need to rate (as author)
   const findPendingRating = useCallback(
@@ -1097,38 +1105,12 @@ export function ClarityChatPage() {
                       </div>
                     )}
 
-                    {/* Self-rating slider */}
-                    <div className={`space-y-2 p-2 rounded-lg transition-all ${selfRating === null ? 'bg-blue-50 border border-blue-200 ring-1 ring-blue-300/50' : 'bg-transparent'}`}>
-                      <div className="flex justify-between text-sm">
-                        <span className={selfRating === null ? 'text-blue-700 font-medium' : 'text-muted-foreground'}>
-                          How well did you capture {message.authorName}'s meaning?
-                        </span>
-                        <span className={`font-medium ${selfRating === null ? 'text-blue-600' : ''}`}>
-                          {selfRating === null ? '5/10' : `${selfRating / 10}/10`}
-                        </span>
-                      </div>
-                      <div className="relative">
-                        <Slider
-                          value={selfRating === null ? [50] : [selfRating]}
-                          onValueChange={([v]) => setSelfRating(v)}
-                          min={0}
-                          max={100}
-                          step={10}
-                          className={selfRating === null ? 'opacity-70' : ''}
-                        />
-                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                          <span>0</span>
-                          <span>10 = Full understanding</span>
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Actions */}
                     <div className="flex gap-2 items-center">
                       <Button
                         size="sm"
-                        onClick={handleSubmitParaphrase}
-                        disabled={!paraphraseInput.trim() || selfRating === null}
+                        onClick={() => setSelfRatingDrawerOpen(true)}
+                        disabled={!paraphraseInput.trim()}
                       >
                         Ask for feedback
                       </Button>
@@ -1158,7 +1140,8 @@ export function ClarityChatPage() {
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-blue-300 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-all"
                       onClick={() => {
                         setRatingVerificationId(pendingRating.id);
-                        setRating(70); // Start at 70% as more realistic default
+                        setActiveRatingVerification(pendingRating);
+                        setRating(70);
                       }}
                     >
                       Did {pendingRating.verifierName} get it right?
@@ -1166,104 +1149,6 @@ export function ClarityChatPage() {
                   </div>
                 )}
 
-                {/* Rating slider (when rating) - aligned with message */}
-                {/* UX IMPROVEMENTS: Better slider with tick marks, clearer button labels, progressive disclosure */}
-                {ratingVerificationId && pendingRating?.id === ratingVerificationId && (
-                  <div className="mt-2 p-4 bg-background rounded-xl max-w-[85%] space-y-4 border shadow-sm">
-                    {/* Header with attempt number */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">
-                        Rate {pendingRating.verifierName}'s understanding
-                      </p>
-                      {pendingRating.roundNumber > 1 && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                          Try #{pendingRating.roundNumber}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Their paraphrase - better visual treatment */}
-                    <div className="p-3 bg-muted/50 rounded-lg border-l-2 border-primary/30">
-                      <p className="text-sm text-muted-foreground italic">"{pendingRating.paraphraseText}"</p>
-                    </div>
-
-                    {/* Prediction context ABOVE slider - gives context before rating */}
-                    {pendingRating.selfRating !== undefined && (
-                      <div className="text-sm text-muted-foreground">
-                        {pendingRating.verifierName} predicted: <span className="font-medium text-foreground">{pendingRating.selfRating / 10}/10</span>
-                      </div>
-                    )}
-
-                    {/* Rating slider - KISS: 0-10 scale (more intuitive than %) */}
-                    <div className="space-y-2">
-                      {/* Current rating display */}
-                      <div className="text-center">
-                        <span className="text-2xl font-bold text-blue-600">{rating / 10}/10</span>
-                      </div>
-
-                      {/* Simple slider */}
-                      <Slider
-                        value={[rating]}
-                        onValueChange={([v]) => setRating(v)}
-                        min={0}
-                        max={100}
-                        step={10}
-                      />
-
-                      {/* Minimal labels - endpoints with explanation at 10 */}
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>0</span>
-                        <span>10 = full understanding</span>
-                      </div>
-                    </div>
-
-                    {/* Correction input - always visible but optional, fixed height */}
-                    <div className="space-y-2">
-                      <Textarea
-                        value={correctionInput}
-                        onChange={(e) => setCorrectionInput(e.target.value)}
-                        placeholder="Add a note (optional)"
-                        className="min-h-[60px] text-sm resize-none"
-                      />
-                    </div>
-
-                    {/* Action buttons - Design System: blue primary, green only for 100% success */}
-                    <div className="flex flex-wrap gap-2 pt-2 border-t">
-                      {rating === 100 ? (
-                        /* 100% = Accept is primary */
-                        <Button
-                          size="sm"
-                          onClick={() => handleRate(true)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white"
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Perfect!
-                        </Button>
-                      ) : (
-                        /* <100% = Retry is primary (blue), Accept is secondary */
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => handleRate(false)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                            Ask to clarify
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRate(true)}
-                            className="border-blue-200 text-blue-700 hover:bg-blue-50"
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-1" />
-                            Close enough
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -1372,6 +1257,121 @@ export function ClarityChatPage() {
             </p>
           )}
         </div>
+
+        {/* Self-rating drawer — opens when user clicks "Ask for feedback" */}
+        <Drawer
+          open={selfRatingDrawerOpen}
+          onOpenChange={(open) => {
+            setSelfRatingDrawerOpen(open);
+            if (!open) setSelfRating(null);
+          }}
+        >
+          <DrawerContent overlayClassName="bg-black/40">
+            <DrawerHeader className="text-center pb-2">
+              <DrawerTitle className="sr-only">Rate yourself</DrawerTitle>
+              <DrawerDescription className="text-base font-medium text-foreground">
+                How well did you capture {paraphrasingMessage?.authorName}'s meaning?
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4 pb-8 pt-2 space-y-4">
+              <div className="flex justify-center">
+                <RatingButtons
+                  selectedValue={selfRating === null ? null : selfRating / 10}
+                  onSelect={(v) => setSelfRating(v * 10)}
+                />
+              </div>
+              <Button
+                className="w-full"
+                disabled={selfRating === null}
+                onClick={handleSubmitParaphrase}
+              >
+                Submit paraphrase
+              </Button>
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Rating drawer — opens when author taps "Did X get it right?" */}
+        <Drawer
+          open={ratingVerificationId !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setRatingVerificationId(null);
+              setActiveRatingVerification(null);
+              setCorrectionInput('');
+            }
+          }}
+        >
+          <DrawerContent overlayClassName="bg-black/40">
+            <DrawerHeader className="text-center pb-2">
+              {activeRatingVerification && activeRatingVerification.roundNumber > 1 && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium mb-1 inline-block">
+                  Try #{activeRatingVerification.roundNumber}
+                </span>
+              )}
+              <DrawerTitle className="sr-only">Rate understanding</DrawerTitle>
+              <DrawerDescription className="text-base font-medium text-foreground">
+                Rate {activeRatingVerification?.verifierName}'s understanding
+              </DrawerDescription>
+              {activeRatingVerification && (
+                <p className="text-sm text-muted-foreground italic mt-1">
+                  "{activeRatingVerification.paraphraseText}"
+                </p>
+              )}
+              {activeRatingVerification?.selfRating !== undefined && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {activeRatingVerification.verifierName} predicted:{' '}
+                  <span className="font-medium text-foreground">
+                    {activeRatingVerification.selfRating / 10}/10
+                  </span>
+                </p>
+              )}
+            </DrawerHeader>
+            <div className="px-4 pb-8 pt-2 space-y-4">
+              <div className="flex justify-center">
+                <RatingButtons
+                  selectedValue={rating / 10}
+                  onSelect={(v) => setRating(v * 10)}
+                />
+              </div>
+              <Textarea
+                value={correctionInput}
+                onChange={(e) => setCorrectionInput(e.target.value)}
+                placeholder="Add a note (optional)"
+                className="min-h-[60px] text-sm resize-none"
+              />
+              <div className="flex gap-2">
+                {rating === 100 ? (
+                  <Button
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                    onClick={() => handleRate(true)}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Perfect!
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                      onClick={() => handleRate(false)}
+                    >
+                      <RotateCcw className="h-4 w-4 mr-1" />
+                      Ask to clarify
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                      onClick={() => handleRate(true)}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Close enough
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
     );
   }
