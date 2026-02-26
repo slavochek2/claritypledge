@@ -11,6 +11,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [process]: /ship is the only reliable spec-closing path
+
+**Context:** P412 was fixed inline (committed directly to main, no feature branch). Code shipped correctly. Someone manually moved the spec to `features/done/` but frontmatter (`status`, `completed_at`) was never updated — leaving it as `in-progress` in `done/`. `/ship` would have handled this automatically (step 7), but it only applies to feature branches.
+**Decision:** `/ship` must be used even for inline work, or at minimum, `/status` must surface `→ /ship pN` at session wrap-up when P-number work was done. Updated `/status` Next logic to suggest this. The frontend gap (manual spec closure) is a second-class citizen compared to the branch-based flow — acceptable risk for now.
+**Alternatives rejected:** Adding a separate "close spec" skill for inline work (unnecessary complexity); enforcing a feature branch for all work (overhead for single-file fixes).
+**Consequences:** `/status` now flags `→ /ship pN` at wrap-up. Prevents stale frontmatter from inline sessions going unnoticed.
+
+---
+
 ## 2026-02-26 [process]: CLAUDE.md size cap — P441 audit to fix instruction dilution
 
 **Context:** CLAUDE.md has grown to ~500 lines. Rules are diluting each other — every gap found triggers a new rule, which makes the document larger, which reduces attention each rule gets, which creates more gaps. A session where the Decisive Action rule existed but wasn't applied proved the pattern.
