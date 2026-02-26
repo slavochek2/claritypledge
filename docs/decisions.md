@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-26 [technical]: Reuse PointCardWithLinks as context display in /chat — no bespoke card
+
+**Context:** /chat had a custom `ContextChip` (blue pill) showing point text + position label at the top of the AI story guide. It duplicated what `PointCardWithLinks` already renders on the profile Points tab — author name, position badge, linked stories, share/open actions.
+**Decision:** Delete `ContextChip`, render `PointCardWithLinks` directly with `profileOwner` for the position badge. Page adapts the `PointWithUserPosition` fetch result (already in flight) to the prototype `Point` shape and passes `contextPoint` + `contextProfileOwner` as props to `StoryGuideChat`.
+**Alternatives rejected:** `hideActions`/`disableNavigation` flags — strips share, open, linked stories with no benefit; bespoke chat card — third divergent rendering of the same data.
+**Consequences:** One card component renders points consistently everywhere. Any future card improvement (badge, story preview, share) automatically applies in chat.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [story-guide-chat-page.tsx](src/app/pages/story-guide-chat-page.tsx)
+
+---
+
 ## 2026-02-26 [process]: /ship is the only reliable spec-closing path
 
 **Context:** P412 was fixed inline (committed directly to main, no feature branch). Code shipped correctly. Someone manually moved the spec to `features/done/` but frontmatter (`status`, `completed_at`) was never updated — leaving it as `in-progress` in `done/`. `/ship` would have handled this automatically (step 7), but it only applies to feature branches.

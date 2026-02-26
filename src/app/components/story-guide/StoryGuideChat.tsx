@@ -551,7 +551,7 @@ export function StoryGuideChat({
     <div className="flex flex-col h-full" data-testid="story-guide-chat">
       {/* Context card (only when full point data is available) */}
       {contextPoint && (
-        <div className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
+        <div data-testid="context-card" className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
           <PointCardWithLinks
             point={contextPoint as PrototypePoint}
             profileOwner={contextProfileOwner}

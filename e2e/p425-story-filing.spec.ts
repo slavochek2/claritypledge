@@ -7,7 +7,7 @@
  * - Flow B: Direct visit (/chat — brain dump → draft card in thread)
  * - Filing loop: rating → revision → 10 → polish → save
  * - Escape hatch: 3 iterations without rating 10
- * - Empty state: no context chip without position params
+ * - Empty state: no context card without position params
  * - Auth gate: unauthenticated user redirected to /signup
  *
  * NOTE: Tests that require a real AI response (streaming) are marked with
@@ -170,26 +170,18 @@ test.describe('P425 Flow A — Position-triggered entry', () => {
     ).toHaveLength(0);
   });
 
-  test('context chip is visible when ?from=position&pointId=XYZ is provided', async ({ page }) => {
+  test('context card is visible when ?from=position&pointId=XYZ is provided', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await gotoChat(page, `${CHAT_PATH}?from=position&pointId=${pointId}`);
 
-    // TODO: Replace with data-testid="context-chip" once implemented
-    // Spec: "pinned context chip" showing which point this story is linked to
-    const contextChip = page.getByTestId('context-chip').or(
-      page.locator('[aria-label*="context"]').first()
-    );
-
-    await expect(contextChip).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('context-card')).toBeVisible({ timeout: 10000 });
   });
 
-  test('no context chip on /chat without position params', async ({ page }) => {
+  test('no context card on /chat without position params', async ({ page }) => {
     await setTestSession(page, testUser.email);
     await gotoChat(page);
 
-    // TODO: Replace with data-testid="context-chip" once implemented
-    const contextChip = page.getByTestId('context-chip');
-    await expect(contextChip).not.toBeVisible();
+    await expect(page.getByTestId('context-card')).not.toBeVisible();
   });
 
   test('AI sends an opening message when /chat loads with position context', async ({ page }) => {
