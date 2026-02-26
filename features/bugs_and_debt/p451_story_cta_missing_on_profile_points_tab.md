@@ -42,6 +42,6 @@ Note: `/live` surface (`live-story-card-expanded.tsx`) may intentionally skip th
 
 - [ ] Staking a position on a point card (feed, profile, story) shows "Tell your story →" / "Not now"
 - [ ] CTA links to `/chat?from=position&pointId=${id}`
-- [ ] "Not now" dismisses the CTA without navigating
+- [ ] No "Not now" button — removed as redundant (user simply ignores the CTA if not interested)
 - [ ] Detail page behavior unchanged
 - [ ] `/live` surface scoped separately (confirm intent first)

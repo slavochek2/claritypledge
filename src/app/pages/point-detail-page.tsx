@@ -339,20 +339,13 @@ export function PointDetailPage() {
 
       {/* P425: Story CTA — shown after staking a position */}
       {showStoryCTA && id && (
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4">
           <button
             type="button"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium"
             onClick={() => navigate(`/chat?from=position&pointId=${id}`)}
           >
             Tell your story →
-          </button>
-          <button
-            type="button"
-            className="text-muted-foreground text-sm hover:text-foreground transition-colors"
-            onClick={() => setShowStoryCTA(false)}
-          >
-            Not now
           </button>
         </div>
       )}
