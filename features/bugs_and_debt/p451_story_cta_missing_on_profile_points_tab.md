@@ -9,30 +9,39 @@ tags:
   - position
 ---
 
-# P451: Story CTA missing on profile page points tab
+# P451: Story CTA missing everywhere except point detail page
 
 ## Bug
 
-The "Tell your story →" CTA only appears on `/points/:id` (point detail page) after staking a position. It does not appear when staking a position from the profile page points tab — which is the most common discovery path (browsing someone else's profile).
+The "Tell your story →" CTA only appears on `/points/:id` (point detail page) after staking a position. `PositionButtons` is used in 6+ surfaces — none of the others show the CTA.
 
 The p425 spec says: "After a user stakes a position on a point, a prompt appears: 'Want to explain why?'" — no restriction to the detail page.
 
+## Affected surfaces (confirmed via grep)
+
+| Component | Surface | CTA? |
+|-----------|---------|------|
+| `point-detail-page.tsx` | Point detail page | ✅ |
+| `PointCardDetail.tsx` | Point cards in feeds | ❌ |
+| `point-card-with-links.tsx` | Inline point cards | ❌ |
+| `story-card-with-links.tsx` | Points linked inside stories | ❌ |
+| `StoryCardDetail.tsx` | Story detail view | ❌ |
+| `live-story-card-expanded.tsx` | /live session | ❌ (intentional?) |
+
 ## Root cause
 
-`showStoryCTA` state and the CTA rendering live exclusively in `point-detail-page.tsx`. The profile page points tab (`agreement-page.tsx` or profile points component) stakes positions but has no CTA logic.
+`showStoryCTA` state and CTA rendering are hardcoded in `point-detail-page.tsx` only. `PositionButtons` has no `onPositionStaked` callback prop.
 
 ## Fix
 
-Add the same CTA trigger to the profile page points tab component — after a successful position stake, show "Tell your story →" / "Not now" buttons linking to `/chat?from=position&pointId=${id}`.
+Add `onPositionStaked?: (pointId: string) => void` to `PositionButtons` props. Fire it when a position is first staked (not toggled off). Each consumer that should show the CTA wires it up — the CTA itself can live in a shared component or inline per surface.
 
-Find the relevant component:
-```bash
-grep -rn "stakePosition\|setPosition\|position.*stake" src/app/pages/profile-page.tsx src/app/components/
-```
+Note: `/live` surface (`live-story-card-expanded.tsx`) may intentionally skip the CTA — the /live flow has its own post-session story entry point. Confirm before adding.
 
 ## Acceptance Criteria
 
-- [ ] Staking a position from the profile page points tab shows the story CTA
-- [ ] CTA links to `/chat?from=position&pointId=${id}` (same as detail page)
-- [ ] "Not now" dismisses the CTA
+- [ ] Staking a position on a point card (feed, profile, story) shows "Tell your story →" / "Not now"
+- [ ] CTA links to `/chat?from=position&pointId=${id}`
+- [ ] "Not now" dismisses the CTA without navigating
 - [ ] Detail page behavior unchanged
+- [ ] `/live` surface scoped separately (confirm intent first)
