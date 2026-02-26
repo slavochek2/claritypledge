@@ -168,3 +168,32 @@ The linter catches common accessibility issues via jsx-a11y:
 - Empty anchor/button content
 - Invalid ARIA roles
 - Click handlers without keyboard support (warning)
+
+---
+
+## Git Safety Firewall
+
+Hard rules — leaking secrets to git history is catastrophic and irreversible.
+
+**Never use these commands:**
+- `git add .` — can stage secrets and ignored files
+- `git add -A` — same problem
+- `git add -f <file>` — forces adding ignored files
+- `git reset HEAD` (no args) — resets the **entire** index; always use `git reset HEAD -- file1 file2`
+- `git stash` (agent-initiated) — agents must NOT stash unilaterally; prefer `git commit -m "wip: ..."` instead
+
+**ALWAYS use explicit file names:**
+```bash
+git add src/app/pages/MyPage.tsx src/components/Button.tsx
+```
+
+**Files that MUST NEVER be committed:**
+- `.mcp.json` — contains API tokens
+- `.env.local` — contains secrets
+- Any file with `token`, `secret`, `key`, `password` in content
+
+**If you accidentally stage a secret:**
+```bash
+git reset HEAD <file>        # Unstage
+git rm --cached <file>       # Untrack (if already tracked)
+```

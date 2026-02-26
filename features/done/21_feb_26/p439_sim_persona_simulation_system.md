@@ -1,5 +1,6 @@
 ---
-status: today
+status: done
+completed_at: "2026-02-26"
 type: task
 rank: 125481.0
 workstream: foundation

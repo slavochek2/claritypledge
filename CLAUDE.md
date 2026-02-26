@@ -215,7 +215,7 @@ Skill archiving checklist and frontmatter requirements auto-load when editing `.
 
 **Commit at coherent state, not just after features.** Commit whenever work reaches a coherent, passing state — even small docs, spec, or config changes. Don't let uncommitted changes accumulate across sessions. Uncommitted changes in a shared git index are collision fuel: a second Claude session opening in the same directory can silently sweep them into an unrelated commit.
 
-**Pre-commit failures: fix inline, never ask.** Apply the known fix and re-run. See [git-workflow.md](docs/technical/git-workflow.md) for remedies by failure type.
+**Pre-commit failures: fix inline, never ask.** See [git-workflow.md](docs/technical/git-workflow.md) for remedies.
 
 **Commit flow is zero-question.** When the user says "commit", "wrap", "ship", or equivalent: fix any blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. Do NOT ask "should I fix the lint error?" — just fix it. Only pause for genuine ambiguity (e.g., a test failure that could mean the fix is wrong, not auto-fixable lint).
 
@@ -423,10 +423,7 @@ Small work — bug fix with confirmed root cause, copy change, config tweak, sin
 
 Each layer has a review gate. `/dev` and `/fix` stop at QA gate — set `status: qa`, code stays on feature branch. `/ship pN` (user-triggered) merges to prod and closes the spec (`status: done`, moves to `features/done/`).
 
-**Optional post-work:** `/verify` — structured UAT: walks through acceptance criteria scenarios, confirms you built what the spec said. Produces ✅/❌ per scenario. Run after `/dev` when you want spec compliance confirmed.
-- `/sim` — persona simulation: runs browser agents as real user archetypes, finds UX friction *beyond* the spec. Produces change request candidates. Complementary to `/verify`, not a replacement. See `docs/technical/synthetic-usability-testing.md`.
-- `/kdd` — capture notable learnings.
-- `/review-all` — code + design + UX static review (no browser). Run after any non-trivial feature: multi-file changes, auth/RLS, or code you didn't closely supervise.
+**Optional post-work:** `/verify` (spec compliance) · `/sim` (persona UX) · `/kdd` (learnings) · `/review-all` (manual re-review). See [development-process.md](docs/development-process.md#post-work-skills-after-implementation) for when to use each.
 
 **Deprecated:** `/prep-spec`, `/done` — kept in archive for backward compatibility only.
 
@@ -499,30 +496,7 @@ No priority order. Each has a unique strength. For full details: [browser-tools.
 
 ## Git Safety (Firewall)
 
-These are hard rules, not principles to reason about. Leaking secrets to git history is catastrophic and irreversible — there's no "it depends."
-
-**Never use these commands:**
-- `git add .` — can stage secrets and ignored files
-- `git add -A` — same problem
-- `git add -f <file>` — forces adding ignored files
-- `git reset HEAD` (no args) — resets the **entire** index, not just target files; always use `git reset HEAD -- file1 file2`
-- `git stash` (agent-initiated) — agents must NOT stash unilaterally; only stash if user explicitly asks; prefer `git commit -m "wip: ..."` instead
-
-**ALWAYS use explicit file names:**
-```bash
-git add src/app/pages/MyPage.tsx src/components/Button.tsx
-```
-
-**Files that MUST NEVER be committed:**
-- `.mcp.json` — contains API tokens
-- `.env.local` — contains secrets
-- Any file with `token`, `secret`, `key`, `password` in content
-
-**If you accidentally stage a secret:**
-```bash
-git reset HEAD <file>        # Unstage
-git rm --cached <file>       # Untrack (if already tracked)
-```
+Hard rules — leaking secrets to git history is irreversible. Never use `git add .` / `git add -A` / `git add -f`. Never commit `.mcp.json`, `.env.local`, or files with token/secret/key/password in content. Always stage explicit file names. See [git-workflow.md](docs/technical/git-workflow.md) for full firewall rules and recovery commands.
 
 ---
 
