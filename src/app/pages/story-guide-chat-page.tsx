@@ -5,16 +5,18 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSearchParams, Navigate } from 'react-router-dom';
+import { useSearchParams, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { StoryGuideChat } from '@/app/components/story-guide/StoryGuideChat';
 import { pointsService } from '@/app/data/points-service';
 import type { StoryDraft, ContextPoint, ContextProfileOwner } from '@/app/components/story-guide/StoryGuideChat';
 import type { PointWithUserPosition } from '@/app/types';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 
 export function StoryGuideChatPage() {
   const { user, isLoading } = useAuth();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const from = searchParams.get('from');
   const pointId = searchParams.get('pointId') ?? undefined;
@@ -80,6 +82,16 @@ export function StoryGuideChatPage() {
       ? { id: user.id, name: user.name, position: fullPoint.userPosition?.position ?? null }
       : undefined;
 
+  const handleBack = () => {
+    if (pointId) {
+      navigate(`/point/${pointId}`);
+    } else if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/events');
+    }
+  };
+
   const handleStoryConfirmed = (_draft: StoryDraft) => {
     // toast is already shown inside StoryGuideChat after save
     // onStoryConfirmed is the parent notification hook — nothing extra needed for Flow A/B
@@ -87,21 +99,24 @@ export function StoryGuideChatPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto h-[calc(100vh-9rem)] lg:h-[calc(100vh-5rem)] flex flex-col">
-      {pointLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-        </div>
-      ) : (
-        <StoryGuideChat
-          pointId={pointId}
-          pointText={pointText}
-          userPosition={userPosition}
-          contextPoint={contextPoint}
-          contextProfileOwner={contextProfileOwner}
-          onStoryConfirmed={handleStoryConfirmed}
-        />
-      )}
+    <div className="max-w-2xl mx-auto flex flex-col">
+      <FocusHeader onBack={handleBack} />
+      <div className="h-[calc(100vh-13rem)] lg:h-[calc(100vh-9rem)] flex flex-col">
+        {pointLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+          </div>
+        ) : (
+          <StoryGuideChat
+            pointId={pointId}
+            pointText={pointText}
+            userPosition={userPosition}
+            contextPoint={contextPoint}
+            contextProfileOwner={contextProfileOwner}
+            onStoryConfirmed={handleStoryConfirmed}
+          />
+        )}
+      </div>
     </div>
   );
 }

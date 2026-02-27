@@ -9,7 +9,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Pin } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
@@ -27,6 +27,7 @@ import {
 } from '@/app/prototypes/linkedin-like/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { EarBadge } from '@/components/ui/ear-badge';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/story-card-with-links';
 
 /** Normalize positionCounts to SevenPointCounts (ensure all keys present) */
@@ -254,14 +255,7 @@ export function PointDetailPage() {
 
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
-        <button
-          onClick={handleBack}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
-          aria-label="Go back to previous page"
-        >
-          <ArrowLeft size={16} />
-          Back
-        </button>
+        <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">{errorMessage}</p>
           {isNetworkError && (
@@ -287,14 +281,7 @@ export function PointDetailPage() {
       <RemovePositionDialog {...dialogProps} />
 
       {/* Back button */}
-      <button
-        onClick={handleBack}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 py-2 -ml-2 pl-2 pr-3 min-h-[44px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
-        aria-label="Go back to previous page"
-      >
-        <ArrowLeft size={16} />
-        Back
-      </button>
+      <FocusHeader onBack={handleBack} />
 
       {/* Point card with full features */}
       <div className="bg-card border border-border rounded-lg shadow-sm border-l-4 border-l-slate-400 overflow-hidden mb-4">

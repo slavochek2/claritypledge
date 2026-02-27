@@ -28,6 +28,12 @@ export function BottomNav() {
     return null;
   }
 
+  // Hide on focus/detail pages — FocusHeader shows instead
+  const focusRoutes = ['/story/', '/point/', '/agreements/', '/chat'];
+  if (focusRoutes.some(r => location.pathname.startsWith(r))) {
+    return null;
+  }
+
   const navItems: NavItem[] = [
     {
       icon: MicIcon,

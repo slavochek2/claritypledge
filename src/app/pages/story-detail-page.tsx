@@ -15,7 +15,7 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
@@ -25,6 +25,7 @@ import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
 import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { Button } from '@/components/ui/button';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
@@ -56,20 +57,6 @@ const POINT_CHAR_MAX = 500;
 const STORY_CHAR_SOFT = 2000;
 /** Story edit hard max (mirrors DB CHECK constraint) */
 const STORY_CHAR_MAX = 10000;
-
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button
-      variant="ghost"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
-      aria-label="Go back"
-    >
-      <ArrowLeft size={16} />
-      Back
-    </Button>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Inline add-point form
@@ -1005,7 +992,7 @@ export function StoryDetailPage() {
   if (error === 'private') {
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
-        <BackButton onClick={handleBack} />
+        <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-3">
           <LockIcon className="w-8 h-8 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground">This story is private</p>
@@ -1019,7 +1006,7 @@ export function StoryDetailPage() {
     const isNetworkError = error === 'network_error';
     return (
       <div className="max-w-lg mx-auto px-4 py-8">
-        <BackButton onClick={handleBack} />
+        <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">
             {isNetworkError

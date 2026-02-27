@@ -13,12 +13,13 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Copy, Check, Loader2, LockIcon } from 'lucide-react';
+import { Clock, Copy, Check, Loader2, LockIcon } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { Button } from '@/components/ui/button';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
   Dialog,
   DialogContent,
@@ -56,20 +57,6 @@ function isValidUuid(value: string): boolean {
 }
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
-
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button
-      variant="ghost"
-      onClick={onClick}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 -ml-2 min-h-[44px] px-3"
-      aria-label="Go back"
-    >
-      <ArrowLeft size={16} />
-      Back
-    </Button>
-  );
-}
 
 function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
   return (
@@ -522,7 +509,7 @@ export function AgreementPage() {
   if (isPrivate) {
     return (
       <div className="max-w-xl mx-auto px-4 py-8">
-        <BackButton onClick={handleBack} />
+        <FocusHeader onBack={handleBack} />
         <div className="text-center py-12 space-y-4">
           <LockIcon className="w-8 h-8 text-muted-foreground mx-auto" />
           <p className="text-muted-foreground">This agreement is private.</p>
@@ -539,7 +526,7 @@ export function AgreementPage() {
   if (notFound || !agreement) {
     return (
       <div className="max-w-xl mx-auto px-4 py-8">
-        <BackButton onClick={handleBack} />
+        <FocusHeader onBack={handleBack} />
         <div className="text-center py-12">
           <p className="text-muted-foreground">Agreement not found.</p>
         </div>
