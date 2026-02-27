@@ -79,6 +79,16 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 ---
 
+## 2026-02-27 [product]: Split footer suppressed on other-profile views — ambiguity over story count ownership
+
+**Context:** P456 split footer shows "▶ N stories" (viewer's own story count) inside point cards. When viewing another user's profile, the card body already shows the profile owner's story prominently. Showing the viewer's story count in the footer creates ambiguity — "▶ 1 story" reads as the profile owner's story, not the viewer's.
+**Decision:** Split footer only shows on the viewer's own profile (and point-detail, story-detail, story-feed surfaces). Other-profile views always show the full CTA (`✓ Agree · Why do you agree? →`) regardless of whether the viewer has a linked story.
+**Alternatives rejected:** Show split footer on other-profile too (technically ~2 lines to implement) — rejected because the owner/viewer boundary is already cognitively heavy on other-profile; adding "your" story count to "their" card increases confusion without meaningful UX gain.
+**Consequences:** UAT row C-2 updated to reflect this. Future card surfaces on other-profile should default to full CTA only.
+**References:** [features/uat/p456.md](features/uat/p456.md)
+
+---
+
 ## 2026-02-27 [technical]: `getPositionCTACopy` — pure utility for adaptive CTA copy
 
 **Context:** P456 needed position-aware CTA text ("Why do you agree/disagree/are unsure?") across 6 surfaces. Options were (a) inline ternary chains per surface, (b) a React hook, or (c) a pure function in `shared/types.ts`.
