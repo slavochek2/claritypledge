@@ -8,7 +8,7 @@
  *
  * Controls:
  *   - Ctrl+Enter sends (plain Enter creates newline — brain dump needs multiline)
- *   - Send disabled when content > 5000 chars or during streaming
+ *   - Send button disabled when content > 5000 chars or during streaming (textarea stays enabled)
  *   - AbortController cleans up fetch on unmount
  *   - selectedVisibility defaults to 'private' (NOT the DB default of 'public')
  */
