@@ -5,7 +5,7 @@ import { writeFileSync, readFileSync } from 'fs'
 import { join, basename, extname } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync, spawnSync } from 'child_process'
-import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus } from '../src/lib/types'
+import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus, Article, ArticleStatus } from '../src/lib/types'
 import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, VALID_DELIVERY_STAGE } from '../lib/scanner-rules'
 
 const app = express()
@@ -68,8 +68,22 @@ function getWorktrees(): { path: string; branch: string; isCurrent: boolean }[] 
 // Valid values for enum fields (milestone status is kanban-specific, not in scanner-rules)
 const VALID_MILESTONE_STATUS: MilestoneStatus[] = ['active', 'next', 'future']
 
+// Valid article status values (content pipeline — separate from feature board)
+const VALID_ARTICLE_STATUS: ArticleStatus[] = ['idea', 'draft', 'editing', 'ready', 'published', 'promoted']
+
+// Articles directory (relative to project root)
+const DEFAULT_ARTICLES_DIR = join(DEFAULT_PROJECT_ROOT, 'content', 'articles')
+
+function getArticlesDir(worktreePath?: string): string {
+  if (worktreePath) return join(worktreePath, 'content', 'articles')
+  return DEFAULT_ARTICLES_DIR
+}
+
 // In-memory cache per worktree - invalidated on PATCH
 const featuresCacheByWorktree: Map<string, Feature[]> = new Map()
+
+// Articles cache per worktree
+const articlesCacheByWorktree: Map<string, Article[]> = new Map()
 
 // Milestone cache per worktree
 const milestonesCacheByWorktree: Map<string, Milestone[]> = new Map()
@@ -301,6 +315,120 @@ async function getCachedMilestones(worktreePath?: string): Promise<Milestone[]> 
   milestonesCacheByWorktree.set(cacheKey, milestones)
   return milestones
 }
+
+// Parse a single article file into an Article object
+async function parseArticleFile(filePath: string): Promise<Article | null> {
+  try {
+    const content = readFileSync(filePath, 'utf-8')
+    const { data, content: body } = matter(content)
+
+    const titleMatch = body.match(/^#\s+(.+)$/m)
+    const filename = basename(filePath, extname(filePath))
+    const title = titleMatch?.[1] || filename
+
+    const status: ArticleStatus = VALID_ARTICLE_STATUS.includes(data.status) ? data.status : 'idea'
+
+    let rank: number = 1000000
+    if (typeof data.rank === 'number' && Number.isFinite(data.rank) && data.rank >= 0) {
+      rank = Math.round(data.rank * 1000) / 1000
+    }
+
+    return {
+      id: filename,
+      path: filePath,
+      title,
+      status,
+      rank,
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      published_at: typeof data.published_at === 'string' ? data.published_at : undefined,
+    }
+  } catch (error) {
+    console.warn(`Failed to parse article ${filePath}:`, error)
+    return null
+  }
+}
+
+async function getArticles(worktreePath?: string): Promise<Article[]> {
+  const articlesDir = getArticlesDir(worktreePath)
+  const articles: Article[] = []
+
+  try {
+    const entries = await readdir(articlesDir, { withFileTypes: true })
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.endsWith('.md') && /\ba\d+/.test(entry.name)) {
+        const article = await parseArticleFile(join(articlesDir, entry.name))
+        if (article) articles.push(article)
+      }
+    }
+  } catch {
+    // Directory doesn't exist yet — return empty
+  }
+
+  return articles.sort((a, b) => a.id.localeCompare(b.id))
+}
+
+async function getCachedArticles(worktreePath?: string): Promise<Article[]> {
+  const cacheKey = worktreePath || DEFAULT_PROJECT_ROOT
+  const cached = articlesCacheByWorktree.get(cacheKey)
+  if (cached) return cached
+  const articles = await getArticles(worktreePath)
+  articlesCacheByWorktree.set(cacheKey, articles)
+  return articles
+}
+
+// GET /api/articles - list all articles from content/articles/
+app.get('/api/articles', async (req, res) => {
+  try {
+    const worktreePath = req.query.worktree as string | undefined
+    if (req.query.refresh === 'true') {
+      articlesCacheByWorktree.delete(worktreePath || DEFAULT_PROJECT_ROOT)
+    }
+    const articles = await getCachedArticles(worktreePath)
+    res.json(articles)
+  } catch (error) {
+    console.error('GET /api/articles error:', error)
+    res.status(500).json({ error: 'Failed to read articles' })
+  }
+})
+
+// PATCH /api/articles/:id - update article status and/or rank
+app.patch('/api/articles/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status, rank } = req.body
+    const worktreePath = req.query.worktree as string | undefined
+
+    if (status !== undefined && !VALID_ARTICLE_STATUS.includes(status)) {
+      return res.status(400).json({ error: 'Invalid article status value' })
+    }
+    if (rank !== undefined && (typeof rank !== 'number' || !Number.isFinite(rank) || rank < 0)) {
+      return res.status(400).json({ error: 'Invalid rank value: must be a positive number' })
+    }
+
+    const articles = await getArticles(worktreePath)
+    const article = articles.find((a) => a.id === id)
+    if (!article) return res.status(404).json({ error: 'Article not found' })
+
+    const content = await readFile(article.path, 'utf-8')
+    const { data, content: body } = matter(content)
+
+    if (status !== undefined) data.status = status
+    if (rank !== undefined) data.rank = Math.round(rank * 1000) / 1000
+    if (status === 'published' && !data.published_at) {
+      data.published_at = new Date().toISOString().split('T')[0]
+    }
+
+    writeFileSync(article.path, matter.stringify(body, data))
+
+    // Invalidate cache
+    articlesCacheByWorktree.delete(worktreePath || DEFAULT_PROJECT_ROOT)
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('PATCH /api/articles/:id error:', error)
+    res.status(500).json({ error: 'Failed to update article' })
+  }
+})
 
 // GET /api/worktrees - list all git worktrees
 app.get('/api/worktrees', (_req, res) => {

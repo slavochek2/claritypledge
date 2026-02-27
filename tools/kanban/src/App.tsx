@@ -14,6 +14,7 @@ import { Column } from './components/Column'
 import { Sidebar, PageId } from './components/Sidebar'
 import { FocusPage } from './components/FocusPage'
 import { GoalsPage } from './components/GoalsPage'
+import { ContentPage } from './components/ContentPage'
 import { Feature, FeatureType, Status } from './lib/types'
 
 export interface DropIndicator {
@@ -120,6 +121,7 @@ export default function App() {
     const stored = localStorage.getItem(PAGE_KEY)
     if (stored === 'focus') return 'focus'
     if (stored === 'goals') return 'goals'
+    if (stored === 'content') return 'content'
     return 'board'
   })
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -794,6 +796,10 @@ export default function App() {
             <div style={{ overflow: 'auto', flex: 1 }}>
               <GoalsPage />
             </div>
+          )}
+
+          {currentPage === 'content' && (
+            <ContentPage currentWorktree={selectedWorktree || undefined} />
           )}
         </div>
         </DndContext>

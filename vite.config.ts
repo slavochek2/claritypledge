@@ -160,6 +160,12 @@ export default defineConfig({
     environment: 'jsdom',
     pool: 'forks', // Prevents vi.mock() state leaking between test files
     setupFiles: './src/tests/setup.tsx',
+    env: {
+      // Prevent supabase.ts from throwing at module load in test environments.
+      // Actual Supabase calls are mocked at the service level in each test.
+      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

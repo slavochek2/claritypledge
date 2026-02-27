@@ -1,6 +1,9 @@
 // Status columns for Notion-style kanban
 export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done' | 'all-done' | 'draft' | 'rejected'
 
+// Article pipeline statuses (content kanban — separate from feature board)
+export type ArticleStatus = 'idea' | 'draft' | 'editing' | 'ready' | 'published' | 'promoted'
+
 // Feature type badge (first-class badge)
 export type FeatureType = 'bug' | 'task' | 'story' | 'comment'
 
@@ -54,6 +57,18 @@ export interface Feature {
   milestone?: string // e.g., "M1", "M2"
   // Manual status lock — set by kanban UI when user changes status; agents must not override
   locked_at?: string // ISO timestamp of last manual status change
+}
+
+// Article — content pipeline item (P449: content kanban)
+// Uses ArticleStatus for pipeline stages; rendered by ContentPage via same Card/Column components
+export interface Article {
+  id: string            // filename without extension (e.g., "a1")
+  path: string          // full path to file
+  title: string         // from first # heading or filename
+  status: ArticleStatus
+  rank: number          // fractional rank for ordering within column
+  tags: string[]
+  published_at?: string // ISO date set when status → published
 }
 
 // Milestone status
