@@ -178,7 +178,10 @@ export function PointCardWithLinks({
   const handlePositionClick = (position: Position) => {
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
-    setUserPosition(newPosition);
+    // Only optimistically update for selection; removal waits for dialog confirm
+    if (newPosition !== null) {
+      setUserPosition(newPosition);
+    }
     onPositionSelect?.(newPosition);
   };
 
