@@ -28,8 +28,9 @@ export function BottomNav() {
     return null;
   }
 
-  // Hide on focus/detail pages — FocusHeader shows instead
-  const focusRoutes = ['/story/', '/point/', '/agreements/', '/chat'];
+  // Hide on focus/detail pages — these use FocusHeader instead.
+  // See docs/ux-patterns.md — "Navigation Architecture" pattern.
+  const focusRoutes = ['/story/', '/point/', '/agreements/', '/chat', '/clarity-chat'];
   if (focusRoutes.some(r => location.pathname.startsWith(r))) {
     return null;
   }
@@ -95,9 +96,7 @@ export function BottomNav() {
           }`;
           const itemInner = (
             <>
-              <span className={`flex items-center justify-center rounded-2xl px-5 py-1 transition-all ${active ? "bg-blue-500/10" : ""}`}>
-                <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
-              </span>
+              <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
               <span className={`text-xs leading-none transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
             </>
           );

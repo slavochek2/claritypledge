@@ -14,12 +14,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Clock, Copy, Check, Loader2, LockIcon } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { Button } from '@/components/ui/button';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import {
   Dialog,
   DialogContent,

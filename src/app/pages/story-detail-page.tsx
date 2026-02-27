@@ -16,16 +16,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { LockIcon, Loader2, Plus, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { FocusHeader } from '@/app/components/layout/focus-header';
 import { VISIBILITY_OPTIONS } from '@/app/data/story-visibility-options';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
 import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
-import { MobileTooltip } from '@/app/prototypes/linkedin-like/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { Button } from '@/components/ui/button';
-import { FocusHeader } from '@/app/components/layout/focus-header';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
@@ -309,19 +308,28 @@ const EMPTY_COUNTS: SevenPointCounts = {
 };
 
 // ---------------------------------------------------------------------------
-// Visibility dropdown button (author-only, inline in card date line)
+// Author action row (author-only): visibility dropdown + edit + delete
 // ---------------------------------------------------------------------------
 
-function VisibilityDropdownButton({
+
+function AuthorActionRow({
   storyId,
   currentVisibility,
   onVisibilityChanged,
+  onEdit,
+  onDelete,
   disabled,
+  editRef,
+  deleteRef,
 }: {
   storyId: string;
   currentVisibility: StoryVisibility;
   onVisibilityChanged: (v: StoryVisibility) => void;
+  onEdit: () => void;
+  onDelete: () => void;
   disabled?: boolean;
+  editRef?: React.RefObject<HTMLButtonElement>;
+  deleteRef?: React.RefObject<HTMLButtonElement>;
 }) {
   const [saving, setSaving] = useState(false);
 
@@ -348,32 +356,66 @@ function VisibilityDropdownButton({
   const CurrentIcon = current.icon;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
+    <div className="mt-3 flex items-center justify-between">
+      {/* Visibility dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={saving || disabled}
+            aria-label={`Story visibility: ${current.label}`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-input bg-background text-sm text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            <CurrentIcon className="w-3.5 h-3.5" />
+            {current.label}
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup value={currentVisibility} onValueChange={handleVisibilityChange}>
+            {VISIBILITY_OPTIONS.map(opt => {
+              const Icon = opt.icon;
+              return (
+                <DropdownMenuRadioItem key={opt.value} value={opt.value}>
+                  <Icon className="w-3.5 h-3.5 mr-1.5" />
+                  {opt.label}
+                </DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Edit + Delete */}
+      <div className="flex items-center gap-1">
+        <Button
+          ref={editRef}
           type="button"
-          disabled={saving || disabled}
-          aria-label={`Story visibility: ${current.label}`}
-          className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          aria-label="Edit story"
+          disabled={disabled}
+          className="gap-1.5 text-muted-foreground"
         >
-          <CurrentIcon className="w-3 h-3" />
-          <ChevronDown className="w-3 h-3 opacity-60" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuRadioGroup value={currentVisibility} onValueChange={handleVisibilityChange}>
-          {VISIBILITY_OPTIONS.map(opt => {
-            const Icon = opt.icon;
-            return (
-              <DropdownMenuRadioItem key={opt.value} value={opt.value}>
-                <Icon className="w-3.5 h-3.5 mr-1.5" />
-                {opt.label}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <Pencil className="w-3.5 h-3.5" />
+          Edit
+        </Button>
+        <Button
+          ref={deleteRef}
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          aria-label="Delete story"
+          disabled={disabled}
+          className="gap-1.5 text-destructive hover:text-destructive"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Delete
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -412,7 +454,7 @@ function KeyPointsSection({
       {pointCount === 0 && !autoExpand && !showForm && (
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center mb-4">
           <p className="text-sm text-muted-foreground mb-3">
-            No points yet.
+            No points yet. Points are claims others can agree or disagree with.
           </p>
           <Button
             variant="outline"
@@ -1028,66 +1070,6 @@ export function StoryDetailPage() {
 
   const isAuthor = story.authorId === user?.id;
 
-  // Visibility slot — dropdown for author, static icon for non-author
-  const visibilityOption = VISIBILITY_OPTIONS.find(o => o.value === story.visibility) ?? VISIBILITY_OPTIONS[0];
-  const VisibilityIcon = visibilityOption.icon;
-  const visibilitySlot = isAuthor ? (
-    <VisibilityDropdownButton
-      storyId={story.id}
-      currentVisibility={story.visibility}
-      onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
-      disabled={isDeleting || isEditMode}
-    />
-  ) : (
-    <MobileTooltip content={visibilityOption.tooltip}>
-      <VisibilityIcon className="w-3 h-3" aria-label={visibilityOption.tooltip} role="img" />
-    </MobileTooltip>
-  );
-
-  // Footer actions slot — icon-only edit + delete for author only
-  const footerActionsSlot = isAuthor ? (
-    <div className="flex items-center gap-0.5">
-      <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              ref={editButtonRef}
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleEditStart}
-              disabled={isDeleting || isEditMode}
-              aria-label="Edit story"
-              className="h-8 w-8 text-muted-foreground"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Edit</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <TooltipProvider delayDuration={300}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              ref={deleteButtonRef}
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeleteDialogOpen(true)}
-              disabled={isDeleting || isEditMode}
-              aria-label="Delete story"
-              className="h-8 w-8 text-destructive hover:text-destructive"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">Delete</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  ) : null;
-
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
       <RemovePositionDialog {...dialogProps} />
@@ -1133,7 +1115,7 @@ export function StoryDetailPage() {
       </Dialog>
 
       {/* Back button */}
-      <BackButton onClick={handleBack} />
+      <FocusHeader onBack={handleBack} />
 
       {/* P132: Rich story view / P427: swap for edit card in edit mode */}
       {isEditMode ? (
@@ -1155,21 +1137,30 @@ export function StoryDetailPage() {
           isDetailView={true}
           context="story-detail"
           linkedStoriesForPoints={linkedStoriesForPoints}
-          visibilitySlot={visibilitySlot}
-          footerActionsSlot={footerActionsSlot}
-          currentUserId={user?.id}
         />
       )}
 
-      {/* P131/P424: Author-only points section */}
+      {/* P131/P424/P427: Author-only section */}
       {isAuthor && (
-        <KeyPointsSection
-          storyId={story.id}
-          currentUserId={user?.id ?? ''}
-          pointCount={story.points.length}
-          justCreated={justCreated}
-          onPointAdded={handlePointAdded}
-        />
+        <>
+          <AuthorActionRow
+            storyId={story.id}
+            currentVisibility={story.visibility}
+            onVisibilityChanged={(v) => setStory(prev => prev ? { ...prev, visibility: v } : prev)}
+            onEdit={handleEditStart}
+            onDelete={() => setDeleteDialogOpen(true)}
+            disabled={isDeleting || isEditMode}
+            editRef={editButtonRef}
+            deleteRef={deleteButtonRef}
+          />
+          <KeyPointsSection
+            storyId={story.id}
+            currentUserId={user?.id ?? ''}
+            pointCount={story.points.length}
+            justCreated={justCreated}
+            onPointAdded={handlePointAdded}
+          />
+        </>
       )}
     </div>
   );

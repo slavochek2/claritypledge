@@ -6,156 +6,185 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ```markdown
 ## YYYY-MM-DD: Decision Title
 
----
-
-## 2026-02-28 [process]: Pre-commit §16 gate — warn when .claude/ changes staged on non-main branch
-
-**Context:** Skills and process changes committed on feature branches are silently invisible in other worktrees until `/ship` merges to main. Developer might not realize a new skill isn't available elsewhere.
-**Decision:** `pre-commit-checks.sh` §16 detects `.claude/` files staged on any non-main branch and prints a visible warning. In an interactive terminal (where `/dev/tty` is accessible), it prompts for explicit confirmation before allowing the commit to proceed. In agent/CI context (no TTY), it increments `WARNINGS` but doesn't block.
-**Alternatives rejected:** Blocking all .claude/ commits on non-main (too restrictive — feature branches need skill prototyping); doing nothing (silent stranding was the recurring pattern).
-**Consequences:** Developer is always made aware when process/skill changes will be branch-local until ship. Agent sessions in non-TTY contexts see a warning count but aren't blocked.
-**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §16
-
----
-
-## 2026-02-28 [process]: /kdd meta-reflection — never auto-apply, always present to user
-
-**Context:** /kdd step 6 previously attempted to auto-apply "trivial" fixes identified during meta-reflection. The assumption was that trivial = safe to apply without asking. But friction items extracted from a session can have uncertain scope, downstream effects on other skills, or require user context the agent lacks — even when they look simple.
-**Decision:** /kdd step 6 NEVER auto-applies anything. The agent extracts problems (via subagent), triages each one (trivial / requires-decision / no-obvious-fix), and presents ALL items to the user in a single numbered message. User decides what to act on. The agent proposes; the user approves.
-**Alternatives rejected:** Auto-applying "trivially obvious" fixes (agent can't reliably assess what's truly trivial; the cost of a wrong auto-apply is higher than asking); skipping presentation entirely (defeats the purpose of the meta-reflection step).
-**Consequences:** /kdd meta-reflection produces a triage list, not a list of changes. The friction extraction subagent feeds into a human review loop, not an auto-fix loop.
-**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 6
-
----
-
-## 2026-02-28 [technical]: Kanban server test isolation — guard listen() + export app
-
-**Context:** `tools/kanban/server/api.ts` called `app.listen()` at module load. Any test file importing `api.ts` would trigger the server binding, causing port 9051 conflicts with a running kanban server and test failures. Additionally, tests that needed `app` to make supertest requests couldn't import it because it wasn't exported.
-**Decision:** (1) Wrap `app.listen()` in `if (process.env.NODE_ENV !== 'test')` guard. (2) Add `export { app }` so tests can import the express instance directly. (3) Scope pre-commit kanban vitest to scanner tests only (`lib/__tests__` + `server/__tests__/scanner-smoke`) — integration tests (`api.test.ts`, `goals.test.ts`) depend on file I/O and real milestone content that doesn't exist in pre-commit context.
-**Alternatives rejected:** Running full kanban test suite in pre-commit (integration tests fail on missing files, creating false blockers); not exporting `app` (forces tests to spin up a real server).
-**Consequences:** Any future kanban server test can import `app` directly for supertest integration. Integration tests that need real file content should run in CI, not pre-commit.
-**References:** [tools/kanban/server/api.ts](tools/kanban/server/api.ts) · [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §kanban
-
----
-
-## 2026-02-28 [technical]: Revert-then-merge: files deleted by a revert are invisible in conflict list
-
-**Context:** P422 and P425 were reverted from `main` (commit `c08bc1f2`) to unblock a deploy. When later merging the feature branch back, git's conflict detection only shows files that exist on both sides. Files that were deleted by the revert (16 files: components, services, helpers, edge function) simply don't appear — they're silently absent from the working tree. The build fails with "cannot find module" errors.
-**Decision:** When merging a feature branch after a prior revert of that branch's content: after resolving the standard conflict list, explicitly restore all files that were deleted by the revert commit. Use `git show <feature-branch>:path/to/file > path/to/file` for each, or `git diff <revert-commit>^..<revert-commit> --name-only --diff-filter=D` to enumerate them.
-**Alternatives rejected:** Trusting the conflict list to be exhaustive (silently misses deleted files); cherry-picking individual commits (complex, can leave partial state).
-**Consequences:** After any `git merge --no-commit` of a branch that was previously reverted, run `git diff <revert-commit>^..<revert-commit> --name-only --diff-filter=D` and manually restore each file before committing. This is a one-time cost per revert, and the correct signal is "build fails on module-not-found after merge resolves clean."
-**References:** [docs/technical/git-workflow.md](docs/technical/git-workflow.md)
-
----
-
-## 2026-02-28 [process]: Commit important content artifacts immediately after writing
-
-**Context:** In P438 session, a blog draft was written via Write tool (confirmed success) but wasn't on disk at session end — required recreating from transcript. Root cause unclear (likely context compaction or interrupted session).
-**Decision:** After writing any important artifact (blog draft, feature spec, key doc), immediately run `git status` to confirm it's tracked, then commit before continuing with edits or review. Don't rely on the Write tool confirmation alone — verify the file exists in git.
-**Alternatives rejected:** End-of-session checklist (requires discipline each time); no change (next session just loses work again).
-**Consequences:** Slightly more commits, but all are named and purposeful. Blog drafts appear as their own commit, which is fine.
-**References:** P438 session; content/blog/ai-agent-orchestration-three-setups.md had to be recreated.
-
----
-
-## 2026-02-28 [process]: Blog articles require personal story first, research second
-
-**Context:** P438 article was initially drafted as a technical comparison of three AI orchestration setups (Jed's principle, Slava's setup, Jordan's pipeline). After review, Slava clarified the real story was his personal journey through the four AI dev barriers, with Jordan and Jed as supporting characters — not co-equal subjects.
-**Decision:** For "build in public" articles, start from the personal journey arc, then layer in external references. The story structure is: problem I had → what changed → what I learned → how others fit in. External repos/people are evidence, not the frame.
-**Alternatives rejected:** Technical comparison format (reads as survey, not story; loses the "why should I care" thread); starting with external references (obscures authorship, makes article feel like research report).
-**Consequences:** Before writing any future article: identify the personal arc first ("what problem did I have, what changed, what can I claim to have learned"). External examples slot in after the arc is clear.
-**References:** [content/blog/ai-agent-orchestration-three-setups.md](content/blog/ai-agent-orchestration-three-setups.md), [features/p438_article_ai_agent_orchestration.md](features/p438_article_ai_agent_orchestration.md)
-
----
-
-## 2026-02-28 [process]: /kdd step 6 meta-reflection redesigned — subagent extraction + mechanical-first brainstorm
-
-**Context:** `/kdd` step 6 relied on Claude's direct memory to "scan for friction" — lossy in long sessions, and A/B options were shallow (no critique of whether solutions prevent problems mechanically vs. by discipline).
-**Decision:** Step 6 now: (1) spawns a `general-purpose` subagent whose sole job is extracting problems from the full conversation (capped at 10, deduped, excludes routine noise); (2) triages each problem into trivial-fix / decision / track-it; (3) for decisions generates `/simplify` blocks with 2–3 options each annotated `mechanical: yes/no`, with recommendation naming the mechanism and main risk.
-**Alternatives rejected:** Per-problem brainstorm subagents (overhead not worth it; inline brainstorm after extraction is sufficient); keeping A/B format (2 options forces binary framing; 3rd option surfaces non-obvious paths when genuine).
-**Consequences:** Every `/kdd` run after a non-trivial session will spawn one subagent for problem extraction. Sessions with no problems found exit immediately ("Clean session."). Recommendations now call out whether the fix is mechanical.
-**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 6
-
----
-
-## 2026-02-28 [process]: Two-layer privacy model for claude-conversations synthesis
-
-**Context:** Session that synthesized strategy from claude.ai conversations inadvertently staged content with named individuals (collaborator names, email addresses, LinkedIn profile URLs). Pre-commit hook caught email patterns mechanically but missed nuanced content (names, contact info in prose).
-**Decision:** Two-layer privacy model: (1) mechanical — pre-commit §16 pattern-greps for known personal identifiers (emails, `slavochek`, named individuals in "experiment fails because [Name]" patterns); (2) judgment — `/maintain:privacy` skill run manually before committing when source material included claude-conversations. KDD step 5.25 added as explicit gate: "if source was claude-conversations, run `/maintain:privacy` before committing."
-**Alternatives rejected:** Relying solely on mechanical checks (misses prose context); blocking all claude-conversation synthesis (too restrictive — conversations are primary strategy input).
-**Consequences:** Every `/kdd` run after a session that touched `~/Projects/private/claude-conversations/` must pass through the privacy skill. Pre-commit §16 acts as backstop for known patterns.
-**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §16, [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 5.25
-
----
-
-## 2026-02-28 [process]: docs/business/collaborators/ moved to .private — already leaked to git history
-
-**Context:** `docs/business/collaborators/` (compensation model, profit-participation draft, transparency rationale) was committed to `origin/main` before this session. Files contain business negotiation strategy and compensation terms that could affect collaborator relationships if widely seen.
-**Decision:** Removed from public git index via `git rm -r --cached docs/business/collaborators/`. Moved to `.private/docs/business/collaborators/`. Going forward, all collaborator agreements, compensation discussions, and partnership terms live in `.private/` by default. Full history scrub (git filter-repo + force-push) deferred — decision left to user given complexity and low marginal risk (no credentials, no personal identifiers, strategic content only).
-**Alternatives rejected:** Leaving in place (ongoing exposure); immediate force-push history scrub (complex, requires coordination with any clones, disrupts ongoing branches).
-**Consequences:** `docs/business/` directory effectively deprecated as public location for sensitive business content. Any new collaborator-related docs → `.private/docs/business/` by default.
-**References:** `.private/docs/business/collaborators/`
-
----
-
-## 2026-02-27 [technical]: Vitest unit tests fail silently when VITE_SUPABASE_* env vars missing
-
-**Context:** `src/lib/supabase.ts` throws at module load (`Missing Supabase environment variables`) when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent. Any test file that imports a module that transitively imports supabase.ts will fail with a module-load error — even if the test doesn't call Supabase at all. No `.env.test.local` fix works for Vitest (it uses `vite.config.ts`, not Playwright's dotenv loading).
-**Decision:** Add dummy stub values to `vite.config.ts` `test.env` block:
-```ts
-test: { env: { VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test-anon-key' } }
-```
-These are never used in a real Supabase call in unit tests — they only satisfy the module-load guard.
-**Alternatives rejected:** Per-file mocking of supabase.ts (too brittle, requires every new test file to remember); changing supabase.ts to not throw (breaks prod safety guard).
-**Consequences:** Adding new test files that import supabase-touching modules will Just Work. No per-file boilerplate needed.
-**References:** [vite.config.ts](vite.config.ts)
-
----
-
-## 2026-02-27 [process]: Content articles live in `content/articles/`, separate from `features/`
-
-**Context:** Articles and blog posts were being tracked as feature specs in `features/p*_article_*.md`. This mixed content pipeline management with feature delivery — wrong kanban columns, wrong status values, wrong lifecycle.
-**Decision:** New namespace: `content/articles/a{N}_{slug}.md`. Own status pipeline: `idea → draft → editing → ready → published → promoted`. Auto-number via `scripts/next-a-number.sh`. Kanban gets a `Content` tab with its own DndContext and `ArticleStatus` type. Rules file `.claude/rules/content.md` auto-loads when editing `content/articles/`. `features/` remains for product feature specs only.
-**Alternatives rejected:** Subdirectory inside features/ (same wrong column semantics, no separate kanban view); separate Ghost CMS notes (not tracked in git, no kanban integration).
-**Consequences:** Future articles go in `content/articles/` not `features/`. Use `./scripts/next-a-number.sh` for numbering. Content kanban tab at `/content` in the kanban tool. Content skills (`/slava:content:*`) write to this directory.
-**References:** [content/articles/](content/articles/) · [.claude/rules/content.md](.claude/rules/content.md) · [tools/kanban/src/components/ContentPage.tsx](tools/kanban/src/components/ContentPage.tsx)
-
-
 **Context:** Why this came up
 **Decision:** What we chose
+
+---
+
+## 2026-02-27 [technical]: Render-slot pattern for injecting author actions into shared card components
+
+**Context:** `StoryCardDetail` is used in both feed (list) and detail views. Detail view needed author actions (visibility toggle, edit, delete) inside the card. Adding props per-action would bloat the shared component with page-specific concerns.
+**Decision:** Pass `visibilitySlot` and `footerActionsSlot` as `React.ReactNode` props. The card renders them at the right positions; the page controls what goes in each slot. Author vs non-author logic stays in the page, not the card.
+**Alternatives rejected:** Adding `isAuthor` + individual action props to `StoryCardDetail` — couples the card to page-level auth state; conditional rendering inside the card — same problem.
+**Consequences:** Card stays dumb. Pages compose author-specific UI as slots. Pattern extends cleanly to other page-specific card customizations.
+**References:** [StoryCardDetail.tsx](src/app/components/social/StoryCardDetail.tsx) · [story-detail-page.tsx](src/app/pages/story-detail-page.tsx)
+
+---
+
+## 2026-02-26 [technical]: Reuse PointCardWithLinks as context display in /chat — no bespoke card
+
+**Context:** /chat had a custom `ContextChip` (blue pill) showing point text + position label at the top of the AI story guide. It duplicated what `PointCardWithLinks` already renders on the profile Points tab — author name, position badge, linked stories, share/open actions.
+**Decision:** Delete `ContextChip`, render `PointCardWithLinks` directly with `profileOwner` for the position badge. Page adapts the `PointWithUserPosition` fetch result (already in flight) to the prototype `Point` shape and passes `contextPoint` + `contextProfileOwner` as props to `StoryGuideChat`.
+**Alternatives rejected:** `hideActions`/`disableNavigation` flags — strips share, open, linked stories with no benefit; bespoke chat card — third divergent rendering of the same data.
+**Consequences:** One card component renders points consistently everywhere. Any future card improvement (badge, story preview, share) automatically applies in chat.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [story-guide-chat-page.tsx](src/app/pages/story-guide-chat-page.tsx)
+
+---
+
+## 2026-02-26 [process]: /ship is the only reliable spec-closing path
+
+**Context:** P412 was fixed inline (committed directly to main, no feature branch). Code shipped correctly. Someone manually moved the spec to `features/done/` but frontmatter (`status`, `completed_at`) was never updated — leaving it as `in-progress` in `done/`. `/ship` would have handled this automatically (step 7), but it only applies to feature branches.
+**Decision:** `/ship` must be used even for inline work, or at minimum, `/status` must surface `→ /ship pN` at session wrap-up when P-number work was done. Updated `/status` Next logic to suggest this. The frontend gap (manual spec closure) is a second-class citizen compared to the branch-based flow — acceptable risk for now.
+**Alternatives rejected:** Adding a separate "close spec" skill for inline work (unnecessary complexity); enforcing a feature branch for all work (overhead for single-file fixes).
+**Consequences:** `/status` now flags `→ /ship pN` at wrap-up. Prevents stale frontmatter from inline sessions going unnoticed.
+
+---
+
+## 2026-02-26 [process]: CLAUDE.md size cap — P441 audit to fix instruction dilution
+
+**Context:** CLAUDE.md has grown to ~500 lines. Rules are diluting each other — every gap found triggers a new rule, which makes the document larger, which reduces attention each rule gets, which creates more gaps. A session where the Decisive Action rule existed but wasn't applied proved the pattern.
+**Decision:** Cap CLAUDE.md at ~300 lines of content. Path-specific directives belong in `.claude/rules/` (auto-load only when relevant). Universal principles stay in CLAUDE.md. P441 filed to do the full audit in a dedicated session with a worktree for safety.
+**Alternatives rejected:** Adding more rules to CLAUDE.md to fix compliance (self-defeating); making CLAUDE.md shorter by removing content without a routing strategy (loses coverage).
+**Consequences:** Before adding anything to CLAUDE.md, ask: "Is this universal?" If path-specific → `.claude/rules/`. If already documented elsewhere → link. Running `/claude-md` gate enforces this per-change.
+
+---
+
+## 2026-02-26 [process]: Agent pipeline output — apply when clear, never surface as false choice
+
+**Context:** Critique agent and claude-md gate agent both converged on the same answer with no trade-offs. The output was surfaced to the user as a "decision" requiring approval, wasting their reading time on something that wasn't genuinely theirs to decide.
+**Decision:** When spawned agents agree and recommendation is unambiguous → apply and report. Only surface to user when: genuine trade-offs exist that depend on user preference, action is irreversible/risky, or agents disagree. This is the Decisive Action principle applied to agent pipelines, not just user interactions.
+**Alternatives rejected:** Always surface agent output for approval (theater, shifts burden without value); never surface (misses genuine ambiguity).
+**Consequences:** Agents in pipelines are peers, not advisors. Their clear output is a decision already made. Surfacing it as a question is a false choice. Saved to MEMORY.md so it persists across sessions.
+
+---
+
+## 2026-02-26 [process]: Structural instructions beat ambient — fix the skill, not CLAUDE.md
+
+**Context:** CLAUDE.md's Decisive Action rule was violated in the same session it was reinforced. Root cause: the `/claude-md` skill had "suggest only" in its prompt — read fresh at invocation — which overrode the ambient CLAUDE.md rule competing with 499 other lines.
+**Decision:** Fix compliance problems at the structural level (skill design, `.claude/rules/` path matching, hooks) not by adding more ambient rules to CLAUDE.md. Structural instructions are read fresh and in full; ambient ones are diluted. `/claude-md` skill changed from "suggest only" to "apply when clear, surface when judgment required."
+**Alternatives rejected:** Adding a CLAUDE.md rule saying "apply agent output when clear" — same document, same dilution problem.
+**Consequences:** Before adding a CLAUDE.md rule to fix a compliance gap, ask: "Can this be enforced structurally instead?" Skill design > rules file > CLAUDE.md.
+**References:** [claude-md/SKILL.md](.claude/commands/slava/maintain/claude-md/SKILL.md)
+
+---
+
+## 2026-02-26 [process]: Terminal session persistence — tmux + resurrect + continuum
+
+**Context:** After Mac restarts (including unexpected crash described below), all Ghostty terminal sessions (tabs, working directories, running processes) were lost. Previous tmux attempt failed because no persistence plugins were configured. Ghostty's `window-save-state = always` restores layout/directories but not running processes.
+**Decision:** tmux + tmux-resurrect + tmux-continuum. Auto-saves every 1 min to `~/.tmux/resurrect/`. Auto-restores on `tmux` server start. `t` shell function wraps startup: boots server, polls until continuum restores sessions (up to 10s), then attaches. `t name` creates/attaches named sessions. fzf session picker for switching. `c` = `claudec`, `e` = `exit`.
+**Alternatives rejected:** Zellij (built-in resurrection broken on macOS Homebrew, GitHub #4412/#4413); iTerm2 (can't restore processes after reboot); Warp (loses working directories on reboot, multiple open GitHub issues); Ghostty alone (restores layout, not processes).
+**Consequences:** Workflow: open Ghostty → type `t` → all sessions restored. Sessions protected from crash within 1-min window. Security: `~/.tmux/resurrect/` is chmod 700; pane-capture disabled; ssh excluded from resurrect processes (dead connections). Config: `~/.tmux.conf`, `t()` + `c` + `e` aliases in `~/.zshrc`.
+
+---
+
+## 2026-02-26 [process]: Mac crash prevention — quit Beeper on lid close via launchd
+
+**Context:** Mac restarted unexpectedly during Clamshell Sleep (~15:40→16:18). Root cause: Beeper Desktop writing 2,147 MB in 10 min during a background update, triggering a Security Coprocessor crash (`scrash_in crash` in boot faults — Apple Silicon-specific, leaves almost no trace). Contributing factor: MagSafe plugged in seconds before lid close is a known macOS 15.x instability trigger. tmux was previously tried for session continuity after restarts — did not work.
+**Decision:** Two launchd agents installed: (1) `com.slava.quit-beeper-on-lid-close` — checks lid state via `ioreg` every 30s, quits Beeper if closed; (2) `com.slava.panic-checker` — runs at login, notifies if new `ResetCounter-*.diag` files exist since last login. Scripts in `~/.local/bin/`.
+**Alternatives rejected:** Manually quitting Beeper before sleep (relies on memory); disabling Beeper auto-updates (doesn't prevent I/O storms from other operations).
+**Consequences:** Beeper won't be running when lid is closed — open it manually when needed. Unexpected restarts will surface as a login notification. Diagnostic approach for future crashes: check `ResetCounter-*.diag` in `/Library/Logs/DiagnosticReports/` and `pmset -g log` for the sleep/wake timeline.
+
+---
+
+## 2026-02-26 [product]: /sim — 3-layer persona simulation pipeline as pre-done UX gate
+
+**Context:** P422 and P425 shipped but felt off in ways only visible when actually using them. Static code review (`/review-all`) catches patterns, not experience. Smoke testing (`/verify`) confirms function, not feel. No structured way to discover UX friction before closing a feature.
+**Decision:** Three-layer persona simulation system: (1) Experience Reporter — browser agent (Claude in Chrome) navigates as a persona, produces raw first-person stream; (2) Interpreter — classifies issues across personas, identifies root cause; (3) Change Request Generator — consolidated report, selected findings become `type: change-request` P-specs. Pipeline: `/dev → /sim → [change requests] → done`. Personas live in `.claude/personas/` (version-controlled). `/sim` replaces `/verify` as the pre-done gate for UI features.
+**Alternatives rejected:** Manual walkthroughs (non-reproducible, skipped under time pressure); adding more static review passes (same blind spot — can't simulate experience); keeping `/verify` as the gate (functional, not experiential).
+**Consequences:** New spec type `type: change-request` with required frontmatter (`changes`, `source`, `persona`). `/verify` demoted to pure functional smoke testing. Three initial personas: `solo-founder`, `coach`, `invited-party`. Skills flow updated: `/dev → /sim` is the new standard for UI features.
+**References:** [features/p439_sim_persona_simulation_system.md](features/p439_sim_persona_simulation_system.md) · [.claude/personas/](.claude/personas/)
+
+---
+
+## 2026-02-26 [process]: quick-feature template is a floor, not a ceiling
+
+**Context:** Specs created from `/quick-feature` were missing architecture decisions, personas, output formats, and pipeline position that had already been established in conversation — agents were leaving placeholders instead of capturing what was already known.
+**Decision:** `/quick-feature` scans conversation for decided context (ASCII mockups, wireframes, file paths, implementation approach, architecture decisions, output formats, personas, pipeline position) and includes it. Agents may add sections beyond the template when conversation context warrants — template is a floor, not a ceiling. Section names should be descriptive (`## Architecture`, `## Personas`, etc.).
+**Alternatives rejected:** Rigid template — forces placeholders for context that already exists, requiring re-discussion at `/dev` time.
+**Consequences:** Specs created from rich conversations will be richer. Agents should not add boilerplate placeholder sections for things not yet decided; the extension rule applies to things already decided in conversation.
+**References:** [.claude/commands/slava/build/quick-feature.md](.claude/commands/slava/build/quick-feature.md)
 **Alternatives rejected:** What we didn't choose
 **Consequences:** What this means going forward
 ```
 
 ---
 
-## 2026-02-27 [product]: Split footer suppressed on other-profile views — ambiguity over story count ownership
+## 2026-02-26 [process]: Worktree automation rejected — .env.local showstopper + hook fires too late
 
-**Context:** P456 split footer shows "▶ N stories" (viewer's own story count) inside point cards. When viewing another user's profile, the card body already shows the profile owner's story prominently. Showing the viewer's story count in the footer creates ambiguity — "▶ 1 story" reads as the profile owner's story, not the viewer's.
-**Decision:** Split footer only shows on the viewer's own profile (and point-detail, story-detail, story-feed surfaces). Other-profile views always show the full CTA (`✓ Agree · Why do you agree? →`) regardless of whether the viewer has a linked story.
-**Alternatives rejected:** Show split footer on other-profile too (technically ~2 lines to implement) — rejected because the owner/viewer boundary is already cognitively heavy on other-profile; adding "your" story count to "their" card increases confusion without meaningful UX gain.
-**Consequences:** UAT row C-2 updated to reflect this. Future card surfaces on other-profile should default to full CTA only.
-**References:** [features/uat/p456.md](features/uat/p456.md)
-
----
-
-## 2026-02-27 [technical]: `getPositionCTACopy` — pure utility for adaptive CTA copy
-
-**Context:** P456 needed position-aware CTA text ("Why do you agree/disagree/are unsure?") across 6 surfaces. Options were (a) inline ternary chains per surface, (b) a React hook, or (c) a pure function in `shared/types.ts`.
-**Decision:** Pure function `getPositionCTACopy(group)` returning `{symbol, label, ctaText, ariaLabel}` keyed on position group (agree/disagree/unsure). Lives in `src/app/prototypes/shared/types.ts` alongside other position utilities. No React dependency — easy to test, trivial to import anywhere.
-**Alternatives rejected:** Inline ternaries — diverge across surfaces and are invisible to future readers. React hook — unnecessary state wrapper for a pure data lookup with no side effects.
-**Consequences:** Any new surface that shows a position CTA imports this function instead of hardcoding strings. Future copy changes happen in one place. Pattern: position-aware display logic belongs in `shared/types.ts`, not scattered in component files.
-**References:** [src/app/prototypes/shared/types.ts](../src/app/prototypes/shared/types.ts)
+**Context:** Two Claude sessions sharing a `.git/index` caused staging collisions (P437/P440 incident). Proposed fix: PreToolUse hook that auto-forks into a worktree when a branch is detected. Ran adversarial review before implementing.
+**Decision:** Rejected automation. Implement instead: (1) commit-at-coherent-state rule in CLAUDE.md, (2) collision check in `/fix` (mirrors `/dev`'s existing check), (3) infrastructure tier in `/pick-flow`. Keep ask behavior — agent surfaces collision, user decides.
+**Alternatives rejected:** PreToolUse hook — three fatal flaws: (a) `.env.local` is not present in worktrees (breaks `source .env.local` in any credential script — a hard showstopper); (b) hook fires after `git checkout -b` so the branch already exists in the original worktree when the fork happens; (c) auto-forking without asking violates the Transparency Principle. Auto-merge-on-close also rejected: no clean "session ended" event to hook into.
+**Consequences:** Agents detect collision and ask — they don't act unilaterally. `.env.local` must be symlinked after creating any new worktree (`ln -sf /path/to/main/.env.local .env.local` — see worktree-setup.md). The main defence is committing frequently, not worktree isolation.
 
 ---
 
-## 2026-02-27 [product]: SYSTEM-3 footer-merge pattern — viewer journey context inside card boundary
+## 2026-02-26 [process]: Commit at coherent state — shared git index is collision fuel
 
-**Context:** P456 added "Tell your story →" CTAs to point/story cards across 6 surfaces. Three placement options were considered: (a) floating button below card, (b) separate CTA strip as a sibling element, (c) footer row inside the card itself.
-**Decision:** Footer-merge: the CTA lives as the last row inside the card boundary. When viewer already has a story linked to the point, the footer splits into two columns — left shows "▶ N stories" (viewer's count, interactive), right shows "Add story →". On /live, CTA is `aria-disabled` with hint "Available after the session."
-**Alternatives rejected:** Floating button — positioning fragile across card variants, no card-level context visible. Sibling CTA strip — breaks card visual unity, requires layout coordination at every call site.
-**Consequences:** Future CTA additions follow the footer-merge pattern: content inside card → footer row, not adjacent element. "▶ N stories" count is scoped to `authorId === currentUserId` (viewer's own stories only, not aggregate). The /live disabled-with-hint pattern is the standard for session-gated actions.
-**References:** [features/p456_story_cta_footer.md](../features/p456_story_cta_footer.md)
+**Context:** Two Claude sessions open in the same worktree can silently sweep one session's uncommitted changes into the other's commit. The P440/P437 incident caused 11 spec files to end up in the wrong commit because changes accumulated between sessions.
+**Decision:** Commit whenever work reaches a coherent, passing state — docs, specs, config changes, not just feature completions. Don't let uncommitted changes accumulate across sessions.
+**Alternatives rejected:** Relying on session awareness — agents don't reliably know what other sessions have staged.
+**Consequences:** CLAUDE.md now states this explicitly. Parallel sessions must use separate worktrees. `/kdd` and `/status` wrap steps check `git status --short` and flag uncommitted changes.
+**References:** [CLAUDE.md](../CLAUDE.md) · [worktree-setup.md](docs/technical/worktree-setup.md)
+
+---
+
+## 2026-02-26 [process]: process-learnings.md — open items only, resolved items graduate to decisions.md
+
+**Context:** process-learnings.md had accumulated three "Status: done" entries that were also captured in decisions.md — a graveyard of resolved items. /weekly only surfaces `Status: proposed` entries, so done items were invisible noise. The graduation step (remove from process-learnings → add to decisions.md) was never documented, causing items to pile up in place.
+**Decision:** process-learnings.md holds open/proposed friction only. When an item is resolved: (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. The file header now makes this explicit. Also: decisions.md is append-only and cannot hold proposals — these must stay separate.
+**Alternatives rejected:** Single file with status field — decisions.md is append-only by design; adding "proposed" entries would fill it with noise that never gets cleaned up.
+**Consequences:** /kdd step 6 must include the graduation instruction. /weekly correctly surfaces open items. decisions.md stays clean. process-learnings.md stays short (empty = healthy).
+**References:** [process-learnings.md](docs/process-learnings.md)
+
+---
+
+## 2026-02-26 [process]: P440 — QA status as dev-completion signal + delivery_stage cleanup
+
+**Context:** After `/dev` finished, features stayed in `in-progress` — visually indistinguishable from active coding work. The `delivery_stage: uat` badge was confusing (UAT ≠ "needs your review"), and 4 of 8 delivery_stage values were never set by any skill (dead weight). No ordering cues existed to know which review stage came first.
+**Decision:** (1) New `status: qa` column (amber, between `in-progress` and `done`) — `/dev` and `/fix` land features here; `/ship` accepts `qa` as input and closes to `done`. The column IS the signal: "code complete, needs review before prod." (2) `delivery_stage` reduced to 4 numbered values matching the planning pipeline skills: `1-prd-review`, `2-ux-review`, `3-arch-review`, `4-tests-ready`. Ghost values removed. (3) Running the next skill (e.g., `/ux`) is implicit approval of the previous stage — no manual frontmatter edits required.
+**Alternatives rejected:** Keeping `delivery_stage: uat` — confusing to non-QA teammates; adding a badge to `in-progress` cards — too subtle, no column-level visibility.
+**Consequences:** `qa` is NOT a terminal status — it must NOT be added to the PATCH handler's "move back to active" exception list. `done`/`all-done`/`rejected` remain the only terminals. Any skill that previously set `delivery_stage: uat` or `status: done` directly now sets `status: qa` instead.
+**References:** [features/p440](features/p440_qa_status_and_delivery_stage_cleanup.md) · [types.ts](tools/kanban/src/lib/types.ts) · [scanner-rules.ts](tools/kanban/lib/scanner-rules.ts)
+
+---
+
+## 2026-02-26 [technical]: kanban security testing — use raw strings for path traversal attack vectors
+
+**Context:** During kanban test coverage work, a security test for path traversal used `path.join(mainWt.path, 'features', '..', '.env.local')`. Node's `path.join()` normalizes `..` segments eagerly at call time, producing an already-resolved path. The test passed the server's `resolve()` check trivially — it was never actually testing the traversal fix.
+**Decision:** Security tests that simulate path traversal attacks must use **raw string concatenation**, not `path.join()`. Example: `mainWt.path + '/features/../.env.local'` — this preserves the `..` segment so the server's `path.resolve()` is the only thing that normalizes it, correctly testing the guard.
+**Alternatives rejected:** Using `path.join()` — silently defeats the test's purpose; using `path.resolve()` in the test — also pre-normalizes, same problem.
+**Consequences:** Rule for all security tests involving path manipulation: if the test simulates an attack, construct the attack string as a raw string literal. The server's defense mechanism must be the first thing that normalizes it — not the test setup.
+**References:** [tools/kanban/server/__tests__/security.test.ts](tools/kanban/server/__tests__/security.test.ts)
+
+---
+
+## 2026-02-26 [technical]: kanban PATCH — all-done must be excluded from "move back to active" condition
+
+**Context:** Setting `status: all-done` via the kanban UI on a file already in `features/done/{sprint}/` triggered the PATCH handler's "move back to active" branch (`status !== 'done' && status !== 'rejected' && isInSubfolder`). Result: 11 spec files silently moved from `features/done/` subdirectories to `features/` root, showing as deleted in git and untracked at features/.
+**Decision:** Add `all-done` to the exception list alongside `done` and `rejected`. The condition is now: `status !== 'done' && status !== 'all-done' && status !== 'rejected' && isInSubfolder`. Files with any "terminal" status must never be moved back to active by the PATCH handler.
+**Alternatives rejected:** Moving to flat `features/done/` on `all-done` (loses sprint subdirectory organization).
+**Consequences:** Any new terminal status added to the kanban (beyond `done`/`all-done`/`rejected`) must also be added to this exception list — treat it as a registry. Spec file restores were handled by moving untracked files back to their sprint subfolders manually.
+**References:** [tools/kanban/server/api.ts](tools/kanban/server/api.ts) — PATCH `/api/features/:id` handler
+
+---
+
+## 2026-02-26 [technical]: Calibration bar — don't gate null-aware components with `&&`
+
+**Context:** `InlineCalibration` accepts `calibration: UserCalibration | null` and renders an empty bar + "Complete 5 sessions" tooltip when null — intentional design from P269. A later commit added `{calibration && <InlineCalibration>}` with comment "hidden until 5 sessions" which *overrode* that design, hiding the bar entirely for users with < 5 sessions. Discovered when calibration bar was missing on all profiles.
+**Decision:** Remove the `&&` guard — render `<InlineCalibration calibration={calibration} />` always and let the component own its empty state.
+**Alternatives rejected:** Keeping the guard + separate placeholder — unnecessary complexity when the component already handles null.
+**Consequences:** Pattern: if a component has intentional null/empty-state rendering built in, pass null directly and never gate with `{nullable && <Component>}`. The guard silently overrides the component's design contract.
+**References:** [profile-page-v2.tsx](src/app/pages/profile-page-v2.tsx)
+
+---
+
+## 2026-02-26 [process]: Deploy queue pattern for infra-aware feature releases
+
+**Context:** P422 and P425 both introduced edge functions and `VITE_*` env vars that must be provisioned on prod before `/ship` pushes. Config was staged manually (Supabase secrets + Vercel env). `/ship` only does git merge+push — it's blind to these infra requirements. Risk: future features silently missing prod dependencies.
+**Decision:** Option A — `/dev` appends an "Infra requirements" block to `DEPLOY_QUEUE.md` when closing a feature that has a Pre-deploy Checklist. `/ship` reads the queue, shows pending items, gets confirmation, runs each command, then clears the file. `DEPLOY_QUEUE.md` is gitignored.
+**Alternatives rejected:** Option B (GitHub Actions automation for edge fn deploys) — requires a staging environment to safely validate; premature until staging exists.
+**Consequences:** Deploy process becomes explicitly aware of infra dependencies. First `/ship` after this decision will need P422+P425 queue items seeded manually. Implementation still pending (update `/dev` + `/ship` skills).
+**References:** [ship.md](.claude/commands/slava/build/ship.md) · [features.md](.claude/rules/features.md) — Pre-deploy Checklist format
 
 ---
 
@@ -460,7 +489,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Future features that want to introduce the mirror concept (naming, memory, persona) need a dedicated feature. P425 must not reference "your mirror" in any user-visible copy. The system prompt can use "mirror" internally to guide AI tone, but users never see the label.
 
-**References:** [p464_ai_story_core_loop.md](../features/p464_ai_story_core_loop.md)
+**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
 
 ---
 
@@ -478,7 +507,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** All future AI edge functions should follow this pattern. The `ai_rate_limits` table is shared — future functions add a `feature` column to scope limits independently. User-friendly messaging is the standard: no technical jargon in rate limit responses.
 
-**References:** [p464_ai_story_core_loop.md](../features/p464_ai_story_core_loop.md)
+**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
 
 ---
 
@@ -566,7 +595,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** `StoryGuideChat` must never import from `react-router-dom` or call `navigate()` internally. The component receives all context (pointId, sessionId) as props and emits results via callbacks. This constraint must be enforced at code review for P425 and all future embeddings.
 
-**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p464_ai_story_core_loop.md)
+**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p425_ai_story_core_loop.md)
 
 ---
 
@@ -611,7 +640,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 - `[▷ Start /live]` appears inline in the chat thread on a saved story card
 - Draft state required in visibility model before P425 ships
 
-**References:** [P425](../features/p464_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
+**References:** [P425](../features/p425_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
 
 ---
 
@@ -678,7 +707,7 @@ Two-spec architecture:
 
 **Consequences:** Every story filing session is a calibration artifact. Author explicitly confirms ≥8/10 before publish. Workshop participants can file without prior training.
 
-**References:** [P425](../features/p464_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
+**References:** [P425](../features/p425_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
 
 ---
 
