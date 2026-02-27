@@ -79,6 +79,26 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 ---
 
+## 2026-02-27 [technical]: `getPositionCTACopy` — pure utility for adaptive CTA copy
+
+**Context:** P456 needed position-aware CTA text ("Why do you agree/disagree/are unsure?") across 6 surfaces. Options were (a) inline ternary chains per surface, (b) a React hook, or (c) a pure function in `shared/types.ts`.
+**Decision:** Pure function `getPositionCTACopy(group)` returning `{symbol, label, ctaText, ariaLabel}` keyed on position group (agree/disagree/unsure). Lives in `src/app/prototypes/shared/types.ts` alongside other position utilities. No React dependency — easy to test, trivial to import anywhere.
+**Alternatives rejected:** Inline ternaries — diverge across surfaces and are invisible to future readers. React hook — unnecessary state wrapper for a pure data lookup with no side effects.
+**Consequences:** Any new surface that shows a position CTA imports this function instead of hardcoding strings. Future copy changes happen in one place. Pattern: position-aware display logic belongs in `shared/types.ts`, not scattered in component files.
+**References:** [src/app/prototypes/shared/types.ts](../src/app/prototypes/shared/types.ts)
+
+---
+
+## 2026-02-27 [product]: SYSTEM-3 footer-merge pattern — viewer journey context inside card boundary
+
+**Context:** P456 added "Tell your story →" CTAs to point/story cards across 6 surfaces. Three placement options were considered: (a) floating button below card, (b) separate CTA strip as a sibling element, (c) footer row inside the card itself.
+**Decision:** Footer-merge: the CTA lives as the last row inside the card boundary. When viewer already has a story linked to the point, the footer splits into two columns — left shows "▶ N stories" (viewer's count, interactive), right shows "Add story →". On /live, CTA is `aria-disabled` with hint "Available after the session."
+**Alternatives rejected:** Floating button — positioning fragile across card variants, no card-level context visible. Sibling CTA strip — breaks card visual unity, requires layout coordination at every call site.
+**Consequences:** Future CTA additions follow the footer-merge pattern: content inside card → footer row, not adjacent element. "▶ N stories" count is scoped to `authorId === currentUserId` (viewer's own stories only, not aggregate). The /live disabled-with-hint pattern is the standard for session-gated actions.
+**References:** [features/p456_story_cta_footer.md](../features/p456_story_cta_footer.md)
+
+---
+
 ## 2026-02-26 [process]: day-start skill hardening — signup identity + subagent anti-pattern
 
 **Context:** `/day-start` was spawning a background subagent to count signups, which took 20 tool uses / 75s and still got the wrong answer (count only, wrong column name). Health check also had GCP VM check that silently failed every run due to keychain auth not being available in agent sessions.
