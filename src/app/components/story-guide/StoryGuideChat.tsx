@@ -27,6 +27,8 @@ import { mockStoryGuideStream } from '@/app/data/story-guide-chat-stub';
 import { storiesService } from '@/app/data/stories-service';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
+import { RatingButtons } from '@/app/components/partners/shared';
 
 // ---------------------------------------------------------------------------
 // Types (local — do NOT import from clarity-chat-page)
@@ -149,6 +151,8 @@ export function StoryGuideChat({
   const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
   const [polishedContent, setPolishedContent] = useState<string | null>(null);
   const [visibilitySource, setVisibilitySource] = useState<'polish' | 'escape' | null>(null);
+  const [ratingValue, setRatingValue] = useState<number | null>(null);
+  const [ratingComment, setRatingComment] = useState('');
 
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -389,8 +393,8 @@ export function StoryGuideChat({
   // ---------------------------------------------------------------------------
   // Send handler
   // ---------------------------------------------------------------------------
-  const handleSend = useCallback(() => {
-    const trimmed = inputValue.trim();
+  const handleSend = useCallback((override?: string) => {
+    const trimmed = (override ?? inputValue).trim();
     if (!trimmed || phase === 'streaming' || trimmed.length > MAX_BRAIN_DUMP_LENGTH) return;
 
     // Clear any previous error state on new user send
@@ -448,6 +452,16 @@ export function StoryGuideChat({
   const handleKeepRefining = useCallback(() => {
     setIterationCount(0);
   }, []);
+
+  const handleRatingSubmit = useCallback(() => {
+    if (ratingValue === null) return;
+    const text = ratingComment.trim()
+      ? `${ratingValue} — ${ratingComment.trim()}`
+      : String(ratingValue);
+    setRatingValue(null);
+    setRatingComment('');
+    handleSend(text);
+  }, [ratingValue, ratingComment, handleSend]);
 
   // ---------------------------------------------------------------------------
   // Save handler
@@ -536,8 +550,12 @@ export function StoryGuideChat({
   // ---------------------------------------------------------------------------
   // Render helpers
   // ---------------------------------------------------------------------------
-  const showInputBar = phase !== 'visibility' && phase !== 'saving' && phase !== 'saved';
-  const inputDisabled = phase === 'streaming';
+  const showInputBar =
+    phase !== 'visibility' &&
+    phase !== 'saving' &&
+    phase !== 'saved' &&
+    phase !== 'rating' &&
+    phase !== 'iterating';
   const sendDisabled =
     !inputValue.trim() ||
     phase === 'streaming' ||
@@ -637,28 +655,6 @@ export function StoryGuideChat({
           </div>
         )}
 
-        {/* Escape hatch (shown after 3 iterations in rating phase) */}
-        {phase === 'rating' && iterationCount >= 3 && (
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              data-testid="escape-hatch-save"
-              onClick={handleEscapeHatchSave}
-              className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
-            >
-              Save at this version
-            </button>
-            <button
-              type="button"
-              data-testid="escape-hatch-keep-refining"
-              onClick={handleKeepRefining}
-              className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
-            >
-              Keep refining
-            </button>
-          </div>
-        )}
-
         {/* Visibility and save panel (when phase === 'visibility') */}
         {phase === 'visibility' && (
           <VisibilityAndSave
@@ -680,7 +676,6 @@ export function StoryGuideChat({
               ref={inputRef}
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
-              disabled={inputDisabled}
               placeholder={getPlaceholder(phase)}
               onKeyDown={handleKeyDown}
               className="flex-1 resize-none border-0 shadow-none focus-visible:ring-0 bg-transparent text-base placeholder:text-muted-foreground/70 min-h-[24px] max-h-[150px] overflow-y-auto outline-none"
@@ -712,6 +707,58 @@ export function StoryGuideChat({
           )}
         </div>
       )}
+
+      {/* Rating drawer — replaces inline text input for rating/iterating phases */}
+      <Drawer open={phase === 'rating' || phase === 'iterating'} dismissible={false}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>How well does this capture what you meant?</DrawerTitle>
+            <DrawerDescription>Pick a score, then add a note if something's off.</DrawerDescription>
+          </DrawerHeader>
+          <div className="px-4 pb-8 flex flex-col gap-4">
+            <RatingButtons selectedValue={ratingValue} onSelect={setRatingValue} />
+            <textarea
+              value={ratingComment}
+              onChange={e => setRatingComment(e.target.value)}
+              placeholder="What's off? (optional)"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 resize-none outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px]"
+              rows={2}
+            />
+            <button
+              type="button"
+              onClick={handleRatingSubmit}
+              disabled={ratingValue === null}
+              className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                ratingValue !== null
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+              }`}
+            >
+              Submit
+            </button>
+            {iterationCount >= 3 && (
+              <div className="flex gap-2 flex-wrap justify-center pt-1">
+                <button
+                  type="button"
+                  data-testid="escape-hatch-save"
+                  onClick={handleEscapeHatchSave}
+                  className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  Save at this version
+                </button>
+                <button
+                  type="button"
+                  data-testid="escape-hatch-keep-refining"
+                  onClick={handleKeepRefining}
+                  className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  Keep refining
+                </button>
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

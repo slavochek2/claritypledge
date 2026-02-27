@@ -220,7 +220,7 @@ export function CreateAgreementPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 pb-24 md:py-12 md:pb-12 max-w-2xl">
       <Button
         variant="ghost"
         onClick={() => navigate(-1)}
