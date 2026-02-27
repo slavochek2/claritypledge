@@ -1,12 +1,14 @@
 ---
-status: week
+status: in-progress
 type: bug
-rank: 125495.0
+rank: 31370.75
 tags:
   - p425
   - story
   - profile
   - position
+created_date: 2026-02-26T00:00:00.000Z
+locked_at: '2026-02-27T05:40:41.018Z'
 ---
 
 # P451: Story CTA missing everywhere except point detail page

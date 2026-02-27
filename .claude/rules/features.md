@@ -44,6 +44,16 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 - `task` — technical work (refactor, infra, tools, docs)
 - `comment` — notes, decisions (not actionable)
 
+## Optional Frontmatter: `flow`
+
+```yaml
+flow: fix    # fix | dev | inline | quick-feature
+```
+
+Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. Values map to the sequential flow tiers: `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `quick-feature` = skeleton only.
+
+**When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
+
 ## Change Requests (from `/sim`)
 
 Sim findings filed as improvement specs use `type: story` with extra frontmatter:
