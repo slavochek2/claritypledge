@@ -142,7 +142,9 @@ git commit -m "Configure dev server port for worktree-1"
 
 ## Environment Variables (.env.local)
 
-**Critical:** Worktrees don't copy gitignored files like `.env.local`. Use symlinks to share the main repo's env file:
+**Critical:** Worktrees don't copy gitignored files like `.env.local`. Use symlinks to share the main repo's env file.
+
+**Skills not available in worktrees:** `.claude/commands/slava/` is gitignored and absent from worktrees. Agents running in `isolation: worktree` cannot invoke `/simplify`, `/kdd`, or other custom skills. Run those from the main tree session. Use worktrees only for code isolation, not for skills-dependent workflows.
 
 ```bash
 # Link .env.local to all worktrees (run from main repo)
