@@ -11,6 +11,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [technical]: storyCTAOverride prop — suppress/replace "Tell your story →" in context-aware surfaces
+
+**Context:** `PointCardWithLinks` renders a "Tell your story →" CTA when `showStoryCTA` is true. In /chat the user is already on the story-writing surface — clicking the CTA would navigate them to /chat, creating a circular loop.
+**Decision:** Add `storyCTAOverride?: React.ReactNode` prop with three-state semantics: `undefined` = default button (all existing callsites unchanged); `null` = suppress CTA entirely; `ReactNode` = custom replacement. /chat passes a muted status chip `"✓ Position saved — write your experience below ↓"` when a position is set, `null` when not.
+**Alternatives rejected:** `hideCTA: boolean` — loses ability to show contextual replacement; `liveSessionMode` flag reuse — wrong semantic (that flag is for /live, not /chat); separate chat-specific card — third diverging render path.
+**Consequences:** Any future context embedding `PointCardWithLinks` but needing a different CTA can use this escape hatch without touching core logic. `undefined` default ensures all existing callsites are unaffected.
+**References:** [point-card-with-links.tsx](src/app/components/social/point-card-with-links.tsx) · [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx)
+
+---
+
+## 2026-02-27 [technical]: Full position interaction stack required when embedding PointCardWithLinks interactively
+
+**Context:** `PointCardWithLinks` only renders position buttons when `currentUserId` is passed. StoryGuideChat was using the component without it — buttons were invisible. Missing also: `useRemovePositionGuard` (toggle-off skipped linked-stories warning) and `selectedPosition` sync (badge froze after changes).
+**Decision:** Wire the full stack in any interactive embedding: (1) `localPosition` state initialized from prop + `useEffect` sync for prop changes; (2) `useRemovePositionGuard` with context-appropriate post-remove action (in /chat: `navigate(-1)`, since chatting about a removed position makes no sense); (3) `handlePositionSelect` checks `pointsService.setPosition` boolean return, toasts on failure; (4) pass `currentUserId`, `selectedPosition`, `onPositionSelect`, and render `<RemovePositionDialog {...dialogProps} />`.
+**Alternatives rejected:** `localPosition ?? serverPosition` effectivePosition pattern (used in QuotedPoint) — not needed in /chat since the page doesn't re-render with fresh server position data after mount.
+**Consequences:** Pattern is now explicit: 4 props + dialog = interactive position card. Missing any one of them = silent partial functionality. Documented here so future surfaces don't repeat the /chat mistake.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [remove-position-dialog.tsx](src/app/components/shared/remove-position-dialog.tsx)
+
+---
+
 ## 2026-02-27 [technical]: Render-slot pattern for injecting author actions into shared card components
 
 **Context:** `StoryCardDetail` is used in both feed (list) and detail views. Detail view needed author actions (visibility toggle, edit, delete) inside the card. Adding props per-action would bloat the shared component with page-specific concerns.
