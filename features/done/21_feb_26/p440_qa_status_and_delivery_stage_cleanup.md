@@ -1,9 +1,13 @@
 ---
-status: done
-completed_at: '2026-02-26'
+status: all-done
 type: task
 rank: 1
-tags: [kanban, workflow, process]
+tags:
+  - kanban
+  - workflow
+  - process
+locked_at: '2026-02-26T13:53:09.936Z'
+created_date: 2026-02-26
 ---
 
 # P440: QA status + delivery_stage cleanup

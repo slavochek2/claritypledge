@@ -1,6 +1,6 @@
 ---
 name: sim
-description: Run persona simulations against a feature — synthetic usability testing that produces experience reports and change request candidates
+description: Run persona simulations against a feature — synthetic usability testing that produces experience reports and change request candidates persisted to .private/sim/
 when_to_use: After /dev ships a UI feature. Replaces /verify as the pre-done UX gate. Run before calling a feature done.
 version: 1.0.0
 ---
@@ -161,6 +161,45 @@ Classify findings into tiers:
 Tier A bugs: file now? (I'll run /create-bug for each)
 Tier B/C: tell me which ones to file and I'll create specs with source: sim + changes: p{N}
 ```
+
+---
+
+## Step 6.5 — Save Findings
+
+Write triage output to `.private/sim/p{N}-YYYYMMDD.md` (create `.private/sim/` if it doesn't exist).
+
+**This file is the source of truth for this sim run. If conversation context is lost, the findings are here.**
+
+```bash
+mkdir -p .private/sim
+```
+
+**File template:**
+
+```markdown
+## Sim Run: p{N} — {YYYY-MM-DD}
+
+### Personas Run
+- solo-founder: [one sentence summary]
+- invited-party: [one sentence summary]
+- ux-critic: [one sentence summary]
+
+### Change Request Candidates
+
+#### Tier A — Bugs (file immediately)
+- ...
+
+#### Tier B — UX Polish (your call)
+- ...
+
+#### Tier C — Flow Redesign (design first)
+- ...
+
+### Filed specs
+- [ ] pXXX — [title]
+```
+
+Write the full Tier A / B / C table from Step 6 plus one-line persona summaries. Then continue to Step 7.
 
 ---
 

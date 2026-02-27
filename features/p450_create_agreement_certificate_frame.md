@@ -8,6 +8,7 @@ tags:
   - ceremony
   - ux
 changes: p422
+created_date: 2026-02-26
 ---
 
 # P450: Create Agreement Form — Certificate Frame + Pledge Text

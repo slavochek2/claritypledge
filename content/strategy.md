@@ -82,17 +82,14 @@ A post is ready when:
 
 ## Blog Post Lifecycle
 
-```
-content/stories/     →  raw stories (/story, /sifter)
-                ↓
-/interview           →  extracts real experiences
-                ↓
-/prepare-blog        →  content/blog/ (status: draft → preparing)
-                ↓
-user reviews         →  (status: review)
-                ↓
-/ship-blog           →  publishes to Ghost (status: published)
-```
+**Tier 3 (Story/Essay):**
+/interview (required) → /prepare-blog (interactive) → user reviews → /story-gate → /draft-blog → /ship-blog → /promote-blog
+
+**Tier 2 (Reflection):**
+/interview (optional, 10 min) → /prepare-blog (one-shot) → user reviews → /story-gate (criteria 1,2,6 only) → /draft-blog → /ship-blog
+
+**Tier 1 (Quick Take):**
+brain dump → /prepare-blog (one-shot) → /draft-blog → /ship-blog
 
 **Frontmatter for blog posts** (`content/blog/*.md`):
 ```yaml

@@ -62,12 +62,34 @@ You're not just writing code — you're building something that will run in prod
 
 ## Workflow
 
-0. **Pre-flight: branch check** — If current branch is `main` AND this is a P-number feature, create a feature branch before writing any code:
+0. **Pre-flight: branch check** — Check the current branch and its distance from `main`:
    ```bash
-   git checkout -b feature/pN-short-description
+   git branch --show-current
+   git rev-list --count main..HEAD
    ```
-   Name it `feature/pN-short-description`. Report: "Created branch feature/pN-... — commits will stay off main until you /ship."
-   Skip this if already on a feature branch or if task is not a P-number feature (infra, docs, small fixes).
+
+   - **If on `main`** and this is a P-number feature: create a feature branch before writing any code:
+     ```bash
+     git checkout -b feature/pN-short-description
+     ```
+     Report: "Created branch feature/pN-... — commits will stay off main until you /ship."
+
+   - **If on a feature branch with ≤ 5 commits ahead of main**: safe, proceed.
+
+   - **If on a feature branch with > 5 commits ahead of main** (e.g., another feature's UAT branch): **STOP and warn**:
+     ```
+     ⚠️  You're on `{branch}` — {N} commits ahead of main.
+     Running /ship later will ship ALL {N} commits, not just this work.
+
+     A) Create a new branch off main for this change (recommended — clean /ship path)
+     B) Stay here — cherry-pick the commit to a main-based branch after implementation
+     C) Proceed anyway — you intend to ship this whole branch
+
+     Which? (A/B/C)
+     ```
+     Wait for decision. Do NOT proceed without confirmation.
+
+   Skip the check entirely for non-P-number tasks (infra, docs, small inline fixes).
 
 0.1. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
    - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation)
