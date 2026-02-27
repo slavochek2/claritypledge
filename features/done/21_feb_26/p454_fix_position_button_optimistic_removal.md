@@ -1,16 +1,23 @@
 ---
 id: p454
-title: "Fix: position button clears optimistically before Remove dialog confirmed"
+title: 'Fix: position button clears optimistically before Remove dialog confirmed'
 type: bug
-status: qa
+status: done
 severity: medium
-date_reported: 2026-02-27
-date_resolved: 2026-02-27
-root_cause: "setUserPosition(null) fired immediately on deselect in PointCardWithLinks before the Remove Position confirmation dialog appeared. Cancel left local state as null while DB was untouched."
-resolution: "Guard setUserPosition call: only update optimistically when newPosition !== null. Mirrors pattern already used in point-detail-page.tsx."
+date_reported: 2026-02-27T00:00:00.000Z
+date_resolved: 2026-02-27T00:00:00.000Z
+root_cause: >-
+  setUserPosition(null) fired immediately on deselect in PointCardWithLinks
+  before the Remove Position confirmation dialog appeared. Cancel left local
+  state as null while DB was untouched.
+resolution: >-
+  Guard setUserPosition call: only update optimistically when newPosition !==
+  null. Mirrors pattern already used in point-detail-page.tsx.
 tags: []
-created_date: 2026-02-27
-rank: 100000
+created_date: 2026-02-27T00:00:00.000Z
+rank: 125469
+completed_at: '2026-02-27'
+locked_at: '2026-02-27T08:49:58.567Z'
 ---
 
 # P454: Fix position button clears optimistically before Remove dialog confirmed

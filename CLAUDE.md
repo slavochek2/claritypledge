@@ -518,7 +518,7 @@ Database migration rules, RLS debugging, and schema decisions auto-load when edi
 
 ### Worktree Branch Naming
 
-Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not worktree. See [worktree-setup.md](docs/technical/worktree-setup.md) for details.
+Branch names reflect the feature (e.g., `feature/p456-description`), not the worktree. Worktrees live in `.claude/worktrees/`. After creating any worktree, run `./scripts/setup-worktree.sh .claude/worktrees/feature-name` to symlink `.env.local` and `node_modules`. See [worktree-setup.md](docs/technical/worktree-setup.md) for full details.
 
 ---
 

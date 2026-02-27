@@ -9,8 +9,8 @@
 | Situation | Use | Why |
 |-----------|-----|-----|
 | Single feature, focused session | **Feature branch** | Simple, no extra setup, merges cleanly |
-| Two approaches to compare visually | **Worktree** | Parallel dev servers — see both at once |
-| Agent parallelism (multiple features simultaneously) | **Worktree** | Each agent gets an isolated copy |
+| Risky change (10+ files, new framework, experimental) | **Worktree** | Easy rollback without touching main branch |
+| Agent parallelism (index collision risk) | **Worktree** | Each agent gets an isolated staging area |
 | Quick experiment that might be thrown away | **Worktree** | Reset without touching main branch |
 
 ### Feature branch workflow
@@ -32,22 +32,23 @@ git branch -d feature/p422-clarity-partner-agreement
 
 **Naming:** `feature/pN-short-description` (e.g., `feature/p427-story-edit-delete`)
 
-### Worktree workflow (parallel / comparison)
+### Worktree workflow (parallel / isolation)
 
 See [worktree-setup.md](worktree-setup.md) for full setup.
 
 ```bash
-# Each worktree = separate disk folder + port + branch
-# claritypledge-1 on :5100, claritypledge-2 on :5200, etc.
+# Create a worktree under .claude/worktrees/ (via git or EnterWorktree tool)
+git worktree add .claude/worktrees/feature-name -b feature/p422-clarity-partner-agreement
 
-# Assign a feature to a worktree
-cd /Users/slavochek/Projects/public/claritypledge-1
-git checkout -b feature/p422-clarity-partner-agreement
+# Required after creation — symlinks .env.local and node_modules
+./scripts/setup-worktree.sh .claude/worktrees/feature-name
 
-# Dev server at http://localhost:5100 — isolated, no conflict with main
+# Dev server — pick any free port (no pre-configured ports)
+cd .claude/worktrees/feature-name
+npm run dev -- --port 5101
 ```
 
-**Key rule:** Never merge the worktree's port-config commit to main. Use `git rebase -i` to drop it, or cherry-pick only the feature commits.
+**Note:** Named worktrees (`claritypledge-1..5`) are legacy — they exist as sibling directories but are no longer the active pattern. Use `.claude/worktrees/` for all new worktrees.
 
 ### Pre-push safety net
 

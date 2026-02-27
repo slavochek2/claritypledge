@@ -11,6 +11,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: /ship QA gate + status: all-done consistency fix
+
+**Context:** `/ship` had two problems: (1) it would silently merge a spec that was still in `qa` — meaning UAT hadn't been manually approved — with no warning; (2) step 7 set `status: done` but the "After shipping" doc note said `status: all-done`, creating an inconsistency in the status lifecycle.
+**Decision:** Added step 2.5 to `/ship` — checks spec `status` before merging. `done` = proceed. `qa` = ask for confirmation ("you haven't marked it done after UAT"). Anything else = stronger warning. Step 7 now sets `status: all-done` consistently. The status lifecycle is: `qa` (ready for UAT) → user manually sets `done` (UAT passed) → `/ship` sets `all-done` (shipped to prod).
+**Alternatives rejected:** Auto-promoting `qa` → `done` on ship (bypasses the human UAT approval step that's the whole point of the gate).
+**Consequences:** `/ship` will now ask before shipping any unreviewed spec. `fix-kanban`'s sweep still handles both `done` and `all-done` — the `done` branch now covers specs manually approved outside of `/ship`.
+**References:** [ship.md](.claude/commands/slava/build/ship.md) · [fix-kanban.md](.claude/commands/slava/maintain/fix-kanban.md)
+
+---
+
+## 2026-02-27 [technical]: Consolidated worktree patterns — agent worktrees only
+
+**Context:** Two worktree patterns existed simultaneously: named worktrees (`claritypledge-1..5`, sibling directories at fixed ports 5100–5500) and agent worktrees (`.claude/worktrees/`, created on demand via `EnterWorktree` or `git worktree add`). Named worktrees were designed for parallel visual comparison — running multiple dev servers side by side to compare implementations. That workflow is no longer used. Agent worktrees cover all active use cases: git index isolation for parallel Claude sessions, and isolation for risky/experimental changes.
+**Decision:** One pattern going forward: agent worktrees in `.claude/worktrees/`. Named worktrees are legacy — don't create new ones, don't rely on existing ones having correct setup. `./scripts/setup-worktree.sh <path>` handles dependency/env setup for any new worktree. No pre-configured ports — pick any free port.
+**Alternatives rejected:** Keeping both patterns (unnecessary complexity, two mental models for the same need); WorktreeCreate hook (fragile infrastructure, added complexity with no clear benefit over direct `git worktree add`).
+**Consequences:** Updated `git-workflow.md`, `infrastructure.md` to remove named worktree references. `worktree-setup.md` already documents this correctly (written first).
+
+---
+
 ## 2026-02-27 [product]: Browse vs Focus page navigation taxonomy
 
 **Context:** Mobile UX was inconsistent — some detail pages showed the bottom nav (competing with chat input), back buttons were duplicated inline across 4 pages with no shared component, and some had no back navigation at all.

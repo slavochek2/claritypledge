@@ -94,7 +94,7 @@ Bug reported
 Run `git status --short`. If modified or staged files from a **different** feature exist (files unrelated to this bug fix):
 
 Present options and wait for decision:
-- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). After creating: `ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local <worktree>/.env.local` (required, or credential scripts fail).
+- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Create under `.claude/worktrees/feature-name`, then run `./scripts/setup-worktree.sh .claude/worktrees/feature-name` (symlinks `.env.local` + `node_modules` — required, or credential scripts fail).
 - **(B) Commit current work first** — if in-progress work is at a safe checkpoint
 - **(C) Proceed anyway** — only if user confirms both are one logical changeset
 

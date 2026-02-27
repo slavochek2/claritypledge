@@ -92,7 +92,7 @@ You're not just writing code — you're building something that will run in prod
    Skip the check entirely for non-P-number tasks (infra, docs, small inline fixes).
 
 0.1. **Pre-flight: index collision check** — Run `git status --short`. If modified or untracked files from a **different** feature exist, stop and present options before touching any code:
-   - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation)
+   - **(A) Create a worktree** for this feature (recommended — clean index, parallel isolation). Create under `.claude/worktrees/feature-name`, then run `./scripts/setup-worktree.sh .claude/worktrees/feature-name`.
    - **(B) Commit the in-progress work first** (if it's at a safe checkpoint)
    - **(C) Proceed anyway** (only if user explicitly confirms both features are one logical changeset)
    Wait for user decision. Skip this check if the tree is clean or all changes belong to this feature.
