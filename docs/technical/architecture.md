@@ -384,6 +384,14 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check `src/app/components/layout/simple-navigation.tsx` for current implementation.
 
+6. **Browse vs Focus page navigation pattern**: Two page types.
+   - **Browse pages** (home, sessions, events, profile): bottom nav visible. No back button.
+   - **Focus pages** (story detail, point detail, agreement, chat): bottom nav hidden via `focusRoutes` array in `bottom-nav.tsx`; use `<FocusHeader onBack={...} />` at top instead.
+   - Back target on focus pages: smart target (e.g. `/point/:id` when entering from a point) with `window.history.length > 1` guard + `/events` fallback for direct-link visitors.
+   - **Never define inline BackButton components** — always use `FocusHeader`. Adding a new focus page requires also adding its route prefix to `focusRoutes` in `bottom-nav.tsx`.
+   - `self-start` on the Button is required — prevents the button from stretching full-width inside flex-col containers.
+   - See [decisions.md § Browse vs Focus page navigation taxonomy](../decisions.md).
+
 ---
 
 ## Known Issues

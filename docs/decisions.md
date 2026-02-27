@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [product]: Browse vs Focus page navigation taxonomy
+
+**Context:** Mobile UX was inconsistent — some detail pages showed the bottom nav (competing with chat input), back buttons were duplicated inline across 4 pages with no shared component, and some had no back navigation at all.
+**Decision:** Two page types. **Browse pages** (home, sessions, events, profile) show the bottom nav — users explore from here. **Focus pages** (story detail, point detail, agreement, chat) hide the bottom nav and show `FocusHeader` instead — users arrived here with intent. The back button on focus pages targets the logical parent (e.g. `/point/:id` when entering chat from a point), with `window.history.length > 1` guard + `/events` fallback for direct-link visitors.
+**Alternatives rejected:** Always showing bottom nav (overlaps chat input on mobile; nav competes with content-level actions); hiding bottom nav via CSS only (still in DOM, confusing for screen readers); per-page opt-in show/hide (inconsistent, each page decides independently).
+**Consequences:** New pages must declare their type. Focus page → add route prefix to `focusRoutes` array in `bottom-nav.tsx` and use `<FocusHeader onBack={...} />`. Never define inline BackButton components. See `src/app/components/layout/focus-header.tsx`.
+**References:** [focus-header.tsx](src/app/components/layout/focus-header.tsx) · [bottom-nav.tsx](src/app/components/layout/bottom-nav.tsx)
+
+---
+
 ## 2026-02-27 [product]: Remove in-app AI disclosure banner — TOS covers it
 
 **Context:** `/chat` showed a blocking banner ("This session is AI-assisted") requiring acknowledgment before users could type. The banner blocked send and had no feedback when dismissed. The spec (P425 §Security Review) required the disclosure but didn't mandate an in-app modal specifically.
