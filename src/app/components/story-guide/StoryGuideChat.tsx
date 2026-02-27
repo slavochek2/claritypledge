@@ -148,6 +148,11 @@ export function StoryGuideChat({
     contextProfileOwner?.position ?? null
   );
 
+  // Sync localPosition when parent re-fetches and passes a new contextProfileOwner
+  useEffect(() => {
+    setLocalPosition(contextProfileOwner?.position ?? null);
+  }, [contextProfileOwner?.position]);
+
   // P451: Guard position removal with linked-stories warning + exit chat on confirm
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
     userId: user?.id ?? '',
@@ -158,12 +163,16 @@ export function StoryGuideChat({
 
   // P451: Handle position changes on the context card
   const handlePositionSelect = useCallback(async (newPosition: Position) => {
-    if (!user || !pointId) return;
+    if (!user?.id || !pointId) return;
     if (newPosition === null) {
       await guardedRemovePosition(pointId);
     } else {
-      await pointsService.setPosition(pointId, user.id, newPosition);
-      setLocalPosition(newPosition);
+      const success = await pointsService.setPosition(pointId, user.id, newPosition);
+      if (success) {
+        setLocalPosition(newPosition);
+      } else {
+        toast.error('Failed to update position. Please try again.');
+      }
     }
   }, [user, pointId, guardedRemovePosition]);
 
