@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: UAT branch divergence trap — cherry-pick fixes don't auto-land
+
+**Context:** `p422-p425-uat` was created for UAT. A bug fix (`a9737690` — auto-resize textarea) was subsequently developed on a feature sub-branch and merged into dev branches (`p449`, `p451`, etc.) but never cherry-picked to UAT. The UAT branch silently diverged. The fix was visible in dev but absent in UAT, causing a regression that only surfaced when testing on the UAT branch.
+**Decision:** Before UAT begins, run a gap analysis: `git log --oneline p{N}-uat..{dev-branch}` for all branches in scope. Any `fix:` or `feat:` commit touching features under test that isn't on the UAT branch must be cherry-picked before UAT runs. The analysis subagent pattern (git log comparison + file relevance filter) reliably surfaces missing commits in ~60 seconds. When a `fix(pN):` commit lands on any branch, check if pN is currently in UAT — if so, cherry-pick immediately rather than waiting for `/ship`.
+**Alternatives rejected:** Trusting the UAT branch to be "complete" without verification — the exact failure mode that occurred; rebasing UAT onto dev — risky, rewrites history, can introduce unrelated changes.
+**Consequences:** Gap analysis is a mandatory step before every UAT session. Two-step rule going forward: (1) when a fix lands, check if the feature is in UAT; (2) before UAT runs, compare UAT branch to dev branches for all in-scope P-numbers.
+**References:** `CLAUDE.md` (Before Starting Work section), `docs/technical/git-workflow.md`
+
+---
+
 ## 2026-02-27 [technical]: storyCTAOverride prop — suppress/replace "Tell your story →" in context-aware surfaces
 
 **Context:** `PointCardWithLinks` renders a "Tell your story →" CTA when `showStoryCTA` is true. In /chat the user is already on the story-writing surface — clicking the CTA would navigate them to /chat, creating a circular loop.
