@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: tmux copy-mode trap + auto-session naming
+
+**Context:** `set -g mouse on` causes tmux to silently enter copy mode on any trackpad scroll-up. Once in copy mode, `ESC` does nothing — only `q` exits. Detach/reattach doesn't help (copy mode is pane-level). New sessions were being named with garbage strings (`lkj2`, `asjh23`) because the right name wasn't obvious at creation time.
+**Decision:** (1) Added `bind -T root WheelUpPane ... copy-mode -e` so copy mode auto-exits when you scroll back to bottom; (2) Added `after-new-session` hook to auto-name sessions after the creation directory; (3) Added `Ctrl+b R` bind to rename session to current directory on demand.
+**Alternatives rejected:** Disabling mouse entirely — too useful for pane resizing; vi-mode key bindings — adds complexity, changes other bindings.
+**Consequences:** New sessions auto-named from directory. `q` is the canonical copy-mode exit key. `Ctrl+b R` renames when work focus becomes clear mid-session. Recovery from a stuck pane: `tmux send-keys -t SESSION q Enter` from any other pane.
+**References:** `~/.tmux.conf`
+
+---
+
 ## 2026-02-27 [process]: UAT branch divergence trap — cherry-pick fixes don't auto-land
 
 **Context:** `p422-p425-uat` was created for UAT. A bug fix (`a9737690` — auto-resize textarea) was subsequently developed on a feature sub-branch and merged into dev branches (`p449`, `p451`, etc.) but never cherry-picked to UAT. The UAT branch silently diverged. The fix was visible in dev but absent in UAT, causing a regression that only surfaced when testing on the UAT branch.
