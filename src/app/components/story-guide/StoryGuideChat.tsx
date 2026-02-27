@@ -14,6 +14,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { StoryVisibility } from '@/app/types';
 import { useAuth } from '@/auth';
 import { ThreadMessage } from './ThreadMessage';
@@ -22,13 +23,15 @@ import { VisibilityAndSave } from './VisibilityAndSave';
 import { SavedStoryChatCard } from './SavedStoryChatCard';
 import { PointCardWithLinks } from '@/app/components/social/point-card-with-links';
 import type { PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import type { Point as PrototypePoint, PositionEntry } from '@/app/prototypes/shared/types';
+import type { Point as PrototypePoint, PositionEntry, Position } from '@/app/prototypes/shared/types';
 import { mockStoryGuideStream } from '@/app/data/story-guide-chat-stub';
 import { storiesService } from '@/app/data/stories-service';
+import { pointsService } from '@/app/data/points-service';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { RatingButtons } from '@/app/components/partners/shared';
+import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 // ---------------------------------------------------------------------------
 // Types (local — do NOT import from clarity-chat-page)
@@ -138,6 +141,31 @@ export function StoryGuideChat({
 }: StoryGuideChatProps) {
   const { user, session } = useAuth();
   const authorName = user?.name ?? 'You';
+  const navigate = useNavigate();
+
+  // Local position state — keeps context card badge + buttons in sync after position changes
+  const [localPosition, setLocalPosition] = useState<Position>(
+    contextProfileOwner?.position ?? null
+  );
+
+  // P451: Guard position removal with linked-stories warning + exit chat on confirm
+  const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
+    userId: user?.id ?? '',
+    onAfterRemove: () => {
+      navigate(-1); // Exit chat — telling a story about a removed position makes no sense
+    },
+  });
+
+  // P451: Handle position changes on the context card
+  const handlePositionSelect = useCallback(async (newPosition: Position) => {
+    if (!user || !pointId) return;
+    if (newPosition === null) {
+      await guardedRemovePosition(pointId);
+    } else {
+      await pointsService.setPosition(pointId, user.id, newPosition);
+      setLocalPosition(newPosition);
+    }
+  }, [user, pointId, guardedRemovePosition]);
 
   const [phase, setPhase] = useState<ChatPhase>('idle');
   const [messages, setMessages] = useState<P425Message[]>([]);
@@ -416,6 +444,8 @@ export function StoryGuideChat({
     } else if (phase === 'rating') {
       nextPhase = 'iterating';
       setIterationCount(prev => prev + 1);
+    } else if (phase === 'iterating') {
+      setIterationCount(prev => prev + 1);
     }
 
     const updatedMessages = [...messagesRef.current, userMsg];
@@ -457,9 +487,9 @@ export function StoryGuideChat({
     const text = ratingComment.trim()
       ? `${ratingValue} — ${ratingComment.trim()}`
       : String(ratingValue);
+    handleSend(text);
     setRatingValue(null);
     setRatingComment('');
-    handleSend(text);
   }, [ratingValue, ratingComment, handleSend]);
 
   // ---------------------------------------------------------------------------
@@ -567,7 +597,11 @@ export function StoryGuideChat({
         <div data-testid="context-card" className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
           <PointCardWithLinks
             point={contextPoint as PrototypePoint}
-            profileOwner={contextProfileOwner}
+            profileOwner={contextProfileOwner ? { ...contextProfileOwner, position: localPosition } : undefined}
+            currentUserId={user?.id}
+            selectedPosition={localPosition}
+            onPositionSelect={handlePositionSelect}
+            disableNavigation
           />
         </div>
       )}
@@ -722,6 +756,12 @@ export function StoryGuideChat({
             <textarea
               value={ratingComment}
               onChange={e => setRatingComment(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  handleRatingSubmit();
+                }
+              }}
               placeholder={ratingValue !== null && ratingValue >= 7 ? 'Anything to change? (optional)' : 'What\'s off? (optional)'}
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 resize-none outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
               rows={2}
@@ -761,6 +801,9 @@ export function StoryGuideChat({
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* P451: Remove position warning dialog */}
+      <RemovePositionDialog {...dialogProps} />
     </div>
   );
 }

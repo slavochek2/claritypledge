@@ -28,14 +28,10 @@ import { supabaseAdmin } from '../src/lib/supabase-admin';
 
 const CHAT_PATH = '/chat';
 
-/** Navigates to /chat, waits for the page to be ready, and dismisses the AI disclosure banner if present. */
+/** Navigates to /chat and waits for the page to be ready. */
 async function gotoChat(page: Parameters<typeof setTestSession>[0], path = CHAT_PATH) {
   await page.goto(path);
   await page.waitForLoadState('networkidle');
-  const ackBtn = page.getByRole('button', { name: 'Acknowledge' });
-  if (await ackBtn.isVisible()) {
-    await ackBtn.click();
-  }
 }
 
 // ---------------------------------------------------------------------------

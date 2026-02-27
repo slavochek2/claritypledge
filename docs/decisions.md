@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [product]: Remove in-app AI disclosure banner — TOS covers it
+
+**Context:** `/chat` showed a blocking banner ("This session is AI-assisted") requiring acknowledgment before users could type. The banner blocked send and had no feedback when dismissed. The spec (P425 §Security Review) required the disclosure but didn't mandate an in-app modal specifically.
+**Decision:** Delete the `aiDisclosureAcked` state, localStorage key (`ai_disclosure_acked`), and the banner component from `StoryGuideChat`. AI processing disclosure lives in the Terms of Service instead — the user agrees to TOS on signup, which covers ongoing AI use.
+**Alternatives rejected:** Keeping the banner (adds friction at first send; TOS already covers it); one-time toast instead of banner (still extra friction, unclear benefit over TOS).
+**Consequences:** P436 (TOS AI Processing Review) must be completed to ensure TOS language explicitly covers Gemini/AI processing. That spec remains open.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [features/done/p425.md](features/done/5_feb_26/uat/p425.md)
+
+---
+
 ## 2026-02-27 [technical]: Derive UI visibility from data state — don't use separate boolean state
 
 **Context:** "Tell Your Story" CTA disappeared on refresh. `showStoryCTA` was `useState(false)` in all point/story card components, set to `true` only via click handler. On mount the loaded position data populated `userPosition` correctly, but `showStoryCTA` stayed `false`.
