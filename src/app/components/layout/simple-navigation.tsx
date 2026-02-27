@@ -41,6 +41,8 @@ export function SimpleNavigation() {
     hasPledged,
     slug,
     signOut,
+    isLoading,
+    sessionChecked,
   } = useNavAuthState();
   const { isLive, setPendingNavTo } = useLiveSession();
 
@@ -97,9 +99,30 @@ export function SimpleNavigation() {
           {/* Desktop: Nav links + CTA + Menu */}
           <div className="hidden lg:flex items-center gap-3">
             {/* P113: Show icon nav for logged-in users, text links for logged-out */}
-            {showUserMenu ? (
-              /* Logged-in: Icon nav with labels (LinkedIn-style) */
+            {/* Loading state: skeleton pills to prevent layout flicker */}
+            {!sessionChecked || isLoading ? (
+              /* Auth resolving: skeleton to prevent logged-out flash */
               <>
+                <div className="animate-pulse flex items-center gap-3 transition-opacity duration-150">
+                  <div className="h-10 w-[88px] bg-muted rounded-md" />
+                  <div className="h-10 w-[80px] bg-muted rounded-md" />
+                  <div className="h-10 w-[80px] bg-muted rounded-md" />
+                </div>
+                {/* Start a Clarity Session CTA — always visible, exists in both auth states */}
+                <Link
+                  to="/live"
+                  title="Start a live clarity session"
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow h-10 rounded-md px-6 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+                  onClick={() => analytics.track('nav_cta_clicked', { cta: 'try_meeting', device: 'desktop' })}
+                >
+                  Start a Clarity Session
+                </Link>
+                {/* Avatar/hamburger skeleton */}
+                <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+              </>
+            ) : showUserMenu ? (
+              /* Logged-in: Icon nav with labels (LinkedIn-style) */
+              <div className="flex items-center gap-3 transition-opacity duration-150">
                 {/* My Sessions — P405: hidden during active session */}
                 {!isLive && (
                   <Link
@@ -149,10 +172,37 @@ export function SimpleNavigation() {
                 >
                   Start a Clarity Session
                 </Link>
-              </>
+                {/* Menu Trigger - P67: Avatar for verified users */}
+                <DropdownMenu modal={false} onOpenChange={(open) => {
+                  if (open) {
+                    analytics.track('nav_menu_opened', {
+                      trigger: 'avatar',
+                      device: 'desktop',
+                    });
+                  }
+                }}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
+                      aria-label="Menu"
+                    >
+                      <GravatarAvatar
+                        name={user.name}
+                        avatarColor={user.avatarColor}
+                        photoUrl={user.avatarUrl}
+                        size="sm"
+                        isPledger={hasPledged}
+                      />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={8} className="w-48">
+                    <NavigationMenuItems onSignOut={handleSignOut} inActiveSession={isLive} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
               /* Logged-out: Only Events visible; rest in hamburger dropdown */
-              <>
+              <div className="flex items-center gap-3 transition-opacity duration-150">
                 <Link
                   to="/events"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -169,75 +219,70 @@ export function SimpleNavigation() {
                 >
                   Start a Clarity Session
                 </Link>
-              </>
+                {/* Menu Trigger - hamburger for logged-out users */}
+                <DropdownMenu modal={false} onOpenChange={(open) => {
+                  if (open) {
+                    analytics.track('nav_menu_opened', {
+                      trigger: 'hamburger',
+                      device: 'desktop',
+                    });
+                  }
+                }}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
+                      aria-label="Menu"
+                    >
+                      <MenuIcon className="w-5 h-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={8} className="w-48">
+                    <NavigationMenuItems onSignOut={handleSignOut} inActiveSession={isLive} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
-            {/* Menu Trigger - P67: Avatar for verified users, hamburger for everyone else */}
-            <DropdownMenu modal={false} onOpenChange={(open) => {
-              if (open) {
-                analytics.track('nav_menu_opened', {
-                  trigger: showUserMenu && user ? 'avatar' : 'hamburger',
-                  device: 'desktop',
-                });
-              }
-            }}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex items-center justify-center hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md p-2"
-                  aria-label="Menu"
-                >
-                  {showUserMenu && user ? (
-                    <GravatarAvatar
-                      name={user.name}
-                      avatarColor={user.avatarColor}
-                      photoUrl={user.avatarUrl}
-                      size="sm"
-                      isPledger={hasPledged}
-                                          />
-                  ) : (
-                    <MenuIcon className="w-5 h-5" />
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" sideOffset={8} className="w-48">
-                {/* Auth Menu Items - KISS: Uses shared component */}
-                {/* Nav links are now visible in the nav bar, not in dropdown */}
-                <NavigationMenuItems onSignOut={handleSignOut} inActiveSession={isLive} />
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
 
           {/* Mobile Menu Button - P67: Avatar for verified users when closed, X when open */}
-          <button
-            onClick={() => {
-              const wasOpen = isMobileMenuOpen;
-              setIsMobileMenuOpen(!isMobileMenuOpen);
-              // Track opening (not closing)
-              if (!wasOpen) {
-                analytics.track('nav_menu_opened', {
-                  trigger: showUserMenu && user ? 'avatar' : 'hamburger',
-                  device: 'mobile',
-                });
-              }
-            }}
-            className="lg:hidden p-2"
-            aria-expanded={isMobileMenuOpen}
-            aria-controls={MOBILE_MENU_ID}
-            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-          >
-            {isMobileMenuOpen ? (
-              <XIcon className="w-6 h-6" />
-            ) : showUserMenu && user ? (
-              <GravatarAvatar
-                name={user.name}
-                avatarColor={user.avatarColor}
-                photoUrl={user.avatarUrl}
-                size="sm"
-                isPledger={hasPledged}
-                              />
-            ) : (
-              <MenuIcon className="w-6 h-6" />
-            )}
-          </button>
+          {/* Loading state: skeleton circle to prevent logged-out flash */}
+          {(!sessionChecked || isLoading) ? (
+            <div className="lg:hidden p-2">
+              <div className="h-8 w-8 bg-muted rounded-full animate-pulse" />
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                const wasOpen = isMobileMenuOpen;
+                setIsMobileMenuOpen(!isMobileMenuOpen);
+                // Track opening (not closing)
+                if (!wasOpen) {
+                  analytics.track('nav_menu_opened', {
+                    trigger: showUserMenu && user ? 'avatar' : 'hamburger',
+                    device: 'mobile',
+                  });
+                }
+              }}
+              className="lg:hidden p-2"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls={MOBILE_MENU_ID}
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            >
+              {isMobileMenuOpen ? (
+                <XIcon className="w-6 h-6" />
+              ) : showUserMenu && user ? (
+                <GravatarAvatar
+                  name={user.name}
+                  avatarColor={user.avatarColor}
+                  photoUrl={user.avatarUrl}
+                  size="sm"
+                  isPledger={hasPledged}
+                />
+              ) : (
+                <MenuIcon className="w-6 h-6" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Mobile Menu - KISS: Same two-state logic */}

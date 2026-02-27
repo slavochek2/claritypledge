@@ -167,6 +167,9 @@ export function ProfilePageV2() {
   const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
   const [agreementsLoading, setAgreementsLoading] = useState(true);
 
+  // Loading state for secondary content (stories, points, calibration)
+  const [contentLoading, setContentLoading] = useState(true);
+
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
   const currentUserSlug = currentUser?.slug;
@@ -224,6 +227,12 @@ export function ProfilePageV2() {
   // Load all profile data from real services
   useEffect(() => {
     if (!profile) return;
+
+    // Reset all content state when profile changes (e.g. navigating between profiles)
+    setContentLoading(true);
+    setAgreementsLoading(true);
+    setRealStories([]);
+    setRealPoints([]);
 
     // Load stories, points, calibration, and agreements in parallel
     Promise.all([
@@ -326,8 +335,10 @@ export function ProfilePageV2() {
           setRealPoints(validPoints);
         }
       } // End of else (createdPoints.length > 0)
+      setContentLoading(false);
     }).catch(err => {
       console.error('Failed to load profile data:', err);
+      setContentLoading(false);
     });
   }, [profile, currentUser?.id]);
 
@@ -788,7 +799,13 @@ export function ProfilePageV2() {
             id={contentTab === 'stories' ? 'stories-panel' : 'points-panel'}
             aria-labelledby={contentTab === 'stories' ? 'stories-tab' : 'points-tab'}
           >
-            {contentTab === 'stories' ? (
+            {contentLoading ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-24 bg-muted rounded-lg" />
+                <div className="h-24 bg-muted rounded-lg" />
+                <div className="h-24 bg-muted rounded-lg" />
+              </div>
+            ) : contentTab === 'stories' ? (
               userStories.length === 0 ? (
                 <div className="bg-card rounded-lg p-8 text-center">
                   <p className="text-muted-foreground">No stories shared yet</p>
@@ -853,6 +870,7 @@ export function ProfilePageV2() {
               )
             )}
           </div>
+
         </div>
 
         {/* Share Profile Dialog (P115) */}
@@ -1107,6 +1125,7 @@ function QuotedPointCard({
   const [userPosition, setUserPosition] = useState<Position>(
     (point.userPosition as Position) ?? null
   );
+  const [showStoryCTA, setShowStoryCTA] = useState(false);
 
   // Sync userPosition from prop when it changes (e.g. profile effect reruns after auth resolves)
   useEffect(() => {
@@ -1141,6 +1160,7 @@ function QuotedPointCard({
     // Only optimistically update for selection; removal waits for dialog confirm
     if (newPosition !== null) {
       setUserPosition(newPosition);
+      setShowStoryCTA(true);
     }
     onPositionSelect?.(newPosition);
   };
@@ -1199,6 +1219,16 @@ function QuotedPointCard({
           </div>
         </div>
       </button>
+      {/* P451: Story CTA — shown after staking a position */}
+      {showStoryCTA && (
+        <button
+          type="button"
+          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
+          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+        >
+          Tell your story →
+        </button>
+      )}
     </div>
   );
 }

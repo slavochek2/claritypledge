@@ -225,7 +225,7 @@ describe('KISS Navigation', () => {
       });
     });
 
-    describe('Loading state shows Log In (safe default)', () => {
+    describe('Loading state shows skeleton (prevents wrong-state flash)', () => {
       beforeEach(() => {
         mockUseAuth.mockReturnValue({
           session: null,
@@ -237,10 +237,12 @@ describe('KISS Navigation', () => {
         });
       });
 
-      it('shows Log In during loading', async () => {
+      it('shows skeleton instead of public or user menu during loading', () => {
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
-        await openDesktopMenu();
-        expect(screen.getByRole('menuitem', { name: /log in/i })).toBeInTheDocument();
+        // No dropdown menu button during loading — skeleton replaces it
+        const menuButtons = screen.queryAllByRole('button', { name: /menu/i });
+        const desktopMenuButton = menuButtons.find(btn => btn.getAttribute('aria-label') === 'Menu');
+        expect(desktopMenuButton).toBeUndefined();
       });
     });
   });
@@ -528,7 +530,7 @@ describe('KISS Navigation', () => {
         expect(screen.queryByText('SK')).not.toBeInTheDocument();
       });
 
-      it('shows hamburger during auth loading (prevents flicker)', () => {
+      it('shows skeleton during auth loading (prevents logged-out flash)', () => {
         mockUseAuth.mockReturnValue({
           session: null,
           user: null,
@@ -539,10 +541,10 @@ describe('KISS Navigation', () => {
         });
         render(<BrowserRouter><SimpleNavigation /></BrowserRouter>);
 
-        // Should show hamburger, not avatar
-        const menuButtons = screen.getAllByRole('button', { name: /menu/i });
+        // No interactive menu button during loading — skeleton replaces hamburger/avatar
+        const menuButtons = screen.queryAllByRole('button', { name: /menu/i });
         const desktopButton = menuButtons.find(btn => btn.getAttribute('aria-label') === 'Menu');
-        expect(desktopButton).toBeInTheDocument();
+        expect(desktopButton).toBeUndefined();
       });
 
       it('clicking avatar opens same dropdown menu', async () => {
