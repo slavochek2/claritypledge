@@ -11,6 +11,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [technical]: onClick={handler} is unsafe when handler has optional params — always wrap
+
+**Context:** `onClick={handleSend}` on the send button passed SyntheticMouseEvent as the first arg to `handleSend(override?: string)`. The `??` operator evaluated to the event object (truthy, non-null), so `(event ?? inputValue).trim()` threw `TypeError: event.trim is not a function`. Bug was invisible — users only ever used keyboard Enter, which calls `handleSend()` with no args. P457 making the button prominent exposed it.
+**Decision:** Never bind `onClick={fn}` when `fn` has optional parameters that default to something meaningful. Always wrap: `onClick={() => fn()}`. This is safe regardless of whether the handler has optional params or not — the arrow wrapper is zero-cost and prevents accidental event object leakage.
+**Alternatives rejected:** Changing the handler signature to accept an Event — would require runtime type checking throughout the handler body.
+**Consequences:** Code review and /review-all should flag any `onClick={fn}` where `fn` has non-void optional params. The fix is always the one-character arrow wrap.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · commit `2861f561`
+
+---
+
+## 2026-02-27 [technical]: Escape hatch "Keep refining" must reset phase, not iterationCount
+
+**Context:** `handleKeepRefining` called `setIterationCount(0)` but left phase as `iterating`. Result: drawer stayed open (open when `phase === 'rating' || phase === 'iterating'`), escape hatch buttons disappeared (only shown when `iterationCount >= 1`), and no new AI stream was triggered. Complete deadlock — user couldn't submit, couldn't save, couldn't exit.
+**Decision:** Escape hatch "Keep refining" resets phase to `brain-dump` (re-enables input bar), clears `ratingValue` and `ratingComment`, and does NOT reset `iterationCount` (escape hatch should stay visible next cycle). Phase is the authoritative control for what UI is shown, not iteration count.
+**Alternatives rejected:** Triggering a new AI stream from "Keep refining" — user may want to type something different, not just continue; resetting iterationCount — removes the escape hatch on the next iteration, trapping the user again.
+**Consequences:** "Keep refining" = back to typing. "Save at this version" = forward to save. These are the two exits from the rating loop when the user doesn't want to rate 10.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · commit `27c7030f`
+
+---
+
 ## 2026-02-27 [product]: Chat empty state — AI bubble IS the empty state
 
 **Context:** `/chat` loaded blank with an invisible bottom bar. Needed a proper empty state design consistent with ChatGPT/Claude.ai patterns, mobile-friendly, scalable to future multi-chat.
