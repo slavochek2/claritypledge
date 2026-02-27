@@ -1,7 +1,7 @@
 ---
-status: qa
+status: done
 type: story
-rank: 0.5
+rank: 1000000.5
 workstream: C1
 tags:
   - stories
@@ -12,7 +12,6 @@ tags:
 prepped_date: '2026-02-24'
 blocked_by:
   - p424
-delivery_stage: decompose-review
 reviews:
   ux: null
   architect: null
@@ -25,7 +24,8 @@ test_files:
   - e2e/p425-story-filing.spec.ts
   - e2e/a11y/p425-accessibility.spec.ts
   - e2e/p425-smoke.spec.ts
-locked_at: '2026-02-26T13:53:18.108Z'
+locked_at: '2026-02-27T16:19:15.518Z'
+completed_at: '2026-02-27'
 ---
 
 # P425: AI-Guided Story Creation — Core Loop (position-triggered)
