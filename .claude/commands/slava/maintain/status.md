@@ -12,10 +12,13 @@ This conversation only. No git commands, no scanning features/, no project-wide 
 
 ## Output format (≤15 lines, no preamble)
 
+Before outputting, run `git branch --show-current` to get the branch name.
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Session Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Branch: {current branch from git}
 Done:
   ✓ Added ESLint auto-fix hook + wired into settings.json
   ✓ Two CLAUDE.md rules (prod-first debug, browser verify)
