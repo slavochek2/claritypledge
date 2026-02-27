@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [technical]: Derive UI visibility from data state — don't use separate boolean state
+
+**Context:** "Tell Your Story" CTA disappeared on refresh. `showStoryCTA` was `useState(false)` in all point/story card components, set to `true` only via click handler. On mount the loaded position data populated `userPosition` correctly, but `showStoryCTA` stayed `false`.
+**Decision:** Replace `const [showStoryCTA, setShowStoryCTA] = useState(false)` with `const showStoryCTA = !!userPosition` (derived const). When visibility depends on already-loaded server data, derive it from that data — don't maintain parallel boolean state.
+**Alternatives rejected:** Seeding `useState` with the initial value — works for mount but breaks when the value arrives async (point-detail-page loads position in a useEffect). Derived const handles both sync and async cases.
+**Consequences:** Pattern to apply whenever a "show X" flag exactly mirrors whether some data field is truthy. Less state, fewer sync bugs, no reset effects needed. Also unlocks multiple stories per point: CTA stays visible as long as position is set, regardless of whether a story was previously filed.
+**References:** [point-card-with-links.tsx](src/app/components/social/point-card-with-links.tsx) · [p451-story-cta.test.tsx](src/tests/p451-story-cta.test.tsx)
+
+---
+
 ## 2026-02-26 [technical]: Reuse PointCardWithLinks as context display in /chat — no bespoke card
 
 **Context:** /chat had a custom `ContextChip` (blue pill) showing point text + position label at the top of the AI story guide. It duplicated what `PointCardWithLinks` already renders on the profile Points tab — author name, position badge, linked stories, share/open actions.
