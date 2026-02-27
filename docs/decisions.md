@@ -8,6 +8,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [product]: Connections sub-page naming — route vs title vs label conventions
+
+**Context:** P459 post-QA UX pass. The page at `/p/:slug/connections` showed "My Connections" as its title, but currently only contains Clarity Partner Agreements — not the full social graph P431 will add.
+
+**Decision:** Three-layer naming split:
+- **Route**: `/connections` stays — intentionally forward-proof for P431 (Known/Unknown/Clarity Partner). Changing the route after P431 ships would break bookmarks.
+- **Title**: "My Partners" now (accurate to current content). Will upgrade to "My Connections" when P431 ships and the page earns that name.
+- **Metadata line label**: count only — "N Clarity Partners →". Never a CTA. The sub-page owns its own CTAs. Zero-state owner shows "0 Clarity Partners →" for consistency — the page's "+ New Agreement" button is the action, not the link text.
+- **Back button**: always "← Back", not the person's name. Name belongs in the page heading, not navigation chrome.
+
+**Alternatives rejected:** "My Partners" as the route (loses P431 upgrade path without URL change); "Add a Clarity Partner" for zero-state label (misleading — clicking opens a page, doesn't add); hiding metadata line for owner with 0 partners (removes the only entry point to the page).
+
+**Consequences:** When P431 ships, update page title from "My Partners" → "My Connections" (one-line change). Route stays unchanged. Follow "count in label, CTA in page" convention for all future metadata line states.
+
+**References:** [agreements-metadata-line.tsx](src/app/components/agreements/agreements-metadata-line.tsx) · [profile-connections-page.tsx](src/app/pages/profile-connections-page.tsx)
+
+---
+
 ## 2026-02-27 [technical]: Profile sub-page pattern — metadata line + /p/:slug/sub-route
 
 **Context:** P459 — Partner Agreements were sandwiched between the story CTA and tab bar on the profile page, treating social/relationship data as browseable content. Needed a dedicated surface.
