@@ -156,8 +156,6 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 
 **Tie-breaker with Transparency Principle:** When both rules apply — the action seems clear but something feels off — Transparency wins if the action is irreversible, data-mutating, or touches prod. Decisive Action wins everywhere else.
 
-**Tie-breaker between options:** When two options are both valid and neither is obviously simpler, prefer the one that requires less ongoing discipline — the option that enforces correctness mechanically rather than relying on memory. Speed of implementation is not a tie-breaker.
-
 ---
 
 ### Anti-Sycophancy — Hold Positions Under Pressure
