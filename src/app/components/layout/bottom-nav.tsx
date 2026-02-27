@@ -95,7 +95,9 @@ export function BottomNav() {
           }`;
           const itemInner = (
             <>
-              <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
+              <span className={`flex items-center justify-center rounded-2xl px-5 py-1 transition-all ${active ? "bg-blue-500/10" : ""}`}>
+                <Icon className={`w-5 h-5 transition-all ${active ? "stroke-[2.5px]" : "stroke-[1.5px]"}`} />
+              </span>
               <span className={`text-xs leading-none transition-all ${active ? "font-semibold" : "font-normal"}`}>{item.label}</span>
             </>
           );
