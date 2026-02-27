@@ -54,7 +54,7 @@ export function AgreementsMetadataLine({
   return (
     <Link
       to={`/p/${slug}/connections`}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mt-1"
+      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors min-h-[44px]"
     >
       <span aria-hidden="true">✦</span>
       {label}
