@@ -131,12 +131,12 @@ export function ProfileConnectionsPage() {
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
       >
         <ArrowLeft size={16} className="mr-1" />
-        {profile.name}
+        Back
       </button>
 
       {/* Page heading */}
       <h1 className="text-xl font-bold text-foreground mb-4">
-        {isOwner ? 'My Connections' : `${(profile.name ?? 'User').split(' ')[0]}'s Connections`}
+        {isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
       </h1>
 
       {/* Partner Agreements section */}

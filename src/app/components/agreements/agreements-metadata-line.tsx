@@ -1,11 +1,12 @@
 /**
  * @file agreements-metadata-line.tsx
  * @description P459: Compact profile header metadata line showing agreement count.
- * Links to /p/:slug/connections. Handles 4 viewer states:
+ * Links to /p/:slug/connections. Handles 5 viewer states:
  *   Owner with agreements        → "N Clarity Partners →"
+ *   Owner with 0 agreements      → "Find Clarity Partners →" (always shown so owner can reach the page)
  *   Visitor-party                → "You have N agreement(s) with this person →"
  *   Visitor with public visible  → "N Clarity Partners →"
- *   No visible agreements        → null (renders nothing)
+ *   Non-owner, no visible        → null (renders nothing)
  */
 
 import { Link } from 'react-router-dom';
@@ -29,11 +30,17 @@ export function AgreementsMetadataLine({
 
   const filtered = filterAgreementsForViewer(agreements, profileId, viewerProfileId);
 
-  if (filtered.length === 0) return null;
+  const isOwner = viewerProfileId === profileId;
+
+  // Non-owner with nothing visible → hide entirely
+  if (filtered.length === 0 && !isOwner) return null;
 
   let label: string;
 
-  if (viewerProfileId && viewerProfileId !== profileId) {
+  if (filtered.length === 0) {
+    // Owner with no agreements — show CTA so they can reach the page
+    label = 'Find Clarity Partners';
+  } else if (viewerProfileId && !isOwner) {
     // Check if viewer is party to any of the visible agreements
     const sharedCount = filtered.filter(
       (a) => a.creatorProfileId === viewerProfileId || a.partnerProfileId === viewerProfileId
@@ -46,7 +53,7 @@ export function AgreementsMetadataLine({
       label = `${n} Clarity Partner${n !== 1 ? 's' : ''}`;
     }
   } else {
-    // Owner (viewerProfileId === profileId) or anonymous (viewerProfileId === null)
+    // Owner with agreements (or anonymous — handled above)
     const n = filtered.length;
     label = `${n} Clarity Partner${n !== 1 ? 's' : ''}`;
   }
