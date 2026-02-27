@@ -30,7 +30,7 @@ import { pointsService } from '@/app/data/points-service';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
-import { RatingButtons } from '@/app/components/partners/shared';
+import { ChatRatingContent } from '@/app/components/partners/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 
 // ---------------------------------------------------------------------------
@@ -588,6 +588,11 @@ export function StoryGuideChat({
   // ---------------------------------------------------------------------------
   // Render helpers
   // ---------------------------------------------------------------------------
+  const latestDraft =
+    phase === 'rating' || phase === 'iterating'
+      ? [...messages].reverse().find(m => m.isDraftCard)
+      : null;
+
   const showInputBar =
     phase !== 'visibility' &&
     phase !== 'saving' &&
@@ -756,62 +761,41 @@ export function StoryGuideChat({
         </div>
       )}
 
-      {/* Rating drawer — replaces inline text input for rating/iterating phases */}
+      {/* Rating drawer — transparent overlay so thread history remains visible */}
       <Drawer open={phase === 'rating' || phase === 'iterating'} dismissible={false}>
-        <DrawerContent overlayClassName="bg-black/40">
+        <DrawerContent overlayClassName="bg-transparent">
+          {/* Latest draft pinned above rating UI — user rates what they can see */}
+          {latestDraft && (
+            <div className="px-4 pt-3 pb-3 border-b border-border">
+              <p className="text-xs text-muted-foreground mb-1.5">
+                Draft v{latestDraft.draftVersion} · {latestDraft.draftStatus === 'polish' ? 'Polish' : 'Draft'} · not saved
+              </p>
+              <p className="text-sm text-foreground line-clamp-4 leading-relaxed">{latestDraft.content}</p>
+            </div>
+          )}
           <DrawerHeader>
             <DrawerTitle className="sr-only">Rate the draft</DrawerTitle>
             <DrawerDescription className="text-base font-medium text-foreground">
               {iterationCount > 0 ? `Revision ${iterationCount + 1} — how well does this capture what you meant?` : 'How well does this capture what you meant?'}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pt-4 pb-8 flex flex-col gap-4">
-            <RatingButtons selectedValue={ratingValue} onSelect={setRatingValue} />
-            <textarea
-              value={ratingComment}
-              onChange={e => setRatingComment(e.target.value)}
-              onKeyDown={e => {
+          <div className="px-4 pt-4 pb-8">
+            <ChatRatingContent
+              ratingValue={ratingValue}
+              onRatingChange={setRatingValue}
+              comment={ratingComment}
+              onCommentChange={setRatingComment}
+              onSubmit={handleRatingSubmit}
+              onCommentKeyDown={e => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) {
                   e.preventDefault();
                   handleRatingSubmit();
                 }
               }}
-              placeholder={ratingValue !== null && ratingValue >= 7 ? 'Anything to change? (optional)' : 'What\'s off? (optional)'}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 resize-none outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
-              rows={2}
+              iterationCount={iterationCount}
+              onEscapeHatchSave={handleEscapeHatchSave}
+              onKeepRefining={handleKeepRefining}
             />
-            <button
-              type="button"
-              onClick={handleRatingSubmit}
-              disabled={ratingValue === null}
-              className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
-                ratingValue !== null
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              }`}
-            >
-              Submit
-            </button>
-            {iterationCount >= 1 && (
-              <div className="flex gap-2 flex-wrap justify-center pt-1">
-                <button
-                  type="button"
-                  data-testid="escape-hatch-save"
-                  onClick={handleEscapeHatchSave}
-                  className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  Save at this version
-                </button>
-                <button
-                  type="button"
-                  data-testid="escape-hatch-keep-refining"
-                  onClick={handleKeepRefining}
-                  className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  Keep refining
-                </button>
-              </div>
-            )}
           </div>
         </DrawerContent>
       </Drawer>

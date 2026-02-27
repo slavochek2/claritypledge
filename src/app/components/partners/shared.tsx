@@ -4,6 +4,7 @@
  * Note: Constants and utilities moved to separate files for Fast Refresh compatibility.
  */
 
+import type { KeyboardEvent } from 'react';
 import { RATING_OPTIONS } from './constants';
 
 // Re-export for backward compatibility
@@ -42,6 +43,80 @@ export function RatingButtons({ selectedValue, onSelect, disabled }: RatingButto
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Rating form content for the AI story guide chat drawer.
+ * Extracted from StoryGuideChat so the pattern can be reused across surfaces.
+ */
+export interface ChatRatingContentProps {
+  ratingValue: number | null;
+  onRatingChange: (v: number) => void;
+  comment: string;
+  onCommentChange: (v: string) => void;
+  onSubmit: () => void;
+  onCommentKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  iterationCount: number;
+  onEscapeHatchSave?: () => void;
+  onKeepRefining?: () => void;
+}
+
+export function ChatRatingContent({
+  ratingValue,
+  onRatingChange,
+  comment,
+  onCommentChange,
+  onSubmit,
+  onCommentKeyDown,
+  iterationCount,
+  onEscapeHatchSave,
+  onKeepRefining,
+}: ChatRatingContentProps) {
+  return (
+    <div className="flex flex-col gap-4">
+      <RatingButtons selectedValue={ratingValue} onSelect={onRatingChange} />
+      <textarea
+        value={comment}
+        onChange={e => onCommentChange(e.target.value)}
+        onKeyDown={onCommentKeyDown}
+        placeholder={ratingValue !== null && ratingValue >= 7 ? 'Anything to change? (optional)' : "What's off? (optional)"}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 resize-none outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
+        rows={2}
+      />
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={ratingValue === null}
+        className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+          ratingValue !== null
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
+            : 'bg-muted text-muted-foreground cursor-not-allowed'
+        }`}
+      >
+        Submit
+      </button>
+      {iterationCount >= 1 && onEscapeHatchSave && onKeepRefining && (
+        <div className="flex gap-2 flex-wrap justify-center pt-1">
+          <button
+            type="button"
+            data-testid="escape-hatch-save"
+            onClick={onEscapeHatchSave}
+            className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
+          >
+            Save at this version
+          </button>
+          <button
+            type="button"
+            data-testid="escape-hatch-keep-refining"
+            onClick={onKeepRefining}
+            className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
+          >
+            Keep refining
+          </button>
+        </div>
+      )}
     </div>
   );
 }
