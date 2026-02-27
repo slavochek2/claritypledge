@@ -1,16 +1,18 @@
 ---
-status: today
+status: done
 type: bug
-rank: 125483.0
+rank: 125483
 workstream: C1
 severity: high
-date_reported: 2026-02-26
-created_date: 2026-02-26
+date_reported: 2026-02-26T00:00:00.000Z
+created_date: 2026-02-26T00:00:00.000Z
 source: sim
 changes: p425
 tags:
   - chat
   - ux
+completed_at: '2026-02-27'
+locked_at: '2026-02-27T15:46:38.398Z'
 ---
 
 # BUG: Enter Key Does Not Submit Message in Chat

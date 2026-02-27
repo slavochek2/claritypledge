@@ -66,7 +66,8 @@ This is the **critical transaction handler** that runs after both magic link ver
 7. **New user (signup/pledge/Google):** generate slug, upsert profile
 8. **Existing user:** upsert with `is_verified=true`, preserve existing slug and pledge status
 9. Auto-RSVP if `action=rsvp` + `redirect=/events/X` params present
-10. Redirect to `redirect` param (validated) or `/events`
+10. Auto-stake position if `action=set-position` + `redirect=/point/X` + `value={agree|disagree|neutral}` params present (P458)
+11. Redirect to `redirect` param (validated) or `/events`
 
 **`source` parameter routing:**
 
@@ -188,6 +189,23 @@ Guest clicks the magic link in their email → `/auth/callback` → `AuthCallbac
 
 **Session ID persistence:**
 `clarity_live_session_id` is written to sessionStorage whenever `session.id` changes (inside the ref-sync useEffect in `clarity-live-page.tsx`). It is cleared by `clearStoredSession()` on normal session exit. This ensures AuthContext can always read the current session ID independently of React state.
+
+---
+
+## Post-Auth Action Handlers
+
+`AuthCallbackPage` supports `action=` params to auto-execute an action after signup:
+
+| `action` value | Required params | What it does |
+|----------------|-----------------|--------------|
+| `rsvp` | `redirect=/events/{id}` | Auto-RSVPs user to the event |
+| `set-position` | `redirect=/point/{id}`, `value=agree\|disagree\|neutral` | Auto-stakes position on the point (P458) |
+
+**Pattern:** Redirect target + action intent are encoded in URL when anon user clicks a gated action. After auth completes, `AuthCallbackPage` reads `action` param, executes it, then redirects to `redirect` target.
+
+**Security:** `ALLOWED_REDIRECT_PREFIXES` whitelist in `AuthCallbackPage.tsx:484` must include the redirect target prefix. As of P458: `/point/` was missing — add it before implementing.
+
+Current whitelist: `/events`, `/settings`, `/me`, `/p/`, `/about`, `/pledgers`, `/manifesto`, `/live`, `/point/` (to be added in P458).
 
 ---
 

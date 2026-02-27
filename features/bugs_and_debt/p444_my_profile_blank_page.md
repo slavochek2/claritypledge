@@ -1,5 +1,5 @@
 ---
-status: today
+status: all-done
 type: bug
 rank: 125483.5
 workstream: foundation
@@ -10,7 +10,7 @@ source: sim
 tags:
   - profile
   - navigation
-locked_at: '2026-02-27T09:32:01.914Z'
+locked_at: '2026-02-27T15:46:45.474Z'
 ---
 
 # BUG: "My Profile" Page Is Blank

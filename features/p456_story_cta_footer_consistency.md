@@ -15,6 +15,7 @@ test_files:
   - e2e/p456-story-cta-footer.spec.ts
   - e2e/a11y/p456-accessibility.spec.ts
   - e2e/p456-smoke.spec.ts
+created_date: 2026-02-27
 ---
 
 # P456: Story CTA footer — consistency across all surfaces

@@ -19,6 +19,7 @@ Before outputting, run `git branch --show-current` to get the branch name.
 Session Status
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Branch: {current branch from git}
+Spec: P{N} — delivery_stage: {stage}   ← omit if no active P-number this session
 Done:
   ✓ Added ESLint auto-fix hook + wired into settings.json
   ✓ Two CLAUDE.md rules (prod-first debug, browser verify)

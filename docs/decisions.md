@@ -11,6 +11,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [product]: Auth-gate strategy for anonymous users — redirect pattern
+
+**Context:** Anonymous users couldn't stake positions on points. Buttons were either hidden entirely (PointCardWithLinks) or silently no-oped (PointDetailPage). No path to registration existed for this action.
+**Decision:** Redirect pattern (Twitter embed model) — show position buttons unconditionally to all users, including anon. On click, redirect to `/signup?redirect=/point/{id}&action=set-position&value={agree|disagree|neutral}&pointTitle={encoded}`. After signup, `AuthCallbackPage` reads the `action=set-position` param and auto-applies the position. Show a context banner on the signup page: "You're staking a position on: {pointTitle}".
+**Alternatives rejected:** (A) Hide buttons for anon (current broken state — no conversion path); (B) Inline auth (email field expands below button) — incompatible with Google OAuth requirement, ToS acceptance, and embed context; (C) Modal auth popup — breaks embed iframe origin policy, adds complexity.
+**Consequences:** All interactive surfaces show buttons always. Embed clicks open `claritypledge.com/point/{id}` in a new tab (same Twitter pattern). `AuthCallbackPage` needs `action=set-position` handler mirroring existing `action=rsvp`. `/point/` must be added to `ALLOWED_REDIRECT_PREFIXES` whitelist. Story verification is out of scope (separate gate).
+**References:** `features/p458_anon_position_auth_gate.md`
+
+---
+
+## 2026-02-27 [technical]: `delivery_stage` frontmatter field surfaced in `/ss` output
+
+**Context:** P458 was created with tests generated but `/ss` showed no delivery stage, making it unclear how far along a spec was in the pipeline. User asked why delivery_stage wasn't visible.
+**Decision:** Added `Spec: P{N} — delivery_stage: {stage}` line to `/ss` output format (after Branch line, only when a P-number is active). The field itself is already set by pipeline skills (`/create-prd` → `1-prd-review`, `/ux` → `2-ux-review`, `/architect` → `3-arch-review`, `/generate-tests` → `4-tests-generated`). Gap was only in surfacing it.
+**Alternatives rejected:** Adding `delivery_stage` to kanban view (already visible there for in-progress specs); showing all open P-numbers (too noisy — `/ss` is session-scoped).
+**Consequences:** `/ss` now shows pipeline position at a glance. Agents must set `delivery_stage` in spec frontmatter consistently — the field is already documented in pipeline skills.
+**References:** `.claude/commands/slava/maintain/status.md`
+
+---
+
 ## 2026-02-27 [process]: `in-progress` kanban status is exclusively agent-set
 
 **Context:** User was manually dragging features to `in-progress` on the kanban to signal intent before starting `/dev`. This writes `locked_at` to frontmatter, which suppresses all automated status transitions — meaning the agent skips setting `in-progress` and `qa` automatically, forcing manual status management for the rest of the feature lifecycle.

@@ -1,17 +1,18 @@
 ---
-status: today
+status: all-done
 type: bug
-rank: 125484.0
+rank: 125484
 workstream: C1
 severity: high
-date_reported: 2026-02-26
-created_date: 2026-02-26
+date_reported: 2026-02-26T00:00:00.000Z
+created_date: 2026-02-26T00:00:00.000Z
 source: sim
 changes: p422
 tags:
   - rls
   - agreement
   - auth
+locked_at: '2026-02-27T15:46:50.568Z'
 ---
 
 # BUG: "Agreement Not Found" Error When Invited Party Accepts
