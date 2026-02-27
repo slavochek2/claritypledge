@@ -11,6 +11,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: pick-flow skill — 13 fixes from deep gap analysis + adversarial review
+
+**Context:** `/pick-flow` dropped `/generate-tests` from a recommendation where it was clearly warranted (conditional rendering, state-based UI). Post-session analysis revealed 8+ structural gaps in the skill.
+**Decision:** Applied 13 fixes across three passes (gap analysis agent → adversarial agent → second adversarial agent on concrete diff): (1) Added Step 0 task-type classifier before scoring (bug/refactor/migration/content each have default flows that skip the table); (2) Split scope scoring table into two sections — "Tier signals" (A/B/C) and "Step modifiers" (which commands to add); (3) Added explicit `/generate-tests` trigger: any conditional rendering, UI state change, interactive behavior, placeholder copy drift, button enable/disable, CSS class conditionals, all security/auth/DB cases; (4) Narrowed `/verify` to "net-new visual surface" (new layout, new component, visual acceptance criteria) — not every `.tsx` change; (5) Added `flow:` frontmatter instruction in "After user confirms" section; (6) Fixed refactor path (`/quick-feature → /dev`, no `/create-prd`, no `/ux`); (7) Infrastructure tier now requires concrete full-file draft BEFORE adversarial review — not just design intent; (8) Added drop-condition for `/ux` (specific test covering all 4 states + no net-new component + no mobile concerns); (9) Hardened command ordering rule; (10–13) Minor: test_files frontmatter check, decompose threshold, `/review-all` auto-runs note, quality principle.
+**Alternatives rejected:** Patching only the `/generate-tests` gap (would miss the deeper structural problem — tier signals and step modifiers mixed in one table). Full rewrite without adversarial review (risk of new blind spots).
+**Consequences:** pick-flow recommendations now match actual scope. The two-pass adversarial review pattern (once on design intent, once on concrete diff) is required for infrastructure tier changes. The skill's scope scoring table is now the authoritative reference for which commands to include.
+**References:** `.claude/commands/slava/build/pick-flow/SKILL.md`, commit `e8a04f54`
+
+---
+
+## 2026-02-27 [product]: Partner Agreements placement — header metadata, not content tab
+
+**Context:** Profile page showed Partner Agreements sandwiched between "Create a Story" CTA and the Stories/Points tab bar — treating agreements like browseable content. User noted "this is like a connections section." Ran `/ascii-flows` to explore placement: 30 flows scored, top option was a third "Partners(N)" tab.
+**Decision:** Agreements are social proof metadata (relationship layer), not browseable content. Correct placement: header metadata line on profile page — e.g., "✦ 2 Clarity Partners →" linking to a new `/p/:slug/connections` route. Agreements live on a dedicated Connections page, not in the content tab bar. The Connections page is the upgrade landing zone for P431 (Known/Unknown/Clarity Partner model).
+**Alternatives rejected:** Third "Partners(N)" tab alongside Stories/Points — agreements are not content of the same category; mixing them implies parity that doesn't exist. Inline expansion on profile — too verbose, breaks layout. Leaving in current position — sandwiched between story CTA and tabs, creates wrong visual hierarchy.
+**Consequences:** Profile header must display agreement count as metadata (owner sees all; visitor sees public active + agreements they're party to — existing `filterAgreementsForViewer()` logic already correct). New route `/p/:slug/connections` needed. P431 upgrade path: Connections page gains Known/Unknown rows when P431 ships — zero layout change to profile page. ASCII wireframes produced cover: owner view, visitor-with-agreements, visitor-no-agreements, viewer-is-party. Feature spec to be created with `flow: dev`.
+**References:** `src/app/components/agreements/profile-agreements-section.tsx`, `features/drafts/p431_connections_model.md`, session 2026-02-27
+
+---
+
+## 2026-02-27 [technical]: Skeleton as neutral third state during auth resolution
+
+**Context:** Nav showed logged-out CTAs (Login/Signup) for ~400–1000ms before auth resolved — a Flash of Wrong Content (FOWC) visible to logged-in users on every page load. Profile page showed empty stories/points sections before the secondary `Promise.all()` fetch completed.
+**Decision:** Three-state conditional in `SimpleNavigation`: `!sessionChecked || isLoading` → neutral skeleton pills (muted rounded placeholders matching the logged-in icon nav dimensions). Mobile button also skeletons during this window. Profile page adds `contentLoading` state wrapping the `Promise.all()` fetch — shows 3 skeleton cards instead of empty sections. Reset `realStories`, `realPoints`, `agreementsLoading` on profile navigation to prevent stale data flash.
+**Alternatives rejected:** "Safe default = logged-out state" (causes FOWC for returning users). Spinner over full page (intrusive, layout-shifting). Hiding nav entirely (layout jump).
+**Consequences:** Nav skeleton dimensions must match the logged-in icon nav (min-w-[80px], h-10) to avoid layout shift when auth resolves. The two auth gates are `sessionChecked` (after `getSession()`) and `isLoading` (after `getProfile()`); both must clear before showing real nav. Tests asserting old loading behavior must be updated when this pattern changes — update tests, don't revert the fix.
+**References:** `src/app/components/layout/simple-navigation.tsx`, `src/app/pages/profile-page-v2.tsx`, commit `4924bd0b`
+
+---
+
 ## 2026-02-27 [product]: AI image generation — opportunity ranking for Clarity Pledge
 
 **Context:** We added Imagen 4 Fast image generation to the content pipeline (LinkedIn posts). Ran two parallel research agents: one reading the codebase to analyze UX fit, one brainstorming 50 ideas, scoring all of them, and surfacing top 5.

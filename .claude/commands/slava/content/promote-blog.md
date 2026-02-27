@@ -60,7 +60,7 @@ The HTML page must include:
 - Post title + live URL (linked)
 - Instruction banner (yellow, prominent): "Reply with: **copy 1/2/3** (or paste edits) + **image A/B/C** — required. Type 'none' only if you explicitly want no image."
 - **Copy section**: 3 labeled cards (label, angle name, full copy text with URL)
-- **Image section**: 3 image cards with `<img>` tags using `urls.regular` (add `?w=600` for fast loading), alt_description, photographer name. Plus a "[none] — Text-only, no image" option styled as clearly secondary/dashed.
+- **Image section**: 3 image cards. Option A: embed the Imagen-generated image as a base64 `<img>` tag or reference `/tmp/post-image.png` via a `file://` URL. Options B+C: `<img>` tags using Unsplash `urls.regular` (add `?w=600` for fast loading) with alt_description and photographer name. Plus a "[none] — Text-only, no image" option styled as clearly secondary/dashed.
 
 Use clean card-based HTML with hover states. No JS needed — purely visual review.
 
@@ -128,7 +128,8 @@ If media upload fails, post text-only (`image: []`).
 | `POSTIZ_EMAIL` | `ops@claritypledge.com` |
 | `POSTIZ_PASSWORD` | Postiz account password |
 | `POSTIZ_LINKEDIN_CHANNEL_ID` | `cmlzashw80001t86nxnlk6pi2` (Vyacheslav Ladischenski) |
-| `UNSPLASH_ACCESS_KEY` | Client-ID for Unsplash API |
+| `GEMINI_API_KEY` | Imagen 4 image generation (via `/slava:gen-image`) |
+| `UNSPLASH_ACCESS_KEY` | Client-ID for Unsplash fallback photos |
 
 Note: `POSTIZ_API_TOKEN` in `.env.local` is stored for reference but Postiz uses cookie-based session auth for API calls — Bearer token auth returns 401 from CLI.
 
