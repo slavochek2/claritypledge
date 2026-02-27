@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 1
 workstream: C1
@@ -119,14 +119,14 @@ Move agreements off the profile content area into two surfaces:
 
 ## Acceptance Criteria
 
-- [ ] Profile page no longer shows Partner Agreements section between story CTA and tab bar
-- [ ] Profile header shows compact metadata line with agreement count (owner: all; visitor: filtered by existing visibility rules)
-- [ ] Metadata line links to `/p/:slug/connections`
-- [ ] `/p/:slug/connections` route renders agreement list with correct visibility filtering
-- [ ] Owner sees "New Agreement" CTA on connections page
-- [ ] Visitor with no visible agreements: metadata line hidden, connections page shows appropriate empty state
-- [ ] No regression in existing agreement visibility logic (all 5 viewer states pass)
-- [ ] Mobile layout correct on both profile header and connections page
+- [x] Profile page no longer shows Partner Agreements section between story CTA and tab bar
+- [x] Profile header shows compact metadata line with agreement count (owner: all; visitor: filtered by existing visibility rules)
+- [x] Metadata line links to `/p/:slug/connections`
+- [x] `/p/:slug/connections` route renders agreement list with correct visibility filtering
+- [x] Owner sees "New Agreement" CTA on connections page
+- [x] Visitor with no visible agreements: metadata line hidden, connections page shows appropriate empty state
+- [x] No regression in existing agreement visibility logic (all 5 viewer states pass)
+- [x] Mobile layout correct on both profile header and connections page
 
 ## Testing
 

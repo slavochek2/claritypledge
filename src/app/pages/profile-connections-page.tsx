@@ -136,7 +136,7 @@ export function ProfileConnectionsPage() {
 
       {/* Page heading */}
       <h1 className="text-xl font-bold text-foreground mb-4">
-        {isOwner ? 'My Connections' : `${profile.name.split(' ')[0]}'s Connections`}
+        {isOwner ? 'My Connections' : `${(profile.name ?? 'User').split(' ')[0]}'s Connections`}
       </h1>
 
       {/* Partner Agreements section */}
