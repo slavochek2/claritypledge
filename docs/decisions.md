@@ -11,6 +11,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [product]: Chat empty state — AI bubble IS the empty state
+
+**Context:** `/chat` loaded blank with an invisible bottom bar. Needed a proper empty state design consistent with ChatGPT/Claude.ai patterns, mobile-friendly, scalable to future multi-chat.
+**Decision:** The AI opening message is the empty state — no separate welcome screen, no layout mode switch. Input is vertically centered (with the bubble) before any user message, then snaps to sticky bottom after first send. Send button is always blue regardless of input content (functional disabled kept as silent no-op). Placeholder: "Tell me so I understand you".
+**Alternatives rejected:** (A) Separate welcome card above sticky input — adds layout complexity, unnecessary mode switch. (B) Keep sticky input with welcome overlay — input still invisible, two layers. (C) "Start anywhere. I'll follow." placeholder — too generic, doesn't reflect product purpose.
+**Consequences:** `/chat` always opens with purposeful content. Empty state resolved without new components. Pattern scales to multi-chat (each chat starts with same AI opening bubble). Centering logic keyed on `isEmptyState` (no user messages) not phase, since phase transitions idle→brain-dump immediately on mount.
+**References:** [p457 spec](features/p457_chat_empty_state_redesign.md) · [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx)
+
+---
+
+## 2026-02-27 [technical]: isEmptyState derived from messages, not phase — phase transitions on mount
+
+**Context:** P457 centering logic was keyed on `phase === 'idle'`, but the opening message useEffect fires immediately and calls `setPhase('brain-dump')` before the first paint. So `justify-center` was never applied — phase was already `brain-dump` by the time React rendered.
+**Decision:** Derive layout conditions from message state, not phase state, when the distinction matters. `const isEmptyState = !messages.some(m => m.role === 'user')` captures "before the user has sent anything" regardless of what phase the AI has set internally.
+**Alternatives rejected:** Keying on `phase === 'idle'` — doesn't survive the first useEffect tick; delaying the opening message to after first render — would cause flicker.
+**Consequences:** Pattern generalises: whenever a layout mode must persist until user action (not until internal state change), derive from the user-action signal (messages, clicks, submissions), not the internal phase machine.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx)
+
+---
+
+## 2026-02-27 [process]: pick-flow test threshold — "regression annoying to debug" not "security-adjacent"
+
+**Context:** The original pick-flow test threshold ("would regression be silent or security-adjacent?") optimised for saving Claude time — generating tests only for hard-to-catch failures. But Claude time is cheap; the real cost is debugging a broken UI flow later.
+**Decision:** Test threshold updated to "whenever a regression would be annoying to debug manually" — includes any conditional rendering, UI state change, or interactive behaviour. Pure CSS-only changes, single hardcoded strings, and one-liner typo fixes are the only safe skips.
+**Alternatives rejected:** Keeping security-adjacent threshold — optimises the wrong resource; always generating tests — no meaningful skip cases, overhead without gain.
+**Consequences:** pick-flow now includes `/generate-tests` for all interactive UI work. Unit tests for P457 proved value: they document the intended behaviour of `getPlaceholder()`, `isEmptyState`, and send button logic in a way inline code doesn't.
+**References:** [pick-flow SKILL.md](.claude/commands/slava/build/pick-flow/SKILL.md)
+
+---
+
 ## 2026-02-27 [process]: Subagent analysis ≠ /claude-md gate — they answer different questions
 
 **Context:** After a subagent recommended changes to CLAUDE.md, the user said "lets do" and the agent applied them without running `/claude-md`. One of the two changes (a tie-breaker added to the Decisive Action section) tripled existing content from PRINCIPLES.md and sat in the wrong section. The `/claude-md` gate caught it on the follow-up run and it was removed.
