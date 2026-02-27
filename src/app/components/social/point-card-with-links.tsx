@@ -53,6 +53,8 @@ interface PointCardWithLinksProps {
   hideActions?: boolean;
   /** Disable click-to-navigate behavior */
   disableNavigation?: boolean;
+  /** Replace the "Tell your story →" CTA with a custom node (e.g. a status chip in /chat) */
+  storyCTAOverride?: React.ReactNode;
   /** Live session mode: shows position buttons + expandable stories, hides share/open */
   liveSessionMode?: boolean;
   /** Callback when position is selected (live session mode) */
@@ -83,6 +85,7 @@ export function PointCardWithLinks({
   hideActions = false,
   disableNavigation = false,
   liveSessionMode = false,
+  storyCTAOverride,
   onPositionSelect,
   selectedPosition,
   getPointPositionCounts,
@@ -477,13 +480,15 @@ export function PointCardWithLinks({
     </div>
     {/* P451: Story CTA — shown after staking a position */}
     {showStoryCTA && !liveSessionMode && (
-      <button
-        type="button"
-        className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
-        onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
-      >
-        Tell your story →
-      </button>
+      storyCTAOverride !== undefined ? storyCTAOverride : (
+        <button
+          type="button"
+          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
+          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+        >
+          Tell your story →
+        </button>
+      )
     )}
     </>
   );

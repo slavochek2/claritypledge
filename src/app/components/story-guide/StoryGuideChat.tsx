@@ -611,6 +611,11 @@ export function StoryGuideChat({
             selectedPosition={localPosition}
             onPositionSelect={handlePositionSelect}
             disableNavigation
+            storyCTAOverride={localPosition ? (
+              <p className="mt-2 text-xs text-muted-foreground text-center">
+                ✓ Position saved — write your experience below ↓
+              </p>
+            ) : null}
           />
         </div>
       )}
