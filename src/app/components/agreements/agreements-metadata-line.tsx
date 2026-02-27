@@ -10,7 +10,7 @@
 
 import { Link } from 'react-router-dom';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
-import { filterAgreementsForViewer } from './profile-agreements-section';
+import { filterAgreementsForViewer } from './filter-agreements';
 
 interface AgreementsMetadataLineProps {
   profileId: string;

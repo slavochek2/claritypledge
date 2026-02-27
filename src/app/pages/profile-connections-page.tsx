@@ -14,7 +14,7 @@ import type { Profile } from '@/app/types';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
-import { filterAgreementsForViewer } from '@/app/components/agreements/profile-agreements-section';
+import { filterAgreementsForViewer } from '@/app/components/agreements/filter-agreements';
 import { AgreementRow } from '@/app/components/agreements/agreement-row';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -155,7 +155,6 @@ export function ProfileConnectionsPage() {
             <ul
               className="space-y-0.5"
               aria-label={`${visibleAgreements.length} agreement${visibleAgreements.length !== 1 ? 's' : ''}`}
-              role="list"
             >
               {visibleAgreements.map((agreement) => (
                 <AgreementRow

@@ -8,6 +8,9 @@
 import { Link } from 'react-router-dom';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementRow } from './agreement-row';
+import { filterAgreementsForViewer } from './filter-agreements';
+
+export { filterAgreementsForViewer };
 
 export interface ProfileAgreementsSectionProps {
   profileId: string;
@@ -45,31 +48,6 @@ function SectionHeader() {
       </h2>
     </div>
   );
-}
-
-// ─── Visibility filtering ─────────────────────────────────────────────────────
-
-export function filterAgreementsForViewer(
-  agreements: ClarityAgreement[],
-  profileId: string,
-  viewerProfileId: string | null,
-): ClarityAgreement[] {
-  // Owner sees everything
-  if (viewerProfileId === profileId) {
-    return agreements;
-  }
-
-  return agreements.filter((a) => {
-    // Viewer is a party in this agreement
-    if (
-      viewerProfileId &&
-      (viewerProfileId === a.creatorProfileId || viewerProfileId === a.partnerProfileId)
-    ) {
-      return true;
-    }
-    // Public active agreements visible to all
-    return a.visibility === 'public' && a.status === 'active';
-  });
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
