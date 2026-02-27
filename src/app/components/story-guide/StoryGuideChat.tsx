@@ -111,7 +111,7 @@ const MOCK_AI = import.meta.env.VITE_MOCK_AI === 'true';
 // ---------------------------------------------------------------------------
 
 function getPlaceholder(phase: ChatPhase): string {
-  if (phase === 'idle' || phase === 'brain-dump') return "What's on your mind?";
+  if (phase === 'idle' || phase === 'brain-dump') return "Tell me so I understand you";
   if (phase === 'rating' || phase === 'iterating') return '0–10, or describe what\'s off...';
   if (phase === 'streaming') return 'Thinking...';
   return '';
@@ -227,7 +227,7 @@ export function StoryGuideChat({
   // Opening message for position-triggered flow
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (pointId && pointText && messages.length === 0) {
+    if (messages.length === 0) {
       setMessages([
         {
           id: makeId(),
@@ -239,7 +239,7 @@ export function StoryGuideChat({
       setPhase('brain-dump');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pointId, pointText]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // AbortController cleanup on unmount
@@ -721,7 +721,11 @@ export function StoryGuideChat({
 
       {/* Input bar (hidden during visibility/saving/saved phases) */}
       {showInputBar && (
-        <div className="sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe">
+        <div className={
+          phase === 'idle'
+            ? 'flex items-center justify-center flex-1 px-4 py-3'
+            : 'sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe'
+        }>
           <div className="rounded-2xl border border-border bg-background shadow-sm px-4 py-3 flex items-end gap-2">
             <textarea
               data-testid="story-guide-input"
@@ -739,11 +743,7 @@ export function StoryGuideChat({
               onClick={handleSend}
               disabled={sendDisabled}
               aria-label="Send message"
-              className={`p-2 rounded-full transition-colors ${
-                !sendDisabled
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              }`}
+              className="p-2 rounded-full transition-colors bg-blue-600 text-white hover:bg-blue-700"
             >
               →
             </button>
