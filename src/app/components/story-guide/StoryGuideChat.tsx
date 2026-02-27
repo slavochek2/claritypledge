@@ -605,7 +605,7 @@ export function StoryGuideChat({
     inputValue.length > MAX_BRAIN_DUMP_LENGTH;
 
   return (
-    <div className="flex flex-col h-full" data-testid="story-guide-chat">
+    <div className={`flex flex-col h-full${phase === 'idle' ? ' justify-center' : ''}`} data-testid="story-guide-chat">
       {/* Context card (only when full point data is available) */}
       {contextPoint && (
         <div data-testid="context-card" className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
@@ -628,7 +628,7 @@ export function StoryGuideChat({
       {/* Thread area */}
       <div
         ref={threadRef}
-        className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+        className={phase === 'idle' ? 'px-4 py-6 space-y-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-4'}
       >
         {/* Message list */}
         {messages.map(msg => {
@@ -723,7 +723,7 @@ export function StoryGuideChat({
       {showInputBar && (
         <div className={
           phase === 'idle'
-            ? 'flex items-center justify-center flex-1 px-4 py-3'
+            ? 'px-4 py-3'
             : 'sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe'
         }>
           <div className="rounded-2xl border border-border bg-background shadow-sm px-4 py-3 flex items-end gap-2">
