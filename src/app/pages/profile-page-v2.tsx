@@ -107,7 +107,7 @@ import { calibrationService } from "@/app/data/calibration-service";
 import { agreementsService } from "@/app/data/agreements-service";
 import type { ClarityAgreement } from "@/app/data/agreements-service.interface";
 import { RemovePositionDialog, useRemovePositionGuard } from "@/app/components/shared/remove-position-dialog";
-import { ProfileAgreementsSection } from "@/app/components/agreements/profile-agreements-section";
+import { AgreementsMetadataLine } from "@/app/components/agreements/agreements-metadata-line";
 import type { StoryWithPoints, PointWithUserPosition, PointSummary, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
@@ -711,6 +711,15 @@ export function ProfilePageV2() {
                     {linkifyText(profile.bio)}
                   </p>
                 )}
+                {/* P459: Compact agreements metadata line — links to /p/:slug/connections */}
+                {!agreementsLoading && (
+                  <AgreementsMetadataLine
+                    profileId={profile.id}
+                    viewerProfileId={currentUser?.id ?? null}
+                    agreements={agreements}
+                    slug={profile.slug}
+                  />
+                )}
               </div>
 
               {/* Share button - only shown for profile owner */}
@@ -740,16 +749,6 @@ export function ProfilePageV2() {
               </button>
             </div>
           )}
-
-          {/* P422: Partner Agreements section */}
-          <div className="mt-3">
-            <ProfileAgreementsSection
-              profileId={profile.id}
-              viewerProfileId={currentUser?.id ?? null}
-              agreements={agreements}
-              isLoading={agreementsLoading}
-            />
-          </div>
 
           {/* Content tab selector */}
           <div className="bg-card border border-border mt-3 rounded-lg overflow-hidden">

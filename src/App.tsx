@@ -38,6 +38,7 @@ const CreateAgreementPage = lazy(() => import("@/app/pages/create-agreement-page
 const AgreementPage = lazy(() => import("@/app/pages/agreement-page").then(m => ({ default: m.AgreementPage })));
 const AcceptAgreementPage = lazy(() => import("@/app/pages/accept-agreement-page").then(m => ({ default: m.AcceptAgreementPage })));
 const DeclinedAgreementPage = lazy(() => import("@/app/pages/declined-agreement-page").then(m => ({ default: m.DeclinedAgreementPage })));
+const ProfileConnectionsPage = lazy(() => import("@/app/pages/profile-connections-page").then(m => ({ default: m.ProfileConnectionsPage })));
 
 // Isolated prototypes - completely self-contained, no dependencies on main app
 const TreePage = lazy(() => import("@/app/pages/TreePage").then(m => ({ default: m.TreePage })));
@@ -209,6 +210,17 @@ export default function ClarityPledgeApp() {
             <ClarityLandingLayout>
               <LazyRoute>
                 <MySessionsPage />
+              </LazyRoute>
+            </ClarityLandingLayout>
+          }
+        />
+
+        <Route
+          path="/p/:id/connections"
+          element={
+            <ClarityLandingLayout>
+              <LazyRoute>
+                <ProfileConnectionsPage />
               </LazyRoute>
             </ClarityLandingLayout>
           }

@@ -1,9 +1,9 @@
 ---
-status: today
+status: in-progress
 type: story
-rank: 125505
+rank: 1
 workstream: C1
-created_date: 2026-02-27
+created_date: 2026-02-27T00:00:00.000Z
 flow: dev
 tags: []
 uat_file: features/uat/p459.md
@@ -12,6 +12,7 @@ test_files:
   - e2e/p459-connections-page.spec.ts
   - e2e/a11y/p459-accessibility.spec.ts
   - e2e/p459-smoke.spec.ts
+locked_at: '2026-02-27T15:13:20.290Z'
 ---
 
 # P459: Move Partner Agreements to Connections Page

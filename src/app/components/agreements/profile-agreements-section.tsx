@@ -49,7 +49,7 @@ function SectionHeader() {
 
 // ─── Visibility filtering ─────────────────────────────────────────────────────
 
-function filterAgreementsForViewer(
+export function filterAgreementsForViewer(
   agreements: ClarityAgreement[],
   profileId: string,
   viewerProfileId: string | null,

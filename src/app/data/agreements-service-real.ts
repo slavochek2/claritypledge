@@ -240,8 +240,15 @@ export const realAgreementsService: AgreementsService = {
       .or(`creator_profile_id.eq.${profileId},partner_profile_id.eq.${profileId}`);
 
     if (!isOwner) {
-      // Non-owner: only active public agreements
-      query = query.eq('status', 'active').eq('visibility', 'public');
+      if (viewerProfileId) {
+        // Visitor who may be party: include public active OR any agreement they are party to
+        query = query.or(
+          `and(status.eq.active,visibility.eq.public),creator_profile_id.eq.${viewerProfileId},partner_profile_id.eq.${viewerProfileId}`
+        );
+      } else {
+        // Anonymous: only public active agreements
+        query = query.eq('status', 'active').eq('visibility', 'public');
+      }
     } else {
       // Owner: active, pending, terminated (not declined, not expired — those are noise)
       query = query.in('status', ['active', 'pending', 'terminated']);
