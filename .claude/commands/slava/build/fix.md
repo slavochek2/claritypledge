@@ -106,12 +106,33 @@ Skip if: working tree is clean, or all dirty files belong to this fix.
 
 ### Phase 0: Branch check
 
-If current branch is `main` AND this is a P-number feature fix (not an urgent prod hotfix):
-- Check if a `feature/pN*` branch already exists → if yes, `git checkout feature/pN-...` before starting
-- If no branch exists, create one: `git checkout -b feature/pN-short-description`
-- Report: "Switching to feature/pN-... — fix will stay off main until /ship."
+Check the current branch and its distance from `main`:
+```bash
+git branch --show-current
+git rev-list --count main..HEAD
+```
 
-Skip if: fixing a live prod bug that needs immediate deployment (hotfix), or already on the right feature branch.
+- **If on `main`** AND this is a P-number feature fix (not an urgent prod hotfix):
+  - Check if a `feature/pN*` branch already exists → if yes, `git checkout feature/pN-...` before starting
+  - If no branch exists, create one: `git checkout -b feature/pN-short-description`
+  - Report: "Switching to feature/pN-... — fix will stay off main until /ship."
+
+- **If on a feature branch with ≤ 5 commits ahead of main**: safe, proceed.
+
+- **If on a feature branch with > 5 commits ahead of main**: **STOP and warn**:
+  ```
+  ⚠️  You're on `{branch}` — {N} commits ahead of main.
+  Running /ship later will ship ALL {N} commits, not just this work.
+
+  A) Create a new branch off main for this change (recommended — clean /ship path)
+  B) Stay here — cherry-pick the commit to a main-based branch after implementation
+  C) Proceed anyway — you intend to ship this whole branch
+
+  Which? (A/B/C)
+  ```
+  Wait for decision. Do NOT proceed without confirmation.
+
+Skip the check entirely for non-P-number tasks (infra, docs, small inline fixes) or urgent prod hotfixes.
 
 ### Phase 0.1: Mark in Progress
 
