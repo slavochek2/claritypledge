@@ -11,6 +11,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [technical]: Double-layer guard for self-action prevention on agreements
+
+**Context:** P453 — creator could open their own invitation link while logged in and reach the "I Accept & Co-Sign" CTA because `partnerProfileId` is NULL for new agreements (partner hasn't signed up yet). The `null && null !== currentUser.id` expression short-circuits to false, bypassing the wrong-user check.
+
+**Decision:** Guard self-actions at both layers — frontend condition and backend RPC WHERE clause. Frontend for UX (correct page state immediately), backend for security (can't be bypassed via direct API call).
+
+**Field choice:** Use `ag.creatorProfileId` (top-level string on `ClarityAgreement`, always populated) rather than `ag.creator?.profileId` (joined party object, can be null if profile fetch fails).
+
+**Pattern for future use:** Any action that should be blocked for the initiating user (accept, endorse, verify own content) needs the same two-layer guard: frontend state check + SECURITY DEFINER RPC WHERE clause with `table.creator_id != p_actor_id`.
+
+**References:** [accept-agreement-page.tsx](src/app/pages/accept-agreement-page.tsx) · [20260227120000_p453_accept_agreement_creator_guard.sql](supabase/migrations/20260227120000_p453_accept_agreement_creator_guard.sql)
+
+---
+
 ## 2026-02-27 [product]: Auth-gate strategy for anonymous users — redirect pattern
 
 **Context:** Anonymous users couldn't stake positions on points. Buttons were either hidden entirely (PointCardWithLinks) or silently no-oped (PointDetailPage). No path to registration existed for this action.
