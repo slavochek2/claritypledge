@@ -150,7 +150,6 @@ export function StoryGuideChat({
   const [inputValue, setInputValue] = useState('');
   const [currentDraftVersion, setCurrentDraftVersion] = useState(0);
   const [polishedContent, setPolishedContent] = useState<string | null>(null);
-  const [visibilitySource, setVisibilitySource] = useState<'polish' | 'escape' | null>(null);
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   const [ratingComment, setRatingComment] = useState('');
 
@@ -300,6 +299,8 @@ export function StoryGuideChat({
         setPhase('brain-dump'); // Reset to allow retry
         setConsecutiveFailures(prev => prev + 1);
         setApiError('Something went wrong with the AI. Try again?');
+        setRatingValue(null);
+        setRatingComment('');
         return; // Don't commit accumulated content as a message
       }
 
@@ -349,7 +350,6 @@ export function StoryGuideChat({
           };
 
           setMessages(prev => [...prev, polishCard]);
-          setVisibilitySource('polish');
           setPhase('visibility');
           return;
         } else {
@@ -445,7 +445,6 @@ export function StoryGuideChat({
   // Escape hatch handlers
   // ---------------------------------------------------------------------------
   const handleEscapeHatchSave = useCallback(() => {
-    setVisibilitySource('escape');
     setPhase('visibility');
   }, []);
 
@@ -661,7 +660,7 @@ export function StoryGuideChat({
             selectedVisibility={selectedVisibility}
             onVisibilityChange={setSelectedVisibility}
             onSave={handleSave}
-            onBack={() => setPhase(visibilitySource === 'escape' ? 'iterating' : 'rating')}
+            onBack={() => setPhase('iterating')}
             isSaving={isSaving}
           />
         )}
@@ -676,6 +675,7 @@ export function StoryGuideChat({
               ref={inputRef}
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
+              disabled={phase === 'streaming'}
               placeholder={getPlaceholder(phase)}
               onKeyDown={handleKeyDown}
               className="flex-1 resize-none border-0 shadow-none focus-visible:ring-0 bg-transparent text-base placeholder:text-muted-foreground/70 min-h-[24px] max-h-[150px] overflow-y-auto outline-none"
@@ -710,18 +710,20 @@ export function StoryGuideChat({
 
       {/* Rating drawer — replaces inline text input for rating/iterating phases */}
       <Drawer open={phase === 'rating' || phase === 'iterating'} dismissible={false}>
-        <DrawerContent>
+        <DrawerContent overlayClassName="bg-black/40">
           <DrawerHeader>
-            <DrawerTitle>How well does this capture what you meant?</DrawerTitle>
-            <DrawerDescription>Pick a score, then add a note if something's off.</DrawerDescription>
+            <DrawerTitle className="sr-only">Rate the draft</DrawerTitle>
+            <DrawerDescription className="text-base font-medium text-foreground">
+              How well does this capture what you meant?
+            </DrawerDescription>
           </DrawerHeader>
-          <div className="px-4 pb-8 flex flex-col gap-4">
+          <div className="px-4 pt-4 pb-8 flex flex-col gap-4">
             <RatingButtons selectedValue={ratingValue} onSelect={setRatingValue} />
             <textarea
               value={ratingComment}
               onChange={e => setRatingComment(e.target.value)}
-              placeholder="What's off? (optional)"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 resize-none outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px]"
+              placeholder={ratingValue !== null && ratingValue >= 7 ? 'Anything to change? (optional)' : 'What\'s off? (optional)'}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground/70 resize-none outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[60px]"
               rows={2}
             />
             <button
@@ -736,7 +738,7 @@ export function StoryGuideChat({
             >
               Submit
             </button>
-            {iterationCount >= 3 && (
+            {iterationCount >= 1 && (
               <div className="flex gap-2 flex-wrap justify-center pt-1">
                 <button
                   type="button"
