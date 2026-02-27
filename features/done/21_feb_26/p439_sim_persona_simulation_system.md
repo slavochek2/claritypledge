@@ -1,16 +1,16 @@
 ---
-status: done
-completed_at: "2026-02-26"
+status: all-done
 type: task
-rank: 125481.0
+rank: 125481
 workstream: foundation
-created_date: 2026-02-26
+created_date: 2026-02-26T00:00:00.000Z
 tags:
   - personas
   - ux-simulation
   - sim
   - change-request
   - tooling
+locked_at: '2026-02-27T15:19:32.656Z'
 ---
 
 # P439: /sim — Persona Simulation System

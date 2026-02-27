@@ -8,6 +8,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: kanban `flow` badge + delivery_stage auto-clear invariant
+
+**Context:** Kanban showed many cards without `delivery_stage` — hard to tell if the pipeline ran or was skipped. Also p422/p425 had stale `delivery_stage: decompose-review` (pre-P440 format) after moving to `status: qa`.
+
+**Decision:** (1) Added `flow` field to kanban Feature type — shown as a muted badge on cards. Set by `/pick-flow`, `/dev`, `/fix` (values: `fix`, `dev`, `inline`, `quick-feature`). Lets you tell "full pipeline" from "quick fix" at a glance without opening the spec. (2) Added auto-clear rule to `fix-frontmatter.py`: if `status: qa` and `delivery_stage` is present, clear it. Invariant: `qa` means `/dev` completed — `delivery_stage` is pre-dev only and should never be present on qa cards.
+
+**Alternatives rejected:** Showing delivery_stage on QA cards to indicate "went through full pipeline" — confusing; the `flow` badge is the right signal for that.
+
+**Consequences:** `flow` badge is display-only (never written by the kanban UI, only by agent/skill frontmatter edits). `fix-frontmatter.py` auto-clears stale delivery_stage on every run. Future agents must set `flow:` in spec frontmatter when they pick a flow.
+
+**References:** [tools/kanban/src/lib/types.ts](tools/kanban/src/lib/types.ts) · [scripts/fix-frontmatter.py](scripts/fix-frontmatter.py)
+
+---
+
 ## 2026-02-27 [product]: Connections sub-page naming — route vs title vs label conventions
 
 **Context:** P459 post-QA UX pass. The page at `/p/:slug/connections` showed "My Connections" as its title, but currently only contains Clarity Partner Agreements — not the full social graph P431 will add.

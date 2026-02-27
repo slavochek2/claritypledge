@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-02-26
+Last updated: 2026-02-27
 
 ---
 
@@ -73,6 +73,7 @@ Last updated: 2026-02-26
 ## Agreements & Relationships
 
 - **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
+- **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
 

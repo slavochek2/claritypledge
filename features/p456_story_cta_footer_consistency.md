@@ -1,9 +1,15 @@
 ---
-status: week
+status: blocked
 type: story
-rank: 125494.0
+rank: 2
 flow: create-prd → generate-tests → decompose → dev → verify
-tags: [story-cta, position, consistency, ux, footer, p451-followup]
+tags:
+  - story-cta
+  - position
+  - consistency
+  - ux
+  - footer
+  - p451-followup
 prepped_date: '2026-02-27'
 delivery_stage: 5-decompose-review
 reviews:
@@ -15,7 +21,8 @@ test_files:
   - e2e/p456-story-cta-footer.spec.ts
   - e2e/a11y/p456-accessibility.spec.ts
   - e2e/p456-smoke.spec.ts
-created_date: 2026-02-27
+created_date: 2026-02-27T00:00:00.000Z
+locked_at: '2026-02-27T16:33:53.945Z'
 ---
 
 # P456: Story CTA footer — consistency across all surfaces

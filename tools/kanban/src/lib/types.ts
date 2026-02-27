@@ -34,6 +34,7 @@ export interface Feature {
    */
   hypothesis?: string // e.g., "H-Biz", "H2"
   delivery_stage?: DeliveryStage // Software delivery process stage (AI-managed)
+  flow?: 'fix' | 'dev' | 'inline' | 'quick-feature' // Implementation flow chosen by /pick-flow or agent
   tags: string[]
   created?: string
   // Added for P113: Backlog & Sorting improvements

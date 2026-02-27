@@ -1,17 +1,18 @@
 ---
 id: p451
-title: "Guard: creator cannot accept their own agreement"
+title: 'Guard: creator cannot accept their own agreement'
 type: bug
-status: qa
+status: all-done
 priority: high
 flow: fix
 source: sim
 changes: p422
 persona: invited-party
-created: 2026-02-27
+created: 2026-02-27T00:00:00.000Z
 tags: []
-rank: 125502.0
-created_date: 2026-02-27
+rank: 125502
+created_date: 2026-02-27T00:00:00.000Z
+locked_at: '2026-02-27T16:19:31.454Z'
 ---
 
 ## Problem

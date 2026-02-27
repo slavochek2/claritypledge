@@ -2,7 +2,7 @@
 id: p454
 title: 'Fix: position button clears optimistically before Remove dialog confirmed'
 type: bug
-status: done
+status: all-done
 severity: medium
 date_reported: 2026-02-27T00:00:00.000Z
 date_resolved: 2026-02-27T00:00:00.000Z
@@ -16,8 +16,7 @@ resolution: >-
 tags: []
 created_date: 2026-02-27T00:00:00.000Z
 rank: 125469
-completed_at: '2026-02-27'
-locked_at: '2026-02-27T08:49:58.567Z'
+locked_at: '2026-02-27T15:19:50.051Z'
 ---
 
 # P454: Fix position button clears optimistically before Remove dialog confirmed

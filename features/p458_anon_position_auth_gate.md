@@ -1,7 +1,7 @@
 ---
-status: today
+status: blocked
 type: story
-rank: 94112.25
+rank: 1
 flow: medium
 workstream: C2
 tags:
@@ -23,7 +23,8 @@ test_files:
   - e2e/p458-smoke.spec.ts
   - e2e/integration/p458-auth-callback-position.spec.ts
   - e2e/a11y/p458-accessibility.spec.ts
-locked_at: '2026-02-27T15:17:19.704Z'
+locked_at: '2026-02-27T16:33:50.138Z'
+created_date: 2026-02-27T00:00:00.000Z
 ---
 
 # P458 — Anonymous User Auth Gate with Context Preservation

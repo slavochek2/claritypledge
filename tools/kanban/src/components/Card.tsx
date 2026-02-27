@@ -196,6 +196,13 @@ export function Card({ feature, onFeatureUpdate }: CardProps) {
           </span>
         )}
 
+        {/* Flow — show on qa cards so you can tell how it was implemented */}
+        {feature.flow && (
+          <span style={{ ...tagStyle, background: 'var(--tag-default-bg)', color: 'var(--text-secondary)' }}>
+            {feature.flow}
+          </span>
+        )}
+
         {/* Tags */}
         {(visibleTags.length > 0 || hiddenTagCount > 0) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>

@@ -72,52 +72,52 @@ These are **linked but separate**:
 
 ## Slava Coaching: The Business
 
-### Services (Based on Real Demand)
+### Entry Point: Co-founder Calibration
 
-What people actually ask Slava for:
+**Key decision (2026-02-27):** Lead with co-founder relationship calibration — not generic startup coaching. Calibration is the unfair advantage. Other services (lean startup, sales, fundraising) become upsells after clients experience the core.
 
-| Service | Description |
-|---------|-------------|
-| **Lean Startup Coaching** | Lean canvas, MVP strategy, iteration |
-| **Customer Development Coaching** | Interview techniques, insight synthesis |
-| **Sales Coaching** | Early sales, founder-led sales |
-| **Fundraising Coaching** | Pitch prep, investor strategy |
+### Services — Three Tiers
+
+| Tier | Name | Price | Format |
+|------|------|-------|--------|
+| **1** | Co-founder Calibration Session | €350 | 90 min, pair session |
+| **2** | Calibration Partner (Retainer) | €900/month | Monthly session + 2 async reviews |
+| **3** | Team Calibration Workshop | €1,800 | Half-day, 3–8 people |
+
+Session 1 is always Tier 1. Tiers 2 and 3 are upsells after value is demonstrated.
+
+**Do NOT list yet:** Lean Startup, CustDev, Sales, Fundraising coaching — available as organic upsells but not on the page. Keeps offer focused and avoids "generalist" positioning.
 
 ### Credentials
 
-- 7 years running consulting agency (has old testimonials)
-- Raised $400k for own startup
+- 10 years in sales coaching and consulting
+- Raised €400k for own startup
 - Founded ClarityPledge (methodology for understanding gaps)
-- Hands-on experience: multiple co-founder separations, corporate, startups
+- Direct experience with co-founder dynamics: been in the room when teams split, and when they didn't
 
-### KISS Solution: One-Page Site
+### Site
 
-**What it needs:**
+**Domain:** ladischenski.com ✅ (confirmed available, ~€10/year on Cloudflare)
+**Location:** ~/Projects/public/ladischenski-com/ (separate repo, deployed to Vercel)
+**Tech:** Next.js + Tailwind — built 2026-02-27
 
-1. **Who you are** — 2-3 sentence bio + photo
-2. **What you offer** — 4 services listed above
-3. **Why trust you** — credentials above
-4. **Book now** — Cal.com links with prices
+**Why ladischenski.com over slava.coach:** slava.coach taken; .coach TLD costs ~€58/year. ladischenski.com is cheaper, .com authority, permanent personal brand regardless of service evolution.
 
-**No blog, no case studies page, no testimonials section (yet).**
+**Why separate from claritypledge.com:** ClarityPledge is a brand/movement. ladischenski.com is Slava's personal hub. Same logic as Stripe vs Patrick Collison.
 
-### Tech Options
+### Booking
 
-| Option | Effort | Cost |
-|--------|--------|------|
-| Cal.com profile only | Zero | Free |
-| Carrd one-pager | 1 hour | $19/year |
-| Vibe-coded page | 2-3 hours | Domain cost |
+**Google Calendar Appointment Schedules** (not Cal.com):
+- Already available via Google Workspace
+- One slot type: "30-min intro call, no pitch"
+- Switch to Cal.com + Stripe at client 5–6 when manual invoicing becomes friction
 
-**Recommendation:** Start with Carrd or Cal.com profile. Add custom site later if needed.
+### Discovery
 
-### Booking & Payment
+Content CTA pattern — append to every blog post, LinkedIn piece, event description:
+> "I work with co-founders on alignment gaps — the ones you don't see until they're expensive. [30-min intro call, no pitch.](LINK)"
 
-**Cal.com** (not Calendly):
-- Free tier includes Stripe payments
-- Open source (fits brand)
-- Embeddable
-- Each event type = mini service page with description + price
+Private reference doc: `.private/docs/slava-coaching.md`
 
 ---
 
@@ -172,13 +172,16 @@ Keep this separate from Slava Coaching. Future options:
 5. [ ] Run event, pitch coaching at end
 6. [ ] Learn what worked
 
-**Phase 2: Coaching Page (after first event)**
-1. [ ] Set up Cal.com with Stripe
-2. [ ] Create coaching session types with prices
-3. [ ] Build simple one-pager (Carrd or Cal.com profile)
-4. [ ] Link from ClarityPledge `/about`
-
-**Why this order:** The event teaches you what to put on the coaching page. Don't guess — learn from real attendees first.
+**Phase 2: Coaching Infrastructure (2026-02-27 — IN PROGRESS)**
+1. [x] Decide services + pricing (three tiers, calibration-first)
+2. [x] Choose domain: ladischenski.com
+3. [x] Write private reference doc: `.private/docs/slava-coaching.md`
+4. [ ] Register ladischenski.com on Cloudflare (user action)
+5. [ ] Build ladischenski.com (Next.js, in progress)
+6. [ ] Set up Google Calendar Appointment Schedules
+7. [ ] Point DNS to Vercel
+8. [ ] Add CTA to LinkedIn bio
+9. [ ] Add CTA to next blog post/LinkedIn piece
 
 ---
 
@@ -205,6 +208,7 @@ No new features required in the platform.
 
 | Date | Change |
 |------|--------|
+| 2026-02-27 | Major update: calibration-first positioning, three tiers, ladischenski.com domain confirmed, Google Calendar for booking, site build started |
 | 2026-01-25 | Added funnel model: events → coaching. Reprioritized: run event first, build page second |
 | 2026-01-25 | Clarified two-brand strategy, updated services based on real demand, added KISS proposal |
 | 2026-01-20 | Initial spec from innovation strategy session |

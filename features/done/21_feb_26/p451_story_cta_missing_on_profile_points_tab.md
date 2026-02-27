@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 rank: 125473
 tags:
@@ -8,8 +8,7 @@ tags:
   - profile
   - position
 created_date: 2026-02-26T00:00:00.000Z
-locked_at: '2026-02-27T08:49:33.329Z'
-completed_at: '2026-02-27'
+locked_at: '2026-02-27T15:19:44.518Z'
 ---
 
 # P451: Story CTA missing everywhere except point detail page

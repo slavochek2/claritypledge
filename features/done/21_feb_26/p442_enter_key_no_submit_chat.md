@@ -1,5 +1,5 @@
 ---
-status: done
+status: all-done
 type: bug
 rank: 125483
 workstream: C1
@@ -11,8 +11,7 @@ changes: p425
 tags:
   - chat
   - ux
-completed_at: '2026-02-27'
-locked_at: '2026-02-27T15:46:38.398Z'
+locked_at: '2026-02-27T15:47:05.313Z'
 ---
 
 # BUG: Enter Key Does Not Submit Message in Chat
