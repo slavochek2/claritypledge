@@ -757,7 +757,7 @@ export function StoryGuideChat({
           <DrawerHeader>
             <DrawerTitle className="sr-only">Rate the draft</DrawerTitle>
             <DrawerDescription className="text-base font-medium text-foreground">
-              How well does this capture what you meant?
+              {iterationCount > 0 ? `Revision ${iterationCount + 1} — how well does this capture what you meant?` : 'How well does this capture what you meant?'}
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pt-4 pb-8 flex flex-col gap-4">
