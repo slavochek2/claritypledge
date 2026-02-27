@@ -75,9 +75,14 @@ export function AcceptAgreementPage() {
 
       // Determine if this user is the intended partner.
       // A pending agreement has no partner_profile_id yet — match by the invitation token
-      // being valid (already validated above). If the agreement is no longer pending or
-      // has been accepted by a different profile, the current user is the wrong viewer.
-      if (ag.status !== 'pending' || (ag.partnerProfileId && ag.partnerProfileId !== currentUser.id)) {
+      // being valid (already validated above). If the agreement is no longer pending,
+      // the creator is opening their own link, or the agreement was accepted by a different
+      // profile, the current user is the wrong viewer.
+      if (
+        ag.status !== 'pending' ||
+        ag.creatorProfileId === currentUser.id ||
+        (ag.partnerProfileId && ag.partnerProfileId !== currentUser.id)
+      ) {
         setPageState('wrong-user');
         return;
       }

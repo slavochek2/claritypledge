@@ -2,7 +2,7 @@
 id: p451
 title: "Guard: creator cannot accept their own agreement"
 type: bug
-status: backlog
+status: qa
 priority: high
 flow: fix
 source: sim
