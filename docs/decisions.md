@@ -6,6 +6,34 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ```markdown
 ## YYYY-MM-DD: Decision Title
 
+---
+
+## 2026-02-27 [technical]: Profile sub-page pattern — metadata line + /p/:slug/sub-route
+
+**Context:** P459 — Partner Agreements were sandwiched between the story CTA and tab bar on the profile page, treating social/relationship data as browseable content. Needed a dedicated surface.
+
+**Decision:** Two-part pattern: (1) compact metadata line in the profile header (e.g. "✦ N Clarity Partners →") that links to (2) a dedicated sub-route `/p/:slug/connections`. The sub-route renders the full data and is designed to accommodate future expansion (P431 Known/Unknown/Clarity Partner sections) with zero change to the profile header.
+
+**Consequences:** Any future social layer (followers, endorsers, mutual connections) should follow the same pattern — metadata line in header, full page on sub-route. Profile header stays compact. Sub-pages own their own data fetching.
+
+**References:** [profile-connections-page.tsx](src/app/pages/profile-connections-page.tsx) · [agreements-metadata-line.tsx](src/app/components/agreements/agreements-metadata-line.tsx) · `features/p459_agreements_to_connections_page.md`
+
+---
+
+## 2026-02-27 [technical]: Service-layer superset rule for client-side visibility filtering
+
+**Context:** P459 — `filterAgreementsForViewer()` correctly handles the visitor-party case (private agreements the viewer is party to should be visible). But the service layer (`getAgreementsForProfile`) only returned public+active for non-owners — private agreements never reached the client, making the client-side party check dead code.
+
+**Decision:** The service layer must return a superset of everything the client-side filter needs. When client-side filtering includes "private agreements where viewer is a party", the service must query for those records too (not just public ones). Pattern: service returns the broadest permissible set for the viewer type; client applies final display rules.
+
+**Alternatives rejected:** Doing all filtering server-side only (loses the clean separation of "what can be fetched" vs "what should be shown"); trusting client-side filter alone without fixing service (filter is dead code if data never arrives).
+
+**Consequences:** When adding new visibility rules client-side, always verify the service query actually returns the data those rules need. Test with a user who is party to a private agreement.
+
+**References:** [agreements-service-real.ts](src/app/data/agreements-service-real.ts) · [filter-agreements.ts](src/app/components/agreements/filter-agreements.ts)
+
+---
+
 **Context:** Why this came up
 **Decision:** What we chose
 

@@ -40,6 +40,24 @@ export const {domain}Service = USE_REAL_API ? realService : mockService;
 
 ---
 
+## File Separation: Components vs Utilities
+
+The `react-refresh/only-export-components` ESLint rule enforces that `.tsx` files only export React components. Exporting non-component values (functions, constants, types) from a `.tsx` file triggers a lint warning.
+
+**Rule:** Shared utility functions and types that are not components must live in `.ts` files, not `.tsx` files.
+
+```
+✅ src/app/components/agreements/filter-agreements.ts   ← pure function, no JSX
+✅ src/app/components/agreements/agreement-row.tsx       ← React component only
+❌ src/app/components/agreements/agreement-row.tsx       ← also exports a utility fn
+```
+
+**Why it matters:** React Fast Refresh can only reliably hot-reload files that export only components. Mixed files break HMR and trigger the lint warning.
+
+**Pattern for shared logic:** If a component file contains a utility function that's also needed elsewhere, extract it to a sibling `.ts` file and import from both.
+
+---
+
 ## Data Layer Architecture
 
 Two data layers exist in parallel:
