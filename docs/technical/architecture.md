@@ -382,7 +382,7 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 4. **Email verification**: Users aren't "verified" until they click the magic link. Profile creation happens on callback, not during signup.
 
-5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check `src/app/components/layout/simple-navigation.tsx` for current implementation.
+5. **Navigation state — three-state skeleton pattern**: `SimpleNavigation` has three branches: `!sessionChecked || isLoading` → neutral skeleton pills (prevents Flash of Wrong Content), `showUserMenu` → logged-in icon nav, fallthrough → logged-out text nav. The mobile menu button follows the same three-branch logic. Profile page mirrors this with a `contentLoading` state wrapping the secondary `Promise.all()` fetch. See [decisions.md § Skeleton as neutral third state](../decisions.md).
 
 6. **Browse vs Focus page navigation pattern**: Two page types.
    - **Browse pages** (home, sessions, events, profile): bottom nav visible. No back button.
