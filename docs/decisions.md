@@ -11,6 +11,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: Skill files are git-tracked — branch-sensitive, disappear on checkout
+
+**Context:** `/ss` (alias for `/slava:maintain:status`) stopped working when using the `p422-p425-uat` branch. `ss.md` was created on `feature/p451` during the same session but never cherry-picked to the UAT branch. Skill files live in `.claude/commands/slava/` which is version-controlled — switching branches changes what files exist on disk, making skills appear/disappear.
+**Decision:** Skills are infrastructure, not feature code. New skill files must be committed to a branch that is an ancestor of all branches where the skill will be used — in practice, `main` or a branch branched from fresh `main`. Never create a skill on a feature branch without also cherry-picking to `main` before the next cross-branch session.
+**Alternatives rejected:** Moving skills to `.private/` (gitignored, branch-independent) — loses version control; accepting per-branch skill availability — causes silent "Unknown skill" failures with no clear debugging path.
+**Consequences:** When creating a new skill: commit to current branch, immediately cherry-pick that commit to `main` (or merge before branching for work that needs the skill). The same rule applies to `.claude/rules/*.md` files.
+**References:** [ss.md](.claude/commands/slava/ss.md) · [status.md](.claude/commands/slava/maintain/status.md)
+
+---
+
+## 2026-02-27 [process]: UAT branch divergence trap — cherry-pick fixes don't auto-land on UAT branches
+
+**Context:** `/chat` textarea auto-resize stopped working on the `p422-p425-uat` branch. The fix (commit `a9737690` — `useEffect` for auto-resize in `StoryGuideChat.tsx`) was implemented on `feature/story-card-author-actions-inline` but never cherry-picked to the UAT branch. UAT branches are created at a point in time; subsequent bug fixes on feature branches don't automatically land there.
+**Decision:** Before running `/verify` on a UAT branch, run a gap analysis: `git log {uat-branch}..{feature-branch} --oneline -- {relevant-paths}` to catch commits that fix bugs on the feature branch but haven't landed on UAT. Cherry-pick safe fixes (bug fixes, not new features) before verifying.
+**Alternatives rejected:** Always working on the feature branch for UAT (risks contaminating UAT with in-progress feature work); rebasing UAT onto feature branch (rewrites history, breaks UAT audit trail).
+**Consequences:** Add "gap analysis" as a pre-flight step before any `/verify` run on a UAT branch that diverged from the main feature branch more than a day ago.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx)
+
+---
+
 ## 2026-02-27 [technical]: Draft pinned in rating drawer + ChatRatingContent extraction
 
 **Context:** In the story guide chat, the rating drawer (phase=rating/iterating) opened with `bg-black/40` overlay, dimming the thread — hiding the draft the user was being asked to rate. The rating UI was also a private inline block with no reuse path. `/live` solves the same problem by pinning story content above the transparent drawer.

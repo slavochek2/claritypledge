@@ -78,6 +78,7 @@ Use this table to build the command chain directly. Each row maps a signal to a 
 | New route, API endpoint, or DB column | B | + `/architect`, `/generate-tests` |
 | New auth logic, RLS, or edge function | C | + `/architect`, `/generate-tests` |
 | New DB migration (any) | B | + `/generate-tests` mandatory (P270 rule) |
+| Any conditional rendering, UI state change, or interactive behavior | any | + `/generate-tests` |
 | New business logic, permissions, owner/visitor split, role-based rendering, multi-step flow state, billing/access derived values | any | + `/generate-tests` |
 | 5+ files or 3+ independent concerns | B or C | + `/decompose` (after `/generate-tests`) |
 | New layout structure, net-new styled component, visual acceptance criteria in spec, or responsive/animation changes | any | + `/verify` |
@@ -112,7 +113,7 @@ These changes affect **all future work** — not a single feature. Risk is asymm
 - `/create-prd` — full PRD with acceptance criteria (3-5 min)
 - `/ux` — wireframes/design decisions (UI features only, skip if design is resolved)
 - `/architect` — architecture plan + mandatory security review; include whenever task has DB columns, RLS, auth, API changes, or new patterns; skip only for trivial 1-2 file UI-only changes with no security surface
-- `/generate-tests` — writes test specs before implementation; include when logic failure would be silent or security-adjacent (permission checks, role-based rendering, owner/visitor split, multi-step flow state, billing/access derived values); mandatory for any DB migration (P270 rule); also include when `/architect` is in the flow
+- `/generate-tests` — writes test specs before implementation; include whenever a regression would be annoying to debug manually — this covers any conditional rendering (phase-based, auth-based, role-based), UI state that changes on user interaction or event, placeholder text or UI strings that could drift, button enable/disable logic, CSS class conditionals (e.g. centered vs sticky based on state), and all security/auth/DB cases; mandatory for any DB migration (P270 rule); also include when `/architect` is in the flow; skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/decompose` — splits into sub-stories (5+ files or 3+ concerns only, run after `/generate-tests`)
 - `/dev` — implements from spec, stops at QA gate on success (run `/ship` to close)
 - `/review-all` — 3-agent parallel review (code + design + UX); **auto-runs inside both `/dev` and `/fix`** — do NOT list it as a step in any flow (it's already included)
@@ -129,7 +130,7 @@ Apply this to every step. Don't default to "might help a bit" — default to "cl
 
 - Never list a command that adds no value for this specific task
 - `/architect` for any task with DB, RLS, auth, or API changes; skip for pure UI-only changes with no security surface
-- `/generate-tests` when logic failure would be silent or security-adjacent — canonical examples: role-based rendering, owner/visitor split, multi-step shared state, access/billing derived values; mandatory for any DB migration (P270)
+- `/generate-tests` whenever a regression would be annoying to debug manually — includes any conditional rendering, UI state change, interactive behavior, placeholder copy that could drift, button enable/disable logic, CSS class conditionals, and all security/auth/DB cases; mandatory for any DB migration (P270); skip only for pure CSS-only changes, single hardcoded strings with no logic, or one-liner typo fixes
 - `/ux` only if visual/interaction design is unresolved — skip if ASCII/mockup already decided
 - `/decompose` only for 5+ files or 3+ independent concerns
 - If spec exists: check `test_files:` in frontmatter — present → start from `/dev`; absent → `/generate-tests` → `/dev`
