@@ -603,9 +603,11 @@ export function StoryGuideChat({
     !inputValue.trim() ||
     phase === 'streaming' ||
     inputValue.length > MAX_BRAIN_DUMP_LENGTH;
+  // Empty state = before user has sent any message (AI opening bubble visible, no user input yet)
+  const isEmptyState = !messages.some(m => m.role === 'user');
 
   return (
-    <div className={`flex flex-col h-full${phase === 'idle' ? ' justify-center' : ''}`} data-testid="story-guide-chat">
+    <div className={`flex flex-col h-full${isEmptyState ? ' justify-center' : ''}`} data-testid="story-guide-chat">
       {/* Context card (only when full point data is available) */}
       {contextPoint && (
         <div data-testid="context-card" className="sticky top-16 z-10 bg-background border-b border-border px-4 py-3">
@@ -628,7 +630,7 @@ export function StoryGuideChat({
       {/* Thread area */}
       <div
         ref={threadRef}
-        className={phase === 'idle' ? 'px-4 py-6 space-y-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-4'}
+        className={isEmptyState ? 'px-4 py-6 space-y-4' : 'flex-1 overflow-y-auto px-4 py-6 space-y-4'}
       >
         {/* Message list */}
         {messages.map(msg => {
@@ -722,7 +724,7 @@ export function StoryGuideChat({
       {/* Input bar (hidden during visibility/saving/saved phases) */}
       {showInputBar && (
         <div className={
-          phase === 'idle'
+          isEmptyState
             ? 'px-4 py-3'
             : 'sticky bottom-0 bg-background border-t border-border px-4 py-3 pb-safe'
         }>
