@@ -332,10 +332,13 @@ export function PointCardWithLinks({
                       </div>
                     ) : (
                       <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setStoriesExpanded(v => !v); }}
+                          className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                        >
                           <span aria-hidden="true">▶</span>
                           <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
-                        </div>
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
                           className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
@@ -467,10 +470,13 @@ export function PointCardWithLinks({
                 </div>
               ) : (
                 <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setStoriesExpanded(v => !v); }}
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  >
                     <span aria-hidden="true">▶</span>
                     <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
-                  </div>
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"

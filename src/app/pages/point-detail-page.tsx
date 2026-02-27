@@ -7,7 +7,7 @@
  * the view, or show a generic view if no referrer.
  */
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
@@ -56,6 +56,7 @@ export function PointDetailPage() {
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
   const showStoryCTA = !!userPosition;
+  const positionsSectionRef = useRef<HTMLDivElement>(null);
 
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -344,7 +345,7 @@ export function PointDetailPage() {
                 /* Split footer: viewer has ≥1 story */
                 <div className="flex items-center justify-between w-full">
                   <button
-                    onClick={() => navigate(`/point/${id}`)}
+                    onClick={() => positionsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
                     className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
                   >
                     <span aria-hidden="true">▶</span>
@@ -377,7 +378,7 @@ export function PointDetailPage() {
       )}
 
       {/* Positions section */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div ref={positionsSectionRef} className="bg-card border border-border rounded-lg overflow-hidden">
         {/* Filter tabs */}
         <FilterTabs
           activeFilter={positionFilter}

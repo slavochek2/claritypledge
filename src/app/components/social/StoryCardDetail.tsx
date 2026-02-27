@@ -617,10 +617,13 @@ function QuotedPoint({
                 </div>
               ) : (
                 <div className="flex items-center justify-between w-full pr-2">
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
+                  <button
+                    onClick={e => { e.stopPropagation(); setStoriesExpanded(v => !v); }}
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  >
                     <span aria-hidden="true">▶</span>
                     <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
-                  </div>
+                  </button>
                   <button
                     onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"

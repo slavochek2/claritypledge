@@ -1157,6 +1157,7 @@ export function StoryDetailPage() {
           linkedStoriesForPoints={linkedStoriesForPoints}
           visibilitySlot={visibilitySlot}
           footerActionsSlot={footerActionsSlot}
+          currentUserId={user?.id}
         />
       )}
 
