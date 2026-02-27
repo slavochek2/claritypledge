@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: Subagent analysis ≠ /claude-md gate — they answer different questions
+
+**Context:** After a subagent recommended changes to CLAUDE.md, the user said "lets do" and the agent applied them without running `/claude-md`. One of the two changes (a tie-breaker added to the Decisive Action section) tripled existing content from PRINCIPLES.md and sat in the wrong section. The `/claude-md` gate caught it on the follow-up run and it was removed.
+**Decision:** User approval + subagent analysis does NOT replace the `/claude-md` gate. The subagent asks "what should change"; the gate asks "does this belong in CLAUDE.md, is it the right section, does it duplicate existing content?" These are different questions. Run the gate even when the user has approved the substance of a change.
+**Alternatives rejected:** Treating subagent output as equivalent to gate validation (misses placement/redundancy checks — exactly what happened here).
+**Consequences:** Rule is already in CLAUDE.md ("Before editing CLAUDE.md… run /claude-md first"). The enforcement gap was applying it when user approval came mid-conversation. The rule holds regardless of approval source.
+**References:** [CLAUDE.md](CLAUDE.md) · [PRINCIPLES.md](.claude/commands/slava/PRINCIPLES.md)
+
+---
+
 ## 2026-02-27 [process]: Skill files are git-tracked — branch-sensitive, disappear on checkout
 
 **Context:** `/ss` (alias for `/slava:maintain:status`) stopped working when using the `p422-p425-uat` branch. `ss.md` was created on `feature/p451` during the same session but never cherry-picked to the UAT branch. Skill files live in `.claude/commands/slava/` which is version-controlled — switching branches changes what files exist on disk, making skills appear/disappear.

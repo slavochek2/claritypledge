@@ -740,7 +740,7 @@ export function StoryGuideChat({
             />
             <button
               type="button"
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={sendDisabled}
               aria-label="Send message"
               className="p-2 rounded-full transition-colors bg-blue-600 text-white hover:bg-blue-700"
