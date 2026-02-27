@@ -95,7 +95,7 @@ export function PointCardWithLinks({
     selectedPosition ?? (currentUserId ? point.positions[currentUserId]?.position ?? null : null)
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
+  const showStoryCTA = !!userPosition;
 
   // P154: Sync userPosition state when position prop changes (after refetch)
   useEffect(() => {
@@ -106,11 +106,6 @@ export function PointCardWithLinks({
       setUserPosition(propPosition);
     }
   }, [point.positions, currentUserId, selectedPosition]);
-
-  // Reset showStoryCTA only when the point itself changes (not on position count updates)
-  useEffect(() => {
-    setShowStoryCTA(false);
-  }, [point.id]);
 
   // Get base counts or use defaults
   const baseCounts = useMemo(
@@ -187,7 +182,6 @@ export function PointCardWithLinks({
     // Only optimistically update for selection; removal waits for dialog confirm
     if (newPosition !== null) {
       setUserPosition(newPosition);
-      setShowStoryCTA(true);
     }
     onPositionSelect?.(newPosition);
   };

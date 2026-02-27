@@ -54,7 +54,7 @@ export function PointDetailPage() {
   const [userPosition, setUserPosition] = useState<PositionType | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
+  const showStoryCTA = !!userPosition;
 
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -181,7 +181,6 @@ export function PointDetailPage() {
       } else {
         const result = await pointsService.setPosition(id, user.id, newPosition);
         console.log('[DEBUG] setPosition result:', result);
-        setShowStoryCTA(true);
       }
 
       // Reload point to get updated counts

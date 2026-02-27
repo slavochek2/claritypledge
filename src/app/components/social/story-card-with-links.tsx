@@ -445,7 +445,7 @@ function QuotedPoint({
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
+  const showStoryCTA = !!userPosition;
   const profileSubjectPosition = point.positions[authorId]?.position;
 
   // Get base counts or use defaults
@@ -504,7 +504,6 @@ function QuotedPoint({
   const handlePositionClick = (position: PositionType) => {
     const newPosition = userPosition === position ? null : position;
     setUserPosition(newPosition);
-    if (newPosition !== null) setShowStoryCTA(true);
   };
 
   return (

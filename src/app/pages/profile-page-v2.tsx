@@ -1125,7 +1125,7 @@ function QuotedPointCard({
   const [userPosition, setUserPosition] = useState<Position>(
     (point.userPosition as Position) ?? null
   );
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
+  const showStoryCTA = !!userPosition;
 
   // Sync userPosition from prop when it changes (e.g. profile effect reruns after auth resolves)
   useEffect(() => {
@@ -1160,7 +1160,6 @@ function QuotedPointCard({
     // Only optimistically update for selection; removal waits for dialog confirm
     if (newPosition !== null) {
       setUserPosition(newPosition);
-      setShowStoryCTA(true);
     }
     onPositionSelect?.(newPosition);
   };

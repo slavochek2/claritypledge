@@ -85,7 +85,7 @@ export function PointCardDetail({
     point.positions['current']?.position || null
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
+  const showStoryCTA = !!userPosition;
   const baseCounts = getPointPositionCounts(point);
 
   // Default routes
@@ -151,7 +151,6 @@ export function PointCardDetail({
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
     setUserPosition(newPosition);
-    if (newPosition !== null) setShowStoryCTA(true);
   };
 
   const cardClassName = isDetailView

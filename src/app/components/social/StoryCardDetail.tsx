@@ -431,7 +431,6 @@ function QuotedPoint({
 }) {
   const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
-  const [showStoryCTA, setShowStoryCTA] = useState(false);
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
   const ownerPosition = profileOwnerPositions?.get(point.id);
@@ -452,6 +451,7 @@ function QuotedPoint({
   const [localPosition, setLocalPosition] = useState<PositionType | null>(null);
   const serverPosition = userPosition?.position ?? null;
   const effectivePosition = localPosition ?? serverPosition;
+  const showStoryCTA = !!effectivePosition;
 
   // Clear local override once parent propagates the new server position
   useEffect(() => {
@@ -492,7 +492,6 @@ function QuotedPoint({
   const handlePositionClick = async (position: PositionType) => {
     const newPosition = effectivePosition === position ? null : position;
     setLocalPosition(newPosition);
-    if (newPosition !== null) setShowStoryCTA(true);
     if (onPositionClick) {
       await onPositionClick(point.id, position);
     }

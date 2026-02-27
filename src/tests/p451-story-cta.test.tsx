@@ -4,7 +4,7 @@
  * not only on the point-detail-page.
  *
  * Bug: "Tell your story →" only showed on /points/:id after staking.
- * Fix: each consumer component tracks showStoryCTA state and renders the CTA.
+ * Fix: showStoryCTA is derived from userPosition, so it persists across refresh.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -46,6 +46,11 @@ const protoPoint: ProtoPoint = {
   linkedStoryIds: [],
 };
 
+const protoPointWithPosition: ProtoPoint = {
+  ...protoPoint,
+  positions: { current: { position: 'agree' as PositionType, userId: CURRENT_USER } },
+};
+
 describe('P451: PointCardDetail story CTA', () => {
   it('does NOT show CTA before staking', () => {
     render(
@@ -75,6 +80,20 @@ describe('P451: PointCardDetail story CTA', () => {
     clickAgree();
     expect(screen.getByText('Tell your story →')).toBeInTheDocument();
   });
+
+  it('shows CTA on load when position is pre-existing (refresh regression)', () => {
+    render(
+      <BrowserRouter>
+        <PointCardDetail
+          point={protoPointWithPosition}
+          linkedStories={[]}
+          getPointPositionCounts={getEmptyCounts}
+          isDetailView
+        />
+      </BrowserRouter>
+    );
+    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+  });
 });
 
 // ── PointCardWithLinks ────────────────────────────────────────────────────────
@@ -85,6 +104,11 @@ const linkedPoint: Point = {
   createdAt: '2026-01-01T00:00:00Z',
   positions: {},
   linkedStoryIds: [],
+};
+
+const linkedPointWithPosition: Point = {
+  ...linkedPoint,
+  positions: { [CURRENT_USER]: { position: 'agree' as PositionType, userId: CURRENT_USER } },
 };
 
 describe('P451: PointCardWithLinks story CTA', () => {
@@ -112,6 +136,19 @@ describe('P451: PointCardWithLinks story CTA', () => {
       </BrowserRouter>
     );
     clickAgree();
+    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+  });
+
+  it('shows CTA on load when position is pre-existing (refresh regression)', () => {
+    render(
+      <BrowserRouter>
+        <PointCardWithLinks
+          point={linkedPointWithPosition}
+          currentUserId={CURRENT_USER}
+          isDetailView
+        />
+      </BrowserRouter>
+    );
     expect(screen.getByText('Tell your story →')).toBeInTheDocument();
   });
 });
@@ -144,6 +181,9 @@ const positionCounts = new Map<string, Record<PositionType, number>>([
   [POINT_ID, emptyCounts],
 ]);
 const emptyUserPositions = new Map<string, PointPosition>();
+const preloadedUserPositions = new Map<string, PointPosition>([
+  [POINT_ID, { id: 'pos-1', pointId: POINT_ID, userId: CURRENT_USER, position: 'agree' as PositionType, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
+]);
 
 describe('P451: StoryCardDetail QuotedPointForStory CTA', () => {
   it('does NOT show CTA before staking', () => {
@@ -174,6 +214,21 @@ describe('P451: StoryCardDetail QuotedPointForStory CTA', () => {
       </BrowserRouter>
     );
     clickAgree();
+    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+  });
+
+  it('shows CTA on load when position is pre-existing (refresh regression)', () => {
+    render(
+      <BrowserRouter>
+        <StoryCardDetail
+          story={mockStory}
+          linkedPoints={[mockPointSummary]}
+          positionCounts={positionCounts}
+          userPositions={preloadedUserPositions}
+          isDetailView
+        />
+      </BrowserRouter>
+    );
     expect(screen.getByText('Tell your story →')).toBeInTheDocument();
   });
 });
