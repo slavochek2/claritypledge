@@ -98,6 +98,7 @@ export function PointCardWithLinks({
   const [showStoryCTA, setShowStoryCTA] = useState(false);
 
   // P154: Sync userPosition state when position prop changes (after refetch)
+  // Also reset showStoryCTA when point changes (e.g. feed reuses the component with a new point)
   useEffect(() => {
     if (selectedPosition !== undefined) {
       setUserPosition(selectedPosition);
@@ -105,6 +106,7 @@ export function PointCardWithLinks({
       const propPosition = point.positions[currentUserId]?.position ?? null;
       setUserPosition(propPosition);
     }
+    setShowStoryCTA(false);
   }, [point.positions, currentUserId, selectedPosition]);
 
   // Get base counts or use defaults
@@ -477,7 +479,7 @@ export function PointCardWithLinks({
         )}
     </div>
     {/* P451: Story CTA — shown after staking a position */}
-    {showStoryCTA && (
+    {showStoryCTA && !liveSessionMode && (
       <button
         type="button"
         className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"

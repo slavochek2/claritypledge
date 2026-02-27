@@ -230,6 +230,7 @@ function PointRow({
       setUserPosition(next);
     }
     onPositionSelect?.(point.id, next);
+    // P451: Story CTA intentionally omitted here — /live has its own post-session story entry point
   };
 
   return (
