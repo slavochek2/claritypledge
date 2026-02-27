@@ -425,7 +425,7 @@ function KeyPointsSection({
       {pointCount === 0 && !autoExpand && !showForm && (
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center mb-4">
           <p className="text-sm text-muted-foreground mb-3">
-            No points yet. Points are claims others can agree or disagree with.
+            No points yet.
           </p>
           <Button
             variant="outline"
