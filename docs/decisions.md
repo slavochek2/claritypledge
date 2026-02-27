@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: inline src/ edits require branch check before touching code
+
+**Context:** Today's session had 8+ wrong-branch incidents — fixes landing on `feature/p451-...` while working on P457, P458, etc. Root cause: `/dev` has a pre-flight branch check (step 0), but inline edits (done without calling a skill) have no equivalent guard. The agent proceeds on whatever branch is active.
+**Decision:** Added branch check to `.claude/rules/src.md` — fires automatically on every `src/**` edit. Rule: (1) if on `main`, stop and create a feature branch; (2) if branch name doesn't match the feature being implemented, stop and pick A/B/C (new branch / cherry-pick after / proceed). Non-feature work (infra, hotfixes, copy) is exempted. Same options as `/dev` step 0.
+**Alternatives rejected:** Adding the rule to CLAUDE.md inline-implementation section only (relies on agents reading the right section; `src.md` auto-loads mechanically); adding a git hook (overkill — adds friction for all commits, not just inline ones).
+**Consequences:** The check fires before any `src/` file is opened — agents can't skip it by accident. Does not apply to worktree-based work (each worktree is already isolated to one branch).
+**References:** `.claude/rules/src.md`
+
+---
+
 ## 2026-02-27 [technical]: story-guide-chat — upgrade to gemini-3.1-pro-preview + daily rate limit
 
 **Context:** story-guide-chat was using `gemini-2.5-flash` with a 30-request/hour sustained limit. Direct side-by-side API comparison of Flash vs Pro 2.5 vs Pro 3.1 showed measurable quality differences: Flash collapsed the emotional arc into one paragraph and missed the need layer entirely; 3.1 Pro produced better pacing, sharper language ("contributions belong to me"), and a more incisive follow-up question targeting the actual ambiguity. The per-hour limit was punishing real users mid-session (2 sessions in one hour = capped) while doing nothing the burst limit didn't already cover.
