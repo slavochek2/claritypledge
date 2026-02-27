@@ -11,6 +11,35 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: tmux pipe-pane logging for Claude session recovery
+
+**Context:** Mac sleep kills Anthropic API connections mid-request. Claude Code blocks stdin indefinitely on a dead socket. Two sessions lost with no text record. `claude -r` only works on cleanly-exited sessions.
+**Decision:** `pipe-pane` hook in `~/.tmux.conf` — every new session auto-logs to `~/.tmux/logs/SESSIONNAME.log`, 7-day retention. Recovery: `cat ~/.tmux/logs/SESSION.log | sed 's/\x1b\[[0-9;]*m//g'`. Hammerspoon sleep hook rejected (SIGINT ignored by Claude Code in practice).
+**Consequences:** Sessions recoverable for 7 days. Root cause (Mac sleep) not prevented — press Escape/Ctrl+C in active Claude sessions before closing laptop. Keep parallel Claude session count low.
+**References:** `~/.tmux.conf`
+
+---
+
+## 2026-02-27 [process]: tmux copy-mode trap + auto-session naming
+
+**Context:** `set -g mouse on` auto-enters copy mode on trackpad scroll. ESC does nothing in copy mode — only `q` exits. Sessions were named with garbage strings (`lkj2`, `asjh23`) because the right name wasn't obvious at creation time.
+**Decision:** (1) `WheelUpPane` bind — copy mode auto-exits on scroll-back-to-bottom; (2) `after-new-session` hook — names session after creation directory; (3) `Ctrl+b R` — renames to current directory on demand. Recovery from stuck pane: `tmux send-keys -t SESSION q Enter` from any other pane.
+**References:** `~/.tmux.conf`
+
+---
+
+## 2026-02-27 [product]: Unsure position stays single — skip "It depends" until mandatory Story mechanic exists
+
+**Context:** Explored adding sub-options to the Unsure dropdown (mirroring how Agree/Disagree each have 3 intensity variants). Candidates were "Unsure" (default), "It depends" (context-dependent), and "False premise" (rejects the framing). Ran falsification agents and a full UI/schema/product blindspot audit.
+**Decision:** Keep Unsure as a single option for now. Do not add "It depends" or "False premise".
+**Alternatives rejected:**
+- "It depends" as Unsure sub-option — only earns its existence if Story is mandatory. Without a mandatory Story mechanic, "It depends" is a fancier escape hatch: same Unsure aggregate, no extra signal, degrades epistemic density at scale because coaches habitually hedge.
+- "False premise" as Unsure sub-option — semantically incoherent. Someone rejecting the question's framing is making a confident assertion, not expressing uncertainty. Belongs as a separate affordance (e.g., "challenge the framing" Story type), not inside the Unsure dropdown.
+**Consequences:** Unsure remains a 1-option dropdown (no chevron shown). Revisit "It depends" once a mandatory Story mechanic exists — at that point "It depends" becomes a high-value trigger that forces articulation of conditions, rather than a polished shrug. "False premise" is a separate future feature.
+**References:** Conversation 2026-02-27 — position sub-options design session
+
+---
+
 ## 2026-02-27 [technical]: onClick={handler} is unsafe when handler has optional params — always wrap
 
 **Context:** `onClick={handleSend}` on the send button passed SyntheticMouseEvent as the first arg to `handleSend(override?: string)`. The `??` operator evaluated to the event object (truthy, non-null), so `(event ?? inputValue).trim()` threw `TypeError: event.trim is not a function`. Bug was invisible — users only ever used keyboard Enter, which calls `handleSend()` with no args. P457 making the button prominent exposed it.
