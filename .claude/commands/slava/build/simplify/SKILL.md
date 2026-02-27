@@ -19,9 +19,9 @@ Takes the current conversation context and outputs the clearest possible decisio
 **Situation:** [1 sentence — what's the actual problem/decision]
 
 **Options:**
-A) [option] — [one-line tradeoff]
-B) [option] — [one-line tradeoff]
-C) [option, if exists] — [one-line tradeoff]
+A) [option] — [tradeoff: sustainability / thinking cost / error risk]
+B) [option] — [tradeoff: sustainability / thinking cost / error risk]
+C) [option, if exists] — [tradeoff: sustainability / thinking cost / error risk]
 
 **Recommendation:** [Option X] — [one sentence why]
 
@@ -34,6 +34,7 @@ Reply: "A", "B", or "C"
 - If there are multiple pending decisions, output them as separate blocks
 - Maximum 15 lines total per decision block
 - If only one option makes sense, say so directly — don't manufacture false choice
+- When options are technically comparable, rank by: (1) which requires the least future discipline to maintain, (2) which eliminates a recurring decision, (3) which catches mistakes mechanically. Development speed is not a ranking criterion.
 
 ## Usage
 

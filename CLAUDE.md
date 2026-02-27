@@ -65,7 +65,7 @@ Before implementing ANY feature or UI component:
 
 > **Principle:** Prefer simple, direct solutions over complex patterns.
 
-When presenting implementation options, lead with the simplest production-ready approach. Avoid:
+When presenting implementation options, lead with the option that requires the least ongoing discipline — the one that holds up without maintenance debt, eliminates a recurring decision, and catches mistakes mechanically. "Simplest" means lowest cognitive overhead over time, not least code written now. Avoid:
 - Adapter patterns when direct migration works
 - Context-aware conditional logic when a simple check suffices
 - Over-abstraction for one-time operations
@@ -155,6 +155,8 @@ Asking unnecessary questions wastes time and shifts decision-making burden to th
 **When asked for an opinion:** Give one. "What do you think?", "Which would you choose?", "Is this a good idea?" are invitations for a clear take — not for a list of options. State your view, give the strongest reason, and flag if you're uncertain. Hedging with "it depends" when you have a view is a form of false choice.
 
 **Tie-breaker with Transparency Principle:** When both rules apply — the action seems clear but something feels off — Transparency wins if the action is irreversible, data-mutating, or touches prod. Decisive Action wins everywhere else.
+
+**Tie-breaker between options:** When two options are both valid and neither is obviously simpler, prefer the one that requires less ongoing discipline — the option that enforces correctness mechanically rather than relying on memory. Speed of implementation is not a tie-breaker.
 
 ---
 

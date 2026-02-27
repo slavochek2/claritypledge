@@ -90,3 +90,7 @@ Not everything is a principle. Some things are **firewalls** — non-negotiable 
 | No production database access | Sustainability thinking |
 
 Firewalls protect against catastrophic, irreversible harm. Principles guide everyday decisions.
+
+### Sustainability Thinking (defined)
+
+When evaluating options: prefer the one that (1) holds up without maintenance discipline, (2) eliminates a recurring decision rather than deferring it, (3) catches mistakes mechanically rather than relying on memory. Development speed is explicitly not a factor — a faster solution that creates cognitive overhead or future errors is worse, not better.
