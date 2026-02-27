@@ -21,7 +21,7 @@ import {
 } from '@/app/prototypes/linkedin-like/components/shared';
 import type { Story, Point, PositionButtonGroup } from '@/app/prototypes/shared/types';
 import type { PositionType } from '@/app/prototypes/shared/types';
-import { getPositionGroup } from '@/app/prototypes/shared/types';
+import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -61,6 +61,8 @@ interface StoryCardWithLinksProps {
   onPointClick?: (pointId: string) => void;
   /** Current user ID for position tracking */
   currentUserId?: string;
+  /** Map of pointId → viewer's story count for that point (P456) */
+  viewerStoriesPerPoint?: Map<string, number>;
 }
 
 /**
@@ -87,6 +89,7 @@ export function StoryCardWithLinks({
   getPointPositionCounts,
   onPointClick,
   currentUserId,
+  viewerStoriesPerPoint,
 }: StoryCardWithLinksProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -366,6 +369,7 @@ export function StoryCardWithLinks({
                       }}
                       getPointPositionCounts={getPointPositionCounts}
                       currentUserId={currentUserId}
+                      viewerStoryCount={viewerStoriesPerPoint?.get(pointsToShow[0].id) ?? 0}
                     />
                   ) : (
                     // 2+ points - show thread lines
@@ -390,6 +394,7 @@ export function StoryCardWithLinks({
                             }}
                             getPointPositionCounts={getPointPositionCounts}
                             currentUserId={currentUserId}
+                            viewerStoryCount={viewerStoriesPerPoint?.get(point.id) ?? 0}
                           />
                         </ThreadLineItem>
                       ))}
@@ -431,6 +436,7 @@ function QuotedPoint({
   onClick,
   getPointPositionCounts,
   currentUserId,
+  viewerStoryCount = 0,
 }: {
   point: Point;
   authorName: string;
@@ -440,6 +446,7 @@ function QuotedPoint({
   onClick: (e: React.MouseEvent) => void;
   getPointPositionCounts?: (point: Point) => SevenPointCounts;
   currentUserId?: string;
+  viewerStoryCount?: number;
 }) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<PositionType | null>(
@@ -523,10 +530,18 @@ function QuotedPoint({
         </div>
       )}
 
-      {/* Quoted Point box */}
-      <button
+      {/* Quoted Point box — changed from <button> to div[role=button] to fix nested button HTML violation */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onClick}
-        className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
+          }
+        }}
+        className="group/quote w-full text-left p-3 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
       >
         {/* Two-column layout matching PointCard structure */}
         <div className="flex items-start gap-3">
@@ -553,17 +568,50 @@ function QuotedPoint({
             )}
           </div>
         </div>
-      </button>
-      {/* P451: Story CTA — shown after staking a position */}
-      {showStoryCTA && (
-        <button
-          type="button"
-          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
-          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
-        >
-          Tell your story →
-        </button>
-      )}
+
+        {/* P456: Story CTA footer — shown when viewer has taken a position */}
+        {userPosition && (() => {
+          const positionGroup = getPositionGroup(userPosition);
+          const copy = getPositionCTACopy(positionGroup);
+          const chatUrl = `/chat?from=position&pointId=${point.id}`;
+
+          return (
+            <div
+              role="presentation"
+              className="mt-2 pt-2 border-t border-gray-200 pl-[44px] pr-1"
+              onClick={e => e.stopPropagation()}
+            >
+              {viewerStoryCount === 0 ? (
+                <div className="flex items-center gap-1 text-sm">
+                  <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
+                  <span className="text-gray-600">{copy.label}</span>
+                  <span aria-hidden="true" className="text-gray-400"> · </span>
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    aria-label={copy.ariaLabel}
+                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    {copy.ctaText}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-1 text-sm text-gray-600">
+                    <span aria-hidden="true">▶</span>
+                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    + add story →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Pin, Ear } from 'lucide-react';
 import type { StoryWithPoints, PointSummary, PositionType } from '@/app/types';
+import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import {
@@ -270,6 +271,35 @@ function PointRow({
           compact
           narrow
         />
+
+        {/* P456: Disabled story CTA footer — visible but non-interactive in /live session */}
+        {userPosition && (() => {
+          const positionGroup = getPositionGroup(userPosition);
+          const copy = getPositionCTACopy(positionGroup);
+
+          return (
+            <div className="border-t border-gray-200 pt-2">
+              {/* CTA row — disabled, decorative only */}
+              <div className="flex items-center gap-1 opacity-50 pointer-events-none">
+                <span aria-hidden="true" className="text-sm text-gray-600">{copy.symbol}</span>
+                <span className="text-sm text-gray-600">{copy.label}</span>
+                <span aria-hidden="true" className="text-sm text-gray-400"> · </span>
+                <button
+                  disabled
+                  aria-disabled="true"
+                  aria-describedby={`live-cta-hint-${point.id}`}
+                  className="text-sm font-medium text-blue-600"
+                >
+                  Tell your story →
+                </button>
+              </div>
+              {/* Hint row */}
+              <p id={`live-cta-hint-${point.id}`} className="text-xs text-gray-400 mt-1">
+                Available after the session
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

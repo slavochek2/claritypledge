@@ -20,7 +20,7 @@ import {
   type SevenPointCounts,
 } from '@/app/prototypes/linkedin-like/components/shared';
 import type { Point, Position, Story, PositionType, PositionButtonGroup } from '@/app/prototypes/shared/types';
-import { getPositionGroup } from '@/app/prototypes/shared/types';
+import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 
 /** Author information for a story in quoted context */
 export interface StoryAuthor {
@@ -304,6 +304,49 @@ export function PointCardWithLinks({
                   </div>
                 )}
               </div>
+
+              {/* P456: Story CTA footer — shown when viewer has taken a position */}
+              {userPosition && !liveSessionMode && (() => {
+                const positionGroup = getPositionGroup(userPosition as PositionType);
+                const copy = getPositionCTACopy(positionGroup);
+                const viewerStoryCount = filteredStories.filter(s => s.authorId === currentUserId).length;
+
+                return (
+                  <div
+                    role="presentation"
+                    className="flex items-center pl-[44px] pr-1 py-2 border-t border-gray-200"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {viewerStoryCount === 0 ? (
+                      <div className="flex items-center gap-1 text-sm">
+                        <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
+                        <span className="text-gray-600">{copy.label}</span>
+                        <span aria-hidden="true" className="text-gray-400"> · </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                          aria-label={copy.ariaLabel}
+                          className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                        >
+                          {copy.ctaText}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <span aria-hidden="true">▶</span>
+                          <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                          className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                        >
+                          + add story →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </>
         ) : (
@@ -347,6 +390,7 @@ export function PointCardWithLinks({
 
       {/* Footer row - only for feed view (non-quote pattern) or live session mode */}
       {(!showQuotePattern || liveSessionMode) && (
+        <>
         <div
           role="presentation"
           className="flex items-center justify-between pl-[52px] pr-4 py-3 border-t border-gray-100"
@@ -395,6 +439,50 @@ export function PointCardWithLinks({
             </div>
           )}
         </div>
+
+        {/* P456: Story CTA footer row for feed view — shown when viewer has taken a position */}
+        {userPosition && !liveSessionMode && (() => {
+          const positionGroup = getPositionGroup(userPosition as PositionType);
+          const copy = getPositionCTACopy(positionGroup);
+          const viewerStoryCount = filteredStories.filter(s => s.authorId === currentUserId).length;
+
+          return (
+            <div
+              role="presentation"
+              className="flex items-center pl-[52px] pr-4 py-2.5 border-t border-gray-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {viewerStoryCount === 0 ? (
+                <div className="flex items-center gap-1 text-sm">
+                  <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
+                  <span className="text-gray-600">{copy.label}</span>
+                  <span aria-hidden="true" className="text-gray-400"> · </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                    aria-label={copy.ariaLabel}
+                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    {copy.ctaText}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-1 text-sm text-gray-600">
+                    <span aria-hidden="true">▶</span>
+                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/chat?from=position&pointId=${point.id}`); }}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    + add story →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+        </>
       )}
 
       {/* Expanded linked stories - in feed view or live session mode */}

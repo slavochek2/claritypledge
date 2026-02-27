@@ -66,6 +66,40 @@ export function getPositionGroup(position: PositionType): PositionButtonGroup {
   }
 }
 
+export interface PositionCTACopy {
+  symbol: string;
+  label: string;
+  ctaText: string;
+  ariaLabel: string;
+}
+
+// Map position button group to adaptive story CTA copy (P456)
+export function getPositionCTACopy(group: PositionButtonGroup): PositionCTACopy {
+  switch (group) {
+    case 'agree':
+      return {
+        symbol: '✓',
+        label: 'Agree',
+        ctaText: 'Why do you agree? →',
+        ariaLabel: 'Tell your story about your agreement',
+      };
+    case 'disagree':
+      return {
+        symbol: '✗',
+        label: 'Disagree',
+        ctaText: 'Why do you disagree? →',
+        ariaLabel: 'Tell your story about your disagreement',
+      };
+    case 'unsure':
+      return {
+        symbol: '~',
+        label: 'Unsure',
+        ctaText: 'Why are you unsure? →',
+        ariaLabel: 'Tell your story about being unsure',
+      };
+  }
+}
+
 // -----------------------------------------------------------------------------
 // User Types
 // -----------------------------------------------------------------------------
