@@ -311,7 +311,7 @@ export function StoryCardDetail({
               <MobileTooltip content="Open story">
                 <button
                   onClick={() => isDetailView
-                    ? window.open(storyRoute(story.id), '_blank')
+                    ? window.open(storyRoute(story.id), '_blank', 'noopener,noreferrer')
                     : navigate(storyRoute(story.id))
                   }
                   className="min-w-[44px] min-h-[44px] flex items-center justify-center text-muted-foreground hover:text-muted-foreground hover:bg-accent rounded-full transition-colors"
@@ -429,7 +429,9 @@ function QuotedPoint({
   linkedStories?: LinkedStory[];
   onStoryClick?: (storyId: string) => void;
 }) {
+  const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
+  const [showStoryCTA, setShowStoryCTA] = useState(false);
   const userPosition = userPositions.get(point.id);
   // Badge next to the author name shows the profile/story owner's own position (not the viewer's)
   const ownerPosition = profileOwnerPositions?.get(point.id);
@@ -490,6 +492,7 @@ function QuotedPoint({
   const handlePositionClick = async (position: PositionType) => {
     const newPosition = effectivePosition === position ? null : position;
     setLocalPosition(newPosition);
+    if (newPosition !== null) setShowStoryCTA(true);
     if (onPositionClick) {
       await onPositionClick(point.id, position);
     }
@@ -550,6 +553,19 @@ function QuotedPoint({
           </div>
         </div>
       </div>
+
+      {/* P451: Story CTA — shown after staking a position */}
+      {showStoryCTA && (
+        <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>
+          <button
+            type="button"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
+            onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+          >
+            Tell your story →
+          </button>
+        </div>
+      )}
 
       {/* Linked stories - other stories this point also appears in */}
       {linkedStories.length > 0 && (

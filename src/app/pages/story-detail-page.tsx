@@ -1053,7 +1053,7 @@ export function StoryDetailPage() {
     />
   ) : (
     <MobileTooltip content={visibilityOption.tooltip}>
-      <VisibilityIcon className="w-3 h-3" />
+      <VisibilityIcon className="w-3 h-3" aria-label={visibilityOption.tooltip} role="img" />
     </MobileTooltip>
   );
 
