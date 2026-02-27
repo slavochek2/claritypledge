@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: insight-post skill — reactive LinkedIn content from conversation history
+
+**Context:** Needed a way to turn the intellectual residue of daily Claude sessions into LinkedIn thought leadership. The naive design (30 variants, scoring agent, research agent, blog article + LinkedIn post) was overcomplicated and would produce engagement bait over genuine insight.
+**Decision:** LinkedIn post only (no blog article). 5 distinct framings (not 30 — quantity creates noise, not diversity). No external research step (personal authenticity > borrowed credibility). Hard "no strong signal" exit path (never force a weak post). Sources: CLI JSONL files from all `.claude/projects/` + downloaded claude.ai conversation exports (auto-refreshed if >24hr stale). Prompted once at end of `/day-start` — one-liner, ignorable. Scheduled via Postiz for next-day 9am.
+**Alternatives rejected:** 30 variants + scoring agent (scoring biases toward engagement bait); research agent adding academic/influencer citations (dilutes personal voice, adds pipeline steps for no authenticity gain); blog article + LinkedIn post (blog needs its own reason to exist; this pipeline is for reactive daily content); documenting in a content process doc (skill is self-documenting, process doc would drift).
+**Consequences:** `/insight-post` is a distinct content category — reactive/ephemeral, sourced from conversations, not planned. `/day-start` now surfaces it daily. The right trigger for a planned long-form post is still `/draft-blog` → `/promote-blog`.
+**References:** `.claude/commands/slava/content/insight-post.md`, `.claude/commands/slava/day-start.md`
+
+---
+
 ## 2026-02-27 [process]: pick-flow skill — 13 fixes from deep gap analysis + adversarial review
 
 **Context:** `/pick-flow` dropped `/generate-tests` from a recommendation where it was clearly warranted (conditional rendering, state-based UI). Post-session analysis revealed 8+ structural gaps in the skill.

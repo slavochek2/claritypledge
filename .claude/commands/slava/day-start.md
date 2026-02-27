@@ -127,6 +127,19 @@ Rules:
 
 ---
 
+### 3. Insight Post Prompt
+
+After the BRANCHES block, output this one line:
+
+```
+→ Run /insight-post? Scans last 48hr of conversations → 5 LinkedIn framings → schedule via Postiz.
+```
+
+If user replies "insights", "yes", "run it", or "insight-post" → invoke `/slava:content:insight-post`.
+If user ignores it or moves on → drop it, don't repeat.
+
+---
+
 ## Notes
 
 - Never show done steps. Only what's coming.
