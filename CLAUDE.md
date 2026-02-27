@@ -14,7 +14,7 @@ This file provides guidance for AI agents working with code in this repository.
 
 **Development pattern:** Read spec → implement → test → `/dev` stops at QA gate (`status: qa`, stays on feature branch). You run `/ship pN` when satisfied → merges to prod, closes spec. Run `/verify` for visual QA when needed.
 
-**Inline implementation rule:** When implementing without `/dev` (e.g., inline in conversation), manually apply the QA gate at the end: set `status: qa` in spec frontmatter and commit `chore: pN ready for QA — {title}`.
+**Inline implementation rule:** When implementing without `/dev` — including inline in conversation, via `/fix`, or any other ad-hoc path — manually apply the QA gate before stopping: set `status: qa` in spec frontmatter and commit `chore: pN ready for QA — {title}`. No implementation is complete until the spec reflects it. This applies to bug fixes too — p442/p443/p444 were implemented but left at `status: today`, which is the failure mode this rule prevents.
 
 **Merge gate — hard rule:** NEVER merge a feature branch to main directly, even if the code looks ready. The only permitted merge path is `/ship pN`. This applies to all branches, all task types. A direct merge bypasses UAT, skips spec closure, and cannot be undone cleanly in prod.
 

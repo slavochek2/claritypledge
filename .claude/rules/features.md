@@ -33,6 +33,8 @@ When the kanban UI sets a status manually, it writes `locked_at: <ISO timestamp>
 
 **CRITICAL RULE: If a feature file has `locked_at`, DO NOT change its `status` unless the user has explicitly instructed you to do so for that specific feature in this conversation.** Automated status transitions (e.g. auto-closing on `/dev` success) must be skipped for locked features. If you need to close a feature that has `locked_at`, ask the user first.
 
+**`in-progress` is exclusively agent-set.** Only `/dev` or `/fix` may set `status: in-progress` — at the moment the run actually starts. Users should not manually drag a feature to `in-progress` on the kanban: doing so writes `locked_at`, which suppresses all automated status transitions for that feature. The correct user signal for "I want this next" is `status: today`. The agent sets `in-progress` when it picks up the work.
+
 ## P-Number Assignment
 
 ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`, or manual inspection miss `features/done/` and cause duplicate P-numbers). Script excludes `uat/` and `archive/` correctly. If script unavailable, warn user and halt.

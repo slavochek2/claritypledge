@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [process]: `in-progress` kanban status is exclusively agent-set
+
+**Context:** User was manually dragging features to `in-progress` on the kanban to signal intent before starting `/dev`. This writes `locked_at` to frontmatter, which suppresses all automated status transitions — meaning the agent skips setting `in-progress` and `qa` automatically, forcing manual status management for the rest of the feature lifecycle.
+**Decision:** `in-progress` is owned exclusively by `/dev` and `/fix` — they set it at the moment a run starts. The correct user signal for "I plan to work on this next" is `status: today`. Rule documented in `.claude/rules/features.md` under the Manual Status Lock section.
+**Alternatives rejected:** Removing the `locked_at` mechanism entirely (still needed to protect user-overridden statuses in other cases); adding a "planned" intermediate status (extra complexity, same outcome as `today`).
+**Consequences:** Agents fully own the `backlog → today → in-progress → qa → done` progression once a run starts. Users set `today` as their planning signal. Less manual kanban maintenance.
+**References:** `.claude/rules/features.md`
+
+---
+
 ## 2026-02-27 [process]: inline src/ edits require branch check before touching code
 
 **Context:** Today's session had 8+ wrong-branch incidents — fixes landing on `feature/p451-...` while working on P457, P458, etc. Root cause: `/dev` has a pre-flight branch check (step 0), but inline edits (done without calling a skill) have no equivalent guard. The agent proceeds on whatever branch is active.
