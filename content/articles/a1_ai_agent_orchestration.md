@@ -1,6 +1,6 @@
 ---
 status: draft
-title: "Blog Article — AI Agent Orchestration for Solo Founders"
+title: Blog Article — AI Agent Orchestration for Solo Founders
 rank: 1
 tags:
   - ai-agents

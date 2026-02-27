@@ -6,6 +6,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ```markdown
 ## YYYY-MM-DD: Decision Title
 
+---
+
+## 2026-02-27 [technical]: Vitest unit tests fail silently when VITE_SUPABASE_* env vars missing
+
+**Context:** `src/lib/supabase.ts` throws at module load (`Missing Supabase environment variables`) when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent. Any test file that imports a module that transitively imports supabase.ts will fail with a module-load error — even if the test doesn't call Supabase at all. No `.env.test.local` fix works for Vitest (it uses `vite.config.ts`, not Playwright's dotenv loading).
+**Decision:** Add dummy stub values to `vite.config.ts` `test.env` block:
+```ts
+test: { env: { VITE_SUPABASE_URL: 'http://localhost:54321', VITE_SUPABASE_ANON_KEY: 'test-anon-key' } }
+```
+These are never used in a real Supabase call in unit tests — they only satisfy the module-load guard.
+**Alternatives rejected:** Per-file mocking of supabase.ts (too brittle, requires every new test file to remember); changing supabase.ts to not throw (breaks prod safety guard).
+**Consequences:** Adding new test files that import supabase-touching modules will Just Work. No per-file boilerplate needed.
+**References:** [vite.config.ts](vite.config.ts)
+
+---
+
+## 2026-02-27 [process]: Content articles live in `content/articles/`, separate from `features/`
+
+**Context:** Articles and blog posts were being tracked as feature specs in `features/p*_article_*.md`. This mixed content pipeline management with feature delivery — wrong kanban columns, wrong status values, wrong lifecycle.
+**Decision:** New namespace: `content/articles/a{N}_{slug}.md`. Own status pipeline: `idea → draft → editing → ready → published → promoted`. Auto-number via `scripts/next-a-number.sh`. Kanban gets a `Content` tab with its own DndContext and `ArticleStatus` type. Rules file `.claude/rules/content.md` auto-loads when editing `content/articles/`. `features/` remains for product feature specs only.
+**Alternatives rejected:** Subdirectory inside features/ (same wrong column semantics, no separate kanban view); separate Ghost CMS notes (not tracked in git, no kanban integration).
+**Consequences:** Future articles go in `content/articles/` not `features/`. Use `./scripts/next-a-number.sh` for numbering. Content kanban tab at `/content` in the kanban tool. Content skills (`/slava:content:*`) write to this directory.
+**References:** [content/articles/](content/articles/) · [.claude/rules/content.md](.claude/rules/content.md) · [tools/kanban/src/components/ContentPage.tsx](tools/kanban/src/components/ContentPage.tsx)
+
+
 **Context:** Why this came up
 **Decision:** What we chose
 **Alternatives rejected:** What we didn't choose
