@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [technical]: story-guide-chat — upgrade to gemini-3.1-pro-preview + daily rate limit
+
+**Context:** story-guide-chat was using `gemini-2.5-flash` with a 30-request/hour sustained limit. Direct side-by-side API comparison of Flash vs Pro 2.5 vs Pro 3.1 showed measurable quality differences: Flash collapsed the emotional arc into one paragraph and missed the need layer entirely; 3.1 Pro produced better pacing, sharper language ("contributions belong to me"), and a more incisive follow-up question targeting the actual ambiguity. The per-hour limit was punishing real users mid-session (2 sessions in one hour = capped) while doing nothing the burst limit didn't already cover.
+**Decision:** Primary model: `gemini-3.1-pro-preview` (released 2026-02-19). Fallback: `gemini-2.5-flash` (auto-retry on non-ok response). `maxOutputTokens`: 2048 → 8192 (Pro uses thinking tokens internally — 2048 caused MAX_TOKENS truncation with no output). Rate limits: keep burst (10/5min), drop per-hour (30/hr), add daily cap (200/24hr). User message for daily hit: "You've reached today's limit. Come back tomorrow."
+**Alternatives rejected:** `gemini-2.5-pro` (superseded by 3.1 Pro released 8 days prior); raising per-hour to 100 (wrong unit — burst handles real-time hammering, daily handles sustained abuse); no fallback (single-model = full feature down on any 3.1-pro outage).
+**Consequences:** Story coaching quality is materially higher. 3.1-pro-preview is a preview model — fallback catches deprecation automatically. The `geminiStreamUrl(model)` helper replaces the hardcoded constant — future model swaps are one-line changes.
+**References:** `supabase/functions/story-guide-chat/index.ts`
+
+---
+
 ## 2026-02-27 [process]: insight-post skill — reactive LinkedIn content from conversation history
 
 **Context:** Needed a way to turn the intellectual residue of daily Claude sessions into LinkedIn thought leadership. The naive design (30 variants, scoring agent, research agent, blog article + LinkedIn post) was overcomplicated and would produce engagement bait over genuine insight.
