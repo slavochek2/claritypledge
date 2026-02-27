@@ -162,8 +162,6 @@ export function PointDetailPage() {
   const handlePositionClick = async (position: PositionType) => {
     if (!user || !id) return;
 
-    console.log('[DEBUG] handlePositionClick:', { position, userId: user.id, pointId: id });
-
     // Toggle: clicking same position removes it
     const newPosition = userPosition === position ? null : position;
 
@@ -179,18 +177,16 @@ export function PointDetailPage() {
         await guardedRemovePosition(id);
         return;
       } else {
-        const result = await pointsService.setPosition(id, user.id, newPosition);
-        console.log('[DEBUG] setPosition result:', result);
+        await pointsService.setPosition(id, user.id, newPosition);
       }
 
       // Reload point to get updated counts
       const updatedPoint = await pointsService.getPointWithUserPosition(id, user.id);
       if (updatedPoint) {
         setPoint(updatedPoint);
-        console.log('[DEBUG] Point reloaded after position update');
       }
     } catch (err) {
-      console.error('[DEBUG] Failed to update position:', err);
+      console.error('Failed to update position:', err);
       // Revert optimistic update on error
       setUserPosition(userPosition);
     }
@@ -336,12 +332,12 @@ export function PointDetailPage() {
         </div>
       </div>
 
-      {/* P425: Story CTA — shown after staking a position */}
+      {/* P451: Story CTA — shown when user has a position */}
       {showStoryCTA && id && (
         <div className="mt-4">
           <button
             type="button"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
             onClick={() => navigate(`/chat?from=position&pointId=${id}`)}
           >
             Tell your story →
