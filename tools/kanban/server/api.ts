@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { readdir, readFile, rename, mkdir } from 'fs/promises'
 import { writeFileSync, readFileSync } from 'fs'
-import { join, basename, extname } from 'path'
+import { join, basename, extname, sep, resolve } from 'path'
 import matter from 'gray-matter'
 import { exec, execSync, spawnSync } from 'child_process'
 import type { Feature, Status, FeatureType, Size, Milestone, MilestoneStatus, Article, ArticleStatus } from '../src/lib/types'
@@ -705,7 +705,14 @@ app.post('/api/open', (req, res) => {
 
   // Security: only allow opening files in known worktree features directories
   const worktrees = getWorktrees()
-  const isAllowedPath = worktrees.some((wt) => filePath.startsWith(join(wt.path, 'features')))
+  const resolvedPath = resolve(filePath)
+  const isAllowedPath = worktrees.some((wt) => {
+    const allowedFeatures = join(wt.path, 'features') + sep
+    const allowedArticles = join(wt.path, 'content', 'articles') + sep
+    return resolvedPath.startsWith(allowedFeatures) ||
+           resolvedPath.startsWith(allowedArticles) ||
+           resolvedPath === join(wt.path, 'features')
+  })
 
   if (!isAllowedPath) {
     return res.status(403).json({ error: 'Path not allowed' })

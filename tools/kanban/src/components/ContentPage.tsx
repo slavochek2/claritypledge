@@ -87,7 +87,10 @@ export function ContentPage({ currentWorktree }: ContentPageProps) {
 
   useEffect(() => { fetchArticles() }, [fetchArticles])
 
-  const getEffectiveOrder = (a: Article) => a.rank ?? Number.MAX_SAFE_INTEGER
+  const getEffectiveOrder = (a: Article | undefined): number => {
+    if (!a) return Number.MAX_SAFE_INTEGER
+    return a.rank ?? Number.MAX_SAFE_INTEGER
+  }
 
   const getColumnArticles = (status: ArticleStatus): Article[] =>
     articles
