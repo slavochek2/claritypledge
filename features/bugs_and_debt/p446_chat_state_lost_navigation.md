@@ -1,17 +1,18 @@
 ---
-status: week
+status: today
 type: bug
-rank: 125487.0
+rank: 125483.75
 workstream: C1
 severity: medium
-date_reported: 2026-02-26
-created_date: 2026-02-26
+date_reported: 2026-02-26T00:00:00.000Z
+created_date: 2026-02-26T00:00:00.000Z
 source: sim
 changes: p425
 tags:
   - chat
   - state
   - navigation
+locked_at: '2026-02-27T09:32:04.777Z'
 ---
 
 # BUG: Chat State Lost When Navigating Away and Back

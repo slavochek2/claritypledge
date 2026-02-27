@@ -1,3 +1,9 @@
+---
+name: claude-md
+description: Analyze and validate proposed changes to CLAUDE.md and its referenced docs before applying
+version: 1.0.0
+---
+
 # /slava:claude-md-maintain
 
 Analyze and suggest how to update CLAUDE.md and its referenced docs.

@@ -11,6 +11,31 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [product]: AI image generation — opportunity ranking for Clarity Pledge
+
+**Context:** We added Imagen 4 Fast image generation to the content pipeline (LinkedIn posts). Ran two parallel research agents: one reading the codebase to analyze UX fit, one brainstorming 50 ideas, scoring all of them, and surfacing top 5.
+**Decision:** Priority stack:
+1. **Story images** (ship first) — narrative content = image sets "where was I?" before text. Reuses event banner pattern 100%, just swap Unsplash for Imagen. Score 27/30.
+2. **Post-session share card** — "I just practiced X" shareable after each /live session. Distribution engine disguised as a feature. Score 4.7/5.
+3. **Insight quote card** — flag a notable phrase from a session → generates a quote card with abstract background. Captures emotional peak as persistent shareable artifact. Score 4.7/5.
+4. **Communication archetype card** (phase 2) — onboarding assessment → "The Clarifier" visual card. Requires assessment first.
+5. **Persona simulation avatar** (phase 2, ties to P439) — abstract visual face per AI sim persona.
+**Alternatives rejected:** Point images (logical claims don't benefit from scene-setting imagery — decorative at best, confusing at worst; defer until story images validated). Feed thumbnails (add after data confirms authors regenerate story images).
+**Consequences:** Build story images next. Post-session share card and insight quote card are the highest-ROI items after that — both reuse the same Imagen pipeline already built.
+**References:** Two-agent analysis session 2026-02-27; `/slava:gen-image` skill
+
+---
+
+## 2026-02-27 [technical]: Imagen 4 Fast for AI image generation + Postiz pipeline
+
+**Context:** Needed AI image generation for LinkedIn posts and future in-app use. Explored Gemini image models available via the existing `GEMINI_API_KEY`.
+**Decision:** Use `imagen-4.0-fast-generate-001` via Gemini API. Two-step: (1) `gemini-2.0-flash` crafts the Imagen prompt from post context, (2) Imagen generates the image. Upload via Postiz `/api/media/upload-simple`.
+**Alternatives rejected:** Unsplash (stock photos, less creative, attribution required). `gemini-2.0-flash-exp-image-generation` (older, lower quality). `imagen-4.0-ultra` (slower, overkill for social posts).
+**Consequences:** `safetySetting` must be `"block_low_and_above"` — no other value accepted. Postiz image upload: `POST /api/media/upload-simple` with `organization: {ORG_ID}` header + multipart. Auth is cookie-based (`provider: "LOCAL"` required in login). Postiz 502 root cause: Temporal services (`temporal`, `temporal-elasticsearch`, `temporal-postgresql`) not auto-started — must be started before restarting postiz backend. Skill: `.claude/commands/slava/content/gen-image.md`.
+**References:** `.env.local` (`GEMINI_API_KEY`), `docs/technical/postiz.md`
+
+---
+
 ## 2026-02-27 [process]: tmux pipe-pane logging for Claude session recovery
 
 **Context:** Mac sleep kills Anthropic API connections mid-request. Claude Code blocks stdin indefinitely on a dead socket. Two sessions lost with no text record. `claude -r` only works on cleanly-exited sessions.

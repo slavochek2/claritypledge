@@ -736,7 +736,6 @@ export function StoryGuideChat({
               ref={inputRef}
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
-              disabled={phase === 'streaming'}
               placeholder={getPlaceholder(phase)}
               onKeyDown={handleKeyDown}
               className="flex-1 resize-none border-0 shadow-none focus-visible:ring-0 bg-transparent text-base placeholder:text-muted-foreground/70 min-h-[24px] max-h-[150px] overflow-y-auto outline-none"

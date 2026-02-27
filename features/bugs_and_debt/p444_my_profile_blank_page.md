@@ -1,15 +1,16 @@
 ---
-status: week
+status: today
 type: bug
-rank: 125485.0
+rank: 125483.5
 workstream: foundation
 severity: medium
-date_reported: 2026-02-26
-created_date: 2026-02-26
+date_reported: 2026-02-26T00:00:00.000Z
+created_date: 2026-02-26T00:00:00.000Z
 source: sim
 tags:
   - profile
   - navigation
+locked_at: '2026-02-27T09:32:01.914Z'
 ---
 
 # BUG: "My Profile" Page Is Blank
