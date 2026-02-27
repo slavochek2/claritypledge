@@ -10,8 +10,6 @@ import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementRow } from './agreement-row';
 import { filterAgreementsForViewer } from './filter-agreements';
 
-export { filterAgreementsForViewer };
-
 export interface ProfileAgreementsSectionProps {
   profileId: string;
   viewerProfileId: string | null;
