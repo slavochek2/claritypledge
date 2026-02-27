@@ -7,10 +7,16 @@ Run comprehensive parallel reviews on recent changes before shipping.
 ## Usage
 
 ```bash
-/review-all    # That's it. The skill analyzes and asks you.
+/review-all              # All 3 agents (code + design + ux)
+/review-all code         # Code review only
+/review-all code,ux      # Code + UX, skip design
+/review-all design,ux    # Design + UX, skip code
 ```
 
-No parameters needed. The skill:
+Optional `[agents]` param selects which reviewers to run. Defaults to all 3.
+Use single-agent when the change is narrow (e.g. state removal → `code` only; layout-only change → `design` only).
+
+The skill:
 1. Analyzes your current state (branch, uncommitted, specs)
 2. Suggests the best scope
 3. Asks you to confirm or choose differently
@@ -112,12 +118,19 @@ Which option?
 
 ### Step 2: Spawn Review Agents (Two Phases)
 
-**Launch all 3 agents in a SINGLE message** using the Task tool to run them in parallel:
+**Determine which agents to run** based on the `[agents]` parameter (default: all 3):
+- `code` → Agent 2 only
+- `design` → Agent 1 only
+- `ux` → Agent 3 only
+- Any combination: `code,ux` / `design,code` / etc.
+- No param or `all` → all 3
+
+**Launch selected agents in a SINGLE message** using the Task tool to run them in parallel:
 
 ```
-Task(description="Design audit", subagent_type="general-purpose", prompt="...")
-Task(description="Code review", subagent_type="general-purpose", prompt="...")
-Task(description="UX review", subagent_type="general-purpose", prompt="...")
+Task(description="Design audit", subagent_type="general-purpose", prompt="...")  # if design selected
+Task(description="Code review", subagent_type="general-purpose", prompt="...")   # if code selected
+Task(description="UX review", subagent_type="general-purpose", prompt="...")     # if ux selected
 ```
 
 **Timeout handling:** If any agent takes >3 minutes, proceed with partial results. Note which review was skipped in the final report.
