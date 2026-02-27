@@ -11,6 +11,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-27 [technical]: Draft pinned in rating drawer + ChatRatingContent extraction
+
+**Context:** In the story guide chat, the rating drawer (phase=rating/iterating) opened with `bg-black/40` overlay, dimming the thread — hiding the draft the user was being asked to rate. The rating UI was also a private inline block with no reuse path. `/live` solves the same problem by pinning story content above the transparent drawer.
+**Decision:** (1) Drawer overlay changed to `bg-transparent` so thread history remains visible. (2) Latest draft pinned at the top of DrawerContent as a compact preview (`line-clamp-4`) — user immediately sees what they're rating when the drawer opens. (3) Rating form extracted to `ChatRatingContent` in `partners/shared.tsx` with external state (ratingValue, comment, callbacks) — ready for reuse on other surfaces without refactoring internal state.
+**Alternatives rejected:** Putting draft in a separate pinned section between thread and drawer in normal document flow — unreliable because Vaul Drawer is a portal that renders over the full screen and we can't guarantee it won't cover the section.
+**Consequences:** The pattern to follow for any future rating-in-drawer UI: transparent overlay + content pinned at top of drawer + `ChatRatingContent` for the form. `/live` RatingCard uses internal state (different pattern) and wasn't changed — they can converge later.
+**References:** [StoryGuideChat.tsx](src/app/components/story-guide/StoryGuideChat.tsx) · [shared.tsx](src/app/components/partners/shared.tsx)
+
+---
+
 ## 2026-02-27 [process]: /ship QA gate + status: all-done consistency fix
 
 **Context:** `/ship` had two problems: (1) it would silently merge a spec that was still in `qa` — meaning UAT hadn't been manually approved — with no warning; (2) step 7 set `status: done` but the "After shipping" doc note said `status: all-done`, creating an inconsistency in the status lifecycle.
