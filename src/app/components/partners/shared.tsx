@@ -27,6 +27,7 @@ export function RatingButtons({ selectedValue, onSelect, disabled }: RatingButto
     <div className="flex gap-1 w-full max-w-sm">
       {RATING_OPTIONS.map((option) => (
         <button
+          type="button"
           key={option.value}
           onClick={() => onSelect(option.value)}
           disabled={disabled}

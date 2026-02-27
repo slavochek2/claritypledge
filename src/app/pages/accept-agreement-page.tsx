@@ -143,7 +143,10 @@ export function AcceptAgreementPage() {
     setShowDeclineConfirm(false);
     try {
       const ok = await declineAgreement();
-      if (!ok) return;
+      if (!ok) {
+        toast.error('Failed to decline. Please try again.');
+        return;
+      }
       invokeAgreementEmails('declined', agreementId);
       navigate(`/agreements/${agreementId}/declined`);
     } finally {
@@ -161,7 +164,10 @@ export function AcceptAgreementPage() {
     setShowDeclineConfirm(false);
     try {
       const ok = await declineAgreement();
-      if (!ok) return;
+      if (!ok) {
+        toast.error('Failed to decline. Please try again.');
+        return;
+      }
       invokeAgreementEmails('declined', agreementId);
       navigate(`/agreements/${agreementId}/declined`);
     } finally {

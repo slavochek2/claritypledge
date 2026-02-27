@@ -488,7 +488,9 @@ export function StoryGuideChat({
   }, []);
 
   const handleKeepRefining = useCallback(() => {
-    setIterationCount(0);
+    setPhase('brain-dump');
+    setRatingValue(null);
+    setRatingComment('');
   }, []);
 
   const handleRatingSubmit = useCallback(() => {
@@ -715,7 +717,7 @@ export function StoryGuideChat({
             selectedVisibility={selectedVisibility}
             onVisibilityChange={setSelectedVisibility}
             onSave={handleSave}
-            onBack={() => setPhase('iterating')}
+            onBack={() => setPhase('brain-dump')}
             isSaving={isSaving}
           />
         )}
@@ -745,7 +747,7 @@ export function StoryGuideChat({
               onClick={() => handleSend()}
               disabled={sendDisabled}
               aria-label="Send message"
-              className="p-2 rounded-full transition-colors bg-blue-600 text-white hover:bg-blue-700"
+              className="p-2 rounded-full transition-colors bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               →
             </button>
