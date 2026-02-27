@@ -3,7 +3,7 @@
  * @description P459: Compact profile header metadata line showing agreement count.
  * Links to /p/:slug/connections. Handles 5 viewer states:
  *   Owner with agreements        → "N Clarity Partners →"
- *   Owner with 0 agreements      → "Find Clarity Partners →" (always shown so owner can reach the page)
+ *   Owner with 0 agreements      → "Add a Clarity Partner →" (always shown so owner can reach the page)
  *   Visitor-party                → "You have N agreement(s) with this person →"
  *   Visitor with public visible  → "N Clarity Partners →"
  *   Non-owner, no visible        → null (renders nothing)
@@ -39,7 +39,7 @@ export function AgreementsMetadataLine({
 
   if (filtered.length === 0) {
     // Owner with no agreements — show CTA so they can reach the page
-    label = 'Find Clarity Partners';
+    label = 'Add a Clarity Partner';
   } else if (viewerProfileId && !isOwner) {
     // Check if viewer is party to any of the visible agreements
     const sharedCount = filtered.filter(
