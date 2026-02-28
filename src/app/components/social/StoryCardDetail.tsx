@@ -33,7 +33,7 @@ type LinkedStory = Pick<
   'id' | 'content' | 'authorId' | 'authorName' | 'authorSlug' | 'authorAvatarUrl' | 'authorEarsCount' | 'authorHasPledged'
 >;
 import type { PositionButtonGroup } from '@/app/prototypes/shared/types';
-import { getPositionGroup } from '@/app/prototypes/shared/types';
+import { getPositionGroup, getPositionCTACopy } from '@/app/prototypes/shared/types';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -73,6 +73,8 @@ interface StoryCardDetailProps {
   visibilitySlot?: React.ReactNode;
   /** Icon-only action buttons rendered in the footer row before Share. Author-only (edit, delete). */
   footerActionsSlot?: React.ReactNode;
+  /** Current viewer's user ID — used to scope story CTA count (P456) */
+  currentUserId?: string;
 }
 
 /**
@@ -97,6 +99,7 @@ export function StoryCardDetail({
   linkedStoriesForPoints,
   visibilitySlot,
   footerActionsSlot,
+  currentUserId,
 }: StoryCardDetailProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(isDetailView);
@@ -349,6 +352,7 @@ export function StoryCardDetail({
                       }}
                       linkedStories={linkedStoriesForPoints?.get(pointsToShow[0].id) ?? []}
                       onStoryClick={storyId => navigate(storyRoute(storyId))}
+                      currentUserId={currentUserId}
                     />
                   ) : (
                     // 2+ points - show thread lines
@@ -373,6 +377,7 @@ export function StoryCardDetail({
                             }}
                             linkedStories={linkedStoriesForPoints?.get(point.id) ?? []}
                             onStoryClick={storyId => navigate(storyRoute(storyId))}
+                            currentUserId={currentUserId}
                           />
                         </ThreadLineItem>
                       ))}
@@ -416,6 +421,7 @@ function QuotedPoint({
   onClick,
   linkedStories = [],
   onStoryClick,
+  currentUserId,
 }: {
   point: PointSummary;
   authorName: string;
@@ -428,6 +434,7 @@ function QuotedPoint({
   onClick: (e: React.MouseEvent) => void;
   linkedStories?: LinkedStory[];
   onStoryClick?: (storyId: string) => void;
+  currentUserId?: string;
 }) {
   const navigate = useNavigate();
   const [storiesExpanded, setStoriesExpanded] = useState(false);
@@ -551,46 +558,84 @@ function QuotedPoint({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* P451: Story CTA — shown after staking a position */}
-      {showStoryCTA && (
-        <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>
-          <button
-            type="button"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
-            onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+        {/* P456: Linked stories toggle — moved inside quoted box (UX Gap 1 fix) */}
+        {linkedStories.length > 0 && (
+          <div
+            role="presentation"
+            className="mt-2 pt-2 border-t border-gray-200 pl-[44px]"
+            onClick={e => e.stopPropagation()}
           >
-            Tell your story →
-          </button>
-        </div>
-      )}
+            <button
+              onClick={() => setStoriesExpanded(v => !v)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-600 transition-colors"
+            >
+              {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span>
+                {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
+              </span>
+            </button>
+            {storiesExpanded && (
+              <div className="mt-2 space-y-2">
+                {linkedStories.slice(0, 3).map(story => (
+                  <LinkedStoryCard
+                    key={story.id}
+                    story={story}
+                    onClick={() => onStoryClick?.(story.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Linked stories - other stories this point also appears in */}
-      {linkedStories.length > 0 && (
-        <div role="presentation" className="mt-1.5" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => setStoriesExpanded(v => !v)}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-blue-600 transition-colors pl-1"
-          >
-            {storiesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <span>
-              {linkedStories.length} {linkedStories.length === 1 ? 'story' : 'stories'}
-            </span>
-          </button>
-          {storiesExpanded && (
-            <div className="mt-2 space-y-2">
-              {linkedStories.slice(0, 3).map(story => (
-                <LinkedStoryCard
-                  key={story.id}
-                  story={story}
-                  onClick={() => onStoryClick?.(story.id)}
-                />
-              ))}
+        {/* P456: Story CTA footer — shown when viewer has taken a position */}
+        {effectivePosition && (() => {
+          const positionGroup = getPositionGroup(effectivePosition);
+          const copy = getPositionCTACopy(positionGroup);
+          const viewerStoryCount = linkedStories.filter(s => s.authorId === currentUserId).length;
+          const chatUrl = `/chat?from=position&pointId=${point.id}`;
+
+          return (
+            <div
+              role="presentation"
+              className="mt-2 pt-2 border-t border-gray-200 pl-[44px] pr-1"
+              onClick={e => e.stopPropagation()}
+            >
+              {viewerStoryCount === 0 ? (
+                <div className="flex items-center gap-1 text-sm">
+                  <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
+                  <span className="text-gray-600">{copy.label}</span>
+                  <span aria-hidden="true" className="text-gray-400"> · </span>
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    aria-label={copy.ariaLabel}
+                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    {copy.ctaText}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between w-full pr-2">
+                  <button
+                    onClick={e => { e.stopPropagation(); setStoriesExpanded(v => !v); }}
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    <span aria-hidden="true">▶</span>
+                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    + add story →
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          );
+        })()}
+      </div>
     </div>
   );
 }

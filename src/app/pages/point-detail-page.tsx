@@ -7,14 +7,14 @@
  * the view, or show a generic view if no referrer.
  */
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Pin } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { pointsService } from '@/app/data/points-service';
 import { storiesService } from '@/app/data/stories-service';
 import type { PointWithCounts, PointWithUserPosition, PointPositionWithUser, PositionType, StoryWithAuthor } from '@/app/types';
-import { getPositionGroup, type PositionButtonGroup } from '@/app/prototypes/shared/types';
+import { getPositionGroup, getPositionCTACopy, type PositionButtonGroup } from '@/app/prototypes/shared/types';
 import type { Story } from '@/app/prototypes/shared/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import {
@@ -56,6 +56,7 @@ export function PointDetailPage() {
   const [retryKey, setRetryKey] = useState(0);
   const [linkedStories, setLinkedStories] = useState<Map<string, StoryWithAuthor[]>>(new Map());
   const showStoryCTA = !!userPosition;
+  const positionsSectionRef = useRef<HTMLDivElement>(null);
 
   // P401: Guard position removal with linked-stories warning dialog
   const { dialogProps, guardedRemovePosition } = useRemovePositionGuard({
@@ -317,6 +318,50 @@ export function PointDetailPage() {
         <div className="flex items-center justify-end px-4 py-3 border-t border-border">
           <ShareButton type="point" id={point.id} description={point.statement.slice(0, 100)} />
         </div>
+
+        {/* P456: Story CTA footer — shown when viewer has taken a position */}
+        {userPosition && (() => {
+          const positionGroup = getPositionGroup(userPosition);
+          const copy = getPositionCTACopy(positionGroup);
+          const viewerStoryCount = (linkedStories.get(id ?? '') ?? []).filter(s => s.authorId === user?.id).length;
+
+          return (
+            <div className="flex items-center pl-[52px] pr-4 py-3 border-t border-gray-100">
+              {viewerStoryCount === 0 ? (
+                /* Standard CTA: position label + adaptive CTA link */
+                <div className="flex items-center gap-1 text-sm">
+                  <span aria-hidden="true" className="text-gray-600">{copy.symbol}</span>
+                  <span className="text-gray-600">{copy.label}</span>
+                  <span aria-hidden="true" className="text-gray-400"> · </span>
+                  <button
+                    onClick={() => navigate(`/chat?from=position&pointId=${id}`)}
+                    aria-label={copy.ariaLabel}
+                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    {copy.ctaText}
+                  </button>
+                </div>
+              ) : (
+                /* Split footer: viewer has ≥1 story */
+                <div className="flex items-center justify-between w-full">
+                  <button
+                    onClick={() => positionsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                    <span aria-hidden="true">▶</span>
+                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
+                  </button>
+                  <button
+                    onClick={() => navigate(`/chat?from=position&pointId=${id}`)}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    + add story →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* P451: Story CTA — shown when user has a position */}
@@ -333,7 +378,7 @@ export function PointDetailPage() {
       )}
 
       {/* Positions section */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div ref={positionsSectionRef} className="bg-card border border-border rounded-lg overflow-hidden">
         {/* Filter tabs */}
         <FilterTabs
           activeFilter={positionFilter}

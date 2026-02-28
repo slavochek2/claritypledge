@@ -49,7 +49,7 @@ import {
 import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import type { StoryVisibility } from "@/app/types";
-import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
+import { getPositionGroup, getPositionCTACopy, type PositionButtonGroup } from "@/app/prototypes/shared/types";
 import { formatTimeAgo } from "@/app/prototypes/shared/utils";
 // Profile owner context for card components
 interface ProfileOwner {
@@ -173,6 +173,21 @@ export function ProfilePageV2() {
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
   const currentUserSlug = currentUser?.slug;
+
+  // P456: Compute viewer's story count per point — must be declared before any early return (hooks rule).
+  // realStories is the profile owner's stories. When viewer IS the owner, this IS their stories.
+  // When viewing another profile, map is empty (viewerStoryCount defaults to 0 = shows CTA, correct).
+  const viewerStoriesForPoint = useMemo(() => {
+    const map = new Map<string, number>();
+    if (currentUserId && profile && currentUserId === profile.id) {
+      realStories.forEach(story => {
+        story.points?.forEach(p => {
+          map.set(p.id, (map.get(p.id) ?? 0) + 1);
+        });
+      });
+    }
+    return map;
+  }, [realStories, currentUserId, profile]);
 
   // Load profile
   useEffect(() => {
@@ -825,6 +840,7 @@ export function ProfilePageV2() {
                     credibilityStats={credibilityStats}
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
+                    viewerStoriesForPoint={viewerStoriesForPoint}
                   />
                 ))
               )
@@ -899,6 +915,7 @@ interface StoryCardFullProps {
   credibilityStats: { ear: number; mic: number };
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
+  viewerStoriesForPoint?: Map<string, number>;
 }
 
 const STORY_THRESHOLD = 180;
@@ -909,6 +926,7 @@ function StoryCardFull({
   credibilityStats,
   currentUserId,
   onPointPositionSelect,
+  viewerStoriesForPoint,
 }: StoryCardFullProps) {
   const navigate = useNavigate();
   const [pointsExpanded, setPointsExpanded] = useState(false);
@@ -1077,6 +1095,7 @@ function StoryCardFull({
               authorHasPledged={author.hasPledged}
               currentUserId={currentUserId}
               onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
+              viewerStoryCount={viewerStoriesForPoint?.get(point.id) ?? 0}
             />
           ))}
           {linkedPoints.length > 3 && (
@@ -1107,6 +1126,7 @@ interface QuotedPointCardProps {
   authorHasPledged: boolean;
   currentUserId?: string;
   onPositionSelect?: (position: Position) => void;
+  viewerStoryCount?: number;
 }
 
 function QuotedPointCard({
@@ -1119,6 +1139,7 @@ function QuotedPointCard({
   authorHasPledged,
   currentUserId,
   onPositionSelect,
+  viewerStoryCount = 0,
 }: QuotedPointCardProps) {
   const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<Position>(
@@ -1187,10 +1208,18 @@ function QuotedPointCard({
         </div>
       )}
 
-      {/* Quoted Point box - entire box is clickable */}
-      <button
+      {/* Quoted Point box — changed from <button> to div[role=button] to fix nested button HTML violation */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => navigate(detailRoutes.point(point.id, authorId))}
-        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigate(detailRoutes.point(point.id, authorId));
+          }
+        }}
+        className="group/quote w-full text-left p-3 rounded-lg border border-border bg-muted hover:bg-muted/80 hover:border-border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         {/* Two-column layout */}
         <div className="flex items-start gap-3">
@@ -1216,17 +1245,50 @@ function QuotedPointCard({
             )}
           </div>
         </div>
-      </button>
-      {/* P451: Story CTA — shown after staking a position */}
-      {showStoryCTA && (
-        <button
-          type="button"
-          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
-          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
-        >
-          Tell your story →
-        </button>
-      )}
+
+        {/* P456: Story CTA footer — shown when viewer has taken a position */}
+        {userPosition && (() => {
+          const positionGroup = getPositionGroup(userPosition as PositionType);
+          const copy = getPositionCTACopy(positionGroup);
+          const chatUrl = `/chat?from=position&pointId=${point.id}`;
+
+          return (
+            <div
+              role="presentation"
+              className="mt-2 pt-2 border-t border-border pl-[44px] pr-1"
+              onClick={e => e.stopPropagation()}
+            >
+              {viewerStoryCount === 0 ? (
+                <div className="flex items-center gap-1 text-sm">
+                  <span aria-hidden="true" className="text-muted-foreground">{copy.symbol}</span>
+                  <span className="text-muted-foreground">{copy.label}</span>
+                  <span aria-hidden="true" className="text-muted-foreground"> · </span>
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    aria-label={copy.ariaLabel}
+                    className="font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    {copy.ctaText}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <span aria-hidden="true">▶</span>
+                    <span>{viewerStoryCount} {viewerStoryCount === 1 ? 'story' : 'stories'}</span>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); navigate(chatUrl); }}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    + add story →
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
     </div>
   );
 }
