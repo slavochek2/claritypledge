@@ -14,7 +14,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 **Decision:**
 1. **ICP qualifier is relationship health + decision frequency, not funding stage.** Pre-seed to seed is typical but the criterion is: both parties have skin in the game and miscalibration is actively costing them. Solo founder + equity advisor is secondary ICP — expand after C2 validates co-founder pairs.
-2. **Briefing Protocol precondition: motivated Person B with pre-existing stakes.** Protocol channels existing motivation — doesn't create it. "Adam experiment" fails because Adam has no stakes in the mirror claims; Slava does. Right first Person B = someone with high existing stakes in the relationship.
+2. **Briefing Protocol precondition: motivated Person B with pre-existing stakes.** Protocol channels existing motivation — doesn't create it. First test failed because the chosen Person B had no pre-existing stakes in understanding Person A — the invitation was the wrong fit. Right first Person B = someone with high existing stakes in the relationship.
 3. **H-Stories-ColdStart narrowed to content-layer test.** Stories answer "what to verify" once a session is initiated — not "when to initiate." Cold start trigger is a separate hypothesis (H-BriefingProtocol-ColdStart).
 4. **Sessions without filed material are sterile.** Without filing + agent follow-up, sessions generate value in the room but don't propagate. Growth without this loop = Slava must initiate every session. Filing mechanism is structurally required, not optional.
 
