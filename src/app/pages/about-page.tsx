@@ -160,6 +160,28 @@ export function AboutPage() {
           </div>
         </section>
 
+        {/* Work With Me Section */}
+        <section className="mb-16">
+          <div className="bg-card border border-border rounded-lg p-8">
+            <h2 className="text-xl font-semibold mb-4">I work with co-founding pairs directly</h2>
+            <p className="text-muted-foreground mb-2">
+              Co-founders don't split over conflict. They split over the conversations they stopped having.
+            </p>
+            <p className="text-muted-foreground mb-6">
+              I work with founding pairs to stay calibrated — so you can move fast without building on false agreement.
+            </p>
+            <a
+              href="https://ladischenski.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              onClick={() => analytics.track('founder_services_clicked', { source: 'about_page' })}
+            >
+              ladischenski.com →
+            </a>
+          </div>
+        </section>
+
         {/* Open Source Section */}
         <section className="mb-16">
           <div className="bg-card border border-border rounded-lg p-8">
