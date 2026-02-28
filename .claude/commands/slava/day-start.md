@@ -12,6 +12,12 @@ Silent — no output needed.
 
 ### 1. Health Check (run in parallel, show before milestone)
 
+**e) Claude conversation sync (background agent — fire and forget)**
+Spawn a background Agent (`run_in_background: true`, `subagent_type: general-purpose`) with this prompt:
+> "Run the claude-sync-download skill: navigate to claude.ai/settings/data-privacy-controls in the Claude tab (use mcp__claude-in-chrome__tabs_context_mcp first to find it), click Export data, confirm with All conversations, then poll slavochek@googlemail.com via mcp__slavochek-gmail__search_emails every 60s for up to 10 min until a new 'Your data is ready for download' email arrives from today. Get the download URL via mcp__slavochek-gmail__get_email_content, navigate to it in the Claude browser tab to trigger the download, then run `claude-sync` in bash. Report how many new conversations were imported."
+
+Fire it immediately alongside steps a–d. Do not wait for it — it will notify you when done. Show: `↻ Claude sync: running in background`
+
 **a) Prod smoke test**
 ```bash
 node scripts/prod-smoke-test.mjs
@@ -69,6 +75,7 @@ HEALTH
   [✓/⚠] Sentry
   [✓] Signups: N in last 24h (or list of names)
   [nothing if cloud ok / ⚠ line per issue if not]
+  ↻ Claude sync: running in background
 ```
 
 If any check fails, flag it prominently before continuing. Do not skip the milestone section.
