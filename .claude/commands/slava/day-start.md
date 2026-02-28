@@ -134,9 +134,30 @@ Rules:
 
 ---
 
-### 3. Insight Post Prompt
+### 3. Weekly Prompt (Fri/Sat/Sun only)
 
-After the BRANCHES block, output this one line:
+Check the current day of week and the last weekly run:
+```bash
+DOW=$(date +%u)  # 1=Mon … 7=Sun
+LAST_WEEKLY=$(grep "^date:" ~/.claude_weekly_last_run 2>/dev/null | awk '{print $2}' | tr -d '[:space:]')
+WEEK_START=$(date -v-mon +%Y-%m-%d 2>/dev/null || date -d "last monday" +%Y-%m-%d 2>/dev/null)
+echo "dow=$DOW last_weekly=$LAST_WEEKLY week_start=$WEEK_START"
+```
+
+If `DOW` is 5, 6, or 7 (Friday, Saturday, Sunday) **and** either `LAST_WEEKLY` is empty or `LAST_WEEKLY` is earlier than `WEEK_START` — ask:
+
+```
+→ It's [Fri/Sat/Sun] and you haven't run /weekly yet this week. Run it now?
+```
+
+If user replies "yes", "run it", "weekly", or similar → invoke `/slava:maintain:weekly`.
+If user says no or ignores → drop it silently.
+
+---
+
+### 4. Insight Post Prompt
+
+After the BRANCHES block (or weekly prompt), output this one line:
 
 ```
 → Run /insight-post? Scans last 48hr of conversations → 5 LinkedIn framings → schedule via Postiz.
