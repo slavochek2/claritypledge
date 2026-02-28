@@ -161,13 +161,12 @@ export default function App() {
       if (!res.ok) throw new Error('Failed to fetch worktrees')
       const data: Worktree[] = await res.json()
       setWorktrees(data)
-      // If no worktree selected yet, select the current one
-      if (!selectedWorktree) {
-        const current = data.find((wt) => wt.isCurrent)
-        if (current) {
-          setSelectedWorktree(current.path)
-          localStorage.setItem(WORKTREE_KEY, current.path)
-        }
+      // Always sync to the current worktree on startup.
+      // localStorage may hold a stale path from a previous session started in a different dir.
+      const current = data.find((wt) => wt.isCurrent)
+      if (current) {
+        setSelectedWorktree(current.path)
+        localStorage.setItem(WORKTREE_KEY, current.path)
       }
     } catch {
       // Ignore - worktree selection will just be disabled
