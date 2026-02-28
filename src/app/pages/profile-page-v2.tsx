@@ -681,6 +681,17 @@ export function ProfilePageV2() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-bold text-foreground truncate">{profile.name}</h2>
+                  {profile.linkedinUrl && (
+                    <a
+                      href={profile.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${profile.name}'s LinkedIn profile`}
+                      className="flex-shrink-0 text-[#0A66C2] opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <LinkedinIcon size={16} aria-hidden="true" />
+                    </a>
+                  )}
                   <TooltipProvider delayDuration={100}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -704,18 +715,6 @@ export function ProfilePageV2() {
                 </div>
                 {profile.role && (
                   <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
-                )}
-                {profile.linkedinUrl && (
-                  <a
-                    href={profile.linkedinUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`${profile.name}'s LinkedIn profile`}
-                    className="flex items-center gap-1 text-xs text-[#0A66C2] hover:underline mt-0.5"
-                  >
-                    <LinkedinIcon size={14} aria-hidden="true" />
-                    LinkedIn
-                  </a>
                 )}
                 {profile.hasPledged ? (
                   <Link

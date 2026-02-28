@@ -51,25 +51,26 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
 
         {/* Name and Role */}
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-foreground truncate">
-            {profile.name}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-foreground truncate">
+              {profile.name}
+            </h1>
+            {profile.linkedinUrl && (
+              <a
+                href={profile.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${profile.name}'s LinkedIn profile`}
+                className="flex-shrink-0 text-[#0A66C2] opacity-70 hover:opacity-100 transition-opacity"
+              >
+                <LinkedinIcon className="w-4 h-4" aria-hidden="true" />
+              </a>
+            )}
+          </div>
           {profile.role && (
             <p className="text-sm text-muted-foreground truncate">
               {profile.role}
             </p>
-          )}
-          {profile.linkedinUrl && (
-            <a
-              href={profile.linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`${profile.name}'s LinkedIn profile`}
-              className="flex items-center gap-1 text-xs text-[#0A66C2] hover:underline mt-0.5"
-            >
-              <LinkedinIcon className="w-3.5 h-3.5" aria-hidden="true" />
-              LinkedIn
-            </a>
           )}
         </div>
 
