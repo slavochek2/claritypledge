@@ -4,7 +4,7 @@
  * the exact v3 bilateral text from the P422 spec.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 
@@ -66,5 +66,11 @@ describe('P461: AgreementCertificate — v3 bilateral text', () => {
     expect(
       screen.queryByText(/Emergencies.*exempt from this practice/)
     ).toBeNull();
+  });
+
+  it('does NOT show unilateral pledge voice (I/you) in the bilateral certificate', () => {
+    // Guard against accidentally importing pledge-text.tsx unilateral variants
+    expect(screen.queryByText(/mirror back what I heard/)).toBeNull();
+    expect(screen.queryByText(/if you need to know I truly understand/)).toBeNull();
   });
 });
