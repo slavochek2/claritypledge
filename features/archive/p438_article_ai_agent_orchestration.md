@@ -48,8 +48,8 @@ The hook: **an AI agent team broke down at spec 09 of 15, and the orchestrator s
   - `/Users/slavochek/Projects/public/llmcoolj-agent-teams/` — experimental teams (has MEMORY.md from live build in README)
 - Full research session transcript:
   - `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/42882397-7d50-4d1c-996b-44dd3579bac6.jsonl`
-- Jordan's email: `leadloom@proton.me` (outreach sent 2026-02-25, awaiting reply)
-- Jed's LinkedIn: `linkedin.com/in/tabaczynski/` (outreach done by Slava directly)
+- Jordan: outreach sent 2026-02-25, awaiting reply (contact in `.private/docs/accounts.md`)
+- Jed: outreach done by Slava directly (contact in `.private/docs/accounts.md`)
 
 ## Next Steps
 
