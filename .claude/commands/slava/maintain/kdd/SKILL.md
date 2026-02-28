@@ -166,6 +166,12 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    ```
    **Do NOT skip `completed_at`** — kanban "Done Today" column filters on this field.
 
+5.25. **Privacy gate — if source was claude-conversations:**
+
+   If any doc updates in this session were synthesized from personal claude.ai conversations (not code sessions), run `/maintain:privacy` before committing. claude-conversations contain personal context (named individuals, relationship details, personal struggles) that must not land in public docs.
+
+   Signal: session involved reading files from `~/projects/private/claude-conversations/` or the user mentioned a conversation by name.
+
 5.5. **Session wrap checklist:**
 
    Run in parallel:

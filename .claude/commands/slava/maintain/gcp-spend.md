@@ -14,7 +14,7 @@ Quick cost audit using gcloud resource inventory + pricing calculation. No BigQu
 ## Setup (one-time)
 
 Requires:
-- `gcloud auth` logged in as `slava@inguro.com`
+- `gcloud auth` logged in as `$GCP_ACCOUNT`
 - Project: `gen-lang-client-0869694595`
 
 ---
@@ -24,7 +24,7 @@ Requires:
 ### 1. Gather Resources (run all in parallel)
 
 ```bash
-GCP_ACCOUNT="slava@inguro.com"
+GCP_ACCOUNT="$GCP_ACCOUNT"
 GCP_PROJECT="gen-lang-client-0869694595"
 
 # VMs
@@ -108,7 +108,7 @@ Present in this format:
 
 ```
 === GCP SPEND — Last 7 Days ===
-Project: gen-lang-client-0869694595 (slava@inguro.com)
+Project: gen-lang-client-0869694595 ($GCP_ACCOUNT)
 Budget: €400/month | Credits: $25,000 (updated as you track drawdown)
 
 COMPUTE:
@@ -189,4 +189,4 @@ Always check these patterns:
 
 - **Actual vs estimate**: GCP billing API requires BigQuery export for historical cost breakdown. These are resource-based estimates that match actual within ~5%. For exact numbers, check the console link.
 - **Pricing last updated**: Feb 2026. Re-check annually or if machine types change.
-- **Credits**: $25k on `slava@inguro.com` under billing account `010089-354936-77CD27`. Free tier + credits cover Gemini API at current usage.
+- **Credits**: $25k on `$GCP_ACCOUNT` under billing account `010089-354936-77CD27`. Free tier + credits cover Gemini API at current usage.

@@ -436,9 +436,11 @@ STAGED_FILES_ALL=$(git diff --cached --name-only 2>/dev/null || echo "")
 if [ -n "$STAGED_FILES_ALL" ]; then
     # Patterns: owner's personal email addresses (project emails like ops@/slava@ are OK)
     # Add new patterns here if owner acquires new personal addresses
-    PII_HITS=$(echo "$STAGED_FILES_ALL" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
-        grep -E '^\+' | grep -v '^\+\+\+' | \
-        grep -iE '(slavochek@|@inguro\.com|@googlemail\.com)' || true)
+    STAGED_DIFF=$(echo "$STAGED_FILES_ALL" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
+        grep -E '^\+' | grep -v '^\+\+\+' || true)
+
+    # Hard: personal email addresses (project emails ops@/slava@claritypledge are OK)
+    PII_HITS=$(echo "$STAGED_DIFF" | grep -iE '(slavochek@|@inguro\.com|@googlemail\.com)' || true)
     if [ -n "$PII_HITS" ]; then
         echo -e "${YELLOW}⚠ Personal email address found in staged changes:${NC}"
         echo "$PII_HITS" | head -5
@@ -446,7 +448,27 @@ if [ -n "$STAGED_FILES_ALL" ]; then
         echo -e "${YELLOW}  → Replace with: \"see .private/docs/accounts.md\"${NC}"
         WARNINGS=$((WARNINGS + 1))
     else
-        echo -e "${GREEN}✓ No personal identifiers detected${NC}"
+        echo -e "${GREEN}✓ No personal email addresses detected${NC}"
+    fi
+
+    # Soft: docs/features/.claude only — named individuals or personal context from conversations
+    SOFT_FILES=$(echo "$STAGED_FILES_ALL" | grep -E '^(docs/|features/|\.claude/commands/)' || true)
+    if [ -n "$SOFT_FILES" ]; then
+        # Flag if changes to these files came from a claude-conversations synthesis session
+        # (mechanical patterns only — nuanced review requires /maintain:privacy)
+        NAMED_HITS=$(echo "$SOFT_FILES" | xargs -I{} git diff --cached -- {} 2>/dev/null | \
+            grep -E '^\+' | grep -v '^\+\+\+' | \
+            grep -iE '\b(slavochek|googlemail|experiment fails because [A-Z][a-z]+ (has|have|doesn|didn))\b' || true)
+        if [ -n "$NAMED_HITS" ]; then
+            echo -e "${YELLOW}⚠ Possible named individual in docs/features — run /maintain:privacy before pushing:${NC}"
+            echo "$NAMED_HITS" | head -3
+            WARNINGS=$((WARNINGS + 1))
+        fi
+        # Remind when touching docs after a conversation-synthesis session
+        CONV_SOURCED=$(echo "$STAGED_FILES_ALL" | grep -E '^(docs/decisions|docs/hypotheses|docs/lean-canvas|docs/theory-of-change)' || true)
+        if [ -n "$CONV_SOURCED" ]; then
+            echo -e "${YELLOW}ℹ Strategic docs changed — if source was claude-conversations, run /maintain:privacy before git push${NC}"
+        fi
     fi
 else
     echo -e "${GREEN}✓ No staged files${NC}"

@@ -40,7 +40,7 @@ mcp__slavochek-gmail__search_emails:
   maxResults: 1
 ```
 
-If no result, retry once after 5s. The email arrives at `slavochek@googlemail.com` (forwarded from `slava@claritypledge.com`).
+If no result, retry once after 5s. The email arrives at the owner's personal Gmail (see `.private/docs/accounts.md`).
 
 Extract the nonce URL — it matches: `https://mixpanel.com/signup/?nonce_id=<hex>`
 

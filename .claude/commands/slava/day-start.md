@@ -4,11 +4,20 @@ Interactive daily check-in. Checks prod health, shows what's next, asks what's d
 
 ## Steps
 
-### 0. Reset Whisper language to auto-detect
+### 0. Setup reminders
+
+**a) Reset Whisper language to auto-detect**
 ```bash
 rm -f ~/.whisper-lang
 ```
 Silent — no output needed.
+
+**b) Claude extension check**
+Output this line immediately (before any checks):
+```
+⚠ Check: Claude extension connected in Chrome? (chrome://extensions → Claude — must be enabled & connected)
+```
+This is a manual step — no automation possible. Just remind and move on.
 
 ### 1. Health Check (run in parallel, show before milestone)
 
@@ -46,7 +55,7 @@ Show: `✓ Signups: 0 in last 24h` or list each as `  · Name (email) — HH:MM 
 curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
 
 # DB backup freshness (skip silently if gcloud auth unavailable)
-LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ --account=slava@inguro.com 2>/dev/null | sort | tail -1)
+LATEST=$(gcloud storage ls gs://claritypledge-db-backups/ --account=$GCP_ACCOUNT 2>/dev/null | sort | tail -1)
 DATE=$(echo "$LATEST" | grep -oE '[0-9]{8}' | head -1)
 if [ -n "$DATE" ]; then
   DATE_EPOCH=$(date -j -f "%Y%m%d" "$DATE" +%s 2>/dev/null)

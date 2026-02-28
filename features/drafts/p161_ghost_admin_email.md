@@ -11,7 +11,7 @@ created_date: 2026-02-05
 
 # P161: Switch Ghost Admin Email Back
 
-**Context:** Ghost admin email was temporarily changed to `slavochek@googlemail.com` because kasserver.com cached a negative DNS result for `mg.claritypledge.com` (no MX records at the time). MX records have since been added.
+**Context:** Ghost admin email was temporarily changed to a personal Gmail address (see `.private/docs/accounts.md`) because kasserver.com cached a negative DNS result for `mg.claritypledge.com` (no MX records at the time). MX records have since been added.
 
 **When:** Try after kasserver DNS cache clears (typically within 24 hours).
 
@@ -30,7 +30,7 @@ gcloud compute ssh ghost-prod --zone=us-central1-a --command="curl -s --user 'ap
 ## Ghost Admin Reference
 
 - **URL:** https://blog.claritypledge.com/ghost/
-- **Current email:** slavochek@googlemail.com
+- **Current email:** see `.private/docs/accounts.md`
 - **Update script:** `~/update-ghost.sh` (pulls latest Ghost image)
 - **Backup:** Daily at 3 AM UTC → `gs://claritypledge-backups/ghost/`
 - **Static IP:** 35.224.81.21 (reserved)
