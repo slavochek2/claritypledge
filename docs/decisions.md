@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [process]: /kdd step 6 meta-reflection redesigned — subagent extraction + mechanical-first brainstorm
+
+**Context:** `/kdd` step 6 relied on Claude's direct memory to "scan for friction" — lossy in long sessions, and A/B options were shallow (no critique of whether solutions prevent problems mechanically vs. by discipline).
+**Decision:** Step 6 now: (1) spawns a `general-purpose` subagent whose sole job is extracting problems from the full conversation (capped at 10, deduped, excludes routine noise); (2) triages each problem into trivial-fix / decision / track-it; (3) for decisions generates `/simplify` blocks with 2–3 options each annotated `mechanical: yes/no`, with recommendation naming the mechanism and main risk.
+**Alternatives rejected:** Per-problem brainstorm subagents (overhead not worth it; inline brainstorm after extraction is sufficient); keeping A/B format (2 options forces binary framing; 3rd option surfaces non-obvious paths when genuine).
+**Consequences:** Every `/kdd` run after a non-trivial session will spawn one subagent for problem extraction. Sessions with no problems found exit immediately ("Clean session."). Recommendations now call out whether the fix is mechanical.
+**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 6
+
+---
+
 ## 2026-02-28 [process]: Two-layer privacy model for claude-conversations synthesis
 
 **Context:** Session that synthesized strategy from claude.ai conversations inadvertently staged content with named individuals (collaborator names, email addresses, LinkedIn profile URLs). Pre-commit hook caught email patterns mechanically but missed nuanced content (names, contact info in prose).

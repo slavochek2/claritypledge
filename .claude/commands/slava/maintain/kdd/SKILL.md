@@ -188,34 +188,46 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 6. **Meta-reflection** — output to chat only (no file logging):
 
-   Scan for friction: unnecessary questions, repeated steps, missing context, duplicated work.
-   Skip if no friction — "Clean session." is the full output.
+   **6.1 Extract problems (subagent):**
 
-   **Output format — `/simplify` style (A/B/C choices, ≤15 lines per block):**
+   Spawn a `general-purpose` subagent with the full conversation context and this task:
+   > "Read this conversation. Extract problems, friction points, mistakes, and inefficiencies. Consolidate near-identical incidents into one item. Cap at 10 items max. Exclude routine tool calls and confirmations — only report things a human would call a mistake or waste. For each item identify: (1) what happened, (2) category: wrong-assumption / unnecessary-question / repeated-step / missed-signal / scope-creep / tool-fumble / missing-context / process-gap, (3) severity: minor / moderate / significant. Return a structured list only — no solutions yet."
 
-   For each friction point that requires a decision, output a `/simplify` block:
+   **6.2 Triage each extracted problem:**
+
+   If subagent finds no problems — output "Clean session." and stop.
+
+   If subagent returns more than 6 items, filter to the 3–4 highest-severity ones before triaging.
+
+   Triage paths:
+   - **Trivial / obvious fix**: single clear action, no real trade-off → apply now, report as: `- [What happened] → [action taken]`
+   - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 6.3)
+   - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → append to `docs/process-learnings.md` as `Status: proposed` (feeds `/weekly` step 2.5)
+
+   Present all decision blocks in a single numbered message, then apply trivial fixes.
+
+   **6.3 `/simplify` block format for decisions:**
+
    ```
    **Situation:** [1 sentence — what friction occurred]
 
    **Options:**
-   A) [option] — [one-line tradeoff]
-   B) [option] — [one-line tradeoff]
+   A) [option] — [tradeoff] | mechanical: yes/no
+   B) [option] — [tradeoff] | mechanical: yes/no
+   C) [option] — [tradeoff] | mechanical: yes/no   ← only if a genuine third path exists
 
-   **Recommendation:** [Option X] — [one sentence why]
+   **Recommendation:** [Option X] — prevents this by [mechanism]. Main risk: [Y].
 
-   Reply: "A" or "B"
+   Reply: "A", "B", or "C"
    ```
 
-   Present all friction blocks together in a single message. If multiple blocks, number them and end with: "Reply with your choices, e.g. 1=A, 2=B."
+   *mechanical = prevents the problem automatically without future discipline. Prefer mechanical solutions. Use 3 options only when a genuine middle path exists — don't invent one to fill the format.*
 
-   For friction points where the fix is obvious (no real choice), output the one-liner format instead:
-   ```
-   - [What happened in one sentence] → [exact action to take + where]
-   ```
+   End with: "Reply with choices, e.g. 1=A, 2=B."
 
-   If the action is small (edit a skill, add a doc note): apply it now.
-   If it requires `/claude-md` gate or user judgement: flag it as a `/simplify` block, don't act.
-   If friction has no obvious fix and is worth tracking: append to `docs/process-learnings.md` as `Status: proposed` — this feeds `/weekly` step 2.5 which surfaces unresolved items.
+   If it requires `/claude-md` gate or user judgement: flag as a block, don't act unilaterally.
+
+   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries — done = graduated. An empty file is healthy.
 
 ## Rules
 
