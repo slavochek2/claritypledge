@@ -8,6 +8,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [process]: Pre-commit §16 gate — warn when .claude/ changes staged on non-main branch
+
+**Context:** Skills and process changes committed on feature branches are silently invisible in other worktrees until `/ship` merges to main. Developer might not realize a new skill isn't available elsewhere.
+**Decision:** `pre-commit-checks.sh` §16 detects `.claude/` files staged on any non-main branch and prints a visible warning. In an interactive terminal (where `/dev/tty` is accessible), it prompts for explicit confirmation before allowing the commit to proceed. In agent/CI context (no TTY), it increments `WARNINGS` but doesn't block.
+**Alternatives rejected:** Blocking all .claude/ commits on non-main (too restrictive — feature branches need skill prototyping); doing nothing (silent stranding was the recurring pattern).
+**Consequences:** Developer is always made aware when process/skill changes will be branch-local until ship. Agent sessions in non-TTY contexts see a warning count but aren't blocked.
+**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §16
+
+---
+
+## 2026-02-28 [process]: /kdd meta-reflection — never auto-apply, always present to user
+
+**Context:** /kdd step 6 previously attempted to auto-apply "trivial" fixes identified during meta-reflection. The assumption was that trivial = safe to apply without asking. But friction items extracted from a session can have uncertain scope, downstream effects on other skills, or require user context the agent lacks — even when they look simple.
+**Decision:** /kdd step 6 NEVER auto-applies anything. The agent extracts problems (via subagent), triages each one (trivial / requires-decision / no-obvious-fix), and presents ALL items to the user in a single numbered message. User decides what to act on. The agent proposes; the user approves.
+**Alternatives rejected:** Auto-applying "trivially obvious" fixes (agent can't reliably assess what's truly trivial; the cost of a wrong auto-apply is higher than asking); skipping presentation entirely (defeats the purpose of the meta-reflection step).
+**Consequences:** /kdd meta-reflection produces a triage list, not a list of changes. The friction extraction subagent feeds into a human review loop, not an auto-fix loop.
+**References:** [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 6
+
+---
+
 ## 2026-02-28 [technical]: Kanban server test isolation — guard listen() + export app
 
 **Context:** `tools/kanban/server/api.ts` called `app.listen()` at module load. Any test file importing `api.ts` would trigger the server binding, causing port 9051 conflicts with a running kanban server and test failures. Additionally, tests that needed `app` to make supertest requests couldn't import it because it wasn't exported.

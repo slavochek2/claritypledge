@@ -1,5 +1,6 @@
 ---
-status: qa
+status: all-done
+completed_at: "2026-02-28"
 type: story
 rank: 2
 flow: create-prd → generate-tests → decompose → dev → verify
@@ -11,7 +12,6 @@ tags:
   - footer
   - p451-followup
 prepped_date: '2026-02-27'
-delivery_stage: uat
 reviews:
   ux: null
   architect: null
