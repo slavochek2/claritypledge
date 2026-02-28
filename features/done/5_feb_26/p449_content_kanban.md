@@ -9,6 +9,7 @@ tags:
   - tooling
 created_at: 2026-02-26T00:00:00.000Z
 locked_at: '2026-02-26T14:47:46.936Z'
+created_date: 2026-02-27
 ---
 
 # P449: Content Kanban — Article Pipeline View

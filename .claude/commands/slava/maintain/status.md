@@ -12,7 +12,9 @@ This conversation only. No git commands, no scanning features/, no project-wide 
 
 ## Output format (≤15 lines, no preamble)
 
-Before outputting, run `git branch --show-current` to get the branch name.
+Before outputting:
+1. Run `git branch --show-current` to get the branch name.
+2. Run `git status --short` to detect uncommitted changes. Also check sibling projects that were touched this session (e.g. `~/Projects/public/ladischenski-com`, `~/Projects/private/personal`) with the same command.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -24,6 +26,10 @@ Done:
   ✓ Added ESLint auto-fix hook + wired into settings.json
   ✓ Two CLAUDE.md rules (prod-first debug, browser verify)
   ✓ /ship skill created
+
+Uncommitted:          ← omit section if all repos are clean
+  ⚠ cp: M src/foo.tsx, ?? src/bar.tsx
+  ⚠ ladischenski-com: M app/page.tsx
 
 Problems / blockers:
   ⚠ [anything that failed or is stuck in this session]
@@ -50,6 +56,7 @@ Next:
   3. If mid-session with clear next step → name it specifically
   - `.claude/` files or `CLAUDE.md` changed → also note `→ /claude-md "description"` to validate
   - UI files (`*.tsx`) modified → also note `→ /verify` for visual QA
+- **Uncommitted:** Run `git status --short` in every repo touched this session. Show repo shortname + file list. Omit section if all clean. This is the anti-complacency check — auto-commit habit erosion is real.
 - **Do NOT suggest `/kdd` or commit mid-session** when there's clearly more work ahead — only surface them when the session looks like it's winding down
 - If nothing done yet: `Done: session just started`
 - If no problems: omit the Problems section entirely

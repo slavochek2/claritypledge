@@ -539,7 +539,7 @@ Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not wor
 
 ## Reference Guide
 
-**Product:** Calibrated communication practice via /live. Target: coaches.
+**Product:** Calibrated communication practice via /live. Target: co-founder pairs.
 Docs: [definitions.md](docs/definitions.md) | [lean-canvas.md](docs/lean-canvas.md) | [milestones/](docs/milestones/)
 
 **Key commands:**
