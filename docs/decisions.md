@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [process]: Blog articles require personal story first, research second
+
+**Context:** P438 article was initially drafted as a technical comparison of three AI orchestration setups (Jed's principle, Slava's setup, Jordan's pipeline). After review, Slava clarified the real story was his personal journey through the four AI dev barriers, with Jordan and Jed as supporting characters — not co-equal subjects.
+**Decision:** For "build in public" articles, start from the personal journey arc, then layer in external references. The story structure is: problem I had → what changed → what I learned → how others fit in. External repos/people are evidence, not the frame.
+**Alternatives rejected:** Technical comparison format (reads as survey, not story; loses the "why should I care" thread); starting with external references (obscures authorship, makes article feel like research report).
+**Consequences:** Before writing any future article: identify the personal arc first ("what problem did I have, what changed, what can I claim to have learned"). External examples slot in after the arc is clear.
+**References:** [content/blog/ai-agent-orchestration-three-setups.md](content/blog/ai-agent-orchestration-three-setups.md), [features/p438_article_ai_agent_orchestration.md](features/p438_article_ai_agent_orchestration.md)
+
+---
+
 ## 2026-02-28 [process]: /kdd step 6 meta-reflection redesigned — subagent extraction + mechanical-first brainstorm
 
 **Context:** `/kdd` step 6 relied on Claude's direct memory to "scan for friction" — lossy in long sessions, and A/B options were shallow (no critique of whether solutions prevent problems mechanically vs. by discipline).
@@ -370,7 +380,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Future features that want to introduce the mirror concept (naming, memory, persona) need a dedicated feature. P425 must not reference "your mirror" in any user-visible copy. The system prompt can use "mirror" internally to guide AI tone, but users never see the label.
 
-**References:** [p458_ai_story_core_loop.md](../features/p458_ai_story_core_loop.md)
+**References:** [p464_ai_story_core_loop.md](../features/p464_ai_story_core_loop.md)
 
 ---
 
@@ -388,7 +398,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** All future AI edge functions should follow this pattern. The `ai_rate_limits` table is shared — future functions add a `feature` column to scope limits independently. User-friendly messaging is the standard: no technical jargon in rate limit responses.
 
-**References:** [p458_ai_story_core_loop.md](../features/p458_ai_story_core_loop.md)
+**References:** [p464_ai_story_core_loop.md](../features/p464_ai_story_core_loop.md)
 
 ---
 
@@ -476,7 +486,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** `StoryGuideChat` must never import from `react-router-dom` or call `navigate()` internally. The component receives all context (pointId, sessionId) as props and emits results via callbacks. This constraint must be enforced at code review for P425 and all future embeddings.
 
-**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p458_ai_story_core_loop.md)
+**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p464_ai_story_core_loop.md)
 
 ---
 
@@ -521,7 +531,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 - `[▷ Start /live]` appears inline in the chat thread on a saved story card
 - Draft state required in visibility model before P425 ships
 
-**References:** [P425](../features/p458_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
+**References:** [P425](../features/p464_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
 
 ---
 
@@ -588,7 +598,7 @@ Two-spec architecture:
 
 **Consequences:** Every story filing session is a calibration artifact. Author explicitly confirms ≥8/10 before publish. Workshop participants can file without prior training.
 
-**References:** [P425](../features/p458_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
+**References:** [P425](../features/p464_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
 
 ---
 
