@@ -33,6 +33,12 @@ Ship an approved feature to production.
    git mv features/pN_name.md features/done/{folder}/
    git mv features/uat/pN.md features/done/{folder}/uat/ 2>/dev/null || true
    ```
+   **Guard — verify the move landed correctly (substitute actual P-number, e.g. p422):**
+   ```bash
+   git status --short | grep "^[RAMD].*features/p422"
+   ```
+   Expected: one `R` line showing `features/p422_name.md → features/done/{folder}/p422_name.md`.
+   If the original still shows as `D` with no corresponding `A` in `done/`, the `git mv` failed — stop and investigate before committing.
    Commit: `chore: close pN — {title}`
 8. **Run fix-kanban** — Invoke `/slava:maintain:fix-kanban`
 9. **Clean up** — delete the local feature branch
