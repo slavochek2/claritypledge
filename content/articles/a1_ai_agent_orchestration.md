@@ -1,5 +1,5 @@
 ---
-status: draft
+status: editing
 title: Blog Article — AI Agent Orchestration for Solo Founders
 rank: 1
 tags:
