@@ -57,6 +57,8 @@ export interface Feature {
   milestone?: string // e.g., "M1", "M2"
   // Manual status lock — set by kanban UI when user changes status; agents must not override
   locked_at?: string // ISO timestamp of last manual status change
+  // Implementation flow chosen by /pick-flow or agent (P451)
+  flow?: 'fix' | 'dev' | 'inline' | 'quick-feature'
 }
 
 // Article — content pipeline item (P449: content kanban)

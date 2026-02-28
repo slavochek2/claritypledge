@@ -279,6 +279,13 @@ def fix_file(file_path, next_rank):
             new_lines.append(f"completed_at: '{date}'")
             changes.append(f'added completed_at: {date}')
 
+    # Fix: clear delivery_stage when status is qa (it's been through the gate)
+    current_status_line = next((l for l in new_lines if re.match(r'^status:', l)), None)
+    current_status = current_status_line.split(':', 1)[1].strip() if current_status_line else ''
+    if current_status == 'qa' and has_field(new_lines, 'delivery_stage'):
+        new_lines = [l for l in new_lines if not re.match(r'^delivery_stage:', l)]
+        changes.append('cleared delivery_stage (status: qa)')
+
     # Report: missing type
     if not has_field(new_lines, 'type'):
         errors.append('missing type: add story | bug | task | comment')

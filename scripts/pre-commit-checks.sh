@@ -88,6 +88,21 @@ else
 fi
 echo ""
 
+# 4.5. Kanban tool tests (catches type/enum regressions like P449 qa-column drop)
+KANBAN_STAGED=$(git diff --cached --name-only 2>/dev/null | grep '^tools/kanban/' || true)
+if [ -n "$KANBAN_STAGED" ]; then
+    echo ">>> Running kanban vitest (kanban files staged)..."
+    if (cd tools/kanban && npm test -- --run 2>&1); then
+        echo -e "${GREEN}✓ Kanban tests passed${NC}"
+    else
+        echo -e "${RED}✗ Kanban tests failed${NC}"
+        ERRORS=$((ERRORS + 1))
+    fi
+else
+    echo ">>> Kanban tests skipped (no kanban files staged)"
+fi
+echo ""
+
 # 5. Secrets scan (using gitleaks if available, fallback to grep)
 echo ">>> Scanning for secrets..."
 if command -v gitleaks &> /dev/null; then

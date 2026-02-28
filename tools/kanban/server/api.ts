@@ -146,6 +146,10 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       ? data.delivery_stage
       : undefined
 
+    // Parse optional flow (implementation flow chosen by /pick-flow or agent)
+    const VALID_FLOW = ['fix', 'dev', 'inline', 'quick-feature'] as const
+    const flow: Feature['flow'] = data.flow && VALID_FLOW.includes(data.flow) ? data.flow : undefined
+
     // Parse required rank (P141: Unified Rank System)
     // Validate: positive finite number, truncate to 3 decimals
     let rank: number = 1000000 // Default for files without rank
@@ -185,6 +189,7 @@ async function parseFeatureFile(filePath: string): Promise<Feature | null> {
       rank,
       prepped: !!data.prepped_date,
       locked_at: typeof data.locked_at === 'string' ? data.locked_at : undefined,
+      flow,
     }
   } catch {
     return null
