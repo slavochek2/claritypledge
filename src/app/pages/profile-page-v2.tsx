@@ -26,6 +26,7 @@ import {
   Pin,
   ChevronDown,
   ChevronRight,
+  LinkedinIcon,
 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { toast } from "sonner";
@@ -703,6 +704,18 @@ export function ProfilePageV2() {
                 </div>
                 {profile.role && (
                   <p className="text-sm text-muted-foreground truncate">{profile.role}</p>
+                )}
+                {profile.linkedinUrl && (
+                  <a
+                    href={profile.linkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${profile.name}'s LinkedIn profile`}
+                    className="flex items-center gap-1 text-xs text-[#0A66C2] hover:underline mt-0.5"
+                  >
+                    <LinkedinIcon size={14} aria-hidden="true" />
+                    LinkedIn
+                  </a>
                 )}
                 {profile.hasPledged ? (
                   <Link

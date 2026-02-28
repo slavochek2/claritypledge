@@ -7,7 +7,7 @@
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Share2 } from "lucide-react";
+import { Share2, LinkedinIcon } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { toast } from "sonner";
 import type { Profile } from "@/app/types";
@@ -58,6 +58,18 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
             <p className="text-sm text-muted-foreground truncate">
               {profile.role}
             </p>
+          )}
+          {profile.linkedinUrl && (
+            <a
+              href={profile.linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${profile.name}'s LinkedIn profile`}
+              className="flex items-center gap-1 text-xs text-[#0A66C2] hover:underline mt-0.5"
+            >
+              <LinkedinIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              LinkedIn
+            </a>
           )}
         </div>
 
