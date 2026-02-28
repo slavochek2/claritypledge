@@ -28,9 +28,10 @@ const STATUS_ORDER: Record<Status, number> = {
   'week': 3,
   'backlog': 4,
   'draft': 5,
-  'done': 6,
-  'all-done': 6,
-  'rejected': 7,
+  'qa': 6,
+  'done': 7,
+  'all-done': 7,
+  'rejected': 8,
 }
 
 function sortFeatures(features: Feature[]): Feature[] {
@@ -52,7 +53,7 @@ function getStatusSummary(features: Feature[]): string {
     counts[f.status] = (counts[f.status] || 0) + 1
   }
   const parts: string[] = []
-  const displayOrder: Status[] = ['in-progress', 'today', 'blocked', 'week', 'backlog', 'done']
+  const displayOrder: Status[] = ['in-progress', 'today', 'blocked', 'week', 'backlog', 'qa', 'done']
   for (const status of displayOrder) {
     const count = counts[status]
     if (count) parts.push(`${count} ${status}`)
@@ -67,6 +68,7 @@ const STATUS_COLORS: Record<Status, { bg: string; text: string }> = {
   'today': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
   'blocked': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
   'in-progress': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
+  'qa': { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
   'done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
   'all-done': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
   'draft': { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' },

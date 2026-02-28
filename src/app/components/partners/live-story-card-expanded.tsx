@@ -111,7 +111,7 @@ export function LiveStoryCardExpanded({
                 {story.visibility && <VisibilityBadge visibility={story.visibility} />}
               </p>
             )}
-            <p id={`live-story-text-${story.id}`} className="text-sm text-gray-900 leading-snug">{displayText}</p>
+            <p id={`live-story-text-${story.id}`} className={`text-sm text-gray-900 leading-snug${storyExpanded ? '' : ' line-clamp-2'}`}>{displayText}</p>
             {isLongStory && (
               <button
                 type="button"
@@ -230,6 +230,7 @@ function PointRow({
       setUserPosition(next);
     }
     onPositionSelect?.(point.id, next);
+    // P451: Story CTA intentionally omitted here — /live has its own post-session story entry point
   };
 
   return (

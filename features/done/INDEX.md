@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-02-25
+Last updated: 2026-02-27
 
 ---
 
@@ -70,6 +70,11 @@ Last updated: 2026-02-25
 - **P273** (Feb 26) Create Story Unverified Error — grant role/RLS access on instant verification; check verification before RLS errors surface
 - **P274** (Feb 26) Post-Session Verification Email — one-time verification reminder after first live session
 
+## Agreements & Relationships
+
+- **P422** (Feb 26) Clarity Partner Agreement — two-party agreement flow; separate pages per state (create/pending/accepted/declined); edge function sends emails
+- **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
+
 ## Events & Content
 
 - **P437** (Feb 26) Uncancel Event — host-only button; mirrors cancelEvent pattern; re-announcement email via edge function
@@ -89,6 +94,7 @@ Last updated: 2026-02-25
 
 ## Infrastructure / Process
 
+- **P440** (Feb 26) QA Status + Delivery Stage Cleanup — `status: qa` column is the dev-complete signal; `/ship` closes it; `qa` is NOT a terminal status (don't add to PATCH exception list)
 - **P141** (Feb 5) Unified Rank System — test-first gate; no test modifications allowed, all E2E required before completion
 - **P277** (Feb 26) E2E Parallelization — parallel test runners; worker isolation reduces flakiness
 - **P278** (Feb 26) E2E Quick Wins — mic permission template skip; production E2E reliability improvements

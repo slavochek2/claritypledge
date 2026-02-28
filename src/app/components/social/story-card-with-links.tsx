@@ -441,9 +441,11 @@ function QuotedPoint({
   getPointPositionCounts?: (point: Point) => SevenPointCounts;
   currentUserId?: string;
 }) {
+  const navigate = useNavigate();
   const [userPosition, setUserPosition] = useState<PositionType | null>(
     currentUserId ? point.positions[currentUserId]?.position || null : null
   );
+  const showStoryCTA = !!userPosition;
   const profileSubjectPosition = point.positions[authorId]?.position;
 
   // Get base counts or use defaults
@@ -500,7 +502,8 @@ function QuotedPoint({
   }, [baseCounts, initialPosition, userPosition]);
 
   const handlePositionClick = (position: PositionType) => {
-    setUserPosition(userPosition === position ? null : position);
+    const newPosition = userPosition === position ? null : position;
+    setUserPosition(newPosition);
   };
 
   return (
@@ -551,6 +554,16 @@ function QuotedPoint({
           </div>
         </div>
       </button>
+      {/* P451: Story CTA — shown after staking a position */}
+      {showStoryCTA && (
+        <button
+          type="button"
+          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
+          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+        >
+          Tell your story →
+        </button>
+      )}
     </div>
   );
 }

@@ -91,8 +91,11 @@ echo ""
 # 4.5. Kanban tool tests (catches type/enum regressions like P449 qa-column drop)
 KANBAN_STAGED=$(git diff --cached --name-only 2>/dev/null | grep '^tools/kanban/' || true)
 if [ -n "$KANBAN_STAGED" ]; then
-    echo ">>> Running kanban vitest (kanban files staged)..."
-    if (cd tools/kanban && npm test -- --run 2>&1); then
+    echo ">>> Running kanban vitest — scanner/type tests (kanban files staged)..."
+    # Scope: lib/__tests__ (scanner-rules) + scanner-smoke only.
+    # api.test.ts and goals.test.ts are integration tests that depend on
+    # runtime state (file I/O, milestone content) — excluded from pre-commit.
+    if (cd tools/kanban && npm test -- --run lib/__tests__ server/__tests__/scanner-smoke 2>&1); then
         echo -e "${GREEN}✓ Kanban tests passed${NC}"
     else
         echo -e "${RED}✗ Kanban tests failed${NC}"

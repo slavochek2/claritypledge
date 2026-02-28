@@ -229,6 +229,8 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries — done = graduated. An empty file is healthy.
 
+   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty process-learnings.md is healthy.
+
 ## Rules
 
 - **Be decisive** — analyze and propose, don't repeatedly ask

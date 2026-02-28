@@ -1,290 +1,72 @@
-# Git Worktree Setup for Parallel Development
-
-This project uses git worktrees to enable parallel development with multiple AI agents working simultaneously on different feature explorations.
+# Git Worktree Setup
 
 ## Overview
 
-**Main Repository:** `/Users/slavochek/Projects/public/claritypledge` (port 5001)
+Worktrees provide isolated working directories on separate branches. The active pattern is **agent worktrees** — created on demand when needed for isolation. Named worktrees (`claritypledge-1..5`) are legacy and not maintained.
 
-**Worktrees:**
-- Tree 1: `/Users/slavochek/Projects/public/claritypledge-1` (port 5100, branch: `worktree-1`)
-- Tree 2: `/Users/slavochek/Projects/public/claritypledge-2` (port 5200, branch: `worktree-2`)
-- Tree 3: `/Users/slavochek/Projects/public/claritypledge-3` (port 5300, branch: `worktree-3`)
-- Tree 4: `/Users/slavochek/Projects/public/claritypledge-4` (port 5400, branch: `worktree-4`)
-- Tree 5: `/Users/slavochek/Projects/public/claritypledge-5` (port 5500, branch: `worktree-5`)
-- Tree 6: `/Users/slavochek/Projects/public/claritypledge-6` (port 5600, branch: `worktree-6`)
-- Tree 7: `/Users/slavochek/Projects/public/claritypledge-7` (port 5700, branch: `worktree-7`)
+---
 
-## Port Configuration
+## When Worktrees Are Used
 
-Each worktree has a unique dev server port configured in `vite.config.ts`:
+**1. Risky or experimental changes**
 
-```typescript
-export default defineConfig({
-  server: {
-    port: 5100, // Unique per worktree
-    strictPort: true, // Fail if port already in use
-  },
-  // ... rest of config
-})
-```
+Major refactors (10+ files), new frameworks, or anything labeled experimental. Easy rollback if the experiment fails.
 
-**Important:** These port configurations are committed to each worktree's branch to ensure persistence across resets.
+**2. Index collision — parallel feature work**
 
-## Starting a Dev Server
+Two Claude sessions running simultaneously share the same git staging area. Uncommitted changes from one session can be swept into the other's commit. When `git status` shows uncommitted changes from a different feature, create a worktree for the new feature before starting.
+
+---
+
+## Creating a Worktree
 
 ```bash
-# Tree 1
-cd /Users/slavochek/Projects/public/claritypledge-1
-npm run dev  # Starts on http://localhost:5100
+# Option A: manually with git
+git worktree add .claude/worktrees/feature-name -b feature/pN-description
 
-# Tree 2
-cd /Users/slavochek/Projects/public/claritypledge-2
-npm run dev  # Starts on http://localhost:5200
-
-# ... and so on
+# Option B: via the EnterWorktree tool in Claude
+# Use the EnterWorktree tool — it creates a worktree under .claude/worktrees/ automatically
 ```
 
-## Viewing All Worktrees
+---
+
+## Setup (Required After Creation)
+
+Immediately after creating any worktree, run:
 
 ```bash
+./scripts/setup-worktree.sh .claude/worktrees/feature-name
+```
+
+**What it does:** Symlinks `.env.local` and `node_modules` from the main repo into the worktree.
+
+**Why it's required:** New worktrees don't include gitignored files or installed dependencies. Without `.env.local`, any script that reads credentials (migrations, edge function deploys, test setup) will silently fail. Without `node_modules`, nothing runs.
+
+---
+
+## Running a Dev Server in a Worktree
+
+No pre-configured ports. Pick any free port:
+
+```bash
+cd .claude/worktrees/feature-name
+npm run dev -- --port 5101
+```
+
+---
+
+## Listing and Removing Worktrees
+
+```bash
+# List all worktrees
 git worktree list
+
+# Remove a worktree (after work is merged or abandoned)
+git worktree remove .claude/worktrees/feature-name
 ```
 
-Output:
-```
-/Users/slavochek/Projects/public/claritypledge  56e5f28 [main]
-/Users/slavochek/Projects/public/claritypledge-1             850cb2f [worktree-1]
-/Users/slavochek/Projects/public/claritypledge-2             56e5f28 [worktree-2]
-...
-```
+---
 
-## Resetting a Worktree
+## Legacy: Named Worktrees
 
-When you need to reset a worktree to a clean state:
-
-### Option 1: Soft Reset (Keep Port Config)
-
-If the port configuration is committed to the branch (recommended):
-
-```bash
-# From main repo
-cd /Users/slavochek/Projects/public/claritypledge
-
-# Reset to branch HEAD (discards uncommitted changes)
-cd ../claritypledge-1
-git reset --hard HEAD
-git clean -fd  # Remove untracked files
-
-# Or reset to match main branch
-git fetch origin
-git reset --hard origin/main
-```
-
-Port configuration survives because it's committed to the branch.
-
-### Option 2: Full Worktree Removal and Recreation
-
-If you need to completely recreate a worktree:
-
-```bash
-# From main repo
-cd /Users/slavochek/Projects/public/claritypledge
-
-# Remove worktree
-git worktree remove ../claritypledge-1
-
-# Recreate with same branch
-git worktree add ../claritypledge-1 worktree-1
-
-# Port config automatically restored (if committed to branch)
-cd ../claritypledge-1
-npm install  # May need to reinstall dependencies
-```
-
-## Important: Port Config Persistence Strategy
-
-**Current Strategy:** Port configurations are **committed to each worktree branch**.
-
-**Why:**
-- Automatic persistence across resets
-- No manual scripts needed
-- Clear separation per worktree
-
-**Trade-off:**
-- Each worktree branch diverges slightly from main
-- **Never merge port config commits back to main**
-
-### Checking Port Config Status
-
-```bash
-cd /Users/slavochek/Projects/public/claritypledge-1
-git log --oneline vite.config.ts
-
-# Should show commit with port configuration
-```
-
-### If Port Config Was Lost
-
-If you accidentally reset and lost the port config:
-
-```bash
-# Edit vite.config.ts manually and add:
-server: {
-  port: 5100,  # Use correct port for this tree
-  strictPort: true,
-},
-
-# Commit to the branch
-git add vite.config.ts
-git commit -m "Configure dev server port for worktree-1"
-```
-
-## Environment Variables (.env.local)
-
-**Critical:** Worktrees don't copy gitignored files like `.env.local`. Use symlinks to share the main repo's env file:
-
-```bash
-# Link .env.local to all worktrees (run from main repo)
-cd /Users/slavochek/Projects/public/claritypledge
-
-for i in 1 2 3 4 5 6 7; do
-  ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-$i/.env.local
-done
-```
-
-**Why symlinks?**
-- Updates to main's `.env.local` automatically propagate to all worktrees
-- No duplicate secrets to maintain
-- Survives worktree resets (symlink is untracked)
-
-**If you see "Missing Supabase environment variables" error:**
-```bash
-# Check if .env.local exists and is a symlink
-ls -la ../claritypledge-X/.env.local
-
-# If missing, recreate the symlink
-ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-X/.env.local
-```
-
-## Creating New Worktrees
-
-To add additional worktrees (e.g., Tree 4):
-
-```bash
-# From main repo
-cd /Users/slavochek/Projects/public/claritypledge
-
-# Create new worktree with new branch
-git worktree add ../claritypledge-4 -b worktree-4
-
-# Link environment variables
-ln -sf /Users/slavochek/Projects/public/claritypledge/.env.local ../claritypledge-4/.env.local
-
-# Configure port in new worktree
-cd ../claritypledge-4
-
-# Edit vite.config.ts to add:
-# server: { port: 5400, strictPort: true }
-
-# Commit the port config
-git add vite.config.ts
-git commit -m "Configure dev server port for worktree-4"
-
-# Install dependencies
-npm install
-
-# Start dev server
-npm run dev  # Should start on http://localhost:5400
-```
-
-**Available ports for new worktrees:** 5400, 5500, 5600, 5700, etc.
-
-## Workflow: Parallel Feature Development
-
-### 1. Exploration Phase
-Multiple agents work in parallel worktrees, each exploring different implementations:
-
-```bash
-# Tree 1: Minimalist UI approach
-# Tree 2: Feature-rich UI approach  
-# Tree 3: Mobile-first approach
-```
-
-### 2. Review Phase
-Compare implementations by visiting their dev servers:
-- http://localhost:5100 (Tree 1)
-- http://localhost:5200 (Tree 2)
-- http://localhost:5300 (Tree 3)
-
-### 3. Selection Phase
-Choose the winning implementation and merge it to main:
-
-```bash
-cd /Users/slavochek/Projects/public/claritypledge
-
-# Merge winning branch (e.g., worktree-2)
-git merge worktree-2 --no-ff
-
-# Important: Revert the port config commit before merging
-# or use interactive rebase to exclude it
-```
-
-### 4. Cleanup Phase
-Reset losing worktrees for next exploration:
-
-```bash
-# Option A: Keep worktrees, reset to main
-cd ../claritypledge-1
-git fetch origin
-git reset --hard origin/main
-
-# Option B: Remove and recreate worktrees
-cd /Users/slavochek/Projects/public/claritypledge
-git worktree remove ../claritypledge-1
-git worktree add ../claritypledge-1 worktree-1
-```
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Find process using port 5100
-lsof -i :5100
-
-# Kill the process
-kill -9 <PID>
-
-# Or just let Vite fail (strictPort: true will error instead of using next port)
-```
-
-### Worktree Locked
-
-```bash
-# If "worktree already locked" error
-git worktree unlock ../claritypledge-1
-```
-
-### Dependencies Out of Sync
-
-```bash
-# If node_modules differ between worktrees
-cd ../claritypledge-1
-rm -rf node_modules package-lock.json
-npm install
-```
-
-## Best Practices
-
-1. **Always commit port configs to worktree branches** - Ensures persistence
-2. **Never merge port config commits to main** - Use interactive rebase to exclude them
-3. **One dev server per worktree** - strictPort prevents accidental port conflicts
-4. **Clean up after exploration** - Reset or remove worktrees after merging winner
-5. **Document branch purpose** - Use descriptive branch names (`feat/minimalist-ui` better than `worktree-1`)
-
-## References
-
-- Vision doc: [docs/visions/v3. AI orchestration.md](../visions/v3.%20AI%20orchestration.md)
-- CLAUDE.md: [Root README for AI agents](../../CLAUDE.md)
-
+`claritypledge-1` through `claritypledge-5` exist at `../claritypledge-N` (sibling directories to the main repo). They were set up for parallel visual comparison — running multiple dev servers at fixed ports (5100–5500) to compare different implementations side by side. This workflow is no longer the active pattern. Don't create new named worktrees; don't rely on the existing ones having correct setup.

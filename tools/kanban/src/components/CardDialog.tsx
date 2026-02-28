@@ -12,23 +12,15 @@ interface CardDialogProps {
 }
 
 // Options for single-select fields
-const STATUS_OPTIONS: Status[] = ['draft', 'backlog', 'week', 'today', 'in-progress', 'blocked', 'done', 'all-done', 'rejected']
+const STATUS_OPTIONS: Status[] = ['draft', 'backlog', 'week', 'today', 'in-progress', 'blocked', 'qa', 'done', 'all-done', 'rejected']
 const TYPE_OPTIONS: (FeatureType | null)[] = [null, 'bug', 'task', 'story']
 const SIZE_OPTIONS: (Size | null)[] = [null, 'xs', 's', 'm', 'l', 'xl']
 const DELIVERY_STAGE_OPTIONS: (DeliveryStage | null)[] = [
   null,
-  'prd-draft',
-  'prd-review',
-  'prd-approved',
-  'ux-design',
-  'ux-review',
-  'ux-approved',
-  'arch-design',
-  'arch-review',
-  'arch-approved',
-  'tests-generated',
-  'implementation',
-  'uat',
+  '1-prd-review',
+  '2-ux-review',
+  '3-arch-review',
+  '4-tests-ready',
 ]
 
 // Color mapping for known property values
@@ -53,19 +45,13 @@ const VALUE_COLORS: Record<string, { bg: string; text: string }> = {
   m: { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
   l: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
   xl: { bg: 'var(--tag-red-bg)', text: 'var(--tag-red-text)' },
+  // Status
+  qa: { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
   // Delivery Stage
-  'prd-draft': { bg: 'var(--tag-gray-bg)', text: 'var(--tag-gray-text)' },
-  'prd-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
-  'prd-approved': { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
-  'ux-design': { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
-  'ux-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
-  'ux-approved': { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
-  'arch-design': { bg: 'var(--tag-purple-bg)', text: 'var(--tag-purple-text)' },
-  'arch-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
-  'arch-approved': { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
-  'tests-generated': { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
-  'implementation': { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
-  'uat': { bg: 'var(--tag-green-bg)', text: 'var(--tag-green-text)' },
+  '1-prd-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
+  '2-ux-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
+  '3-arch-review': { bg: 'var(--tag-yellow-bg)', text: 'var(--tag-yellow-text)' },
+  '4-tests-ready': { bg: 'var(--tag-blue-bg)', text: 'var(--tag-blue-text)' },
 }
 
 // Default tag color for unknown values

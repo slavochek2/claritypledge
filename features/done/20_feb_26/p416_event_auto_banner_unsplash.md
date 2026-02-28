@@ -1,10 +1,9 @@
 ---
-status: done
-completed_at: "2026-02-23"
+status: all-done
 type: story
-rank: 125468.0
+rank: 125468
 workstream: C1
-created_date: 2026-02-23
+created_date: 2026-02-23T00:00:00.000Z
 tags: []
 uat_file: features/uat/p416.md
 test_files:
@@ -12,6 +11,7 @@ test_files:
   - e2e/integration/p416-event-banner-migration.spec.ts
   - e2e/p416-event-auto-banner.spec.ts
   - e2e/p416-smoke.spec.ts
+locked_at: '2026-02-26T04:17:53.446Z'
 ---
 
 # P416: Event Auto-Banner via Unsplash

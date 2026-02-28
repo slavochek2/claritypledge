@@ -50,6 +50,7 @@ import { VisibilityBadge } from "@/app/components/shared/visibility-badge";
 import type { PositionType, Position } from "@/app/prototypes/shared/types";
 import type { StoryVisibility } from "@/app/types";
 import { getPositionGroup, type PositionButtonGroup } from "@/app/prototypes/shared/types";
+import { formatTimeAgo } from "@/app/prototypes/shared/utils";
 // Profile owner context for card components
 interface ProfileOwner {
   id: string;
@@ -98,24 +99,15 @@ function toSevenPointCounts(counts: Record<string, number>): SevenPointCounts {
   };
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+
 import { storiesService } from "@/app/data/stories-service";
 import { pointsService } from "@/app/data/points-service";
 import { linkifyText } from "@/app/utils/linkify";
 import { calibrationService } from "@/app/data/calibration-service";
+import { agreementsService } from "@/app/data/agreements-service";
+import type { ClarityAgreement } from "@/app/data/agreements-service.interface";
 import { RemovePositionDialog, useRemovePositionGuard } from "@/app/components/shared/remove-position-dialog";
+import { AgreementsMetadataLine } from "@/app/components/agreements/agreements-metadata-line";
 import type { StoryWithPoints, PointWithUserPosition, PointSummary, CalibrationResult } from "@/app/types";
 import type { UserCalibration } from "@/app/components/profile/calibration-display";
 
@@ -170,6 +162,13 @@ export function ProfilePageV2() {
   const [realPoints, setRealPoints] = useState<PointWithUserPosition[]>([]);
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
+
+  // P422: Agreements state
+  const [agreements, setAgreements] = useState<ClarityAgreement[]>([]);
+  const [agreementsLoading, setAgreementsLoading] = useState(true);
+
+  // Loading state for secondary content (stories, points, calibration)
+  const [contentLoading, setContentLoading] = useState(true);
 
   // Track current user ID for retry logic
   const currentUserId = currentUser?.id;
@@ -229,7 +228,13 @@ export function ProfilePageV2() {
   useEffect(() => {
     if (!profile) return;
 
-    // Load stories, points, and calibration in parallel
+    // Reset all content state when profile changes (e.g. navigating between profiles)
+    setContentLoading(true);
+    setAgreementsLoading(true);
+    setRealStories([]);
+    setRealPoints([]);
+
+    // Load stories, points, calibration, and agreements in parallel
     Promise.all([
       storiesService.getStoriesByAuthorWithPoints(profile.id, currentUser?.id),
       // P151: Use getPointsForProfileDisplay (efficient batch loading)
@@ -240,10 +245,16 @@ export function ProfilePageV2() {
       // - Avoids N+1 queries (2-3 queries total instead of 1+N)
       pointsService.getPointsForProfileDisplay(profile.id, currentUser?.id),
       calibrationService.getCalibration(profile.id),
-    ]).then(async ([stories, pointsWithData, calibration]) => {
+      // P422: Fetch agreements for this profile
+      agreementsService.getAgreementsForProfile(profile.id, currentUser?.id ?? null),
+    ]).then(async ([stories, pointsWithData, calibration, fetchedAgreements]) => {
       // Set stories (already have linked points from getStoriesByAuthorWithPoints)
       setRealStories(stories);
       setRealCalibration(toUserCalibration(calibration));
+
+      // P422: Set agreements
+      setAgreements(fetchedAgreements);
+      setAgreementsLoading(false);
 
       // P151: Points now come with position counts and user positions pre-loaded
       // No manual batch fetching needed!
@@ -324,8 +335,10 @@ export function ProfilePageV2() {
           setRealPoints(validPoints);
         }
       } // End of else (createdPoints.length > 0)
+      setContentLoading(false);
     }).catch(err => {
       console.error('Failed to load profile data:', err);
+      setContentLoading(false);
     });
   }, [profile, currentUser?.id]);
 
@@ -691,10 +704,21 @@ export function ProfilePageV2() {
                     Take the Clarity Pledge
                   </Link>
                 ) : null}
+                {/* Calibration bar - inside text column for natural alignment */}
+                <InlineCalibration calibration={calibration} />
                 {profile.bio && (
-                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 pt-2 border-t break-words">
+                  <p data-testid="profile-bio" className="text-sm text-muted-foreground mt-2 break-words">
                     {linkifyText(profile.bio)}
                   </p>
+                )}
+                {/* P459: Compact agreements metadata line — links to /p/:slug/partners */}
+                {!agreementsLoading && (
+                  <AgreementsMetadataLine
+                    profileId={profile.id}
+                    viewerProfileId={currentUser?.id ?? null}
+                    agreements={agreements}
+                    slug={profile.slug}
+                  />
                 )}
               </div>
 
@@ -711,9 +735,6 @@ export function ProfilePageV2() {
                 </MobileTooltip>
               )}
             </div>
-
-            {/* Calibration bars - shown only after 5 sessions */}
-            {calibration && <InlineCalibration calibration={calibration} />}
           </div>
 
           {/* Create Stories & Points CTA (owner only) */}
@@ -777,7 +798,13 @@ export function ProfilePageV2() {
             id={contentTab === 'stories' ? 'stories-panel' : 'points-panel'}
             aria-labelledby={contentTab === 'stories' ? 'stories-tab' : 'points-tab'}
           >
-            {contentTab === 'stories' ? (
+            {contentLoading ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-24 bg-muted rounded-lg" />
+                <div className="h-24 bg-muted rounded-lg" />
+                <div className="h-24 bg-muted rounded-lg" />
+              </div>
+            ) : contentTab === 'stories' ? (
               userStories.length === 0 ? (
                 <div className="bg-card rounded-lg p-8 text-center">
                   <p className="text-muted-foreground">No stories shared yet</p>
@@ -842,6 +869,7 @@ export function ProfilePageV2() {
               )
             )}
           </div>
+
         </div>
 
         {/* Share Profile Dialog (P115) */}
@@ -1096,6 +1124,7 @@ function QuotedPointCard({
   const [userPosition, setUserPosition] = useState<Position>(
     (point.userPosition as Position) ?? null
   );
+  const showStoryCTA = !!userPosition;
 
   // Sync userPosition from prop when it changes (e.g. profile effect reruns after auth resolves)
   useEffect(() => {
@@ -1188,6 +1217,16 @@ function QuotedPointCard({
           </div>
         </div>
       </button>
+      {/* P451: Story CTA — shown after staking a position */}
+      {showStoryCTA && (
+        <button
+          type="button"
+          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
+          onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+        >
+          Tell your story →
+        </button>
+      )}
     </div>
   );
 }

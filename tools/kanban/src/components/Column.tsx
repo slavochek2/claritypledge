@@ -35,6 +35,7 @@ const getStatusStyle = (color: string) => {
     '#3b82f6': { bg: 'var(--status-blue-bg)', text: 'var(--status-blue-text)' },
     '#ef4444': { bg: 'var(--status-red-bg)', text: 'var(--status-red-text)' },
     '#22c55e': { bg: 'var(--status-green-bg)', text: 'var(--status-green-text)' },
+    '#f59e0b': { bg: 'var(--tag-orange-bg)', text: 'var(--tag-orange-text)' },
   }
   return colorMap[color] || { bg: 'var(--status-gray-bg)', text: 'var(--status-gray-text)' }
 }

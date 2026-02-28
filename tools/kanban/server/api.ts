@@ -831,12 +831,16 @@ app.get('/api/weekly', (_req, res) => {
 
 import { KANBAN_CONFIG } from '../config'
 
-const PORT = KANBAN_CONFIG.ports.api
-app.listen(PORT, () => {
-  console.log(`Kanban API running on http://localhost:${PORT}`)
-  const worktrees = getWorktrees()
-  console.log(`Available worktrees:`)
-  worktrees.forEach((wt) => {
-    console.log(`  ${wt.isCurrent ? '* ' : '  '}${wt.branch} → ${wt.path}`)
+export { app }
+
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = KANBAN_CONFIG.ports.api
+  app.listen(PORT, () => {
+    console.log(`Kanban API running on http://localhost:${PORT}`)
+    const worktrees = getWorktrees()
+    console.log(`Available worktrees:`)
+    worktrees.forEach((wt) => {
+      console.log(`  ${wt.isCurrent ? '* ' : '  '}${wt.branch} → ${wt.path}`)
+    })
   })
-})
+}

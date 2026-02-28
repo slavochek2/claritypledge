@@ -1,17 +1,23 @@
 ---
 status: week
 type: story
-rank: 9.0
+rank: 2.25
 workstream: C1
-tags: [filing, stories, points, ai-chat, calibration]
+tags:
+  - filing
+  - stories
+  - points
+  - ai-chat
+  - calibration
 prepped_date: '2026-02-24'
-blocked_by: [p425]
+blocked_by:
+  - p425
 delivery_stage: prd-review
 reviews:
   ux: null
   architect: null
   alignment: null
-created_date: 2026-02-24
+created_date: 2026-02-24T00:00:00.000Z
 ---
 
 # P419: Filing Chat V1 — AI-Guided Single Story Creation

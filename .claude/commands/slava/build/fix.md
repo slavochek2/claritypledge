@@ -83,20 +83,56 @@ Bug reported
 └─ Complex (unknown cause) → Investigate (debugging.md) → /fix
 ```
 
-/fix auto-closes the feature on success: moves spec to `features/done/`, sets `status: done` + `completed_at`, prompts for `/kdd`.
+/fix stops at a QA gate on success: sets `status: qa` in frontmatter, stays on the feature branch. Run `/ship pN` to merge to prod and close the spec.
 
 ---
 
 ## Workflow
 
+### Phase 0.0: Collision check
+
+Run `git status --short`. If modified or staged files from a **different** feature exist (files unrelated to this bug fix):
+
+Present options and wait for decision:
+- **(A) Create a worktree** for this fix — clean index, full isolation (recommended). Create under `.claude/worktrees/feature-name`, then run `./scripts/setup-worktree.sh .claude/worktrees/feature-name` (symlinks `.env.local` + `node_modules` — required, or credential scripts fail).
+- **(B) Commit current work first** — if in-progress work is at a safe checkpoint
+- **(C) Proceed anyway** — only if user confirms both are one logical changeset
+
+Do NOT proceed until user chooses. Staging collision = one fix's files swept into the other's commit.
+
+Skip if: working tree is clean, or all dirty files belong to this fix.
+
+---
+
 ### Phase 0: Branch check
 
-If current branch is `main` AND this is a P-number feature fix (not an urgent prod hotfix):
-- Check if a `feature/pN*` branch already exists → if yes, `git checkout feature/pN-...` before starting
-- If no branch exists, create one: `git checkout -b feature/pN-short-description`
-- Report: "Switching to feature/pN-... — fix will stay off main until /ship."
+Check the current branch and its distance from `main`:
+```bash
+git branch --show-current
+git rev-list --count main..HEAD
+```
 
-Skip if: fixing a live prod bug that needs immediate deployment (hotfix), or already on the right feature branch.
+- **If on `main`** AND this is a P-number feature fix (not an urgent prod hotfix):
+  - Check if a `feature/pN*` branch already exists → if yes, `git checkout feature/pN-...` before starting
+  - If no branch exists, create one: `git checkout -b feature/pN-short-description`
+  - Report: "Switching to feature/pN-... — fix will stay off main until /ship."
+
+- **If on a feature branch with ≤ 5 commits ahead of main**: safe, proceed.
+
+- **If on a feature branch with > 5 commits ahead of main**: **STOP and warn**:
+  ```
+  ⚠️  You're on `{branch}` — {N} commits ahead of main.
+  Running /ship later will ship ALL {N} commits, not just this work.
+
+  A) Create a new branch off main for this change (recommended — clean /ship path)
+  B) Stay here — cherry-pick the commit to a main-based branch after implementation
+  C) Proceed anyway — you intend to ship this whole branch
+
+  Which? (A/B/C)
+  ```
+  Wait for decision. Do NOT proceed without confirmation.
+
+Skip the check entirely for non-P-number tasks (infra, docs, small inline fixes) or urgent prod hotfixes.
 
 ### Phase 0.1: Mark in Progress
 
@@ -318,7 +354,7 @@ Bug spec updated:
 - root_cause: Safari event.target incompatibility on buttons
 - resolution: Changed to use formData reference
 
-Bug fixed and verified. Closing feature.
+Bug fixed and verified. Status set to qa — run `/ship pN` when satisfied.
 ```
 
 ---
@@ -395,25 +431,16 @@ resolution: What was fixed  # Added after fix
 
 ---
 
-## Feature Closure
+## Feature QA Gate
 
 After commit succeeds:
 
 1. **Review** — Spawn `/review-all` as a subagent with: "Review all changes on this branch vs main. Spec: [spec path if exists]. Do NOT pause for scope selection — proceed directly with scope = all changes vs main." Present HIGH/MEDIUM findings. Ask: "Fix issues before closing? (all HIGH / select / skip)". Apply approved fixes and commit them.
-2. Update frontmatter: `status: done`, `completed_at: YYYY-MM-DD`
-3. Find destination: `ls -d features/done/*/ 2>/dev/null | sort -V | tail -1`
-   Use current month's folder if it exists (`{N}_{mon}_{yy}`), else create next.
-4. Move files:
-   ```bash
-   mkdir -p features/done/{folder}
-   git mv features/{spec} features/done/{folder}/
-   git mv features/uat/p{N}.md features/done/{folder}/ 2>/dev/null
-   ```
-5. Commit: `chore: close P{N} — {title}`
-6. Spawn parallel closing subagents:
-   - **fix-kanban** (always): Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
-   - **verify** (if `*.tsx` files changed): Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually." Do not ask; just do it.
-6. Ask: "Capture learnings with /kdd? (y/n)"
+2. Update frontmatter: `status: qa` (clear `delivery_stage`)
+3. Commit: `chore: pN ready for QA — {title}`
+4. Invoke `/slava:maintain:fix-kanban` — fixes frontmatter drift + refreshes kanban
+5. If `*.tsx` files changed: Run browser check automatically — navigate to affected route, screenshot, report. If Chrome MCP unavailable, state "browser check skipped — run `/verify` manually."
+6. Tell user: "Fix ready for QA on branch `feature/pN-xxx`. Run `/ship pN` when satisfied to merge to prod and close the spec."
 
 ---
 
@@ -453,7 +480,7 @@ Phase 4: Verify
 ✅ Regression test passes
 ✅ All tests pass (512/512)
 
-Bug fixed. Closing feature.
+Bug fixed. Status set to qa — run `/ship pN` when satisfied.
 ```
 
 ### Complex Bug (Debugging first)
@@ -472,7 +499,7 @@ Bug fixed. Closing feature.
 → Fix with debounce + queue
 → Verify
 
-Bug fixed. Closing feature.
+Bug fixed. Status set to qa — run `/ship pN` when satisfied.
 ```
 
 ---

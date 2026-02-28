@@ -15,6 +15,7 @@ Auto-fixes (no judgment needed):
   - missing completed_at on done items → most recent git date (or today)
   - duplicate P-numbers → lower-priority file renamed + all references updated
   - header P-number mismatch (filename says p432, header says P429) → header corrected
+  - delivery_stage present when status is qa → cleared (qa means /dev completed)
 
 Reports only (needs manual fix):
   - missing type field (story | bug | task | comment)
@@ -270,6 +271,14 @@ def fix_file(file_path, next_rank):
         if date:
             new_lines.append(f'created_date: {date}')
             changes.append(f'added created_date: {date}')
+
+    # Fix: delivery_stage must be absent when status is qa
+    # Invariant: qa means /dev completed — delivery_stage no longer meaningful
+    status_line = next((l for l in new_lines if re.match(r'^status:', l)), None)
+    current_status = status_line.split(':', 1)[1].strip() if status_line else ''
+    if current_status == 'qa' and has_field(new_lines, 'delivery_stage'):
+        new_lines = [l for l in new_lines if not re.match(r'^delivery_stage:', l)]
+        changes.append('cleared delivery_stage (status: qa)')
 
     # Fix: missing completed_at on done items
     if not has_field(new_lines, 'completed_at'):

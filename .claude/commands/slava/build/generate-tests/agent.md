@@ -936,7 +936,7 @@ test('export works', async ({ page }) => {
 
 Use Edit tool to update the spec file's frontmatter:
 ```yaml
-delivery_stage: tests-generated
+delivery_stage: 4-tests-ready
 ```
 
 This signals that tests are ready and `/dev` can proceed with implementation.

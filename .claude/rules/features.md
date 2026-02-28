@@ -19,8 +19,9 @@ tags: []              # REQUIRED: can be empty array
 
 ## Status Values
 
-`backlog` → `week` → `today` → `in-progress` → `blocked` → `done` → `all-done`
+`backlog` → `week` → `today` → `in-progress` → `blocked` → `qa` → `done` → `all-done`
 
+- When `status: qa` → feature is implemented, awaiting user review before shipping. Stays on feature branch; run `/ship pN` to merge to prod.
 - When `status: done` → move file to `features/done/`, add `completed_at`
 - When `status: all-done` → move file to `features/done/` (same as `done`), `completed_at` not required. Use for permanently closed features that should remain visually prominent on the kanban.
 - When rejected → move to `features/archive/`, set `status: rejected`
@@ -32,6 +33,8 @@ When the kanban UI sets a status manually, it writes `locked_at: <ISO timestamp>
 
 **CRITICAL RULE: If a feature file has `locked_at`, DO NOT change its `status` unless the user has explicitly instructed you to do so for that specific feature in this conversation.** Automated status transitions (e.g. auto-closing on `/dev` success) must be skipped for locked features. If you need to close a feature that has `locked_at`, ask the user first.
 
+**`in-progress` is exclusively agent-set.** Only `/dev` or `/fix` may set `status: in-progress` — at the moment the run actually starts. Users should not manually drag a feature to `in-progress` on the kanban: doing so writes `locked_at`, which suppresses all automated status transitions for that feature. The correct user signal for "I want this next" is `status: today`. The agent sets `in-progress` when it picks up the work.
+
 ## P-Number Assignment
 
 ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`, or manual inspection miss `features/done/` and cause duplicate P-numbers). Script excludes `uat/` and `archive/` correctly. If script unavailable, warn user and halt.
@@ -42,6 +45,28 @@ ALWAYS run `./scripts/next-p-number.sh` — never compute manually (`ls`, `find`
 - `bug` — something broken that needs fixing
 - `task` — technical work (refactor, infra, tools, docs)
 - `comment` — notes, decisions (not actionable)
+
+## Optional Frontmatter: `flow`
+
+```yaml
+flow: fix    # fix | dev | inline | quick-feature
+```
+
+Records which implementation flow was chosen. Set by `/pick-flow` or the agent/human choosing the approach. Values map to the sequential flow tiers: `fix` = single-concern bug with confirmed root cause; `dev` = full pipeline; `inline` = too small for a skill; `quick-feature` = skeleton only.
+
+**When `flow:` is set, the implementing agent must validate the chosen flow still matches actual scope before starting work.** If `flow: fix` is set but the scope has grown (multiple concerns, DB migration, 5+ files), flag the mismatch and confirm before proceeding.
+
+## Change Requests (from `/sim`)
+
+Sim findings filed as improvement specs use `type: story` with extra frontmatter:
+
+```yaml
+source: sim        # found via synthetic usability testing
+changes: p422      # which original feature this improves
+persona: solo-founder  # which persona surfaced it
+```
+
+No separate `change-request` type — kanban shows them as regular stories. The `source: sim` field is the distinguisher.
 
 ## Secrets & External Services in Specs
 

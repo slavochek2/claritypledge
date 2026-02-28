@@ -35,6 +35,25 @@ Check these for raw material:
 
 ## Process
 
+### Step 0: Route to Tier
+
+Before doing anything else, classify the content:
+
+**Tier 1 — Quick Take** (TIL, build log, single experiment result)
+- Trigger: single observation, no narrative arc needed, <30 min to write
+- Flow: skip /interview → brain dump → write directly → /draft-blog
+- No story quality gate required
+
+**Tier 2 — Reflection** (pattern noticed, idea brewing >24h)
+- Trigger: recurring observation, something the user can't stop thinking about
+- Flow: /interview optional (10 min) → /prepare-blog one-shot → /tighten → story gate (criteria 1, 2, 6 only) → /draft-blog
+
+**Tier 3 — Story/Essay** (lived experience with before/after, specific moments)
+- Trigger: personal experience, behavioral change, experiment with surprise outcome
+- Flow: /interview REQUIRED → /prepare-blog interactive → /tighten → full story gate → /draft-blog
+
+Ask: "Is this a quick observation, a reflection, or a story with a before/after?" Then route accordingly. If unsure, go one tier up.
+
 ### Step 1: Extract the Core
 
 From the user's brain dump (or raw story), identify:
@@ -115,14 +134,11 @@ Infer from the brain dump. Don't ask which type.
 
 ## Blog Post Lifecycle
 
-```
-content/stories/     →  raw stories (/story, /sifter)
-                ↓
-/interview           →  extracts real experiences
-                ↓
-/prepare-blog        →  content/blog/ (status: draft → preparing)
-                ↓
-user reviews         →  (status: review)
-                ↓
-/ship-blog           →  publishes to Ghost (status: published)
-```
+**Tier 3 (Story/Essay):**
+/interview (required) → /prepare-blog (interactive) → user reviews → /tighten → /story-gate → /draft-blog → /ship-blog → /promote-blog
+
+**Tier 2 (Reflection):**
+/interview (optional, 10 min) → /prepare-blog (one-shot) → user reviews → /tighten → /story-gate (criteria 1,2,6 only) → /draft-blog → /ship-blog
+
+**Tier 1 (Quick Take):**
+brain dump → /prepare-blog (one-shot) → /draft-blog → /ship-blog

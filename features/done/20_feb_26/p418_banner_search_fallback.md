@@ -1,17 +1,16 @@
 ---
-status: done
+status: all-done
 type: feature
 rank: 125468
 workstream: foundation
-created_date: 2026-02-24
-completed_at: "2026-02-24"
+created_date: 2026-02-24T00:00:00.000Z
 tags: []
 uat_file: features/uat/p418.md
 test_files:
   - e2e/p418-banner-search-fallback.spec.ts
   - e2e/p418-smoke.spec.ts
   - e2e/a11y/p418-accessibility.spec.ts
-# For complete frontmatter specification, see docs/technical/feature-specs.md
+locked_at: '2026-02-26T04:17:22.327Z'
 ---
 
 # P418: Banner Search Fallback

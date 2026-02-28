@@ -1,11 +1,11 @@
 ---
-status: done
-completed_at: "2026-02-24"
+status: all-done
 type: feature
 rank: 125467
 workstream: C1
-created_date: 2026-02-23
+created_date: 2026-02-23T00:00:00.000Z
 tags: []
+locked_at: '2026-02-26T04:17:56.337Z'
 ---
 
 # P415: Event Email Notifications

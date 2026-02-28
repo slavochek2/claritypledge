@@ -40,6 +40,24 @@ export const {domain}Service = USE_REAL_API ? realService : mockService;
 
 ---
 
+## File Separation: Components vs Utilities
+
+The `react-refresh/only-export-components` ESLint rule enforces that `.tsx` files only export React components. Exporting non-component values (functions, constants, types) from a `.tsx` file triggers a lint warning.
+
+**Rule:** Shared utility functions and types that are not components must live in `.ts` files, not `.tsx` files.
+
+```
+✅ src/app/components/agreements/filter-agreements.ts   ← pure function, no JSX
+✅ src/app/components/agreements/agreement-row.tsx       ← React component only
+❌ src/app/components/agreements/agreement-row.tsx       ← also exports a utility fn
+```
+
+**Why it matters:** React Fast Refresh can only reliably hot-reload files that export only components. Mixed files break HMR and trigger the lint warning.
+
+**Pattern for shared logic:** If a component file contains a utility function that's also needed elsewhere, extract it to a sibling `.ts` file and import from both.
+
+---
+
 ## Data Layer Architecture
 
 Two data layers exist in parallel:
@@ -382,7 +400,15 @@ Per-page meta tags, Open Graph, Twitter cards, canonical URLs, and JSON-LD are h
 
 4. **Email verification**: Users aren't "verified" until they click the magic link. Profile creation happens on callback, not during signup.
 
-5. **Navigation state**: The app uses `SimpleNavigation` component to avoid auth state flicker. Check `src/app/components/layout/simple-navigation.tsx` for current implementation.
+5. **Navigation state — three-state skeleton pattern**: `SimpleNavigation` has three branches: `!sessionChecked || isLoading` → neutral skeleton pills (prevents Flash of Wrong Content), `showUserMenu` → logged-in icon nav, fallthrough → logged-out text nav. The mobile menu button follows the same three-branch logic. Profile page mirrors this with a `contentLoading` state wrapping the secondary `Promise.all()` fetch. See [decisions.md § Skeleton as neutral third state](../decisions.md).
+
+6. **Browse vs Focus page navigation pattern**: Two page types.
+   - **Browse pages** (home, sessions, events, profile): bottom nav visible. No back button.
+   - **Focus pages** (story detail, point detail, agreement, chat): bottom nav hidden via `focusRoutes` array in `bottom-nav.tsx`; use `<FocusHeader onBack={...} />` at top instead.
+   - Back target on focus pages: smart target (e.g. `/point/:id` when entering from a point) with `window.history.length > 1` guard + `/events` fallback for direct-link visitors.
+   - **Never define inline BackButton components** — always use `FocusHeader`. Adding a new focus page requires also adding its route prefix to `focusRoutes` in `bottom-nav.tsx`.
+   - `self-start` on the Button is required — prevents the button from stretching full-width inside flex-col containers.
+   - See [decisions.md § Browse vs Focus page navigation taxonomy](../decisions.md).
 
 ---
 

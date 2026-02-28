@@ -796,3 +796,85 @@ The frontend detects the polish phase by regex: `/^here'?s? (?:is )?the polished
 ### Playwright strict mode with `or()` locators
 
 `locator.or(otherLocator)` throws "strict mode violation" if both branches resolve to different elements simultaneously. Prefer `data-testid` over text-based fallbacks. Remove `or()` once `data-testid` is confirmed working.
+
+---
+
+## Kanban Server Testing (tools/kanban)
+
+The kanban tool has its own test suite separate from the main app's Playwright E2E tests. It uses Vitest + supertest-style in-process server testing (no supertest package — raw `fetch` against a bound port).
+
+### Pattern: export app, NODE_ENV guard
+
+```typescript
+// api.ts — key exports for test access
+export { app };
+
+// Guard to prevent listen() on import in tests
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => console.log(`Kanban API on ${PORT}`));
+}
+```
+
+### Pattern: in-process server lifecycle
+
+```typescript
+let server: ReturnType<typeof app.listen>;
+let API_BASE_URL: string;
+
+beforeAll(async () => {
+  server = app.listen(0); // port 0 = OS assigns free port
+  const port = (server.address() as AddressInfo).port;
+  API_BASE_URL = `http://localhost:${port}`;
+});
+
+afterAll(() => server.close());
+```
+
+This avoids `supertest` and lets tests use `fetch()` directly against a real HTTP server.
+
+### Pattern: unique worktree paths per test (cache isolation)
+
+The kanban server caches features by worktree path. Tests that need isolation should use a unique tmpdir per describe block:
+
+```typescript
+function useTestWorktree() {
+  let wt: { path: string; branch: string };
+  beforeEach(async () => {
+    const tmpDir = join(tmpdir(), `kanban-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    await mkdir(join(tmpDir, 'features'), { recursive: true });
+    wt = { path: tmpDir, branch: 'test' };
+  });
+  afterEach(async () => rm(wt.path, { recursive: true, force: true }));
+  return { getWt: () => wt };
+}
+```
+
+For milestone tests — fixtures must live in `docs/milestones/` (hardcoded in server) and need `?refresh=true` for cache busting:
+
+```typescript
+const res = await fetch(`${API_BASE_URL}/api/milestones?refresh=true`);
+```
+
+### Pattern: raw strings for path traversal security tests
+
+`path.join()` normalizes `..` segments eagerly. Security tests must use raw string concatenation to preserve the attack vector:
+
+```typescript
+// WRONG — path.join normalizes the '..' away before it reaches the server
+const evil = path.join(mainWt.path, 'features', '..', '.env.local');
+
+// CORRECT — server's path.resolve() is the first thing that normalizes it
+const evil = mainWt.path + '/features/../.env.local';
+```
+
+### Running kanban tests
+
+```bash
+cd tools/kanban
+npm test               # Vitest unit + integration
+npm run test:e2e       # Playwright (requires kanban server on port 9050)
+```
+
+### Kanban Playwright config
+
+Separate `playwright.config.ts` in `tools/kanban/` targeting port 9050 with `reuseExistingServer: true`. The root `playwright.config.ts` (app, port 5000) and the kanban config are independent.

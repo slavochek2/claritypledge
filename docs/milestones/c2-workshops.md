@@ -53,14 +53,21 @@ Co-founder pairs are the PRIMARY ICP for C-track. Unlike generic workshop partic
 - Tooling + methodology bundled
 - Goal: 10+ paying pairs by end of Month 6
 
-## Acquisition: Free Calibration Lab
+## Acquisition: Two Channels
 
-The Free Calibration Lab is the primary acquisition funnel (not marketing):
+**Channel 1 — Free Calibration Lab** (primary, broadcast):
 - Biweekly, open enrollment, 90 min, cast wide (founders, operators, coaches)
 - After the session: route based on who showed up
   - Co-founder pairs → direct coaching sales pitch
-  - Solo founders → community invite (future C4)
+  - Solo founders + equity advisors → briefing protocol offer (future expansion)
   - Coaches/practitioners → workshop partnership discussion
+
+**Channel 2 — Briefing Protocol invitation** (targeted, to test after H-BriefingProtocol-ColdStart validates):
+- Mirror agent reaches out directly to Person B in a known high-stakes dyad
+- Person B gets value before signing up — the invitation IS the product experience
+- Requires motivated Person B with pre-existing stakes in the relationship
+
+**ICP qualifier:** High-stakes dyad — relationship health + decision frequency, not funding stage. Pre-seed to seed is typical but the criterion is: both parties have skin in the game and miscalibration is already costing them.
 
 ## Success Metrics
 

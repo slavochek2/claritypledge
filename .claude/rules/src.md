@@ -63,3 +63,31 @@ const { data } = await supabase.from('profiles').select('*, witnesses(*)');
 - Tailwind CSS for styling, shadcn/ui for UI components
 - Never put dates in comments or documentation — use relative terms ("current", "recent")
 - Routes use `slug` (e.g., `/p/john-doe`), not UUID — use `getProfileBySlug()` for route params
+
+## Inline vs. Skill Threshold
+
+Inline src edits (without `/dev` or `/fix`) are only appropriate for:
+- A single constant, string, color value, or typo — one line, no logic change
+
+Anything beyond that — multi-line edits, logic changes, new components, refactors — must go through `/dev` (feature work) or `/fix` (bug fix). When in doubt, use the skill.
+
+**Why:** Inline bypasses test generation, spec tracking, and the QA gate. The skill does the same work with none of the gaps.
+
+## Branch Check Before Any Inline Edit
+
+Skip this check for non-feature work (infra, hotfixes, copy-only changes with no P-number context).
+
+Before making any inline `src/` edit for a feature, run:
+
+```bash
+git branch --show-current
+```
+
+Then check:
+- **If on `main`**: stop. Inline edits must not land on main. Create a feature branch first, or use `/dev`.
+- **If the branch name doesn't match the feature you're implementing** (e.g., you're on `feature/p451-...` but working on P457): stop and pick:
+  - **(A) Create a new branch off main** — clean `/ship` path (recommended)
+  - **(B) Stay here and cherry-pick** — implement here, move the commit to the right branch after
+  - **(C) Proceed** — only if you're certain both changes belong to the same logical unit
+
+Same logic as `/dev` step 0. The check takes 2 seconds; a wrong-branch commit takes 20 minutes to untangle.

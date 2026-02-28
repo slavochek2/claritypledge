@@ -1,17 +1,18 @@
 ---
-status: in-progress
+status: all-done
 type: feature
 rank: 125469
 workstream: E1
-created_date: 2026-02-25
-tags: [events]
+created_date: 2026-02-25T00:00:00.000Z
+tags:
+  - events
 uat_file: features/uat/p437.md
 test_files:
   - src/tests/uncancel-event-service.test.ts
   - e2e/p437-uncancel-event.spec.ts
   - e2e/p437-smoke.spec.ts
   - e2e/a11y/p437-accessibility.spec.ts
-# For complete frontmatter specification, see docs/technical/feature-specs.md
+locked_at: '2026-02-26T04:17:07.517Z'
 ---
 
 # P437: Uncancel Event
@@ -73,14 +74,14 @@ Add an "Uncancel Event" button inside the red cancellation banner (host-only). C
 
 ## Acceptance Criteria
 
-- [ ] Uncancel button appears in cancellation banner when `isHost && isCancelled && !isPast`
-- [ ] Button does NOT appear for past cancelled events
-- [ ] Confirm dialog matches copy above
-- [ ] On confirm: event status → `upcoming` in DB
-- [ ] On confirm: re-announcement email sent to all attendees via edge function
-- [ ] On success: red banner gone, blue host controls reappear, toast shown
-- [ ] On failure: toast error, event state unchanged
-- [ ] Edge function handles `'uncancel'` action without error
+- [x] Uncancel button appears in cancellation banner when `isHost && isCancelled && !isPast`
+- [x] Button does NOT appear for past cancelled events
+- [x] Confirm dialog matches copy above
+- [x] On confirm: event status → `upcoming` in DB
+- [x] On confirm: re-announcement email sent to all attendees via edge function
+- [x] On success: red banner gone, blue host controls reappear, toast shown
+- [x] On failure: toast error, event state unchanged
+- [x] Edge function handles `'uncancel'` action without error
 
 ## Testing
 

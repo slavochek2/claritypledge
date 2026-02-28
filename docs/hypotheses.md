@@ -8,11 +8,32 @@ Our active bets, in priority order. This is the map of what we still need to pro
 
 ## Active (Currently Testing)
 
-### H-Stories-ColdStart: Stories solve /live's cold start problem
+### H-Stories-ColdStart: Stories are the content layer for /live verification
 **Bet:** When users create and share stories, they have a concrete "what" to verify understanding against, making /live feel purposeful and triggering higher adoption and retention.
 **Testing via:** C1 (Stories + Live + Events) — 20-user pilot Feb–Mar 2026. Target ≥50% story creation rate, ≥30% verification rate.
 **Kill if:** <20% story creation after 4 weeks OR stories don't improve /live usage frequency.
-**Notes:** User feedback consistently asks "on what? when?" This tests whether narrative context solves that trigger gap.
+**Scope update (2026-02-27):** Stories are now understood as the **content layer**, not the primary cold start trigger. The cold start trigger is the briefing protocol invitation (H-BriefingProtocol-ColdStart below). C1 runs to completion as a content-layer test and comparison baseline. Key question revised: do stories provide useful "what to verify" context once a session is initiated — not whether they initiate sessions on their own.
+**Notes:** User feedback consistently asks "on what? when?" The briefing protocol solves the "when" (invitation trigger); stories solve the "what" (content to verify).
+
+---
+
+### H-BriefingProtocol-ColdStart: Mirror agent invitation solves cold start
+**Bet:** When Person A's mirror agent reaches out to Person B ("Someone you care about wants you to understand them better — here's a 20-minute briefing"), Person B engages, comprehension is tested, and A+B meet at depth on day one rather than month six.
+**Testing via:** Manual briefing experiment — run full protocol with one real high-stakes Person B. Measure: does Person B accept? Does comprehension test surface a gap? Does the meeting start at depth?
+**Kill if:** Person B declines invitation OR finds mirror claims generic/unengaging OR meeting doesn't start noticeably deeper than without briefing.
+**Precondition:** Requires motivated Person B with pre-existing relationship stakes. Protocol channels existing motivation — doesn't create it from nothing.
+**Blocked by:** Identifying the right first Person B (high-stakes relationship, motivated to understand Person A).
+**Notes (2026-02-27):** Points surface the gap; stories explain the gap. This is the cold start trigger. H-Stories-ColdStart tests the content layer once a session is initiated.
+
+---
+
+### H-FilingLoop-Propagation: Sessions without filed material are sterile — filing + agent follow-up is the growth mechanism
+**Bet:** A calibration session that produces filed stories/points + agent follow-up generates a new session without Slava present. A session that produces nothing filed generates nothing next — growth depends entirely on Slava showing up again.
+**Testing via:** Track post-session behavior in C2 — does filing happen? Does the agent follow up? Does a second session get initiated without direct outreach from Slava?
+**Kill if:** Filing happens but no new sessions result OR Slava's presence remains required to initiate every session.
+**Precondition:** Requires working filing mechanism (Person A can file insights post-session) and agent post-session engagement capability.
+**Blocked by:** H-BriefingProtocol-ColdStart — need validated sessions before testing propagation.
+**Notes (2026-02-28):** Structural constraint, not optional feature. Without this loop, C-track is a coaching practice (Slava-dependent), not a scalable product.
 
 ---
 
@@ -20,7 +41,7 @@ Our active bets, in priority order. This is the map of what we still need to pro
 **Bet:** Functioning-but-misaligned co-founder pairs will pay €300–500 per session for structured calibration to prevent alignment drift before it becomes crisis.
 **Testing via:** C2 (First Founder Sessions) — 3–5 paid sessions, track follow-up booking rate. Target ≥50% conversion to follow-ups.
 **Kill if:** <2 founder pairs across 3 sessions OR zero follow-up bookings.
-**Notes:** High-stakes dyad with recurring calibration needs. Validates positioning as preventive (not therapeutic) and WTP for personalized facilitation.
+**Notes:** High-stakes dyad with recurring calibration needs. ICP qualifier: relationship health + decision frequency, not funding stage. Validates positioning as preventive (not therapeutic) and WTP for personalized facilitation.
 
 ---
 
@@ -65,6 +86,15 @@ Our active bets, in priority order. This is the map of what we still need to pro
 ---
 
 ## Blocked (Waiting on Something Else)
+
+### H-InsightConversion: Surfacing repeated unacted insights increases behavior change
+**Bet:** When the mirror agent tracks that a person has had the same insight multiple times without acting on it and surfaces this explicitly ("You've had this insight 4 times and acted on it zero times — what's the actual blocker?"), it produces behavior change that neither therapy nor coaching currently achieves, because it combines insight with memory-backed accountability.
+**Blocked by:** H-BriefingProtocol-ColdStart — need validated briefing protocol first; insight tracking is a later layer.
+**Unblocked when:** Briefing protocol validated with at least one real high-stakes dyad.
+**Kill if:** Surfacing repeated insights produces defensiveness/disengagement rather than action.
+**Notes (2026-02-27):** Positions ClarityPledge beyond communication tools — as "calibrated accountability with verified understanding." New category, not a feature of existing categories.
+
+---
 
 ### H-SpecsReachResearchers: Technical specifications reach AI safety researchers and trigger adoption discussions
 **Bet:** Specs (technical deep dives on calibration infrastructure) published on LessWrong/Alignment Forum can reach AI labs and spark discussions about using verified Stories as training data.

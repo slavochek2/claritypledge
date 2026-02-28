@@ -38,6 +38,8 @@ When in doubt about tone, aim for Deutsch's clarity of thought + Pinker's clarit
 
 ## Do
 
+- **Write TO the reader, not FOR yourself.** Every insight should land as recognition, not observation. The reader should finish each section thinking "I do that" or "I've felt that" — not "interesting that this happened to him." The "I" is a mirror, not a subject.
+- **Make the implication explicit.** After each major story beat, one short sentence or question that hands the insight to the reader. "What would your rules look like, if you wrote them down?" "The question isn't whether this happens to you. It's whether you'd notice." Don't explain — invite.
 - Open with a specific moment or failure, not a thesis statement
 - Use first person — "I discovered," "I was stuck," "I ran an experiment"
 - Ground abstractions in named actors (Sarah, David — even if archetypal)
@@ -60,6 +62,7 @@ When in doubt about tone, aim for Deutsch's clarity of thought + Pinker's clarit
 - Citing research without your interpretation of why it matters
 - Sanitizing the origin story — keep the messiness
 - Writing in third person or as a detached expert
+- Writing a diary entry — recounting what happened without making the reader feel implicated. If the reader finishes a section thinking "interesting story" rather than "that's me", the section hasn't done its job.
 - Emojis
 
 ## Hidden Current

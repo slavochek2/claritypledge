@@ -315,7 +315,7 @@ reviews:
    - Agent implements, runs tests, iterates until pass
    - User validates UX only (not functionality)
 
-6. **Ship** - `/dev` auto-closes on success
+6. **Ship** - `/dev` stops at QA gate; run `/ship pN` to close
 
 ---
 
@@ -439,7 +439,7 @@ Create/update file: features/p{N}_{slug}.md with proper frontmatter (status, typ
 
 **IMPORTANT - Delivery Stage Tracking:**
 After creating/updating the spec file, set delivery_stage to indicate completion:
-- Use Edit tool to update frontmatter: `delivery_stage: prd-review`
+- Use Edit tool to update frontmatter: `delivery_stage: 1-prd-review`
 - This signals PRD is ready for user review
 
 **IMPORTANT - Kanban Visibility:**

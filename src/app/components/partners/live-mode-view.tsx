@@ -976,23 +976,9 @@ function IdleScreen({
           />
         ) : (
           <>
-            {/* Show journey card if there's rating history or drawer is open */}
-            {(hasRatingData || showRatingDrawer) && (
-              <JourneyToUnderstanding
-                checkerRating={liveState.checkerRating}
-                responderRating={liveState.responderRating}
-                explainBackRatings={liveState.explainBackRatings}
-                isChecker={false} // On idle screen, show neutral perspective (listener view)
-                displayPartnerName={displayPartnerName}
-                checkerName={checkerName}
-                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-                className="w-full max-w-sm"
-                hideUntilBothSubmitted={showRatingDrawer}
-              />
-            )}
-
             {/* P272: Story card shown when story is selected.
-                Both views start collapsed — partner can expand to read points and vote. */}
+                Both views start collapsed — partner can expand to read points and vote.
+                P455: Story card moved above CTAs so primary action is visible without scrolling. */}
             {selectedStory && (
               <LiveStoryCardExpanded
                 story={selectedStory}
@@ -1040,15 +1026,6 @@ function IdleScreen({
               )}
             </ActionArea>
 
-            {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
-            {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
-              <StorySearchPicker
-                stories={stories}
-                onSelectStory={handleSelectStoryWithTracking}
-                disabled={showRatingDrawer || waitingForPartnerToContinue}
-              />
-            )}
-
             {/* P272: Speak freely pre-round — clears story from both screens when story selected */}
             {/* P400: removed !showRatingDrawer gate — Speak Freely must show whenever story card is visible */}
             {liveState.selectedStoryId && !waitingForPartnerToContinue && (
@@ -1059,6 +1036,31 @@ function IdleScreen({
               >
                 Speak freely
               </button>
+            )}
+
+            {/* P272: StorySearchPicker — only when no story selected AND user has stories */}
+            {!liveState.selectedStoryId && userId && contentLoaded && stories.length > 0 && onSelectStory && (
+              <StorySearchPicker
+                stories={stories}
+                onSelectStory={handleSelectStoryWithTracking}
+                disabled={showRatingDrawer || waitingForPartnerToContinue}
+              />
+            )}
+
+            {/* P455: Journey card moved below CTAs so primary action is visible without scrolling.
+                Show journey card if there's rating history or drawer is open */}
+            {(hasRatingData || showRatingDrawer) && (
+              <JourneyToUnderstanding
+                checkerRating={liveState.checkerRating}
+                responderRating={liveState.responderRating}
+                explainBackRatings={liveState.explainBackRatings}
+                isChecker={false} // On idle screen, show neutral perspective (listener view)
+                displayPartnerName={displayPartnerName}
+                checkerName={checkerName}
+                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+                className="w-full max-w-sm"
+                hideUntilBothSubmitted={showRatingDrawer}
+              />
             )}
 
             {/* P398: Session history — clickable rows for completed rounds */}
@@ -1236,21 +1238,7 @@ function RatingScreen({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={CONTENT_LAYOUT}>
-        {/* Only show journey card if there's history from previous rounds */}
-        {hasHistory && (
-          <JourneyToUnderstanding
-            checkerRating={liveState.checkerRating}
-            responderRating={liveState.responderRating}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={isChecker}
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
-            hideUntilBothSubmitted={true}
-          />
-        )}
-
+        {/* P455: Story card moved above journey card so rating drawer is reached without scrolling */}
         {/* P272: Story card visible above rating drawer (stays visible throughout round) */}
         {selectedStory && (
           <LiveStoryCardExpanded
@@ -1272,6 +1260,22 @@ function RatingScreen({
           </button>
         )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
+
+        {/* P455: Journey card moved below story so rating drawer is reached without scrolling past it */}
+        {/* Only show journey card if there's history from previous rounds */}
+        {hasHistory && (
+          <JourneyToUnderstanding
+            checkerRating={liveState.checkerRating}
+            responderRating={liveState.responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={true}
+          />
+        )}
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
@@ -1386,21 +1390,7 @@ function RatingScreenWithOptionalDrawer({
       <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
 
       <div className={CONTENT_LAYOUT}>
-        {/* Only show journey card if there's history from previous rounds */}
-        {hasHistory && (
-          <JourneyToUnderstanding
-            checkerRating={liveState.checkerRating}
-            responderRating={liveState.responderRating}
-            explainBackRatings={liveState.explainBackRatings}
-            isChecker={isChecker}
-            displayPartnerName={displayPartnerName}
-            checkerName={checkerName}
-            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-            className="w-full max-w-sm"
-            hideUntilBothSubmitted={true}
-          />
-        )}
-
+        {/* P455: Story card moved above journey card so rating drawer is reached without scrolling */}
         {/* P272: Story card visible above rating drawer (stays visible throughout round) */}
         {selectedStory && (
           <LiveStoryCardExpanded
@@ -1422,6 +1412,22 @@ function RatingScreenWithOptionalDrawer({
           </button>
         )}
         {selectedPoint && <PointCardPreview point={selectedPoint} />}
+
+        {/* P455: Journey card moved below story so rating drawer is reached without scrolling past it */}
+        {/* Only show journey card if there's history from previous rounds */}
+        {hasHistory && (
+          <JourneyToUnderstanding
+            checkerRating={liveState.checkerRating}
+            responderRating={liveState.responderRating}
+            explainBackRatings={liveState.explainBackRatings}
+            isChecker={isChecker}
+            displayPartnerName={displayPartnerName}
+            checkerName={checkerName}
+            proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+            className="w-full max-w-sm"
+            hideUntilBothSubmitted={true}
+          />
+        )}
       </div>
 
       {/* Rating drawer - always open by design for focused rating UX.
@@ -2105,17 +2111,7 @@ function UnderstandingScreen({
           <div className="flex flex-col h-full">
             <LiveHeader partnerName={partnerName} onExit={onExit} isPrivate={isPrivate} />
             <div className={CONTENT_LAYOUT}>
-              {/* P400 Bug 3: journey FIRST, story SECOND (correct order) */}
-              <JourneyToUnderstanding
-                checkerRating={checkerRating}
-                responderRating={responderRating}
-                explainBackRatings={liveState.explainBackRatings}
-                isChecker={true}
-                displayPartnerName={displayPartnerName}
-                checkerName={checkerName}
-                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
-                className="w-full max-w-sm"
-              />
+              {/* P455: Story card first, then ActionArea, then journey card — CTA visible without scrolling */}
               {/* P272: Story card visible throughout round */}
               {selectedStory && (
                 <LiveStoryCardExpanded
@@ -2133,6 +2129,16 @@ function UnderstandingScreen({
                   onSkip={onSkip}
                 />
               </ActionArea>
+              <JourneyToUnderstanding
+                checkerRating={checkerRating}
+                responderRating={responderRating}
+                explainBackRatings={liveState.explainBackRatings}
+                isChecker={true}
+                displayPartnerName={displayPartnerName}
+                checkerName={checkerName}
+                proverName={liveState.proverName ? getFirstName(liveState.proverName) : undefined}
+                className="w-full max-w-sm"
+              />
             </div>
 
             {/* Negotiation Dialog 1: Speaker sees when listener wants to skip active listening */}

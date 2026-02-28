@@ -33,13 +33,17 @@ Vary the angle across variants (e.g., personal angle / contrarian take / practic
 
 ## Step 3 — Find Image Candidates
 
-Search Unsplash for 3 candidate images relevant to the post topic:
+Generate **3 image options** for approval:
+
+**Option A (default): Imagen 4** — run `/slava:gen-image` with the post topic to generate a custom AI image. This produces one option.
+
+**Options B + C (fallback): Unsplash** — search for 2 candidate photos if Imagen is unavailable or user wants stock photos:
 ```
-GET https://api.unsplash.com/search/photos?query={topic}&per_page=3&orientation=landscape
+GET https://api.unsplash.com/search/photos?query={topic}&per_page=2&orientation=landscape
 Authorization: Client-ID {UNSPLASH_ACCESS_KEY from .env.local}
 ```
 
-For each result return:
+For each Unsplash result return:
 - `urls.regular` — the image URL to display
 - `user.name` + `user.links.html` — for attribution
 - `alt_description` — brief description
@@ -56,7 +60,7 @@ The HTML page must include:
 - Post title + live URL (linked)
 - Instruction banner (yellow, prominent): "Reply with: **copy 1/2/3** (or paste edits) + **image A/B/C** — required. Type 'none' only if you explicitly want no image."
 - **Copy section**: 3 labeled cards (label, angle name, full copy text with URL)
-- **Image section**: 3 image cards with `<img>` tags using `urls.regular` (add `?w=600` for fast loading), alt_description, photographer name. Plus a "[none] — Text-only, no image" option styled as clearly secondary/dashed.
+- **Image section**: 3 image cards. Option A: embed the Imagen-generated image as a base64 `<img>` tag or reference `/tmp/post-image.png` via a `file://` URL. Options B+C: `<img>` tags using Unsplash `urls.regular` (add `?w=600` for fast loading) with alt_description and photographer name. Plus a "[none] — Text-only, no image" option styled as clearly secondary/dashed.
 
 Use clean card-based HTML with hover states. No JS needed — purely visual review.
 
@@ -96,14 +100,15 @@ rm /tmp/postiz-cookies.txt
 
 Verify: `201` response with a `postId` = success.
 
-**With image** (if user selected one): download the Unsplash image to `/tmp/`, then upload before creating post:
+**With image** (if user selected one): run `/slava:gen-image` to generate + upload via Imagen 4, or download from Unsplash to `/tmp/` and upload:
 ```bash
-curl -b /tmp/postiz-cookies.txt -X POST {POSTIZ_URL}/api/media \
-  -F "file=@/tmp/unsplash-image.jpg"
-# → {"path":"..."} — use returned path as image value:
-# "image": [{"url": "{path}", "id": "..."}]
+curl -b /tmp/postiz-cookies.txt -X POST {POSTIZ_URL}/api/media/upload-simple \
+  -H "organization: {ORG_ID}" \
+  -F "file=@/tmp/post-image.png;type=image/png"
+# → {"id":"...","path":"https://postiz.claritypledge.com/uploads/..."}
+# Use in post: "image": [{"id": "{id}", "path": "{path}"}]
 ```
-If media upload fails, post text-only (skip `image` field entirely, set `image: []`).
+If media upload fails, post text-only (`image: []`).
 
 ## Report
 
@@ -123,13 +128,14 @@ If media upload fails, post text-only (skip `image` field entirely, set `image: 
 | `POSTIZ_EMAIL` | `ops@claritypledge.com` |
 | `POSTIZ_PASSWORD` | Postiz account password |
 | `POSTIZ_LINKEDIN_CHANNEL_ID` | `cmlzashw80001t86nxnlk6pi2` (Vyacheslav Ladischenski) |
-| `UNSPLASH_ACCESS_KEY` | Client-ID for Unsplash API |
+| `GEMINI_API_KEY` | Imagen 4 image generation (via `/slava:gen-image`) |
+| `UNSPLASH_ACCESS_KEY` | Client-ID for Unsplash fallback photos |
 
 Note: `POSTIZ_API_TOKEN` in `.env.local` is stored for reference but Postiz uses cookie-based session auth for API calls — Bearer token auth returns 401 from CLI.
 
 ## Troubleshooting
 
-**Postiz 401:** Token stale — rotate at Postiz → Settings → Public API → Rotate Key, update `POSTIZ_API_TOKEN` in `.env.local`.
+**Postiz 502:** Backend down — Temporal services probably not running. SSH to VM: `cd ~/postiz && sudo docker compose up -d temporal-postgresql temporal-elasticsearch && sleep 15 && sudo docker compose up -d temporal` then `sudo docker exec postiz pm2 restart backend`.
 
 **LinkedIn channel not found:** Re-fetch channel ID: `GET {POSTIZ_URL}/api/integrations/list` with Bearer token → use `id` field from the linkedin entry.
 

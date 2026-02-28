@@ -85,6 +85,7 @@ export function PointCardDetail({
     point.positions['current']?.position || null
   );
   const [storiesExpanded, setStoriesExpanded] = useState(false);
+  const showStoryCTA = !!userPosition;
   const baseCounts = getPointPositionCounts(point);
 
   // Default routes
@@ -148,7 +149,8 @@ export function PointCardDetail({
 
   const handlePositionClick = (position: Position) => {
     // Toggle: clicking same position removes it
-    setUserPosition(userPosition === position ? null : position);
+    const newPosition = userPosition === position ? null : position;
+    setUserPosition(newPosition);
   };
 
   const cardClassName = isDetailView
@@ -159,6 +161,7 @@ export function PointCardDetail({
   const showQuotePattern = profileOwner && profileOwnerPosition;
 
   return (
+    <>
     <div
       role={!isDetailView && !disableNavigation ? 'button' : undefined}
       tabIndex={!isDetailView && !disableNavigation ? 0 : undefined}
@@ -416,6 +419,17 @@ export function PointCardDetail({
         </div>
       )}
     </div>
+    {/* P451: Story CTA — shown after staking a position */}
+    {showStoryCTA && (
+      <button
+        type="button"
+        className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 text-sm font-medium"
+        onClick={() => navigate(`/chat?from=position&pointId=${point.id}`)}
+      >
+        Tell your story →
+      </button>
+    )}
+    </>
   );
 }
 

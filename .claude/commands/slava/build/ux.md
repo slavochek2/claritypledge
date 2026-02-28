@@ -313,11 +313,8 @@ If UX is unclear (e.g., "Where does toggle appear?"), ask user BEFORE generating
 Append UX section to {spec_file}. Do NOT modify existing Business Requirements content.
 
 **IMPORTANT - Delivery Stage Tracking:**
-1. BEFORE starting UX design, advance delivery stage from review to approved:
-   - Use Edit tool: `delivery_stage: prd-approved`
-   - This confirms PRD was approved by user
+1. BEFORE starting UX design, clear the prd-review stage (running /ux = PRD approved):
+   - Use Edit tool: `delivery_stage: 2-ux-review` (overwrite whatever was there — running this skill is the approval signal)
 
-2. AFTER appending UX section, update delivery stage to signal completion:
-   - Use Edit tool: `delivery_stage: ux-review`
-   - This signals UX is ready for user review
+2. AFTER appending UX section, the delivery_stage is already set to `2-ux-review` from step 1 — no further change needed.
 ```

@@ -1,16 +1,16 @@
 ---
-status: done
+status: all-done
 type: story
 rank: 125465
 workstream: C2
-created_date: 2026-02-22
-completed_at: "2026-02-24"
+created_date: 2026-02-22T00:00:00.000Z
 tags: []
 uat_file: features/uat/p413.md
 test_files:
   - e2e/integration/p413-nullable-story-migration.spec.ts
   - e2e/p413-calibration-any-exchange.spec.ts
   - e2e/p413-smoke.spec.ts
+locked_at: '2026-02-26T04:17:44.921Z'
 ---
 
 # P413: Count any completed paraphrase exchange toward calibration
