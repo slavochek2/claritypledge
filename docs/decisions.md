@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [process]: fix-frontmatter.py phantom accumulation — git-aware rename
+
+**Context:** Feature spec files were silently disappearing or accumulating phantom copies across sessions. Root cause: `fix-frontmatter.py` used `Path.rename()` (filesystem-only) when resolving duplicate P-numbers. This caused a tracked→untracked divergence each session (old path shows as `D`, new path as `??`). Over time the phantom would get renamed to yet another number (`p422→p457→p463`), occasionally contaminating unrelated commits via index collision.
+**Decision:** Two-path logic in `fix_duplicates()`: (1) If the duplicate is **untracked** (phantom), delete it with `unlink()` — never rename it to a new number. (2) If the duplicate is **tracked**, use `git mv` so the rename is tracked in the index. Added `FileNotFoundError` guard for concurrent hook invocations, and `f is not None` guard in single-file mode `rename_map`. Also added a post-`git mv` verification guard in `/ship` skill to catch failed moves before commit.
+**Alternatives rejected:** Continuing with `Path.rename()` + relying on pre-commit re-stage (insufficient — the divergence persists across session boundaries until manually cleaned up).
+**Consequences:** Phantom files are now self-healing on next hook invocation. Tracked renames are git-aware and won't leave orphan `D` entries. Index collision risk from spec management tools is reduced.
+**References:** [fix-frontmatter.py](scripts/fix-frontmatter.py) · [ship.md](.claude/commands/slava/build/ship.md)
+
+---
+
 ## 2026-02-28 [process]: Pre-commit §16 gate — warn when .claude/ changes staged on non-main branch
 
 **Context:** Skills and process changes committed on feature branches are silently invisible in other worktrees until `/ship` merges to main. Developer might not realize a new skill isn't available elsewhere.
