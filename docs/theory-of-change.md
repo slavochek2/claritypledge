@@ -174,13 +174,17 @@ Gap_Value(A, B, Idea) =
 
 ## The Cascade
 
-### Stage 0: Protocol Propagation (Protocol-Led Growth)
+### Stage 0: Entry Paths (Two Routes to Stage 1)
 
-Before the verification cascade can begin, the **explain-back protocol** must spread. This happens independently of the product.
+Two distinct mechanisms bring people to Stage 1. Both are valid; they serve different relationship contexts.
+
+#### Stage 0a: Protocol Propagation (Protocol-Led Growth)
+
+The **explain-back protocol** spreads independently of the product, through coaching relationships.
 
 ```
-STAGE 0: PROTOCOL PROPAGATION
-─────────────────────────────
+STAGE 0a: PROTOCOL PROPAGATION
+────────────────────────────────
 Coach learns explain-back protocol
 Coach teaches clients as part of coaching
 Clients practice with their teams
@@ -204,6 +208,35 @@ This is **Protocol-Led Growth** — distinct from Product-Led Growth:
 - Protocol-Led: Protocol spreads free; product captures value from protocol users
 
 **The healthcare parallel:** Hospitals use "teach-back" (same mechanism as explain-back). Meta-analysis shows it reduces readmissions by 60%. We're applying proven verification loops to workplace communication.
+
+#### Stage 0b: Briefing Protocol (Mirror Agent-Led Activation)
+
+**Updated 2026-02-27.** A direct, product-mediated cold start for high-stakes dyads — does not require prior protocol adoption.
+
+```
+STAGE 0b: BRIEFING PROTOCOL
+────────────────────────────
+Mirror agent studies Person A
+        ↓
+Generates mirror claims about Person A
+("wrong enough to be interesting, close enough to feel personal")
+        ↓
+Reaches out to Person B:
+"Someone you care about wants you to understand them better.
+Here's a 20-minute briefing. Are you willing?"
+        ↓
+Person B is briefed + comprehension tested
+        ↓
+A and B meet — start at depth on day one
+        ↓
+Stage 1 begins (The Proof)
+```
+
+**Key constraint:** Requires **motivated Person B** — someone with pre-existing stakes in the relationship with Person A. The protocol channels existing motivation; it doesn't create it. Co-founder pairs, equity advisors, close collaborators, family members with high-stakes relationships all qualify. Casual acquaintances do not.
+
+**Key insight:** Points surface the gap; stories explain the gap. Mirror claims create productive tension first; stories emerge to explain it. The invitation IS the product experience — Person B gets value before signing up.
+
+**Difference from 0a:** Stage 0a is coach-mediated and spreads through professional relationships. Stage 0b is product-mediated and activates through personal invitation to a specific high-stakes Person B. They are complementary, not competing.
 
 ### Dependent Path: Rationalist Community Cascade
 

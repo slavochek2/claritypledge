@@ -26,7 +26,9 @@ answers: [oq-6, oq-7]
 
 ## Hypothesis
 
-See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-solve-lives-cold-start-problem) in hypotheses.md. Stories give /live a concrete "verify understanding of THIS" purpose, solving the cold start trigger problem ("on what? when?").
+See [H-Stories-ColdStart](../hypotheses.md#h-stories-coldstart-stories-are-the-content-layer-for-live-verification) in hypotheses.md. Stories give /live a concrete "verify understanding of THIS" purpose.
+
+**Scope update (2026-02-27):** C1 now tests stories as the **content layer** — do they make /live feel purposeful once a session is initiated? The cold start trigger hypothesis has been separated out as H-BriefingProtocol-ColdStart (the mirror agent invitation). C1 runs to completion as a content-layer test and provides a comparison baseline.
 
 **Success:** After 10 sessions — stories created, /live sessions happened, qualitative: "purposeful." **Kill if:** stories don't trigger sessions, or sessions feel forced.
 
@@ -84,7 +86,8 @@ Track current position:
 1. [x] Finish P272 (story verification in /live)
 2. [ ] Push to production
 3. [x] Create own stories (active listening) — test the loop yourself
-4. [ ] 1-on-1 free sessions (invite 20 warm contacts)
+4. [ ] **Briefing protocol experiment** — identify one high-stakes Person B (pre-existing relationship stakes), run manual briefing with AI-generated mirror claims, measure whether meeting starts at depth. This precedes and runs in parallel with the 20-user pilot. See H-BriefingProtocol-ColdStart.
+5. [ ] 1-on-1 free sessions (invite 20 warm contacts)
 5. [ ] 1-on-1 paid, money-back guarantee
 6. [ ] Fix event room entry (before 1-to-many)
 7. [ ] 1-to-many free (Calibration Lab, lead gen)

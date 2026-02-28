@@ -8,6 +8,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [product]: ICP = high-stakes dyad; filing loop is the propagation mechanism
+
+**Context:** Strategic session synthesizing Notion mirror agent insights + Feb 28 claude.ai conversations. Resolved 4 key decisions about ICP definition, cold start mechanism, coach role, and growth model.
+
+**Decision:**
+1. **ICP qualifier is relationship health + decision frequency, not funding stage.** Pre-seed to seed is typical but the criterion is: both parties have skin in the game and miscalibration is actively costing them. Solo founder + equity advisor is secondary ICP — expand after C2 validates co-founder pairs.
+2. **Briefing Protocol precondition: motivated Person B with pre-existing stakes.** Protocol channels existing motivation — doesn't create it. "Adam experiment" fails because Adam has no stakes in the mirror claims; Slava does. Right first Person B = someone with high existing stakes in the relationship.
+3. **H-Stories-ColdStart narrowed to content-layer test.** Stories answer "what to verify" once a session is initiated — not "when to initiate." Cold start trigger is a separate hypothesis (H-BriefingProtocol-ColdStart).
+4. **Sessions without filed material are sterile.** Without filing + agent follow-up, sessions generate value in the room but don't propagate. Growth without this loop = Slava must initiate every session. Filing mechanism is structurally required, not optional.
+
+**Alternatives rejected:** Testing briefing protocol manually without AI (misses the point — the test is whether AI-generated mirror claims engage Person B, not whether Slava can manually brief someone).
+
+**Consequences:** C1 is a content-layer test only. H-BriefingProtocol-ColdStart runs in parallel as the true cold start experiment. Build priority: filing mechanism → agent post-session engagement → agent-to-agent → ClarityPartner agreement.
+
+**References:** [hypotheses.md](docs/hypotheses.md) · [lean-canvas.md](docs/lean-canvas.md) · [theory-of-change.md](docs/theory-of-change.md) · [milestones/c1-stories-live-events.md](docs/milestones/c1-stories-live-events.md) · [milestones/c2-workshops.md](docs/milestones/c2-workshops.md)
+
+---
+
 ## 2026-02-27 [process]: kanban `flow` badge + delivery_stage auto-clear invariant
 
 **Context:** Kanban showed many cards without `delivery_stage` — hard to tell if the pipeline ran or was skipped. Also p422/p425 had stale `delivery_stage: decompose-review` (pre-P440 format) after moving to `status: qa`.

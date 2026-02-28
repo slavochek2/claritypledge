@@ -66,8 +66,12 @@ Primary audience for recognition and thought leadership:
 
 Primary revenue track — founder coaching:
 - **Co-founder pairs** (functioning but misaligned — preventive, not in crisis) — PRIMARY ICP
-- **Solo founders** (routed to community after sessions) — SECONDARY
+- **Solo founders + equity advisors** (solo founder is Person A, equity advisor is Person B — same high-stakes dyad, lower decision frequency) — SECONDARY, expand after C2 validates
 - **Early-stage executive teams** — FUTURE
+
+**ICP qualifier:** The right unit is a **high-stakes dyad** — two people where (1) decisions are made frequently, (2) trust hasn't broken yet, and (3) miscalibration is already costing them both. Funding stage is a proxy, not the criterion. Pre-seed to seed is typical, but relationship health + decision velocity matters more than funding label.
+
+**Protocol precondition:** The briefing protocol requires a **motivated Person B** — someone with pre-existing stakes in understanding Person A. Person B must have a real relationship where misunderstanding is costly and they'd accept the invitation because the relationship matters to them. The protocol doesn't create motivation; it channels motivation that already exists.
 
 **Positioning:** Preventive calibration for functioning-but-misaligned teams. Not crisis intervention or therapy. Works when both parties recognize the problem exists but trust isn't broken.
 
@@ -153,7 +157,21 @@ A social contract that makes verification acceptable:
 
 This removes the social friction of checking understanding. It's not just marketing — it's a public identity commitment.
 
-### 2. /live — Real-time Verification (Core Product)
+### 2. Briefing Protocol (Cold Start Mechanism — 2026-02-27)
+
+**How cold start is solved:** Person A's mirror agent reaches out to Person B — "Someone you care about wants you to understand them better. Here's a 20-minute briefing. Are you willing?" Person B gets value before signing up. The invitation itself IS the product experience.
+
+**Sequence:**
+1. Mirror agent studies Person A (conversations, writing, patterns)
+2. Generates mirror claims — statements "wrong enough to be interesting, close enough to feel personal"
+3. Briefs Person B, tests their comprehension
+4. A and B meet — start at depth on day one, not month six
+
+**Key insight (2026-02-27):** Points surface the gap; stories explain the gap. The flow is inverted from the original assumption: mirror claims create the "interesting wrong" tension first, stories emerge to explain it. Stories are the content layer; the briefing protocol is the cold start trigger.
+
+**Constraint:** Requires motivated Person B with pre-existing relationship stakes. Protocol channels existing motivation — doesn't create it.
+
+### 3. /live — Real-time Verification (Core Product)
 The core interaction, used in **any meeting**:
 1. Speaker shares an idea
 2. Listener plays back their understanding
