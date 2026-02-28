@@ -49,7 +49,25 @@ Filter out `test-agent@claritypledge.com` from results.
 
 Show: `✓ Signups: 0 in last 24h` or list each as `  · Name (email) — HH:MM UTC`
 
-**d) Cloud systems (silent on green — only output if something is wrong)**
+**d) Repo health baseline (surfaces ambient debt before any implementation starts)**
+
+Run as a background subagent to avoid blocking health display:
+```bash
+cd "$(git rev-parse --show-toplevel)"
+# Stash any uncommitted changes, baseline, restore
+git stash -q --include-untracked 2>/dev/null || true
+npm run lint 2>&1 | grep -c "error" || echo "0"
+npm test -- --run 2>&1 | tail -5
+git stash pop -q 2>/dev/null || true
+```
+
+Show:
+- `✓ Repo baseline: clean` if lint errors = 0 and tests pass
+- `⚠ Repo baseline: N lint errors, M test failures — fix before starting new work` if anything fails
+
+**Why:** Pre-existing failures block commits and waste cycles mid-implementation. Surface them at session start, not at first commit attempt.
+
+**e) Cloud systems (silent on green — only output if something is wrong)**
 ```bash
 # Ghost blog
 curl -s -o /dev/null -w "%{http_code}" https://claritypledge.com/blog --max-time 5
