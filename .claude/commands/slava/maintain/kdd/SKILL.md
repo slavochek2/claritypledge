@@ -199,12 +199,14 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    If subagent returns more than 6 items, filter to the 3–4 highest-severity ones before triaging.
 
-   Triage paths:
-   - **Trivial / obvious fix**: single clear action, no real trade-off → apply now, report as: `- [What happened] → [action taken]`
-   - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 6.3)
-   - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → append to `docs/process-learnings.md` as `Status: proposed` (feeds `/weekly` step 2.5)
+   Present ALL items to the user — never auto-apply anything. The agent surfaces and recommends; the user decides what to act on.
 
-   Present all decision blocks in a single numbered message, then apply trivial fixes.
+   For each item, classify and format as follows:
+   - **Trivial / obvious fix**: single clear action, no real trade-off → report as: `- [What happened] → recommended action: [exact action + where]`
+   - **Requires decision**: multiple legitimate options with real trade-offs → generate a `/simplify` block (see 6.3)
+   - **No obvious fix, worth tracking**: problem is understood but no action is clear yet → report as: `- [What happened] → recommended: add to process-learnings.md as Status: proposed`
+
+   Present all items in a single numbered message. End with: "Reply with what to act on, or 'skip all'."
 
    **6.3 `/simplify` block format for decisions:**
 
@@ -227,9 +229,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    If it requires `/claude-md` gate or user judgement: flag as a block, don't act unilaterally.
 
-   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries — done = graduated. An empty file is healthy.
-
-   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty process-learnings.md is healthy.
+   **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty file is healthy.
 
 ## Rules
 

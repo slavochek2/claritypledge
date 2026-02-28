@@ -448,7 +448,31 @@ if [ -f "./scripts/sweep-done.sh" ]; then
 fi
 echo ""
 
-# 16. Privacy check — personal identifiers that must not appear in public files
+# 16. .claude/ changes on non-main branch — warn that skills/rules won't reach main until /ship
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [ "$CURRENT_BRANCH" != "main" ] && [ -n "$CURRENT_BRANCH" ]; then
+    CLAUDE_STAGED=$(git diff --cached --name-only | grep "^\.claude/" || true)
+    if [ -n "$CLAUDE_STAGED" ]; then
+        echo ""
+        echo -e "${YELLOW}⚠ .claude/ changes staged on branch '$CURRENT_BRANCH':${NC}"
+        echo "$CLAUDE_STAGED" | sed 's/^/  /'
+        echo -e "${YELLOW}  These skills/rules/agents won't be available on main or other worktrees until /ship runs.${NC}"
+        # Prompt only when running interactively (TTY attached)
+        if [ -t 1 ]; then
+            echo -n "  Proceed with commit? (y/N) "
+            read -r REPLY </dev/tty
+            if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+                echo -e "${RED}✗ Commit aborted — consider committing .claude/ changes to main separately first${NC}"
+                exit 1
+            fi
+        else
+            WARNINGS=$((WARNINGS + 1))
+        fi
+    fi
+fi
+echo ""
+
+# 17. Privacy check — personal identifiers that must not appear in public files
 echo ">>> Privacy check (personal identifiers)..."
 STAGED_FILES_ALL=$(git diff --cached --name-only 2>/dev/null || echo "")
 if [ -n "$STAGED_FILES_ALL" ]; then

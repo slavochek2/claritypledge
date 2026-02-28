@@ -8,6 +8,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [technical]: Kanban server test isolation — guard listen() + export app
+
+**Context:** `tools/kanban/server/api.ts` called `app.listen()` at module load. Any test file importing `api.ts` would trigger the server binding, causing port 9051 conflicts with a running kanban server and test failures. Additionally, tests that needed `app` to make supertest requests couldn't import it because it wasn't exported.
+**Decision:** (1) Wrap `app.listen()` in `if (process.env.NODE_ENV !== 'test')` guard. (2) Add `export { app }` so tests can import the express instance directly. (3) Scope pre-commit kanban vitest to scanner tests only (`lib/__tests__` + `server/__tests__/scanner-smoke`) — integration tests (`api.test.ts`, `goals.test.ts`) depend on file I/O and real milestone content that doesn't exist in pre-commit context.
+**Alternatives rejected:** Running full kanban test suite in pre-commit (integration tests fail on missing files, creating false blockers); not exporting `app` (forces tests to spin up a real server).
+**Consequences:** Any future kanban server test can import `app` directly for supertest integration. Integration tests that need real file content should run in CI, not pre-commit.
+**References:** [tools/kanban/server/api.ts](tools/kanban/server/api.ts) · [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §kanban
+
+---
+
+## 2026-02-28 [technical]: Revert-then-merge: files deleted by a revert are invisible in conflict list
+
+**Context:** P422 and P425 were reverted from `main` (commit `c08bc1f2`) to unblock a deploy. When later merging the feature branch back, git's conflict detection only shows files that exist on both sides. Files that were deleted by the revert (16 files: components, services, helpers, edge function) simply don't appear — they're silently absent from the working tree. The build fails with "cannot find module" errors.
+**Decision:** When merging a feature branch after a prior revert of that branch's content: after resolving the standard conflict list, explicitly restore all files that were deleted by the revert commit. Use `git show <feature-branch>:path/to/file > path/to/file` for each, or `git diff <revert-commit>^..<revert-commit> --name-only --diff-filter=D` to enumerate them.
+**Alternatives rejected:** Trusting the conflict list to be exhaustive (silently misses deleted files); cherry-picking individual commits (complex, can leave partial state).
+**Consequences:** After any `git merge --no-commit` of a branch that was previously reverted, run `git diff <revert-commit>^..<revert-commit> --name-only --diff-filter=D` and manually restore each file before committing. This is a one-time cost per revert, and the correct signal is "build fails on module-not-found after merge resolves clean."
+**References:** [docs/technical/git-workflow.md](docs/technical/git-workflow.md)
+
+---
+
+## 2026-02-28 [process]: Commit important content artifacts immediately after writing
+
+**Context:** In P438 session, a blog draft was written via Write tool (confirmed success) but wasn't on disk at session end — required recreating from transcript. Root cause unclear (likely context compaction or interrupted session).
+**Decision:** After writing any important artifact (blog draft, feature spec, key doc), immediately run `git status` to confirm it's tracked, then commit before continuing with edits or review. Don't rely on the Write tool confirmation alone — verify the file exists in git.
+**Alternatives rejected:** End-of-session checklist (requires discipline each time); no change (next session just loses work again).
+**Consequences:** Slightly more commits, but all are named and purposeful. Blog drafts appear as their own commit, which is fine.
+**References:** P438 session; content/blog/ai-agent-orchestration-three-setups.md had to be recreated.
+
+---
+
 ## 2026-02-28 [process]: Blog articles require personal story first, research second
 
 **Context:** P438 article was initially drafted as a technical comparison of three AI orchestration setups (Jed's principle, Slava's setup, Jordan's pipeline). After review, Slava clarified the real story was his personal journey through the four AI dev barriers, with Jordan and Jed as supporting characters — not co-equal subjects.

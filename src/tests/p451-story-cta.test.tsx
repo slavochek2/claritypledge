@@ -1,10 +1,11 @@
 /**
  * @file p451-story-cta.test.tsx
- * @description Regression tests for P451: Story CTA must appear on all position surfaces,
+ * @description Regression tests for P451/P456: Story CTA must appear on all position surfaces,
  * not only on the point-detail-page.
  *
- * Bug: "Tell your story →" only showed on /points/:id after staking.
- * Fix: showStoryCTA is derived from userPosition, so it persists across refresh.
+ * P451: showStoryCTA is derived from userPosition, so it persists across refresh.
+ * P456: StoryCardDetail uses position-aware copy (getPositionCTACopy) instead of generic text.
+ *       For 'agree' position: ctaText = 'Why do you agree? →'
  */
 
 import { describe, it, expect } from 'vitest';
@@ -185,7 +186,10 @@ const preloadedUserPositions = new Map<string, PointPosition>([
   [POINT_ID, { id: 'pos-1', pointId: POINT_ID, userId: CURRENT_USER, position: 'agree' as PositionType, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
 ]);
 
-describe('P451: StoryCardDetail QuotedPointForStory CTA', () => {
+// P456: StoryCardDetail uses position-aware CTA copy. For 'agree' → 'Why do you agree? →'
+const AGREE_CTA = 'Why do you agree? →';
+
+describe('P451/P456: StoryCardDetail QuotedPointForStory CTA', () => {
   it('does NOT show CTA before staking', () => {
     render(
       <BrowserRouter>
@@ -198,10 +202,10 @@ describe('P451: StoryCardDetail QuotedPointForStory CTA', () => {
         />
       </BrowserRouter>
     );
-    expect(screen.queryByText('Tell your story →')).toBeNull();
+    expect(screen.queryByText(AGREE_CTA)).toBeNull();
   });
 
-  it('shows CTA after staking a position on a linked point', () => {
+  it('shows position-aware CTA after staking a position on a linked point', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -214,10 +218,10 @@ describe('P451: StoryCardDetail QuotedPointForStory CTA', () => {
       </BrowserRouter>
     );
     clickAgree();
-    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+    expect(screen.getByText(AGREE_CTA)).toBeInTheDocument();
   });
 
-  it('shows CTA on load when position is pre-existing (refresh regression)', () => {
+  it('shows position-aware CTA on load when position is pre-existing (refresh regression)', () => {
     render(
       <BrowserRouter>
         <StoryCardDetail
@@ -229,6 +233,6 @@ describe('P451: StoryCardDetail QuotedPointForStory CTA', () => {
         />
       </BrowserRouter>
     );
-    expect(screen.getByText('Tell your story →')).toBeInTheDocument();
+    expect(screen.getByText(AGREE_CTA)).toBeInTheDocument();
   });
 });

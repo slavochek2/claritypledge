@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-02-27
+Last updated: 2026-02-28
 
 ---
 
@@ -29,6 +29,7 @@ Last updated: 2026-02-27
 - **P426** (Feb 26) Story Show/More Toggle — character limit prevents excessive card height; expandable text pattern
 - **P427** (Feb 26) Story Edit and Delete — `useBlocker` requires data router; guard via handleBack override + popstate; `story_versions` RLS was USING(true); Radix Dialog modal always needs `hideCloseButton` for confirm dialogs
 - **P434** (Feb 26) Point Statement Truncation — line-clamp prevents card overflow
+- **P451** (Feb 28) Story CTA on All Surfaces — CTA appears on all 6 position-taking surfaces; `showStoryCTA = !!userPosition` derived check, no state; P451 was reverted then re-merged (16 files invisible in conflict list — restore with `git show branch:file`)
 - **P117** (Feb 5) Stories & Points Backend — DB schema: points, point_positions, point_history, story_points junction
 - **P131** (Feb 5) Manual Points Creation — user-created points with story linking; validate before AI extraction
 - **P132** (Feb 5) Rich Story View — story detail context; linked points appear with context
