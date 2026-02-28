@@ -311,7 +311,7 @@ See [docs/technical/debugging.md](docs/technical/debugging.md) for full protocol
 
 ### Git & Commits
 
-See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full workflow.
+See [docs/technical/git-workflow.md](docs/technical/git-workflow.md) for full workflow. Commit autonomy rules in [Commit Discipline](#commit-discipline) above. Banned commands in `.claude/rules/git.md`.
 
 **Quick rules:** Prompt for commits after logical units of work, run `./scripts/pre-commit-checks.sh` before committing.
 
@@ -335,13 +335,19 @@ Before setting up any external or self-hosted infrastructure (VNC, tunnels, serv
 
 ---
 
+### Infrastructure Work — Confirm End-State First
+
+Before acting: paraphrase the end-state in 1-2 sentences and wait. If the user names a specific tool, search it first — never assume.
+
+---
+
 ### Risky Operations — Worktree Protection
 
 > **Principle:** Risky or experimental changes should be isolated. Suggest a worktree before proceeding.
 
 **Ask before:** Installing new global tools, major refactors (10+ files), new frameworks/build systems, anything labeled "experimental." (Running `./scripts/migrate.sh` on an existing migration file does NOT need asking — schema design decisions do.)
 
-**Why:** Easy rollback if experiment fails.
+**Why:** Easy rollback if experiment fails. Branch names reflect feature, not worktree — see [worktree-setup.md](docs/technical/worktree-setup.md).
 
 ### Parallel Feature Work — Index Collision Risk
 
@@ -506,30 +512,7 @@ No priority order. Each has a unique strength. For full details: [browser-tools.
 
 ## Git Safety (Firewall)
 
-These are hard rules, not principles to reason about. Leaking secrets to git history is catastrophic and irreversible — there's no "it depends."
-
-**Never use these commands:**
-- `git add .` — can stage secrets and ignored files
-- `git add -A` — same problem
-- `git add -f <file>` — forces adding ignored files
-- `git reset HEAD` (no args) — resets the **entire** index, not just target files; always use `git reset HEAD -- file1 file2`
-- `git stash` (agent-initiated) — agents must NOT stash unilaterally; only stash if user explicitly asks; prefer `git commit -m "wip: ..."` instead
-
-**ALWAYS use explicit file names:**
-```bash
-git add src/app/pages/MyPage.tsx src/components/Button.tsx
-```
-
-**Files that MUST NEVER be committed:**
-- `.mcp.json` — contains API tokens
-- `.env.local` — contains secrets
-- Any file with `token`, `secret`, `key`, `password` in content
-
-**If you accidentally stage a secret:**
-```bash
-git reset HEAD <file>        # Unstage
-git rm --cached <file>       # Untrack (if already tracked)
-```
+Hard stops — rules auto-load when editing `src/`, `scripts/`, or `.sh` files via `.claude/rules/git.md`. See that file for the full banned-command list and reasoning.
 
 ---
 
@@ -540,12 +523,6 @@ See [architecture.md](docs/technical/architecture.md) for patterns.
 Code style, design system, point display, and data fetching rules auto-load when editing `src/` files via `.claude/rules/src.md`.
 
 Database migration rules, RLS debugging, and schema decisions auto-load when editing `supabase/` files via `.claude/rules/database.md`.
-
----
-
-### Worktree Branch Naming
-
-Worktree identity: `claritypledge-N` = wN. Branch names reflect feature, not worktree. See [worktree-setup.md](docs/technical/worktree-setup.md) for details.
 
 ---
 

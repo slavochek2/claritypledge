@@ -2,6 +2,58 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-02-28 [process]: OpenClaw over custom bot — search named tools before building
+
+**Context:** Built a custom Gemini Telegram bot across 2 sessions (VM provisioning, bot.py, sqlite-vec memory, GitHub PAT, email) before discovering the user intended to use OpenClaw — a 68k-star open-source agent framework that does all of this out of the box. VM paused.
+
+**Decision:** Switch to OpenClaw when resuming agent work. Custom bot abandoned.
+
+**Alternatives rejected:** Continuing custom bot — it reimplements ~10% of OpenClaw at maintenance cost.
+
+**Consequences:** Any named tool/product mentioned by the user must be searched before assuming. "Confirm end-state" rule added to CLAUDE.md. VM stays paused until OpenClaw setup.
+
+**References:** [CLAUDE.md — Infrastructure Work](CLAUDE.md)
+
+---
+
+## 2026-02-28 [process]: CLAUDE.md structural cleanup — Git Safety refactored to rules file
+
+**Context:** Audit found Git Safety section duplicated between CLAUDE.md (inline rules) and `.claude/rules/git.md` (auto-loaded rules file). Drift had already started — `git push --force` to main/master existed only in rules file.
+
+**Decision:** Collapse CLAUDE.md Git Safety to a 1-line reference. Rules file is the single source. Also: Worktree Branch Naming stub removed (merged into Worktree Protection section), Commit Discipline cross-referenced from Git & Commits.
+
+**Alternatives rejected:** Keeping both in sync manually — drift is inevitable.
+
+**Consequences:** One place to update git rules. CLAUDE.md ~30 lines shorter.
+
+**References:** [.claude/rules/git.md](.claude/rules/git.md)
+
+---
+
+## 2026-02-28 [process]: claude-md skill simplified — two explicit prompt modes
+
+**Context:** claude-md skill was 197 lines with duplicated content, template pseudo-syntax (`{IF_ARGUMENT}`), and inline examples that added noise without value.
+
+**Decision:** Cut to 45 lines. Two explicit agent prompt blocks: one for "validate a change" (with argument), one for "audit" (no argument). No conditional syntax.
+
+**Alternatives rejected:** Keeping long form for "educational" value — the agent doesn't need hand-holding.
+
+**Consequences:** Faster invocation, cleaner output, easier to maintain.
+
+---
+
+## 2026-02-28 [process]: Mira email infrastructure — claritypledge.com over Proton for programmatic access
+
+**Context:** Mira (bot persona) has mira.elv@proton.me for identity. Proton requires Bridge (desktop app) for IMAP — not practical for agent access. Created mira@claritypledge.com on All-Inkl (same server as ops@).
+
+**Decision:** mira@claritypledge.com for operational email (registrations, receiving service emails). read-ops-email.mjs script works for both. mira.elv@proton.me kept for identity only.
+
+**Alternatives rejected:** Proton Bridge — overkill, requires running desktop app.
+
+**Consequences:** Email read/write works with existing IMAP infrastructure.
+
+---
+
 **Format:**
 ```markdown
 ## YYYY-MM-DD: Decision Title

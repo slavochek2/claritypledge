@@ -1,7 +1,6 @@
 ---
 paths:
-  - "src/**/*.ts"
-  - "src/**/*.tsx"
+  - "src/**"
   - "scripts/**"
   - "**/*.sh"
 ---
