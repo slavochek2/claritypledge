@@ -71,6 +71,16 @@ For architecture patterns, see [docs/technical/architecture.md](docs/technical/a
 
 ---
 
+### Falsify Before You Rely
+
+> **Principle:** Any time Claude states a capability, guarantee, or behavior of a tool or system that Claude has not personally verified in this session — flag it. There is no importance threshold. The cost of stating uncertainty is one sentence; the cost of a false guarantee can be hours.
+
+**When the claim can be tested:** Simulate the failure. Apply the fix. Simulate again.
+
+**When the claim cannot be easily tested** (e.g., "survives a reboot", "handles reconnection under network failure"): say so explicitly — do not proceed as if it were confirmed. Never present an inferred capability as confirmed. State the inference and name the test.
+
+---
+
 ### Transparency Principle
 
 > **Principle:** Never silently work around problems. Report issues to the user, even if you can technically proceed.
@@ -318,6 +328,8 @@ Before setting up any external or self-hosted infrastructure (VNC, tunnels, serv
 1. List the top 2-3 alternatives with a one-line trade-off each
 2. Pick the simplest one that meets the need. If one option is clearly right, state it and proceed — no forced comparison needed
 3. State the choice explicitly before starting
+
+**Two-layer signal:** If you are about to add Tool B because Tool A hasn't been confirmed to work — stop. Verify Tool A against the specific failure first. Adding Tool B on top of an unverified Tool A does not reduce risk. (Legitimate layering — nginx + Node, certbot + nginx — has each layer solving a distinct, independently-verifiable problem.)
 
 **Why:** Complex infrastructure is hard to reverse. 2 minutes of comparison prevents hours of debugging the wrong tool.
 

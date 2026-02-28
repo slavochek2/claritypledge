@@ -4,7 +4,29 @@ Interactive daily check-in. Checks prod health, shows what's next, asks what's d
 
 ## Steps
 
-### 0. Setup reminders
+### 0. Open items check (run first, before anything else)
+
+Scan MEMORY.md at `/Users/slavochek/.claude/projects/-Users-slavochek-Projects-public-claritypledge/memory/MEMORY.md` for lines starting with `ACTION_NEEDED:`.
+
+If the file does not exist at that path: output `⚠ MEMORY.md not found — open items check skipped` and continue to step 0a.
+
+If any `ACTION_NEEDED:` lines found, surface them:
+```
+⚠ OPEN ITEMS (from memory):
+  · [item 1]
+  · [item 2]
+Address one before starting new work? Reply 'yes' to make it this session's first task, or send anything else to continue.
+```
+
+Wait for response.
+- If user says yes → make the item the session's first task. Skip remaining day-start steps and go directly to it.
+- Anything else → continue to step 0a.
+
+If none found → silent, no output.
+
+---
+
+### 0a. Setup reminders
 
 **a) Reset Whisper language to auto-detect**
 ```bash

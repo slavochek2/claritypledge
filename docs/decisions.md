@@ -8,6 +8,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [process]: tmux cannot preserve Claude Code conversations across restarts
+
+**Context:** 5 hours spent setting up tmux (resurrect, continuum, fzf picker) believing it would preserve Claude Code sessions across Mac restarts. Root cause of the original problem was macOS `AutomaticallyInstallMacOSUpdates = 1` restarting the machine without warning. The tmux solution correctly handles Ghostty closing (process stays alive) but cannot survive a machine restart — Claude's conversation state lives in RAM only.
+**Decision:** Disable macOS auto-restarts (`sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -int 0`). Accept that Claude conversations are always lost on restart. Use `/resume` within the same project dir for continuity. tmux remains useful for background processes and surviving accidental Ghostty close — not for Claude conversation persistence.
+**Alternatives rejected:** tmux-resurrect/continuum layering — restores shell only, not the claude process or its conversation state.
+**Consequences:** Machine no longer auto-restarts. Claude conversations lost on any restart are expected and not worth engineering around. tmux kept for legitimate uses (background processes, window organization).
+**References:** [tmux-setup.md](~/Projects/private/personal/docs/tmux-setup.md) · MEMORY.md
+
+---
+
+## 2026-02-28 [process]: Three structural safeguards against unverified capability claims
+
+**Context:** Root cause analysis of the tmux incident revealed three compounding failure patterns: (1) Claude made a confident capability claim it couldn't verify, (2) a known fix sat unactioned in MEMORY.md, (3) complexity layered on an unverified foundation. Addressed by adding three structural controls.
+**Decision:** (1) "Falsify Before You Rely" principle in CLAUDE.md — any capability claim about a tool or system Claude hasn't personally verified must be flagged, with explicit distinction between testable and untestable claims. (2) `ACTION_NEEDED:` tag convention in MEMORY.md — unresolved problems get tagged; `/day-start` scans for them at session start. (3) "Two-layer infrastructure signal" in "Before Choosing Infrastructure Tools" section — adding Tool B on top of unverified Tool A must trigger a stop and verification of Tool A first.
+**Alternatives rejected:** Process-based solutions (pre-mortem, cooling period, complexity budget) — require discipline at the moment of excitement, don't fire automatically.
+**Consequences:** Claude must flag unverified claims before user commits time. Known open problems surface each morning. Two-layer infra patterns trigger explicit verification check. None of these prevent a determined wrong path, but all three add friction at the right moment.
+**References:** [CLAUDE.md](CLAUDE.md) · [day-start.md](.claude/commands/slava/day-start.md) · [MEMORY.md](~/.claude/projects/.../memory/MEMORY.md)
+
+---
+
 ## 2026-02-28 [process]: fix-frontmatter.py phantom accumulation — git-aware rename
 
 **Context:** Feature spec files were silently disappearing or accumulating phantom copies across sessions. Root cause: `fix-frontmatter.py` used `Path.rename()` (filesystem-only) when resolving duplicate P-numbers. This caused a tracked→untracked divergence each session (old path shows as `D`, new path as `??`). Over time the phantom would get renamed to yet another number (`p422→p457→p463`), occasionally contaminating unrelated commits via index collision.
