@@ -1,10 +1,11 @@
 ---
-status: week
+status: in-progress
 type: story
 workstream: C2
-rank: 1.125
+rank: 1
 tags: []
 created_date: 2026-01-20T00:00:00.000Z
+locked_at: '2026-02-28T09:34:21.114Z'
 ---
 # P79: Consulting & Revenue Model
 

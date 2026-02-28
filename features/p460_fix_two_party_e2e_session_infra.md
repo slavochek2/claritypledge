@@ -1,7 +1,7 @@
 ---
-status: qa
+status: all-done
 type: task
-rank: 125505
+rank: 1000000.25
 workstream: live
 created_date: 2026-02-27T00:00:00.000Z
 tags:
@@ -10,6 +10,7 @@ tags:
   - two-party
   - realtime
 flow: dev
+locked_at: '2026-02-28T09:34:29.546Z'
 ---
 
 # P460: Fix Two-Party E2E Session Infrastructure

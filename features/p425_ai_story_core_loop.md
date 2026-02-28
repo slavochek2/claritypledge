@@ -1,7 +1,7 @@
 ---
-status: done
+status: qa
 type: story
-rank: 1000001
+rank: 94122.75
 workstream: C1
 tags:
   - stories
@@ -25,8 +25,7 @@ test_files:
   - e2e/p425-story-filing.spec.ts
   - e2e/a11y/p425-accessibility.spec.ts
   - e2e/p425-smoke.spec.ts
-locked_at: '2026-02-26T04:18:07.990Z'
-completed_at: '2026-02-26'
+locked_at: '2026-02-28T09:34:43.561Z'
 ---
 
 # P425: AI-Guided Story Creation — Core Loop (position-triggered)
