@@ -20,6 +20,7 @@ export const VALID_STATUS: readonly Status[] = [
   'today',
   'in-progress',
   'blocked',
+  'qa',
   'done',
   'all-done',
   'draft',

@@ -1,5 +1,5 @@
 // Status columns for Notion-style kanban
-export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'done' | 'all-done' | 'draft' | 'rejected'
+export type Status = 'backlog' | 'week' | 'today' | 'in-progress' | 'blocked' | 'qa' | 'done' | 'all-done' | 'draft' | 'rejected'
 
 // Article pipeline statuses (content kanban — separate from feature board)
 export type ArticleStatus = 'idea' | 'draft' | 'editing' | 'ready' | 'published' | 'promoted'
