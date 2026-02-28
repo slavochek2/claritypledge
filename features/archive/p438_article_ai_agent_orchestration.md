@@ -1,8 +1,10 @@
 ---
-status: in-progress
+status: rejected
 type: task
 priority: medium
-created_at: 2026-02-25
+created_at: 2026-02-25T00:00:00.000Z
+rank: 4.5
+archived_reason: "article migrated to content/articles/a2_ai-agent-orchestration-barriers.md — tracked in content kanban"
 ---
 
 # P437: Blog Article — AI Agent Orchestration for Solo Founders

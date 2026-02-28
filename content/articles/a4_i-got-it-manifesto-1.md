@@ -1,9 +1,9 @@
 ---
+status: draft
 title: "I Got It. We Don't Need to Waste Time on This."
-status: preparing
-series: manifesto
-series_order: 1
-series_total: 7
+rank: 4
+tags: [manifesto, clarity-tax, series]
+created_at: 2026-02-26T00:00:00.000Z
 ---
 
 # "I Got It. We Don't Need to Waste Time on This."
