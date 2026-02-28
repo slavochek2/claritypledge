@@ -457,8 +457,8 @@ if [ "$CURRENT_BRANCH" != "main" ] && [ -n "$CURRENT_BRANCH" ]; then
         echo -e "${YELLOW}⚠ .claude/ changes staged on branch '$CURRENT_BRANCH':${NC}"
         echo "$CLAUDE_STAGED" | sed 's/^/  /'
         echo -e "${YELLOW}  These skills/rules/agents won't be available on main or other worktrees until /ship runs.${NC}"
-        # Prompt only when running interactively (TTY attached)
-        if [ -t 1 ]; then
+        # Prompt only when /dev/tty is accessible (human terminal, not agent/CI)
+        if { read -r _TTY_TEST </dev/tty; } 2>/dev/null <<< ""; then
             echo -n "  Proceed with commit? (y/N) "
             read -r REPLY </dev/tty
             if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
