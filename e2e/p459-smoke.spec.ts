@@ -5,7 +5,7 @@
  * Fast gate confirming that the two new surfaces render without JS crashes:
  *
  *   1. Profile page loads — agreements section no longer crashes the content area
- *   2. /p/:slug/connections route responds (not 404, no JS errors)
+ *   2. /p/:slug/partners route responds (not 404, no JS errors)
  *   3. Metadata line present for a profile with agreements
  *
  * Tests run authenticated (owner) so the metadata line renders.
@@ -89,7 +89,7 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
     ).toHaveLength(0);
   });
 
-  test('/p/:slug/connections route loads without 404 or console errors', async ({ page }) => {
+  test('/p/:slug/partners route loads without 404 or console errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error' && !isKnownNonCritical(msg.text())) {
@@ -98,7 +98,7 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
     });
 
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // Must not land on 404 page
@@ -110,7 +110,7 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
 
     expect(
       consoleErrors,
-      `Console errors on /p/${owner.slug}/connections: ${consoleErrors.join('\n')}`
+      `Console errors on /p/${owner.slug}/partners: ${consoleErrors.join('\n')}`
     ).toHaveLength(0);
   });
 
@@ -120,9 +120,9 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
     await page.waitForLoadState('networkidle');
 
     // The compact metadata line must appear — "✦ N Clarity Partners →" or similar
-    // Matches any text containing "Clarity Partner" or a link to /connections
+    // Matches any text containing "Clarity Partner" or a link to /partners
     const metadataLine = page.locator('text=/Clarity Partner/i')
-      .or(page.locator(`a[href="/p/${owner.slug}/connections"]`));
+      .or(page.locator(`a[href="/p/${owner.slug}/partners"]`));
 
     await expect(metadataLine.first()).toBeVisible({ timeout: 10000 });
   });
@@ -138,7 +138,7 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
     await expect(oldSection).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('connections page loads for anonymous visitor without console errors', async ({ page }) => {
+  test('partners page loads for anonymous visitor without console errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error' && !isKnownNonCritical(msg.text())) {
@@ -147,18 +147,18 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
     });
 
     // No setTestSession — anonymous browse
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // Anonymous users may see public agreements or empty state — either is fine
     // What must not happen: JS crash or unhandled error
     expect(
       consoleErrors,
-      `Console errors for anonymous visitor on /p/${owner.slug}/connections: ${consoleErrors.join('\n')}`
+      `Console errors for anonymous visitor on /p/${owner.slug}/partners: ${consoleErrors.join('\n')}`
     ).toHaveLength(0);
   });
 
-  test('connections page loads for visitor (not owner) without console errors', async ({ page }) => {
+  test('partners page loads for visitor (not owner) without console errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error' && !isKnownNonCritical(msg.text())) {
@@ -167,14 +167,14 @@ test.describe('P459 Smoke — pages load without JS errors after implementation'
     });
 
     await setTestSession(page, partnerUser.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     await expect(page).not.toHaveURL(/404/);
 
     expect(
       consoleErrors,
-      `Console errors for visitor on /p/${owner.slug}/connections: ${consoleErrors.join('\n')}`
+      `Console errors for visitor on /p/${owner.slug}/partners: ${consoleErrors.join('\n')}`
     ).toHaveLength(0);
   });
 });

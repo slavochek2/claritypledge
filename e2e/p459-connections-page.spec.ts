@@ -3,9 +3,9 @@
  * @description E2E tests for P459: Agreements to Connections page relocation.
  *
  * Covers the viewer-state matrix for both the profile header metadata line
- * and the new /p/:slug/connections route:
+ * and the new /p/:slug/partners route:
  *
- *   Owner     → metadata line with all agreements count → connections page shows all + CTA
+ *   Owner     → metadata line with all agreements count → partners page shows all + CTA
  *   Visitor   → party to agreement → "You have N agreement(s)" → shared agreements only
  *   Visitor   → public active agreements exist → count shown → public active only
  *   Visitor   → no visible agreements → metadata line hidden → empty state
@@ -13,7 +13,7 @@
  * Regression check: agreements section no longer in profile content area.
  *
  * NOTE: These tests require a working implementation of P459. Before P459 ships,
- * tests that navigate to /p/:slug/connections will fail (route not yet created).
+ * tests that navigate to /p/:slug/partners will fail (route not yet created).
  * Mark tests that depend on the new route with the @p459 tag so they can be
  * selectively run after implementation.
  */
@@ -117,25 +117,25 @@ test.describe('P459 — Owner viewing own profile', () => {
     await expect(metadataLine).toBeVisible({ timeout: 10000 });
   });
 
-  test('metadata line links to /p/:slug/connections', async ({ page }) => {
+  test('metadata line links to /p/:slug/partners', async ({ page }) => {
     await setTestSession(page, owner.email);
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    // Find the link in the metadata line pointing to the connections page
-    const connectionsLink = page.locator(`a[href="/p/${owner.slug}/connections"]`);
-    await expect(connectionsLink).toBeVisible({ timeout: 10000 });
+    // Find the link in the metadata line pointing to the partners page
+    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    await expect(partnersLink).toBeVisible({ timeout: 10000 });
   });
 
-  test('connections page shows all agreements (owner sees all)', async ({ page }) => {
+  test('partners page shows all agreements (owner sees all)', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // Owner should see all 3 agreements (public + 2 private)
     // Page must not show 404 or error
     await expect(page).not.toHaveURL(/404/);
-    await expect(page.getByRole('heading', { name: /connections/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /partners/i })).toBeVisible({ timeout: 10000 });
 
     // All 3 agreements should be listed
     const _agreementItems = page.locator('[aria-label*="agreement"], [data-testid*="agreement"]');
@@ -146,9 +146,9 @@ test.describe('P459 — Owner viewing own profile', () => {
     expect(count).toBeGreaterThanOrEqual(3);
   });
 
-  test('connections page shows "New Agreement" CTA for owner', async ({ page }) => {
+  test('partners page shows "New Agreement" CTA for owner', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     const newAgreementCTA = page.getByRole('link', { name: /new agreement/i })
@@ -183,9 +183,9 @@ test.describe('P459 — Visitor who is party to an agreement', () => {
     await expect(metadataLine).toBeVisible({ timeout: 10000 });
   });
 
-  test('connections page shows only shared agreements (party view)', async ({ page }) => {
+  test('partners page shows only shared agreements (party view)', async ({ page }) => {
     await setTestSession(page, visitor.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     await expect(page).not.toHaveURL(/404/);
@@ -197,9 +197,9 @@ test.describe('P459 — Visitor who is party to an agreement', () => {
     expect(count).toBe(2);
   });
 
-  test('connections page does NOT show "New Agreement" CTA for visitor', async ({ page }) => {
+  test('partners page does NOT show "New Agreement" CTA for visitor', async ({ page }) => {
     await setTestSession(page, visitor.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     const newAgreementCTA = page.getByRole('link', { name: /new agreement/i })
@@ -235,9 +235,9 @@ test.describe('P459 — Visitor with public agreements visible (not a party)', (
     await expect(metadataLine).toBeVisible({ timeout: 10000 });
   });
 
-  test('connections page shows only public active agreements', async ({ page }) => {
+  test('partners page shows only public active agreements', async ({ page }) => {
     await setTestSession(page, publicOnlyVisitor.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     await expect(page).not.toHaveURL(/404/);
@@ -292,9 +292,9 @@ test.describe('P459 — Visitor with no visible agreements', () => {
     await expect(metadataLine).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('connections page shows empty state or handles gracefully when visitor has no visible agreements', async ({ page }) => {
+  test('partners page shows empty state or handles gracefully when visitor has no visible agreements', async ({ page }) => {
     await setTestSession(page, stranger.email);
-    await page.goto(`/p/${privateOwner.slug}/connections`);
+    await page.goto(`/p/${privateOwner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // Implementation may show empty state or 404 — both are acceptable per spec
@@ -328,8 +328,8 @@ test.describe('P459 — Anonymous visitor', () => {
     await expect(metadataLine).toBeVisible({ timeout: 10000 });
   });
 
-  test('connections page shows only public active agreements for anonymous visitor', async ({ page }) => {
-    await page.goto(`/p/${owner.slug}/connections`);
+  test('partners page shows only public active agreements for anonymous visitor', async ({ page }) => {
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     await expect(page).not.toHaveURL(/404/);

@@ -216,7 +216,7 @@ export default function ClarityPledgeApp() {
         />
 
         <Route
-          path="/p/:id/connections"
+          path="/p/:id/partners"
           element={
             <ClarityLandingLayout>
               <LazyRoute>

@@ -9,7 +9,7 @@
  *      - Link has descriptive accessible text (not just "→")
  *      - ✦ symbol is aria-hidden or decorative
  *
- *   2. Connections page (/p/:slug/connections)
+ *   2. Connections page (/p/:slug/partners)
  *      - Page has an h1 heading
  *      - Agreement list has an accessible label
  *      - Agreement list items have accessible text describing the partner
@@ -65,13 +65,13 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    // Tab through the page and check that the connections link can receive focus
-    const connectionsLink = page.locator(`a[href="/p/${owner.slug}/connections"]`);
-    await expect(connectionsLink).toBeVisible({ timeout: 10000 });
+    // Tab through the page and check that the partners link can receive focus
+    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    await expect(partnersLink).toBeVisible({ timeout: 10000 });
 
     // Focus the link via keyboard navigation
-    await connectionsLink.focus();
-    await expect(connectionsLink).toBeFocused();
+    await partnersLink.focus();
+    await expect(partnersLink).toBeFocused();
   });
 
   test('metadata line link can be activated with Enter key', async ({ page }) => {
@@ -79,14 +79,14 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    const connectionsLink = page.locator(`a[href="/p/${owner.slug}/connections"]`);
-    await expect(connectionsLink).toBeVisible({ timeout: 10000 });
+    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    await expect(partnersLink).toBeVisible({ timeout: 10000 });
 
-    await connectionsLink.focus();
+    await partnersLink.focus();
     await page.keyboard.press('Enter');
 
-    // Should navigate to the connections page
-    await expect(page).toHaveURL(`/p/${owner.slug}/connections`);
+    // Should navigate to the partners page
+    await expect(page).toHaveURL(`/p/${owner.slug}/partners`);
   });
 
   test('metadata line link has descriptive accessible text (not just an arrow symbol)', async ({ page }) => {
@@ -94,11 +94,11 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
     await page.goto(`/p/${owner.slug}`);
     await page.waitForLoadState('networkidle');
 
-    const connectionsLink = page.locator(`a[href="/p/${owner.slug}/connections"]`);
-    await expect(connectionsLink).toBeVisible({ timeout: 10000 });
+    const partnersLink = page.locator(`a[href="/p/${owner.slug}/partners"]`);
+    await expect(partnersLink).toBeVisible({ timeout: 10000 });
 
     // The link must have accessible text beyond a bare symbol
-    const accessibleName = await connectionsLink.evaluate((el) => {
+    const accessibleName = await partnersLink.evaluate((el) => {
       return el.getAttribute('aria-label') || el.textContent || '';
     });
 
@@ -127,33 +127,33 @@ test.describe('P459 Accessibility — Profile header metadata line', () => {
 
 // ─── Connections page accessibility ──────────────────────────────────────────
 
-test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', () => {
+test.describe('P459 Accessibility — Connections page (/p/:slug/partners)', () => {
   test.describe.configure({ timeout: 60000 });
 
-  test('connections page has an h1 heading', async ({ page }) => {
+  test('partners page has an h1 heading', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     const h1 = page.getByRole('heading', { level: 1 });
     await expect(h1).toBeVisible({ timeout: 10000 });
   });
 
-  test('connections page heading includes the profile name or "Connections" context', async ({ page }) => {
+  test('partners page heading includes the profile name or "Partners" context', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
-    // Heading should reference the subject's name or the word "Connections"
+    // Heading should reference the subject's name or the word "Partners"
     // Per spec wireframe: "← Name Surname's Connections"
     const h1 = page.getByRole('heading', { level: 1 });
     const headingText = await h1.textContent();
-    expect(headingText?.toLowerCase()).toMatch(/connections|partner/i);
+    expect(headingText?.toLowerCase()).toMatch(/partners|partner/i);
   });
 
   test('agreement list section has an accessible label', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // The list of agreements should be wrapped in a section/region with aria-label
@@ -168,7 +168,7 @@ test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', 
 
   test('agreement list items have accessible text describing the partner', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // List items should have visible text — at minimum the agreement title or partner name
@@ -182,7 +182,7 @@ test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', 
 
   test('"New Agreement" CTA is keyboard-accessible for owner', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     const newAgreementCTA = page.getByRole('link', { name: /new agreement/i })
@@ -195,7 +195,7 @@ test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', 
 
   test('"New Agreement" CTA has accessible label (not just icon or symbol)', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // The CTA should be accessible by its role + name — we verified above.
@@ -210,9 +210,9 @@ test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', 
     expect(accessibleName.trim().replace(/[+\s]/g, '').length).toBeGreaterThan(0);
   });
 
-  test('back navigation link/button is keyboard-accessible on connections page', async ({ page }) => {
+  test('back navigation link/button is keyboard-accessible on partners page', async ({ page }) => {
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // Per spec wireframe: "← Name Surname's Connections" — the ← implies back navigation
@@ -230,7 +230,7 @@ test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', 
     }
   });
 
-  test('connections page has no console errors (no JS crash)', async ({ page }) => {
+  test('partners page has no console errors (no JS crash)', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error' && !msg.text().match(/supabase.*realtime|WebSocket.*failed|net::ERR_|\[vite\]/i)) {
@@ -239,33 +239,33 @@ test.describe('P459 Accessibility — Connections page (/p/:slug/connections)', 
     });
 
     await setTestSession(page, owner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     expect(
       consoleErrors,
-      `Console errors on connections page: ${consoleErrors.join('\n')}`
+      `Console errors on partners page: ${consoleErrors.join('\n')}`
     ).toHaveLength(0);
   });
 });
 
-// ─── Visitor a11y on connections page ────────────────────────────────────────
+// ─── Visitor a11y on partners page ────────────────────────────────────────
 
-test.describe('P459 Accessibility — Visitor on connections page', () => {
+test.describe('P459 Accessibility — Visitor on partners page', () => {
   test.describe.configure({ timeout: 60000 });
 
-  test('visitor connections page has accessible heading', async ({ page }) => {
+  test('visitor partners page has accessible heading', async ({ page }) => {
     await setTestSession(page, partner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     const h1 = page.getByRole('heading', { level: 1 });
     await expect(h1).toBeVisible({ timeout: 10000 });
   });
 
-  test('visitor connections page has no "New Agreement" CTA (accessibility: no phantom focusable element)', async ({ page }) => {
+  test('visitor partners page has no "New Agreement" CTA (accessibility: no phantom focusable element)', async ({ page }) => {
     await setTestSession(page, partner.email);
-    await page.goto(`/p/${owner.slug}/connections`);
+    await page.goto(`/p/${owner.slug}/partners`);
     await page.waitForLoadState('networkidle');
 
     // Visitor must NOT have a "New Agreement" button in the tab order

@@ -2,7 +2,7 @@
 id: p452
 title: "Nav: Agreements entry point"
 type: story
-status: backlog
+status: rejected
 priority: medium
 source: sim
 changes: p422

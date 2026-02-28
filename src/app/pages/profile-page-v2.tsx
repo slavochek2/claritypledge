@@ -711,7 +711,7 @@ export function ProfilePageV2() {
                     {linkifyText(profile.bio)}
                   </p>
                 )}
-                {/* P459: Compact agreements metadata line — links to /p/:slug/connections */}
+                {/* P459: Compact agreements metadata line — links to /p/:slug/partners */}
                 {!agreementsLoading && (
                   <AgreementsMetadataLine
                     profileId={profile.id}

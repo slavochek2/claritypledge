@@ -1,6 +1,6 @@
 /**
  * @file profile-connections-page.tsx
- * @description P459: Dedicated Connections page — /p/:id/connections.
+ * @description P459: Dedicated Partners page — /p/:id/partners.
  * Lists all agreements the viewer is permitted to see for a given profile.
  * Owner sees all agreements + "New Agreement" CTA.
  * Visitors see only what filterAgreementsForViewer permits.
