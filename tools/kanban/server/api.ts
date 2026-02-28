@@ -696,6 +696,32 @@ app.get('/api/features/:id/content', async (req, res) => {
   }
 })
 
+// GET /api/articles/:id/content - get article body for preview
+app.get('/api/articles/:id/content', async (req, res) => {
+  try {
+    const { id } = req.params
+    const worktreePath = req.query.worktree as string | undefined
+    const articles = await getArticles(worktreePath)
+    const article = articles.find((a) => a.id === id)
+
+    if (!article) {
+      return res.status(404).json({ error: 'Article not found' })
+    }
+
+    const cached = contentCache.get(article.path)
+    if (cached) return res.json(cached)
+
+    const rawContent = await readFile(article.path, 'utf-8')
+    const { data: frontmatter, content } = matter(rawContent)
+    const result = { frontmatter, content }
+    contentCache.set(article.path, result)
+    res.json(result)
+  } catch (error) {
+    console.error('GET /api/articles/:id/content error:', error)
+    res.status(500).json({ error: 'Failed to read file' })
+  }
+})
+
 // POST /api/open - open file in Cursor
 app.post('/api/open', (req, res) => {
   const { path: filePath } = req.body

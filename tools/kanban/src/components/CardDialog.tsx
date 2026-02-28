@@ -105,9 +105,11 @@ export function CardDialog({
   useEffect(() => {
     const fetchContent = async () => {
       try {
+        const isArticle = /^a\d/.test(feature.id)
+        const apiBase = isArticle ? '/api/articles' : '/api/features'
         const url = effectiveWorktreePath
-          ? `/api/features/${encodeURIComponent(feature.id)}/content?worktree=${encodeURIComponent(effectiveWorktreePath)}`
-          : `/api/features/${encodeURIComponent(feature.id)}/content`
+          ? `${apiBase}/${encodeURIComponent(feature.id)}/content?worktree=${encodeURIComponent(effectiveWorktreePath)}`
+          : `${apiBase}/${encodeURIComponent(feature.id)}/content`
         const res = await fetch(url)
         if (res.ok) {
           const data = await res.json()
