@@ -61,21 +61,30 @@ start_kanban() {
     echo "Starting kanban from $dir (background)..."
     cd "$dir"
     nohup npm run kanban > "$LOG_FILE" 2>&1 &
-    echo $! > "$PID_FILE"
-    sleep 2
+    local pid=$!
+    echo $pid > "$PID_FILE"
 
-    if lsof -ti :$FRONTEND_PORT > /dev/null 2>&1; then
-        echo "✓ Kanban running at http://localhost:$FRONTEND_PORT"
-        echo "  Logs: kanban logs"
-        echo "  Stop: kanban stop"
-
-        # Open browser if --browser flag was passed
-        if [ "$OPEN_BROWSER" = true ]; then
-            sleep 1  # Give servers time to fully initialize
-            open "http://localhost:$FRONTEND_PORT"
+    # Poll until port is up (up to 15s)
+    local i=0
+    while ! lsof -ti :$FRONTEND_PORT > /dev/null 2>&1; do
+        sleep 1
+        i=$((i + 1))
+        if ! kill -0 $pid 2>/dev/null; then
+            echo "✗ Process died immediately. Check logs: kanban logs"
+            return 1
         fi
-    else
-        echo "✗ Failed to start. Check logs: kanban logs"
+        if [ $i -ge 15 ]; then
+            echo "✗ Failed to start after 15s. Check logs: kanban logs"
+            return 1
+        fi
+    done
+
+    echo "✓ Kanban running at http://localhost:$FRONTEND_PORT"
+    echo "  Logs: kanban logs"
+    echo "  Stop: kanban stop"
+
+    if [ "$OPEN_BROWSER" = true ]; then
+        open "http://localhost:$FRONTEND_PORT"
     fi
 }
 
