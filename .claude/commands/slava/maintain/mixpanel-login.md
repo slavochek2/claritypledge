@@ -65,7 +65,7 @@ Navigate to: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards
 ## Credentials
 
 - **Login email:** `slava@claritypledge.com`
-- **Magic links arrive at:** `slavochek@googlemail.com` (forwarded)
+- **Magic links arrive at:** personal Gmail (see `.private/docs/accounts.md`)
 - **Project ID:** `3968494`
 - **View ID:** `4464294`
 
