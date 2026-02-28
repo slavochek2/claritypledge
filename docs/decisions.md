@@ -8,6 +8,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-02-28 [process]: Two-layer privacy model for claude-conversations synthesis
+
+**Context:** Session that synthesized strategy from claude.ai conversations inadvertently staged content with named individuals (collaborator names, email addresses, LinkedIn profile URLs). Pre-commit hook caught email patterns mechanically but missed nuanced content (names, contact info in prose).
+**Decision:** Two-layer privacy model: (1) mechanical — pre-commit §16 pattern-greps for known personal identifiers (emails, `slavochek`, named individuals in "experiment fails because [Name]" patterns); (2) judgment — `/maintain:privacy` skill run manually before committing when source material included claude-conversations. KDD step 5.25 added as explicit gate: "if source was claude-conversations, run `/maintain:privacy` before committing."
+**Alternatives rejected:** Relying solely on mechanical checks (misses prose context); blocking all claude-conversation synthesis (too restrictive — conversations are primary strategy input).
+**Consequences:** Every `/kdd` run after a session that touched `~/Projects/private/claude-conversations/` must pass through the privacy skill. Pre-commit §16 acts as backstop for known patterns.
+**References:** [scripts/pre-commit-checks.sh](scripts/pre-commit-checks.sh) §16, [.claude/commands/slava/maintain/kdd/SKILL.md](.claude/commands/slava/maintain/kdd/SKILL.md) step 5.25
+
+---
+
+## 2026-02-28 [process]: docs/business/collaborators/ moved to .private — already leaked to git history
+
+**Context:** `docs/business/collaborators/` (compensation model, profit-participation draft, transparency rationale) was committed to `origin/main` before this session. Files contain business negotiation strategy and compensation terms that could affect collaborator relationships if widely seen.
+**Decision:** Removed from public git index via `git rm -r --cached docs/business/collaborators/`. Moved to `.private/docs/business/collaborators/`. Going forward, all collaborator agreements, compensation discussions, and partnership terms live in `.private/` by default. Full history scrub (git filter-repo + force-push) deferred — decision left to user given complexity and low marginal risk (no credentials, no personal identifiers, strategic content only).
+**Alternatives rejected:** Leaving in place (ongoing exposure); immediate force-push history scrub (complex, requires coordination with any clones, disrupts ongoing branches).
+**Consequences:** `docs/business/` directory effectively deprecated as public location for sensitive business content. Any new collaborator-related docs → `.private/docs/business/` by default.
+**References:** `.private/docs/business/collaborators/`
+
+---
+
 ## 2026-02-27 [technical]: Vitest unit tests fail silently when VITE_SUPABASE_* env vars missing
 
 **Context:** `src/lib/supabase.ts` throws at module load (`Missing Supabase environment variables`) when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are absent. Any test file that imports a module that transitively imports supabase.ts will fail with a module-load error — even if the test doesn't call Supabase at all. No `.env.test.local` fix works for Vitest (it uses `vite.config.ts`, not Playwright's dotenv loading).
@@ -340,7 +360,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** Future features that want to introduce the mirror concept (naming, memory, persona) need a dedicated feature. P425 must not reference "your mirror" in any user-visible copy. The system prompt can use "mirror" internally to guide AI tone, but users never see the label.
 
-**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
+**References:** [p458_ai_story_core_loop.md](../features/p458_ai_story_core_loop.md)
 
 ---
 
@@ -358,7 +378,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** All future AI edge functions should follow this pattern. The `ai_rate_limits` table is shared — future functions add a `feature` column to scope limits independently. User-friendly messaging is the standard: no technical jargon in rate limit responses.
 
-**References:** [p425_ai_story_core_loop.md](../features/p425_ai_story_core_loop.md)
+**References:** [p458_ai_story_core_loop.md](../features/p458_ai_story_core_loop.md)
 
 ---
 
@@ -446,7 +466,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 
 **Consequences:** `StoryGuideChat` must never import from `react-router-dom` or call `navigate()` internally. The component receives all context (pointId, sessionId) as props and emits results via callbacks. This constraint must be enforced at code review for P425 and all future embeddings.
 
-**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p425_ai_story_core_loop.md)
+**References:** [P428](../features/drafts/p428_live_position_story_filing.md) | [P425](../features/p458_ai_story_core_loop.md)
 
 ---
 
@@ -491,7 +511,7 @@ These are never used in a real Supabase call in unit tests — they only satisfy
 - `[▷ Start /live]` appears inline in the chat thread on a saved story card
 - Draft state required in visibility model before P425 ships
 
-**References:** [P425](../features/p425_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
+**References:** [P425](../features/p458_ai_story_core_loop.md) | [P428 constraint](../features/drafts/p428_live_position_story_filing.md)
 
 ---
 
@@ -558,7 +578,7 @@ Two-spec architecture:
 
 **Consequences:** Every story filing session is a calibration artifact. Author explicitly confirms ≥8/10 before publish. Workshop participants can file without prior training.
 
-**References:** [P425](../features/p425_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
+**References:** [P425](../features/p458_ai_story_core_loop.md) | [P419](../features/p419_filing_chat_v1.md)
 
 ---
 
