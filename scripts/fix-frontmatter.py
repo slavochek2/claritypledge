@@ -346,9 +346,10 @@ def main():
         print('No feature files found')
         sys.exit(0)
 
-    # Step 1: Auto-rename duplicates (full scan always, even in single-file mode)
+    # Step 1: Auto-rename duplicates (full scan only — skip in single-file/hook mode
+    # to avoid staging git mv operations on every hook invocation).
     all_files = sorted((PROJECT_ROOT / 'features').rglob('p[0-9]*.md'))
-    renames = fix_duplicates(all_files)
+    renames = [] if single_file_mode else fix_duplicates(all_files)
     for r in renames:
         if r['new'] is None:
             print(f'✓ Deleted phantom: {r["old"].name}')

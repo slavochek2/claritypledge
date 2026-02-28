@@ -30,9 +30,17 @@ Runs `scripts/fix-frontmatter.sh` against all `features/` files (including `done
 
 2. **Move misplaced files** — scan `features/*.md` (root-level only) and relocate any that belong elsewhere:
 
-   - `status: done` or `status: all-done` → move to latest `features/done/*/` subfolder + move UAT:
+   - `status: done` or `status: all-done` → move to the current sprint folder + move UAT:
+
+     **Detect current sprint:** Run `ls -d features/done/*/` and output the list. Read `cat features/done/CURRENT_SPRINT 2>/dev/null` — if the file exists, use that path as DEST. If not, ask the user which sprint folder to use before proceeding. Never auto-guess sprint from sort order (folder naming is inconsistent).
+
      ```bash
-     DEST=$(ls -d features/done/*/ 2>/dev/null | sort -V | tail -1)
+     DEST=$(cat features/done/CURRENT_SPRINT 2>/dev/null)
+     if [ -z "$DEST" ]; then
+       echo "Available sprint folders:"; ls -d features/done/*/
+       echo "→ Set DEST manually or create features/done/CURRENT_SPRINT with the path"
+       exit 1
+     fi
      mkdir -p "$DEST/uat"
      for f in features/p*.md; do
        status=$(grep "^status:" "$f" | head -1 | awk '{print $2}')

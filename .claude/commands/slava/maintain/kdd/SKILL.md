@@ -231,6 +231,18 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
    **process-learnings graduation rule:** When a `Status: proposed` item gets resolved (fix applied, decision made): (1) delete it from process-learnings.md, (2) add a `[process]` entry to decisions.md. Never leave `Status: done` entries in process-learnings.md — done = graduated. An empty file is healthy.
 
+7. **Skill-quality reflection** — always runs after step 6, output to chat only:
+
+   Spawn a second `general-purpose` subagent with the full conversation context AND the content of any skills that were invoked this session (read from `.claude/commands/slava/`). Task:
+
+   > "You have the conversation transcript and the skill files that ran during it. For each friction point or mistake identified in the session: (1) identify which skill instruction, CLAUDE.md rule, or prompt wording contributed to it — quote the specific text, (2) propose a concrete improvement: exact before/after rewrite of that text. If the root cause was missing context (Claude didn't know something), propose where to add it (which skill file, which section). Cap at 5 improvements. Skip issues caused by external factors (network, user typos, ambiguous requirements). Return a structured list: [skill/file] → [quoted problem text] → [proposed replacement]."
+
+   If subagent finds no skill-level improvements — output "Skill quality: clean." and stop.
+
+   Present each proposed improvement with the before/after diff. For changes touching CLAUDE.md or `.claude/rules/*.md`: flag as requiring `/claude-md` gate before applying. For skill files: apply directly if user approves.
+
+   End with: "Apply improvements? (list numbers, 'all', or 'skip')"
+
 ## Rules
 
 - **Be decisive** — analyze and propose, don't repeatedly ask
