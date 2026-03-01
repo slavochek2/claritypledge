@@ -169,7 +169,7 @@ export function ProfilePageV2() {
   const [realCalibration, setRealCalibration] = useState<UserCalibration | null>(null);
 
   // P465: Viewer story count + ID maps for other profiles (fetched async)
-  const [_viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
+  const [viewerStoryCountMap, setViewerStoryCountMap] = useState<Map<string, number>>(new Map());
   const [viewerStoryIdForPoint, setViewerStoryIdForPoint] = useState<Map<string, string>>(new Map());
   const [realEarsCount, setRealEarsCount] = useState<number>(0);
 
@@ -913,6 +913,7 @@ export function ProfilePageV2() {
                     currentUserId={currentUser?.id}
                     onPointPositionSelect={handleProfilePointPosition}
                     viewerStoriesForPoint={viewerStoriesForPoint}
+                    viewerStoryCountMap={viewerStoryCountMap}
                     viewerStoryIdForPoint={viewerStoryIdForPoint}
                     isOwnProfile={currentUser?.id === profile.id}
                   />
@@ -990,6 +991,7 @@ interface StoryCardFullProps {
   currentUserId?: string;
   onPointPositionSelect?: (pointId: string, pos: Position | null) => void;
   viewerStoriesForPoint?: Map<string, number>;
+  viewerStoryCountMap?: Map<string, number>;     // P465: viewer story counts for other profiles
   viewerStoryIdForPoint?: Map<string, string>;  // P465: story ID for edit navigation
   isOwnProfile?: boolean;                        // P465: true when viewer === profile owner
 }
@@ -1003,6 +1005,7 @@ function StoryCardFull({
   currentUserId,
   onPointPositionSelect,
   viewerStoriesForPoint,
+  viewerStoryCountMap,
   viewerStoryIdForPoint,
   isOwnProfile = false,
 }: StoryCardFullProps) {
@@ -1173,7 +1176,11 @@ function StoryCardFull({
               authorHasPledged={author.hasPledged}
               currentUserId={currentUserId}
               onPositionSelect={(pos) => onPointPositionSelect?.(point.id, pos)}
-              viewerStoryCount={viewerStoriesForPoint?.get(point.id) ?? 0}
+              viewerStoryCount={
+                isOwnProfile
+                  ? (viewerStoriesForPoint?.get(point.id) ?? 0)
+                  : (viewerStoryCountMap?.get(point.id) ?? 0)
+              }
               viewerStoryId={viewerStoryIdForPoint?.get(point.id)}
               isOwnProfile={isOwnProfile}
             />
