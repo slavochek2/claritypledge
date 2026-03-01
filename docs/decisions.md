@@ -2,6 +2,48 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [technical]: P465 — viewer story count via secondary batch query on other-profile surfaces
+
+**Context:** On other-profile surfaces, `filteredStories` in `point-card-with-links.tsx` is pre-filtered to the profile owner's stories upstream. `viewerStoryCount` was therefore always 0 on other profiles — viewer's own linked stories were never surfaced.
+
+**Decision:** Secondary batch query at profile-page load time, scoped to `currentUserId` and the page's `pointIds`. Uses `story_points WHERE author_id = currentUserId AND point_id IN (...)` — follows existing P134/P151 batch-loading pattern. Produces `viewerStoryCountMap: Map<pointId, number>` without touching the main owner-story pipeline.
+
+**Alternatives rejected:** Per-card fetch — N+1 problem. Fetching entire viewer story library then filtering — unbounded as library grows.
+
+**Consequences:** Other-profile surfaces can now show "2 stories by Alice · 1 by you" and suppress the CTA when viewer already has a story. No new service method for main pipeline — secondary query is optional and only fires when `currentUserId !== profile.id`.
+
+**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+
+---
+
+## 2026-03-01 [technical]: P465 — 1 story per user per point via author_id denormalization + UNIQUE constraint
+
+**Context:** `story_points` had `PRIMARY KEY (story_id, point_id)` but no unique constraint on `(author_id, point_id)`. Cross-table uniqueness (via `stories.author_id`) is not natively enforceable in PostgreSQL. Multiple stories from the same user per point were technically possible.
+
+**Decision:** Denormalize `author_id` into `story_points` and add `UNIQUE(author_id, point_id)`. Migration backfills from `stories.author_id`, detects and auto-resolves violations (keep oldest), then adds NOT NULL + UNIQUE constraint + index. `linkPointToStory` updated to include `author_id` in INSERT.
+
+**Alternatives rejected:** Application-level check only — not safe, race condition possible. Separate junction table — adds complexity for no gain.
+
+**Consequences:** DB enforces 1 story per user per point. Existing 23505 error handling in `linkPointToStory` (returns `true` idempotently) continues to work. New index on `story_points(author_id)` enables the secondary viewer query efficiently.
+
+**References:** [features/p465_point_card_footer_redesign.md](../features/p465_point_card_footer_redesign.md)
+
+---
+
+## 2026-03-01 [process]: /change-request skill — standalone filing path for shipped design corrections
+
+**Context:** No process existed for "shipped feature, design was wrong." Bugs went to `/fix`. New capability went to `/create-prd`. Design corrections (wrong ordering, actor confusion, duplication) had no path — they were filed ad-hoc or misclassified as bugs.
+
+**Decision:** Created `/change-request` as a standalone skill (v2.0.0). Distinguishing features vs `/create-prd`: mandatory predecessor spec analysis via subagent (identifies which AC/JTBD/requirements are superseded, not just "what changed"), `type: change-request` in frontmatter, `changes: pN` + `superseded_by: pN` cross-linking, "Predecessor Sections Superseded" table in spec. Added `type: change-request` as first-class kanban type (purple chip, `[CR]` prefix). Critical fix: `VALID_TYPE` in `scanner-rules.ts` must include the new type or server strips it on scan.
+
+**Alternatives rejected:** Reuse `/create-prd` — loses predecessor traceability. Tag-only distinguisher (`source: sim` pattern) — fails when multiple filing paths exist; invisible on a crowded board.
+
+**Consequences:** Three-way filing decision is now unambiguous: broken code → `/fix`, new capability → `/create-prd`, shipped design wrong → `/change-request`. Future redesigns have a traceable chain via `changes:` + `superseded_by:` frontmatter fields.
+
+**References:** [.claude/commands/slava/build/change-request.md](.claude/commands/slava/build/change-request.md) · [.claude/rules/features.md](.claude/rules/features.md)
+
+---
+
 ## 2026-03-01 [process]: /claude-md gate is now mechanical via .claude/rules/rules.md
 
 **Context:** The CLAUDE.md rule "Before editing CLAUDE.md or .claude/rules/*.md: Run /claude-md first" was pure discipline — no mechanical enforcement. 5-why root cause: the guard system had guards for leaf paths (sifter, skills, features, src) but not for the meta-infrastructure itself. Cobbler's-shoes failure. Discovered when /kdd reflection surfaced that .claude/rules/ files were edited in this session without running /claude-md.
