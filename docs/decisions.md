@@ -2,6 +2,22 @@
 
 Append-only log of architectural and product decisions. Newest entries at top.
 
+## 2026-03-01 [process]: pick-flow — delivery_stage precedence + flow: value constraint
+
+**Context:** Two bugs in `/pick-flow` SKILL.md discovered:
+(1) Agents were writing the full command chain (e.g., `/quick-feature → /dev`) into spec `flow:` frontmatter instead of the tier identifier (`dev`, `fix`, etc.) — because the output template format `→` chain looked like the expected value.
+(2) The scoring table had no rows for `delivery_stage: 1-prd` or `2-ux-done`, causing agents to recommend the full pipeline from scratch on mid-pipeline specs. Only `3-arch-review`+ stages were represented via `test_files:` proxy.
+
+**Decision:** Three targeted edits to SKILL.md: (1) Hard rule added: "write exactly one of: fix, dev, inline, quick-feature — never the command chain string." (2) Hard rule 144 updated to give `delivery_stage:` precedence over `test_files:` fallback. (3) Two explicit scoring table rows added: `delivery_stage: 3-arch-review` → resume from `/generate-tests`; `delivery_stage: 2-ux-done` → resume from `/architect`; `delivery_stage: 1-prd` → resume from `/ux` or `/architect`.
+
+**Alternatives rejected:** Adding a new "Step 0.5" section with a 4-row mapping table — adversarial review (BUBBLES UP) + two parallel critique agents converged: root causes were narrow enough for targeted inline fixes, not a new section.
+
+**Consequences:** Agents reading pick-flow now write correct `flow:` values and won't restart a mid-pipeline spec from scratch. `delivery_stage:` is the primary routing signal when present.
+
+**References:** [.claude/commands/slava/build/pick-flow/SKILL.md](.claude/commands/slava/build/pick-flow/SKILL.md)
+
+---
+
 ## 2026-03-01 [process]: pre-commit lint auto-fix clears non-TS staged files in separate processes
 
 **Context:** When running `git add non-ts-file` in one process and `git commit` in a separate background process, the pre-commit script's lint auto-fix (`xargs git add $STAGED_TS`) re-stages only the TS files it fixed. If CLAUDE.md or .md skill files are staged before the pre-commit runs, the `xargs git add` on TS-only files leaves the non-TS files in a transient state — they vanish from the commit. Resulted in two empty commits (`f290fadc`, `da685ffa`) with correct commit messages but no file changes.
