@@ -88,6 +88,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
    - GTM/sales approach changed? → `features/p105_sales_playbook.md`
    - Schema/auth/testing changed? → relevant technical doc
    - Domain concepts changed? → `definitions.md`
+   - Epistemological claims or WHY-this-works reasoning updated? → `docs/philosophy.md`
 
 3. **Propose updates** — state what you'll update and why, then proceed.
    - If no updates needed: "No knowledge updates needed" and skip to step 5
